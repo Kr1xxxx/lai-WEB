@@ -297,3 +297,40 @@ test('rule text names the period being viewed, and repeated views reuse the comp
   assert.equal(T.overview(changed, '2026-10').total.orders, 6, 'new data is never served from the old result');
   assert.equal(T.overview(state, '2026-10').total.orders, 5);
 });
+
+// ---------------- 跟进人名称不区分大小写（用户确认） ----------------
+test('owner names that differ only by case are one member, shown in the most common spelling', () => {
+  const data = {
+    customers: {
+      A: {owner: 'Amy', createdAt: '2026-10-01', history: [{type: 'followup', time: '2026-10-02', text: 'x'}]},
+      B: {owner: 'amy', createdAt: '2026-10-02', history: [{type: 'followup', time: '2026-10-03', text: 'y'}]},
+      C: {owner: 'Amy', createdAt: '2026-10-03'},
+      D: {owner: ' BOB ', createdAt: '2026-10-04'},
+      E: {owner: 'Amy Lin', createdAt: '2026-10-05'}
+    },
+    orders: [
+      {id: '1', num: 'n1', client: 'A', owner: 'AMY', amount: 100, currency: 'USD', stage: 'quote', orderMonth: '2026-10'},
+      {id: '2', num: 'n2', client: 'B', owner: 'amy', amount: 50, currency: 'USD', stage: 'quote', orderMonth: '2026-10'},
+      {id: '3', num: 'n3', client: 'D', owner: 'bob', amount: 7, currency: 'USD', stage: 'quote', orderMonth: '2026-10'}
+    ],
+    laiTasks: [{id: 't', title: 'x', date: '2026-10-05', customer: 'B', done: true}]
+  };
+  const snapshotBefore = JSON.stringify(data);
+  const o = T.overview(data, '2026-10');
+  assert.deepEqual(o.members.map(m => [m.label, m.added, m.orders, m.amount, m.records, m.tasksDone]), [['Amy', 3, 2, 150, 2, 1], ['Amy Lin', 1, 0, 0, 0, 0], ['BOB', 1, 1, 7, 0, 0]],
+    'Amy/amy/AMY merge (Amy is the most common); BOB vs bob is a tie and takes the earlier character order; a different name stays separate');
+  assert.deepEqual(T.report('orders', data, '2026-10').rows.map(r => [r.label, r.cells.count.value]), [['Amy', 2], ['BOB', 1]]);
+  assert.deepEqual(T.report('assets', data, '2026-10').rows.map(r => [r.label, r.cells.customers.value]), [['Amy', 3], ['Amy Lin', 1], ['BOB', 1]]);
+  assert.equal(JSON.stringify(data), snapshotBefore, 'saved names are not rewritten');
+});
+
+test('targets follow the same rule: one target per member regardless of case', () => {
+  const data = {customers: {A: {owner: 'Amy', createdAt: '2026-10-01'}, B: {owner: 'Amy', createdAt: '2026-10-02'}}};
+  let s = T.setTarget(data, {metric: 'added', period: '2026-10', scope: 'member', owner: 'AMY', value: 4});
+  assert.deepEqual(T.overview(s, '2026-10').members.map(m => [m.label, m.goals.added?.map(g => [g.value, g.actual, g.rate])]), [['Amy', [[4, 2, 50]]]], 'a target typed as AMY lands on Amy, not on a second empty row');
+  s = T.setTarget(s, {metric: 'added', period: '2026-10', scope: 'member', owner: 'amy', value: 2});
+  assert.equal(T.listTargets(s).length, 1, 'the second spelling replaces the first target');
+  assert.deepEqual(T.overview(s, '2026-10').members[0].goals.added.map(g => [g.value, g.reached]), [[2, true]]);
+  const solo = T.setTarget({}, {metric: 'added', period: '2026-10', scope: 'member', owner: 'zed', value: 1});
+  assert.deepEqual(T.overview(solo, '2026-10').members.map(m => m.label), ['zed'], 'a member known only from a target keeps the spelling typed');
+});

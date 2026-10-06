@@ -57,9 +57,41 @@
     if(state&&typeof state==='object')rowCache.set(state,rows);
     return rows;
   }
+  // 跟进人名称只差大小写的视为同一个人（用户确认）。显示用出现次数最多的写法，次数相同取字符顺序靠前的；
+  // 只影响团队数据的汇总，不改动保存的客户、订单资料。
+  const nameCache=new WeakMap();
+  const ownerKey=name=>trim(name).toLowerCase();
+  function buildNames(state,customerOwners){
+    const counts=new Map();
+    const add=(name,weight)=>{
+      const text=trim(name);
+      if(!text)return;
+      const variants=counts.get(ownerKey(text))||new Map();
+      variants.set(text,(variants.get(text)||0)+weight);
+      counts.set(ownerKey(text),variants);
+    };
+    for(const owner of customerOwners)add(owner,1);
+    for(const order of Array.isArray(state?.orders)?state.orders:[])add(order?.owner,1);
+    // 目标里的写法只在数据里完全没有这个人时才用得上。
+    for(const target of Array.isArray(state?.laiTargets)?state.laiTargets:[])if(typeof target?.owner==='string')add(target.owner,0);
+    const names=new Map();
+    for(const [key,variants] of counts)names.set(key,[...variants.entries()].sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:a[0]>b[0]?1:0))[0][0]);
+    return names;
+  }
+  function canonOwner(state,name){
+    const text=trim(name);
+    if(!text)return '';
+    customerRows(state);
+    const names=state&&typeof state==='object'?nameCache.get(state):null;
+    return names?.get(ownerKey(text))||text;
+  }
   function buildCustomerRows(state){
-    return PM.buildCustomers(state).map(row=>({
-      name:row.name,owner:trim(row.owner),bucket:LM.bucket(state.customers?.[row.name]),
+    const raw=PM.buildCustomers(state);
+    const names=buildNames(state,raw.map(row=>row.owner));
+    if(state&&typeof state==='object')nameCache.set(state,names);
+    const canon=name=>{const text=trim(name);return text?names.get(ownerKey(text))||text:'';};
+    return raw.map(row=>({
+      name:row.name,owner:canon(row.owner),bucket:LM.bucket(state.customers?.[row.name]),
       createdAt:row.createdAt,source:trim(row.source),history:Array.isArray(row.history)?row.history:[]
     }));
   }
@@ -195,7 +227,7 @@
     const currencyOf=order=>trim(order.currency||'USD').toUpperCase()||'USD';
     const groups=new Map();
     for(const order of analysis.orders){
-      const owner=trim(order.owner),key=owner+'\0'+currencyOf(order);
+      const owner=canonOwner(state,order.owner),key=owner+'\0'+currencyOf(order);
       if(!groups.has(key))groups.set(key,{owner,currency:currencyOf(order),orders:[]});
       groups.get(key).orders.push(order);
     }
@@ -258,7 +290,8 @@
     if(metric==='amount'&&value<0.01)throw new Error('金额目标不能小于 0.01');
     return {metric,period,owner,currency,value};
   }
-  const targetKey=target=>[target.metric,target.period,target.owner===null?'#':'@'+target.owner,target.currency].join('|');
+  // 成员名不区分大小写：给「amy」设目标会覆盖「Amy」的同一个目标。
+  const targetKey=target=>[target.metric,target.period,target.owner===null?'#':'@'+ownerKey(target.owner),target.currency].join('|');
   // 读取已保存的目标：格式不对的条目跳过不用，但保存时原样保留，不擅自删除。
   function readTarget(raw){
     try{
@@ -311,7 +344,7 @@
     for(const row of f.rows){const m=member(row.owner);m.records=row.cells.records.value;m.customers=row.cells.customers.value;}
     for(const row of t.rows){const m=member(row.owner);m.tasksTotal=row.cells.total.value;m.tasksDone=row.cells.done.value;m.taskRate=row.cells.rate.value;}
     for(const row of o.rows){const m=member(row.owner);m.orders+=row.cells.count.value;m.amounts.push({currency:row.currency,total:row.cells.total.value});}
-    const targets=listTargets(state).filter(target=>target.period===month);
+    const targets=listTargets(state).filter(target=>target.period===month).map(target=>target.owner===null?target:{...target,owner:canonOwner(state,target.owner)});
     for(const target of targets)if(target.owner!==null)member(target.owner);
     const amounts=o.totals.map(total=>({currency:total.currency,total:total.cells.total.value}));
     // 主币种：本月金额最大的币种，金额相同按代码排序；没有订单时为空。
