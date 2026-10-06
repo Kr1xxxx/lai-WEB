@@ -1409,7 +1409,8 @@
         if (event.key === "Escape" && target.blur) target.blur();
         return;
       }
-      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key,
+      const pressed = String(event.key || ""),
+        key = pressed.length === 1 ? pressed.toLowerCase() : pressed,
         open = reading && reading.message,
         splitView = (view === "mail" && serverFolder()) || (view === "customer" && !!customerName);
       let handled = true;
