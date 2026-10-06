@@ -16,6 +16,14 @@
     if(label==='常用')return NF.entries(settings).map(entry=>({label:entry.label,kind:'favorite',target:entry.screen}));
     return Object.hasOwn(fixed,label)?fixed[label].map(row=>({...row})):null;
   }
-  const api={menuFor};
+  // 某个业务页面所属的左侧菜单及该菜单自己的全部入口（用于二级导航，各菜单之间互不重复）。
+  function sectionFor(route){
+    for(const [label,items] of Object.entries(fixed)){
+      if(label==='客户')continue;
+      if(items.some(item=>item.kind==='route'&&item.target===route))return {label,entries:items.map(item=>({...item}))};
+    }
+    return null;
+  }
+  const api={menuFor,sectionFor};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiRailMenu=api;
 })(typeof window!=='undefined'?window:globalThis);

@@ -3180,17 +3180,13 @@
             `<div class="nav-row"><button class="nav-entry ${screen === customerScreen ? "active" : ""}" ${screen ? 'data-lai-screen="' + screen + '"' : 'data-feature="' + label + '"'}>${label}</button>${star ? favoriteStar("screen:" + screen, label) : ""}</div>`,
         )
         .join("")}`;
-    return `<h3>经营管理</h3>${[
-      ["grid", "工作台", "dashboard"],
-      ["box", "全部订单", "order-list"],
-      ["folder", "订单回收站", "order-trash"],
-      ["chart", "经营统计", "analysis"],
-      ["clock", "日历与待办", "calendar"],
-      ["settings", "设置", "settings"],
-    ]
+    const section = RM.sectionFor(activeRoute);
+    if (!section) return "";
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", calendar: "clock", settings: "settings" };
+    return `<h3>${E(section.label)}</h3>${section.entries
       .map(
-        ([i, label, route]) =>
-          `<button class="nav-entry ${route === activeRoute ? "active" : ""}" data-lai-route="${route}">${icon(i)}${label}</button>`,
+        (entry) =>
+          `<button class="nav-entry ${entry.target === activeRoute ? "active" : ""}" data-lai-route="${entry.target}">${icon(routeIcons[entry.target])}${E(entry.label)}</button>`,
       )
       .join("")}`;
   }

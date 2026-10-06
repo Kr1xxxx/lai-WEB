@@ -315,3 +315,40 @@ test('both modules are loaded before the app and the rail uses the glass styling
   assert.match(css, /\.rail-flyout-panel\s*\{[^}]*backdrop-filter:\s*blur\(/s);
   assert.match(css, /\.rail\s*\{[^}]*radial-gradient/s);
 });
+
+// ---------------- each rail menu owns its own sub-navigation ----------------
+test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
+  const routes = ['dashboard', 'order-list', 'order-trash', 'analysis', 'calendar', 'settings'];
+  const sections = routes.map(route => [route, RM.sectionFor(route)]);
+  for (const [route, section] of sections) assert.ok(section, route);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '协同', '企业管理']);
+  assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站']);
+  assert.deepEqual(RM.sectionFor('order-list'), RM.sectionFor('order-trash'));
+  const labels = ['工作台', '交易', '团队数据', '协同', '企业管理'];
+  const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label, {})[0].target).entries.map(e => e.target));
+  assert.deepEqual([...all].sort(), [...routes].sort(), 'together they cover every page once, with no duplicates');
+  for (const label of labels)
+    assert.deepEqual(RM.sectionFor(RM.menuFor(label, {})[0].target).entries.map(e => e.target), RM.menuFor(label, {}).map(e => e.target), `${label}: sub-navigation matches the hover menu`);
+  for (const other of ['customers', 'nope', undefined, '__proto__']) assert.equal(RM.sectionFor(other), null);
+});
+
+test('the shipped sub-navigation shows only the active menu and highlights the current page', () => {
+  const body = app.slice(app.indexOf('  function subnav() {'), app.indexOf('  async function navigateApp'));
+  const render = route => {
+    const boundary = {RM, E: escapeHtml, activeRoute: route, favoritesMode: false, customerScreen: 'active', icon: name => `<i:${name}>`,
+      favoritesSubnav: () => '', customerNavToggle: () => '', favoriteStar: () => ''};
+    vm.createContext(boundary); vm.runInContext(body, boundary);
+    return vm.runInContext('subnav()', boundary);
+  };
+  const entries = html => [...html.matchAll(/<button class="nav-entry ?(active)?" data-lai-route="([\w-]+)"><i:(\w+)>([^<]+)<\/button>/g)].map(m => [m[4], m[2], m[1] === "active", m[3]]);
+  let html = render('order-trash');
+  assert.match(html, /^<h3>交易<\/h3>/);
+  assert.deepEqual(entries(html), [['全部订单', 'order-list', false, 'box'], ['订单回收站', 'order-trash', true, 'folder']]);
+  html = render('analysis');
+  assert.match(html, /^<h3>团队数据<\/h3>/);
+  assert.deepEqual(entries(html), [['经营统计', 'analysis', true, 'chart']]);
+  assert.deepEqual(entries(render('calendar')), [['日历与待办', 'calendar', true, 'clock']]);
+  assert.deepEqual(entries(render('settings')), [['设置', 'settings', true, 'settings']]);
+  assert.deepEqual(entries(render('dashboard')), [['工作台', 'dashboard', true, 'grid']]);
+  assert.doesNotMatch(app, /<h3>经营管理<\/h3>/);
+});
