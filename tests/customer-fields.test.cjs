@@ -255,7 +255,7 @@ function appHarness() {
   let draft=false,opened=0,navigated=0;
   const business={hasDraft:()=>draft,navigate(){navigated++;},openOrder(){opened++;}};
   const M=require('../src/model.js'), S=require('../src/segments.js');
-  const context={window:{addEventListener(event,fn){(callbacks[event]||=[]).push(fn);},PreviewModel:M,PreviewSegments:S,LaiCustomerFields:F,LaiModules:require('../src/modules.js'),LaiBusinessUI:{create:()=>business}},document,FormData,structuredClone,Intl,crypto:require('node:crypto').webcrypto,history:{replaceState(){}},setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){}};
+  const context={window:{addEventListener(event,fn){(callbacks[event]||=[]).push(fn);},PreviewModel:M,PreviewSegments:S,LaiCustomerFields:F,LaiModules:require('../src/modules.js'),LaiBusinessUI:{create:()=>business},LaiMailUI:(require('../src/mail-ui.js'),globalThis.LaiMailUI)},document,FormData,structuredClone,Intl,crypto:require('node:crypto').webcrypto,history:{replaceState(){}},setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){}};
   vm.createContext(context);
   const source=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8').replace('  boot();','  window.testApp={filterForm,drawer,navigateApp,displayCell,snapshot:()=>({filters,advancedSpec,modal,segmentDraft}), setRows:value=>{rows=value;}};');
   vm.runInContext(source,context);

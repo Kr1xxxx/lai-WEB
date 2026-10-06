@@ -66,6 +66,7 @@
           }).format(v || 0);
   const opt = (v, label, selected) =>
     `<option value="${E(v)}" ${selected === v ? "selected" : ""}>${E(label)}</option>`;
+  let mail = null;
   let business = null,
     activeRoute = "customers",
     favoritesMode = false;
@@ -3014,6 +3015,7 @@
   }
   // 当前页面属于哪个左侧菜单：客户页面看是否在「常用」模式，业务页面看它所在的菜单分组。
   function railActive(label, route) {
+    if (activeRoute === "mail") return label === "邮件";
     if (activeRoute === "customers") return label === "常用" ? favoritesMode : route === "customers" && !favoritesMode;
     return RM.sectionFor(activeRoute)?.label === label;
   }
@@ -3021,7 +3023,7 @@
     const items = [
       ["star", "常用", null],
       ["grid", "工作台", "dashboard"],
-      ["mail", "邮件", null],
+      ["mail", "邮件", "mail"],
       ["chat", "沟通", null],
       ["lead", "线索", null],
       ["people", "客户", "customers"],
@@ -3148,6 +3150,7 @@
   function activateRailFlyout(kind, target) {
     hideRailFlyout();
     if (kind === "route") return navigateApp(target);
+    if (kind === "mail") return navigateApp("mail", "", true, false, target);
     if (kind === "feature") return featureNotice(target);
     return openCustomerScreen(target, kind === "favorite");
   }
@@ -3173,6 +3176,7 @@
     if (event.key === "Escape") hideRailFlyout();
   });
   function subnav() {
+    if (activeRoute === "mail") return mail.subnav();
     if (activeRoute === "customers" && favoritesMode) return favoritesSubnav();
     if (activeRoute === "customers")
       return `<h3>客户${customerNavToggle(true)}</h3>${[
@@ -3205,7 +3209,7 @@
       )
       .join("")}`;
   }
-  async function navigateApp(route, name, animateDetail = true, favorites = false) {
+  async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
     if (!(await window.flushPendingSave())) return false;
     rememberCustomerListViewport();
     closeModal();
@@ -3222,6 +3226,7 @@
       "team-orders",
       "calendar",
       "settings",
+      "mail",
     ].includes(route)
       ? route
       : "customers";
@@ -3231,7 +3236,8 @@
     if (activeRoute === "customers") {
       if (name) detail(name, false, animateDetail ? "detail" : "");
       else showCustomerScreen("active");
-    } else business.navigate(activeRoute);
+    } else if (activeRoute === "mail") mail.select(folder);
+    else business.navigate(activeRoute);
     return true;
   }
   function showCustomerScreen(screen) {
@@ -3359,6 +3365,7 @@
     if (d.flyoutKind) return activateRailFlyout(d.flyoutKind, d.flyoutTarget);
     if (el.closest(".rail")) hideRailFlyout();
     if (d.laiRoute) return navigateApp(d.laiRoute);
+    if (d.mailFolder) return mail.select(d.mailFolder);
     if (d.navFavorite) return saveFavoriteNav((settings) => NF.toggle(settings, d.navFavorite));
     if (d.action === "favorite-nav") return openFavorites();
     if (d.action === "favorite-nav-manage") return favoriteNavPanel(e.detail > 0);
@@ -4249,6 +4256,16 @@
     toast,
     dialog: drawer,
     closeDialog: closeModal,
+  });
+  mail = window.LaiMailUI.create({
+    escape: E,
+    icon,
+    mount: (html) => {
+      window.LaiActivityCategoryNavigation.mount(null);
+      closeDropdowns();
+      removePopover();
+      $("#app").innerHTML = shell(html);
+    },
   });
   boot();
 })();

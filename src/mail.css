@@ -1,0 +1,46 @@
+.subnav .mail-compose {
+  width: 100%;
+  height: 36px;
+  margin: 0 0 12px;
+  border-radius: 18px;
+  letter-spacing: 2px;
+}
+.mail-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mail-folders .nav-entry .icon {
+  flex: 0 0 auto;
+}
+.mail-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mail-unbound {
+  gap: 12px;
+  text-align: center;
+}
+.mail-unbound-art {
+  width: 72px;
+  height: 64px;
+  color: #2f6bff;
+}
+.mail-unbound-art .icon {
+  width: 100%;
+  height: 100%;
+}
+.mail-unbound strong {
+  font-size: 18px;
+  color: #1d273e;
+}
+.mail-unbound span {
+  color: #53617b;
+}
+.mail-unbound .primary {
+  margin-top: 8px;
+  padding: 0 20px;
+  height: 36px;
+  border-radius: 18px;
+}
