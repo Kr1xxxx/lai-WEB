@@ -23,7 +23,8 @@
 | `src/customer-list-ui.js`、`customer-fields.js` | 列表绘制与字段目录。目录中有字段不代表对应外部服务上线 |
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
 | `src/nav-favorites.js` | 常用导航：收藏哪些既有导航条目及其顺序（存于`laiSettings.favoriteNav`，只存条目ID，不含业务字段）；从未设置过时默认全部收藏 |
-| `src/rail-menu.js` | 左侧栏悬停浮层的内容：每个菜单列出应用里已有的页面入口；邮件、沟通、线索、商机仍是保留入口 |
+| `src/rail-menu.js` | 左侧栏悬停浮层的内容：每个菜单列出应用里已有的页面入口；沟通、线索、商机仍是保留入口 |
+| `src/mail-ui.js`、`mail.css` | 邮件页界面骨架：六个文件夹导航与「未绑定邮箱」空态。不连接邮箱、不收发、不读写数据；写信、绑定邮箱仍是保留入口 |
 | `src/team-model.js`、`team-ui.js` | 团队数据四类报表（客户资产、跟进情况、任务完成、订单业绩）：只用现有客户／跟进／任务／订单数据，按跟进人名称汇总；model 为纯统计，ui 只生成页面标记与明细列表 |
 | `src/business-model.js`、`business-ui.js` | 现有订单、工作台、日历／待办和统计规则及界面 |
 | `src/customer-motion.js`及导航／建议组件 | 既有菜单、抽屉、页签、建议控件与局部动效 |
