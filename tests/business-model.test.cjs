@@ -55,3 +55,33 @@ test('calendar followups follow actual Lai customer recycle and restore lifecycl
  assert.equal(restored.customers.Alpha.laiBucket,'active');assert.equal(restored.customers.Pool.laiBucket,'pool');assert.equal(B.calendarEvents(restored,'2026-09').length,2);
  assert.equal(B.calendarEvents(state,'2026-09').length,2);
 });
+test('monthly analysis hand-checks month rule, drafts, currency grouping and stage counts without converting currencies',()=>{
+ const orders=[
+  {id:'1',client:'Alpha',currency:'USD',amount:100,paidAmount:20,stage:'quote',orderMonth:'2026-10',createdAt:'2026-09-30'},
+  {id:'2',client:'Alpha',currency:' usd ',amount:50,stage:'production',createdAt:'2026-10-05'},
+  {id:'3',client:'Alpha',currency:'EUR',amount:70,stage:'shipment',orderMonth:'2026-10'},
+  {id:'4',client:'Beta',currency:'USD',amount:300,stage:'done',orderMonth:'2026-10'},
+  {id:'5',client:'Beta',currency:'USD',amount:999,isDraft:true,stage:'quote',orderMonth:'2026-10'},
+  {id:'6',client:'Beta',currency:'USD',amount:1,stage:'quote',orderMonth:'2026-09'},
+  {id:'7',client:'Gamma',currency:'USD',amount:-5,stage:'quote',orderMonth:'2026-10'}
+ ];
+ const before=JSON.parse(JSON.stringify(orders));
+ const result=B.monthlyAnalysis(orders,'2026-10');
+ assert.deepEqual(orders,before);
+ assert.deepEqual(result.orders.map(order=>order.id),['1','2','3','4','7']);
+ assert.deepEqual(result.stages.map(({id,count,percent})=>({id,count,percent})),[{id:'quote',count:2,percent:40},{id:'deposit',count:0,percent:0},{id:'production',count:1,percent:20},{id:'balance',count:0,percent:0},{id:'shipment',count:1,percent:20},{id:'done',count:1,percent:20}]);
+ assert.deepEqual(result.contributions,[{client:'Alpha',currency:'EUR',amount:70,count:1},{client:'Beta',currency:'USD',amount:300,count:1},{client:'Alpha',currency:'USD',amount:150,count:2},{client:'Gamma',currency:'USD',amount:0,count:1}]);
+ assert.deepEqual(result.metrics.byCurrency.find(row=>row.currency==='USD'),{currency:'USD',total:450,paid:320,due:130,count:4});
+ assert.deepEqual(result.metrics.byCurrency.find(row=>row.currency==='EUR'),{currency:'EUR',total:70,paid:70,due:0,count:1});
+ assert.equal(result.metrics.count,5);assert.equal(result.metrics.activeCount,4);
+ assert.equal(result.contributions.reduce((sum,row)=>sum+row.count,0),result.metrics.count);
+});
+test('monthly analysis gives empty results for months without orders, draft-only months and invalid months',()=>{
+ const orders=[{id:'d',client:'Alpha',currency:'USD',amount:10,stage:'quote',isDraft:true,orderMonth:'2026-10'}];
+ for(const month of ['2026-10','2026-11','2026-13','',undefined]){
+  const result=B.monthlyAnalysis(orders,month);
+  assert.deepEqual(result.orders,[]);assert.deepEqual(result.contributions,[]);assert.deepEqual(result.metrics,{byCurrency:[],count:0,activeCount:0});
+  assert.ok(result.stages.every(row=>row.count===0&&row.percent===0));assert.equal(result.stages.length,B.stages.length);
+ }
+ assert.deepEqual(B.monthlyAnalysis(undefined,'2026-10').orders,[]);
+});

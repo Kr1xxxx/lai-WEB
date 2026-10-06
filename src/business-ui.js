@@ -147,43 +147,23 @@
       );
     }
     function renderAnalysis() {
-      const orders = activeOrders().filter(
-        (o) => !o.isDraft && String(o.orderMonth || o.createdAt || "").slice(0, 7) === month,
-      );
-      const grouped = new Map();
-      for (const o of orders) {
-        const key = (o.currency || "USD") + "\0" + o.client;
-        const v = grouped.get(key) || {
-          client: o.client,
-          currency: o.currency || "USD",
-          amount: 0,
-          count: 0,
-        };
-        v.amount += Number(o.amount) || 0;
-        v.count++;
-        grouped.set(key, v);
-      }
+      const analysis = B.monthlyAnalysis(activeOrders(), month),
+        orders = analysis.orders;
       return (
         header(
           "经营统计",
           "订单与客户贡献按币种展示",
           `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`,
         ) +
-        `<div class="business-scroll">${metricsMarkup(orders)}<div class="business-columns"><section class="business-section"><div class="section-head"><h3>订单阶段分布</h3></div><div class="stage-bars">${B.stages
-          .map((s) => {
-            const n = orders.filter(
-              (o) => o.stage === s.id,
-            ).length;
-            return `<div><span>${s.label}</span><div><i style="width:${Math.round((n / Math.max(1, orders.length)) * 100)}%"></i></div><b>${n}</b></div>`;
-          })
+        `<div class="business-scroll">${metricsMarkup(orders)}<div class="business-columns"><section class="business-section"><div class="section-head"><h3>订单阶段分布</h3></div><div class="stage-bars">${analysis.stages
+          .map(
+            (s) =>
+              `<div><span>${s.label}</span><div><i style="width:${s.percent}%"></i></div><b>${s.count}</b></div>`,
+          )
           .join(
             "",
           )}</div></section><section class="business-section"><div class="section-head"><h3>客户贡献</h3><span class="muted tiny">按币种分组，再按金额排序</span></div><table class="order-table"><thead><tr><th>客户</th><th>订单数</th><th>订单金额</th></tr></thead><tbody>${
-          [...grouped.values()]
-            .sort(
-              (a, b) =>
-                a.currency.localeCompare(b.currency) || b.amount - a.amount,
-            )
+          analysis.contributions
             .slice(0, 15)
             .map(
               (c) =>
