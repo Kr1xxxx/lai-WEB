@@ -10,6 +10,7 @@
     I = window.LaiCustomerImport,
     E = M.escapeHtml,
     V = window.LaiCustomerMotion,
+    NF = window.LaiNavFavorites,
     $ = (q, root = document) => root.querySelector(q);
   const icons = {
     grid: "M3 3h6v6H3z M15 3h6v6h-6z M3 15h6v6H3z M15 15h6v6h-6z",
@@ -3028,11 +3029,62 @@
       items
       .map(
         ([i, label, route]) =>
-          `<button class="rail-item ${route === activeRoute || (route === "order-list" && activeRoute === "order-trash") ? "active" : ""}" ${route ? 'data-lai-route="' + route + '"' : 'data-feature="' + label + '"'}>${icon(i)}<span>${label}</span></button>`,
+          `<button class="rail-item ${route === activeRoute || (route === "order-list" && activeRoute === "order-trash") ? "active" : ""}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${icon(i)}<span>${label}</span></button>`,
       )
       .join("") +
       `<button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
     );
+  }
+  function favoriteStarState(id, label) {
+    const on = NF.isFavorite(state.laiSettings, id);
+    return { on, glyph: on ? "★" : "☆", label: `${on ? "取消收藏" : "收藏"}${label}` };
+  }
+  function favoriteStar(id, label) {
+    const star = favoriteStarState(id, label);
+    return `<button class="nav-star${star.on ? " is-favorite" : ""}" data-nav-favorite="${id}" data-nav-label="${E(label)}" aria-pressed="${star.on}" aria-label="${E(star.label)}" title="${E(star.label)}">${star.glyph}</button>`;
+  }
+  function syncFavoriteStars() {
+    document.querySelectorAll("[data-nav-favorite]").forEach((button) => {
+      const star = favoriteStarState(button.dataset.navFavorite, button.dataset.navLabel);
+      button.classList.toggle("is-favorite", star.on);
+      button.setAttribute("aria-pressed", String(star.on));
+      button.setAttribute("aria-label", star.label);
+      button.title = star.label;
+      button.textContent = star.glyph;
+    });
+  }
+  async function saveFavoriteNav(change) {
+    if (!(await window.flushPendingSave())) return false;
+    try {
+      await persist({ ...state, laiSettings: change(state.laiSettings) });
+    } catch (error) {
+      toast(error.message);
+      return false;
+    }
+    syncFavoriteStars();
+    return true;
+  }
+  function favoriteNavPanel(pointerActivated = false) {
+    const items = NF.entries(state.laiSettings);
+    const rows = items
+      .map(
+        (entry, index) =>
+          `<li class="favorite-nav-row"><button type="button" class="favorite-nav-jump" data-favorite-jump="${entry.id}">${E(entry.label)}</button><span class="favorite-nav-actions"><button type="button" data-favorite-move="${entry.id}" data-direction="-1" aria-label="上移${E(entry.label)}" title="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-favorite-move="${entry.id}" data-direction="1" aria-label="下移${E(entry.label)}" title="下移"${index === items.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-favorite-remove="${entry.id}" aria-label="从常用移除${E(entry.label)}">移除</button></span></li>`,
+      )
+      .join("");
+    drawer(
+      "常用导航",
+      `<div class="drawer-body favorite-nav-body">${items.length ? `<ul class="favorite-nav-list">${rows}</ul>` : '<div class="feature-state"><strong>还没有常用导航</strong>打开「客户」，点导航条目右侧的 ☆，就能加到这里。</div>'}<p class="module-note">点名称可直接跳转；用 ↑ ↓ 调整顺序。目前可收藏客户页里的「客户列表」「公海客户」「客户查重」。</p></div>`,
+      `<button class="primary" data-action="close-modal">关闭</button>`,
+      "favorites",
+      pointerActivated,
+    );
+  }
+  async function openFavoriteNav(id) {
+    const entry = NF.catalog.find((item) => item.id === id);
+    if (!entry) return;
+    if (!(await navigateApp(entry.route))) return;
+    if (entry.screen !== "active") showCustomerScreen(entry.screen);
   }
   function subnav() {
     if (activeRoute === "customers")
@@ -3045,7 +3097,7 @@
       ]
         .map(
           ([label, screen, star]) =>
-            `<div class="nav-row"><button class="nav-entry ${screen === customerScreen ? "active" : ""}" ${screen ? 'data-lai-screen="' + screen + '"' : 'data-feature="' + label + '"'}>${label}</button>${star ? `<button class="nav-star" data-feature="常用导航管理" aria-label="收藏${label}">★</button>` : ""}</div>`,
+            `<div class="nav-row"><button class="nav-entry ${screen === customerScreen ? "active" : ""}" ${screen ? 'data-lai-screen="' + screen + '"' : 'data-feature="' + label + '"'}>${label}</button>${star ? favoriteStar("screen:" + screen, label) : ""}</div>`,
         )
         .join("")}`;
     return `<h3>经营管理</h3>${[
@@ -3207,6 +3259,24 @@
     if (!el || el.disabled) return;
     const d = el.dataset;
     if (d.laiRoute) return navigateApp(d.laiRoute);
+    if (d.navFavorite) return saveFavoriteNav((settings) => NF.toggle(settings, d.navFavorite));
+    if (d.action === "favorite-nav") return favoriteNavPanel(e.detail > 0);
+    if (d.favoriteJump) return openFavoriteNav(d.favoriteJump);
+    if (d.favoriteMove)
+      return saveFavoriteNav((settings) => NF.move(settings, d.favoriteMove, Number(d.direction))).then((saved) => {
+        if (!saved) return;
+        // 保持焦点在刚点的按钮；移到边界后该按钮变为禁用，则回到同一行的名称。
+        const same = `[data-favorite-move="${d.favoriteMove}"][data-direction="${d.direction}"]`;
+        favoriteNavPanel();
+        const target = $(same);
+        (target && !target.disabled ? target : $(`[data-favorite-jump="${d.favoriteMove}"]`))?.focus({ preventScroll: true });
+      });
+    if (d.favoriteRemove)
+      return saveFavoriteNav((settings) => NF.remove(settings, d.favoriteRemove)).then((saved) => {
+        if (!saved) return;
+        favoriteNavPanel();
+        ($(".favorite-nav-jump") || $(".drawer-footer .primary"))?.focus({ preventScroll: true });
+      });
     if (d.laiScreen === "customer-settings") return customerSettings();
     if (d.laiScreen) return showCustomerScreen(d.laiScreen);
     if (d.customerTransition)

@@ -425,12 +425,53 @@ input::placeholder {
   border: 0;
   background: transparent;
   padding: 0 3px;
-  color: #e9ac3b;
+  color: #a9b2c3;
   font-size: 17px;
+}
+.nav-star.is-favorite {
+  color: #e9ac3b;
 }
 .nav-star:hover {
   background: transparent;
   color: #f4b544;
+}
+.favorite-nav-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 1px solid #e6e9ef;
+  border-radius: 4px;
+}
+.favorite-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+}
+.favorite-nav-row + .favorite-nav-row {
+  border-top: 1px solid #e6e9ef;
+}
+.favorite-nav-jump {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: #243e62;
+  font-size: 14px;
+  padding: 6px 0;
+}
+.favorite-nav-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+.favorite-nav-actions button {
+  min-width: 32px;
+}
+.favorite-nav-actions button:disabled {
+  opacity: 0.4;
 }
 .main {
   position: absolute;
