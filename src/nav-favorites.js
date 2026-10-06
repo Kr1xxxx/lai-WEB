@@ -10,9 +10,11 @@
   const known=id=>typeof id==='string'&&byId.has(id);
   function requireKnown(id){if(!known(id))throw new Error('该导航条目不能加入常用');}
   // 历史或手工修改的数据可能含未知、重复或非字符串项：读取时一律过滤，不抛错。
+  // 从未设置过时默认收藏全部可收藏条目（与原先星标全部点亮一致）；用户设置过（包括清空）后以保存的为准。
+  const defaults=catalog.map(entry=>entry.id);
   function list(settings){
-    const raw=Array.isArray(settings?.favoriteNav)?settings.favoriteNav:[];
-    return [...new Set(raw.filter(known))];
+    if(!Array.isArray(settings?.favoriteNav))return [...defaults];
+    return [...new Set(settings.favoriteNav.filter(known))];
   }
   const isFavorite=(settings,id)=>list(settings).includes(id);
   const withList=(settings,next)=>({...(settings||{}),favoriteNav:next});
