@@ -16,12 +16,15 @@ Usage (run from anywhere; -I keeps Python from importing files next to the input
              claude/web-trial-combined and the commits just before it; the script stops
              when the page does not match.
   --out      where to write the rebuilt page
+  --insert   NEW.js:BEFORE.js, repeatable. For a script src/ gained since --old-ref: put it in
+             its own <script> block right before the block of BEFORE.js. Take the order from
+             src/template.html (the file whose marker follows the new one).
 
 The script stops instead of guessing when:
   - a src/ file's old content is not found exactly once in the base page (wrong --old-ref,
     or the page was hand-edited);
-  - src/ gained a file since --old-ref (a new <script>/<style> block has to be placed by
-    hand, in the order src/template.html loads it; then rerun with that commit as --old-ref);
+  - src/ gained a file since --old-ref and no --insert says where it goes (new stylesheets
+    and removed files still have to be handled by hand);
   - scripts/web-trial/mail-demo.js in the page differs from --old-ref.
 """
 import argparse
@@ -41,6 +44,7 @@ def main():
     parser.add_argument('--base', required=True)
     parser.add_argument('--old-ref', required=True)
     parser.add_argument('--out', required=True)
+    parser.add_argument('--insert', action='append', default=[], metavar='NEW.js:BEFORE.js')
     opts = parser.parse_args()
     old_ref = git('rev-parse', opts.old_ref).strip()
     src = os.path.join(REPO, 'src')
@@ -62,8 +66,11 @@ def main():
     now_files = set(os.listdir(src))
     added = sorted(now_files - old_files)
     removed = sorted(old_files - now_files)
-    if added or removed:
-        sys.exit(f'STOP: src/ files added {added} or removed {removed} since {old_ref[:7]}; place or drop those blocks by hand.')
+    inserts = [tuple(pair.split(':', 1)) for pair in opts.insert]
+    unplaced = [f for f in added if f not in {new for new, _ in inserts}]
+    bad = [pair for pair in inserts if pair[0] not in added or not pair[0].endswith('.js') or pair[1] not in old_files]
+    if unplaced or removed or bad:
+        sys.exit(f'STOP: src/ files added without --insert {unplaced}, removed {removed}, or unusable --insert {bad} (since {old_ref[:7]}).')
 
     files = sorted(f for f in old_files if f != 'template.html')
     mismatch = [(f, page.count(pub(f, old_of('src/' + f)))) for f in files if page.count(pub(f, old_of('src/' + f))) != 1]
@@ -76,6 +83,15 @@ def main():
     for f in changed:
         if page.count(pub(f, new_of('src/' + f))) != 1:
             sys.exit(f'STOP: new content of {f} is not in the page exactly once after the swap')
+
+    # New scripts go in after the swaps, each right before the block it must precede.
+    for new, before in inserts:
+        anchor = pub(before, new_of('src/' + before))
+        if page.count(anchor) != 1:
+            sys.exit(f'STOP: cannot place {new}: {before} is not in the page exactly once')
+        at = page.rindex('<script>', 0, page.index(anchor))
+        page = page[:at] + '<script>\n' + new_of('src/' + new) + '\n</script>\n' + page[at:]
+        changed.append(new + ' (new)')
 
     demo = 'scripts/web-trial/mail-demo.js'
     old_demo, new_demo = old_of(demo).strip(), new_of(demo).strip()

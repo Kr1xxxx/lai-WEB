@@ -23,7 +23,8 @@
 | `src/customer-list-ui.js`、`customer-fields.js` | 列表绘制与字段目录。目录中有字段不代表对应外部服务上线 |
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
 | `src/nav-favorites.js` | 常用导航：哪些既有导航条目被设为常用及其顺序（存于`laiSettings.favoriteNav`，只存条目ID如`screen:active`、`route:order-list`、`mail:inbox`，不含业务字段）；从未设置过时为空。可设为常用的清单不在这里另抄，直接取自`rail-menu.js`，所以在菜单里加页面就自动能设为常用。依赖`rail-menu.js` |
-| `src/rail-menu.js` | 左侧栏各菜单有哪些真实页面入口（悬停浮层、各菜单二级导航、可设为常用的清单都读这一份）；沟通、线索仍是保留入口。不依赖其他模块，装载在`nav-favorites.js`之前 |
+| `src/rail-menu.js` | 左侧栏各菜单有哪些真实页面入口（悬停浮层、各菜单二级导航、可设为常用的清单都读这一份）；沟通仍是保留入口。不依赖其他模块，装载在`nav-favorites.js`之前 |
+| `src/lead-model.js`、`lead-ui.js` | 线索：数据保存在`laiLeads`；model 负责校验、跟进记录、状态流转、查重提示、转为客户（新建客户档案走`model.js`的`upsertCustomer`，或关联已有客户）、列表筛选与计数，ui 只生成标记；页面事件和保存接在`business-ui.js`里 |
 | `src/opportunity-model.js`、`opportunity-ui.js` | 商机：数据保存在`laiOpportunities`；model 负责校验、命名、阶段流转、看板汇总、分析和客户维度统计，ui 只生成看板、表单、菜单、分析页的标记；控制逻辑在`business-ui.js`。销售流程（每个流程一组阶段）保存在`laiOpportunityFlows`，没保存过时用内置默认流程；阶段的类别（进行中／赢单／输单）一律通过`stageOf(state, item)`按商机所在流程取，其他模块不要直接用`STAGES` |
 | `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表、阅读、独立的写信页（回复／转发／群发共用）、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；收到的邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |
 | `src/mail-editor.js` | 写信用的富文本编辑器：开源编辑器 Squire 加一条工具栏；放进编辑器的 HTML（含引用的原邮件）先经 DOMPurify 净化，两个库缺失时退回纯文本 |
