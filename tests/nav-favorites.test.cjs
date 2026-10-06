@@ -220,7 +220,7 @@ function harness({settings, flush = true, failSave = null, route = 'customers', 
     persist: async next => {
       if (boundary.saving) throw new Error('上一项修改正在保存，请稍候');
       boundary.saving = true;
-      try { await Promise.resolve(); if (boundary.failSave) throw new Error(boundary.failSave); calls.persist.push(next); boundary.state = next; return true; } finally { boundary.saving = false; }
+      try { if (boundary.gate) { boundary.held = true; await boundary.gate; } await Promise.resolve(); if (boundary.failSave) throw new Error(boundary.failSave); calls.persist.push(next); boundary.state = next; return true; } finally { boundary.saving = false; }
     },
     toast: message => calls.toasts.push(message),
     window: {flushPendingSave: async () => { calls.flushes++; return boundary.flush; }, LaiActivityCategoryNavigation: {mount() {}}},
@@ -546,6 +546,27 @@ test('adding from a flyout while in 常用 mode adds the row to the list straigh
   hover(h, railItem('邮件'));
   await h.click(h.heart('mail:drafts', 'flyout'));
   assert.deepEqual(h.labels('subnav'), ['全部订单', '草稿箱']);
+});
+
+test('the hearts and the 常用 list change only after the save has finished, not while it is still pending', async () => {
+  const h = harness({settings: {favoriteNav: ['mail:inbox']}, route: 'order-list', favoritesMode: true});
+  h.render(); hover(h, railItem('交易'));
+  let release;
+  h.boundary.gate = new Promise(resolve => { release = resolve; });
+  const heart = h.heart('route:order-list', 'flyout');
+  const click = h.click(heart);
+  for (let i = 0; i < 20 && !h.boundary.held; i++) await Promise.resolve();
+  assert.ok(h.boundary.held, 'the save request has started and is hanging');
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  assert.ok(!heart.classList.contains('is-favorite'), 'heart unchanged while saving');
+  assert.equal(heart.attrs['aria-label'], '设为常用：全部订单');
+  assert.deepEqual(h.labels('subnav'), ['收件箱'], '常用 list unchanged while saving');
+  assert.deepEqual(h.favorites(), ['mail:inbox']);
+  release();
+  assert.equal(await click, true);
+  assert.ok(h.heart('route:order-list', 'flyout').classList.contains('is-favorite'), 'heart changes once saved');
+  assert.deepEqual(h.labels('subnav'), ['收件箱', '全部订单']);
+  assert.deepEqual(h.favorites(), ['mail:inbox', 'route:order-list']);
 });
 
 test('quick repeated clicks are applied in order instead of failing with "上一项修改正在保存"', async () => {

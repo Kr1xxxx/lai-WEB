@@ -190,13 +190,12 @@
 .mail-folders .nav-row {
   height: 36px;
 }
-/* 左侧栏只有 144px 宽：文件夹名、未读数和心形要一起放下，所以这里的内边距收紧一些。 */
+/* 左侧栏只有 144px 宽：文件夹名、未读数和心形要一起放下，所以这里的内边距收紧一些。
+   右侧 25px 留给心形（位置和大小用全局的 .nav-heart，与别的二级导航一致）；图标、名称、未读数之间的间距收到 3px，
+   未读数两位数时「待处理邮件」也能完整显示。 */
 .mail-folders .nav-row .nav-entry {
-  padding: 6px 24px 6px 4px;
-  gap: 5px;
-}
-.mail-folders .nav-heart {
-  right: 2px;
+  padding: 6px 25px 6px 4px;
+  gap: 3px;
 }
 .mail-folder-label {
   flex: 1 1 auto;
@@ -208,7 +207,7 @@
 .mail-count {
   flex: 0 0 auto;
   min-width: 18px;
-  padding: 0 5px;
+  padding: 0 3px;
   height: 18px;
   line-height: 18px;
   border-radius: 9px;
