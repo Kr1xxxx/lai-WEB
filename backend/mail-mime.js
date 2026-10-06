@@ -47,6 +47,27 @@ async function parseHeaders(raw) {
   return { ...envelope(parsed), hasAttachment: /^\s*multipart\/mixed\b/i.test(headerValue(parsed, 'content-type')) };
 }
 
+// 列表里的正文预览：用邮件头加上正文开头的一小段拼成一封“截断的邮件”，交给同一个解析库处理编码和字符集，
+// 再取前面一小段文字。引用的原文（> 开头的行、“写道：”之后的内容）不算进预览。解析不了就返回空串。
+const SNIPPET_LENGTH = 140;
+async function snippet(headers, partial) {
+  if (!partial || !partial.length) return '';
+  try {
+    const head = Buffer.isBuffer(headers) && headers.length ? headers.toString('latin1').replace(/(\r?\n)+$/, '') + '\r\n\r\n' : '\r\n';
+    const parsed = await mailLibs().PostalMime.parse(Buffer.concat([Buffer.from(head, 'latin1'), bytes(partial)]));
+    const text = String(parsed.text ?? '').trim() || htmlToText(parsed.html);
+    const lines = [];
+    for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
+      if (/^\s*>/.test(line)) continue;
+      if (/(写道|wrote)\s*[:：]\s*$/i.test(line) || /^-{2,}\s*(转发的邮件|Forwarded message|Original Message|原始邮件)/i.test(line.trim())) break;
+      lines.push(line);
+    }
+    // 截断处可能留下半个字符，去掉替换符。
+    const flat = lines.join(' ').replace(/\ufffd+/g, '').replace(/\s+/g, ' ').trim();
+    return flat.length > SNIPPET_LENGTH ? flat.slice(0, SNIPPET_LENGTH).trimEnd() + '…' : flat;
+  } catch (_) { return ''; }
+}
+
 // 解析一封完整邮件。附件内容保留为字节，由调用方决定是否写出。
 async function parseMessage(raw) {
   const parsed = await mailLibs().PostalMime.parse(raw && raw.length ? raw : Buffer.from('\r\n'));
@@ -60,4 +81,4 @@ async function parseMessage(raw) {
   return { ...envelope(parsed), text: String(parsed.text ?? '').replace(/\r\n?/g, '\n') || htmlToText(html), html, attachments };
 }
 
-module.exports = { parseMessage, parseHeaders, addresses, htmlToText, safeFilename };
+module.exports = { parseMessage, parseHeaders, snippet, addresses, htmlToText, safeFilename, SNIPPET_LENGTH };

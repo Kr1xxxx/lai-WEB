@@ -4,7 +4,9 @@ const { mailLibs } = require('./mail-libs.js');
 // 收信：在开源库 imapflow 之上的一层薄封装。每次操作单独登录、用完退出。
 // 只连接 mail-imap.js 里固定的 Zoho 主机（隔离测试除外）。
 
-const LIST_HEADERS = ['from', 'to', 'cc', 'subject', 'date', 'message-id', 'content-type'];
+const LIST_HEADERS = ['from', 'to', 'cc', 'subject', 'date', 'message-id', 'content-type', 'content-transfer-encoding'];
+// 列表里的正文预览：每封只取正文开头这么多字节，不整封下载。
+const PREVIEW_BYTES = 4096;
 
 async function open(account, { endpoint } = {}) {
   const { server, options } = imap.clientOptions(account, endpoint);
@@ -33,12 +35,22 @@ async function open(account, { endpoint } = {}) {
     }),
     // imapflow 在服务器拒绝命令时返回 false 而不是抛错；这里一律当作失败报告，不能把“出错”显示成“没有邮件”。
     search: guard(async (query) => { const found = await client.search(query, { uid: true }); if (!Array.isArray(found)) throw refused('搜索'); return [...found].sort((a, b) => a - b); }),
-    fetchSummaries: guard(async (uids) => {
-      const messages = [];
-      if (!uids.length) return messages;
-      for await (const message of client.fetch(uids.join(','), { uid: true, flags: true, size: true, internalDate: true, headers: LIST_HEADERS }, { uid: true }))
-        messages.push({ uid: message.uid, flags: [...(message.flags || [])].map(flag => String(flag).toLowerCase()), size: message.size || 0, internalDate: message.internalDate || null, headers: message.headers || Buffer.alloc(0) });
-      return messages;
+    // preview 为真时顺带取每封正文的开头（用于列表里的预览）；服务器不肯给就退回只取邮件头，列表照常显示。
+    fetchSummaries: guard(async (uids, { preview = false } = {}) => {
+      if (!uids.length) return [];
+      const read = async (withPreview) => {
+        const messages = [];
+        const query = { uid: true, flags: true, size: true, internalDate: true, headers: LIST_HEADERS, ...(withPreview ? { bodyParts: [{ key: 'text', start: 0, maxLength: PREVIEW_BYTES }] } : {}) };
+        for await (const message of client.fetch(uids.join(','), query, { uid: true })) {
+          const part = withPreview && message.bodyParts ? [...message.bodyParts.values()][0] : null;
+          messages.push({ uid: message.uid, flags: [...(message.flags || [])].map(flag => String(flag).toLowerCase()), size: message.size || 0, internalDate: message.internalDate || null, headers: message.headers || Buffer.alloc(0), preview: part && part.length ? part : null });
+        }
+        return messages;
+      };
+      if (!preview) return read(false);
+      let messages = null;
+      try { messages = await read(true); } catch (error) { if (!client.usable) throw error; }
+      return messages && messages.length ? messages : read(false);
     }),
     fetchMeta: guard(async (uid) => {
       const message = await client.fetchOne(String(uid), { uid: true, flags: true, size: true }, { uid: true });
@@ -55,4 +67,4 @@ async function open(account, { endpoint } = {}) {
   };
 }
 
-module.exports = { open, LIST_HEADERS };
+module.exports = { open, LIST_HEADERS, PREVIEW_BYTES };

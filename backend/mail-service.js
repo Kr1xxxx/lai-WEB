@@ -86,7 +86,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       box, uid: message.uid, from: headers.from, to: headers.to, cc: headers.cc, subject: headers.subject, messageId: headers.messageId,
       date: headers.date || (internal && Number.isFinite(internal.getTime()) ? internal.toISOString() : ''), size: message.size,
       seen: message.flags.includes('\\seen'), pending: message.flags.includes('\\flagged'), answered: message.flags.includes('\\answered'),
-      hasAttachment: headers.hasAttachment,
+      hasAttachment: headers.hasAttachment, snippet: await mime.snippet(message.headers, message.preview),
     };
   }
   // 搜索词：主题、发件人、收件人任一包含。
@@ -100,7 +100,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     return session.withMailbox(mailbox, true, async () => {
       const uids = await session.search(query);
       const start = Math.max(0, uids.length - pageNumber * limit), end = Math.max(0, uids.length - (pageNumber - 1) * limit);
-      const messages = await session.fetchSummaries(uids.slice(start, end));
+      const messages = await session.fetchSummaries(uids.slice(start, end), { preview: true });
       const items = await Promise.all(messages.map(message => summary(message, box)));
       const counts = box === 'inbox' && limit === PAGE_SIZE ? { unread: (await session.search({ seen: false })).length, pending: (await session.search({ flagged: true })).length } : null;
       return { total: uids.length, items: items.sort((a, b) => b.uid - a.uid), counts };

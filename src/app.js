@@ -47,6 +47,11 @@
     headset: "M3 14v-3a9 9 0 0 1 18 0v3 M3 12h4v7H3z M17 12h4v7h-4z",
     help: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20 M9 8a3 3 0 1 1 4 3c-1 1-1 2-1 3 M12 17h.01",
     refresh: "M20 6v5h-5 M4 18v-5h5 M18.5 9a7 7 0 0 0-12-2L4 11 M5.5 15a7 7 0 0 0 12 2l2.5-4",
+    trash: "M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6",
+    reply: "M9 6l-6 6 6 6 M3 12h11a7 7 0 0 1 7 7",
+    replyAll: "M7 6l-5 6 5 6 M12 6l-5 6 5 6 M7 12h8a6 6 0 0 1 6 6",
+    forward: "M15 6l6 6-6 6 M21 12H10a7 7 0 0 0-7 7",
+    clip: "M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7",
   };
   const icon = (name) =>
     `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="${icons[name] || icons.grid}"/></svg>`;
@@ -4308,6 +4313,7 @@
         ? { cache: "no-store" }
         : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
     isActive: () => activeRoute === "mail",
+    hasDialog: () => !!modal,
     dialog: drawer,
     closeDialog: () => {
       if (String(modal || "").startsWith("mail-")) closeModal(false, true);

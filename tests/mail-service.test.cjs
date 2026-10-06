@@ -367,3 +367,31 @@ test('bulk mail stops on a login failure or repeated failures, can be cancelled,
     assert.equal(JSON.parse(cancel.batches.get(stale.id)).status, 'interrupted');
   } finally { await cancel.smtp.close(); }
 });
+
+test('lists carry a short decoded preview of each body, without downloading whole messages or marking them read', async () => {
+  const h = await harness();
+  try {
+    const inbox = await h.service.list({ folder: 'inbox' });
+    assert.deepEqual(inbox.items.map(i => i.snippet), ['Nothing new this week.', '您好， 样品已于今天寄出，附件是装箱单。 李伟', 'Hi, The price works for us. Please send the proforma invoice. Anna', 'Cover draft:', '你好，报价如下']);
+    const fetches = h.imap.state.commands.filter(c => c.startsWith('UID FETCH'));
+    assert.ok(fetches.every(c => /BODY\.PEEK\[TEXT\]<0\.4096>/.test(c) && !/BODY(\.PEEK)?\[\]/.test(c)), 'only the first bytes of each body are requested, with PEEK');
+    assert.deepEqual((await h.service.list({ folder: 'unread' })).items.map(i => i.uid), [5, 4, 3], 'reading previews leaves unread mail unread');
+    // 服务器拒绝取正文开头时，列表照常显示，只是没有预览。
+    h.imap.state.failNext = { verb: 'UID FETCH', reply: 'NO partial fetch not supported' };
+    const plain = await h.service.list({ folder: 'inbox' });
+    assert.deepEqual(plain.items.map(i => [i.uid, i.snippet]), [[5, ''], [4, ''], [3, ''], [2, ''], [1, '']]);
+  } finally { await h.close(); }
+});
+
+test('previews drop quoted originals, survive truncation and never fail the list', async () => {
+  const head = Buffer.from('Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n');
+  const long = '很好。'.repeat(400);
+  const cut = Buffer.from(Buffer.from(long).toString('base64').replace(/(.{76})/g, '$1\r\n')).subarray(0, 4096);
+  const text = await mime.snippet(head, cut);
+  assert.equal(text.length, mime.SNIPPET_LENGTH + 1); assert.match(text, /^(很好。)+很?好?…$/); assert.doesNotMatch(text, /�/);
+  assert.equal(await mime.snippet(Buffer.from('Content-Type: text/plain\r\n\r\n'), Buffer.from('OK, deal.\r\n\r\nOn Mon, Anna wrote:\r\n> old text\r\n> more')), 'OK, deal.');
+  assert.equal(await mime.snippet(Buffer.from('Content-Type: text/plain; charset=utf-8\r\n\r\n'), Buffer.from('收到\r\n> 引用\r\n谢谢')), '收到 谢谢');
+  assert.equal(await mime.snippet(Buffer.from('Content-Type: text/html\r\n\r\n'), Buffer.from('<style>p{color:red}</style><p>Hello <b>there</b></p><script>x()</script>')), 'Hello there');
+  assert.equal(await mime.snippet(Buffer.from('Content-Type: multipart/alternative; boundary="b"\r\n\r\n'), Buffer.from('--b\r\nContent-Type: text/plain\r\n\r\nFirst part only, the rest is cut of')), 'First part only, the rest is cut of');
+  assert.equal(await mime.snippet(Buffer.alloc(0), null), ''); assert.equal(await mime.snippet(null, Buffer.from('bare body')), 'bare body');
+});

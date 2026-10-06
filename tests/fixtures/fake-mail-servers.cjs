@@ -93,6 +93,13 @@ async function startImap({ password = 'app-password-1', mailboxes, supportsMove 
         const data = Buffer.from(kept.join('\r\n') + '\r\n\r\n', 'latin1');
         send(` BODY[HEADER.FIELDS (${header[1]})] {${data.length}}\r\n`); socket.write(data);
       } else if (/BODY(?:\.PEEK)?\[\]/i.test(items)) { send(` BODY[] {${message.raw.length}}\r\n`); socket.write(message.raw); }
+      // 正文开头的一段：BODY.PEEK[TEXT]<起点.长度>
+      const partial = /BODY(?:\.PEEK)?\[TEXT\]<(\d+)\.(\d+)>/i.exec(items);
+      if (partial) {
+        const end = message.raw.indexOf('\r\n\r\n'), body = end < 0 ? Buffer.alloc(0) : message.raw.subarray(end + 4);
+        const slice = body.subarray(Number(partial[1]), Number(partial[1]) + Number(partial[2]));
+        send(` BODY[TEXT]<${partial[1]}> {${slice.length}}\r\n`); socket.write(slice);
+      }
       send(')\r\n');
     };
     const handle = (line) => {
