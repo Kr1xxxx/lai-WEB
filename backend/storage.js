@@ -239,6 +239,17 @@ function openStorage({ seedFile }) {
         data_json TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS mail_draft_files (
+        draft_id TEXT PRIMARY KEY,
+        data_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS mail_templates (
+        id TEXT PRIMARY KEY,
+        updated_at TEXT NOT NULL,
+        data_json TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS import_logs (
         id TEXT PRIMARY KEY,
         data_json TEXT NOT NULL
@@ -805,6 +816,40 @@ function openStorage({ seedFile }) {
   function deleteMailDraft(id) {
     requireDatabase();
     database.prepare('DELETE FROM mail_drafts WHERE id = ?').run(String(id));
+    database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id));
+  }
+  // 草稿的附件单独存一张表：列草稿箱时不用把附件内容读出来。
+  function readMailDraftFiles(id) {
+    requireDatabase();
+    const row = database.prepare('SELECT data_json FROM mail_draft_files WHERE draft_id = ?').get(String(id));
+    if (!row) return [];
+    try { const files = JSON.parse(row.data_json); return Array.isArray(files) ? files : []; } catch (_) { return []; }
+  }
+  function writeMailDraftFiles(id, files) {
+    requireDatabase();
+    if (!Array.isArray(files) || !files.length) { database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id)); return; }
+    database.prepare(`
+      INSERT INTO mail_draft_files(draft_id, data_json) VALUES(?, ?)
+      ON CONFLICT(draft_id) DO UPDATE SET data_json = excluded.data_json
+    `).run(String(id), JSON.stringify(files));
+  }
+
+  // 邮件模板：只存在这台电脑上。
+  function listMailTemplates() {
+    requireDatabase();
+    return database.prepare('SELECT data_json FROM mail_templates ORDER BY updated_at DESC, id').all()
+      .map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } }).filter(Boolean);
+  }
+  function writeMailTemplate(template) {
+    requireDatabase();
+    database.prepare(`
+      INSERT INTO mail_templates(id, updated_at, data_json) VALUES(?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
+    `).run(String(template.id), String(template.updatedAt), JSON.stringify(template));
+  }
+  function deleteMailTemplate(id) {
+    requireDatabase();
+    database.prepare('DELETE FROM mail_templates WHERE id = ?').run(String(id));
   }
 
   // 群发批次记录：每批的主题、正文、收件人及各自的发送结果。
@@ -847,6 +892,6 @@ function openStorage({ seedFile }) {
   }
 
   initializeStorage();
-  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, health, close, directory: supportDir };
+  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

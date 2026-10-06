@@ -49,7 +49,7 @@ test('mail account routes require the session, validate input before any network
     seed.close();
     child = start(); await ready();
     const status = await (await request('/api/mail-account')).text();
-    assert.deepEqual(JSON.parse(status).account, { provider: 'zoho', email: 'sales@example-trade.com', site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993, boundAt: '2026-10-06T10:00:00.000Z', verifiedAt: '2026-10-06T10:00:00.000Z' });
+    assert.deepEqual(JSON.parse(status).account, { provider: 'zoho', email: 'sales@example-trade.com', site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993, boundAt: '2026-10-06T10:00:00.000Z', verifiedAt: '2026-10-06T10:00:00.000Z', autoCheck: true });
     for (const route of ['/api/mail-account', '/api/data', '/api/health']) assert.doesNotMatch(await (await request(route)).text(), /Zx9-seeded-secret|"password"/, route);
     assert.doesNotMatch(await (await request('/api/data')).text(), /example-trade/);
     assert.deepEqual(await (await post('/api/mail-account/unbind', {})).json(), { ok: true, available: true, account: null });

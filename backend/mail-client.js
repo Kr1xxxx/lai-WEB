@@ -1,10 +1,10 @@
 const imap = require('./mail-imap.js');
 const { mailLibs } = require('./mail-libs.js');
 
-// 收信：在开源库 imapflow 之上的一层薄封装。每次操作单独登录、用完退出。
+// 收信：在开源库 imapflow 之上的一层薄封装。一次登录可以连续做多件事，由 mail-service.js 决定连接留多久。
 // 只连接 mail-imap.js 里固定的 Zoho 主机（隔离测试除外）。
 
-const LIST_HEADERS = ['from', 'to', 'cc', 'subject', 'date', 'message-id', 'content-type', 'content-transfer-encoding'];
+const LIST_HEADERS = ['from', 'to', 'cc', 'subject', 'date', 'message-id', 'in-reply-to', 'references', 'content-type', 'content-transfer-encoding'];
 // 列表里的正文预览：每封只取正文开头这么多字节，不整封下载。
 const PREVIEW_BYTES = 4096;
 
@@ -24,8 +24,14 @@ async function open(account, { endpoint } = {}) {
   const refused = what => imap.mailError('imap_no', `邮箱服务器没有完成「${what}」，请稍后重试。`);
   const guard = task => async (...args) => { try { return await task(...args); } catch (error) { throw wrap(error); } };
 
+  const range = uids => (Array.isArray(uids) ? uids.join(',') : String(uids));
   return {
     server,
+    // 连接是否还能用；noop 向服务器问一声，用来发现已经被服务器悄悄断开的连接。
+    usable: () => client.usable === true,
+    noop: guard(async () => { await client.noop(); }),
+    // 文件夹概况：邮件数、未读数、下一封新邮件会用的编号（用来判断有没有新邮件）。
+    status: guard(async (mailbox) => { const found = await client.status(mailbox, { messages: true, unseen: true, uidNext: true }); return { messages: Number(found.messages) || 0, unseen: Number(found.unseen) || 0, uidNext: Number(found.uidNext) || 0 }; }),
     // 文件夹列表：路径与服务器给的用途标记（\Sent、\Trash 等）。
     listMailboxes: guard(async () => (await client.list()).map(box => ({ name: box.path, specialUse: String(box.specialUse || '').toLowerCase(), flags: [...(box.flags || [])].map(flag => String(flag).toLowerCase()) }))),
     // 在某个文件夹里执行一组操作；readOnly 时不会改动任何邮件状态。
@@ -60,9 +66,10 @@ async function open(account, { endpoint } = {}) {
       const message = await client.fetchOne(String(uid), { uid: true, source: true }, { uid: true });
       return message && message.source ? message.source : null;
     }),
-    addFlags: guard(async (uid, flags) => { if (!(await client.messageFlagsAdd(String(uid), flags, { uid: true }))) throw refused('修改标记'); }),
-    removeFlags: guard(async (uid, flags) => { if (!(await client.messageFlagsRemove(String(uid), flags, { uid: true }))) throw refused('修改标记'); }),
-    move: guard(async (uid, target) => { if (!(await client.messageMove(String(uid), target, { uid: true }))) throw refused('移动邮件'); }),
+    // 改标记、移动都可以一次给多封（传编号数组）。
+    addFlags: guard(async (uid, flags) => { if (!(await client.messageFlagsAdd(range(uid), flags, { uid: true }))) throw refused('修改标记'); }),
+    removeFlags: guard(async (uid, flags) => { if (!(await client.messageFlagsRemove(range(uid), flags, { uid: true }))) throw refused('修改标记'); }),
+    move: guard(async (uid, target) => { if (!(await client.messageMove(range(uid), target, { uid: true }))) throw refused('移动邮件'); }),
     async close() { try { await client.logout(); } catch (_) { try { client.close(); } catch (__) {} } },
   };
 }

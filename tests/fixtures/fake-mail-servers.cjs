@@ -8,7 +8,10 @@ const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', ()
 const track = (server) => {
   const sockets = new Set();
   server.on('connection', (socket) => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.on('error', () => {}); });
-  return () => new Promise(resolve => { for (const socket of sockets) socket.destroy(); server.close(resolve); });
+  const close = () => new Promise(resolve => { for (const socket of sockets) socket.destroy(); server.close(resolve); });
+  // 模拟服务器悄悄断开现有连接（服务器本身还开着）。
+  close.drop = () => { for (const socket of sockets) socket.destroy(); };
+  return close;
 };
 const address = item => (item.name ? { name: item.name, address: item.address } : item.address);
 
@@ -195,7 +198,7 @@ async function startImap({ password = 'app-password-1', mailboxes, supportsMove 
   });
   const close = track(server);
   const port = await listen(server);
-  return { port, state, endpoint: { host: '127.0.0.1', port }, close };
+  return { port, state, endpoint: { host: '127.0.0.1', port }, close, dropConnections: close.drop, deliver: (box, message, flags) => state.add(box, message, flags) };
 }
 
 async function startSmtp({ user = '', password = 'app-password-1', reject = [] } = {}) {

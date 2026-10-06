@@ -24,6 +24,8 @@ const mailEndpoints = mailTest ? { imap: { host: '127.0.0.1', port: mailTest[0] 
 const mailAccounts = createMailAccounts({ store, verify: input => mailImap.verifyLogin(input, mailEndpoints.imap ? { endpoint: mailEndpoints.imap } : {}) });
 const mailService = createMailService({
   store, endpoints: mailEndpoints,
+  // 登录邮箱后连接保留 3 分钟，期间的操作不用重新登录。
+  keepAliveMs: 3 * 60 * 1000,
   downloadsDir: process.env.LAI_DATA_DIR ? path.join(store.directory, 'downloads') : path.join(os.homedir(), 'Downloads'),
   reveal: file => { if (process.env.LAI_APP_NO_OPEN !== '1') spawn('/usr/bin/open', ['-R', file], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref(); }
 });
@@ -31,7 +33,12 @@ const mailRoutes = {
   'GET /api/mail/messages': query => mailService.list({ folder: query.get('folder'), page: query.get('page'), query: query.get('query') }),
   'GET /api/mail/correspondence': query => mailService.correspondence({ addresses: query.get('addresses') }),
   'GET /api/mail/message': query => mailService.read({ box: query.get('box'), uid: query.get('uid') }),
+  'GET /api/mail/status': () => mailService.status(),
   'GET /api/mail/drafts': () => mailService.drafts(),
+  'GET /api/mail/draft': query => mailService.getDraft({ id: query.get('id') }),
+  'GET /api/mail/templates': () => mailService.templates(),
+  'POST /api/mail/templates/save': (_, body) => mailService.saveTemplate(body),
+  'POST /api/mail/templates/delete': (_, body) => mailService.deleteTemplate(body),
   'POST /api/mail/flags': (_, body) => mailService.flags(body),
   'POST /api/mail/trash': (_, body) => mailService.trash(body),
   'POST /api/mail/attachment/save': (_, body) => mailService.saveAttachment(body),
