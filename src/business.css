@@ -840,124 +840,252 @@ td.team-reached {
   font-weight: 600;
 }
 
+/* ---------- 商机 ----------
+   配色沿用应用的蓝色主色；阶段只用三种语义色：进行中＝绿，赢单＝蓝，输单＝灰。
+   页面上唯一「重」的元素是阶段条，其余控件统一 32px 高、同一种边框和圆角。 */
+.opp-page {
+  --opp-ink: #1f2d45;
+  --opp-muted: #6b7a90;
+  --opp-line: #e3e7ee;
+  --opp-surface: #f4f6f9;
+  --opp-open: #1f9d60;
+  --opp-open-soft: #e6f5ec;
+  --opp-open-ink: #136c41;
+  --opp-won: #0a6aff;
+  --opp-won-soft: #e8f0ff;
+  --opp-won-ink: #0a4fc4;
+  --opp-lost-soft: #eef0f4;
+  --opp-lost-ink: #566176;
+  --opp-danger: #c9363f;
+  color: var(--opp-ink);
+}
+.opp-page select,
+.opp-page input[type="search"],
+.opp-page input[type="date"] {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d5dbe5;
+  border-radius: 6px;
+  background-color: #fff;
+  font-size: 13px;
+  color: var(--opp-ink);
+}
+.opp-page select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236b7a90' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.opp-page select:hover,
+.opp-page input:hover {
+  border-color: #b9c2d0;
+}
+.opp-page select:focus-visible,
+.opp-page input:focus-visible,
+.opp-page button:focus-visible {
+  outline: 2px solid var(--opp-won);
+  outline-offset: 1px;
+}
 .opp-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .opp-count {
-  margin-right: auto;
+  margin-right: 4px;
   font-size: 13px;
-  color: #3b4a62;
+  color: var(--opp-muted);
+  white-space: nowrap;
 }
 .opp-count b {
   font-size: 15px;
-  color: #1f2d45;
-}
-.opp-toolbar select,
-.opp-toolbar input,
-.opp-totals select {
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid #d9dee7;
-  border-radius: 4px;
-  background: #fff;
-  font-size: 13px;
-  color: #1f2d45;
+  font-weight: 600;
+  color: var(--opp-ink);
+  font-variant-numeric: tabular-nums;
 }
 .opp-toolbar input[type="search"] {
-  width: 220px;
+  width: 248px;
 }
 .opp-range {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--opp-muted);
+}
+.opp-range input[type="date"] {
+  width: 132px;
+}
+.opp-toolbar .opp-sort {
+  margin-left: auto;
 }
 .opp-view {
   margin: 0;
 }
-.opp-totals {
+/* 金额汇总条 */
+.opp-summary {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 10px;
-  font-size: 13px;
-  color: #3b4a62;
+  align-items: stretch;
+  margin-bottom: 14px;
+  border: 1px solid var(--opp-line);
+  border-radius: 10px;
+  background: #fff;
 }
-.opp-totals b {
-  font-size: 15px;
-  color: #1f2d45;
+.opp-summary.is-compact {
+  border: 0;
+  background: transparent;
 }
-.opp-totals b.opp-open {
-  color: #1f9d60;
+.opp-summary.is-compact .opp-currency {
+  padding: 0 12px 0 0;
+  border: 0;
 }
-.opp-totals b.opp-won {
-  color: #1a5cff;
+.opp-currency {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 18px;
+  border-right: 1px solid var(--opp-line);
+  font-size: 12px;
+  color: var(--opp-muted);
 }
-.opp-totals-rule {
-  width: 1px;
-  height: 14px;
-  background: #d9dee7;
+.opp-currency select {
+  min-width: 84px;
+  font-weight: 600;
 }
+.opp-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 190px;
+  padding: 12px 22px;
+  border-right: 1px solid var(--opp-line);
+}
+.opp-stat:last-of-type {
+  border-right: 0;
+}
+.opp-stat span {
+  font-size: 12px;
+  color: var(--opp-muted);
+}
+.opp-stat b {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--opp-ink);
+}
+.opp-stat.is-open b {
+  color: var(--opp-open-ink);
+}
+.opp-stat.is-won b {
+  color: var(--opp-won-ink);
+}
+.opp-stat.is-lost b {
+  font-weight: 500;
+  color: var(--opp-muted);
+}
+.opp-summary-note {
+  flex: 1 0 100%;
+  margin: 0;
+  padding: 8px 18px;
+  border-top: 1px solid var(--opp-line);
+  font-size: 12px;
+  color: var(--opp-muted);
+}
+/* 看板 */
 .opp-board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(210px, 1fr));
-  gap: 8px;
-  overflow-x: auto;
+  grid-template-columns: repeat(5, minmax(216px, 1fr));
+  gap: 10px;
   align-items: start;
+  overflow-x: auto;
+  padding-bottom: 8px;
 }
 .opp-column {
   min-width: 0;
+  border-radius: 10px;
+  background: var(--opp-surface);
 }
 .opp-stage {
-  height: 34px;
-  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
   align-items: center;
-  justify-content: center;
-  color: #fff;
+  column-gap: 8px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 10px 10px 0 0;
+  border-top: 3px solid transparent;
   font-size: 13px;
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
 }
-.opp-column:first-child .opp-stage {
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+.opp-stage-name {
+  font-weight: 600;
 }
-.opp-kind-open .opp-stage {
-  background: #35b558;
-}
-.opp-kind-won .opp-stage {
-  background: #1a5cff;
-}
-.opp-kind-lost .opp-stage {
-  background: #e9ecf1;
-  color: #3b4a62;
-  clip-path: none;
+.opp-stage-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .opp-stage-amount {
-  padding: 6px 0 8px;
-  text-align: center;
-  font-size: 13px;
-  color: #1f2d45;
+  justify-self: end;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.opp-kind-open .opp-stage {
+  background: var(--opp-open-soft);
+  border-top-color: var(--opp-open);
+  color: var(--opp-open-ink);
+}
+.opp-kind-won .opp-stage {
+  background: var(--opp-won-soft);
+  border-top-color: var(--opp-won);
+  color: var(--opp-won-ink);
+}
+.opp-kind-lost .opp-stage {
+  background: var(--opp-lost-soft);
+  border-top-color: #aab3c2;
+  color: var(--opp-lost-ink);
 }
 .opp-cards {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 80px;
-  padding: 6px;
-  border-radius: 4px;
-  background: #eef0f3;
+  min-height: 96px;
+  padding: 8px;
 }
 .opp-card {
-  padding: 12px 14px;
-  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px 10px 14px;
+  border: 1px solid var(--opp-line);
+  border-radius: 8px;
   background: #fff;
   cursor: grab;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.opp-card:hover {
+  border-color: #c5cddb;
+  box-shadow: 0 2px 8px rgba(31, 45, 69, 0.08);
 }
 .opp-card.is-archived {
-  opacity: 0.7;
+  background: #fafbfc;
 }
 .opp-card-head {
   display: flex;
@@ -967,58 +1095,362 @@ td.team-reached {
 .opp-card-name {
   flex: 1 1 auto;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   text-align: left;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.4;
+  color: var(--opp-ink);
   overflow-wrap: anywhere;
+}
+.opp-card-name:hover {
+  color: var(--opp-won);
 }
 .opp-card-menu {
   flex: 0 0 auto;
-  padding: 0 6px;
+  width: 24px;
+  height: 24px;
+  margin: -3px -4px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--opp-muted);
 }
-.opp-card-line {
-  margin-top: 4px;
+.opp-card-menu:hover {
+  background: var(--opp-surface);
+  color: var(--opp-ink);
+}
+.opp-card-amount {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.opp-card-amount small {
+  margin-right: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--opp-muted);
+}
+.opp-card-client {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
   font-size: 12px;
-  color: #1f2d45;
+  color: var(--opp-won-ink);
   overflow-wrap: anywhere;
 }
-.opp-overdue {
-  color: #c0392b;
+.opp-card-client:hover {
+  text-decoration: underline;
+}
+.opp-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.opp-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--opp-lost-soft, #eef0f4);
+  font-size: 11px;
+  color: var(--opp-lost-ink, #566176);
+  white-space: nowrap;
+}
+.opp-chip.is-link {
+  background: var(--opp-won-soft);
+  color: var(--opp-won-ink);
+}
+.opp-stage-chip.opp-kind-open {
+  background: #e6f5ec;
+  color: #136c41;
+}
+.opp-stage-chip.opp-kind-won {
+  background: #e8f0ff;
+  color: #0a4fc4;
+}
+.opp-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid #eef1f5;
+  font-size: 12px;
+  color: var(--opp-muted);
+}
+.opp-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.opp-owner-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opp-avatar {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #dfe5f0;
+  font-style: normal;
+  font-size: 10px;
   font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  color: #46536a;
+}
+.opp-due {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.opp-due.is-overdue {
+  font-weight: 600;
+  color: var(--opp-danger, #c9363f);
 }
 .opp-empty {
-  margin: 12px 0;
+  margin: 0;
+  padding: 26px 0;
+  border: 1px dashed #cfd6e2;
+  border-radius: 8px;
   text-align: center;
+  font-size: 12px;
+  color: var(--opp-muted);
 }
 .opp-more {
   width: 100%;
+  height: 30px;
+  border: 1px dashed #cfd6e2;
+  border-radius: 8px;
+  background: transparent;
   font-size: 12px;
+  color: var(--opp-muted);
 }
-.opp-required {
-  color: #c0392b;
+.opp-more:hover {
+  border-color: var(--opp-won);
+  color: var(--opp-won-ink);
 }
-.opp-form fieldset.opp-name {
-  border: 0;
+.opp-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.opp-list .opp-more {
+  margin-top: 10px;
+}
+/* 表单：两列等宽，标签在上、控件在下；所有控件同高同边框。 */
+.opp-form {
+  --opp-ink: #1f2d45;
+  --opp-muted: #6b7a90;
+  --opp-won: #0a6aff;
+  color: var(--opp-ink);
+}
+.opp-form .form-section {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+.opp-form .opp-grid + .form-section {
+  margin-top: 26px;
+}
+.opp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 20px;
+  align-items: start;
+}
+.opp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
   margin: 0;
   padding: 0;
-  min-width: 0;
+  border: 0;
 }
-.opp-form fieldset.opp-name legend {
+.opp-field.is-wide {
+  grid-column: 1 / -1;
+}
+.opp-field-label {
   padding: 0;
-  font-size: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: #3b4a62;
 }
-.opp-form fieldset.opp-name label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-right: 16px;
+.opp-req {
+  margin-left: 3px;
+  font-style: normal;
+  color: #d64552;
+}
+.opp-field-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--opp-muted);
+}
+.opp-form input:not([type="radio"]):not([type="hidden"]),
+.opp-form .opp-field select,
+.opp-form .opp-group select,
+.opp-form select,
+.opp-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid #d5dbe5;
+  border-radius: 6px;
+  background-color: #fff;
+  font: inherit;
+  font-size: 13px;
+  color: var(--opp-ink);
+}
+.opp-form textarea {
+  height: auto;
+  min-height: 76px;
+  padding: 8px 11px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.opp-form select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236b7a90' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+}
+.opp-form input::placeholder,
+.opp-form textarea::placeholder {
+  color: #a3adbd;
+}
+.opp-form input:hover,
+.opp-form select:hover,
+.opp-form textarea:hover {
+  border-color: #b9c2d0;
+}
+.opp-form input:focus,
+.opp-form select:focus,
+.opp-form textarea:focus {
+  outline: 0;
+  border-color: var(--opp-won);
+  box-shadow: 0 0 0 3px rgba(10, 106, 255, 0.14);
 }
 .opp-form input[readonly] {
-  background: #f1f2f4;
-  color: #6b7a90;
+  background: #f4f6f9;
+  color: var(--opp-muted);
+}
+.opp-form [hidden] {
+  display: none !important;
+}
+.opp-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 6px;
+}
+.opp-name-row input[name="name"] {
+  flex: 1 1 240px;
+  width: auto;
+}
+/* 自动生成／自定义：两个并排的选项，选中的一个填色。 */
+.opp-seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 8px;
+  background: #eef1f5;
+}
+.opp-seg label {
+  position: relative;
+  margin: 0;
+}
+.opp-seg input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.opp-seg span {
+  display: block;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 30px;
+  color: #56637a;
+  cursor: pointer;
+}
+.opp-seg input:checked + span {
+  background: #fff;
+  font-weight: 600;
+  color: var(--opp-ink);
+  box-shadow: 0 1px 2px rgba(31, 45, 69, 0.16);
+}
+.opp-seg input:focus-visible + span {
+  outline: 2px solid var(--opp-won);
+  outline-offset: 1px;
+}
+/* 币种＋金额：一个连在一起的输入组。 */
+.opp-group {
+  display: flex;
+}
+.opp-form .opp-group .opp-group-currency {
+  flex: 0 0 74px;
+  width: 74px;
+  border-radius: 6px 0 0 6px;
+  background: #f4f6f9;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+}
+.opp-form .opp-group input[name="amount"] {
+  flex: 1 1 auto;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 0;
+  font-variant-numeric: tabular-nums;
+}
+.opp-form .opp-group input:focus {
+  position: relative;
+  z-index: 1;
+}
+.opp-lead {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #3b4a62;
+}
+/* 操作菜单 */
+.opp-menu-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: #56637a;
+}
+.opp-menu-summary b {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2d45;
+  font-variant-numeric: tabular-nums;
 }
 .opp-menu h3 {
-  margin: 16px 0 8px;
+  margin: 22px 0 10px;
   font-size: 13px;
+  font-weight: 600;
   color: #3b4a62;
 }
 .opp-menu-group {
@@ -1026,7 +1458,153 @@ td.team-reached {
   flex-wrap: wrap;
   gap: 8px;
 }
+.opp-menu .opp-move.opp-kind-open {
+  border-color: #b9e2ca;
+  color: #136c41;
+}
+.opp-menu .opp-move.opp-kind-won {
+  border-color: #bcd3ff;
+  color: #0a4fc4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .opp-card {
+    transition: none;
+  }
+}
 
-.opp-form [hidden] {
-  display: none !important;
+/* 表单里的下拉框换成了统一的下拉组件，这里让它和输入框同高同边框。 */
+.opp-form button.lai-select-trigger {
+  width: 100%;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 30px 0 11px;
+  border-color: #d5dbe5;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 34px;
+  color: var(--opp-ink);
+}
+.opp-form button.lai-select-trigger::after {
+  top: 13px;
+}
+.opp-form button.lai-select-trigger:focus-visible,
+.opp-form button.lai-select-trigger[aria-expanded="true"] {
+  border-color: var(--opp-won);
+  box-shadow: 0 0 0 3px rgba(10, 106, 255, 0.14);
+}
+/* 商机分析：阶段分布一行说清——阶段、占比条、数量、金额。 */
+.opp-bars {
+  display: grid;
+  gap: 4px;
+}
+.opp-bar {
+  display: grid;
+  grid-template-columns: 84px minmax(80px, 1fr) 92px minmax(96px, auto);
+  align-items: center;
+  gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid #eef1f5;
+  font-size: 13px;
+}
+.opp-bar:last-child {
+  border-bottom: 0;
+}
+.opp-bar-label {
+  white-space: nowrap;
+  color: #3b4a62;
+}
+.opp-bar-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #eef1f5;
+}
+.opp-bar-track i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 4px;
+  background: #1f9d5c;
+}
+.opp-bar.opp-kind-won .opp-bar-track i {
+  background: #0a6aff;
+}
+.opp-bar.opp-kind-lost .opp-bar-track i {
+  background: #9aa5b6;
+}
+.opp-bar-count {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #6b7a90;
+}
+.opp-bar-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: #1f2d45;
+}
+.business-columns:has(.opp-bars) {
+  align-items: start;
+}
+
+/* 团队数据：版式微调（截图核对后）。 */
+/* 可点开明细的数字：平时只用颜色提示，悬停时才出现下划线，整张表不再满是横线。 */
+.team-number {
+  text-decoration: none;
+}
+.team-number:hover,
+.team-number:focus-visible {
+  text-decoration: underline;
+}
+.team-table td {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+/* 目标卡片：目标说明和进度条固定在卡片底部，同一行的卡片底边对齐。 */
+.team-goal-foot {
+  align-items: flex-end;
+  margin-top: auto;
+}
+.team-goal-foot .team-link {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+/* 团队墙金额卡片：完成值独占一行不折行，目标值、完成率并排在下面。 */
+.team-figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: 12px 16px;
+}
+.team-figures > div:first-child {
+  grid-column: 1 / -1;
+}
+.team-figures strong {
+  font-size: 24px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.team-figures b {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.team-rank-value,
+.team-board td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 团队墙：两张数字卡片上下叠在一列里，和旁边的排行榜等高。 */
+.team-stack {
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 12px;
+  min-width: 0;
+}
+.team-rank-empty {
+  justify-content: center;
+  padding: 28px 0;
 }

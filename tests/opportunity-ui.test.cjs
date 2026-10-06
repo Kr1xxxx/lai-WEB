@@ -29,20 +29,26 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   const board = O.board(sample(), {}, TODAY);
   const html = ui.boardMarkup(board, {}, {today: TODAY});
   assert.match(html, /共 <b>4<\/b> 个商机/);
-  for (const id of ['opp-search', 'opp-sort', 'opp-flow', 'opp-date-field', 'opp-from', 'opp-to', 'opp-archived', 'opp-currency']) assert.ok(html.includes(`id="${id}"`), id);
-  assert.match(html, /<option value="default" selected>默认销售流程<\/option>/);
-  assert.match(html, /总销售金额：<b>USD 631\.74<\/b>/); assert.match(html, /进行中金额：<b class="opp-open">USD 431\.74<\/b>/); assert.match(html, /赢单金额：<b class="opp-won">USD 200\.00<\/b>/);
+  for (const id of ['opp-search', 'opp-sort', 'opp-owner', 'opp-date-field', 'opp-from', 'opp-to', 'opp-archived', 'opp-currency']) assert.ok(html.includes(`id="${id}"`), id);
+  assert.doesNotMatch(html, /opp-flow/, 'only one sales flow exists, so there is nothing to choose');
+  assert.deepEqual([...html.matchAll(/<div class="opp-stat is-(\w+)"><span>([^<]+)<\/span><b>([^<]+)<\/b><\/div>/g)].map(m => [m[1], m[2], m[3]]),
+    [['total', '总销售金额', 'USD 631.74'], ['open', '进行中', 'USD 431.74'], ['won', '赢单', 'USD 200.00'], ['lost', '输单', 'USD 50.00']]);
   assert.match(html, /另有 1 个其他币种的商机/);
-  assert.deepEqual([...html.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span>([^<]+)<\/span><\/header><div class="opp-stage-amount">([^<]+)</g)].map(m => [m[1], m[2], m[3], m[4]]),
+  assert.deepEqual([...html.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span class="opp-stage-name">([^<]+)<\/span><span class="opp-stage-count">(\d+)<\/span><span class="opp-stage-amount">([^<]+)</g)].map(m => [m[1], m[2], `${m[3]}(${m[4]})`, m[5]]),
     [['open', 'open', '未成单(2)', 'USD 431.74'], ['open', 'unpaid', '付款未到账(0)', 'USD 0.00'], ['won', 'balance', '待付尾款(0)', 'USD 0.00'], ['won', 'done', '已完成(1)', 'USD 200.00'], ['lost', 'lost', '输单(1)', 'USD 50.00']]);
   assert.equal((html.match(/class="opp-card"/g) || []).length, 4);
   assert.equal((html.match(/draggable="true"/g) || []).length, 4);
   assert.equal((html.match(/暂无商机/g) || []).length, 2);
-  assert.match(html, /结束日期：04-02/, 'this year: month-day only');
-  assert.match(html, /结束日期：2025-12-15/, 'other years: full date');
-  assert.equal((html.match(/class="opp-overdue"/g) || []).length, 2, 'two open opportunities are past their end date');
+  assert.match(html, /<span class="opp-due is-overdue">逾期 04-02<\/span>/, 'this year: month-day only');
+  assert.match(html, /<span class="opp-due is-overdue">逾期 2025-12-15<\/span>/, 'other years: full date');
+  assert.equal((html.match(/class="opp-due is-overdue"/g) || []).length, 2, 'two open opportunities are past their end date');
+  assert.equal((html.match(/<span class="opp-due">11-05<\/span>/g) || []).length, 2, 'won and lost cards show the date without 截止');
+  assert.doesNotMatch(html, /截止/, 'no open card in this sample is still within its date');
+  assert.match(html, /<i class="opp-avatar" aria-hidden="true">A<\/i><span class="opp-owner-name">Amy<\/span>/);
   assert.match(html, /输单原因：价格原因/);
-  assert.match(html, /data-opp-view="board" aria-pressed="true"/);
+  assert.match(ui.headerActions(board, {}, {}), /data-opp-view="board" aria-pressed="true"/);
+  const soon = ui.boardMarkup(O.board(add(base, 's1', {endDate: '2026-10-20'}), {}, TODAY), {}, {today: TODAY});
+  assert.match(soon, /<span class="opp-due">10-20 截止<\/span>/, 'an open opportunity still within its date');
 });
 
 test('customer and owner text is always escaped', () => {
@@ -60,7 +66,8 @@ test('list view shows the same opportunities as a table; long columns are paged'
   const html = ui.boardMarkup(board, {mode: 'list'}, {today: TODAY});
   assert.doesNotMatch(html, /opp-board/);
   assert.equal((html.match(/data-opp-action="menu"/g) || []).length, 4);
-  assert.match(html, /<td>已完成<\/td>/); assert.match(html, /data-opp-view="list" aria-pressed="true"/);
+  assert.match(html, /<td><span class="opp-chip opp-stage-chip opp-kind-won">已完成<\/span><\/td>/); assert.match(html, /<span class="opp-due is-overdue">逾期 2026-04-02<\/span>/);
+  assert.match(ui.headerActions(board, {}, {mode: 'list'}), /data-opp-view="list" aria-pressed="true"/);
   let many = base;
   for (let i = 0; i < 65; i++) many = add(many, 'm' + i, {nameMode: 'custom', name: 'N' + String(i).padStart(2, '0')});
   const big = O.board(many, {}, TODAY);
@@ -79,18 +86,20 @@ test('form: reference fields, required marks, and the parts that depend on what 
   for (const name of ['nameMode', 'client', 'contact', 'amount', 'endDate', 'flow', 'exchangeRate', 'currency', 'stage', 'owner', 'collaborators', 'tags', 'note', 'products']) assert.ok(fresh.includes(`name="${name}"`), name);
   assert.match(fresh, /value="auto" checked/); assert.match(fresh, /name="name" value=""[^>]* hidden disabled>/, 'the name input is there but off until 自定义 is chosen');
   assert.match(fresh, /name="endDate" type="date" value="2026-11-05"/, 'end date defaults to 30 days ahead');
-  assert.match(fresh, /name="exchangeRate" value="100" data-rate="100" inputmode="decimal" readonly/);
+  assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="100" data-rate="100" inputmode="decimal" readonly/, 'USD needs no rate, so the field stays out of sight');
+  assert.match(fresh, /<input type="hidden" name="flow" value="default">/);
+  assert.equal((fresh.match(/<i class="opp-req" aria-hidden="true">\*<\/i>/g) || []).length, 8, 'name, customer, owner, amount, stage, end date, and the two hidden conditional ones');
   assert.match(fresh, /<option value="" selected>请先选择客户<\/option>/); assert.doesNotMatch(fresh, /name="contact" required/);
-  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="field" hidden>输单原因[^<]*<span[^>]*>\*<\/span><select name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
+  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
   const chosen = ui.formMarkup({...O.defaults(base, TODAY), client: 'Alpha <b>Co</b>', contact: 'Bo', nameMode: 'custom', name: '大单', currency: 'EUR', exchangeRate: 108, stage: 'lost', lostReason: '交期原因',
     collaborators: ['Bob', 'Cara'], tags: ['VIP'], products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B', quantity: 1, unitPrice: 4}]}, {contacts: ['Ann', 'Bo'], isNew: false});
   assert.match(chosen, /name="contact" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
   assert.match(chosen, /value="custom" checked/); assert.match(chosen, /name="name" value="大单"[^>]* required>/);
   assert.match(chosen, /<select name="lostReason" required>/);
-  assert.match(chosen, /name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
+  assert.match(chosen, /<label class="opp-field"><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
   assert.match(chosen, /<option value="交期原因" selected>/); assert.match(chosen, /name="lostNote"/);
   assert.match(chosen, /name="collaborators" value="Bob，Cara"/);
-  assert.match(chosen, />A, 10, 2\.5\nB, 1, 4<\/textarea><span class="muted tiny">共 2 项，合计 29\.00/);
+  assert.match(chosen, />A, 10, 2\.5\nB, 1, 4<\/textarea><span class="opp-field-hint">共 2 项，合计 29\.00/);
   assert.match(ui.formMarkup({client: 'Beta Ltd'}, {contacts: []}), /该客户没有联系人，可留空/);
   // 原来的联系人已不在客户联系人里：仍然作为已选项保留，保存别的修改时不会被清掉
   assert.match(ui.formMarkup({client: 'X', contact: 'Ann'}, {contacts: ['Bo']}), /<option value="Bo">Bo<\/option><option value="Ann" selected>Ann（已不在该客户的联系人中）<\/option>/);
@@ -110,7 +119,7 @@ test('card menu offers the right actions for each state', () => {
   assert.doesNotMatch(linked, /生成订单/); assert.match(linked, /data-biz-order="ord-9">查看关联订单/);
   assert.match(ui.menuMarkup({...card('p1'), archived: true}), /data-archived="0">取消归档/);
   assert.match(ui.menuMarkup(card('p1'), true), /class="team-danger" data-opp-action="delete" data-id="p1">再点一次确认删除（不可恢复）/);
-  assert.match(ui.lostMarkup(card('p1')), /<form class="drawer-body" id="opp-lost-form" data-id="p1">/);
+  assert.match(ui.lostMarkup(card('p1')), /<form class="drawer-body opp-form" id="opp-lost-form" data-id="p1">/);
 });
 
 test('analysis page shows the figures from the model', () => {
@@ -119,6 +128,8 @@ test('analysis page shows the figures from the model', () => {
   assert.match(html, /<span>赢单率<\/span><strong>50%<\/strong>/);
   assert.match(html, /<span>赢单<\/span><strong>1<\/strong><span class="muted tiny">USD 200\.00<\/span>/);
   assert.match(html, /<td>价格原因<\/td><td>1<\/td><td>USD 50\.00<\/td>/);
+  assert.deepEqual([...html.matchAll(/<div class="opp-bar opp-kind-(\w+)"><span class="opp-bar-label">([^<]+)<\/span><span class="opp-bar-track"><i style="width:(\d+)%"><\/i><\/span><b class="opp-bar-count">([^<]+)<\/b><span class="opp-bar-amount">([^<]+)<\/span>/g)].map(m => m.slice(1)),
+    [['open', '未成单', '100', '2 个 · 50%', 'USD 431.74'], ['open', '付款未到账', '0', '0 个 · 0%', 'USD 0.00'], ['won', '待付尾款', '0', '0 个 · 0%', 'USD 0.00'], ['won', '已完成', '50', '1 个 · 25%', 'USD 200.00'], ['lost', '输单', '50', '1 个 · 25%', 'USD 50.00']]);
   assert.match(html, /另有 1 个其他币种的商机未计入本页/);
   const empty = ui.analysisMarkup(O.analysis({}, {}, TODAY));
   assert.match(empty, /<span>赢单率<\/span><strong>—<\/strong>/); assert.match(empty, /所选范围内没有商机/); assert.match(empty, /所选范围内没有输单/);
@@ -233,7 +244,7 @@ test('controller: filters, views, paging and drag-and-drop', async () => {
   const c = controller(sample());
   c.page.navigate('opportunities');
   c.change({id: 'opp-currency', value: 'EUR'});
-  assert.match(c.mounted.at(-1), /总销售金额：<b>EUR 70\.00<\/b>/);
+  assert.match(c.mounted.at(-1), /<span>总销售金额<\/span><b>EUR 70\.00<\/b>/);
   c.change({id: 'opp-currency', value: 'USD'}); c.change({id: 'opp-search', value: '26100602'});
   assert.match(c.mounted.at(-1), /共 <b>1<\/b> 个商机/);
   c.change({id: 'opp-search', value: ''}); c.change({id: 'opp-archived', value: 'all'}); c.change({id: 'opp-owner', value: 'amy'});
