@@ -64,6 +64,7 @@
           }).format(v || 0);
   const opt = (v, label, selected) =>
     `<option value="${E(v)}" ${selected === v ? "selected" : ""}>${E(label)}</option>`;
+  let mail = null;
   let business = null,
     activeRoute = "customers";
   let state = {},
@@ -3013,7 +3014,7 @@
     const items = [
       ["star", "常用", null],
       ["grid", "工作台", "dashboard"],
-      ["mail", "邮件", null],
+      ["mail", "邮件", "mail"],
       ["chat", "沟通", null],
       ["lead", "线索", null],
       ["people", "客户", "customers"],
@@ -3035,6 +3036,7 @@
     );
   }
   function subnav() {
+    if (activeRoute === "mail") return mail.subnav();
     if (activeRoute === "customers")
       return `<h3>客户${customerNavToggle(true)}</h3>${[
         ["客户列表", "active", true],
@@ -3073,6 +3075,7 @@
       "analysis",
       "calendar",
       "settings",
+      "mail",
     ].includes(route)
       ? route
       : "customers";
@@ -3081,7 +3084,8 @@
     if (activeRoute === "customers") {
       if (name) detail(name, false, animateDetail ? "detail" : "");
       else showCustomerScreen("active");
-    } else business.navigate(activeRoute);
+    } else if (activeRoute === "mail") mail.select();
+    else business.navigate(activeRoute);
     return true;
   }
   function showCustomerScreen(screen) {
@@ -3207,6 +3211,7 @@
     if (!el || el.disabled) return;
     const d = el.dataset;
     if (d.laiRoute) return navigateApp(d.laiRoute);
+    if (d.mailFolder) return mail.select(d.mailFolder);
     if (d.laiScreen === "customer-settings") return customerSettings();
     if (d.laiScreen) return showCustomerScreen(d.laiScreen);
     if (d.customerTransition)
@@ -4078,6 +4083,16 @@
     toast,
     dialog: drawer,
     closeDialog: closeModal,
+  });
+  mail = window.LaiMailUI.create({
+    escape: E,
+    icon,
+    mount: (html) => {
+      window.LaiActivityCategoryNavigation.mount(null);
+      closeDropdowns();
+      removePopover();
+      $("#app").innerHTML = shell(html);
+    },
   });
   boot();
 })();
