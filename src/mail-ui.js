@@ -167,7 +167,9 @@
       templateArmed = "",
       panel = { name: "", loading: false, error: "", items: [] },
       panelToken = 0,
-      pendingOpen = null;
+      pendingOpen = null,
+      // 每次解绑、换邮箱加一：之前发出去的检查回来时对不上就作废。
+      epoch = 0;
     const BULK_STATUS = { sending: "发送中", done: "已完成", stopped: "已停止", cancelled: "已手动停止", interrupted: "已中断" };
     const ITEM_STATUS = { pending: "待发送", sent: "已发送", failed: "失败", skipped: "未发送" };
     const current = () => folders.find((item) => item.id === folder);
@@ -241,23 +243,36 @@
       lastUidNext = 0;
       panel = { name: "", loading: false, error: "", items: [] };
       panelToken++;
+      epoch++;
       listToken++;
       readToken++;
       threadToken++;
       batchToken++;
     }
-    async function loadAccount() {
+    // 读取绑定状态。邮件页、写信入口、客户详情、启动时的检查都可能来读：同一时间只发一个请求，大家等同一个结果。
+    let accountLoading = null;
+    function fetchAccount() {
+      if (accountLoading) return accountLoading;
       const token = ++loadToken;
       status = "loading";
-      try {
-        const data = await call("/api/mail-account");
-        if (token !== loadToken) return;
-        accept(data);
-      } catch (error) {
-        if (token !== loadToken) return;
-        status = "error";
-        loadError = error.status === 404 ? "当前版本的本机服务还不支持邮箱绑定，请更新应用后再试。" : error.message;
-      }
+      const mine = (async () => {
+        try {
+          const data = await call("/api/mail-account");
+          if (token === loadToken) accept(data);
+        } catch (error) {
+          if (token === loadToken) {
+            status = "error";
+            loadError = error.status === 404 ? "当前版本的本机服务还不支持邮箱绑定，请更新应用后再试。" : error.message;
+          }
+        } finally {
+          if (accountLoading === mine) accountLoading = null;
+        }
+      })();
+      accountLoading = mine;
+      return mine;
+    }
+    async function loadAccount() {
+      await fetchAccount();
       if (status === "ready" && account) return loadCurrent();
       rerender();
     }
@@ -274,7 +289,7 @@
       const key = `${folder}|${query}|${page}`,
         scope = `${folder}|${query}`;
       // 换了文件夹或搜索词时先清空，避免加载期间显示上一个列表的内容。
-      if (list.scope !== scope) picked = new Map();
+      if (list.scope !== scope || list.page !== page) picked = new Map();
       list = { ...list, key, scope, loading: true, error: "", page, ...(list.scope === scope ? {} : { items: [], total: 0 }) };
       rerender();
       try {
@@ -367,11 +382,21 @@
     }
 
     // ---- 标记：导航 ----
+    const badge = (id) => {
+      const n = counts && (id === "unread" || id === "inbox" ? counts.unread : id === "pending" ? counts.pending : 0);
+      return n ? `<span class="mail-count">${n > 999 ? "999+" : n}</span>` : "";
+    };
+    // 只把文件夹旁边的数字换掉，不重画整页（后台检查到数字变了时用：正在看的邮件、正在打的搜索词都不受影响）。
+    function paintCounts() {
+      if (!onMailPage() || typeof document === "undefined" || !document.querySelectorAll) return;
+      document.querySelectorAll(".mail-folders [data-mail-folder]").forEach((button) => {
+        const old = button.querySelector(".mail-count");
+        if (old) old.remove();
+        const html = badge(button.dataset.mailFolder);
+        if (html) button.insertAdjacentHTML("beforeend", html);
+      });
+    }
     function subnav() {
-      const badge = (id) => {
-        const n = counts && (id === "unread" || id === "inbox" ? counts.unread : id === "pending" ? counts.pending : 0);
-        return n ? `<span class="mail-count">${n > 999 ? "999+" : n}</span>` : "";
-      };
       let below;
       if (view === "mail")
         below =
@@ -434,7 +459,7 @@
       const who = many ? names.slice(0, 3).join("、") + (names.length > 3 ? " 等" : "") : sent ? (message.to || []).map(person).join("、") || "（无收件人）" : person(message.from) || "（未知发件人）";
       const customer = items.map((item) => customerOf(item, index)).find(Boolean) || "";
       const selected = !!reading && items.some((item) => sameRef(reading.ref, item));
-      const unread = items.some((item) => !item.seen),
+      const unread = items.some((item) => item.box !== "sent" && !item.seen),
         pending = items.some((item) => item.box !== "sent" && item.pending),
         on = items.every((item) => picked.has(refKey(item))),
         inboxOnly = items.some((item) => item.box !== "sent");
@@ -566,7 +591,7 @@
     function conversation(m) {
       const seen = new Set(),
         pool = [];
-      for (const item of [m, ...currentItems(), ...related.items]) {
+      for (const item of [...currentItems(), ...related.items, m]) {
         if (seen.has(refKey(item))) continue;
         seen.add(refKey(item));
         pool.push(item);
@@ -971,19 +996,37 @@
       if (!confirmTarget || working) return;
       const target = confirmTarget;
       working = true;
+      const moved = [];
+      const forget = (refs) => {
+        for (const ref of refs) {
+          cache.delete(refKey(ref));
+          picked.delete(refKey(ref));
+        }
+        relatedCache = new Map();
+      };
       try {
-        for (const [box, uids] of byBox(target.refs)) await call("/api/mail/trash", uids.length === 1 ? { box, uid: uids[0] } : { box, uids });
+        for (const [box, uids] of byBox(target.refs)) {
+          await call("/api/mail/trash", uids.length === 1 ? { box, uid: uids[0] } : { box, uids });
+          moved.push(...uids.map((uid) => ({ box, uid })));
+        }
       } catch (error) {
         working = false;
+        // 两个文件夹里各有几封时，可能前一个删成了、后一个没成：已经删掉的从界面上去掉，剩下的留着可以再试。
+        if (moved.length) {
+          forget(moved);
+          confirmTarget = { ...target, refs: target.refs.filter((ref) => !moved.some((done) => sameRef(done, ref))) };
+          if (reading && moved.some((ref) => sameRef(reading.ref, ref))) {
+            reading = null;
+            readToken++;
+          }
+          await loadCurrent();
+          return showError("mail-confirm-error", `${moved.length} 封已移到「已删除」，其余 ${confirmTarget.refs.length} 封没有删掉：${error.message}`);
+        }
         return showError("mail-confirm-error", error.message);
       }
       working = false;
       confirmTarget = null;
-      for (const ref of target.refs) {
-        cache.delete(refKey(ref));
-        picked.delete(refKey(ref));
-      }
-      relatedCache = new Map();
+      forget(target.refs);
       ctx.closeDialog();
       ctx.toast(target.refs.length > 1 ? `${target.refs.length} 封邮件已移到「已删除」` : "已移到「已删除」");
       const wasOpen = !!reading && target.refs.some((ref) => sameRef(reading.ref, ref));
@@ -1000,15 +1043,17 @@
       if (checking || status !== "ready" || !account || account.autoCheck === false || compose) return false;
       if (typeof document !== "undefined" && document.hidden) return false;
       checking = true;
+      const began = epoch;
       try {
         const data = await call("/api/mail/status");
+        if (began !== epoch || !account) return false;
         const fresh = lastUidNext && data.uidNext > lastUidNext ? data.uidNext - lastUidNext : 0;
         lastUidNext = data.uidNext || lastUidNext;
         const changed = setCounts({ unread: data.unread, pending: data.pending });
         if (fresh) ctx.toast(`收到 ${fresh} 封新邮件`);
         // 正停在收件箱或未读的第一页、又没在搜索时，顺手把列表也更新了（正在看的那封不受影响）。
         if (fresh && onMailPage() && view === "mail" && (folder === "inbox" || folder === "unread") && list.page === 1 && !query && !list.loading) await loadList(1);
-        else if (changed) rerender();
+        else if (changed) paintCounts();
         return true;
       } catch (_) {
         // 自动检查失败不打扰用户；下次打开邮件或手动刷新时会看到具体原因。
@@ -1019,20 +1064,7 @@
     }
     // 应用启动时调用一次：悄悄读取绑定状态，绑定了就开始定时检查。
     async function start() {
-      if (status === "idle") {
-        const token = ++loadToken;
-        status = "loading";
-        try {
-          const data = await call("/api/mail-account");
-          if (token === loadToken) accept(data);
-        } catch (error) {
-          if (token === loadToken) {
-            status = "error";
-            loadError = error.message;
-          }
-        }
-        if (onMailPage()) rerender();
-      }
+      if (status === "idle") await fetchAccount();
       const every = ctx.checkMs ?? 60000;
       if (every > 0 && !checkTimer && root.setInterval) checkTimer = root.setInterval(check, every);
       return check();
@@ -1051,7 +1083,8 @@
 
     // ---- 写信（独立页面，富文本） ----
     const textToHtml = (text) => String(text ?? "").split("\n").map((line) => `<div>${E(line) || "<br>"}</div>`).join("");
-    const signatureHtml = () => (account && account.signature ? `<div><br></div><div>${textToHtml(account.signature)}</div>` : "");
+    // 签名带一个记号，存模板时好把它去掉（不然用模板时会出现两份签名）。
+    const signatureHtml = () => (account && account.signature ? `<div><br></div><div class="lai-signature">${textToHtml(account.signature)}</div>` : "");
     const WRAP = `font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.6;color:#1d273e`;
     const QUOTE = `margin:8px 0 0 .8ex;border-left:2px solid #ccd3de;padding-left:1.2ex;color:#53617b`;
     // 发出的 HTML：包一层基本字体，引用块写上内联样式（收件方的邮箱不认我们的样式表）。
@@ -1089,19 +1122,7 @@
     }
     // 写信类入口共用：没读过绑定状态就先读；没有可用邮箱时提示并打开绑定窗口。
     async function ready(pointerActivated) {
-      if (status === "idle" || status === "error") {
-        const token = ++loadToken;
-        status = "loading";
-        try {
-          const data = await call("/api/mail-account");
-          if (token === loadToken) accept(data);
-        } catch (error) {
-          if (token === loadToken) {
-            status = "error";
-            loadError = error.message;
-          }
-        }
-      }
+      if (status !== "ready") await fetchAccount();
       if (status === "ready" && account) return true;
       ctx.toast(status !== "ready" ? "无法读取邮箱绑定状态，请到邮件页重试" : available ? "请先绑定邮箱" : "网页试用版无法收发邮件");
       if (status === "ready") bindDialog(pointerActivated);
@@ -1110,7 +1131,8 @@
     // 把页面上正在填的内容收进 compose.values，这样页面被重画也不丢。
     function capture() {
       if (!compose) return null;
-      const form = document.getElementById("mail-compose-form");
+      // 这封信自己的页面画出来之后才读表单：刚新开的一封不能把屏幕上还留着的上一封的内容读进来。
+      const form = compose.mounted ? document.getElementById("mail-compose-form") : null;
       if (form) {
         const value = (name, fallback) => (form.elements[name] ? String(form.elements[name].value ?? "") : fallback);
         const v = compose.values;
@@ -1122,7 +1144,7 @@
       }
       return compose.values;
     }
-    const composeSnapshot = () => JSON.stringify([compose.values.to, compose.values.cc, compose.values.bcc, compose.values.subject, compose.values.html, compose.mode === "bulk" ? [...compose.selected].sort() : 0, compose.files.map((file) => `${file.name}:${file.size}`)]);
+    const composeSnapshot = () => JSON.stringify([compose.values.to, compose.values.cc, compose.values.bcc, compose.values.subject, compose.values.html, compose.mode === "bulk" ? [...compose.selected].sort() : 0, compose.files.filter((file) => file.ready).map((file) => `${file.name}:${file.size}`)]);
     const composeHasContent = () => !!(compose.values.to || compose.values.cc || compose.values.bcc || compose.values.subject || String(compose.values.text || "").trim() || compose.files.length);
     // 还没显示出来的写信页（snapshot 为空）不算有改动。
     const composeDirty = () => !!compose && !!compose.snapshot && !!capture() && composeSnapshot() !== compose.snapshot && composeHasContent();
@@ -1191,6 +1213,7 @@
       const form = document.getElementById("mail-compose-form"),
         node = document.getElementById("mail-compose-editor");
       if (!compose || !form || !node) return;
+      compose.mounted = true;
       if (compose.editor && compose.editor.destroy) compose.editor.destroy();
       compose.editor = ctx.createEditor(node, document.querySelector ? document.querySelector(".mail-editor-toolbar") : null, compose.values.html);
       renderFiles();
@@ -1258,14 +1281,13 @@
       if (onMailPage()) return loadCurrent();
     }
     const draftPayload = () => ({ id: compose.draftId || undefined, to: compose.values.to, cc: compose.values.cc, bcc: compose.values.bcc, subject: compose.values.subject, text: compose.values.text, html: compose.values.html, inReplyTo: compose.inReplyTo, references: compose.references, forwardOf: compose.forwardOf });
-    const filePayload = () => compose.files.map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 }));
+    // 只算读完了的附件；还在读的那些读完后会让这封信重新变成“有改动”，下次保存时带上。
+    const filePayload = () => compose.files.filter((file) => file.ready).map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 }));
     async function saveDraft(close) {
       if (!compose || compose.sending || compose.mode === "bulk") return false;
       capture();
       try {
-        // 附件随草稿一起存；还有没读完的附件时这次只存文字，已经存过的附件不动。
-        const pendingFiles = compose.files.some((file) => !file.ready);
-        const data = await call("/api/mail/drafts/save", pendingFiles ? draftPayload() : { ...draftPayload(), attachments: filePayload() });
+        const data = await call("/api/mail/drafts/save", { ...draftPayload(), attachments: filePayload() });
         compose.draftId = data.draft.id;
         compose.snapshot = composeSnapshot();
         compose.force = false;
@@ -1282,6 +1304,11 @@
     async function leaveCompose() {
       if (!compose) return true;
       if (compose.sending) return false;
+      // 附件还没读完就离开，这个附件会丢：先拦住。
+      if (compose.files.some((file) => !file.ready) && !compose.force) {
+        showError("mail-compose-error", "附件还在读取，请稍等一下再离开。");
+        return false;
+      }
       if (composeDirty() && !compose.force) {
         if (compose.mode === "bulk") {
           compose.force = true;
@@ -1349,15 +1376,33 @@
     }
 
     // ---- 模板 ----
+    // 用函数做替换：客户名里的 $ 不会被当成替换记号。
     const fillVariables = (text, who, asHtml) => {
       const put = (value) => (asHtml ? E(value) : value);
-      return String(text ?? "").replace(/\{\{\s*姓名\s*\}\}/g, put(who.name || who.customer || "")).replace(/\{\{\s*公司\s*\}\}/g, put(who.customer || ""));
+      return String(text ?? "").replace(/\{\{\s*姓名\s*\}\}/g, () => put(who.name || who.customer || "")).replace(/\{\{\s*公司\s*\}\}/g, () => put(who.customer || ""));
     };
-    // 写信页第一位收件人对应的客户（用来把模板里的称呼直接换好）；群发时不换，由发送时逐封替换。
+    // 存模板时只留自己写的内容：去掉签名、引用的原邮件和末尾的空行。
+    function templateContent(html) {
+      if (!root.DOMParser) return { html, changed: false };
+      const doc = new root.DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+      const extra = doc.body.querySelectorAll(".lai-signature, blockquote");
+      extra.forEach((node) => node.remove());
+      let trimmed = false;
+      for (let last = doc.body.lastElementChild; last && !last.textContent.trim() && !last.querySelector("img"); last = doc.body.lastElementChild) {
+        last.remove();
+        trimmed = true;
+      }
+      return { html: doc.body.innerHTML, changed: extra.length > 0 || trimmed };
+    }
+    // 写信页唯一的那位收件人对应的客户（用来把模板里的称呼直接换好）。有多位收件人、抄送或密送时不换，
+    // 免得把一个人的名字发给所有人；群发时也不换，由发送时逐封替换。
     function composeCustomer() {
       if (!compose || compose.mode === "bulk") return null;
-      const first = String(compose.values.to || "").split(/[,;]/)[0] || "",
-        match = /<([^<>]+)>/.exec(first),
+      const v = compose.values,
+        pieces = String(v.to || "").split(/[,;]/).map((piece) => piece.trim()).filter(Boolean);
+      if (pieces.length !== 1 || String(v.cc || "").trim() || String(v.bcc || "").trim()) return null;
+      const first = pieces[0],
+        match = /<([^<>]+)>\s*$/.exec(first),
         address = String(match ? match[1] : first).trim().toLowerCase();
       const name = addressIndex().get(address);
       if (!name) return null;
@@ -1418,8 +1463,10 @@
       const v = capture(),
         name = String(input.value || "").trim();
       if (!name) return showError("mail-template-error", "请给模板起个名字");
+      const content = templateContent(v.html);
       try {
-        await call("/api/mail/templates/save", { name, subject: v.subject, html: v.html, text: v.text });
+        // 去掉了签名或引用之后，纯文字那一份交给本机服务从 HTML 重新生成。
+        await call("/api/mail/templates/save", { name, subject: v.subject, html: content.html, text: content.changed ? "" : v.text });
       } catch (error) {
         return showError("mail-template-error", error.message);
       }
@@ -1471,19 +1518,10 @@
     async function loadCustomerPanel(name, force = false) {
       const token = ++panelToken;
       const done = () => ctx.refreshCustomerPanel && ctx.refreshCustomerPanel(name);
-      if (status === "idle" || status === "error") {
-        const mine = ++loadToken;
-        status = "loading";
+      if (status !== "ready") {
+        const loading = fetchAccount();
         done();
-        try {
-          const data = await call("/api/mail-account");
-          if (mine === loadToken) accept(data);
-        } catch (error) {
-          if (mine === loadToken) {
-            status = "error";
-            loadError = error.message;
-          }
-        }
+        await loading;
       }
       const row = customers().find((item) => item.name === name);
       if (token !== panelToken) return;
@@ -1611,7 +1649,7 @@
 
     // ---- 群发（在写信页里，收件人换成勾选客户） ----
     const bulkRecipients = () => customers().map((row) => ({ customer: row.name, name: row.contact, address: row.addresses[0] }));
-    const bulkFill = (text, item) => String(text).replace(/\{\{\s*姓名\s*\}\}/g, item.name || item.customer || "").replace(/\{\{\s*公司\s*\}\}/g, item.customer || "");
+    const bulkFill = (text, item) => String(text).replace(/\{\{\s*姓名\s*\}\}/g, () => item.name || item.customer || "").replace(/\{\{\s*公司\s*\}\}/g, () => item.customer || "");
     function bulkRefresh() {
       const listBox = document.getElementById("mail-bulk-recipients"),
         count = document.getElementById("mail-bulk-count"),
@@ -1859,8 +1897,19 @@
       if (name === "panel-reload") return loadCustomerPanel(data.name, true);
       if (name === "goto-mail") return ctx.openMail && ctx.openMail(folder);
       if (name === "panel-open") {
+        if (!ctx.openMail) return undefined;
         pendingOpen = { name: data.name, box: data.box, uid: Number(data.uid) };
-        return ctx.openMail && ctx.openMail(folder);
+        // 没去成邮件页（比如当前页有没保存的内容被拦住了）：这次点击作废，不能留到下次进邮件页时突然生效。
+        return Promise.resolve(ctx.openMail(folder)).then(
+          (went) => {
+            if (went === false) pendingOpen = null;
+            return went;
+          },
+          (error) => {
+            pendingOpen = null;
+            throw error;
+          },
+        );
       }
       if (name === "draft-delete")
         return call("/api/mail/drafts/delete", { id: data.id }).then(
@@ -1918,7 +1967,8 @@
     function enter() {
       reading = null;
       readToken++;
-      const pending = status === "idle" || status === "error" ? loadAccount() : status === "ready" ? loadCurrent() : null;
+      // 绑定状态正由别处读着（启动检查、客户详情）时，等它读完再读邮件，不能就这么空着。
+      const pending = status === "ready" ? loadCurrent() : loadAccount();
       render();
       return pending;
     }
@@ -1941,6 +1991,7 @@
         // 刚从别的页面发起写信：进入邮件页后直接显示写信页。
         if (compose && compose.fresh) {
           compose.fresh = false;
+          pendingOpen = null;
           return render();
         }
         // 从客户详情点开某封邮件：进到「客户」页签、这位客户的往来邮件里，并打开那一封。

@@ -478,7 +478,7 @@ test('bulk mail is a compose page that picks customers, previews the personalise
     assert.equal(h.dialog, null); assert.match(h.page, /<h1>新建群发<\/h1>/); assert.match(h.page, /看不到其他收件人/); assert.match(h.page, /已选 0 \/ 3 位客户/); assert.match(h.page, /data-mail-action="bulk-preview"/); assert.doesNotMatch(h.page, /compose-draft|name="to"/);
     assert.deepEqual([...h.page.matchAll(/data-mail-action="bulk-toggle" data-name="([^"]+)"[^>]*>.*?mail-bulk-address">([^<]*)</g)].map(m => m.slice(1)).sort(), [['Gulf &lt;b&gt;', 'omar@gulf.example'], ['Nordic Lamps AB', 'Anna Berg · anna@nordic-lamps.example'], ['深圳配件', '王磊 · wanglei@shenzhen-parts.example']]);
     const f = h.form('mail-compose-form').elements;
-    assert.equal(h.editor.html, '<div><br></div><div><br></div><div><div>Kris</div><div>Lai &lt;Trading&gt;</div></div>', 'the signature is prefilled, escaped');
+    assert.equal(h.editor.html, '<div><br></div><div><br></div><div class="lai-signature"><div>Kris</div><div>Lai &lt;Trading&gt;</div></div>', 'the signature is prefilled, escaped');
     await h.submit('mail-compose-form'); assert.equal(h.node('mail-compose-error').textContent, '请至少选择一位客户');
     h.act('bulk-all'); assert.equal(h.node('mail-bulk-count').textContent, '已选 3 / 3 位客户'); assert.equal([...h.node('mail-bulk-recipients').innerHTML.matchAll(/aria-checked="true"/g)].length, 3);
     h.act('bulk-none'); h.act('bulk-toggle', { name: 'Nordic Lamps AB' });
@@ -570,10 +570,10 @@ test('sender name and signature are saved in mailbox settings and added to new m
     h.node('mail-settings-signature').value = 'Kris <Sales>\nLai Trading'; await h.act('settings-save');
     assert.deepEqual(saved, { senderName: 'Kris', signature: 'Kris <Sales>\nLai Trading', autoCheck: true }); assert.equal(h.toasts.at(-1), '已保存'); assert.equal(h.mail.account().signature, 'Kris <Sales>\nLai Trading');
     h.act('account'); assert.match(h.dialog.body, /value="Kris"/); assert.match(h.dialog.body, />\nKris &lt;Sales&gt;\nLai Trading<\/textarea>/);
-    await h.act('compose'); assert.equal(h.editor.html, '<div><br></div><div><br></div><div><div>Kris &lt;Sales&gt;</div><div>Lai Trading</div></div>'); assert.equal(h.form('mail-compose-form').elements.fromName.value, 'Kris');
+    await h.act('compose'); assert.equal(h.editor.html, '<div><br></div><div><br></div><div class="lai-signature"><div>Kris &lt;Sales&gt;</div><div>Lai Trading</div></div>'); assert.equal(h.form('mail-compose-form').elements.fromName.value, 'Kris');
     await h.act('compose-close'); assert.equal(h.calls('/api/mail/drafts/save').length, 0, 'a message holding only the signature is not saved as a draft');
     await h.act('open', { box: 'inbox', uid: '4' }); await h.act('reply');
-    assert.match(h.editor.html, /^<div><br><\/div><div><br><\/div><div><div>Kris &lt;Sales&gt;<\/div><div>Lai Trading<\/div><\/div><div><br><\/div><div>在 .* 写道：<\/div><blockquote>/, 'the signature sits above the quoted message'); await h.act('compose-close');
+    assert.match(h.editor.html, /^<div><br><\/div><div><br><\/div><div class="lai-signature"><div>Kris &lt;Sales&gt;<\/div><div>Lai Trading<\/div><\/div><div><br><\/div><div>在 .* 写道：<\/div><blockquote>/, 'the signature sits above the quoted message'); await h.act('compose-close');
     await h.mail.select('drafts'); await h.act('draft-open', { id: 'a'.repeat(32) }); assert.equal(h.editor.html, '<div>draft <b>body</b></div>', 'a reopened draft does not get a second signature');
   } finally { h.dispose(); }
 });
@@ -829,8 +829,12 @@ test('a draft is saved and reopened together with its attachments', async () => 
     assert.deepEqual(h.calls('/api/mail/draft').at(-1).query, { id: 'a'.repeat(32) }); assert.match(h.node('mail-compose-file-list').innerHTML, /报价\.pdf.*4 B/, 'the stored file is back on the compose page');
     h.act('file-remove', { index: '0' }); assert.equal(h.mail.composeDirty(), true, 'removing it is a change');
     h.node('mail-compose-file').files = [{ name: 'slow.txt', type: 'text/plain', size: 2, content: 'ok', slow: true }]; const slow = h.node('mail-compose-file').files[0]; h.fire('mail-compose-file', 'change');
-    await h.act('compose-draft'); assert.equal(h.calls('/api/mail/drafts/save').at(-1).payload.attachments, undefined, 'while a file is still being read only the text is saved, so stored files are not wiped');
-    slow.finish(); await h.submit('mail-compose-form');
+    await h.act('compose-draft'); assert.deepEqual(h.calls('/api/mail/drafts/save').at(-1).payload.attachments, [], 'a file that is still being read is not part of this save (the removed one is gone)');
+    assert.equal(h.mail.composeDirty(), false); const saves = h.calls('/api/mail/drafts/save').length;
+    assert.equal(await h.mail.leave(), false, 'leaving while a file is still being read is refused, so the file cannot be lost'); assert.equal(h.node('mail-compose-error').textContent, '附件还在读取，请稍等一下再离开。'); assert.equal(h.mail.composing(), true); assert.equal(h.calls('/api/mail/drafts/save').length, saves);
+    slow.finish(); assert.equal(h.mail.composeDirty(), true, 'once the file is read it counts as an unsaved change');
+    await h.act('compose-draft'); assert.deepEqual(h.calls('/api/mail/drafts/save').at(-1).payload.attachments.map(a => a.filename), ['slow.txt']); assert.equal(h.mail.composeDirty(), false);
+    await h.submit('mail-compose-form');
     assert.deepEqual(h.calls('/api/mail/send').at(-1).payload.attachments.map(a => a.filename), ['slow.txt']); assert.equal(h.calls('/api/mail/send').at(-1).payload.draftId, 'a'.repeat(32));
   } finally { h.dispose(); }
   const broken = harness({ routes: { '/api/mail/drafts': ({ reply }) => reply(200, { ok: true, items: [{ id: 'b'.repeat(32), to: '', subject: 's', text: 't', updatedAt: '2026-10-06T09:00:00.000Z' }] }), '/api/mail/draft': ({ reply }) => reply(404, { ok: false, message: '找不到这份草稿' }) } });
@@ -889,4 +893,124 @@ test('the customer page panel lists mailbox correspondence, opens a message on t
   try { await unbound.mail.loadCustomerPanel('Nordic Lamps AB'); assert.match(unbound.mail.customerPanel('Nordic Lamps AB'), /data-mail-action="goto-mail"[\s\S]*还没有绑定邮箱/); } finally { unbound.dispose(); }
   const failing = make({ routes: { '/api/mail/correspondence': ({ reply }) => reply(502, { ok: false, message: '无法连接邮箱服务器 <x>' }) } });
   try { await failing.mail.loadCustomerPanel('Nordic Lamps AB'); assert.match(failing.mail.customerPanel('Nordic Lamps AB'), /读取往来邮件失败：无法连接邮箱服务器 &lt;x&gt;/); } finally { failing.dispose(); }
+});
+
+// ---- 独立复查发现的问题，各配一条回归测试 ----
+test('review: a refused jump from the customer page is forgotten, not replayed on the next visit to mail', async () => {
+  const t = threadRoutes();
+  let allow = false;
+  const h = harness({ active: false, routes: t.routes, ctx: { openMail: async () => allow } });
+  try {
+    await h.mail.loadCustomerPanel('Nordic Lamps AB');
+    assert.equal(await h.act('panel-open', { name: 'Nordic Lamps AB', box: 'sent', uid: '5' }), false);
+    h.setActive(true); await h.mail.select('inbox');
+    assert.equal(h.mail.view(), 'mail', 'an ordinary visit: the inbox, not the customer view'); assert.equal(h.calls('/api/mail/message').length, 0, 'and no message is opened (or marked read) behind the user’s back');
+    allow = true; h.setActive(false); h.act('panel-open', { name: 'Nordic Lamps AB', box: 'sent', uid: '5' }); await new Promise(resolve => setImmediate(resolve));
+    h.setActive(true); await h.mail.select('inbox'); assert.equal(h.mail.view(), 'customer'); assert.equal(h.calls('/api/mail/message').length, 1);
+  } finally { h.dispose(); }
+});
+
+test('review: in the customer view a row is unread only when a received message is unread, and its button matches what it does', async () => {
+  const unseenSent = { ...SENT2, seen: false };
+  const h = harness({ routes: { '/api/mail/correspondence': ({ reply }) => reply(200, { ok: true, items: [unseenSent, { ...T1 }] }), '/api/mail/flags': ({ reply }) => reply(200, { ok: true }) } });
+  try {
+    await h.mail.showView('customer'); await h.act('customer-select', { name: 'Nordic Lamps AB' });
+    const row = rowsIn(h.page)[0];
+    assert.equal(row.count, '2'); assert.equal(row.cls.includes('unread'), false, 'an unseen copy in Sent does not make the conversation unread'); assert.match(row.html, /data-mail-action="row-read"[^>]*aria-label="标为未读"/);
+    await h.act('row-read', { box: 'sent', uid: '5' });
+    assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 11, seen: false }, 'the button said 标为未读 and that is what was sent');
+  } finally { h.dispose(); }
+});
+
+test('review: a template is filled in only for a single recipient, and names containing $ are inserted literally', async () => {
+  const h = harness({ customers: { ...CUSTOMERS, 'Cash$& Co': { email: 'pay@cash.example', contact: 'Mr $1 <b>' } } });
+  try {
+    await h.mail.select(); await h.act('compose');
+    h.form('mail-compose-form').elements.to.value = 'anna@nordic-lamps.example, liwei@shenzhen-parts.example';
+    await h.act('template-open'); await h.act('template-use', { id: 'builtin:sample' });
+    assert.match(h.editor.html, /^<div>Dear \{\{姓名\}\},<\/div>/, 'with two recipients nobody’s name is put in'); assert.match(h.toasts.at(-1), /记得把/);
+    await h.submit('mail-compose-form'); assert.match(h.node('mail-compose-error').textContent, /还有没替换的/, 'and the message cannot be sent like that');
+    await h.act('compose-close'); await h.act('compose');
+    const f = h.form('mail-compose-form').elements; f.to.value = 'anna@nordic-lamps.example'; await h.act('compose-cc'); h.form('mail-compose-form').elements.cc.value = 'boss@x.example';
+    await h.act('template-open'); await h.act('template-use', { id: 'builtin:sample' }); assert.match(h.editor.html, /^<div>Dear \{\{姓名\}\},<\/div>/, 'a Cc counts as a second reader');
+    await h.act('compose-close'); await h.mail.composeFor(['Cash$& Co']);
+    assert.equal(h.form('mail-compose-form').elements.to.value, 'Mr $1 <b> <pay@cash.example>', 'a new message never inherits what the previous compose page still shows');
+    await h.act('template-open'); await h.act('template-use', { id: 'builtin:sample' });
+    assert.match(h.editor.html, /^<div>Dear Mr \$1 &lt;b&gt;,<\/div>.*The samples for Cash\$&amp; Co have been shipped/);
+  } finally { h.dispose(); }
+});
+
+test('review: the background check ignores overlapping runs, a hidden window, and answers that arrive after the mailbox changed; counts update without a redraw', async () => {
+  let release = null, answers = 0;
+  const badges = [];
+  const h = harness({ routes: {
+    '/api/mail/status': ({ reply }) => { answers++; const answer = reply(200, { ok: true, unread: 7, pending: 0, total: 9, uidNext: 20 }); return release === 'hold' ? new Promise(resolve => { release = () => resolve(answer); }) : answer; },
+    '/api/mail-account/unbind': ({ reply }) => reply(200, { ok: true, available: true, account: null }) }, ctx: { onCounts: counts => badges.push(counts && counts.unread) } });
+  try {
+    await h.mail.start(); await h.mail.select(); assert.equal(answers, 1);
+    const mounts = h.mounted.length; badges.length = 0;
+    release = 'hold'; const first = h.mail.check(); assert.equal(await h.mail.check(), false, 'a second check while one is running does nothing'); assert.equal(answers, 2);
+    await h.act('unbind-confirm'); assert.equal(h.mail.account(), null);
+    release(); assert.equal(await first, false, 'the late answer belongs to the mailbox that was just unbound');
+    assert.equal(h.mail.counts(), null); assert.deepEqual(badges, [null], 'the badge is cleared by the unbind and not brought back');
+    release = null;
+  } finally { h.dispose(); }
+  const quiet = harness({ routes: { '/api/mail/status': ({ reply }) => reply(200, { ok: true, unread: 5, pending: 0, total: 9, uidNext: 20 }) } });
+  try {
+    await quiet.mail.start(); await quiet.mail.select(); const mounts = quiet.mounted.length, asked = quiet.calls('/api/mail/status').length;
+    globalThis.document.hidden = true; assert.equal(await quiet.mail.check(), false); assert.equal(quiet.calls('/api/mail/status').length, asked, 'nothing is asked while the window is hidden'); globalThis.document.hidden = false;
+    quiet.form('mail-search-form').elements.query.value = 'half typed';
+    assert.equal(await quiet.mail.check(), true); assert.deepEqual(quiet.mail.counts(), { unread: 5, pending: 0 }); assert.equal(quiet.mounted.length, mounts, 'a count change repaints the numbers only: the page (and a half-typed search) is left alone');
+    assert.equal(quiet.form('mail-search-form').elements.query.value, 'half typed');
+  } finally { quiet.dispose(); }
+});
+
+test('review: the mail page loads the inbox even when the binding is still being read for another reason', async () => {
+  let release;
+  const h = harness({ routes: { '/api/mail-account': ({ reply }) => new Promise(resolve => { release = () => resolve(reply(200, { ok: true, available: true, account: ACCOUNT })); }) } });
+  try {
+    const starting = h.mail.start();   // 启动时的检查先发出了读取绑定状态的请求
+    const entering = h.mail.select(); assert.match(h.page, /正在读取邮箱绑定状态/);
+    release(); await starting; await entering;
+    assert.equal(h.calls('/api/mail-account').length, 1, 'one request serves both'); assert.equal(h.calls('/api/mail/messages').length, 1); assert.match(h.page, /样品寄送确认/);
+  } finally { h.dispose(); }
+  const panel = harness({ active: false, routes: { '/api/mail-account': ({ reply }) => new Promise(resolve => { release = () => resolve(reply(200, { ok: true, available: true, account: ACCOUNT })); }) } });
+  try {
+    const starting = panel.mail.start(); const loading = panel.mail.loadCustomerPanel('Nordic Lamps AB');
+    release(); await starting; await loading;
+    assert.equal(panel.calls('/api/mail-account').length, 1); assert.equal(panel.calls('/api/mail/correspondence').length, 1); assert.doesNotMatch(panel.mail.customerPanel('Nordic Lamps AB'), /正在读取邮箱绑定状态/);
+  } finally { panel.dispose(); }
+});
+
+test('review: a reply that carries only In-Reply-To still shows its conversation when opened', async () => {
+  const reply2 = { ...T3, references: '', inReplyTo: '<t1@x>' };
+  const t = threadRoutes([reply2, T1]);
+  const h = harness({ routes: { ...t.routes, '/api/mail/correspondence': ({ reply }) => reply(200, { ok: true, items: [] }),
+    '/api/mail/message': ({ query, reply }) => reply(200, { ok: true, message: { ...MESSAGE, box: 'inbox', uid: Number(query.uid), subject: 'Re: Order 88', messageId: '<t3@x>', references: '', attachments: [] } }) } });   // 读信接口这里故意不带 inReplyTo
+  try {
+    await h.mail.select(); assert.equal(rowsIn(h.page)[0].count, '2');
+    await h.act('open', { box: 'inbox', uid: '13' });
+    assert.match(h.page, /mail-reader-subject">Re: Order 88<span class="mail-thread-count"[^>]*>2</); assert.match(h.page, /mail-thread-strip[\s\S]*data-uid="11"/);
+  } finally { h.dispose(); }
+});
+
+test('review: ticks do not survive a page change; a delete that half fails removes what did go and keeps the rest', async () => {
+  let failSent = true;
+  const pages = { 1: [{ ...T3 }, { ...T2 }], 2: [{ ...T1 }] };
+  const h = harness({ routes: {
+    '/api/mail/messages': ({ query, reply }) => reply(200, { ok: true, page: Number(query.page), pageSize: 2, total: 3, items: pages[query.page].map(i => ({ ...i })) }),
+    '/api/mail/correspondence': ({ reply }) => reply(200, { ok: true, items: [{ ...T3 }, { ...SENT2 }, { ...T1 }].filter(i => !(i.box === 'inbox' && h.calls('/api/mail/trash').some(c => (c.payload.uids || [c.payload.uid]).includes(i.uid) && c.payload.box === 'inbox'))) }),
+    '/api/mail/trash': ({ payload, reply }) => payload.box === 'sent' && failSent ? reply(502, { ok: false, message: '无法连接邮箱服务器' }) : reply(200, { ok: true }) } });
+  try {
+    await h.mail.select(); await h.act('thread-toggle'); await h.act('pick', { box: 'inbox', uid: '13' }); assert.match(h.page, /已选 1 封/);
+    await h.act('page-next'); assert.doesNotMatch(h.page, /mail-bulkbar/, 'the tick from page 1 is gone'); await h.act('pick-all'); assert.match(h.page, /已选 1 封/, '全选本页 means this page only');
+    await h.act('pick-none'); await h.act('thread-toggle');
+    await h.mail.showView('customer'); await h.act('customer-select', { name: 'Nordic Lamps AB' });
+    assert.equal(rowsIn(h.page)[0].count, '3');
+    h.act('row-delete', { box: 'inbox', uid: '13' }); assert.match(h.dialog.body, /删除这 3 封邮件？/);
+    await h.act('delete-confirm');
+    assert.match(h.node('mail-confirm-error').textContent, /^2 封已移到「已删除」，其余 1 封没有删掉：无法连接邮箱服务器$/); assert.notEqual(h.dialog, null, 'the dialog stays so the rest can be retried');
+    assert.deepEqual(rowsIn(h.page).map(r => [r.uid, r.count]), [['5', undefined]], 'the two that were moved are gone from the list');
+    failSent = false; await h.act('delete-confirm'); assert.deepEqual(h.calls('/api/mail/trash').at(-1).payload, { box: 'sent', uid: 5 }, 'the retry only sends what is left'); assert.equal(h.dialog, null);
+  } finally { h.dispose(); }
 });
