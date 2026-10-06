@@ -3039,7 +3039,6 @@
       return `<h3>客户${customerNavToggle(true)}</h3>${[
         ["客户列表", "active", true],
         ["公海客户", "pool", true],
-        ["建档建议", null, false],
         ["客户查重", "duplicates", true],
         ["客户设置", "customer-settings", false],
       ]
