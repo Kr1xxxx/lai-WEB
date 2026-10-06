@@ -7,6 +7,10 @@ const { openStorage } = require('./storage.js');
 const { createAuth } = require('./auth.js');
 const { httpError } = require('./errors.js');
 const { createMailAccounts } = require('./mail-account.js');
+const { createMailService } = require('./mail-service.js');
+const mailImap = require('./mail-imap.js');
+const net = require('node:net');
+const os = require('node:os');
 
 const port = Number(process.env.LAI_APP_PORT || (49152 + crypto.randomInt(16383)));
 const apiToken = String(process.env.LAI_API_TOKEN || crypto.randomBytes(32).toString('base64url'));
@@ -14,8 +18,30 @@ const instanceNonce = String(process.env.LAI_INSTANCE_NONCE || crypto.randomByte
 const htmlFile = path.join(__dirname, 'trade-order-system.html');
 const store = openStorage({ seedFile: path.join(__dirname, 'trade-order-data.json') });
 const auth = createAuth({ port, token: apiToken });
-const mailAccounts = createMailAccounts({ store });
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind']);
+// 仅供隔离测试：数据目录被改到测试目录时（storage-path.js 只允许系统临时目录下的 lai-test-*），
+// 可以把邮件连接指到本机回环地址上的假服务器。正式数据目录下这个变量不起作用。
+const mailTest = process.env.LAI_DATA_DIR && /^\d{1,5},\d{1,5}$/.test(process.env.LAI_MAIL_TEST_ENDPOINTS || '') ? process.env.LAI_MAIL_TEST_ENDPOINTS.split(',').map(Number) : null;
+const connectImap = mailTest ? () => net.connect(mailTest[0], '127.0.0.1') : undefined;
+const connectSmtp = mailTest ? () => net.connect(mailTest[1], '127.0.0.1') : undefined;
+const mailAccounts = createMailAccounts({ store, verify: input => mailImap.verifyLogin(input, connectImap ? { connect: connectImap } : {}) });
+const mailService = createMailService({
+  store, connectImap, connectSmtp,
+  downloadsDir: process.env.LAI_DATA_DIR ? path.join(store.directory, 'downloads') : path.join(os.homedir(), 'Downloads'),
+  reveal: file => { if (process.env.LAI_APP_NO_OPEN !== '1') spawn('/usr/bin/open', ['-R', file], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref(); }
+});
+const mailRoutes = {
+  'GET /api/mail/messages': query => mailService.list({ folder: query.get('folder'), page: query.get('page'), query: query.get('query') }),
+  'GET /api/mail/correspondence': query => mailService.correspondence({ addresses: query.get('addresses') }),
+  'GET /api/mail/message': query => mailService.read({ box: query.get('box'), uid: query.get('uid') }),
+  'GET /api/mail/drafts': () => mailService.drafts(),
+  'POST /api/mail/flags': (_, body) => mailService.flags(body),
+  'POST /api/mail/trash': (_, body) => mailService.trash(body),
+  'POST /api/mail/attachment/save': (_, body) => mailService.saveAttachment(body),
+  'POST /api/mail/send': (_, body) => mailService.send(body),
+  'POST /api/mail/drafts/save': (_, body) => mailService.saveDraft(body),
+  'POST /api/mail/drafts/delete': (_, body) => mailService.deleteDraft(body),
+};
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 
 function securityHeaders(type = '') {
   return {
@@ -95,10 +121,21 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/mail-account') return send(res, 200, JSON.stringify(mailAccounts.status()));
     if (url.pathname === '/api/mail-account/bind') {
       if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
-      return send(res, 200, JSON.stringify(await mailAccounts.bind(await readJsonBody(req))));
+      const bound = await mailAccounts.bind(await readJsonBody(req));
+      mailService.forget();
+      return send(res, 200, JSON.stringify(bound));
     }
     if (url.pathname === '/api/mail-account/verify') return send(res, 200, JSON.stringify(await mailAccounts.reverify()));
-    if (url.pathname === '/api/mail-account/unbind') return send(res, 200, JSON.stringify(mailAccounts.unbind()));
+    if (url.pathname === '/api/mail-account/unbind') { const result = mailAccounts.unbind(); mailService.forget(); return send(res, 200, JSON.stringify(result)); }
+    const mailRoute = mailRoutes[`${req.method} ${url.pathname}`];
+    if (mailRoute) {
+      let body;
+      if (req.method === 'POST') {
+        if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
+        body = await readJsonBody(req);
+      }
+      return send(res, 200, JSON.stringify(await mailRoute(url.searchParams, body)));
+    }
     if (url.pathname === '/api/manual-backup') {
       const backup = store.backup(true);
       return send(res, backup.ok ? 200 : 503, JSON.stringify(backup));

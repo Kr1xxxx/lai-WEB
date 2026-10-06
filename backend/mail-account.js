@@ -8,7 +8,8 @@ function createMailAccounts({ store, verify = imap.verifyLogin, now = () => new 
 
   const publicView = account => account ? {
     provider: 'zoho', email: account.email, site: account.site, accountType: account.accountType,
-    host: account.host, port: account.port, boundAt: account.boundAt, verifiedAt: account.verifiedAt
+    host: account.host, port: account.port, boundAt: account.boundAt, verifiedAt: account.verifiedAt,
+    ...(account.senderName ? { senderName: account.senderName } : {})
   } : null;
 
   // 把验证失败转换成界面可以直接显示的应答：输入问题 400，登录被拒 422，网络类 502。

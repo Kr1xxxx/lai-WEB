@@ -227,6 +227,12 @@ function openStorage({ seedFile }) {
         data_json TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS mail_drafts (
+        id TEXT PRIMARY KEY,
+        updated_at TEXT NOT NULL,
+        data_json TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS import_logs (
         id TEXT PRIMARY KEY,
         data_json TEXT NOT NULL
@@ -777,6 +783,24 @@ function openStorage({ seedFile }) {
     database.prepare('DELETE FROM mail_account WHERE id = 1').run();
   }
 
+  // 本机草稿：只存在这台电脑上，不同步到邮箱服务器的草稿箱。
+  function listMailDrafts() {
+    requireDatabase();
+    return database.prepare('SELECT data_json FROM mail_drafts ORDER BY updated_at DESC, id').all()
+      .map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } }).filter(Boolean);
+  }
+  function writeMailDraft(draft) {
+    requireDatabase();
+    database.prepare(`
+      INSERT INTO mail_drafts(id, updated_at, data_json) VALUES(?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
+    `).run(String(draft.id), String(draft.updatedAt), JSON.stringify(draft));
+  }
+  function deleteMailDraft(id) {
+    requireDatabase();
+    database.prepare('DELETE FROM mail_drafts WHERE id = ?').run(String(id));
+  }
+
   function health() {
     const integrity = storageMode === 'sqlite' ? databaseIntegrity() : { ok: false, message: storageError || storageMode };
     storageRevision = Number(metadataValue('revision', '0'));
@@ -797,6 +821,6 @@ function openStorage({ seedFile }) {
   }
 
   initializeStorage();
-  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, backup: createBackup, health, close, directory: supportDir };
+  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, backup: createBackup, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

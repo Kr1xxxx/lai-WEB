@@ -195,7 +195,7 @@
     }
     if (
       business?.hasDraft() ||
-      ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind"].includes(
+      ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind", "mail-compose"].includes(
         modal,
       ) ||
       [...followupDrafts.values()].some((d) => d.text.trim())
@@ -811,6 +811,8 @@
   }
   function closeModal(pointerActivated = false, confirmed = false, trigger) {
     if (pending) return;
+    // 写信窗口关闭前先把没发出的内容存成草稿。
+    if (modal === "mail-compose" && !confirmed && mail?.composing()) return mail.action("compose-close");
     if (modal === "segment" && !confirmed && $("#segment-form")) {
       readSegment();
       if (segmentCloseSnapshot(segmentDraft) !== segmentInitialSnapshot) {
@@ -3367,7 +3369,7 @@
     if (el.closest(".rail")) hideRailFlyout();
     if (d.laiRoute) return navigateApp(d.laiRoute);
     if (d.mailFolder) return mail.select(d.mailFolder);
-    if (d.mailAction) return mail.action(d.mailAction, e.detail > 0);
+    if (d.mailAction) return mail.action(d.mailAction, e.detail > 0, el);
     if (d.mailView) return mail.showView(d.mailView);
     if (d.navFavorite) return saveFavoriteNav((settings) => NF.toggle(settings, d.navFavorite));
     if (d.action === "favorite-nav") return openFavorites();
@@ -4271,8 +4273,11 @@
     isActive: () => activeRoute === "mail",
     dialog: drawer,
     closeDialog: () => {
-      if (modal === "mail-bind" || modal === "mail-unbind") closeModal(false, true);
+      if (String(modal || "").startsWith("mail-")) closeModal(false, true);
     },
+    getCustomers: () => state.customers || {},
+    isArchived: (profile) => L.bucket(profile) === "trash",
+    openCustomer: (name) => navigateApp("customers", name),
     toast,
     mount: (html) => {
       window.LaiActivityCategoryNavigation.mount(null);

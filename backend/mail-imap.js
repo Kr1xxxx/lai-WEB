@@ -125,4 +125,4 @@ function verifyLogin({ email, password, site, accountType }, options = {}) {
   });
 }
 
-module.exports = { verifyLogin, resolveServer, normalizeEmail, normalizePassword, SITES, ACCOUNT_TYPES, PORT };
+module.exports = { networkError: networkMessage, verifyLogin, resolveServer, normalizeEmail, normalizePassword, SITES, ACCOUNT_TYPES, PORT };

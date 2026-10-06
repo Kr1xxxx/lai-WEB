@@ -4,7 +4,7 @@ import fs from 'node:fs';import os from 'node:os';import path from 'node:path';i
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),app=process.env.LAI_ACCEPTANCE_APP||path.join(root,'dist/来财Lai.app'),builtResources=path.join(app,'Contents/Resources');
 const temp=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'lai-test-'));
 const resources=path.join(temp,'resources');
-const resourceFiles=['node-runtime','server.js','storage.js','storage-path.js','auth.js','errors.js','mail-account.js','mail-imap.js','trade-order-system.html'];
+const resourceFiles=['node-runtime','server.js','storage.js','storage-path.js','auth.js','errors.js','mail-account.js','mail-imap.js','mail-client.js','mail-smtp.js','mail-mime.js','mail-service.js','trade-order-system.html'];
 const reportFile=process.env.LAI_INTEGRATION_EVIDENCE||path.join(root,'evidence/integration-report.json');let report;
 const oldRoot=path.join(os.homedir(),'Library/Application Support/TradeOrderSystem');
 const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
