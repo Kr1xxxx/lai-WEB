@@ -137,7 +137,7 @@ test('analysis page shows the figures from the model', () => {
 
 // ---------------- controller ----------------
 const source = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8');
-function controller(initial, failWith = null) {
+function controller(initial, failWith = null, extra = {}) {
   let current = initial, form = null, broken = false;
   const mounted = [], dialogs = [], listeners = {}, toasts = [], closed = [], errors = {}, refreshed = [], navigated = [];
   const sandbox = {crypto: {randomUUID: () => 'new-id'}, FormData: function (f) { return Object.entries(f.values)[Symbol.iterator](); }, document: {
@@ -148,7 +148,7 @@ function controller(initial, failWith = null) {
   vm.createContext(sandbox); vm.runInContext(source, sandbox);
   const page = sandbox.window.LaiBusinessUI.create({getState: () => current, escape: escapeHtml, mount: html => mounted.push(html),
     save: async next => { if (failWith) throw new Error(failWith); current = next; return true; }, openCustomer() {}, refreshCustomer: name => refreshed.push(name), navigate: to => navigated.push(to),
-    toast: text => toasts.push(text), dialog: (...args) => { if (broken) throw new Error('boom'); dialogs.push(args); }, closeDialog: () => closed.push(1)});
+    toast: text => toasts.push(text), dialog: (...args) => { if (broken) throw new Error('boom'); dialogs.push(args); }, closeDialog: () => closed.push(1), ...extra});
   const target = dataset => ({closest: sel => sel === 'button' ? {dataset, disabled: false} : null});
   const fakeForm = values => {
     const field = value => { const label = {hidden: false}; return {value, disabled: false, hidden: false, required: false, readOnly: false, innerHTML: '', dataset: {}, label, closest: () => label}; };
@@ -162,7 +162,9 @@ function controller(initial, failWith = null) {
     submit: (id, values, dataset = {}) => Promise.all(listeners.submit.map(fn => fn({target: {id, values, dataset, elements: {isDraft: {checked: false}}}, preventDefault() {}}))),
     changeTarget: target => { target.closest ||= () => null; listeners.change.forEach(fn => fn({target})); },
     change: el => listeners.change.forEach(fn => fn({target: {dataset: {}, closest: sel => sel === '#opp-form' ? (el.inForm ? {} : null) : null, ...el}})),
-    drag: (type, el) => { let prevented = false; listeners[type].forEach(fn => fn({target: el, preventDefault() { prevented = true; }, dataTransfer: {setData() {}}})); return prevented; }};
+    drag: (type, el, props = {}) => { let prevented = false; listeners[type].forEach(fn => fn({target: el, preventDefault() { prevented = true; }, dataTransfer: {setData() {}}, ...props})); return prevented; },
+    key: (el, props) => { let prevented = false; const result = Promise.all((listeners.keydown || []).map(fn => fn({target: el, preventDefault() { prevented = true; }, ...props}))); return result.then(() => prevented); },
+    clickAt: el => Promise.all(listeners.click.map(fn => fn({target: el}))), change2: event => Promise.all(listeners.change.map(fn => fn(event)))};
 }
 const listenersChange = (c, target) => c.changeTarget(target);
 const valid = {nameMode: 'auto', client: 'Beta Ltd', contact: '', amount: '120', endDate: '2026-11-05', flow: 'default', exchangeRate: '100', currency: 'USD', stage: 'open', owner: 'Amy', collaborators: '', tags: '', note: '', products: ''};
@@ -609,4 +611,309 @@ test('review fixes: matches in other flows are announced, a customer\'s board op
   e.page.navigate('opportunities');
   await e.click({oppAction: 'edit', id: 'p1'});
   assert.match(e.dialogs.at(-1)[1], /<select name="flow" id="opp-form-flow"><option value="default" selected>默认销售流程<\/option>/);
+});
+
+// ---------------- 附件、详情、拖动改进 ----------------
+const flush = () => new Promise(resolve => setImmediate(resolve));
+const okResponse = body => ({ok: true, status: 200, json: async () => body});
+const failResponse = (status, body) => ({ok: false, status, json: async () => body});
+function fileCtx({uploadFail = [], deleteFail = false} = {}) {
+  const calls = [];
+  let counter = 0;
+  return {calls,
+    request: async (path, payload) => { calls.push([path, payload]); if (path.endsWith('/delete') && deleteFail) return failResponse(500, {ok: false, message: 'boom'}); return okResponse(path.endsWith('/save') ? {ok: true, filename: payload.name} : {ok: true, removed: 1}); },
+    upload: async (path, file) => {
+      calls.push([path, file.name]);
+      if (uploadFail.includes(file.name)) return failResponse(413, {ok: false, message: `「${file.name}」超过 20 MB，请压缩后再传`});
+      counter += 1;
+      return okResponse({ok: true, file: {name: file.name, size: file.size, type: file.type, fileUrl: `/attachments/opportunities/p1/aa${String(counter).padStart(8, '0')}-${encodeURIComponent(file.name)}`}});
+    }};
+}
+const plain = (name, size = 100, type = 'text/plain') => ({name, size, type});
+const withAttachments = (state, id, files) => O.addAttachments(state, id, files.map((file, index) => ({id: 'att' + index, ...file})), {now: '2026-10-07T01:00:00.000Z'});
+const FILES = [{name: '报价单.pdf', size: 2048, type: 'application/pdf', fileUrl: '/attachments/opportunities/p1/aa00000001-q.pdf'}, {name: '样品<b>.png', size: 5 * 1024 * 1024, type: 'image/png', fileUrl: '/attachments/opportunities/p1/aa00000002-s.png'}];
+
+test('cards show a clip with the count and open the detail; detail markup lists facts, history and attachments (escaped)', () => {
+  const s = withAttachments(sample(), 'p1', FILES);
+  const board = O.board(s, {}, TODAY);
+  const html = ui.boardMarkup(board, {}, {today: TODAY});
+  assert.match(html, /class="opp-card-amount"><span><small>USD<\/small>331\.74<\/span><span class="opp-clip" title="2 个附件" aria-label="2 个附件"><svg[^>]*>.*<\/svg>2<\/span>/);
+  assert.equal((html.match(/class="opp-clip"/g) || []).length, 1, 'only cards with attachments get one');
+  assert.match(html, /data-opp-action="detail" data-id="p1">/);
+  assert.doesNotMatch(html, /class="opp-card-name" data-opp-action="edit"/);
+  assert.match(ui.boardMarkup(board, {mode: 'list'}, {today: TODAY}), /data-opp-action="detail"/);
+  const detail = ui.detailMarkup(O.detailOf(s, 'p1', TODAY), {today: TODAY}, {});
+  assert.match(detail, /<dt>客户<\/dt><dd><button type="button" class="company-link" data-biz-customer="Alpha &lt;b&gt;Co&lt;\/b&gt;">/);
+  assert.match(detail, /<span class="opp-chip is-danger">已逾期<\/span>/);
+  assert.match(detail, /<div class="form-section">阶段记录<\/div><ol class="opp-history"><li class="opp-kind-open is-current">/);
+  assert.match(detail, /<span class="opp-attach-count">2 \/ 30<\/span>/);
+  assert.match(detail, /data-attach-action="save" data-att="att0"[^>]*>保存到「下载」/);
+  assert.match(detail, /样品&lt;b&gt;\.png/); assert.doesNotMatch(detail, /样品<b>/);
+  assert.match(detail, /5\.0 MB · \d{4}-\d{2}-\d{2} \d{2}:\d{2}/); assert.match(detail, /2\.0 KB/);
+  assert.match(detail, /<span class="opp-file-ext" aria-hidden="true">PNG<\/span>/);
+  assert.equal((detail.match(/data-attach-action="preview"[^>]*>预览/g) || []).length, 1, 'only the image can be previewed');
+  assert.doesNotMatch(detail, /关联产品|<dt>备注|关联订单/, 'empty facts are left out');
+  // 状态：改名、确认删除、预览、已满、上传中
+  const inner = view => ui.attachmentsInner(O.detailOf(s, 'p1', TODAY).attachments, view);
+  assert.match(inner({renaming: 'att0'}), /<form class="opp-file-rename" id="opp-attach-rename" data-att="att0"><input name="name" value="报价单\.pdf"/);
+  assert.match(inner({armed: 'att1'}), /team-danger" data-attach-action="delete" data-att="att1"[^>]*>再点一次确认删除/);
+  assert.match(inner({preview: 'att1'}), /<figure class="opp-preview"><img data-opp-fetch="\/attachments\/opportunities\/p1\/aa00000002-s\.png" alt="样品&lt;b&gt;\.png">/);
+  assert.match(inner({preview: 'att1'}), /关闭预览/);
+  assert.doesNotMatch(inner({preview: 'att0'}), /opp-preview/, 'a pdf has no preview');
+  assert.match(inner({busy: true}), /id="opp-attach-input" multiple hidden disabled/);
+  let full = O.addAttachments(sample(), 'p1', Array.from({length: 30}, (_, i) => ({id: 'f' + i, ...FILES[0]})));
+  assert.match(ui.attachmentsInner(O.detailOf(full, 'p1', TODAY).attachments, {}), /is-full[^>]*>.*已达到 30 个附件的上限/);
+  assert.match(ui.attachmentsInner([], {}), /还没有附件/);
+  assert.equal(ui.fileSize(0), '0 B'); assert.equal(ui.fileSize(1536), '1.5 KB'); assert.equal(ui.fileSize(20 * 1024 * 1024), '20.0 MB');
+  assert.equal(ui.stamp(''), '—'); assert.equal(ui.stamp('2026-10-07T01:05:00.000Z'), '2026-10-07 09:05');
+});
+
+test('controller: the detail drawer opens from a card name or its blank area, and offers edit and more actions', async () => {
+  const c = controller(withAttachments(sample(), 'p1', FILES));
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  const [title, body, footer, type] = c.dialogs.at(-1);
+  assert.deepEqual([title, type], ['26100101-Amy'.length ? title : '', 'opp-detail']);
+  assert.match(body, /class="drawer-body opp-detail" data-id="p1"/);
+  assert.match(footer, /data-opp-action="menu" data-id="p1">更多操作<\/button><button class="primary" type="button" data-opp-action="edit" data-id="p1">编辑商机/);
+  await c.click({oppAction: 'edit', id: 'p1'});
+  assert.equal(c.dialogs.at(-1)[0], '编辑商机');
+  c.page.discardDraft();
+  // 点卡片空白处
+  const blank = {closest: sel => sel === '.opp-card' ? {dataset: {oppId: 'p2'}} : null};
+  await c.clickAt(blank);
+  assert.equal(c.dialogs.at(-1)[3], 'opp-detail'); assert.match(c.dialogs.at(-1)[1], /data-id="p2"/);
+  // 点卡片里的按钮、链接不会误开详情
+  const count = c.dialogs.length;
+  await c.clickAt({closest: sel => /button/.test(sel) && sel !== 'button' ? {} : sel === '.opp-card' ? {dataset: {oppId: 'p2'}} : null});
+  assert.equal(c.dialogs.length, count);
+  await c.click({oppAction: 'detail', id: 'ghost'});
+  assert.match(c.toasts.at(-1), /商机不存在/);
+});
+
+test('controller: uploading files stores them, saves their details with the opportunity and refreshes the drawer', async () => {
+  const io = fileCtx();
+  const c = controller(sample(), null, io);
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  const input = {id: 'opp-attach-input', files: [plain('合同.pdf', 3000, 'application/pdf'), plain('图.png', 500, 'image/png')], value: 'C:\\fakepath\\x', closest: () => null};
+  await c.change2({target: input}); await flush();
+  assert.equal(input.value, '', 'the file input is cleared so the same file can be chosen again');
+  const saved = O.attachmentsOf(O.list(c.state()).find(i => i.id === 'p1'));
+  assert.deepEqual(saved.map(a => [a.name, a.size, a.type]), [['合同.pdf', 3000, 'application/pdf'], ['图.png', 500, 'image/png']]);
+  assert.ok(saved.every(a => a.fileUrl.startsWith('/attachments/opportunities/p1/') && a.uploadedAt));
+  assert.deepEqual(io.calls.map(call => call[0].split('?')[0]), ['/api/opportunity-file/upload', '/api/opportunity-file/upload']);
+  assert.match(io.calls[0][0], /\?id=p1&name=%E5%90%88%E5%90%8C\.pdf&type=application%2Fpdf$/);
+  assert.match(c.mounted.at(-1), /class="opp-clip" title="2 个附件"/, 'the board behind the drawer shows the clip');
+  assert.equal(c.errors['opp-attach-error'].textContent, '');
+  assert.equal(c.page.hasDraft(), false);
+});
+
+test('controller: files that are not allowed are refused before upload, the rest still go through', async () => {
+  const io = fileCtx({uploadFail: ['big.zip']});
+  const c = controller(sample(), null, io);
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  await c.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('安装.exe'), plain('空.txt', 0), plain('大.dat', 20 * 1024 * 1024 + 1), plain('big.zip', 10), plain('好.txt', 10)]}}); await flush();
+  assert.deepEqual(io.calls.map(call => call[1]), ['big.zip', '好.txt'], 'blocked, empty and oversize files never reach the server');
+  assert.deepEqual(O.attachmentsOf(O.list(c.state()).find(i => i.id === 'p1')).map(a => a.name), ['好.txt']);
+  const message = c.errors['opp-attach-error'].textContent;
+  assert.match(message, /「安装\.exe」是可执行或安装类文件/); assert.match(message, /「空\.txt」是空文件/); assert.match(message, /「大\.dat」超过 20 MB/); assert.match(message, /「big\.zip」超过 20 MB/);
+  assert.doesNotMatch(message, /好\.txt/);
+  // 只选了不合格的文件：什么也不上传、不保存
+  const callsBefore = io.calls.length, saved = c.state();
+  await c.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('a.sh')]}}); await flush();
+  assert.equal(io.calls.length, callsBefore); assert.equal(c.state(), saved);
+});
+
+test('controller: the 30-file limit counts what is already there and says how many were left out', async () => {
+  const io = fileCtx();
+  const start = O.addAttachments(sample(), 'p1', Array.from({length: 28}, (_, i) => ({id: 'f' + i, ...FILES[0]})));
+  const c = controller(start, null, io);
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  await c.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('1.txt'), plain('2.txt'), plain('3.txt'), plain('4.txt')]}}); await flush();
+  assert.equal(io.calls.length, 2); assert.equal(O.attachmentsOf(O.list(c.state()).find(i => i.id === 'p1')).length, 30);
+  assert.match(c.errors['opp-attach-error'].textContent, /最多 30 个附件，还能再添加 2 个，其余 2 个没有上传/);
+});
+
+test('controller: when saving fails the uploaded files are deleted again; a failed delete does not break anything', async () => {
+  const io = fileCtx();
+  const c = controller(sample(), '保存失败了', io);
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  await c.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('a.txt'), plain('b.txt')]}}); await flush();
+  assert.equal(c.errors['opp-attach-error'].textContent, '保存失败了');
+  const deletion = io.calls.find(call => call[0] === '/api/opportunity-file/delete');
+  assert.equal(deletion[1].fileUrls.length, 2, 'both stored files are removed');
+  assert.deepEqual(O.attachmentsOf(O.list(c.state()).find(i => i.id === 'p1')), []);
+  const flaky = fileCtx({deleteFail: true}), d = controller(sample(), '保存失败了', flaky);
+  d.page.navigate('opportunities'); await d.click({oppAction: 'detail', id: 'p1'});
+  await d.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('a.txt')]}}); await flush();
+  assert.equal(d.errors['opp-attach-error'].textContent, '保存失败了');
+});
+
+test('controller: no upload service means a clear message, not a crash', async () => {
+  const c = controller(sample());
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  await c.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('a.txt')]}}); await flush();
+  assert.match(c.errors['opp-attach-error'].textContent, /不能上传附件/);
+});
+
+test('controller: rename, save-a-copy and two-click delete of an attachment', async () => {
+  const io = fileCtx();
+  const c = controller(withAttachments(sample(), 'p1', FILES), null, io);
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  const att = id => O.attachmentsOf(O.list(c.state()).find(i => i.id === 'p1')).find(a => a.id === id);
+  await c.click({attachAction: 'rename', att: 'att0'});
+  await c.submit('opp-attach-rename', {name: '  合同 终版.pdf '}, {att: 'att0'}); await flush();
+  assert.equal(att('att0').name, '合同 终版.pdf'); assert.equal(att('att0').fileUrl, FILES[0].fileUrl);
+  await c.submit('opp-attach-rename', {name: 'x.exe'}, {att: 'att0'}); await flush();
+  assert.match(c.errors['opp-attach-error'].textContent, /可执行或安装类文件/); assert.equal(att('att0').name, '合同 终版.pdf');
+  await c.click({attachAction: 'save', att: 'att0'}); await flush();
+  assert.equal(JSON.stringify(io.calls.at(-1)), JSON.stringify(['/api/opportunity-file/save', {fileUrl: FILES[0].fileUrl, name: '合同 终版.pdf'}]));
+  assert.match(c.toasts.at(-1), /已保存到「下载」：合同 终版\.pdf/);
+  // 删除：第一次只是确认，第二次才删，并删除文件
+  await c.click({attachAction: 'delete', att: 'att1'});
+  assert.ok(att('att1'), 'first click only arms'); assert.equal(io.calls.filter(call => call[0].endsWith('/delete')).length, 0);
+  await c.click({attachAction: 'rename', att: 'att0'});
+  await c.click({attachAction: 'delete', att: 'att1'});
+  assert.ok(att('att1'), 'another action in between disarms it');
+  await c.click({attachAction: 'delete', att: 'att1'}); await c.click({attachAction: 'delete', att: 'att1'}); await flush();
+  assert.equal(att('att1'), undefined);
+  assert.equal(JSON.stringify(io.calls.at(-1)), JSON.stringify(['/api/opportunity-file/delete', {fileUrls: [FILES[1].fileUrl]}]));
+  await c.click({attachAction: 'delete', att: 'ghost'});
+  assert.match(c.errors['opp-attach-error'].textContent, /附件不存在/);
+});
+
+test('controller: deleting an opportunity removes its files; archiving does not', async () => {
+  const io = fileCtx();
+  const c = controller(withAttachments(sample(), 'p1', FILES), null, io);
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'archive', id: 'p1', archived: '1'}); await flush();
+  assert.equal(io.calls.length, 0);
+  await c.click({oppAction: 'delete', id: 'p1'}); await c.click({oppAction: 'delete', id: 'p1'}); await flush();
+  assert.equal(O.list(c.state()).find(i => i.id === 'p1'), undefined);
+  assert.equal(JSON.stringify(io.calls.at(-1)), JSON.stringify(['/api/opportunity-file/delete', {fileUrls: FILES.map(f => f.fileUrl)}]));
+  // 删除没保存成功时文件保留
+  const kept = fileCtx(), d = controller(withAttachments(sample(), 'p1', FILES), '不行', kept);
+  d.page.navigate('opportunities');
+  await d.click({oppAction: 'delete', id: 'p1'}); await d.click({oppAction: 'delete', id: 'p1'}); await flush();
+  assert.equal(kept.calls.length, 0);
+});
+
+const dragColumn = (stage, cards = []) => {
+  const column = {dataset: {oppDrop: stage}, classList: {add() {}, remove() {}}, querySelectorAll: () => cards.map(([id, top, bottom]) => ({dataset: {oppId: id}, getBoundingClientRect: () => ({top, bottom})}))};
+  return {closest: sel => sel === '[data-opp-drop]' ? column : null};
+};
+const cardEl = id => ({closest: sel => sel === '[data-opp-id]' ? {dataset: {oppId: id}} : null});
+const inColumn = (state, stage) => O.board(state, {sort: 'manual'}, TODAY).columns.find(column => column.id === stage).cards.map(card => card.id);
+
+test('controller: manual sort lets a card be dropped between others, and the move can be undone', async () => {
+  let s = base;
+  for (const [index, id] of ['m1', 'm2', 'm3'].entries()) s = add(s, id, {amount: String(100 + index)}, `2026-10-0${index + 1}T04:00:00.000Z`);
+  const c = controller(s);
+  c.page.navigate('opportunities');
+  // 不是手动排序：同一列里拖动只提示，不保存
+  c.drag('dragstart', cardEl('m1'));
+  const same = c.state();
+  c.drag('drop', dragColumn('open', [['m3', 0, 100], ['m2', 110, 210]]), {clientY: 50}); await flush();
+  assert.equal(c.state(), same); assert.match(c.toasts.at(-1), /当前不是「手动排序」/);
+  // 手动排序
+  c.change({id: 'opp-sort', value: 'manual'});
+  assert.match(c.mounted.at(-1), /<option value="manual" selected>手动排序/);
+  assert.deepEqual(inColumn(c.state(), 'open'), ['m3', 'm2', 'm1']);
+  c.drag('dragstart', cardEl('m1'));
+  assert.equal(c.drag('dragover', dragColumn('open', [['m3', 0, 100], ['m2', 110, 210]]), {clientY: 20}), true);
+  c.drag('drop', dragColumn('open', [['m3', 0, 100], ['m2', 110, 210]]), {clientY: 20}); await flush();
+  assert.deepEqual(inColumn(c.state(), 'open'), ['m1', 'm3', 'm2'], 'dropped above the first card');
+  assert.match(c.mounted.at(-1), /<div class="opp-undo" id="opp-undo" role="status"><span>已调整「[^」]+」的位置<\/span><button type="button" data-opp-action="undo">撤销<\/button>/);
+  // 撤销：回到原来的样子
+  await c.click({oppAction: 'undo'}); await flush();
+  assert.equal(c.state(), s, 'the very same state comes back');
+  assert.doesNotMatch(c.mounted.at(-1), /opp-undo/); assert.equal(c.toasts.at(-1), '已撤销');
+  // 放到下面：y 在所有卡片中点之后 = 放到最后
+  c.drag('dragstart', cardEl('m3'));
+  c.drag('drop', dragColumn('open', [['m2', 0, 100], ['m1', 110, 210]]), {clientY: 500}); await flush();
+  assert.deepEqual(inColumn(c.state(), 'open'), ['m2', 'm1', 'm3']);
+  // 跨列拖动：换阶段，并放在指定位置；撤销后阶段也回来
+  const beforeMove = c.state();
+  c.drag('dragstart', cardEl('m2'));
+  c.drag('drop', dragColumn('unpaid', []), {clientY: 10}); await flush();
+  assert.equal(O.list(c.state()).find(i => i.id === 'm2').stage, 'unpaid');
+  assert.match(c.mounted.at(-1), /已移到「付款未到账」/);
+  await c.click({oppAction: 'undo'}); await flush();
+  assert.equal(c.state(), beforeMove);
+});
+
+test('controller: undo is refused once something else changed, and disappears when leaving the page', async () => {
+  let s = add(add(base, 'm1'), 'm2', {}, '2026-10-07T04:00:00.000Z');
+  const c = controller(s);
+  c.page.navigate('opportunities');
+  c.drag('dragstart', cardEl('m1')); c.drag('drop', dragColumn('unpaid', []), {clientY: 1}); await flush();
+  assert.match(c.mounted.at(-1), /opp-undo/);
+  c.replaceState(O.setArchived(c.state(), 'm2', true));      // 之后有了别的修改（也可能来自另一个窗口）
+  const changed = c.state();
+  await c.click({oppAction: 'undo'}); await flush();
+  assert.equal(c.state(), changed); assert.match(c.toasts.at(-1), /已有新的修改，不能撤销/);
+  assert.doesNotMatch(c.mounted.at(-1), /opp-undo/);
+  c.drag('dragstart', cardEl('m2')); c.drag('drop', dragColumn('balance', []), {clientY: 1}); await flush();
+  c.page.navigate('analysis'); c.page.navigate('opportunities');
+  assert.doesNotMatch(c.mounted.at(-1), /opp-undo/, 'leaving the page drops the undo offer');
+  await c.click({oppAction: 'undo'}); await flush();
+  assert.equal(O.list(c.state()).find(i => i.id === 'm2').stage, 'balance', 'nothing to undo any more');
+});
+
+test('controller: keyboard moves a focused card between stages and, in manual sort, within its column', async () => {
+  let s = base;
+  for (const [index, id] of ['m1', 'm2', 'm3'].entries()) s = add(s, id, {}, `2026-10-0${index + 1}T04:00:00.000Z`);
+  const c = controller(s);
+  c.page.navigate('opportunities');
+  const stage = id => O.list(c.state()).find(i => i.id === id).stage;
+  const cards = ids => ids.map(id => ({dataset: {oppId: id}}));
+  let card;
+  const press = async (id, props, siblings = [], columnStage = 'open') => {
+    const list = cards(siblings.length ? siblings : [id]);
+    card = {dataset: {oppId: id}, parentElement: {querySelectorAll: () => list}, closest: sel => sel === '[data-opp-drop]' ? {dataset: {oppDrop: columnStage}} : null};
+    list[Math.max(0, siblings.indexOf(id))] = card;
+    return c.key({closest: sel => sel === '.opp-card' ? card : null}, props);
+  };
+  assert.equal(await press('m1', {key: 'ArrowRight'}), true);
+  await flush(); assert.equal(stage('m1'), 'unpaid');
+  assert.equal(await press('m1', {key: 'ArrowLeft'}), true); await flush(); assert.equal(stage('m1'), 'open');
+  assert.equal(await press('m1', {key: 'ArrowLeft'}), true); await flush(); assert.equal(stage('m1'), 'open', 'already in the first column');
+  for (let i = 0; i < 4; i++) { await press('m1', {key: 'ArrowRight'}); await flush(); }
+  assert.equal(stage('m1'), 'done', 'the last step stops at the reason form instead of moving');
+  assert.equal(c.dialogs.at(-1)[3], 'opp-lost', 'moving into 输单 asks for a reason');
+  // 修饰键、输入框、不在卡片上：不处理
+  assert.equal(await press('m2', {key: 'ArrowRight', metaKey: true}), false);
+  assert.equal(await press('m2', {key: 'ArrowUp'}), false, 'plain up/down belongs to scrolling');
+  assert.equal(await press('m2', {key: 'Enter'}), false);
+  assert.equal(await c.key({closest: () => null}, {key: 'ArrowRight'}), false);
+  assert.equal(await c.key({closest: sel => sel === 'input,select,textarea,[contenteditable]' ? {} : sel === '.opp-card' ? card : null}, {key: 'ArrowRight'}), false);
+  // Alt+上下：非手动排序时只提示
+  const before = c.state();
+  assert.equal(await press('m2', {key: 'ArrowUp', altKey: true}, ['m3', 'm2']), true); await flush();
+  assert.equal(c.state(), before); assert.match(c.toasts.at(-1), /请先把排序改成「手动排序」/);
+  c.change({id: 'opp-sort', value: 'manual'});
+  await press('m2', {key: 'ArrowUp', altKey: true}, ['m3', 'm2']); await flush();
+  assert.deepEqual(inColumn(c.state(), 'open').slice(0, 2), ['m2', 'm3']);
+  const moved = c.state();
+  await press('m2', {key: 'ArrowUp', altKey: true}, ['m2', 'm3']); await flush();
+  assert.equal(c.state(), moved, 'already first');
+  await press('m2', {key: 'ArrowDown', altKey: true}, ['m2', 'm3']); await flush();
+  assert.deepEqual(inColumn(c.state(), 'open'), ['m3', 'm2']);
+  // 列表视图里没有键盘移动
+  await c.click({oppView: 'list'});
+  const list = c.state();
+  assert.equal(await press('m3', {key: 'ArrowRight'}), false); assert.equal(c.state(), list);
+});
+
+test('drag helpers: where to insert and when to scroll', () => {
+  const rects = [{id: 'a', top: 0, bottom: 100}, {id: 'b', top: 110, bottom: 210}];
+  assert.deepEqual([ui.dropBefore(rects, -5), ui.dropBefore(rects, 49), ui.dropBefore(rects, 51), ui.dropBefore(rects, 159), ui.dropBefore(rects, 161), ui.dropBefore([], 10), ui.dropBefore(rects, undefined), ui.dropBefore(null, 3)], ['a', 'a', 'b', 'b', '', '', '', '']);
+  assert.deepEqual([ui.scrollStep(500, 0, 1000), ui.scrollStep(0, 0, 1000), ui.scrollStep(1000, 0, 1000), ui.scrollStep(36, 0, 1000), ui.scrollStep(964, 0, 1000), ui.scrollStep(-50, 0, 1000)], [0, -28, 28, -14, 14, -28]);
+  assert.deepEqual([ui.scrollStep(10, 0, 100, 72, 28), ui.scrollStep(NaN, 0, 100), ui.scrollStep(5, 100, 100), ui.scrollStep(60, 0, 100)], [-23, 0, 0, 6]);
 });
