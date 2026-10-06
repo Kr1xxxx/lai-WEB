@@ -60,11 +60,13 @@
   // 跟进人名称只差大小写的视为同一个人（用户确认）。显示用出现次数最多的写法，次数相同取字符顺序靠前的；
   // 只影响团队数据的汇总，不改动保存的客户、订单资料。
   const nameCache=new WeakMap();
-  const ownerKey=name=>trim(name).toLowerCase();
+  // 同一个人的常见写法差异：全角／半角、多打的空格、大小写。填的就是「未分配」三个字的，等同于没填。
+  const cleanName=name=>{const text=trim(name).normalize('NFKC').replace(/\s+/g,' ').trim();return text==='未分配'?'':text;};
+  const ownerKey=name=>cleanName(name).toLowerCase();
   function buildNames(state,customerOwners){
     const counts=new Map();
     const add=(name,weight)=>{
-      const text=trim(name);
+      const text=cleanName(name);
       if(!text)return;
       const variants=counts.get(ownerKey(text))||new Map();
       variants.set(text,(variants.get(text)||0)+weight);
@@ -79,7 +81,7 @@
     return names;
   }
   function canonOwner(state,name){
-    const text=trim(name);
+    const text=cleanName(name);
     if(!text)return '';
     customerRows(state);
     const names=state&&typeof state==='object'?nameCache.get(state):null;
@@ -89,7 +91,7 @@
     const raw=PM.buildCustomers(state);
     const names=buildNames(state,raw.map(row=>row.owner));
     if(state&&typeof state==='object')nameCache.set(state,names);
-    const canon=name=>{const text=trim(name);return text?names.get(ownerKey(text))||text:'';};
+    const canon=name=>{const text=cleanName(name);return text?names.get(ownerKey(text))||text:'';};
     return raw.map(row=>({
       name:row.name,owner:canon(row.owner),bucket:LM.bucket(state.customers?.[row.name]),
       createdAt:row.createdAt,source:trim(row.source),history:Array.isArray(row.history)?row.history:[]
@@ -261,6 +263,8 @@
   // 目标完成情况、团队墙共用的成员汇总：把四类报表按跟进人合并，不引入新的统计规则。
   const rulesFor=unit=>Object.freeze({
     amount:`统计${unit}订单月份内的非草稿订单金额，不同币种分开统计、不折算；排名以${unit}金额最大的币种为准。`,
+    newDeal:`统计第一笔有效订单落在${unit}的客户数量（有效订单：非草稿、金额大于 0，按订单月份）；归到客户当前的跟进人，回收站客户不计入。同一客户${unit}内下多笔单但以前没下过，算成交新客户。`,
+    repeat:`统计${unit}有有效订单、并且在${unit}之前已经有过有效订单的客户数量；归到客户当前的跟进人，回收站客户不计入。成交新客户数＋复购客户数＝${unit}成交客户数。`,
     added:`统计${unit}创建的客户数量，回收站客户不计入。`,
     orders:`统计${unit}订单月份内的非草稿订单数量。`,
     records:'统计客户动态中类型为「跟进」的记录数量，归到客户当前的跟进人；回收站客户不计入。',
@@ -268,7 +272,7 @@
     tasksDone:`统计任务日期在${unit}且已完成的任务数量；完成率＝已完成÷任务数。`
   });
   // ---- 目标：按周期（月／季度）、对象（企业／成员）、指标保存一个目标值；金额目标按币种分别设置。 ----
-  const TARGET_METRICS=Object.freeze(['amount','added','orders','records','tasksDone']);
+  const TARGET_METRICS=Object.freeze(['amount','repeat','newDeal','added','orders','records','tasksDone']);
   function normalizeTarget(input){
     const metric=trim(input?.metric);
     if(!TARGET_METRICS.includes(metric))throw new Error('请选择可设置目标的指标');
@@ -276,7 +280,7 @@
     if(!validPeriod(period))throw new Error('请选择有效的目标周期');
     const scope=trim(input?.scope);
     let owner=null;
-    if(scope==='member'){owner=trim(input?.owner);if(!owner)throw new Error('请选择成员');}
+    if(scope==='member'){owner=cleanName(input?.owner);if(!owner)throw new Error('请选择成员');}
     else if(scope!=='company')throw new Error('请选择目标对象');
     else if(trim(input?.owner))throw new Error('已选择成员，请把「对象」改为成员；如果要设企业整体目标，请清空成员');
     let currency='';
@@ -323,6 +327,25 @@
     if(!list.some(raw=>readTarget(raw)?.key===key))throw new Error('目标不存在或已删除');
     return {...state,laiTargets:list.filter(raw=>readTarget(raw)?.key!==key)};
   }
+  // 成交新客户／复购客户：每个在所选周期内有有效订单的客户，按「第一笔有效订单的月份」分到其中一类，不重不漏。
+  function dealCustomers(state,months){
+    const selected=new Set(months),start=months[0],first=new Map(),active=new Set();
+    for(const order of Array.isArray(state?.orders)?state.orders:[]){
+      if(!order||order.isDraft||!(Number(order.amount)>0)||!order.client)continue;
+      const month=String(order.orderMonth||order.createdAt||'').slice(0,7);
+      if(!validMonth(month))continue;
+      if(!first.has(order.client)||month<first.get(order.client))first.set(order.client,month);
+      if(selected.has(month))active.add(order.client);
+    }
+    const result={newDeal:new Map(),repeat:new Map(),totals:{newDeal:0,repeat:0}};
+    for(const row of customerRows(state)){
+      if(row.bucket==='trash'||!active.has(row.name))continue;
+      const kind=first.get(row.name)<start?'repeat':'newDeal';
+      result[kind].set(row.owner,(result[kind].get(row.owner)||0)+1);
+      result.totals[kind]++;
+    }
+    return result;
+  }
   function overview(state,month){
     requireMonth(month);
     state=state||{};
@@ -337,13 +360,15 @@
     const a=assets(state,month),f=followups(state,month),t=tasks(state,month),o=orders(state,month);
     const members=new Map();
     const member=owner=>{
-      if(!members.has(owner))members.set(owner,{owner,label:owner||'未分配',added:0,orders:0,amounts:[],amount:0,records:0,customers:0,tasksTotal:0,tasksDone:0,taskRate:null});
+      if(!members.has(owner))members.set(owner,{owner,label:owner||'未分配',added:0,orders:0,amounts:[],amount:0,newDeal:0,repeat:0,records:0,customers:0,tasksTotal:0,tasksDone:0,taskRate:null});
       return members.get(owner);
     };
     for(const row of a.rows)member(row.owner).added=row.cells.added.value;
     for(const row of f.rows){const m=member(row.owner);m.records=row.cells.records.value;m.customers=row.cells.customers.value;}
     for(const row of t.rows){const m=member(row.owner);m.tasksTotal=row.cells.total.value;m.tasksDone=row.cells.done.value;m.taskRate=row.cells.rate.value;}
     for(const row of o.rows){const m=member(row.owner);m.orders+=row.cells.count.value;m.amounts.push({currency:row.currency,total:row.cells.total.value});}
+    const deals=dealCustomers(state,periodMonths(month));
+    for(const kind of ['newDeal','repeat'])for(const [owner,count] of deals[kind])member(owner)[kind]=count;
     const targets=listTargets(state).filter(target=>target.period===month).map(target=>target.owner===null?target:{...target,owner:canonOwner(state,target.owner)});
     for(const target of targets)if(target.owner!==null)member(target.owner);
     const amounts=o.totals.map(total=>({currency:total.currency,total:total.cells.total.value}));
@@ -357,12 +382,14 @@
     const pick=(report,id)=>report.trend.months.map(entry=>entry.values[id]);
     const trend={months:a.trend.months.map(entry=>entry.month),series:[
       ...o.trend.series.filter(item=>item.id!=='count').map(item=>({id:item.id,label:`成交订单金额（${item.currency}）`,format:'money',currency:item.currency,values:pick(o,item.id)})),
+      {id:'repeat',label:'复购客户数',format:'count',values:a.trend.months.map(entry=>dealCustomers(state,[entry.month]).totals.repeat)},
+      {id:'newDeal',label:'成交新客户数',format:'count',values:a.trend.months.map(entry=>dealCustomers(state,[entry.month]).totals.newDeal)},
       {id:'added',label:'新建客户数',format:'count',values:pick(a,'added')},
       {id:'orders',label:'新建销售订单数',format:'count',values:pick(o,'count')},
       {id:'records',label:'跟进记录数',format:'count',values:pick(f,'records')},
       {id:'tasksDone',label:'任务完成数',format:'count',values:pick(t,'done')}
     ]};
-    const total={added:a.total.added.value,orders:o.tiles[0].value,amounts,records:f.total.records.value,customers:f.total.customers.value,
+    const total={added:a.total.added.value,orders:o.tiles[0].value,amounts,newDeal:deals.totals.newDeal,repeat:deals.totals.repeat,records:f.total.records.value,customers:f.total.customers.value,
       tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value};
     // 完成率＝完成值÷目标值，向下取整到整数百分比（99.5% 显示 99%，不会提前显示成 100%），可以超过 100%。
     // 是否达标直接比较完成值与目标值，不看取整后的百分比；金额相加有浮点误差，留极小的容差。

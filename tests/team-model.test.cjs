@@ -132,10 +132,10 @@ test('member overview merges the four reports per 跟进人 without changing any
     ['未分配', 1, 1, 'EUR:70', 0, 1, 1, 2, 1, 50]
   ]);
   assert.equal(o.primaryCurrency, 'USD', 'ranking currency is the one with the largest amount this month');
-  assert.deepEqual(o.total, {added: 3, orders: 5, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 375}], records: 4, customers: 3, tasksTotal: 5, tasksDone: 3, taskRate: 60});
+  assert.deepEqual(o.total, {added: 3, orders: 5, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 375}], newDeal: 2, repeat: 1, records: 4, customers: 3, tasksTotal: 5, tasksDone: 3, taskRate: 60});
   assert.deepEqual(o.trend.months, ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']);
   const series = Object.fromEntries(o.trend.series.map(s => [s.id, s.values]));
-  assert.deepEqual(Object.keys(series), ['amount:EUR', 'amount:USD', 'added', 'orders', 'records', 'tasksDone']);
+  assert.deepEqual(Object.keys(series), ['amount:EUR', 'amount:USD', 'repeat', 'newDeal', 'added', 'orders', 'records', 'tasksDone']);
   assert.deepEqual(series['amount:USD'], [0, 0, 0, 0, 300, 375]);
   assert.deepEqual(series['amount:EUR'], [0, 0, 0, 0, 0, 70]);
   assert.deepEqual([series.added, series.orders, series.records, series.tasksDone], [[0, 0, 0, 0, 1, 3], [0, 0, 0, 0, 1, 5], [0, 0, 0, 0, 1, 4], [0, 0, 0, 0, 1, 3]]);
@@ -181,10 +181,10 @@ test('a quarter adds up its three months, but counts each followed customer once
   later.laiTasks.push({id: 't8', title: '十二月任务', date: '2026-12-01', customer: 'Gamma Inc', done: true});
   const q4 = T.overview(later, '2026-Q4');
   assert.deepEqual([q4.period, q4.periodType, q4.periodLabel, q4.month, q4.months], ['2026-Q4', 'quarter', '2026 年第 4 季度', '2026-12', ['2026-10', '2026-11', '2026-12']]);
-  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 67});
+  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], newDeal: 2, repeat: 1, records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 67});
   assert.deepEqual(q4.members.find(m => m.owner === 'Amy').customers, 2, 'Beta followed in Oct and Nov is still one customer');
   const q3 = T.overview(later, '2026-Q3');
-  assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], records: 1, customers: 1, tasksTotal: 1, tasksDone: 1, taskRate: 100});
+  assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], newDeal: 1, repeat: 0, records: 1, customers: 1, tasksTotal: 1, tasksDone: 1, taskRate: 100});
   assert.deepEqual(q4.trend.months.at(-1), '2026-12');
   const month = T.overview(later, '2026-10');
   assert.deepEqual([month.periodType, month.month, month.total.orders], ['month', '2026-10', 5], 'month view is unchanged by later months');
@@ -333,4 +333,51 @@ test('targets follow the same rule: one target per member regardless of case', (
   assert.deepEqual(T.overview(s, '2026-10').members[0].goals.added.map(g => [g.value, g.reached]), [[2, true]]);
   const solo = T.setTarget({}, {metric: 'added', period: '2026-10', scope: 'member', owner: 'zed', value: 1});
   assert.deepEqual(T.overview(solo, '2026-10').members.map(m => m.label), ['zed'], 'a member known only from a target keeps the spelling typed');
+});
+
+// ---------------- 成交新客户数 / 复购客户数 ----------------
+test('every customer who ordered in the period is either a new deal or a repeat, never both', () => {
+  const o = T.overview(state, '2026-10');
+  // Alpha 首单在 9 月 → 10 月算复购；Beta、Gamma 首单在 10 月 → 成交新客户；草稿订单不算
+  assert.deepEqual(o.members.map(m => [m.label, m.newDeal, m.repeat]), [['Amy', 1, 1], ['Bob', 1, 0], ['未分配', 0, 0]]);
+  assert.deepEqual([o.total.newDeal, o.total.repeat], [2, 1]);
+  const series = Object.fromEntries(o.trend.series.map(s => [s.id, s.values]));
+  assert.deepEqual([series.newDeal, series.repeat], [[0, 0, 0, 0, 1, 2], [0, 0, 0, 0, 0, 1]]);
+  assert.deepEqual([T.overview(state, '2026-09').total.newDeal, T.overview(state, '2026-09').total.repeat], [1, 0]);
+  assert.match(o.rules.newDeal, /第一笔有效订单/); assert.match(o.rules.repeat, /之前已经有过有效订单/);
+});
+
+test('new deal vs repeat: edge cases', () => {
+  const order = (id, client, month, extra = {}) => ({id, num: id, client, owner: 'Z', amount: 10, currency: 'USD', stage: 'quote', orderMonth: month, ...extra});
+  const data = {
+    customers: {Trash: {owner: 'Z', laiBucket: 'trash'}, Pool: {owner: '', laiBucket: 'pool'}},
+    orders: [
+      order('1', 'Twice', '2026-10'), order('2', 'Twice', '2026-10'),            // 同月两单、以前没下过 → 新客户
+      order('3', 'Old', '2026-01'), order('4', 'Old', '2026-10'),                // 以前下过 → 复购
+      order('5', 'ZeroFirst', '2026-01', {amount: 0}), order('6', 'ZeroFirst', '2026-10'), // 金额 0 的不算有效订单 → 新客户
+      order('7', 'DraftFirst', '2026-01', {isDraft: true}), order('8', 'DraftFirst', '2026-10'), // 草稿不算 → 新客户
+      order('9', 'Trash', '2026-10'),                                           // 回收站客户不计入
+      order('10', 'Pool', '2026-01'), order('11', 'Pool', '2026-10'),            // 公海客户照常计入
+      order('12', 'Later', '2026-11'), order('13', 'BadMonth', 'oops')
+    ]
+  };
+  const oct = T.overview(data, '2026-10').total;
+  assert.deepEqual([oct.newDeal, oct.repeat], [3, 2]);
+  const q4 = T.overview(data, '2026-Q4').total;
+  assert.deepEqual([q4.newDeal, q4.repeat], [4, 2], 'in a quarter a customer new in October stays new even if they order again later in the quarter');
+  const nov = T.overview(data, '2026-11').total;
+  assert.deepEqual([nov.newDeal, nov.repeat], [1, 0]);
+  const withTarget = T.setTarget(T.setTarget(data, {metric: 'newDeal', period: '2026-10', scope: 'company', value: 3}), {metric: 'repeat', period: '2026-10', scope: 'company', value: 4});
+  const goals = T.overview(withTarget, '2026-10').goals;
+  assert.deepEqual([[goals.newDeal[0].rate, goals.newDeal[0].reached], [goals.repeat[0].rate, goals.repeat[0].reached]], [[100, true], [50, false]]);
+});
+
+test('names that differ by width, spacing or case are one member; a literal 未分配 is the unassigned row', () => {
+  const data = {customers: {
+    A: {owner: 'Amy Lin', createdAt: '2026-10-01'}, B: {owner: 'amy  lin', createdAt: '2026-10-02'}, C: {owner: 'Ａｍｙ　Ｌｉｎ', createdAt: '2026-10-03'},
+    D: {owner: '未分配', createdAt: '2026-10-04'}, E: {owner: '', createdAt: '2026-10-05'}, F: {owner: ' 未分配 ', createdAt: '2026-10-06'}}};
+  assert.deepEqual(T.overview(data, '2026-10').members.map(m => [m.label, m.owner, m.added]), [['Amy Lin', 'Amy Lin', 3], ['未分配', '', 3]]);
+  assert.throws(() => T.setTarget(data, {metric: 'added', period: '2026-10', scope: 'member', owner: '未分配', value: 1}), /选择成员/);
+  const s = T.setTarget(data, {metric: 'added', period: '2026-10', scope: 'member', owner: 'ＡＭＹ  LIN', value: 6});
+  assert.deepEqual(T.overview(s, '2026-10').members[0].goals.added.map(g => [g.value, g.rate]), [[6, 50]]);
 });

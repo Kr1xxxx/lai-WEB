@@ -155,21 +155,23 @@ test('the team modules are loaded between the business model and the business UI
 });
 
 // ---------------- 目标完成情况 / 团队墙 ----------------
-const member = (owner, v) => ({owner, label: owner || '未分配', added: 0, orders: 0, amounts: [], amount: 0, records: 0, customers: 0, tasksTotal: 0, tasksDone: 0, taskRate: null, ...v});
+const member = (owner, v) => ({owner, label: owner || '未分配', added: 0, orders: 0, amounts: [], amount: 0, newDeal: 0, repeat: 0, records: 0, customers: 0, tasksTotal: 0, tasksDone: 0, taskRate: null, ...v});
 const months = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'];
 const overview = {
   month: '2026-10', primaryCurrency: 'USD',
-  rules: {amount: '金额规则', added: '新建客户规则', orders: '订单数规则', records: '跟进规则', customers: '涉及客户规则', tasksDone: '任务规则'},
+  rules: {amount: '金额规则', newDeal: '新客户规则', repeat: '复购规则', added: '新建客户规则', orders: '订单数规则', records: '跟进规则', customers: '涉及客户规则', tasksDone: '任务规则'},
   members: [
-    member('Amy', {added: 1, orders: 2, amounts: [{currency: 'EUR', total: 5}, {currency: 'USD', total: 300}], amount: 300, records: 3, customers: 2, tasksTotal: 2, tasksDone: 1, taskRate: 50}),
+    member('Amy', {newDeal: 2, repeat: 2, added: 1, orders: 2, amounts: [{currency: 'EUR', total: 5}, {currency: 'USD', total: 300}], amount: 300, records: 3, customers: 2, tasksTotal: 2, tasksDone: 1, taskRate: 50}),
     member('Bob', {added: 4, orders: 2, amounts: [{currency: 'USD', total: 75}], amount: 75, tasksTotal: 1, tasksDone: 1, taskRate: 100}),
     member('Cy <i>', {added: 4, records: 9, customers: 4}),
     member('', {added: 7, orders: 1, amounts: [{currency: 'EUR', total: 70}], records: 1, customers: 1})
   ],
-  total: {added: 16, orders: 5, amounts: [{currency: 'EUR', total: 75}, {currency: 'USD', total: 375}], records: 13, customers: 7, tasksTotal: 4, tasksDone: 2, taskRate: 50},
+  total: {added: 16, orders: 5, amounts: [{currency: 'EUR', total: 75}, {currency: 'USD', total: 375}], newDeal: 6, repeat: 2, records: 13, customers: 7, tasksTotal: 4, tasksDone: 2, taskRate: 50},
   trend: {months, series: [
     {id: 'amount:EUR', label: '成交订单金额（EUR）', format: 'money', currency: 'EUR', values: [0, 0, 0, 0, 0, 75]},
     {id: 'amount:USD', label: '成交订单金额（USD）', format: 'money', currency: 'USD', values: [0, 0, 0, 0, 300, 375]},
+    {id: 'repeat', label: '复购客户数', format: 'count', values: [0, 0, 0, 0, 0, 2]},
+    {id: 'newDeal', label: '成交新客户数', format: 'count', values: [0, 0, 0, 0, 0, 6]},
     {id: 'added', label: '新建客户数', format: 'count', values: [0, 0, 0, 0, 1, 16]},
     {id: 'orders', label: '新建销售订单数', format: 'count', values: [0, 0, 0, 0, 1, 5]},
     {id: 'records', label: '跟进记录数', format: 'count', values: [0, 0, 0, 0, 1, 13]},
@@ -187,14 +189,14 @@ test('目标完成情况: tabs, overview cells with rule and unset target, membe
   assert.match(html, /data-team-tab="result" aria-selected="true">结果目标/);
   assert.match(html, /data-team-tab="process" aria-selected="false">过程目标/);
   assert.match(html, /<h3>结果概览<\/h3>/);
-  assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['amount', 'added', 'orders']);
-  assert.equal((html.match(/未设定目标值/g) || []).length, 3);
-  assert.deepEqual([...html.matchAll(/data-team-target="(\w+)">([^<]+)</g)].map(m => [m[1], m[2].trim()]).slice(0, 3), [['amount', '设置目标值 »'], ['added', '设置目标值 »'], ['orders', '设置目标值 »']]);
+  assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['amount', 'repeat', 'newDeal', 'added', 'orders']);
+  assert.equal((html.match(/未设定目标值/g) || []).length, 5);
+  assert.deepEqual([...html.matchAll(/data-team-target="(\w+)">([^<]+)</g)].map(m => [m[1], m[2].trim()]).slice(0, 5), [['amount', '设置目标值 »'], ['repeat', '设置目标值 »'], ['newDeal', '设置目标值 »'], ['added', '设置目标值 »'], ['orders', '设置目标值 »']]);
   assert.match(html, /class="team-goal team-goal-new" data-team-target="new"/);
   assert.doesNotMatch(html, /已达标/);
   assert.match(html, /<strong>75\.00 EUR<br>375\.00 USD<\/strong>/, 'currencies listed separately, never added together');
   assert.match(html, /<strong>16<\/strong>/); assert.match(html, /<strong>5<\/strong>/);
-  assert.match(html, /<th colspan="3">成交订单金额<\/th><th colspan="3">新建客户数<\/th><th colspan="3">新建销售订单数<\/th>/);
+  assert.match(html, /<th colspan="3">成交订单金额<\/th><th colspan="3">复购客户数<\/th><th colspan="3">成交新客户数<\/th><th colspan="3">新建客户数<\/th><th colspan="3">新建销售订单数<\/th>/);
   assert.match(html, /<th aria-sort="descending"><button type="button" class="team-sort" data-team-sort="amount"/);
   assert.deepEqual(bodyRows(html), [['Amy', '1'], ['Bob', '2'], ['Cy &lt;i&gt;', '3'], ['未分配', '—']]);
   assert.match(html, /<td>5\.00 EUR<br>300\.00 USD<\/td><td class="muted">—<\/td><td class="muted">--%<\/td>/);
@@ -219,7 +221,7 @@ test('目标完成情况: column toggles, sorting, process tab and trend view', 
   assert.deepEqual(bodyRows(html), [['Cy &lt;i&gt;', '1'], ['Amy', '2'], ['Bob', '3'], ['未分配', '—']]);
   html = ui.goalsMarkup(overview, {mode: 'trend'});
   assert.doesNotMatch(html, /team-board/);
-  assert.deepEqual([...html.matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['成交订单金额（EUR）', '成交订单金额（USD）', '新建客户数', '新建销售订单数']);
+  assert.deepEqual([...html.matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['成交订单金额（EUR）', '成交订单金额（USD）', '复购客户数', '成交新客户数', '新建客户数', '新建销售订单数']);
   assert.match(html, /<i style="width:80%"><\/i><\/div><b>300\.00 USD<\/b>/);
   assert.deepEqual([...ui.goalsMarkup(overview, {mode: 'trend', tab: 'process'}).matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['跟进记录数', '任务完成数']);
   assert.match(ui.goalsMarkup({...overview, members: []}, {}), /本月暂无数据/);
@@ -269,7 +271,7 @@ test('controller: the two pages render, view actions re-render, rules open, and 
   const toasts = [];
   c.ui.navigate('team-goals');
   assert.match(c.mounted.at(-1), /<h1>目标完成情况<\/h1>/);
-  assert.match(c.mounted.at(-1), /data-feature="AI团队分析"/); assert.match(c.mounted.at(-1), /data-lai-route="team-targets">目标设置</);
+  assert.match(c.mounted.at(-1), /data-lai-route="team-targets">目标设置</);
   let count = c.mounted.length;
   c.click({teamTab: 'process'});
   assert.equal(c.mounted.length, count + 1); assert.match(c.mounted.at(-1), /<h3>过程概览<\/h3>/);
@@ -298,7 +300,7 @@ test('controller: the two pages render, view actions re-render, rules open, and 
 });
 
 // ---------------- 目标值与季度 ----------------
-const withGoals = {...overview, targetMetrics: ['amount', 'added', 'orders', 'records', 'tasksDone'], periodType: 'month', months: ['2026-10'],
+const withGoals = {...overview, targetMetrics: ['amount', 'repeat', 'newDeal', 'added', 'orders', 'records', 'tasksDone'], periodType: 'month', months: ['2026-10'],
   goals: {amount: [{key: 'k1', currency: 'EUR', value: 50, actual: 75, rate: 150, reached: true}, {key: 'k2', currency: 'USD', value: 500, actual: 375, rate: 75, reached: false}], added: [{key: 'k3', currency: '', value: 16, actual: 16, rate: 100, reached: true}]},
   members: overview.members.map(m => m.owner === 'Amy' ? {...m, goals: {amount: [{key: 'k4', currency: 'USD', value: 200, actual: 300, rate: 150, reached: true}]}} : {...m, goals: {}})};
 
@@ -334,7 +336,7 @@ test('团队墙 amount card shows the company target; quarter view counts down t
 test('target form offers the metrics, both periods, company or member, and escapes names', () => {
   const html = ui.targetFormMarkup(withGoals, {metric: 'orders', period: '2026-Q4', periods: [{key: '2026-10', label: '2026 年 10 月'}, {key: '2026-Q4', label: '2026 年第 4 季度'}]});
   assert.match(html, /<form class="drawer-body" id="biz-target-form">/); assert.match(html, /id="biz-target-error" role="alert"/);
-  assert.deepEqual([...html.split('name="metric"')[1].split('</select>')[0].matchAll(/value="(\w+)"( selected)?/g)].map(m => [m[1], Boolean(m[2])]), [['amount', false], ['added', false], ['orders', true], ['records', false], ['tasksDone', false]]);
+  assert.deepEqual([...html.split('name="metric"')[1].split('</select>')[0].matchAll(/value="(\w+)"( selected)?/g)].map(m => [m[1], Boolean(m[2])]), [['amount', false], ['repeat', false], ['newDeal', false], ['added', false], ['orders', true], ['records', false], ['tasksDone', false]]);
   assert.match(html, /<option value="2026-10">2026 年 10 月<\/option><option value="2026-Q4" selected>2026 年第 4 季度<\/option>/);
   assert.match(html, /<option value="company" selected>企业整体<\/option><option value="member">成员（跟进人）<\/option>/);
   assert.deepEqual([...html.split('name="owner"')[1].split('</select>')[0].matchAll(/<option value="([^"]*)"/g)].map(m => m[1]), ['', 'Amy', 'Bob', 'Cy &lt;i&gt;'], '未分配 cannot be given a target');
@@ -482,4 +484,41 @@ test('controller: an impossible month typed into the picker is rejected and the 
   const good = {id: 'biz-month', value: '2025-12', dataset: {}, closest: () => null};
   listeners.change.forEach(fn => fn({target: good}));
   assert.match(mounted.at(-1), /2025 年 12 月/);
+});
+
+// ---------------- 导出与去掉空入口 ----------------
+test('the board export matches what is on screen: tab, order, per-currency amounts, targets and totals', () => {
+  const rows = ui.boardRows(withGoals, {});
+  assert.deepEqual(rows[0].slice(0, 5), ['排名', '成员', '成交订单金额 完成值', '成交订单金额 目标值', '成交订单金额 完成率']);
+  assert.equal(rows[0].length, 2 + 5 * 3);
+  assert.deepEqual(rows[1].slice(0, 5), [1, 'Amy', '5.00 EUR / 300.00 USD', '200.00 USD', '150%']);
+  assert.deepEqual(rows[2].slice(0, 5), [2, 'Bob', '75.00 USD', '', '']);
+  assert.deepEqual(rows[3].slice(0, 2), [3, 'Cy <i>'], 'export is plain text, not HTML-escaped');
+  assert.deepEqual(rows[4].slice(0, 3), ['', '未分配', '70.00 EUR']);
+  assert.deepEqual(rows.at(-1).slice(0, 5), ['', '合计', '75.00 EUR / 375.00 USD', '50.00 EUR / 500.00 USD', '150% / 75%']);
+  const added = rows[0].indexOf('新建客户数 完成值');
+  assert.deepEqual(rows.at(-1).slice(added, added + 3), [16, 16, '100%'], 'counts stay numbers so Excel can sum them');
+  const process = ui.boardRows(withGoals, {tab: 'process', sort: {id: 'records', dir: 'asc'}});
+  assert.deepEqual(process[0].slice(2, 3), ['跟进记录数 完成值']);
+  assert.deepEqual(process.slice(1, -1).map(r => r[1]), ['Bob', 'Amy', 'Cy <i>', '未分配']);
+});
+
+test('no button on the team pages only shows a reserved-entry notice; export writes a workbook', async () => {
+  const c = savingController(state);
+  for (const route of ['team-goals', 'team-wall', 'team-targets', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) {
+    c.ui.navigate(route);
+    assert.doesNotMatch(c.mounted.at(-1), /data-feature=/, route);
+  }
+  c.ui.navigate('team-goals');
+  await c.click({teamExport: 'board'});
+  assert.equal(c.toasts.at(-1), 'Excel 组件未加载，请重新打开来财', 'without the spreadsheet component it says so instead of failing silently');
+});
+
+test('the exported workbook can be read back with the same cells', () => {
+  const XLSX = require('../vendor/sheetjs-0.20.3/xlsx.full.min.js');
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(ui.boardRows(withGoals, {})), '结果目标');
+  const bytes = XLSX.write(book, {type: 'array', bookType: 'xlsx'});
+  const back = XLSX.utils.sheet_to_json(XLSX.read(bytes, {type: 'array'}).Sheets['结果目标'], {header: 1, defval: ''});
+  assert.deepEqual(back, ui.boardRows(withGoals, {}));
 });
