@@ -358,14 +358,13 @@
   // 商机指标：新建按创建时间归月；赢单、输单按进入该结果的时间归月，只看商机当前所处的阶段。
   function opportunityStats(state,months){
     const model=OM(),selected=new Set(months),owners=new Map();
-    const kindOf=new Map((model?.STAGES||[]).map(stage=>[stage.id,stage.kind]));
     const row=owner=>{
       if(!owners.has(owner))owners.set(owner,{oppNew:0,oppWon:0,oppLost:0,amounts:new Map()});
       return owners.get(owner);
     };
     const total={oppNew:0,oppWon:0,oppLost:0,amounts:new Map()};
     for(const item of model?model.list(state):[]){
-      const owner=canonOwner(state,item.owner),kind=kindOf.get(item.stage)||'open';
+      const owner=canonOwner(state,item.owner),kind=model.stageOf(state,item).kind;
       if(selected.has(monthOf(item.createdAt))){row(owner).oppNew++;total.oppNew++;}
       if(kind==='open'||!selected.has(monthOf(item.closedAt)))continue;
       if(kind==='lost'){row(owner).oppLost++;total.oppLost++;continue;}

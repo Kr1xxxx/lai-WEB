@@ -1608,3 +1608,204 @@ td.team-reached {
   justify-content: center;
   padding: 28px 0;
 }
+
+/* 销售流程设置：左边选流程，右边改这个流程的阶段。 */
+.opp-flow-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.opp-flow-side h3,
+.opp-flow-side h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.opp-flow-items {
+  display: grid;
+  gap: 6px;
+}
+.opp-flow-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid #e3e8ef;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  color: #1f2d45;
+}
+.opp-flow-item span {
+  font-size: 13px;
+  font-weight: 600;
+}
+.opp-flow-item small {
+  font-size: 12px;
+  color: #6b7a90;
+}
+.opp-flow-item:hover {
+  border-color: #b9c9ea;
+}
+.opp-flow-item.is-active {
+  border-color: #0a6aff;
+  background: #f1f6ff;
+}
+.opp-flow-add {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #eef1f5;
+}
+.opp-flow-copy {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #6b7a90;
+}
+.opp-flows input:not([type="hidden"]),
+.opp-flows select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d5dbe5;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  color: #1f2d45;
+}
+.opp-flows button.lai-select-trigger {
+  width: 100%;
+  height: 34px !important;
+  min-height: 34px !important;
+  border-color: #d5dbe5;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 32px;
+}
+.opp-flows input:focus {
+  outline: 0;
+  border-color: #0a6aff;
+  box-shadow: 0 0 0 3px rgba(10, 106, 255, 0.14);
+}
+.opp-flow-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.opp-flow-name {
+  display: grid;
+  gap: 6px;
+  flex: 0 1 320px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3b4a62;
+}
+.opp-flow-name input {
+  font-size: 15px;
+  font-weight: 600;
+}
+.opp-flow-remove {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.opp-flow-note {
+  margin: 12px 0 4px;
+  line-height: 1.6;
+}
+.opp-stage-group {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #eef1f5;
+}
+.opp-stage-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.opp-stage-group-head h4 {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.opp-stage-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.opp-stage-row {
+  display: grid;
+  grid-template-columns: 10px minmax(160px, 320px) 90px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.opp-stage-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #1f9d5c;
+}
+.opp-stage-dot.opp-kind-won {
+  background: #0a6aff;
+}
+.opp-stage-dot.opp-kind-lost {
+  background: #9aa5b6;
+}
+.opp-stage-usage {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #6b7a90;
+  white-space: nowrap;
+}
+.opp-stage-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.opp-stage-fixed {
+  font-size: 12px;
+  color: #a3adbd;
+}
+.opp-icon-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #d5dbe5;
+  border-radius: 6px;
+  background: #fff;
+  color: #3b4a62;
+}
+.opp-icon-button:disabled {
+  color: #c5ccd8;
+  background: #f6f8fb;
+}
+.opp-stage-add {
+  display: grid;
+  grid-template-columns: minmax(160px, 320px) auto;
+  justify-content: start;
+  gap: 8px;
+  margin: 10px 0 0 22px;
+}
+.opp-toolbar #opp-flow {
+  font-weight: 600;
+}
+@media (max-width: 900px) {
+  .opp-flow-layout {
+    grid-template-columns: 1fr;
+  }
+}
+/* 搜索框可以收窄，给销售流程选择让出位置，整条筛选尽量保持一行。 */
+.opp-toolbar input[type="search"] {
+  flex: 1 1 140px;
+  min-width: 140px;
+  max-width: 260px;
+}

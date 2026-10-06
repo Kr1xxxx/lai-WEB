@@ -12,10 +12,10 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 2 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 企业管理 1。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 企业管理 1。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
-  'route:opportunities', 'route:opp-analysis',
+  'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
   'route:dashboard',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
   'route:order-list', 'route:order-trash',
@@ -146,7 +146,7 @@ test('rail menus list only existing destinations; callers cannot alter the menu 
   const rows = label => RM.menuFor(label).map(r => [r.label, r.kind, r.target]);
   assert.deepEqual(rows('客户'), [['客户列表', 'screen', 'active'], ['公海客户', 'screen', 'pool'], ['客户查重', 'screen', 'duplicates'], ['客户设置', 'screen', 'customer-settings']]);
   assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash']]);
-  assert.deepEqual(rows('商机'), [['商机看板', 'route', 'opportunities'], ['商机分析', 'route', 'opp-analysis']]);
+  assert.deepEqual(rows('商机'), [['商机看板', 'route', 'opportunities'], ['商机分析', 'route', 'opp-analysis'], ['销售流程设置', 'route', 'opp-flows']]);
   assert.deepEqual(rows('邮件').map(r => r[2]), Mail.folders.map(f => f.id), 'the same six folders as the mail page');
   assert.deepEqual(rows('邮件').map(r => r[0]), Mail.folders.map(f => f.label));
   for (const unknown of ['不存在', '__proto__', 'constructor', ...RESERVED]) assert.equal(RM.menuFor(unknown), null, unknown);
