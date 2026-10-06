@@ -187,6 +187,17 @@
 .mail-customers .nav-entry {
   min-width: 0;
 }
+.mail-folders .nav-row {
+  height: 36px;
+}
+/* 左侧栏只有 144px 宽：文件夹名、未读数和心形要一起放下，所以这里的内边距收紧一些。 */
+.mail-folders .nav-row .nav-entry {
+  padding: 6px 24px 6px 4px;
+  gap: 5px;
+}
+.mail-folders .nav-heart {
+  right: 2px;
+}
 .mail-folder-label {
   flex: 1 1 auto;
   min-width: 0;

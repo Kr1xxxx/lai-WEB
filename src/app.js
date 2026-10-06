@@ -31,6 +31,7 @@
     back: "M15 5l-7 7 7 7",
     next: "M9 5l7 7-7 7",
     star: "M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z",
+    heart: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z",
     folder: "M3 6h7l2 2h9v12H3z",
     globe:
       "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20 M2 12h20 M12 2c-6 5-6 15 0 20 M12 2c6 5 6 15 0 20",
@@ -1854,7 +1855,8 @@
         throw new Error("客户数据格式不完整");
       rebuildRows();
       const initialCustomer = new URLSearchParams(location.search).get("customer");
-      await navigateApp(location.hash.slice(1) || "customers", initialCustomer, false);
+      if (location.hash === "#favorites") await openFavorites();
+      else await navigateApp(location.hash.slice(1) || "customers", initialCustomer, false);
     } catch (err) {
       $("#app").innerHTML =
         `<div class="boot"><div><h3>暂时无法载入客户</h3><p>${E(err.message)}</p><p class="muted tiny">请关闭后重新打开来财Lai。</p></div></div>`;
@@ -3015,15 +3017,17 @@
       (c) => L.bucket(state.customers[c.name]) === "active",
     );
   }
-  // 当前页面属于哪个左侧菜单：客户页面看是否在「常用」模式，业务页面看它所在的菜单分组。
+  // 当前页面属于哪个左侧菜单：常用模式下只有「常用」高亮（不论当前页面是什么类型）；否则客户页面、邮件、业务页面各自对应所在的菜单。
   function railActive(label, route) {
+    if (favoritesMode) return label === "常用";
+    if (label === "常用") return false;
     if (activeRoute === "mail") return label === "邮件";
-    if (activeRoute === "customers") return label === "常用" ? favoritesMode : route === "customers" && !favoritesMode;
+    if (activeRoute === "customers") return route === "customers";
     return RM.sectionFor(activeRoute)?.label === label;
   }
   function appNav() {
     const items = [
-      ["star", "常用", null],
+      ["heart", "常用", null],
       ["grid", "工作台", "dashboard"],
       ["mail", "邮件", "mail"],
       ["chat", "沟通", null],
@@ -3046,25 +3050,51 @@
       `<button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
     );
   }
-  function favoriteStarState(id, label) {
+  // ---- 常用导航：心形标志 ----
+  // 没设为常用的条目平时不显示标志（透明度为 0，位置保留），鼠标移到该行或键盘聚焦时浮现浅色空心心形；设为常用后实心心形一直显示。
+  const HEART_PATH = icons.heart;
+  const heartSvg = (cls = "nav-heart-icon") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${HEART_PATH}"/></svg>`;
+  function favoriteHeartState(id, label) {
     const on = NF.isFavorite(state.laiSettings, id);
-    return { on, glyph: on ? "★" : "☆", label: `${on ? "取消收藏" : "收藏"}${label}` };
+    return { on, label: `${on ? "取消常用" : "设为常用"}：${label}` };
   }
-  function favoriteStar(id, label) {
-    const star = favoriteStarState(id, label);
-    return `<button class="nav-star${star.on ? " is-favorite" : ""}" data-nav-favorite="${id}" data-nav-label="${E(label)}" aria-pressed="${star.on}" aria-label="${E(star.label)}" title="${E(star.label)}">${star.glyph}</button>`;
+  // 条目 id 不在可设为常用的清单里（保留入口、客户详情等）时不生成心形。
+  function favoriteHeart(id, label, attrs = "") {
+    if (!id || !NF.known(id)) return "";
+    const heart = favoriteHeartState(id, label);
+    return `<button type="button" class="nav-heart${heart.on ? " is-favorite" : ""}" data-nav-favorite="${E(id)}" data-nav-label="${E(label)}" aria-label="${E(heart.label)}" title="${E(heart.label)}"${attrs}>${heartSvg()}</button>`;
   }
-  function syncFavoriteStars() {
+  // 同一个条目可能同时出现在二级导航、悬停浮层等几处：保存成功后把所有心形一起更新。
+  function syncFavoriteHearts() {
     document.querySelectorAll("[data-nav-favorite]").forEach((button) => {
-      const star = favoriteStarState(button.dataset.navFavorite, button.dataset.navLabel);
-      button.classList.toggle("is-favorite", star.on);
-      button.setAttribute("aria-pressed", String(star.on));
-      button.setAttribute("aria-label", star.label);
-      button.title = star.label;
-      button.textContent = star.glyph;
+      const heart = favoriteHeartState(button.dataset.navFavorite, button.dataset.navLabel);
+      button.classList.toggle("is-favorite", heart.on);
+      button.setAttribute("aria-label", heart.label);
+      button.title = heart.label;
     });
   }
-  async function saveFavoriteNav(change) {
+  // 常用列表变了之后，把依赖它的几处界面当场更新：心形、常用模式下的二级导航、「常用」页自身、打开着的「常用」浮层。
+  function refreshFavoriteViews() {
+    syncFavoriteHearts();
+    if (favoritesMode) {
+      const aside = document.querySelector("#app-subnav");
+      if (aside) aside.innerHTML = subnav();
+    }
+    if (activeRoute === "favorites") {
+      const main = document.querySelector(".main");
+      if (main) main.innerHTML = favoritesHomeMarkup();
+    }
+    const flyout = document.querySelector(".rail-flyout");
+    if (flyout?.dataset.menu === "常用") flyout.innerHTML = flyoutPanel("常用");
+  }
+  // 连续快速点击时按顺序保存，后一次在前一次保存完成后再计算，不会因为「上一项修改正在保存」而丢失。
+  let favoriteSaveChain = Promise.resolve();
+  function saveFavoriteNav(change) {
+    const run = favoriteSaveChain.then(() => writeFavoriteNav(change));
+    favoriteSaveChain = run.catch(() => {});
+    return run;
+  }
+  async function writeFavoriteNav(change) {
     if (!(await window.flushPendingSave())) return false;
     try {
       await persist({ ...state, laiSettings: change(state.laiSettings) });
@@ -3072,25 +3102,37 @@
       toast(error.message);
       return false;
     }
-    syncFavoriteStars();
+    refreshFavoriteViews();
     return true;
   }
+  // 点心形：切换常用状态。在「常用」二级导航里点实心心形等于移除，列表重画后把焦点放到原位置附近，不丢失。
+  async function toggleFavoriteHeart(button, id) {
+    const inList = favoritesMode && !!button.closest?.("#app-subnav");
+    const index = inList ? [...document.querySelectorAll("#app-subnav [data-nav-favorite]")].indexOf(button) : -1;
+    const saved = await saveFavoriteNav((settings) => NF.toggle(settings, id));
+    if (!saved || !inList) return saved;
+    const hearts = [...document.querySelectorAll("#app-subnav [data-nav-favorite]")];
+    (hearts[Math.min(index, hearts.length - 1)] || document.querySelector('#app-subnav [data-action="favorite-nav-manage"]'))?.focus({ preventScroll: true });
+    return saved;
+  }
+  const FAVORITE_HINT = "把鼠标移到导航条目上，点右侧的心形，就能加到常用。";
   function favoriteNavPanel(pointerActivated = false) {
     const items = NF.entries(state.laiSettings);
     const rows = items
       .map(
         (entry, index) =>
-          `<li class="favorite-nav-row"><button type="button" class="favorite-nav-jump" data-favorite-jump="${entry.id}">${E(entry.label)}</button><span class="favorite-nav-actions"><button type="button" data-favorite-move="${entry.id}" data-direction="-1" aria-label="上移${E(entry.label)}" title="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-favorite-move="${entry.id}" data-direction="1" aria-label="下移${E(entry.label)}" title="下移"${index === items.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-favorite-remove="${entry.id}" aria-label="从常用移除${E(entry.label)}">移除</button></span></li>`,
+          `<li class="favorite-nav-row"><button type="button" class="favorite-nav-jump" data-favorite-jump="${entry.id}">${E(entry.label)}${entry.menu === entry.label ? "" : `<small>${E(entry.menu)}</small>`}</button><span class="favorite-nav-actions"><button type="button" data-favorite-move="${entry.id}" data-direction="-1" aria-label="上移${E(entry.label)}" title="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-favorite-move="${entry.id}" data-direction="1" aria-label="下移${E(entry.label)}" title="下移"${index === items.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-favorite-remove="${entry.id}" aria-label="从常用移除${E(entry.label)}">移除</button></span></li>`,
       )
       .join("");
     drawer(
       "管理常用",
-      `<div class="drawer-body favorite-nav-body">${items.length ? `<ul class="favorite-nav-list">${rows}</ul>` : '<div class="feature-state"><strong>还没有常用导航</strong>打开「客户」，点导航条目右侧的 ☆，就能加到这里。</div>'}<p class="module-note">点名称可直接跳转；用 ↑ ↓ 调整顺序。目前可收藏客户页里的「客户列表」「公海客户」「客户查重」。</p></div>`,
+      `<div class="drawer-body favorite-nav-body">${items.length ? `<ul class="favorite-nav-list">${rows}</ul>` : `<div class="feature-state"><strong>还没有常用导航</strong>${FAVORITE_HINT}</div>`}<p class="module-note">点名称可直接跳转；用 ↑ ↓ 调整顺序。客户、工作台、邮件、交易、团队数据、日历与待办、设置里的页面都可以设为常用。</p></div>`,
       `<button class="primary" data-action="close-modal">关闭</button>`,
       "favorites",
       pointerActivated,
     );
   }
+  // ---- 打开导航条目 ----
   // 打开某个客户页面；favorites 为真时保持左侧「常用」高亮与「常用」二级导航。
   async function openCustomerScreen(screen, favorites = false) {
     if (!(await navigateApp("customers", "", true, favorites))) return false;
@@ -3098,32 +3140,81 @@
     else if (screen !== "active") showCustomerScreen(screen);
     return true;
   }
-  async function openFavoriteNav(id) {
-    const entry = NF.catalog.find((item) => item.id === id);
-    if (!entry) return;
-    await openCustomerScreen(entry.screen, favoritesMode);
+  // 条目可以是客户页面、业务页面或邮件文件夹；返回 false 表示被拦住（例如有未保存的编辑），界面保持原样。
+  async function openNavEntry(entry, favorites = false) {
+    if (entry.kind === "route") return navigateApp(entry.target, "", true, favorites);
+    if (entry.kind === "mail") return navigateApp("mail", "", true, favorites, entry.target);
+    return openCustomerScreen(entry.target, favorites);
   }
+  // 从「常用」列表（二级导航、管理面板、浮层）打开一项：始终进入常用模式。
+  async function openFavoriteNav(id) {
+    const entry = NF.entry(id);
+    return entry ? openNavEntry(entry, true) : false;
+  }
+  // 点左侧「常用」：打开列表第一项；列表为空时进入「常用」页，明确告诉用户怎么添加。
   function openFavorites() {
     const first = NF.entries(state.laiSettings)[0];
-    return openCustomerScreen(first ? first.screen : "active", true);
+    return first ? openNavEntry(first, true) : navigateApp("favorites", "", true, true);
+  }
+  // 当前页面对应的导航条目 id，用来在「常用」二级导航里高亮当前所在的一项；不是导航条目的页面返回空串。
+  function currentNavId() {
+    if (activeRoute === "customers") return "screen:" + customerScreen;
+    if (activeRoute === "mail") return mail.view() === "mail" ? "mail:" + mail.folder() : "";
+    if (activeRoute === "favorites") return "";
+    return "route:" + activeRoute;
+  }
+  function favoritesHomeMarkup() {
+    const has = NF.list(state.laiSettings).length > 0;
+    const body = has
+      ? `<strong>从左侧选一项常用导航</strong><span>点列表里的任意一项直接打开；用「管理常用」调整顺序或移除。</span>`
+      : `<strong>还没有常用导航</strong><span>${FAVORITE_HINT}</span><span>设为常用的条目会一直亮着实心心形，再点一下就取消；它们会按添加的顺序出现在左侧这个列表里。</span>`;
+    return `<div class="pagebar"><div class="page-tabs"><h1>常用</h1></div></div><section class="module-page favorites-page"><div class="empty favorites-empty"><div class="favorites-empty-art">${heartSvg("favorites-empty-icon")}</div>${body}</div></section>`;
+  }
+  function showFavoritesHome() {
+    window.LaiActivityCategoryNavigation.mount(null);
+    closeDropdowns();
+    removePopover();
+    $("#app").innerHTML = shell(favoritesHomeMarkup());
+  }
+  function navRow(entry, active, attrs, content) {
+    return `<div class="nav-row"><button type="button" class="nav-entry${active ? " active" : ""}" ${attrs}${active ? ' aria-current="page"' : ""}>${content}</button>${favoriteHeart(entry.id, entry.label)}</div>`;
   }
   function favoritesSubnav() {
     const items = NF.entries(state.laiSettings);
-    return `<h3>常用${customerNavToggle(true)}</h3>${
+    const current = currentNavId();
+    const toggle = activeRoute === "customers" ? customerNavToggle(true) : "";
+    // 邮件页的「写信」按钮原本在邮件自己的二级导航里；常用模式下二级导航换成了常用列表，这里补一个，免得进了常用就写不了信。
+    const compose = activeRoute === "mail" ? `<button type="button" class="primary mail-compose" data-mail-action="compose">写 信</button>` : "";
+    return `<h3>常用${toggle}</h3>${compose}${
       items.length
         ? items
-            .map(
-              (entry) =>
-                `<div class="nav-row"><button class="nav-entry ${entry.screen === customerScreen ? "active" : ""}" data-lai-screen="${entry.screen}">${E(entry.label)}</button></div>`,
+            .map((entry) =>
+              navRow(entry, entry.id === current, `data-favorite-open="${entry.id}" title="${E(entry.menu)} · ${E(entry.label)}"`, `<span class="nav-label">${E(entry.label)}</span>`),
             )
             .join("")
-        : '<p class="subnav-empty">还没有常用导航。在「客户」的导航条目右侧点 ☆ 即可添加。</p>'
+        : `<p class="subnav-empty">还没有常用导航。${FAVORITE_HINT}</p>`
     }<div class="nav-row"><button class="nav-entry nav-manage" data-action="favorite-nav-manage">管理常用</button></div>`;
   }
   // ---- 左侧栏悬停浮层：每个菜单显示它包含的入口 ----
   function hideRailFlyout() {
     clearTimeout(hideRailFlyout.timer);
     document.querySelector(".rail-flyout")?.remove();
+  }
+  // 浮层里的一行：条目名称（点了跳转并关闭浮层）＋右侧心形（只切换常用，不跳转、不关闭）。
+  function flyoutRow(row) {
+    const item = `<button type="button" role="menuitem" class="rail-flyout-item" data-flyout-kind="${row.kind}" data-flyout-target="${E(row.target)}">${E(row.label)}</button>`;
+    return `<div class="rail-flyout-row" role="none">${item}${favoriteHeart(row.id, row.label, ' role="menuitem"')}</div>`;
+  }
+  function flyoutPanel(label) {
+    const rows = label === "常用"
+      ? NF.entries(state.laiSettings).map((entry) => ({ label: entry.label, kind: "favorite", target: entry.id, id: entry.id }))
+      : RM.menuFor(label);
+    const body = rows === null
+      ? '<div class="rail-flyout-note">功能入口已保留，深入功能待后续实现。</div>'
+      : rows.length
+        ? rows.map(flyoutRow).join("")
+        : `<div class="rail-flyout-note">还没有常用导航。${FAVORITE_HINT}</div>`;
+    return `<div class="rail-flyout-panel" role="menu" aria-label="${E(label)}">${body}</div>`;
   }
   function showRailFlyout(item) {
     const rail = item.closest(".rail");
@@ -3132,18 +3223,10 @@
     const existing = document.querySelector(".rail-flyout");
     if (existing?.dataset.menu === label) return;
     existing?.remove();
-    const rows = RM.menuFor(label, state.laiSettings);
-    const body = rows === null
-      ? '<div class="rail-flyout-note">功能入口已保留，深入功能待后续实现。</div>'
-      : rows.length
-        ? rows
-            .map((row) => `<button type="button" role="menuitem" class="rail-flyout-item" data-flyout-kind="${row.kind}" data-flyout-target="${row.target}">${E(row.label)}</button>`)
-            .join("")
-        : '<div class="rail-flyout-note">还没有常用导航。在「客户」的导航条目右侧点 ☆ 即可添加。</div>';
     const flyout = document.createElement("div");
     flyout.className = "rail-flyout";
     flyout.dataset.menu = label;
-    flyout.innerHTML = `<div class="rail-flyout-panel" role="menu" aria-label="${E(label)}">${body}</div>`;
+    flyout.innerHTML = flyoutPanel(label);
     rail.after(flyout);
     const top = rail.offsetTop + item.offsetTop - rail.scrollTop;
     const bottomLimit = rail.offsetTop + rail.offsetHeight - 8;
@@ -3151,10 +3234,9 @@
   }
   function activateRailFlyout(kind, target) {
     hideRailFlyout();
-    if (kind === "route") return navigateApp(target);
-    if (kind === "mail") return navigateApp("mail", "", true, false, target);
     if (kind === "feature") return featureNotice(target);
-    return openCustomerScreen(target, kind === "favorite");
+    if (kind === "favorite") return openFavoriteNav(target);
+    return openNavEntry({ kind, target }, false);
   }
   document.addEventListener("pointerover", (event) => {
     if (event.pointerType === "touch") return;
@@ -3178,27 +3260,19 @@
     if (event.key === "Escape") hideRailFlyout();
   });
   function subnav() {
+    if (favoritesMode) return favoritesSubnav();
     if (activeRoute === "mail") return mail.subnav();
-    if (activeRoute === "customers" && favoritesMode) return favoritesSubnav();
     if (activeRoute === "customers")
-      return `<h3>客户${customerNavToggle(true)}</h3>${[
-        ["客户列表", "active", true],
-        ["公海客户", "pool", true],
-        ["客户查重", "duplicates", true],
-        ["客户设置", "customer-settings", false],
-      ]
-        .map(
-          ([label, screen, star]) =>
-            `<div class="nav-row"><button class="nav-entry ${screen === customerScreen ? "active" : ""}" ${screen ? 'data-lai-screen="' + screen + '"' : 'data-feature="' + label + '"'}>${label}</button>${star ? favoriteStar("screen:" + screen, label) : ""}</div>`,
-        )
+      return `<h3>客户${customerNavToggle(true)}</h3>${RM.menuFor("客户")
+        .map((row) => navRow(row, row.target === customerScreen, `data-lai-screen="${row.target}"`, `<span class="nav-label">${E(row.label)}</span>`))
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
     const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
-        ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}${E(entry.label)}</button>`
-        : `<button class="nav-entry ${entry.target === activeRoute ? "active" : ""}" data-lai-route="${entry.target}">${icon(routeIcons[entry.target])}${E(entry.label)}</button>`;
+        ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
+        : navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${icon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
     const groups = [...new Set(section.entries.map((entry) => entry.group).filter(Boolean))];
     if (!groups.length) return `<h3>${E(section.label)}</h3>${section.entries.map(entryButton).join("")}`;
     return `<h3>${E(section.label)}</h3>${groups
@@ -3211,35 +3285,24 @@
       )
       .join("")}`;
   }
+  // 业务页面的清单取自 rail-menu.js，与「可设为常用」同一份来源。
+  const businessRoutes = new Set(RM.favoritable().filter((entry) => entry.kind === "route").map((entry) => entry.target));
   async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
     if (!(await window.flushPendingSave())) return false;
     rememberCustomerListViewport();
     closeModal();
-    activeRoute = [
-      "dashboard",
-      "order-list",
-      "order-trash",
-      "analysis",
-      "team-goals",
-      "team-targets",
-      "team-wall",
-      "team-assets",
-      "team-followups",
-      "team-tasks",
-      "team-orders",
-      "calendar",
-      "settings",
-      "mail",
-    ].includes(route)
-      ? route
-      : "customers";
-    favoritesMode = favorites && activeRoute === "customers";
+    // 「favorites」是列表为空时的「常用」页。
+    activeRoute = route === "mail" || route === "favorites" || businessRoutes.has(route) ? route : "customers";
+    favoritesMode = favorites || activeRoute === "favorites";
+    // 「收起导航」只有客户页有恢复按钮；去别的页面时恢复显示，否则二级导航会藏起来又没处可点。
+    if (activeRoute !== "customers") $("#app").classList.remove("nav-collapsed");
     currentName = "";
     history.replaceState(null, "", "#" + activeRoute);
     if (activeRoute === "customers") {
       if (name) detail(name, false, animateDetail ? "detail" : "");
       else showCustomerScreen("active");
     } else if (activeRoute === "mail") mail.select(folder);
+    else if (activeRoute === "favorites") showFavoritesHome();
     else business.navigate(activeRoute);
     return true;
   }
@@ -3371,9 +3434,10 @@
     if (d.mailFolder) return mail.select(d.mailFolder);
     if (d.mailAction) return mail.action(d.mailAction, e.detail > 0, el);
     if (d.mailView) return mail.showView(d.mailView);
-    if (d.navFavorite) return saveFavoriteNav((settings) => NF.toggle(settings, d.navFavorite));
+    if (d.navFavorite) return toggleFavoriteHeart(el, d.navFavorite);
     if (d.action === "favorite-nav") return openFavorites();
     if (d.action === "favorite-nav-manage") return favoriteNavPanel(e.detail > 0);
+    if (d.favoriteOpen) return openFavoriteNav(d.favoriteOpen);
     if (d.favoriteJump) return openFavoriteNav(d.favoriteJump);
     if (d.favoriteMove)
       return saveFavoriteNav((settings) => NF.move(settings, d.favoriteMove, Number(d.direction))).then((saved) => {
@@ -4051,7 +4115,7 @@
     filterDraft = null;
     team = "team";
     page = 1;
-    await navigateApp("customers", "", true, favoritesMode);
+    await navigateApp("customers", "", true, favoritesMode && NF.isFavorite(state.laiSettings, "screen:active"));
   });
   document.addEventListener("pointerdown", (e) => {
     if (
@@ -4265,6 +4329,7 @@
   mail = window.LaiMailUI.create({
     escape: E,
     icon,
+    favoriteHeart,
     // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
     request: (path, payload) =>
       fetch(path, payload === undefined

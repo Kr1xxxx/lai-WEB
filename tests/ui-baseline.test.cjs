@@ -67,8 +67,11 @@ test('interaction polish has bounded motion and respects reduced motion', () => 
 test('the customer sub-navigation no longer offers the removed profile-suggestion entry', () => {
   const app = read('src/app.js');
   assert.doesNotMatch(app, /建档建议/);
+  // 客户页的条目现在取自 rail-menu.js（和悬停浮层、可设为常用的清单同一份来源）。
   const block = app.slice(app.indexOf('function subnav()'), app.indexOf('async function navigateApp'));
-  const labels = [...block.matchAll(/\["([^"]+)", (?:"[^"]+"|null), (?:true|false)\]/g)].map((match) => match[1]);
+  assert.match(block, /RM\.menuFor\("客户"\)/);
+  assert.doesNotMatch(block, /\["客户列表"/);
+  const labels = require('../src/rail-menu.js').menuFor('客户').map((row) => row.label);
   assert.deepEqual(labels, ['客户列表', '公海客户', '客户查重', '客户设置']);
 });
 
