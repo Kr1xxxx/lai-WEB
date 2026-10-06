@@ -67,7 +67,7 @@ test('interaction polish has bounded motion and respects reduced motion', () => 
 test('the customer sub-navigation no longer offers the removed profile-suggestion entry', () => {
   const app = read('src/app.js');
   assert.doesNotMatch(app, /建档建议/);
-  const block = app.slice(app.indexOf('function subnav()'), app.indexOf('return `<h3>经营管理</h3>'));
+  const block = app.slice(app.indexOf('function subnav()'), app.indexOf('async function navigateApp'));
   const labels = [...block.matchAll(/\["([^"]+)", (?:"[^"]+"|null), (?:true|false)\]/g)].map((match) => match[1]);
   assert.deepEqual(labels, ['客户列表', '公海客户', '客户查重', '客户设置']);
 });
