@@ -1147,7 +1147,7 @@
     function bulkFacet(key, label) {
       const values = [...new Set(compose.all.map((item) => (compose.facts.get(item.customer) || {})[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
       if (!values.length) return "";
-      return `<select id="mail-bulk-${key}" aria-label="按${label}筛选"><option value="">全部${label}</option>${values.map((value) => `<option value="${E(value)}" ${value === compose.filter[key] ? "selected" : ""}>${E(value)}</option>`).join("")}</select>`;
+      return `<select id="mail-bulk-${key}" name="bulk-${key}" aria-label="按${label}筛选"><option value="">全部${label}</option>${values.map((value) => `<option value="${E(value)}" ${value === compose.filter[key] ? "selected" : ""}>${E(value)}</option>`).join("")}</select>`;
     }
     function bulkListMarkup() {
       const shown = bulkShown();
@@ -1404,8 +1404,8 @@
       const fill = (text, asHtml) => (who ? fillVariables(text, who, asHtml) : String(text ?? ""));
       if (!compose.values.subject && t.subject) {
         compose.values.subject = fill(t.subject, false);
-        const input = document.getElementById("mail-compose-subject");
-        if (input) input.value = compose.values.subject;
+        const form = document.getElementById("mail-compose-form");
+        if (form && form.elements.subject) form.elements.subject.value = compose.values.subject;
       }
       compose.values.html = (t.html ? fill(t.html, true) : fill(textToHtml(t.text), true)) + compose.values.html;
       if (compose.editor) compose.editor.setHTML(compose.values.html);
