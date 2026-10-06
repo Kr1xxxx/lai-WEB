@@ -116,7 +116,7 @@ test('the four team routes render their page and a clicked number opens its reco
   assert.equal(c.dialogs.length, 1, 'unknown keys open nothing');
 });
 
-test('opening a team page without the team modules loaded does not break the other pages', () => {
+test('the other pages still work when the team modules are not loaded', () => {
   const c = controller(false);
   c.ui.navigate('analysis');
   assert.match(c.mounted.at(-1), /经营统计/);
@@ -137,7 +137,7 @@ test('the rail highlights the menu that owns the current page', () => {
   assert.deepEqual(active('customers', true), ['常用']);
   assert.deepEqual(active('order-trash'), ['交易']);
   assert.deepEqual(active('order-list'), ['交易']);
-  for (const route of ['analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) assert.deepEqual(active(route), ['团队数据'], route);
+  for (const route of ['analysis', 'team-goals', 'team-targets', 'team-wall', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) assert.deepEqual(active(route), ['团队数据'], route);
   assert.deepEqual(active('dashboard'), ['工作台']);
   assert.deepEqual(active('calendar'), ['协同']);
   assert.deepEqual(active('settings'), ['企业管理']);
@@ -177,8 +177,8 @@ const overview = {
 };
 const bodyRows = html => [...html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].matchAll(/<tr><td><span class="team-rank[^"]*" aria-label="[^"]*">([^<]+)<\/span><\/td><td>([^<]*)<\/td>/g)].map(m => [m[2], m[1]]);
 
-test('ranking: highest first, ties by name, 未分配 last and never ranked', () => {
-  assert.deepEqual(ui.ranked(overview, 'added').map(r => [r.member.label, r.rank]), [['Bob', 1], ['Cy <i>', 2], ['Amy', 3], ['未分配', null]]);
+test('ranking: highest first, equal values share a rank, 未分配 last and never ranked', () => {
+  assert.deepEqual(ui.ranked(overview, 'added').map(r => [r.member.label, r.rank]), [['Bob', 1], ['Cy <i>', 1], ['Amy', 3], ['未分配', null]]);
   assert.deepEqual(ui.ranked(overview, 'amount').map(r => [r.member.label, r.rank]), [['Amy', 1], ['Bob', 2], ['Cy <i>', 3], ['未分配', null]]);
 });
 
@@ -208,7 +208,7 @@ test('目标完成情况: column toggles, sorting, process tab and trend view', 
   assert.doesNotMatch(html, /<th>目标值<\/th>|<th>完成率<\/th>|--%/);
   assert.match(html, /data-team-toggle="target" aria-pressed="false"/);
   html = ui.goalsMarkup(overview, {sort: {id: 'added', dir: 'asc'}});
-  assert.deepEqual(bodyRows(html), [['Amy', '3'], ['Cy &lt;i&gt;', '2'], ['Bob', '1'], ['未分配', '—']], 'ascending keeps true ranks and 未分配 last');
+  assert.deepEqual(bodyRows(html), [['Amy', '3'], ['Cy &lt;i&gt;', '1'], ['Bob', '1'], ['未分配', '—']], 'ascending keeps true ranks and 未分配 last');
   assert.match(html, /<th aria-sort="ascending"><button type="button" class="team-sort" data-team-sort="added"/);
   html = ui.goalsMarkup(overview, {sort: {id: 'records', dir: 'desc'}});
   assert.deepEqual(bodyRows(html)[0], ['Amy', '1'], 'a column from the other tab falls back to this tab\'s first column');
@@ -244,13 +244,13 @@ test('团队墙: countdown ring, amount card, ranking lists, number cards and PK
   const list = title => [...html.split(`<h3>${title}</h3>`)[1].split('</ol>')[0].matchAll(/aria-label="第 (\d+) 名">\d+<\/span><span class="team-rank-name">([^<]+)<\/span><span class="team-rank-value">([^<]+)<\/span><span class="team-bar" aria-hidden="true"><i style="width:(\d+)%">/g)].map(m => [m[1], m[2], m[3], m[4]]);
   assert.deepEqual(list('成交订单金额排行榜'), [['1', 'Amy', '300.00 USD', '100'], ['2', 'Bob', '75.00 USD', '25'], ['3', 'Cy &lt;i&gt;', '0.00 USD', '0']]);
   assert.match(html, /按 USD 排名；其他币种见「订单业绩」。/);
-  assert.deepEqual(list('新建客户数排行榜'), [['1', 'Bob', '4', '100'], ['2', 'Cy &lt;i&gt;', '4', '100'], ['3', 'Amy', '1', '25']]);
+  assert.deepEqual(list('新建客户数排行榜'), [['1', 'Bob', '4', '100'], ['1', 'Cy &lt;i&gt;', '4', '100'], ['3', 'Amy', '1', '25']]);
   assert.deepEqual(list('跟进记录数排行榜').map(r => r[1]), ['Cy &lt;i&gt;', 'Amy', 'Bob']);
   assert.match(html, /<h3>新建客户数<\/h3><span class="muted tiny">我的企业<\/span><strong>16<\/strong>/);
   assert.match(html, /<h3>新建销售订单数<\/h3><span class="muted tiny">我的企业<\/span><strong>5<\/strong>/);
   assert.match(html, /<h3>任务完成率<\/h3>[\s\S]*?<strong>50%<\/strong><span class="muted tiny">已完成 2 ／ 共 4 个任务<\/span><div class="team-progress" aria-hidden="true"><i style="width:50%">/);
   assert.match(html, /<h3>员工PK榜<\/h3><span class="team-first">第一名：Bob<\/span>/);
-  assert.deepEqual(bodyRows(html), [['Bob', '1'], ['Cy &lt;i&gt;', '2'], ['Amy', '3'], ['未分配', '—']]);
+  assert.deepEqual(bodyRows(html), [['Bob', '1'], ['Cy &lt;i&gt;', '1'], ['Amy', '3'], ['未分配', '—']]);
   const sorted = ui.wallMarkup(overview, {wallSort: {id: 'records', dir: 'desc'}}, '2026-10-06');
   assert.match(sorted, /第一名：Cy &lt;i&gt;/);
   assert.match(sorted, /<th aria-sort="descending"><button type="button" class="team-sort" data-team-wall-sort="records"/);
@@ -299,8 +299,8 @@ test('controller: the two pages render, view actions re-render, rules open, and 
 
 // ---------------- 目标值与季度 ----------------
 const withGoals = {...overview, targetMetrics: ['amount', 'added', 'orders', 'records', 'tasksDone'], periodType: 'month', months: ['2026-10'],
-  goals: {amount: [{key: 'k1', currency: 'EUR', value: 50, actual: 75, rate: 150}, {key: 'k2', currency: 'USD', value: 500, actual: 375, rate: 75}], added: [{key: 'k3', currency: '', value: 16, actual: 16, rate: 100}]},
-  members: overview.members.map(m => m.owner === 'Amy' ? {...m, goals: {amount: [{key: 'k4', currency: 'USD', value: 200, actual: 300, rate: 150}]}} : {...m, goals: {}})};
+  goals: {amount: [{key: 'k1', currency: 'EUR', value: 50, actual: 75, rate: 150, reached: true}, {key: 'k2', currency: 'USD', value: 500, actual: 375, rate: 75, reached: false}], added: [{key: 'k3', currency: '', value: 16, actual: 16, rate: 100, reached: true}]},
+  members: overview.members.map(m => m.owner === 'Amy' ? {...m, goals: {amount: [{key: 'k4', currency: 'USD', value: 200, actual: 300, rate: 150, reached: true}]}} : {...m, goals: {}})};
 
 test('目标完成情况 shows saved targets, completion, progress and the reached mark', () => {
   const html = ui.goalsMarkup(withGoals, {});
@@ -395,9 +395,18 @@ test('controller: period switch, opening the form, saving a target and deleting 
   assert.equal(T.listTargets(c.state()).length, 1); assert.equal(c.closed.length, 1);
   c.ui.navigate('team-targets');
   assert.match(c.mounted.at(-1), /<h1>目标管理<\/h1>/); assert.match(c.mounted.at(-1), /共 1 个/);
-  await c.click({teamTargetRemove: T.listTargets(c.state())[0].key});
+  const key = T.listTargets(c.state())[0].key;
+  await c.click({teamTargetRemove: key});
+  assert.equal(T.listTargets(c.state()).length, 1, 'the first click only asks for confirmation');
+  assert.match(c.mounted.at(-1), />再点一次确认删除<\/button><button type="button" class="text-button" data-team-target-cancel="1">取消</);
+  await c.click({teamTargetCancel: '1'});
+  assert.doesNotMatch(c.mounted.at(-1), /再点一次确认删除/); assert.equal(T.listTargets(c.state()).length, 1);
+  await c.click({teamTargetRemove: key});
+  c.ui.navigate('team-goals'); c.ui.navigate('team-targets');
+  assert.doesNotMatch(c.mounted.at(-1), /再点一次确认删除/, 'leaving the page cancels a pending delete');
+  await c.click({teamTargetRemove: key}); await c.click({teamTargetRemove: key});
   assert.equal(T.listTargets(c.state()).length, 0); assert.match(c.mounted.at(-1), /还没有设置任何目标/);
-  await c.click({teamTargetRemove: 'missing'});
+  await c.click({teamTargetRemove: 'missing'}); await c.click({teamTargetRemove: 'missing'});
   assert.equal(c.toasts.at(-1), '目标不存在或已删除');
 });
 
@@ -410,4 +419,67 @@ test('controller: a failed save keeps the form open, shows the reason and saves 
   c.ui.navigate('analysis');
   await c.click({teamTarget: 'added'}); await c.click({teamTargetRemove: 'x'});
   assert.equal(c.dialogs.length, 0, 'target actions do nothing outside the team pages');
+});
+
+// ---------------- 独立评审后补充 ----------------
+test('a hostile currency or name can never break out of an attribute on any team page', () => {
+  const evil = '"><img src=x onerror=alert(1)>';
+  const hostile = {customers: {[evil]: {owner: evil, source: evil, createdAt: '2026-10-05', history: [{type: 'followup', time: '2026-10-02', text: evil}]}},
+    orders: [{id: evil, num: evil, client: evil, owner: evil, amount: 5, currency: evil, stage: 'quote', orderMonth: '2026-10'}],
+    laiTasks: [{id: 't', title: evil, date: '2026-10-03', customer: evil, done: true}]};
+  let html = '';
+  for (const kind of T.kinds) { const r = T.report(kind, hostile, '2026-10'); html += ui.markup(r) + ui.detailMarkup(r.tiles[0].items); }
+  const o = T.overview(hostile, '2026-10');
+  html += ui.goalsMarkup(o, {}) + ui.goalsMarkup(o, {tab: 'process', mode: 'trend'}) + ui.wallMarkup(o, {}, '2026-10-06') + ui.targetFormMarkup(o, {periods: [{key: evil, label: evil}], value: evil, currency: evil});
+  assert.doesNotMatch(html, /<img/i, 'no injected element');
+  assert.doesNotMatch(html, /="[^"]*"><IMG/i);
+  assert.match(html, /data-team-detail="tile:amount:&quot;&gt;&lt;IMG/, 'the currency in the detail key is escaped');
+});
+
+test('the 修改 form is prefilled and the delete button changes only for the armed row', () => {
+  const html = ui.targetFormMarkup(withGoals, {metric: 'amount', value: 500, currency: 'EUR', periods: []});
+  assert.match(html, /name="currency" value="EUR"/); assert.match(html, /name="value" value="500"/);
+  assert.match(ui.targetFormMarkup(withGoals, {metric: 'added', periods: []}), /name="value" value=""/);
+  const targets = T.listTargets(T.setTarget(T.setTarget({}, {metric: 'added', period: '2026-10', scope: 'company', value: 3}), {metric: 'orders', period: '2026-10', scope: 'company', value: 4}));
+  const armed = ui.targetsMarkup(targets, T.periodLabel, targets[1].key);
+  assert.equal((armed.match(/再点一次确认删除<\/button>/g) || []).length, 1);
+  assert.equal((armed.match(/>删除<\/button>/g) || []).length, 1);
+  assert.equal((ui.targetsMarkup(targets, T.periodLabel).match(/>删除<\/button>/g) || []).length, 2);
+});
+
+test('controller: the form always reflects current data, a wrong month is refused, details only open on team pages', async () => {
+  const c = savingController(state);
+  c.ui.navigate('team-goals');
+  const before = c.dialogs.length;
+  // 数据在看过页面之后发生变化：新增一位跟进人
+  c.ui.navigate('team-targets');
+  assert.match(c.mounted.at(-1), /id="biz-month"/, 'the period for a new target can be chosen on this page');
+  // 停留在目标管理页时数据变了（这一页不会重新计算汇总）：新增一位跟进人
+  await c.submit('biz-target-form', {metric: 'records', period: '2026-10', scope: 'member', owner: 'Newbie', value: '2'});
+  await c.click({teamTarget: 'new'});
+  assert.match(c.dialogs.at(-1)[1], /<option value="Newbie">Newbie<\/option>/, 'member list is recomputed, not taken from the earlier page view');
+  assert.ok(c.dialogs.length > before);
+  await c.submit('biz-target-form', {metric: 'added', period: '2026-10', scope: 'company', owner: 'Amy', value: '9'});
+  assert.match(c.errors['biz-target-error'].textContent, /把「对象」改为成员/, 'picking a member without switching 对象 never overwrites the company target');
+  assert.deepEqual(T.listTargets(c.state()).map(t => t.owner), ['Newbie']);
+  c.ui.navigate('analysis');
+  const dialogs = c.dialogs.length;
+  await c.click({teamDetail: 'tile:total'});
+  assert.equal(c.dialogs.length, dialogs, 'a stale detail key does nothing on a non-team page');
+});
+
+test('controller: an impossible month typed into the picker is rejected and the page keeps working', async () => {
+  const mounted = [], listeners = {};
+  const sandbox = {document: {addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); }, getElementById: () => null, querySelector: () => null}};
+  sandbox.window = {LaiBusinessModel: require('../src/business-model.js'), LaiTeamModel: T, LaiTeamUI: U};
+  vm.createContext(sandbox); vm.runInContext(source, sandbox);
+  const page = sandbox.window.LaiBusinessUI.create({getState: () => state, escape: escapeHtml, mount: html => mounted.push(html), save: async () => true, openCustomer() {}, refreshCustomer() {}, navigate() {}, toast() {}, dialog() {}, closeDialog() {}});
+  page.navigate('team-goals');
+  const input = {id: 'biz-month', value: '2025-13', dataset: {}, closest: () => null};
+  assert.doesNotThrow(() => listeners.change.forEach(fn => fn({target: input})));
+  assert.notEqual(input.value, '2025-13', 'the field snaps back to the last valid month');
+  assert.doesNotThrow(() => page.navigate('team-wall'));
+  const good = {id: 'biz-month', value: '2025-12', dataset: {}, closest: () => null};
+  listeners.change.forEach(fn => fn({target: good}));
+  assert.match(mounted.at(-1), /2025 年 12 月/);
 });
