@@ -160,9 +160,11 @@ function controller(initial, failWith = null) {
     replaceState: next => { current = next; }, breakDialog: () => { broken = true; },
     click: dataset => Promise.all(listeners.click.map(fn => fn({target: target(dataset)}))),
     submit: (id, values, dataset = {}) => Promise.all(listeners.submit.map(fn => fn({target: {id, values, dataset, elements: {isDraft: {checked: false}}}, preventDefault() {}}))),
+    changeTarget: target => { target.closest ||= () => null; listeners.change.forEach(fn => fn({target})); },
     change: el => listeners.change.forEach(fn => fn({target: {dataset: {}, closest: sel => sel === '#opp-form' ? (el.inForm ? {} : null) : null, ...el}})),
     drag: (type, el) => { let prevented = false; listeners[type].forEach(fn => fn({target: el, preventDefault() { prevented = true; }, dataTransfer: {setData() {}}})); return prevented; }};
 }
+const listenersChange = (c, target) => c.changeTarget(target);
 const valid = {nameMode: 'auto', client: 'Beta Ltd', contact: '', amount: '120', endDate: '2026-11-05', flow: 'default', exchangeRate: '100', currency: 'USD', stage: 'open', owner: 'Amy', collaborators: '', tags: '', note: '', products: ''};
 
 test('controller: board renders, a new opportunity can be created, edited and its form reacts to the customer', async () => {
@@ -477,7 +479,10 @@ test('form and menu offer the stages of the opportunity\'s own flow', () => {
   assert.match(menu, /<span class="opp-chip opp-stage-chip opp-kind-won">已确认<\/span>/); assert.match(menu, /data-opp-action="order" data-id="s2">生成订单/);
   const detail = require('../src/customer-detail-ui.js');
   assert.deepEqual(O.customerStats(s, 'Alpha <b>Co</b>', TODAY).activeOpportunities.map(c => [c.id, c.stages.map(st => st.label).join('>')]), [['p1', '未成单>付款未到账>待付尾款>已完成>输单'], ['p2', '未成单>付款未到账>待付尾款>已完成>输单'], ['s1', '寄样中>已确认>输单']]);
-  assert.ok(detail);
+  // 客户详情页的阶段条：用当前这个商机所在流程的阶段，并标出它所在的那一个
+  const strip = index => [...detail.render({name: 'Alpha <b>Co</b>', orders: [], history: [], ...O.customerStats(s, 'Alpha <b>Co</b>', TODAY), activeOpportunityIndex: index}, {escape: escapeHtml}).matchAll(/class="lcd-feature lcd-phase phase-\d( is-current)?" data-feature="商机阶段：([^"]+)"/g)].map(m => m[2] + (m[1] ? '*' : ''));
+  assert.deepEqual(strip(2), ['寄样中*', '已确认', '输单']);
+  assert.deepEqual(strip(0), ['未成单*', '付款未到账', '待付尾款', '已完成', '输单']);
 });
 
 test('流程设置页: flows on the left, stages grouped by kind with usage, and the right buttons', () => {
@@ -547,6 +552,16 @@ test('controller: flow settings save each action, confirm deletions, and the boa
   f.flow.value = 'default'; c.change({name: 'flow', inForm: true});
   assert.match(f.stage.innerHTML, /^<option value="unpaid" selected>等待付款<\/option>/);
   assert.equal(f.stage.value, 'unpaid');
+  // 编辑一个处在「已完成」的商机：换到别的流程再换回来，阶段回到原来的「已完成」，而不是落到第一个阶段
+  await c.click({oppAction: 'edit', id: 'p3'});
+  const g = c.fakeForm({flow: 'default', stage: 'done'});
+  g.flow.value = 'fnew-id'; c.change({name: 'flow', inForm: true});
+  assert.equal(g.stage.value, 'unpaid', 'another flow: its first stage');
+  g.flow.value = 'default'; c.change({name: 'flow', inForm: true});
+  assert.equal(g.stage.value, 'done', 'back to the original flow: the original stage');
+  assert.match(g.stage.innerHTML, /<option value="done" selected>已完成<\/option>/);
+  c.page.discardDraft();
+  await c.click({oppAction: 'new'});
   await c.submit('opp-form', {...valid, flow: 'fnew-id', stage: 'unpaid'});
   assert.equal(O.list(c.state()).find(i => i.id === 'new-id').flow, 'fnew-id');
   c.page.navigate('opp-flows');
@@ -558,4 +573,40 @@ test('controller: flow settings save each action, confirm deletions, and the boa
   c.page.navigate('opportunities');
   await c.click({flowAction: 'flow-remove', flow: 'fnew-id'});
   assert.equal(O.flowsOf(c.state()).length, 2);
+});
+
+
+test('review fixes: matches in other flows are announced, a customer\'s board opens on the fullest flow, armed deletes do not survive leaving the page', async () => {
+  const s = twoFlows();
+  const main = ui.boardMarkup(O.board(s, {}, TODAY), {}, {today: TODAY});
+  assert.match(main, /另有 2 个符合当前筛选的商机在其他销售流程里（样品单 2 个），在左上角切换流程查看。/);
+  assert.doesNotMatch(ui.boardMarkup(O.board(sample(), {}, TODAY), {}, {today: TODAY}), /其他销售流程/);
+  // Beta Ltd 只有一个商机（EUR，默认流程）；Alpha 在默认流程 4 个、样品单 2 个 → 再给样品单加 3 个，样品单变成最多
+  let more = s;
+  for (const id of ['s3', 's4', 's5']) more = add(more, id, {flow: 'fs', stage: 'sending'});
+  const c = controller(more);
+  c.page.showOpportunities('Alpha <b>Co</b>');
+  c.page.navigate('opportunities');
+  assert.match(c.mounted.at(-1), /<option value="fs" selected>样品单（5）/, 'opens the flow where this customer has most opportunities');
+  assert.match(c.mounted.at(-1), /另有 4 个符合当前筛选的商机在其他销售流程里（默认销售流程 4 个）/);
+  // 流程设置页：点了一次删除后离开，再回来不应该还停在“再点一次确认”
+  const d = controller(O.addFlow(sample(), {label: '空流程'}, {id: 'fe'}));
+  d.page.navigate('opp-flows');
+  await d.click({flowSelect: 'fe'}); await d.click({flowAction: 'flow-remove', flow: 'fe'});
+  assert.match(d.mounted.at(-1), /再点一次确认删除/);
+  d.page.navigate('opportunities'); d.page.navigate('opp-flows');
+  assert.doesNotMatch(d.mounted.at(-1), /再点一次确认删除/);
+  await d.click({flowAction: 'flow-remove', flow: 'fe'});
+  assert.equal(O.flowsOf(d.state()).length, 2, 'one click after coming back only arms again');
+  // 改名失败：输入框恢复成已保存的名称
+  const input = {dataset: {stageRename: 'unpaid', flow: 'default'}, value: '未成单'};
+  listenersChange(d, input); await new Promise(r => setTimeout(r));
+  assert.equal(d.errors['opp-flow-error'].textContent, '这个流程里已经有同名的阶段');
+  assert.equal(input.value, '付款未到账');
+  // 表单：原流程读不到的商机，表单里显示为默认流程并选中
+  const lostLink = {...more, laiOpportunities: more.laiOpportunities.map(i => i.id === 'p1' ? {...i, flow: 'gone'} : i)};
+  const e = controller(lostLink);
+  e.page.navigate('opportunities');
+  await e.click({oppAction: 'edit', id: 'p1'});
+  assert.match(e.dialogs.at(-1)[1], /<select name="flow" id="opp-form-flow"><option value="default" selected>默认销售流程<\/option>/);
 });

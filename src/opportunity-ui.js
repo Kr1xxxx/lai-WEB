@@ -43,7 +43,8 @@
       const stat=(label,value,cls='')=>`<div class="opp-stat${cls?' '+cls:''}"><span>${label}</span><b>${money(value,board.currency)}</b></div>`;
       return `<div class="opp-summary"><label class="opp-currency"><span>币种</span><select id="opp-currency" aria-label="币种">${(board.currencies.length?board.currencies:[board.currency]).map(code=>option(code,code,board.currency)).join('')}</select></label>`
         +stat('总销售金额',board.totals.total,'is-total')+stat('进行中',board.totals.open,'is-open')+stat('赢单',board.totals.won,'is-won')+stat('输单',board.totals.lost,'is-lost')
-        +(board.otherCurrencyCount?`<p class="opp-summary-note">另有 ${board.otherCurrencyCount} 个其他币种的商机，切换币种查看；不同币种不折算。</p>`:'')+`</div>`;
+        +(board.otherCurrencyCount?`<p class="opp-summary-note">另有 ${board.otherCurrencyCount} 个其他币种的商机，切换币种查看；不同币种不折算。</p>`:'')
+        +(board.otherFlowCount?`<p class="opp-summary-note">另有 ${board.otherFlowCount} 个符合当前筛选的商机在其他销售流程里（${(board.flows||[]).filter(flow=>flow.id!==board.flow&&flow.count).map(flow=>`${E(flow.label)} ${flow.count} 个`).join('、')}），在左上角切换流程查看。</p>`:'')+`</div>`;
     }
     function columns(board,view,today){
       return `<div class="opp-board">${board.columns.map(column=>{

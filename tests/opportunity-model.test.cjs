@@ -342,7 +342,15 @@ test('flows: the built-in flow is used until something is saved; unreadable entr
   const renamed = O.renameFlowStage(s, 'ok', 'w', '已成交');
   assert.equal(renamed.laiOpportunityFlows.length, junk.length, 'nothing is dropped when saving');
   assert.deepEqual(renamed.laiOpportunityFlows.slice(0, 5), junk.slice(0, 5));
-  assert.deepEqual(renamed.laiOpportunityFlows[5], {id: 'ok', label: '外贸', extra: 1, stages: [{id: 'o', label: '询盘', kind: 'open'}, {id: 'w', label: '已成交', kind: 'won', color: 'red'}, {id: 'lost', label: '丢单', kind: 'lost'}]}, 'unknown fields on the flow and on its stages survive');
+  assert.deepEqual(renamed.laiOpportunityFlows[5], {id: 'ok', label: '外贸', extra: 1, stages: [{id: 'o', label: '询盘', kind: 'open'}, {id: 'w', label: '已成交', kind: 'won', color: 'red'}, {id: 'lost', label: '丢单', kind: 'lost'},
+    {id: 'o', label: '重复', kind: 'open'}, {id: 'bad', label: '', kind: 'open'}, {id: 'k', label: 'K', kind: 'weird'}]}, 'unknown fields survive, and the stage entries that could not be read are kept after the readable ones');
+  // 同一个阶段 ID 出现两次：只用第一条，改别的东西时两条各自的内容都不变（不会把第二条的字段抄到第一条上）
+  const twice = {laiOpportunityFlows: [{id: 'default', label: 'D', stages: [{id: 'open', label: 'A', kind: 'open', color: 'red'}, {id: 'open', label: 'dup', kind: 'open', color: 'blue'}, 'junk', {id: 'done', label: 'W', kind: 'won'}, {id: 'lost', label: 'L', kind: 'lost'}, {id: 'future', label: 'X', kind: 'paused', extra: 1}]}]};
+  const kept = O.renameFlow(twice, 'default', 'D2').laiOpportunityFlows[0];
+  assert.deepEqual(kept.stages, [{id: 'open', label: 'A', kind: 'open', color: 'red'}, {id: 'done', label: 'W', kind: 'won'}, {id: 'lost', label: 'L', kind: 'lost'}, {id: 'open', label: 'dup', kind: 'open', color: 'blue'}, 'junk', {id: 'future', label: 'X', kind: 'paused', extra: 1}]);
+  assert.deepEqual(O.flowOf({laiOpportunityFlows: [kept]}, 'default').stages.map(st => st.label), ['A', 'W', 'L'], 'reading it again gives the same flow');
+  assert.deepEqual(O.removeFlowStage(O.addFlowStage({laiOpportunityFlows: [kept]}, 'default', {label: 'B', kind: 'open'}, {id: 'b'}), 'default', 'b').laiOpportunityFlows[0].stages, kept.stages, 'adding then removing a stage leaves every saved entry as it was');
+  assert.deepEqual(Object.keys(O.flowsOf(s)[1]), ['id', 'label', 'stages'], 'the bookkeeping used for saving does not show up on the flow');
   assert.throws(() => O.addFlow({laiOpportunityFlows: {}}, {label: 'x'}), /销售流程格式异常/);
   assert.equal(O.flowOf(s, 'missing').id, 'default'); assert.equal(O.flowOf(s, undefined).id, 'default');
 });
@@ -446,4 +454,23 @@ test('opportunities follow their flow: stage must belong to it, columns and figu
   const team = T.overview(s, '2026-10').total;
   assert.deepEqual([team.oppNew, team.oppWon, team.oppAmounts], [2, 1, [{currency: 'USD', total: 10}]], 'team figures read the kind from the opportunity\'s own flow');
   assert.equal(O.defaults(O.removeFlowStage(base, 'default', 'open'), TODAY).stage, 'unpaid', 'a new opportunity starts in the first stage that still exists');
+});
+
+
+test('review fixes: an unreadable flow link is kept on edit; labels are counted in characters; invisible names are refused', () => {
+  const s = {...base, laiOpportunities: [{id: 'o', flow: 'gone', stage: 'open', owner: 'Amy', client: 'Alpha Co', contact: 'Ann', amount: 1, currency: 'USD', endDate: '2026-11-05', name: 'n', nameMode: 'custom'}]};
+  assert.equal(get(O.upsert(s, 'o', {note: 'x'}, {now: NOW, today: TODAY}), 'o').flow, 'gone', 'editing something else does not rewrite the link');
+  assert.equal(get(O.upsert(s, 'o', {note: 'x', flow: 'default'}, {now: NOW, today: TODAY}), 'o').flow, 'gone', 'the form submits the flow it was shown in (default); that is not a change of flow');
+  assert.equal(get(O.moveStage(s, 'o', 'unpaid', {now: NOW}), 'o').flow, 'gone');
+  const withFlow = O.addFlow(s, {label: '样品单'}, {id: 'fs'});
+  assert.equal(get(O.upsert(withFlow, 'o', {flow: 'fs', stage: 'open'}, {now: NOW, today: TODAY}), 'o').flow, 'fs', 'choosing a real flow does change it');
+  assert.equal(get(O.upsert(withFlow, 'o', {flow: 'nope'}, {now: NOW, today: TODAY}), 'o').flow, 'gone', 'another unknown flow is not a real choice either');
+  assert.equal(O.flowOf(O.addFlow(base, {label: '👍🏽'.repeat(6)}, {id: 'e'}), 'e').label, '👍🏽'.repeat(6), 'six emoji are six characters, not twenty-four');
+  assert.throws(() => O.addFlow(base, {label: '字'.repeat(21)}), /不能超过 20 个字/);
+  assert.throws(() => O.addFlow(base, {label: '​‍﻿'}), /请填写销售流程名称/);
+  assert.equal(O.flowOf(O.addFlow(base, {label: '样​品'}, {id: 'z'}), 'z').label, '样品');
+  // 看板：其他流程里符合筛选的数量
+  let two = add(add(O.addFlow(base, {label: '样品单'}, {id: 'fs'}), 'm1'), 'm2', {flow: 'fs'});
+  two = add(two, 'm3', {flow: 'fs', client: 'Beta Ltd', contact: ''});
+  assert.deepEqual([O.board(two, {}, TODAY).otherFlowCount, O.board(two, {flow: 'fs'}, TODAY).otherFlowCount, O.board(two, {search: 'Beta'}, TODAY).otherFlowCount, O.board(two, {search: 'Beta'}, TODAY).count], [2, 1, 1, 0]);
 });

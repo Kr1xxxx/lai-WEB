@@ -74,17 +74,22 @@
   }
   function readFlow(entry){
     if(!entry||typeof entry!=='object'||typeof entry.id!=='string'||!entry.id.trim())return null;
-    const seen=new Set(),stages=[];
-    for(const stage of Array.isArray(entry.stages)?entry.stages:[]){
-      if(!stage||typeof stage!=='object'||typeof stage.id!=='string'||!stage.id||seen.has(stage.id)||!Object.hasOwn(KIND_LABELS,stage.kind)||!cleanName(stage.label))continue;
-      if((stage.kind==='lost')!==(stage.id==='lost'))continue;
+    // used：保存的阶段条目里实际被采用的那些的位置（其余读不懂或重复的，保存时原样留着）。
+    const seen=new Set(),stages=[],used=new Map();
+    (Array.isArray(entry.stages)?entry.stages:[]).forEach((stage,position)=>{
+      if(!stage||typeof stage!=='object'||typeof stage.id!=='string'||!stage.id||seen.has(stage.id)||!Object.hasOwn(KIND_LABELS,stage.kind)||!cleanName(stage.label))return;
+      if((stage.kind==='lost')!==(stage.id==='lost'))return;
       seen.add(stage.id);
+      used.set(stage.id,position);
       stages.push({id:stage.id,label:cleanName(stage.label),kind:stage.kind});
-    }
+    });
     const count=kind=>stages.filter(stage=>stage.kind===kind).length;
     if(!count('open')||!count('won')||count('lost')!==1)return null;
     stages.sort((a,b)=>KIND_ORDER.indexOf(a.kind)-KIND_ORDER.indexOf(b.kind));
-    return {id:entry.id,label:cleanName(entry.label)||'未命名流程',stages};
+    const flow={id:entry.id,label:cleanName(entry.label)||'未命名流程',stages};
+    // 不参与显示和比较，只给保存时用。
+    Object.defineProperty(flow,'used',{value:used,enumerable:false});
+    return flow;
   }
   const flowCache=new WeakMap();
   function flowsOf(state){
@@ -212,7 +217,10 @@
     next.exchangeRate=next.currency==='USD'?100:decimal(value('exchangeRate',100),'汇率',{allowZero:false});
     next.endDate=trim(value('endDate'));
     if(!validDate(next.endDate))throw new Error('请选择有效的结束日期');
-    next.flow=flowsOf(state).some(flow=>flow.id===trim(value('flow','default')))?trim(value('flow','default')):'default';
+    // 流程：商机原来指向的流程现在读不到时按默认流程处理，但只要没有改选别的流程，就保留原来的指向（那个流程也许只是暂时读不懂）。
+    const wantedFlow=trim(value('flow','default')),flowKnown=id=>flowsOf(state).some(flow=>flow.id===id);
+    if(previous&&trim(previous.flow)&&!flowKnown(trim(previous.flow))&&flowOf(state,wantedFlow).id===flowOfItem(state,previous).id)next.flow=previous.flow;
+    else next.flow=flowKnown(wantedFlow)?wantedFlow:'default';
     next.note=trim(value('note'));
     next.collaborators=splitList(value('collaborators',[])).filter(name=>!sameName(name,next.owner));
     next.tags=splitList(value('tags',[]));
@@ -330,6 +338,7 @@
     return {
       currency,currencies,count:selected.length,otherCurrencyCount:items.length-selected.length,columns,cards:sorted,
       flow:flow.id,flows:flowsOf(state).map(entry=>({id:entry.id,label:entry.label,count:filtered.filter(item=>flowOfItem(state,item).id===entry.id).length})),
+      otherFlowCount:filtered.length-items.length,
       totals:{open:sum('open'),won:sum('won'),lost:sum('lost'),total:sum('open')+sum('won')},
       filters:{flow:flow.id,archived,dateField:field,from,to,owner:cleanName(filters.owner),search:trim(filters.search),sort:SORTS.some(entry=>entry[0]===filters.sort)?filters.sort:'createdAt-desc'}
     };
@@ -407,9 +416,10 @@
   }
   // ---- 销售流程设置：新建／改名／删除流程，添加／改名／排序／删除阶段。每个动作各自保存。 ----
   function labelOf(value,what){
-    const text=cleanName(value);
+    // 去掉看不见的零宽字符；长度按「字」数（一个表情算一个字，不按内部编码长度）。
+    const text=cleanName(String(value??'').replace(/[\u200B-\u200D\u2060\uFEFF]/g,''));
     if(!text)throw new Error(`请填写${what}名称`);
-    if(text.length>MAX_LABEL)throw new Error(`${what}名称不能超过 ${MAX_LABEL} 个字`);
+    if([...new Intl.Segmenter().segment(text)].length>MAX_LABEL)throw new Error(`${what}名称不能超过 ${MAX_LABEL} 个字`);
     return text;
   }
   const newId=(prefix,taken)=>{let id;do{id=prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}while(taken.has(id));return id;};
@@ -422,8 +432,10 @@
   function saveFlow(state,flow){
     const entries=rawFlows(state),index=entries.findIndex(entry=>readFlow(entry)?.id===flow.id);
     const previous=index>=0?entries[index]:null;
-    const oldStages=new Map((Array.isArray(previous?.stages)?previous.stages:[]).filter(stage=>stage&&typeof stage==='object'&&typeof stage.id==='string').map(stage=>[stage.id,stage]));
-    const entry={...(previous||{}),id:flow.id,label:flow.label,stages:flow.stages.map(stage=>({...(oldStages.get(stage.id)||{}),id:stage.id,label:stage.label,kind:stage.kind}))};
+    const saved=Array.isArray(previous?.stages)?previous.stages:[],used=previous?readFlow(previous).used:new Map();
+    // 被采用的阶段按新的内容写回（带上原条目里不认识的字段）；读不懂或重复的条目原样接在后面，不丢。
+    const leftovers=saved.filter((stage,position)=>![...used.values()].includes(position));
+    const entry={...(previous||{}),id:flow.id,label:flow.label,stages:[...flow.stages.map(stage=>({...(used.has(stage.id)?saved[used.get(stage.id)]:{}),id:stage.id,label:stage.label,kind:stage.kind})),...leftovers]};
     return {...state,laiOpportunityFlows:index>=0?entries.map((item,position)=>position===index?entry:item):flow.id==='default'?[entry,...entries]:[...entries,entry]};
   }
   const sameLabel=(a,b)=>cleanName(a).toLowerCase()===cleanName(b).toLowerCase();
@@ -517,6 +529,6 @@
       return {...flow,count:items.length,stages:flow.stages.map(stage=>({...stage,count:items.filter(item=>stageOf(state,item).id===stage.id).length}))};
     });
   }
-  const api={KIND_LABELS,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
+  const api={KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
   if(node)module.exports=api;else root.LaiOpportunityModel=api;
 })(typeof window!=='undefined'?window:globalThis);

@@ -430,7 +430,8 @@
         if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
         next = { id, isNew: false, values: { ...item } };
       }
-      const values = next.values;
+      // 表单里显示的是商机实际归属的流程（原来的流程读不到时按默认流程）。
+      const values = { ...next.values, flow: OM().flowOf(state(), next.values.flow).id };
       try {
         ctx.dialog(
           next.isNew ? "新建商机" : "编辑商机",
@@ -902,9 +903,19 @@
     document.addEventListener("change", (e) => {
       if (e.target.closest?.("#biz-target-form") && ["metric", "scope"].includes(e.target.name)) return syncTargetForm(e.target.closest("#biz-target-form"));
       if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "flow", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
-      if (route === "opp-flows" && e.target.dataset?.flowRename) return saveFlow(() => OM().renameFlow(state(), e.target.dataset.flowRename, e.target.value), "[data-flow-rename]");
-      if (route === "opp-flows" && e.target.dataset?.stageRename)
-        return saveFlow(() => OM().renameFlowStage(state(), e.target.dataset.flow, e.target.dataset.stageRename, e.target.value), `[data-stage-rename="${cssEscape(e.target.dataset.stageRename)}"]`);
+      // 改名没保存成功（空名、重名）时，输入框恢复成已保存的名称，提示留在页面上方。
+      if (route === "opp-flows" && e.target.dataset?.flowRename) {
+        const input = e.target, id = input.dataset.flowRename;
+        return saveFlow(() => OM().renameFlow(state(), id, input.value), "[data-flow-rename]").then((ok) => {
+          if (!ok) input.value = OM().flowOf(state(), id).label;
+        });
+      }
+      if (route === "opp-flows" && e.target.dataset?.stageRename) {
+        const input = e.target, flowId = input.dataset.flow, id = input.dataset.stageRename;
+        return saveFlow(() => OM().renameFlowStage(state(), flowId, id, input.value), `[data-stage-rename="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.value = OM().flowOf(state(), flowId).stages.find((stage) => stage.id === id)?.label ?? input.value;
+        });
+      }
       if (route === "opportunities" && Object.hasOwn(OPP_FILTERS, e.target.id)) {
         oppView.filters = { ...oppView.filters, [OPP_FILTERS[e.target.id]]: e.target.value };
         oppView.limits = {};
@@ -1063,12 +1074,16 @@
       },
       showOpportunities(client) {
         oppView.filters = { search: String(client || ""), archived: "all" };
+        // 这个客户的商机可能分在几个销售流程里：先打开商机最多的那个，其余的页面上会提示。
+        const flows = OM().board(state(), oppView.filters, B.localDate()).flows;
+        oppView.filters.flow = [...flows].sort((a, b) => b.count - a.count)[0]?.id || "default";
         oppView.limits = {};
         return ctx.navigate("opportunities");
       },
       navigate(next) {
         oppReturn = "";
         armedTarget = "";
+        flowView.armed = "";
         route = next;
         render();
       },

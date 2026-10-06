@@ -435,3 +435,39 @@ test('opportunity targets: counts are whole numbers, won amount is set per curre
   assert.throws(() => T.setTarget(oppState, {metric: 'oppWon', period: '2026-10', scope: 'company', value: 1.5}), /整数/);
   assert.deepEqual(T.targetMetrics.slice(-3), ['oppWonAmount', 'oppWon', 'oppNew']);
 });
+
+
+test('opportunity figures: local month at the boundary, floor for the win rate, old data without a close date, odd currencies', () => {
+  // 不带时区的时间按本地时间理解，所以这一段在任何时区结果都一样：9 月 30 日 23:30 属于 9 月，10 月 1 日 00:10 属于 10 月。
+  const edge = {...state, laiOpportunities: [
+    opp('late', 'Amy', 'done', 10, 'USD', '2026-09-30 23:30', '2026-09-30 23:50'),
+    opp('early', 'Amy', 'done', 20, 'USD', '2026-10-01 00:10', '2026-10-01 00:20'),
+    opp('q', 'Amy', 'lost', 5, 'USD', '2026-12-31 23:00', '2027-01-01 00:00')]};
+  const pick = period => { const t = T.overview(edge, period).total; return [t.oppNew, t.oppWon, t.oppLost, t.oppAmounts.map(a => a.total).join()]; };
+  assert.deepEqual(pick('2026-09'), [1, 1, 0, '10']);
+  assert.deepEqual(pick('2026-10'), [1, 1, 0, '20']);
+  assert.deepEqual(pick('2026-Q4'), [2, 1, 0, '20'], 'created on 12-31 is in Q4; lost at 01-01 00:00 is not');
+  // 带时区的时间：同一个时刻在台北是 10 月，在洛杉矶还是 9 月
+  const zoned = {...state, laiOpportunities: [opp('z', 'Amy', 'done', 7, 'USD', '2026-09-30T17:00:00.000Z', '2026-10-01T05:00:00.000Z')]};
+  const saved = process.env.TZ;
+  try {
+    process.env.TZ = 'Asia/Taipei';
+    assert.deepEqual([T.overview({...zoned}, '2026-10').total.oppNew, T.overview({...zoned}, '2026-10').total.oppWon], [1, 1]);
+    process.env.TZ = 'America/Los_Angeles';
+    assert.deepEqual([T.overview({...zoned}, '2026-10').total.oppNew, T.overview({...zoned}, '2026-09').total.oppNew, T.overview({...zoned}, '2026-09').total.oppWon], [0, 1, 1]);
+  } finally { if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved; }
+  // 2 赢 1 输：66.67% 舍去为 66%，与商机分析页一致
+  const rate = {...state, laiOpportunities: [opp('w1', 'Amy', 'done', 1, 'USD', '2026-10-02 10:00', '2026-10-03 10:00'), opp('w2', 'Amy', 'done', 1, 'USD', '2026-10-02 10:00', '2026-10-03 10:00'), opp('l1', 'Amy', 'lost', 1, 'USD', '2026-10-02 10:00', '2026-10-03 10:00')]};
+  assert.equal(T.overview(rate, '2026-10').total.oppWinRate, 66);
+  assert.equal(require('../src/opportunity-model.js').analysis(rate, {months: ['2026-10']}).summary.winRate, 66);
+  // 老数据没有结束时间：用最后一次换阶段的时间，再不行用创建时间；不会凭空消失
+  const old = {...state, laiOpportunities: [
+    opp('h', 'Amy', 'done', 9, 'USD', '2026-09-05 10:00', '', {stageHistory: [{stage: 'open', at: '2026-09-05 10:00'}, {stage: 'done', at: '2026-10-08 10:00'}]}),
+    opp('n', 'Amy', 'done', 4, 'USD', '2026-10-05 10:00', ''),
+    opp('o', 'Amy', 'open', 99, 'USD', '2026-10-05 10:00', '2026-10-06 10:00')]};
+  assert.deepEqual([T.overview(old, '2026-10').total.oppWon, T.overview(old, '2026-10').total.oppAmounts], [2, [{currency: 'USD', total: 13}]], 'a close date left on an open opportunity is ignored');
+  // 写得不像币种代码的，和商机看板一样算作 USD，不会冒出新的“币种”
+  const odd = {...state, laiOpportunities: [opp('c1', 'Amy', 'done', 3, 'EURO', '2026-10-02 10:00', '2026-10-03 10:00'), opp('c2', 'Amy', 'done', 4.5, 'us', '2026-10-02 10:00', '2026-10-03 10:00'), opp('c3', 'Amy', 'done', 2, ' eur ', '2026-10-02 10:00', '2026-10-03 10:00')]};
+  assert.deepEqual([T.overview(odd, '2026-10').total.oppAmounts, T.overview(odd, '2026-10').oppCurrency], [[{currency: 'EUR', total: 2}, {currency: 'USD', total: 7.5}], 'USD']);
+  assert.doesNotMatch(T.overview(old, '2026-10').rules.oppWon, /待付尾款|已完成/, 'the rule text no longer names the default stages');
+});

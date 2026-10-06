@@ -274,7 +274,7 @@
     customers:`统计${unit}至少有一条跟进记录的客户数量。`,
     tasksDone:`统计任务日期在${unit}且已完成的任务数量；完成率＝已完成÷任务数。`,
     oppNew:`统计${unit}创建的商机数量，按商机上填写的负责人汇总；已归档的商机也计入，已删除的不计入。`,
-    oppWon:`统计${unit}赢单的商机数量：商机当前处在赢单阶段（待付尾款、已完成），并且是在${unit}进入赢单的。赢单率＝${unit}赢单÷（${unit}赢单＋${unit}输单）。`,
+    oppWon:`统计${unit}赢单的商机数量：商机当前处在所属销售流程的赢单类阶段，并且是在${unit}进入赢单的。赢单率＝${unit}赢单÷（${unit}赢单＋${unit}输单），不足 1% 的部分舍去。`,
     oppWonAmount:`统计${unit}赢单商机的销售金额，不同币种分开统计、不折算；排名以${unit}赢单金额最大的币种为准。`
   });
   // ---- 目标：按周期（月／季度）、对象（企业／成员）、指标保存一个目标值；金额目标按币种分别设置。 ----
@@ -366,15 +366,17 @@
     for(const item of model?model.list(state):[]){
       const owner=canonOwner(state,item.owner),kind=model.stageOf(state,item).kind;
       if(selected.has(monthOf(item.createdAt))){row(owner).oppNew++;total.oppNew++;}
-      if(kind==='open'||!selected.has(monthOf(item.closedAt)))continue;
+      // 赢单／输单的时间：优先用记录下来的结束时间；老数据没有时，退到最后一次换阶段的时间，再退到创建时间。
+      const closed=monthOf(item.closedAt)||monthOf(Array.isArray(item.stageHistory)?item.stageHistory.at(-1)?.at:'')||monthOf(item.createdAt);
+      if(kind==='open'||!selected.has(closed))continue;
       if(kind==='lost'){row(owner).oppLost++;total.oppLost++;continue;}
       const amount=Number.isFinite(Number(item.amount))&&Number(item.amount)>0?Number(item.amount):0;
-      const currency=trim(item.currency||'USD').toUpperCase()||'USD';
+      const currency=model.currencyOf(item);
       for(const target of [row(owner),total]){target.oppWon++;target.amounts.set(currency,(target.amounts.get(currency)||0)+amount);}
     }
     const finish=entry=>({oppNew:entry.oppNew,oppWon:entry.oppWon,oppLost:entry.oppLost,
       oppAmounts:[...entry.amounts].map(([currency,sum])=>({currency,total:sum})).sort((x,y)=>x.currency.localeCompare(y.currency)),
-      oppWinRate:entry.oppWon+entry.oppLost?Math.round(entry.oppWon/(entry.oppWon+entry.oppLost)*100):null});
+      oppWinRate:entry.oppWon+entry.oppLost?Math.floor(entry.oppWon/(entry.oppWon+entry.oppLost)*100):null});
     return {owners:new Map([...owners].map(([owner,entry])=>[owner,finish(entry)])),total:finish(total)};
   }
   function overview(state,month){
