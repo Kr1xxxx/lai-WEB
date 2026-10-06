@@ -247,22 +247,31 @@
       document.querySelector?.(focus)?.focus({ preventScroll: true });
       return true;
     }
+    let armedTarget = "";
     function renderTargets() {
       const T = root.LaiTeamModel;
       return (
-        header("目标管理", "按周期、对象、指标保存的目标值", '<button type="button" class="primary" data-team-target="new">新建目标</button>') +
-        TU().targetsMarkup(T.listTargets(state()), T.periodLabel)
+        header(
+          "目标管理",
+          "按周期、对象、指标保存的目标值",
+          `${monthInput()}<button type="button" class="primary" data-team-target="new">新建目标</button>`,
+        ) + TU().targetsMarkup(T.listTargets(state()), T.periodLabel, armedTarget)
       );
     }
     function showTargetForm(metric) {
       const T = root.LaiTeamModel;
-      const overview = teamOverview || T.overview(state(), periodKey());
+      // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
+      const overview = T.overview(state(), periodKey());
       const quarter = T.quarterOf(month);
+      // 修改已有的企业目标时带出原来的数值；金额有多个币种时带出第一个。
+      const existing = Object.hasOwn(overview.goals, metric) ? overview.goals[metric][0] : null;
       ctx.dialog(
         "设置目标",
         TU().targetFormMarkup(overview, {
           metric,
           period: periodKey(),
+          value: existing?.value,
+          currency: existing?.currency,
           periods: [
             { key: month, label: T.periodLabel(month) },
             { key: quarter, label: T.periodLabel(quarter) },
@@ -272,8 +281,17 @@
         "team-target",
       );
     }
+    // 删除需要点两次：第一次只把按钮变成「再点一次确认删除」。
     function removeTarget(key) {
-      return saveNext(() => root.LaiTeamModel.removeTarget(state(), key), "");
+      if (armedTarget !== key) {
+        armedTarget = key;
+        return render();
+      }
+      armedTarget = "";
+      return saveNext(() => root.LaiTeamModel.removeTarget(state(), key), "").then((saved) => {
+        if (!saved) render();
+        return saved;
+      });
     }
     function showTeamRule(id) {
       if (!teamOverview || !Object.hasOwn(TU().columns, id)) return;
@@ -503,10 +521,14 @@
       const el = e.target.closest("button");
       if (!el || el.disabled) return;
       const d = el.dataset;
-      if (d.teamDetail) return showTeamDetail(d.teamDetail);
+      if (d.teamDetail && route.startsWith("team-")) return showTeamDetail(d.teamDetail);
       if (d.teamRule) return showTeamRule(d.teamRule);
       if (d.teamTarget && ["team-goals", "team-wall", "team-targets"].includes(route)) return showTargetForm(d.teamTarget);
       if (d.teamTargetRemove && route === "team-targets") return removeTarget(d.teamTargetRemove);
+      if (d.teamTargetCancel && route === "team-targets") {
+        armedTarget = "";
+        return render();
+      }
       if (["team-goals", "team-wall"].includes(route) && teamViewAction(d)) return;
       if (d.bizOrder) return orderEditor(d.bizOrder);
       if (d.bizCustomer) return ctx.openCustomer(d.bizCustomer);
@@ -602,7 +624,7 @@
         render();
       }
       if (e.target.id === "biz-month") {
-        if (/^\d{4}-\d{2}$/.test(e.target.value)) {
+        if (/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)) {
           month = e.target.value;
           selectedDate = "";
           render();
@@ -681,6 +703,7 @@
         render();
       },
       navigate(next) {
+        armedTarget = "";
         route = next;
         render();
       },

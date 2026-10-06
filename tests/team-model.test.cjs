@@ -207,7 +207,7 @@ test('targets: saved per period, object and metric; completion = actual / target
   assert.deepEqual([zed.added, zed.records, brief(zed.goals.records)], [0, 0, [['', 4, 0, 0]]], 'a member with a target but no activity is still listed');
   assert.deepEqual(o.members.map(m => m.label), ['Amy', 'Bob', 'Zed', '未分配']);
   assert.deepEqual(o.members.find(m => m.owner === 'Bob').goals, {});
-  assert.deepEqual(brief(T.overview(s, '2026-Q4').goals.orders), [['', 3, 5, 167]]);
+  assert.deepEqual(brief(T.overview(s, '2026-Q4').goals.orders), [['', 3, 5, 166]]);
   assert.deepEqual(T.overview(s, '2026-Q4').goals.amount, undefined);
 });
 
@@ -235,9 +235,102 @@ test('targets: invalid input is rejected with a clear message', () => {
   bad({metric: 'customers'}, /可设置目标的指标/); bad({metric: '__proto__'}, /可设置目标的指标/);
   bad({period: '2026-13'}, /目标周期/); bad({period: '2026-Q5'}, /目标周期/);
   bad({scope: 'team'}, /目标对象/); bad({scope: 'member', owner: '  '}, /选择成员/);
-  for (const value of ['', ' ', 0, -1, 'abc', null, undefined, true, Infinity, NaN]) bad({value}, /大于 0/);
+  for (const value of ['', ' ', 0, -1, 'abc', null, undefined, true, Infinity, NaN, '0x10', '1e3', '1,000', '１２', [5], {}, '-0', '5.']) bad({value}, /大于 0/);
+  bad({metric: 'amount', currency: 'USD', value: '0.001'}, /不能小于 0\.01/);
+  bad({scope: 'company', owner: 'Amy'}, /把「对象」改为成员/);
   bad({value: 2.5}, /整数/);
   bad({metric: 'amount', currency: 'US'}, /三位币种/); bad({metric: 'amount'}, /三位币种/);
   assert.equal(T.setTarget({}, {...ok, metric: 'amount', currency: 'usd', value: '1200.50'}).laiTargets[0].value, 1200.5);
   assert.equal(T.setTarget({}, ok).laiTargets[0].owner, null);
+});
+
+// ---------------- 独立评审后补充 ----------------
+test('completion never rounds up: 199 of 200 is 99% and not reached; exactly on target is reached', () => {
+  const order = amount => ({orders: [{id: '1', num: 'a', client: 'A', owner: 'Z', amount, currency: 'USD', stage: 'quote', orderMonth: '2026-10'}]});
+  const goal = (amount, target) => T.overview(T.setTarget(order(amount), {metric: 'amount', period: '2026-10', scope: 'company', currency: 'USD', value: target}), '2026-10').goals.amount[0];
+  assert.deepEqual([goal(199, 200).rate, goal(199, 200).reached], [99, false]);
+  assert.deepEqual([goal(199.99, 200).rate, goal(199.99, 200).reached], [99, false]);
+  assert.deepEqual([goal(200, 200).rate, goal(200, 200).reached], [100, true]);
+  assert.deepEqual([goal(301, 200).rate, goal(301, 200).reached], [150, true]);
+  assert.deepEqual([goal(0, 200).rate, goal(0, 200).reached], [0, false]);
+  const floats = {orders: [0.1, 0.2].map((amount, i) => ({id: String(i), num: 'n' + i, client: 'A', owner: 'Z', amount, currency: 'USD', stage: 'quote', orderMonth: '2026-10'}))};
+  const sum = T.overview(T.setTarget(floats, {metric: 'amount', period: '2026-10', scope: 'company', currency: 'USD', value: 0.3}), '2026-10').goals.amount[0];
+  assert.deepEqual([sum.rate, sum.reached], [100, true], '0.1 + 0.2 against 0.3 counts as reached despite floating point');
+});
+
+test('a timestamp just after local midnight on the 1st counts in the new month and shows the local date', () => {
+  const saved = process.env.TZ;
+  try {
+    process.env.TZ = 'Asia/Taipei';
+    const instant = '2026-03-31T23:00:00.000Z'; // 2026-04-01 07:00 in Taipei
+    assert.equal(T.monthOf(instant), '2026-04');
+    const data = {customers: {A: {owner: 'Z', createdAt: instant, history: [{type: 'followup', time: instant, text: 'x'}]}}};
+    const april = T.report('assets', data, '2026-04');
+    assert.equal(april.total.added.value, 1);
+    assert.equal(april.total.added.items[0].meta, '创建于 2026-04-01', 'the detail date matches the month it was counted in');
+    assert.equal(T.report('followups', data, '2026-04').total.records.items[0].meta, '2026-04-01');
+    assert.equal(T.report('assets', data, '2026-03').total.added.value, 0);
+    process.env.TZ = 'America/Los_Angeles';
+    assert.equal(T.monthOf('2026-04-01T02:00:00.000Z'), '2026-03', 'and the other way round west of UTC');
+    assert.equal(T.monthOf('2026-04-01'), '2026-04', 'date-only values are never shifted');
+  } finally { if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved; }
+});
+
+test('overwriting a target keeps unknown fields on that entry; a non-list is never overwritten', () => {
+  const start = {laiTargets: [{metric: 'added', period: '2026-10', owner: null, currency: '', value: 3, note: 'keep me', id: 'x1'}]};
+  const next = T.setTarget(start, {metric: 'added', period: '2026-10', scope: 'company', value: 9});
+  assert.deepEqual(next.laiTargets, [{metric: 'added', period: '2026-10', owner: null, currency: '', value: 9, note: 'keep me', id: 'x1'}]);
+  assert.equal(start.laiTargets[0].value, 3);
+  for (const odd of [{legacy: 1}, 'text', 5]) {
+    assert.throws(() => T.setTarget({laiTargets: odd}, {metric: 'added', period: '2026-10', scope: 'company', value: 9}), /格式异常/);
+    assert.throws(() => T.removeTarget({laiTargets: odd}, 'k'), /格式异常/);
+  }
+  assert.equal(T.setTarget({laiTargets: null}, {metric: 'added', period: '2026-10', scope: 'company', value: 9}).laiTargets.length, 1);
+});
+
+test('rule text names the period being viewed, and repeated views reuse the computed result', () => {
+  assert.match(T.overview(state, '2026-10').rules.added, /本月创建/);
+  assert.match(T.overview(state, '2026-Q4').rules.added, /本季度创建/);
+  assert.doesNotMatch(T.overview(state, '2026-Q4').rules.amount, /本月/);
+  assert.equal(T.overview(state, '2026-10'), T.overview(state, '2026-10'), 'same data and period: no recomputation');
+  const changed = {...state, orders: [...state.orders, {id: 'o9', num: 'Z9', client: 'Beta Ltd', owner: 'Bob', amount: 1, currency: 'USD', stage: 'quote', orderMonth: '2026-10'}]};
+  assert.equal(T.overview(changed, '2026-10').total.orders, 6, 'new data is never served from the old result');
+  assert.equal(T.overview(state, '2026-10').total.orders, 5);
+});
+
+// ---------------- 跟进人名称不区分大小写（用户确认） ----------------
+test('owner names that differ only by case are one member, shown in the most common spelling', () => {
+  const data = {
+    customers: {
+      A: {owner: 'Amy', createdAt: '2026-10-01', history: [{type: 'followup', time: '2026-10-02', text: 'x'}]},
+      B: {owner: 'amy', createdAt: '2026-10-02', history: [{type: 'followup', time: '2026-10-03', text: 'y'}]},
+      C: {owner: 'Amy', createdAt: '2026-10-03'},
+      D: {owner: ' BOB ', createdAt: '2026-10-04'},
+      E: {owner: 'Amy Lin', createdAt: '2026-10-05'}
+    },
+    orders: [
+      {id: '1', num: 'n1', client: 'A', owner: 'AMY', amount: 100, currency: 'USD', stage: 'quote', orderMonth: '2026-10'},
+      {id: '2', num: 'n2', client: 'B', owner: 'amy', amount: 50, currency: 'USD', stage: 'quote', orderMonth: '2026-10'},
+      {id: '3', num: 'n3', client: 'D', owner: 'bob', amount: 7, currency: 'USD', stage: 'quote', orderMonth: '2026-10'}
+    ],
+    laiTasks: [{id: 't', title: 'x', date: '2026-10-05', customer: 'B', done: true}]
+  };
+  const snapshotBefore = JSON.stringify(data);
+  const o = T.overview(data, '2026-10');
+  assert.deepEqual(o.members.map(m => [m.label, m.added, m.orders, m.amount, m.records, m.tasksDone]), [['Amy', 3, 2, 150, 2, 1], ['Amy Lin', 1, 0, 0, 0, 0], ['BOB', 1, 1, 7, 0, 0]],
+    'Amy/amy/AMY merge (Amy is the most common); BOB vs bob is a tie and takes the earlier character order; a different name stays separate');
+  assert.deepEqual(T.report('orders', data, '2026-10').rows.map(r => [r.label, r.cells.count.value]), [['Amy', 2], ['BOB', 1]]);
+  assert.deepEqual(T.report('assets', data, '2026-10').rows.map(r => [r.label, r.cells.customers.value]), [['Amy', 3], ['Amy Lin', 1], ['BOB', 1]]);
+  assert.equal(JSON.stringify(data), snapshotBefore, 'saved names are not rewritten');
+});
+
+test('targets follow the same rule: one target per member regardless of case', () => {
+  const data = {customers: {A: {owner: 'Amy', createdAt: '2026-10-01'}, B: {owner: 'Amy', createdAt: '2026-10-02'}}};
+  let s = T.setTarget(data, {metric: 'added', period: '2026-10', scope: 'member', owner: 'AMY', value: 4});
+  assert.deepEqual(T.overview(s, '2026-10').members.map(m => [m.label, m.goals.added?.map(g => [g.value, g.actual, g.rate])]), [['Amy', [[4, 2, 50]]]], 'a target typed as AMY lands on Amy, not on a second empty row');
+  s = T.setTarget(s, {metric: 'added', period: '2026-10', scope: 'member', owner: 'amy', value: 2});
+  assert.equal(T.listTargets(s).length, 1, 'the second spelling replaces the first target');
+  assert.deepEqual(T.overview(s, '2026-10').members[0].goals.added.map(g => [g.value, g.reached]), [[2, true]]);
+  const solo = T.setTarget({}, {metric: 'added', period: '2026-10', scope: 'member', owner: 'zed', value: 1});
+  assert.deepEqual(T.overview(solo, '2026-10').members.map(m => m.label), ['zed'], 'a member known only from a target keeps the spelling typed');
 });

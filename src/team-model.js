@@ -39,12 +39,59 @@
   }
   const quarterOf=month=>`${month.slice(0,4)}-Q${Math.ceil(Number(month.slice(5,7))/3)}`;
   const periodLabel=period=>validQuarter(period)?`${period.slice(0,4)} 年第 ${period.slice(6)} 季度`:`${period.slice(0,4)} 年 ${Number(period.slice(5,7))} 月`;
-  const day=value=>trim(value).slice(0,10);
+  // 明细里显示的日期与归月用同一套规则：带时间的先转成本地日期，避免「算在4月却显示3月31日」。
+  function day(value){
+    const source=trim(value);
+    if(!/^\d{4}-\d{2}-\d{2}/.test(source)||/^\d{4}-\d{2}-\d{2}$/.test(source))return source.slice(0,10);
+    const parsed=new Date(source.replace(' ','T'));
+    if(!Number.isFinite(parsed.getTime()))return source.slice(0,10);
+    return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`;
+  }
   const snippet=value=>{const text=trim(value).replace(/\s+/g,' ');return text.length>60?text.slice(0,60)+'…':text;};
 
+  // 每次保存都会换成新的 state 对象，所以按对象缓存是安全的；一个汇总里四张报表共用一次客户计算。
+  const rowCache=new WeakMap(),overviewCache=new WeakMap();
   function customerRows(state){
-    return PM.buildCustomers(state).map(row=>({
-      name:row.name,owner:trim(row.owner),bucket:LM.bucket(state.customers?.[row.name]),
+    if(state&&typeof state==='object'&&rowCache.has(state))return rowCache.get(state);
+    const rows=buildCustomerRows(state);
+    if(state&&typeof state==='object')rowCache.set(state,rows);
+    return rows;
+  }
+  // 跟进人名称只差大小写的视为同一个人（用户确认）。显示用出现次数最多的写法，次数相同取字符顺序靠前的；
+  // 只影响团队数据的汇总，不改动保存的客户、订单资料。
+  const nameCache=new WeakMap();
+  const ownerKey=name=>trim(name).toLowerCase();
+  function buildNames(state,customerOwners){
+    const counts=new Map();
+    const add=(name,weight)=>{
+      const text=trim(name);
+      if(!text)return;
+      const variants=counts.get(ownerKey(text))||new Map();
+      variants.set(text,(variants.get(text)||0)+weight);
+      counts.set(ownerKey(text),variants);
+    };
+    for(const owner of customerOwners)add(owner,1);
+    for(const order of Array.isArray(state?.orders)?state.orders:[])add(order?.owner,1);
+    // 目标里的写法只在数据里完全没有这个人时才用得上。
+    for(const target of Array.isArray(state?.laiTargets)?state.laiTargets:[])if(typeof target?.owner==='string')add(target.owner,0);
+    const names=new Map();
+    for(const [key,variants] of counts)names.set(key,[...variants.entries()].sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:a[0]>b[0]?1:0))[0][0]);
+    return names;
+  }
+  function canonOwner(state,name){
+    const text=trim(name);
+    if(!text)return '';
+    customerRows(state);
+    const names=state&&typeof state==='object'?nameCache.get(state):null;
+    return names?.get(ownerKey(text))||text;
+  }
+  function buildCustomerRows(state){
+    const raw=PM.buildCustomers(state);
+    const names=buildNames(state,raw.map(row=>row.owner));
+    if(state&&typeof state==='object')nameCache.set(state,names);
+    const canon=name=>{const text=trim(name);return text?names.get(ownerKey(text))||text:'';};
+    return raw.map(row=>({
+      name:row.name,owner:canon(row.owner),bucket:LM.bucket(state.customers?.[row.name]),
       createdAt:row.createdAt,source:trim(row.source),history:Array.isArray(row.history)?row.history:[]
     }));
   }
@@ -180,7 +227,7 @@
     const currencyOf=order=>trim(order.currency||'USD').toUpperCase()||'USD';
     const groups=new Map();
     for(const order of analysis.orders){
-      const owner=trim(order.owner),key=owner+'\0'+currencyOf(order);
+      const owner=canonOwner(state,order.owner),key=owner+'\0'+currencyOf(order);
       if(!groups.has(key))groups.set(key,{owner,currency:currencyOf(order),orders:[]});
       groups.get(key).orders.push(order);
     }
@@ -212,13 +259,13 @@
   }
 
   // 目标完成情况、团队墙共用的成员汇总：把四类报表按跟进人合并，不引入新的统计规则。
-  const RULES=Object.freeze({
-    amount:'统计本月订单月份内的非草稿订单金额，不同币种分开统计、不折算；排名以本月金额最大的币种为准。',
-    added:'统计本月创建的客户数量，回收站客户不计入。',
-    orders:'统计本月订单月份内的非草稿订单数量。',
+  const rulesFor=unit=>Object.freeze({
+    amount:`统计${unit}订单月份内的非草稿订单金额，不同币种分开统计、不折算；排名以${unit}金额最大的币种为准。`,
+    added:`统计${unit}创建的客户数量，回收站客户不计入。`,
+    orders:`统计${unit}订单月份内的非草稿订单数量。`,
     records:'统计客户动态中类型为「跟进」的记录数量，归到客户当前的跟进人；回收站客户不计入。',
-    customers:'统计本月至少有一条跟进记录的客户数量。',
-    tasksDone:'统计任务日期在本月且已完成的任务数量；完成率＝已完成÷任务数。'
+    customers:`统计${unit}至少有一条跟进记录的客户数量。`,
+    tasksDone:`统计任务日期在${unit}且已完成的任务数量；完成率＝已完成÷任务数。`
   });
   // ---- 目标：按周期（月／季度）、对象（企业／成员）、指标保存一个目标值；金额目标按币种分别设置。 ----
   const TARGET_METRICS=Object.freeze(['amount','added','orders','records','tasksDone']);
@@ -231,15 +278,20 @@
     let owner=null;
     if(scope==='member'){owner=trim(input?.owner);if(!owner)throw new Error('请选择成员');}
     else if(scope!=='company')throw new Error('请选择目标对象');
+    else if(trim(input?.owner))throw new Error('已选择成员，请把「对象」改为成员；如果要设企业整体目标，请清空成员');
     let currency='';
     if(metric==='amount'){currency=trim(input?.currency).toUpperCase();if(!/^[A-Z]{3}$/.test(currency))throw new Error('请填写三位币种代码');}
+    // 只接受普通的十进制写法（不接受逗号、十六进制、科学计数法），避免把输错的内容存成别的数。
     const raw=input?.value;
-    if(raw===null||raw===undefined||typeof raw==='boolean'||!trim(raw)||!Number.isFinite(Number(raw))||Number(raw)<=0)throw new Error('请输入大于 0 的目标值');
-    const value=Number(raw);
+    const text=typeof raw==='number'&&Number.isFinite(raw)?String(raw):typeof raw==='string'?raw.trim():'';
+    if(!/^\d+(\.\d+)?$/.test(text)||Number(text)<=0)throw new Error('请输入大于 0 的目标值（只填数字，不要带逗号）');
+    const value=Number(text);
     if(metric!=='amount'&&!Number.isInteger(value))throw new Error('数量类目标请填写整数');
+    if(metric==='amount'&&value<0.01)throw new Error('金额目标不能小于 0.01');
     return {metric,period,owner,currency,value};
   }
-  const targetKey=target=>[target.metric,target.period,target.owner===null?'#':'@'+target.owner,target.currency].join('|');
+  // 成员名不区分大小写：给「amy」设目标会覆盖「Amy」的同一个目标。
+  const targetKey=target=>[target.metric,target.period,target.owner===null?'#':'@'+ownerKey(target.owner),target.currency].join('|');
   // 读取已保存的目标：格式不对的条目跳过不用，但保存时原样保留，不擅自删除。
   function readTarget(raw){
     try{
@@ -255,11 +307,18 @@
     return [...seen.values()].sort((a,b)=>b.period.localeCompare(a.period)||TARGET_METRICS.indexOf(a.metric)-TARGET_METRICS.indexOf(b.metric)
       ||(a.owner===null?0:1)-(b.owner===null?0:1)||String(a.owner||'').localeCompare(String(b.owner||''),'zh')||a.currency.localeCompare(b.currency));
   }
+  function requireTargetList(state){
+    if(state?.laiTargets!==undefined&&state.laiTargets!==null&&!Array.isArray(state.laiTargets))throw new Error('已保存的目标数据格式异常，为避免覆盖，未做任何修改');
+  }
   function setTarget(state,input){
+    requireTargetList(state);
     const target=normalizeTarget(input),key=targetKey(target);
-    return {...state,laiTargets:[...rawTargets(state).filter(raw=>readTarget(raw)?.key!==key),target]};
+    // 覆盖同一目标时保留旧条目上不认识的字段。
+    const previous=rawTargets(state).filter(raw=>readTarget(raw)?.key===key).at(-1);
+    return {...state,laiTargets:[...rawTargets(state).filter(raw=>readTarget(raw)?.key!==key),{...(previous||{}),...target}]};
   }
   function removeTarget(state,key){
+    requireTargetList(state);
     const list=rawTargets(state);
     if(!list.some(raw=>readTarget(raw)?.key===key))throw new Error('目标不存在或已删除');
     return {...state,laiTargets:list.filter(raw=>readTarget(raw)?.key!==key)};
@@ -267,6 +326,14 @@
   function overview(state,month){
     requireMonth(month);
     state=state||{};
+    const cached=overviewCache.get(state)?.get(month);
+    if(cached)return cached;
+    const result=buildOverview(state,month);
+    if(!overviewCache.has(state))overviewCache.set(state,new Map());
+    overviewCache.get(state).set(month,result);
+    return result;
+  }
+  function buildOverview(state,month){
     const a=assets(state,month),f=followups(state,month),t=tasks(state,month),o=orders(state,month);
     const members=new Map();
     const member=owner=>{
@@ -277,7 +344,7 @@
     for(const row of f.rows){const m=member(row.owner);m.records=row.cells.records.value;m.customers=row.cells.customers.value;}
     for(const row of t.rows){const m=member(row.owner);m.tasksTotal=row.cells.total.value;m.tasksDone=row.cells.done.value;m.taskRate=row.cells.rate.value;}
     for(const row of o.rows){const m=member(row.owner);m.orders+=row.cells.count.value;m.amounts.push({currency:row.currency,total:row.cells.total.value});}
-    const targets=listTargets(state).filter(target=>target.period===month);
+    const targets=listTargets(state).filter(target=>target.period===month).map(target=>target.owner===null?target:{...target,owner:canonOwner(state,target.owner)});
     for(const target of targets)if(target.owner!==null)member(target.owner);
     const amounts=o.totals.map(total=>({currency:total.currency,total:total.cells.total.value}));
     // 主币种：本月金额最大的币种，金额相同按代码排序；没有订单时为空。
@@ -297,12 +364,14 @@
     ]};
     const total={added:a.total.added.value,orders:o.tiles[0].value,amounts,records:f.total.records.value,customers:f.total.customers.value,
       tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value};
-    // 完成率＝完成值÷目标值，四舍五入到整数百分比，可以超过 100%。
+    // 完成率＝完成值÷目标值，向下取整到整数百分比（99.5% 显示 99%，不会提前显示成 100%），可以超过 100%。
+    // 是否达标直接比较完成值与目标值，不看取整后的百分比；金额相加有浮点误差，留极小的容差。
+    const EPSILON=1e-9;
     const goalsFor=(owner,source)=>{
       const out={};
       for(const target of targets.filter(item=>item.owner===owner)){
         const actual=target.metric==='amount'?(source.amounts.find(item=>item.currency===target.currency)?.total||0):source[target.metric];
-        (out[target.metric]||(out[target.metric]=[])).push({key:target.key,currency:target.currency,value:target.value,actual,rate:Math.round(actual/target.value*100)});
+        (out[target.metric]||(out[target.metric]=[])).push({key:target.key,currency:target.currency,value:target.value,actual,rate:Math.floor(actual/target.value*100+EPSILON),reached:actual+EPSILON>=target.value});
       }
       return out;
     };
@@ -310,7 +379,7 @@
     const months=periodMonths(month);
     return {
       month:months.at(-1),period:month,periodType:months.length>1?'quarter':'month',periodLabel:periodLabel(month),months,
-      members:list,primaryCurrency,rules:RULES,trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
+      members:list,primaryCurrency,rules:rulesFor(months.length>1?'本季度':'本月'),trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
       total};
   }
   const reports={assets,followups,tasks,orders};
