@@ -1,7 +1,8 @@
 'use strict';
-// 测试用的本机假邮件服务器（IMAP 与 SMTP，明文回环连接）。只实现来财用到的命令，邮件全部是合成内容。
+// 测试用的本机假邮件服务器（IMAP 与 SMTP，明文回环连接）。只实现来财经由 imapflow／nodemailer 用到的命令，邮件全部是合成内容。
+// 它是按协议写的替身，不代表真实的 Zoho：真实服务器的差异这里测不出来。
 const net = require('node:net');
-const mime = require('../../backend/mail-mime.js');
+const { mailLibs } = require('../../backend/mail-libs.js');
 
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server.address().port)));
 const track = (server) => {
@@ -9,126 +10,162 @@ const track = (server) => {
   server.on('connection', (socket) => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.on('error', () => {}); });
   return () => new Promise(resolve => { for (const socket of sockets) socket.destroy(); server.close(resolve); });
 };
+const address = item => (item.name ? { name: item.name, address: item.address } : item.address);
 
-function rawMessage({ from, to, cc, subject, date, text, html, attachments = [], extraHeaders = [], messageId }) {
-  const built = mime.buildMessage({ from, to: to || [], cc: cc || [], subject, text: text || '', attachments, date: new Date(date), messageId });
-  if (!html && !extraHeaders.length) return built.raw;
-  if (!html) return Buffer.concat([Buffer.from(extraHeaders.join('\r\n') + '\r\n'), built.raw]);
-  const head = built.raw.toString('latin1').split('\r\n\r\n')[0].split('\r\n').filter(line => !/^Content-/i.test(line) && !/^ filename/i.test(line));
-  const boundary = 'alt-boundary-1';
-  const lines = [...extraHeaders, ...head, `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
-    '--' + boundary, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: quoted-printable', '', (text || '').replace(/=/g, '=3D'),
-    '--' + boundary, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', Buffer.from(html, 'utf8').toString('base64'),
-    '--' + boundary + '--', ''];
-  return Buffer.from(lines.join('\r\n'), 'utf8');
+// 用 nodemailer 的邮件生成器造一封原始邮件。
+async function rawMessage({ from, to, cc, subject, date, text, html, attachments = [], messageId, inReplyTo, references }) {
+  const { MailComposer } = mailLibs();
+  return new MailComposer({ from: address(from), to: (to || []).map(address), cc: (cc || []).map(address), subject, text: text || '', ...(html ? { html } : {}), date: new Date(date), ...(messageId ? { messageId } : {}),
+    ...(inReplyTo ? { inReplyTo } : {}), ...(references ? { references } : {}), attachments: attachments.map(item => ({ filename: item.filename, content: item.content, contentType: item.contentType })) }).compile().build();
 }
 
-function tokens(text) {
-  const out = [];
+// 把一行命令拆成记号：原子、引号串为字符串，括号为嵌套数组。字面量在读取阶段已并入为引号串。
+function tokenize(text) {
+  const root = [], stack = [root];
   let i = 0;
   while (i < text.length) {
-    if (text[i] === ' ') { i++; continue; }
-    if (text[i] === '"') { let value = ''; i++; while (i < text.length && text[i] !== '"') { if (text[i] === '\\') i++; value += text[i++]; } i++; out.push(value); continue; }
-    let atom = '';
-    while (i < text.length && text[i] !== ' ') atom += text[i++];
-    out.push(atom);
+    const char = text[i];
+    if (char === ' ') { i++; continue; }
+    if (char === '(') { const list = []; stack[stack.length - 1].push(list); stack.push(list); i++; continue; }
+    if (char === ')') { if (stack.length > 1) stack.pop(); i++; continue; }
+    if (char === '"') { let value = ''; i++; while (i < text.length && text[i] !== '"') { if (text[i] === '\\') i++; value += text[i++]; } i++; stack[stack.length - 1].push(value); continue; }
+    let atom = '', depth = 0;
+    while (i < text.length) { const c = text[i]; if (c === '[') depth++; else if (c === ']') depth--; else if (!depth && (c === ' ' || c === '(' || c === ')')) break; atom += c; i++; }
+    stack[stack.length - 1].push(atom);
   }
-  return out;
+  return root;
 }
+const inSet = (set, uid, max) => String(set).split(',').some((part) => { const [a, b = a] = part.split(':').map(value => value === '*' ? max : Number(value)); return uid >= Math.min(a, b) && uid <= Math.max(a, b); });
 
 async function startImap({ password = 'app-password-1', mailboxes, supportsMove = true, sentName = 'Sent', trashName = 'Trash', specialUse = true } = {}) {
+  const { PostalMime } = mailLibs();
   const state = {
-    password, supportsMove, commands: [], logins: 0, failNext: null,
-    boxes: new Map([['INBOX', { flags: [], messages: [] }], [sentName, { flags: specialUse ? ['\\Sent'] : [], messages: [] }], [trashName, { flags: specialUse ? ['\\Trash'] : [], messages: [] }]]),
+    password, supportsMove, commands: [], logins: 0, failNext: null, greeting: null,
+    boxes: new Map([['INBOX', { use: '', messages: [] }], [sentName, { use: specialUse ? '\\Sent' : '', messages: [] }], [trashName, { use: specialUse ? '\\Trash' : '', messages: [] }]]),
     nextUid: 1,
-    add(box, message, flags = []) { const uid = state.nextUid++; state.boxes.get(box).messages.push({ uid, flags: new Set(flags), raw: Buffer.isBuffer(message) ? message : rawMessage(message), internalDate: '06-Oct-2026 10:00:00 +0000' }); return uid; },
+    async add(box, message, flags = []) {
+      const raw = Buffer.isBuffer(message) ? message : await rawMessage(message);
+      const parsed = await PostalMime.parse(raw);
+      const list = value => (Array.isArray(value) ? value : value ? [value] : []).flatMap(item => item.group || [item]).map(item => `${item.name || ''} ${item.address || ''}`).join(', ').toLowerCase();
+      const uid = state.nextUid++;
+      state.boxes.get(box).messages.push({ uid, flags: new Set(flags), raw, internalDate: '06-Oct-2026 10:00:00 +0000', fields: { subject: String(parsed.subject || '').toLowerCase(), from: list(parsed.from), to: list(parsed.to), cc: list(parsed.cc) } });
+      return uid;
+    },
     message(box, uid) { return state.boxes.get(box).messages.find(item => item.uid === uid); },
   };
-  for (const [box, list] of Object.entries(mailboxes || {})) for (const item of list) state.add(box, item.message || item, item.flags || []);
+  for (const [box, list] of Object.entries(mailboxes || {})) for (const item of list) await state.add(box, item.message || item, item.flags || []);
 
-  const headerOf = (message) => { const raw = message.raw; const end = raw.indexOf('\r\n\r\n'); return mime.parseHeaderBlock(end < 0 ? raw : raw.subarray(0, end)); };
-  const matches = (message, criteria) => {
-    const take = () => criteria.shift();
-    const evaluate = () => {
-      const key = String(take() || '').toUpperCase();
+  const capabilities = () => ['IMAP4rev1', ...(state.supportsMove ? ['MOVE'] : []), 'UIDPLUS', ...(specialUse ? ['SPECIAL-USE'] : [])].join(' ');
+  function matches(message, criteria) {
+    const list = criteria.slice();
+    const term = () => {
+      const token = list.shift();
+      if (Array.isArray(token)) return matches(message, token);
+      const key = String(token || '').toUpperCase();
       if (key === 'ALL') return true;
+      if (key === 'SEEN') return message.flags.has('\\Seen');
       if (key === 'UNSEEN') return !message.flags.has('\\Seen');
       if (key === 'FLAGGED') return message.flags.has('\\Flagged');
-      if (key === 'OR') { const a = evaluate(), b = evaluate(); return a || b; }
-      if (['SUBJECT', 'FROM', 'TO', 'CC'].includes(key)) {
-        const needle = String(take()).toLowerCase(), headers = headerOf(message);
-        return mime.decodeWords(headers.get(key.toLowerCase())).toLowerCase().includes(needle);
-      }
+      if (key === 'UNFLAGGED') return !message.flags.has('\\Flagged');
+      if (key === 'NOT') return !term();
+      if (key === 'OR') { const a = term(), b = term(); return a || b; }
+      if (['SUBJECT', 'FROM', 'TO', 'CC'].includes(key)) return message.fields[key.toLowerCase()].includes(String(list.shift()).toLowerCase());
       throw new Error('unsupported search key ' + key);
     };
     let result = true;
-    while (criteria.length) result = evaluate() && result;
+    while (list.length) result = term() && result;
     return result;
-  };
+  }
 
   const server = net.createServer((socket) => {
     let buffer = Buffer.alloc(0), pending = '', literal = -1, selected = null, readOnly = true, authed = false;
-    const send = text => socket.write(text);
+    const send = text => { if (!socket.destroyed) socket.write(text); };
+    const fetchLine = (message, index, items) => {
+      const fields = [`UID ${message.uid}`];
+      if (/\bFLAGS\b/.test(items)) fields.push(`FLAGS (${[...message.flags].join(' ')})`);
+      if (/INTERNALDATE/.test(items)) fields.push(`INTERNALDATE "${message.internalDate}"`);
+      if (/RFC822\.SIZE/.test(items)) fields.push(`RFC822.SIZE ${message.raw.length}`);
+      send(`* ${index + 1} FETCH (${fields.join(' ')}`);
+      const header = /BODY(?:\.PEEK)?\[HEADER\.FIELDS \(([^)]*)\)\]/i.exec(items);
+      if (header) {
+        const wanted = header[1].toLowerCase().split(/\s+/), end = message.raw.indexOf('\r\n\r\n'), head = (end < 0 ? message.raw : message.raw.subarray(0, end)).toString('latin1');
+        const kept = head.split(/\r\n(?![ \t])/).filter(line => wanted.includes(line.slice(0, line.indexOf(':')).toLowerCase()));
+        const data = Buffer.from(kept.join('\r\n') + '\r\n\r\n', 'latin1');
+        send(` BODY[HEADER.FIELDS (${header[1]})] {${data.length}}\r\n`); socket.write(data);
+      } else if (/BODY(?:\.PEEK)?\[\]/i.test(items)) { send(` BODY[] {${message.raw.length}}\r\n`); socket.write(message.raw); }
+      send(')\r\n');
+    };
     const handle = (line) => {
       const space = line.indexOf(' ');
       const tag = line.slice(0, space), rest = line.slice(space + 1);
-      const parts = tokens(rest);
+      const parts = tokenize(rest);
       let verb = String(parts.shift() || '').toUpperCase();
       if (verb === 'UID') verb = 'UID ' + String(parts.shift() || '').toUpperCase();
       state.commands.push(verb === 'LOGIN' ? `LOGIN ${parts[0]} ***` : `${verb} ${rest.replace(/^(UID )?\S+ ?/i, '')}`.trim());
       if (state.failNext && state.failNext.verb === verb) { const reply = state.failNext.reply; state.failNext = null; return send(`${tag} ${reply}\r\n`); }
+      if (verb === 'CAPABILITY') return send(`* CAPABILITY ${capabilities()}\r\n${tag} OK\r\n`);
+      if (verb === 'NOOP') return send(`${tag} OK\r\n`);
       if (verb === 'LOGOUT') { send(`* BYE bye\r\n${tag} OK\r\n`); return socket.end(); }
-      if (verb === 'LOGIN') { state.logins++; if (parts[1] === state.password) { authed = true; return send(`${tag} OK LOGIN completed\r\n`); } return send(`${tag} NO [AUTHENTICATIONFAILED] Invalid credentials\r\n`); }
+      if (verb === 'LOGIN') { state.logins++; if (parts[1] === state.password) { authed = true; return send(`${tag} OK [CAPABILITY ${capabilities()}] LOGIN completed\r\n`); } return send(`${tag} NO [AUTHENTICATIONFAILED] Invalid credentials\r\n`); }
       if (!authed) return send(`${tag} BAD not authenticated\r\n`);
-      if (verb === 'LIST') { for (const [name, box] of state.boxes) send(`* LIST (\\HasNoChildren${box.flags.map(flag => ' ' + flag).join('')}) "/" "${name}"\r\n`); return send(`${tag} OK\r\n`); }
+      if (verb === 'LIST' || verb === 'LSUB') {
+        if (parts[1] === '') { send(`* ${verb} (\\Noselect) "/" ""\r\n`); return send(`${tag} OK\r\n`); }
+        for (const [name, box] of state.boxes) send(`* ${verb} (\\HasNoChildren${box.use ? ' ' + box.use : ''}) "/" "${name}"\r\n`);
+        return send(`${tag} OK\r\n`);
+      }
+      if (verb === 'STATUS') { const box = state.boxes.get(parts[0]); if (!box) return send(`${tag} NO no such mailbox\r\n`); return send(`* STATUS "${parts[0]}" (MESSAGES ${box.messages.length} UIDNEXT ${state.nextUid} UIDVALIDITY 1 UNSEEN ${box.messages.filter(m => !m.flags.has('\\Seen')).length})\r\n${tag} OK\r\n`); }
       if (verb === 'EXAMINE' || verb === 'SELECT') {
         const box = state.boxes.get(parts[0]);
         if (!box) return send(`${tag} NO no such mailbox\r\n`);
         selected = box; readOnly = verb === 'EXAMINE';
-        return send(`* ${box.messages.length} EXISTS\r\n* OK [UIDVALIDITY 1]\r\n${tag} OK [${readOnly ? 'READ-ONLY' : 'READ-WRITE'}] done\r\n`);
+        return send(`* FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)\r\n* OK [PERMANENTFLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft \\*)] ok\r\n* ${box.messages.length} EXISTS\r\n* 0 RECENT\r\n* OK [UIDVALIDITY 1] ok\r\n* OK [UIDNEXT ${state.nextUid}] ok\r\n${tag} OK [${readOnly ? 'READ-ONLY' : 'READ-WRITE'}] done\r\n`);
       }
+      if (verb === 'CLOSE' || verb === 'UNSELECT') { selected = null; return send(`${tag} OK\r\n`); }
       if (!selected) return send(`${tag} BAD no mailbox selected\r\n`);
+      const max = Math.max(0, ...selected.messages.map(message => message.uid));
       if (verb === 'UID SEARCH') {
         const criteria = parts.slice();
         if (String(criteria[0]).toUpperCase() === 'CHARSET') criteria.splice(0, 2);
-        const uids = selected.messages.filter(message => matches(message, criteria.slice())).map(message => message.uid);
+        const uids = selected.messages.filter(message => matches(message, criteria)).map(message => message.uid);
         return send(`* SEARCH${uids.map(uid => ' ' + uid).join('')}\r\n${tag} OK\r\n`);
       }
       if (verb === 'UID FETCH') {
-        const wanted = new Set(parts[0].split(',').map(Number)), items = rest.slice(rest.indexOf('('));
-        selected.messages.forEach((message, index) => {
-          if (!wanted.has(message.uid)) return;
-          const fields = [`UID ${message.uid}`];
-          if (/\bFLAGS\b/.test(items)) fields.push(`FLAGS (${[...message.flags].join(' ')})`);
-          if (/INTERNALDATE/.test(items)) fields.push(`INTERNALDATE "${message.internalDate}"`);
-          if (/RFC822\.SIZE/.test(items)) fields.push(`RFC822.SIZE ${message.raw.length}`);
-          socket.write(`* ${index + 1} FETCH (${fields.join(' ')}`);
-          if (/BODY\.PEEK\[HEADER\.FIELDS/.test(items)) {
-            const end = message.raw.indexOf('\r\n\r\n'), head = Buffer.concat([end < 0 ? message.raw : message.raw.subarray(0, end), Buffer.from('\r\n\r\n')]);
-            socket.write(` BODY[HEADER.FIELDS (FROM TO CC SUBJECT DATE MESSAGE-ID CONTENT-TYPE)] {${head.length}}\r\n`); socket.write(head);
-          } else if (/BODY\.PEEK\[\]/.test(items)) { socket.write(` BODY[] {${message.raw.length}}\r\n`); socket.write(message.raw); }
-          socket.write(')\r\n');
-        });
+        const items = rest.slice(rest.indexOf(String(parts[0])) + String(parts[0]).length);
+        selected.messages.forEach((message, index) => { if (inSet(parts[0], message.uid, max)) fetchLine(message, index, items); });
         return send(`${tag} OK\r\n`);
       }
       if (verb === 'UID STORE') {
         if (readOnly) return send(`${tag} NO mailbox is read-only\r\n`);
-        const message = selected.messages.find(item => item.uid === Number(parts[0]));
-        if (message) for (const flag of rest.slice(rest.indexOf('(') + 1, rest.lastIndexOf(')')).split(' ').filter(Boolean)) { if (parts[1].startsWith('+')) message.flags.add(flag); else message.flags.delete(flag); }
+        const operation = String(parts[1]).toUpperCase(), flags = Array.isArray(parts[2]) ? parts[2] : parts.slice(2);
+        selected.messages.forEach((message, index) => {
+          if (!inSet(parts[0], message.uid, max)) return;
+          for (const flag of flags) { if (operation.startsWith('+')) message.flags.add(flag); else if (operation.startsWith('-')) message.flags.delete(flag); }
+          if (!operation.includes('.SILENT')) send(`* ${index + 1} FETCH (UID ${message.uid} FLAGS (${[...message.flags].join(' ')}))\r\n`);
+        });
         return send(`${tag} OK\r\n`);
       }
       if (verb === 'UID MOVE' || verb === 'UID COPY') {
         if (verb === 'UID MOVE' && !state.supportsMove) return send(`${tag} BAD unknown command\r\n`);
         if (readOnly && verb === 'UID MOVE') return send(`${tag} NO mailbox is read-only\r\n`);
-        const target = state.boxes.get(parts[1]), index = selected.messages.findIndex(item => item.uid === Number(parts[0]));
+        const target = state.boxes.get(parts[1]);
         if (!target) return send(`${tag} NO [TRYCREATE] no such mailbox\r\n`);
-        if (index >= 0) { const source = selected.messages[index]; target.messages.push({ ...source, uid: state.nextUid++, flags: new Set(source.flags) }); if (verb === 'UID MOVE') selected.messages.splice(index, 1); }
+        const moving = selected.messages.filter(message => inSet(parts[0], message.uid, max));
+        for (const source of moving) target.messages.push({ ...source, uid: state.nextUid++, flags: new Set(source.flags) });
+        if (verb === 'UID MOVE') for (const source of moving) { const index = selected.messages.indexOf(source); selected.messages.splice(index, 1); send(`* ${index + 1} EXPUNGE\r\n`); }
         return send(`${tag} OK\r\n`);
       }
-      if (verb === 'EXPUNGE') { selected.messages = selected.messages.filter(item => !item.flags.has('\\Deleted')); for (const box of state.boxes.values()) if (box.messages !== selected.messages && box === selected) box.messages = selected.messages; return send(`${tag} OK\r\n`); }
+      if (verb === 'EXPUNGE' || verb === 'UID EXPUNGE') {
+        if (readOnly) return send(`${tag} NO mailbox is read-only\r\n`);
+        for (let index = selected.messages.length - 1; index >= 0; index--) {
+          const message = selected.messages[index];
+          if (message.flags.has('\\Deleted') && (verb === 'EXPUNGE' || inSet(parts[0], message.uid, max))) { selected.messages.splice(index, 1); send(`* ${index + 1} EXPUNGE\r\n`); }
+        }
+        return send(`${tag} OK\r\n`);
+      }
+      state.unknown = (state.unknown || []).concat(line);
       return send(`${tag} BAD unknown command\r\n`);
     };
-    send('* OK fake IMAP ready\r\n');
+    send(state.greeting === null ? `* OK [CAPABILITY ${capabilities()}] fake IMAP ready\r\n` : state.greeting);
     socket.on('data', (chunk) => {
       buffer = Buffer.concat([buffer, chunk]);
       for (;;) {
@@ -142,8 +179,8 @@ async function startImap({ password = 'app-password-1', mailboxes, supportsMove 
         if (end < 0) return;
         const line = buffer.toString('utf8', 0, end);
         buffer = buffer.subarray(end + 2);
-        const match = /\{(\d+)\}$/.exec(line);
-        if (match) { pending += line.slice(0, match.index); literal = Number(match[1]); send('+ go ahead\r\n'); continue; }
+        const match = /\{(\d+)(\+?)\}$/.exec(line);
+        if (match) { pending += line.slice(0, match.index); literal = Number(match[1]); if (!match[2]) send('+ go ahead\r\n'); continue; }
         const full = pending + line; pending = '';
         try { handle(full); } catch (error) { send(`${full.split(' ')[0]} BAD ${error.message}\r\n`); }
       }
@@ -151,15 +188,17 @@ async function startImap({ password = 'app-password-1', mailboxes, supportsMove 
   });
   const close = track(server);
   const port = await listen(server);
-  return { port, state, connect: () => net.connect(port, '127.0.0.1'), close };
+  return { port, state, endpoint: { host: '127.0.0.1', port }, close };
 }
 
 async function startSmtp({ user = '', password = 'app-password-1', reject = [] } = {}) {
-  const state = { user, password, reject: new Set(reject), sent: [], commands: [], failData: '' };
+  const { PostalMime } = mailLibs();
+  const state = { user, password, reject: new Set(reject), sent: [], commands: [], failData: '', parsing: Promise.resolve() };
   const server = net.createServer((socket) => {
     socket.setEncoding('latin1');
-    let buffer = '', inData = false, envelope = { from: '', recipients: [] }, authed = false;
-    const send = text => socket.write(text + '\r\n');
+    let buffer = '', inData = false, envelope = { from: '', recipients: [] }, authed = false, login = null;
+    const send = text => { if (!socket.destroyed) socket.write(text + '\r\n'); };
+    const check = (name, secret) => { if (secret === state.password && (!state.user || name === state.user)) { authed = true; send('235 ok'); } else send('535 authentication failed'); };
     send('220 fake SMTP ready');
     socket.on('data', (chunk) => {
       buffer += chunk;
@@ -170,42 +209,46 @@ async function startSmtp({ user = '', password = 'app-password-1', reject = [] }
           const raw = Buffer.from(buffer.slice(0, end + 2).replace(/^\.\./gm, '.'), 'latin1');
           buffer = buffer.slice(end + 5); inData = false;
           if (state.failData) { send(state.failData); state.failData = ''; }
-          else { state.sent.push({ ...envelope, raw, parsed: mime.parseMessage(raw) }); send('250 queued'); }
+          else {
+            const entry = { ...envelope, raw, parsed: null };
+            state.sent.push(entry);
+            state.parsing = state.parsing.then(async () => { entry.parsed = await PostalMime.parse(raw); });
+            state.parsing.then(() => send('250 queued'));
+          }
           envelope = { from: '', recipients: [] };
           continue;
         }
         const index = buffer.indexOf('\r\n');
         if (index < 0) return;
         const line = buffer.slice(0, index); buffer = buffer.slice(index + 2);
-        const verb = line.split(/[ :]/)[0].toUpperCase();
-        state.commands.push(verb === 'AUTH' ? 'AUTH ***' : line);
-        if (verb === 'EHLO') { socket.write('250-fake\r\n250-AUTH PLAIN LOGIN\r\n250 SIZE 26214400\r\n'); }
-        else if (verb === 'AUTH') {
-          const [, name, secret] = Buffer.from(line.split(' ')[2] || '', 'base64').toString('utf8').split('\u0000');
-          if (secret === state.password && (!state.user || name === state.user)) { authed = true; send('235 ok'); } else send('535 authentication failed');
+        if (login) {
+          const value = Buffer.from(line, 'base64').toString('utf8');
+          if (login.step === 'user') { login = { step: 'pass', user: value }; send('334 UGFzc3dvcmQ6'); } else { const name = login.user; login = null; check(name, value); }
+          continue;
         }
-        else if (!authed && verb !== 'QUIT') send('530 authentication required');
-        else if (verb === 'MAIL') { envelope.from = /<([^>]*)>/.exec(line)[1]; send('250 ok'); }
-        else if (verb === 'RCPT') { const address = /<([^>]*)>/.exec(line)[1]; if (state.reject.has(address)) send('550 5.1.1 no such user'); else { envelope.recipients.push(address); send('250 ok'); } }
-        else if (verb === 'DATA') { inData = true; send('354 go ahead'); }
+        const verb = line.split(/[ :]/)[0].toUpperCase();
+        state.commands.push(verb === 'AUTH' ? 'AUTH ' + (line.split(' ')[1] || '') + ' ***' : line);
+        if (verb === 'EHLO') socket.write('250-fake\r\n250-AUTH PLAIN LOGIN\r\n250 SIZE 26214400\r\n');
+        else if (verb === 'AUTH') {
+          const mechanism = String(line.split(' ')[1] || '').toUpperCase();
+          if (mechanism === 'PLAIN') { const [, name, secret] = Buffer.from(line.split(' ')[2] || '', 'base64').toString('utf8').split('\u0000'); check(name, secret); }
+          else if (mechanism === 'LOGIN') { const first = line.split(' ')[2]; if (first) { login = { step: 'pass', user: Buffer.from(first, 'base64').toString('utf8') }; send('334 UGFzc3dvcmQ6'); } else { login = { step: 'user' }; send('334 VXNlcm5hbWU6'); } }
+          else send('504 unsupported mechanism');
+        }
+        else if (verb === 'RSET') { envelope = { from: '', recipients: [] }; send('250 ok'); }
+        else if (verb === 'NOOP') send('250 ok');
         else if (verb === 'QUIT') { send('221 bye'); socket.end(); return; }
+        else if (!authed) send('530 authentication required');
+        else if (verb === 'MAIL') { envelope.from = /<([^>]*)>/.exec(line)[1]; send('250 ok'); }
+        else if (verb === 'RCPT') { const target = /<([^>]*)>/.exec(line)[1]; if (state.reject.has(target)) send('550 5.1.1 no such user'); else { envelope.recipients.push(target); send('250 ok'); } }
+        else if (verb === 'DATA') { if (!envelope.recipients.length) send('554 no valid recipients'); else { inData = true; send('354 go ahead'); } }
         else send('502 unknown');
       }
     });
   });
   const close = track(server);
   const port = await listen(server);
-  return { port, state, connect: () => net.connect(port, '127.0.0.1'), close };
+  return { port, state, endpoint: { host: '127.0.0.1', port }, close };
 }
 
 module.exports = { startImap, startSmtp, rawMessage };
-
-// 独立运行：给浏览器检查用，打印端口后保持运行。
-if (require.main === module) {
-  (async () => {
-    const me = { name: '', address: 'sales@example-trade.com' };
-    const imap = await startImap({ mailboxes: require('./mail-sample.cjs').mailboxes(me) });
-    const smtp = await startSmtp({});
-    process.stdout.write(JSON.stringify({ imap: imap.port, smtp: smtp.port }) + '\n');
-  })();
-}

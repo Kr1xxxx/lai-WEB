@@ -87,7 +87,7 @@ class PortableBuild(unittest.TestCase):
 
 class SourceExport(unittest.TestCase):
     def fixture(self, directory):
-        for folder in ['src','backend','native/Sources','tests/fixtures','vendor/sheetjs-0.20.3','scripts','assets']:
+        for folder in ['src','backend','native/Sources','tests/fixtures','vendor/sheetjs-0.20.3','vendor/mail-libs/build','vendor/squire','vendor/dompurify','scripts','assets']:
             (directory / folder).mkdir(parents=True)
         for file, text in {
             'src/app.js':'// synthetic app', 'backend/server.js':'// synthetic server',
@@ -98,6 +98,11 @@ class SourceExport(unittest.TestCase):
             'vendor/sheetjs-0.20.3/LICENSE':'synthetic license',
             'vendor/sheetjs-0.20.3/README.md':'synthetic dependency',
             'vendor/sheetjs-0.20.3/xlsx.full.min.js':'// synthetic vendor',
+            'vendor/mail-libs/mail-libs.cjs':'// synthetic mail bundle', 'vendor/mail-libs/LICENSES.txt':'synthetic licenses',
+            'vendor/mail-libs/README.md':'synthetic provenance', 'vendor/mail-libs/build/entry.js':'// synthetic entry',
+            'vendor/mail-libs/build/pino-stub.js':'// synthetic stub', 'vendor/mail-libs/build/socks-stub.js':'// synthetic stub',
+            'vendor/squire/squire-raw.js':'// synthetic editor', 'vendor/squire/LICENSE':'synthetic license',
+            'vendor/dompurify/purify.min.js':'// synthetic sanitizer', 'vendor/dompurify/LICENSE':'synthetic license',
         }.items():
             (directory / file).write_text(text)
         (directory / 'assets/AppIcon.icns').write_bytes(b'SYNTHETIC-ICON')

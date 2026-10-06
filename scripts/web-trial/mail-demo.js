@@ -71,7 +71,7 @@
     if (path === '/api/mail/trash') { messages = messages.filter(function (m) { return !(m.box === body.box && m.uid === Number(body.uid)); }); return json(200, {ok: true}); }
     if (path === '/api/mail/attachment/save') return json(501, {ok: false, message: '网页试用版里的附件是示例，不能保存。在 Mac 应用里会保存到「下载」文件夹。'});
     if (path === '/api/mail/drafts/save') {
-      var draft = {id: body.id || ('demo' + String(nextDraft++)), to: body.to || '', cc: body.cc || '', bcc: body.bcc || '', subject: body.subject || '', text: body.text || '', inReplyTo: body.inReplyTo || '', references: body.references || '', forwardOf: body.forwardOf || null, updatedAt: new Date().toISOString()};
+      var draft = {id: body.id || ('demo' + String(nextDraft++)), to: body.to || '', cc: body.cc || '', bcc: body.bcc || '', subject: body.subject || '', text: body.text || '', html: body.html || '', inReplyTo: body.inReplyTo || '', references: body.references || '', forwardOf: body.forwardOf || null, updatedAt: new Date().toISOString()};
       drafts = drafts.filter(function (d) { return d.id !== draft.id; }).concat([draft]);
       return json(200, {ok: true, draft: draft});
     }
@@ -81,13 +81,13 @@
       if (!everyone.length) return bad('请至少填写一位收件人');
       var wrong = everyone.filter(function (p) { return !p.valid; })[0];
       if (wrong) return bad(wrong.address + ' 不是有效的邮箱地址');
-      if (!String(body.subject || '').trim() && !String(body.text || '').trim()) return bad('主题和正文不能都为空');
+      if (!String(body.subject || '').trim() && !String(body.text || '').trim() && !String(body.html || '').replace(/<[^>]+>/g, '').trim()) return bad('主题和正文不能都为空');
       var strip = function (p) { return {name: p.name, address: p.address}; };
       var original = body.forwardOf && body.forwardAttachments !== false ? find(body.forwardOf.box, body.forwardOf.uid) : null;
       var files = (body.attachments || []).map(function (a, index) { return {index: index, filename: a.filename, contentType: a.contentType || 'application/octet-stream', size: Math.floor(String(a.contentBase64 || '').length * 3 / 4)}; });
       if (original) original.attachments.forEach(function (a) { files.push({index: files.length, filename: a.filename, contentType: a.contentType, size: a.size}); });
       var uid = nextUid++;
-      messages.push({box: 'sent', uid: uid, from: {name: body.fromName || '', address: ME}, to: to.map(strip), cc: cc.map(strip), subject: body.subject || '', date: new Date().toISOString(), seen: true, pending: false, text: body.text || '', html: '', attachments: files, messageId: '<demo-' + uid + '@lai-trial.example>', references: body.references || ''});
+      messages.push({box: 'sent', uid: uid, from: {name: body.fromName || '', address: ME}, to: to.map(strip), cc: cc.map(strip), subject: body.subject || '', date: new Date().toISOString(), seen: true, pending: false, text: body.text || '', html: body.html || '', attachments: files, messageId: '<demo-' + uid + '@lai-trial.example>', references: body.references || ''});
       if (body.draftId) drafts = drafts.filter(function (d) { return d.id !== body.draftId; });
       if (body.fromName !== undefined) account.senderName = body.fromName;
       return json(200, {ok: true, messageId: '<demo-' + uid + '@lai-trial.example>', recipients: everyone.map(function (p) { return p.address; }), attachmentCount: files.length});
@@ -130,7 +130,7 @@
     if (path === '/api/mail/bulk/start') {
       var list = Array.isArray(body.recipients) ? body.recipients : [];
       if (!list.length) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '请至少选择一位收件人'}));
-      if (!String(body.subject || '').trim() || !String(body.text || '').trim()) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '请填写主题和正文'}));
+      if (!String(body.subject || '').trim() || !(String(body.text || '').trim() || String(body.html || '').replace(/<[^>]+>/g, '').trim())) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '请填写主题和正文'}));
       var now = new Date().toISOString();
       var batch = {id: 'demo-batch-' + next++, createdAt: now, finishedAt: now, subject: body.subject, text: body.text, status: 'done', attachmentNames: (body.attachments || []).map(function (a) { return a.filename; }),
         items: list.map(function (r) { return {address: r.address, name: r.name || '', customer: r.customer || '', status: 'sent', error: '', sentAt: now}; })};

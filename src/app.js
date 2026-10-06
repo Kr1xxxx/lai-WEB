@@ -195,9 +195,10 @@
     }
     if (
       business?.hasDraft() ||
-      ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind", "mail-compose", "mail-bulk"].includes(
+      ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind"].includes(
         modal,
       ) ||
+      mail?.composeDirty() ||
       [...followupDrafts.values()].some((d) => d.text.trim())
     ) {
       toast("请先保存或取消正在编辑的内容");
@@ -811,8 +812,6 @@
   }
   function closeModal(pointerActivated = false, confirmed = false, trigger) {
     if (pending) return;
-    // 写信窗口关闭前先把没发出的内容存成草稿。
-    if (modal === "mail-compose" && !confirmed && mail?.composing()) return mail.action("compose-close");
     if (modal === "segment" && !confirmed && $("#segment-form")) {
       readSegment();
       if (segmentCloseSnapshot(segmentDraft) !== segmentInitialSnapshot) {
@@ -3212,6 +3211,8 @@
       .join("")}`;
   }
   async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
+    // 离开邮件页时，正在写的信自动存成草稿；存不下来就留在原地。
+    if (activeRoute === "mail" && mail?.composing() && !(await mail.leave())) return false;
     if (!(await window.flushPendingSave())) return false;
     rememberCustomerListViewport();
     closeModal();
@@ -3794,7 +3795,10 @@
       return;
     }
     // 客户列表批量栏与客户详情里的「写邮件」：一位客户直接写信，多位走群发。
-    if (d.feature === "写邮件") return mail.composeFor(el.closest(".replica-batch") ? [...selected] : currentName ? [currentName] : [], e.detail > 0);
+    if (d.feature === "写邮件") {
+      const fromList = !!el.closest(".replica-batch"), name = currentName;
+      return mail.composeFor(fromList ? [...selected] : name ? [name] : [], e.detail > 0, () => navigateApp("customers", fromList ? "" : name, false));
+    }
     if (d.feature) return featureNotice(d.feature, e.detail > 0);
     if (d.groupTab) {
       groupTab = d.groupTab;
@@ -4268,6 +4272,8 @@
     escape: E,
     icon,
     // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
+    createEditor: (node, bar, html) => window.LaiMailEditor.create(node, bar, html),
+    editorToolbar: () => window.LaiMailEditor.toolbar(),
     request: (path, payload) =>
       fetch(path, payload === undefined
         ? { cache: "no-store" }

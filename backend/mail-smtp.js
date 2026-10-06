@@ -1,7 +1,7 @@
-const tls = require('node:tls');
 const imap = require('./mail-imap.js');
+const { mailLibs } = require('./mail-libs.js');
 
-// 发信：通过 Zoho 的发信服务器（TLS 465）提交一封已生成好的邮件。只在用户点击发送时调用。
+// 发信：由开源库 nodemailer 通过 Zoho 的发信服务器（TLS 465）提交。只在用户点击发送时调用。
 // 主机固定，不接受界面指定；密码不写入日志或错误信息。
 
 const HOSTS = Object.freeze({
@@ -11,92 +11,46 @@ const HOSTS = Object.freeze({
 const PORT = 465;
 const TIMEOUT_MS = 60000;
 
-const smtpError = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
-const visible = text => String(text).replace(/[^\x20-\x7e一-鿿]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
-
 function resolveServer(account) {
   const resolved = imap.resolveServer(account);
   return { host: HOSTS[resolved.site][resolved.accountType], port: PORT };
 }
 
+function translate(error, host) {
+  const code = String(error?.code || ''), reply = imap.serverText(error?.response || error?.message);
+  if (code === 'EAUTH' || code === 'ENOAUTH') return imap.mailError('auth_failed', '发信登录失败。请确认应用专用密码仍然有效，并且 Zoho 账号允许通过 SMTP 发信。' + (imap.serverText(error?.response) ? `（服务器回应：${imap.serverText(error.response)}）` : ''));
+  if (code === 'EENVELOPE') {
+    const rejected = Array.isArray(error.rejected) ? error.rejected.map(String) : [];
+    return imap.mailError('smtp_rejected', rejected.length ? `收件人 ${rejected.join('、')} 被发信服务器拒绝，邮件没有发出：${reply}` : `发信服务器不接受这封邮件的发件人或收件人：${reply}`, { rejected });
+  }
+  if (code === 'EMESSAGE' || (Number(error?.responseCode) >= 500 && Number(error?.responseCode) < 600)) return imap.mailError('smtp_rejected', '发信服务器没有接受这封邮件：' + reply);
+  if (code === 'ETIMEDOUT') return imap.mailError('timeout', `发信服务器 ${host} 响应超时。邮件可能没有发出，请到 Zoho 的已发送里确认后再决定是否重发。`);
+  if (code === 'EPROTOCOL') return imap.mailError('protocol', '发信服务器的应答异常，已中止。');
+  return imap.translate(error, host);
+}
+
 /**
- * 发送。recipients 为信封收件人（含抄送、密送）。任何一个收件人被拒绝都会整封不发，并指出是哪一个。
- * 返回 { accepted: [...] }。
+ * 发送一封邮件。mail：{ from:{name,address}, to, cc, bcc（均为 [{name,address}]）, subject, text, html, attachments:[{filename, contentType, content}], inReplyTo, references, date }。
+ * 返回 { messageId, accepted, rejected }。服务器只拒绝其中部分收件人时，邮件仍会发给其余收件人，被拒的列在 rejected 里。
  */
-function send({ account, from, recipients, raw }, options = {}) {
+async function send({ account, mail }, { endpoint } = {}) {
   const server = resolveServer(account);
-  const connect = options.connect || (() => tls.connect({ host: server.host, port: server.port, servername: server.host, minVersion: 'TLSv1.2' }));
-  const timeoutMs = options.timeoutMs || TIMEOUT_MS;
-  const user = imap.normalizeEmail(account.email), secret = imap.normalizePassword(account.password);
-  const sender = imap.normalizeEmail(from);
-  const targets = recipients.map(imap.normalizeEmail);
-  if (!targets.length) throw smtpError('invalid_input', '请至少填写一位收件人');
-
-  return new Promise((resolve, reject) => {
-    let socket, buffer = '', lines = [], waiting = null, failure = null, done = false;
-    const queue = [];
-    const fail = (error) => {
-      if (failure || done) return;
-      failure = error;
-      try { socket?.destroy(); } catch (_) {}
-      if (waiting) { const pending = waiting; waiting = null; pending.reject(error); }
-    };
-    const reply = () => new Promise((res, rej) => {
-      if (queue.length) return res(queue.shift());
-      if (failure) return rej(failure);
-      const timer = setTimeout(() => { waiting = null; fail(smtpError('timeout', `发信服务器 ${server.host} 响应超时。邮件可能没有发出，请到 Zoho 的已发送里确认后再决定是否重发。`)); rej(failure); }, timeoutMs);
-      waiting = { resolve: value => { clearTimeout(timer); res(value); }, reject: error => { clearTimeout(timer); rej(error); } };
+  const user = imap.normalizeEmail(account.email), pass = imap.normalizePassword(account.password);
+  const target = endpoint
+    ? { host: endpoint.host, port: endpoint.port, secure: false, ignoreTLS: true }
+    : { host: server.host, port: server.port, secure: true, tls: { servername: server.host, minVersion: 'TLSv1.2' } };
+  const transport = mailLibs().createTransport({ ...target, auth: { user, pass }, authMethod: 'LOGIN', name: 'lai.local', logger: false, disableFileAccess: true, disableUrlAccess: true, connectionTimeout: TIMEOUT_MS, greetingTimeout: TIMEOUT_MS, socketTimeout: 2 * TIMEOUT_MS });
+  const address = item => (item.name ? { name: item.name, address: item.address } : item.address);
+  try {
+    const info = await transport.sendMail({
+      from: address(mail.from), to: (mail.to || []).map(address), cc: (mail.cc || []).map(address), bcc: (mail.bcc || []).map(address),
+      subject: mail.subject || '', text: mail.text || '', ...(mail.html ? { html: mail.html } : {}),
+      attachments: (mail.attachments || []).map(item => ({ filename: item.filename, content: item.content, contentType: item.contentType || 'application/octet-stream', ...(item.cid ? { cid: item.cid, contentDisposition: 'inline' } : {}) })),
+      ...(mail.inReplyTo ? { inReplyTo: mail.inReplyTo } : {}), ...(mail.references ? { references: mail.references } : {}), ...(mail.date ? { date: mail.date } : {}),
     });
-    const command = async (text, expected) => {
-      if (text !== null) socket.write(text + '\r\n');
-      const answer = await reply();
-      if (!expected.includes(answer.code)) throw Object.assign(smtpError('smtp_rejected', visible(answer.text)), { smtpCode: answer.code });
-      return answer;
-    };
-    try { socket = connect(server); } catch (error) { return reject(imap.networkError(error, server.host)); }
-    socket.setEncoding?.('latin1');
-    socket.on('data', (chunk) => {
-      buffer += chunk;
-      let index;
-      while ((index = buffer.indexOf('\n')) >= 0) {
-        const line = buffer.slice(0, index).replace(/\r$/, '');
-        buffer = buffer.slice(index + 1);
-        const match = /^(\d{3})([ -])(.*)$/.exec(line);
-        if (!match) { fail(smtpError('protocol', '发信服务器的应答不是 SMTP 服务，已中止。')); return; }
-        lines.push(match[3]);
-        if (match[2] === ' ') {
-          const answer = { code: Number(match[1]), text: lines.join(' '), lines };
-          lines = [];
-          if (waiting) { const pending = waiting; waiting = null; pending.resolve(answer); } else queue.push(answer);
-        }
-      }
-      if (buffer.length > 65536) fail(smtpError('protocol', '发信服务器的应答异常，已中止。'));
-    });
-    socket.on('error', error => fail(imap.networkError(error, server.host)));
-    socket.on('close', () => fail(smtpError('network', `发信服务器 ${server.host} 提前断开了连接。`)));
-
-    (async () => {
-      await command(null, [220]).catch((error) => { throw error.code === 'smtp_rejected' ? smtpError('protocol', '发信服务器暂时拒绝连接：' + error.message) : error; });
-      await command('EHLO lai.local', [250]);
-      const token = Buffer.from(`\u0000${user}\u0000${secret}`, 'utf8').toString('base64');
-      await command('AUTH PLAIN ' + token, [235]).catch((error) => {
-        if (error.code === 'smtp_rejected') throw smtpError('auth_failed', '发信登录失败。请确认应用专用密码仍然有效，并且 Zoho 账号允许通过 SMTP 发信。' + (error.message ? `（服务器回应：${error.message}）` : ''));
-        throw error;
-      });
-      await command(`MAIL FROM:<${sender}>`, [250]).catch((error) => { throw error.code === 'smtp_rejected' ? smtpError('smtp_rejected', `发信服务器不接受发件人 ${sender}：${error.message}`) : error; });
-      for (const target of targets)
-        await command(`RCPT TO:<${target}>`, [250, 251]).catch((error) => { throw error.code === 'smtp_rejected' ? smtpError('smtp_rejected', `收件人 ${target} 被发信服务器拒绝，整封邮件没有发出：${error.message}`) : error; });
-      await command('DATA', [354]);
-      // 行首的点按协议加倍，结尾以单独一行的点结束。
-      const body = raw.toString('latin1').replace(/\r?\n/g, '\r\n').replace(/^\./gm, '..').replace(/(\r\n)?$/, '\r\n');
-      socket.write(Buffer.from(body, 'latin1'));
-      await command('.', [250]).catch((error) => { throw error.code === 'smtp_rejected' ? smtpError('smtp_rejected', '发信服务器没有接受这封邮件：' + error.message) : error; });
-      done = true;
-      try { socket.end('QUIT\r\n'); } catch (_) {}
-      setTimeout(() => { try { socket.destroy(); } catch (_) {} }, 2000).unref?.();
-      return { accepted: targets };
-    })().then(resolve, (error) => { fail(error); reject(error); });
-  });
+    return { messageId: info.messageId || '', accepted: (info.accepted || []).map(String), rejected: (info.rejected || []).map(String) };
+  } catch (error) { throw translate(error, server.host); }
+  finally { try { transport.close(); } catch (_) {} }
 }
 
 module.exports = { send, resolveServer, HOSTS, PORT };
