@@ -1,0 +1,31 @@
+# Business data and historical local artifacts must never be uploaded.
+data/
+backups/
+evidence/
+baseline/
+dist/
+releases/
+docs/
+animation-plans/
+# README.github.md is the deliberately reviewed export README.
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.app/
+trade-order-data.json
+seed.json
+attachments/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store
+node_modules/
+native/.build/
+native/.swiftpm/
+__pycache__/
+*.pyc
+.superpowers/

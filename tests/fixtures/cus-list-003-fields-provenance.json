@@ -1,0 +1,8 @@
+{
+  "origin": "okki-capture/2026-09-21-customers/evidence/CUS-LIST-003/state.txt",
+  "sourceSha256": "379bd252699351b8a7fce77b6b12beb0767985224a2abc77b1029de1fa54bfef",
+  "fixtureSha256": "9e2592680d687d18c8bc4c75ee6ee943e8377506e22a59efefa08839505a29ac",
+  "extraction": "settings modal header and exact checkbox description lines in captured order only; no customer rows",
+  "capturedCheckboxCount": 90,
+  "generatedFromProductCatalog": false
+}

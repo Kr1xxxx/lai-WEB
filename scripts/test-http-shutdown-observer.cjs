@@ -1,0 +1,5 @@
+// Diagnostic preload for private test services only; never records HTTP headers, URLs, tokens or bodies.
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
+const original=http.createServer,servers=[];
+http.createServer=function(...args){const server=original.apply(this,args),unused=new Set();let requests=0,finished=0;servers.push({unused,get requests(){return requests},get finished(){return finished}});server.on('connection',socket=>{unused.add(socket);socket.once('close',()=>unused.delete(socket));});server.on('request',(req,res)=>{requests++;unused.delete(req.socket);res.once('finish',()=>finished++);});return server;};
+process.once('SIGTERM',()=>{if(!process.env.LAI_HTTP_SHUTDOWN_EVIDENCE)return;fs.writeFileSync(path.join(process.env.LAI_HTTP_SHUTDOWN_EVIDENCE,'transport-'+process.pid+'.json'),JSON.stringify({pid:process.pid,servers:servers.map(s=>({requests:s.requests,finished:s.finished,activeRequests:s.requests-s.finished,unused:s.unused.size,unusedBytes:[...s.unused].map(socket=>({read:socket.bytesRead,written:socket.bytesWritten}))}))},null,2));});

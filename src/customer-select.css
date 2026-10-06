@@ -1,0 +1,397 @@
+/* Native controls remain in their original form for values and validation. */
+select.lai-select-native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  pointer-events: none !important;
+}
+button.lai-select-trigger {
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 28px 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  font: inherit;
+  font-size: 14px;
+  line-height: 30px;
+  text-align: left;
+  cursor: pointer;
+}
+button.lai-select-trigger::after {
+  content: "";
+  position: absolute;
+  right: 11px;
+  top: 11px;
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid #8c8c8c;
+  border-bottom: 1px solid #8c8c8c;
+  transform: rotate(45deg);
+}
+button.lai-select-trigger:hover {
+  border-color: #c0c4cc;
+}
+button.lai-select-trigger:focus-visible,
+button.lai-select-trigger[aria-expanded="true"] {
+  border-color: #0a6aff;
+  outline: none;
+}
+button.lai-select-trigger:disabled {
+  color: #c0c4cc;
+  background: #f5f7fa;
+  cursor: not-allowed;
+}
+button.lai-select-trigger[aria-invalid="true"] {
+  border-color: #f56c6c;
+}
+.ce-select:has(> .lai-select-trigger) > .ce-icon {
+  display: none;
+}
+.lai-select-menu {
+  position: fixed;
+  z-index: 10020;
+  box-sizing: border-box;
+  padding: 4px 0;
+  overflow: hidden;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: var(--shadow-popover);
+  color: #333;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  font-size: 14px;
+}
+.lai-select-options {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.lai-select-option {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 30px 0 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.lai-select-option.is-active {
+  background: #f5f7fa;
+}
+.lai-select-option[aria-selected="true"] {
+  background: #eaf3ff;
+  color: #0a6aff;
+}
+.lai-select-option[aria-selected="true"]::after {
+  content: "✓";
+  position: absolute;
+  right: 12px;
+  color: #0a6aff;
+}
+.lai-select-option[aria-disabled="true"] {
+  color: #c0c4cc;
+  cursor: not-allowed;
+}
+.lai-select-menu input.lai-select-search {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  height: 32px;
+  margin: 4px 8px 8px;
+  padding: 0 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  font: inherit;
+  outline: none;
+}
+.lai-select-menu input.lai-select-search:focus {
+  border-color: #0a6aff;
+}
+.lai-select-empty {
+  padding: 8px 12px;
+  color: #8c8c8c;
+}
+.lai-select-validation {
+  display: block;
+  margin-top: 4px;
+  color: #f56c6c;
+  font-size: 12px;
+}
+
+/* Search in the quick-field control occupies the trigger, as in CUS-FILTER-001. */
+.lai-select-menu.is-inline-search {
+  overflow: visible;
+  padding: 8px 0;
+  border: 0;
+  box-shadow:
+    0 3px 6px -4px rgba(0, 0, 0, 0.12),
+    0 6px 16px rgba(0, 0, 0, 0.08),
+    0 9px 28px 8px rgba(0, 0, 0, 0.05);
+}
+.lai-select-menu.is-inline-search .lai-select-option {
+  padding: 5px 12px;
+  line-height: 26px;
+}
+.lai-select-menu.is-inline-search input.lai-select-search {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  width: 100%;
+  margin: 4px 0 0;
+  height: 32px;
+  border-color: #0a6aff;
+  padding: 0 12px;
+  background: #fff;
+}
+.ce-select > .lai-select-trigger,
+.filter-fields .lai-select-trigger,
+.advanced-row > .lai-select-trigger {
+  width: 100% !important;
+}
+.pages .lai-select-trigger {
+  min-width: 94px;
+  padding-right: 26px;
+}
+.lai-select-trigger[aria-required="true"] {
+  box-shadow: none;
+}
+
+button.lai-select-trigger[data-empty="true"] {
+  color: #bfbfbf;
+}
+.lai-select-menu.is-inline-search .lai-select-option[aria-selected="true"] {
+  background: #fff;
+  font-weight: 600;
+}
+.lai-select-menu.is-inline-search
+  .lai-select-option[aria-selected="true"]::after {
+  display: none;
+}
+
+/* Independently observed customer editor menu variants. */
+#customer-form .ce-select > input.lai-select-search {
+  position: absolute;
+  z-index: 1;
+  left: 13px;
+  top: 1px;
+  width: calc(100% - 40px);
+  height: 30px;
+  min-height: 30px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  background: #fff;
+  color: #333;
+  line-height: 22px;
+}
+.ce-select > input.lai-select-search::-webkit-search-cancel-button {
+  display: none;
+}
+.lai-select-trigger.is-searching::after {
+  top: 9px;
+  right: 13px;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid #bfbfbf;
+  border-radius: 50%;
+  transform: none;
+}
+.lai-select-trigger.is-searching::before {
+  content: "";
+  position: absolute;
+  top: 21px;
+  right: 9px;
+  width: 5px;
+  height: 1.5px;
+  background: #bfbfbf;
+  transform: rotate(45deg);
+}
+.lai-select-menu.is-customer-product .lai-select-empty {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 116px;
+  padding: 5px 12px;
+  color: rgba(0, 0, 0, .25);
+  line-height: 26px;
+}
+.lai-select-menu.is-customer-product .lai-select-empty svg {
+  flex-shrink: 0;
+}
+#customer-form #ce-productType + .lai-select-trigger {
+  padding-left: 12px;
+  transition: border-color 300ms cubic-bezier(.645, .045, .355, 1);
+}
+#customer-form #ce-productType + .lai-select-trigger:focus-visible,
+#customer-form #ce-productType + .lai-select-trigger[aria-expanded="true"] {
+  border-color: #004fd9;
+}
+.lai-select-menu.is-customer-product .lai-select-option.is-active {
+  background: transparent;
+}
+.lai-select-menu.is-customer-product .lai-select-option {
+  transition: background 300ms;
+}
+.lai-select-menu.is-customer-product .lai-select-option:not([aria-disabled="true"]):hover {
+  background: #f5f5f5;
+}
+.lai-select-menu.is-customer-product .lai-select-option[aria-selected="true"]:not([aria-disabled="true"]):hover {
+  background: #f0f8ff;
+}
+.lai-select-menu.is-customer-stage,
+.lai-select-menu.is-customer-product,
+.lai-select-menu.is-customer-group {
+  padding: 8px 0;
+  border: 0;
+  border-radius: 4px;
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, .12),
+    0 6px 16px rgba(0, 0, 0, .08),
+    0 9px 28px 8px rgba(0, 0, 0, .05);
+}
+.lai-select-menu:is(.is-customer-stage, .is-customer-product) .lai-select-option {
+  padding: 5px 12px;
+  font-size: 14px;
+  line-height: 26px;
+}
+.lai-select-menu:is(.is-customer-stage, .is-customer-product) .lai-select-option[aria-selected="true"] {
+  background: transparent;
+  color: #0a6aff;
+  font-weight: 600;
+}
+.lai-select-menu:is(.is-customer-stage, .is-customer-product) .lai-select-option[aria-selected="true"]::after {
+  content: none;
+}
+.lai-select-menu.is-customer-stage.is-entering,
+.lai-select-menu.is-customer-product.is-entering,
+.lai-select-menu.is-customer-group.is-entering,
+.lai-select-menu.is-inline-search.is-entering {
+  animation: lai-stage-select-in 200ms cubic-bezier(.23, 1, .32, 1) both;
+}
+.lai-select-menu.is-customer-stage.is-closing,
+.lai-select-menu.is-customer-product.is-closing,
+.lai-select-menu.is-customer-group.is-closing,
+.lai-select-menu.is-inline-search.is-closing {
+  pointer-events: none;
+  animation: lai-stage-select-out 200ms cubic-bezier(.755, .05, .855, .06) both;
+}
+@keyframes lai-stage-select-in {
+  from { opacity: 0; transform: scaleY(.8); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+@keyframes lai-stage-select-out {
+  from { opacity: var(--stage-exit-opacity, 1); transform: var(--stage-exit-transform, scaleY(1)); }
+  to { opacity: 0; transform: scaleY(.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lai-select-menu.is-customer-stage.is-entering,
+  .lai-select-menu.is-customer-product.is-entering,
+  .lai-select-menu.is-customer-group.is-entering,
+  .lai-select-menu.is-inline-search.is-entering {
+    animation: lai-stage-select-fade-in 80ms linear both !important;
+  }
+  .lai-select-menu.is-customer-stage.is-closing,
+  .lai-select-menu.is-customer-product.is-closing,
+  .lai-select-menu.is-customer-group.is-closing,
+  .lai-select-menu.is-inline-search.is-closing {
+    animation: lai-stage-select-fade-out 80ms linear both !important;
+  }
+}
+@keyframes lai-stage-select-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes lai-stage-select-fade-out {
+  from { opacity: var(--stage-exit-opacity, 1); }
+  to { opacity: 0; }
+}
+
+/* Customer-group tree leaf: independently measured 36px row and 24px label. */
+.lai-select-menu.is-customer-group { padding: 8px 12px; }
+.lai-select-menu.is-customer-group .lai-select-option {
+  padding: 6px 0;
+  font-size: 14px;
+  line-height: 24px;
+  background: transparent;
+  color: #333;
+  font-weight: 400;
+}
+.lai-select-menu.is-customer-group .lai-select-option-label {
+  display: block;
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  margin-left: 24px;
+  height: 24px;
+  padding: 0 4px;
+  line-height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lai-select-menu.is-customer-group .lai-select-option.is-active .lai-select-option-label {
+  background: #f5f5f5;
+}
+.lai-select-menu.is-customer-group .lai-select-option[aria-selected="true"] .lai-select-option-label {
+  background: #d6ecff;
+  color: #0a6aff;
+}
+.lai-select-menu.is-customer-group .lai-select-option[aria-selected="true"]::after { content: none; }
+.lai-select-menu.is-customer-group .lai-select-option[aria-disabled="true"] { color: #c0c4cc; }
+
+/* Selected-product clear: observed source 12px target, 10px/11px offsets. */
+#customer-form .ce-select > button.lai-select-clear {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #8c8c8c;
+  opacity: 0;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 300ms, opacity 150ms;
+}
+#customer-form .ce-select > button.lai-select-clear[hidden] { display: none; }
+#customer-form .ce-select > button.lai-select-clear:hover { color: #595959; }
+#customer-form .ce-select:hover > button.lai-select-clear,
+#customer-form .ce-select > button.lai-select-clear:focus-visible { opacity: 1; }
+#customer-form .ce-select > button.lai-select-clear:focus-visible {
+  outline: 2px solid #0a6aff;
+  outline-offset: 2px;
+}
+#customer-form .ce-select > button.lai-select-clear svg { flex: none; }
+@media (prefers-reduced-motion: reduce) {
+  #customer-form .ce-select > button.lai-select-clear { transition: none; }
+}

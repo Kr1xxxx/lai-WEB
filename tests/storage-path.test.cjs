@@ -1,0 +1,11 @@
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const {laiDataDirectory}=require('../backend/storage-path.js');
+const temp=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'lai-test-storage-'));const env={...process.env};
+const originalHome=os.homedir;const syntheticHome=path.join(temp,'home');
+os.homedir=()=>syntheticHome;
+const syntheticDefault=path.join(syntheticHome,'Library/Application Support/LaiCRM');
+fs.mkdirSync(path.join(syntheticDefault,'backups'),{recursive:true});fs.writeFileSync(path.join(syntheticDefault,'fixture.txt'),'synthetic');
+test.after(()=>{os.homedir=originalHome;for(const k of Object.keys(process.env))if(!(k in env))delete process.env[k];Object.assign(process.env,env);fs.rmSync(temp,{recursive:true,force:true});});
+test('Lai defaults to own directory and ignores all prior data overrides',()=>{delete process.env.LAI_DATA_DIR;process.env.TRADE_APP_DATA_DIR='/untrusted-production';process.env.OKKI_PREVIEW_DATA_DIR='/untrusted-preview';assert.equal(laiDataDirectory(),path.join(os.homedir(),'Library/Application Support/LaiCRM'));});
+test('explicit original and preview directories, noncanonical and arbitrary paths are rejected',()=>{for(const p of [path.join(os.homedir(),'Library/Application Support/TradeOrderSystem'),path.join(os.homedir(),'Library/Application Support/TradeOrderSystem-OKKIPreview'),'/tmp/arbitrary','relative',temp+'/../x']){process.env.LAI_DATA_DIR=p;assert.throws(()=>laiDataDirectory());}});
+test('canonical test storage works but symlink descendants and hardlinked files are rejected',()=>{const dir=path.join(temp,'data');fs.mkdirSync(dir);process.env.LAI_DATA_DIR=dir;assert.equal(laiDataDirectory(),dir);const target=path.join(temp,'target');fs.mkdirSync(target);fs.symlinkSync(target,path.join(dir,'backups'));assert.throws(()=>laiDataDirectory());fs.unlinkSync(path.join(dir,'backups'));fs.writeFileSync(path.join(target,'source'),'test');fs.linkSync(path.join(target,'source'),path.join(dir,'lai-data.sqlite'));assert.throws(()=>laiDataDirectory());});

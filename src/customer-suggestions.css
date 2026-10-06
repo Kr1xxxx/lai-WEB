@@ -1,0 +1,44 @@
+/* In-page suggestions for country/source and other editable datalist fields. */
+.lai-suggestions {
+  position: fixed;
+  z-index: 1100;
+  box-sizing: border-box;
+  max-height: 268px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: var(--shadow-popover);
+  color: #333;
+  font-family:
+    -apple-system, system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  scrollbar-width: thin;
+}
+.lai-suggestion {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 8px 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  background: #fff;
+}
+.lai-suggestion:hover,
+.lai-suggestion[aria-selected="true"] {
+  background: #eaf3ff;
+  color: #0a6aff;
+}
+.lai-suggestions-empty {
+  padding: 16px 12px;
+  color: #8c8c8c;
+  font-size: 12px;
+  line-height: 22px;
+}
