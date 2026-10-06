@@ -419,7 +419,7 @@
   gap: 2px;
   width: 100%;
   min-height: 0;
-  padding: 10px 14px 10px 10px;
+  padding: 10px 14px 10px 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -447,6 +447,7 @@
   flex: 0 0 8px;
   width: 8px;
   height: 8px;
+  margin: 0 4px;
   border-radius: 50%;
 }
 .mail-row.unread .mail-dot {
@@ -470,7 +471,7 @@
 .mail-row-subject,
 .mail-row-snippet {
   display: block;
-  padding-left: 14px;
+  padding-left: 22px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1432,7 +1433,7 @@
 }
 .mail-check {
   position: absolute;
-  left: 6px;
+  left: 8px;
   top: 12px;
   display: none;
   align-items: center;

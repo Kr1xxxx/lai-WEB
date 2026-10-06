@@ -575,7 +575,7 @@
       return mine.length > 1 ? mine.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.uid - b.uid) : [];
     }
     const stripItem = (item) =>
-      `<button type="button" class="mail-thread-item" data-mail-action="open" data-box="${item.box}" data-uid="${item.uid}"><span class="mail-avatar small" style="background:hsl(${hue(item.from && item.from.address)} 45% 46%)">${E(initial(item.from))}</span><span class="mail-thread-who">${E(item.box === "sent" ? "我" : person(item.from) || "（未知发件人）")}</span><span class="mail-thread-snippet">${E(item.snippet || item.subject || "")}</span><span class="mail-row-time">${E(shortTime(item.date))}</span></button>`;
+      `<button type="button" class="mail-thread-item" data-mail-action="open" data-box="${item.box}" data-uid="${item.uid}"><span class="mail-avatar small" style="background:hsl(${hue(item.from && item.from.address)} 45% 46%)">${E(item.box === "sent" ? "我" : initial(item.from))}</span><span class="mail-thread-who">${E(item.box === "sent" ? "我" : person(item.from) || "（未知发件人）")}</span><span class="mail-thread-snippet">${E(item.snippet || item.subject || "")}</span><span class="mail-row-time">${E(shortTime(item.date))}</span></button>`;
     function readerPane() {
       if (!reading)
         return `<div class="empty mail-unbound mail-reader-empty"><div class="mail-unbound-art">${icon("mail")}</div><strong>选择一封邮件</strong><span>在左边的列表里点一封，内容会显示在这里。</span><span class="mail-keys">↑ ↓ 上一封／下一封 · R 回复 · A 回复全部 · F 转发 · S 待处理 · U 标为未读 · Delete 删除 · C 写信 · / 搜索</span></div>`;
@@ -1059,7 +1059,7 @@
     function renderFileList(id, files, removeAction) {
       const box = document.getElementById(id);
       if (!box) return;
-      box.innerHTML = files.map((file, index) => `<li><span class="mail-attachment-name">${icon("folder")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span><button type="button" data-mail-action="${removeAction}" data-index="${index}">移除</button></li>`).join("");
+      box.innerHTML = files.map((file, index) => `<li><span class="mail-attachment-name">${icon("clip")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span><button type="button" data-mail-action="${removeAction}" data-index="${index}">移除</button></li>`).join("");
     }
     // 把选中的文件读进 holder.files；合计超过 10 MB 的不加。
     function readFiles(fileList, holder, errorId, redraw) {
