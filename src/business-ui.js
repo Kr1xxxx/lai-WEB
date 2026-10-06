@@ -3,6 +3,10 @@
   function create(ctx) {
     const B = root.LaiBusinessModel,
       E = ctx.escape;
+    // 团队数据模块只在打开对应页面时才取用。
+    let teamReport = null,
+      teamUI = null;
+    const TU = () => teamUI || (teamUI = root.LaiTeamUI.create(E));
     let route = "dashboard",
       search = "",
       stage = "",
@@ -173,6 +177,26 @@
         }</tbody></table></section></div></div>`
       );
     }
+    function renderTeam(kind) {
+      teamReport = root.LaiTeamModel.report(kind, state(), month);
+      return (
+        header(
+          teamReport.title,
+          "按跟进人名称汇总 · 数字可点开看明细",
+          `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`,
+        ) + TU().markup(teamReport)
+      );
+    }
+    function showTeamDetail(key) {
+      const found = teamReport && TU().itemsFor(teamReport, key);
+      if (!found) return;
+      ctx.dialog(
+        E(found.label),
+        TU().detailMarkup(found.items),
+        '<button class="primary" data-action="close-modal">关闭</button>',
+        "team-detail",
+      );
+    }
     function renderCalendar() {
       const events = B.calendarEvents(state(), month),
         [year, mo] = month.split("-").map(Number),
@@ -229,6 +253,10 @@
         "order-list": renderOrders,
         "order-trash": renderOrderTrash,
         analysis: renderAnalysis,
+        "team-assets": () => renderTeam("assets"),
+        "team-followups": () => renderTeam("followups"),
+        "team-tasks": () => renderTeam("tasks"),
+        "team-orders": () => renderTeam("orders"),
         calendar: renderCalendar,
         settings: renderSettings,
       };
@@ -374,6 +402,7 @@
       const el = e.target.closest("button");
       if (!el || el.disabled) return;
       const d = el.dataset;
+      if (d.teamDetail) return showTeamDetail(d.teamDetail);
       if (d.bizOrder) return orderEditor(d.bizOrder);
       if (d.bizCustomer) return ctx.openCustomer(d.bizCustomer);
       if (d.bizStage) {

@@ -3012,6 +3012,11 @@
       (c) => L.bucket(state.customers[c.name]) === "active",
     );
   }
+  // 当前页面属于哪个左侧菜单：客户页面看是否在「常用」模式，业务页面看它所在的菜单分组。
+  function railActive(label, route) {
+    if (activeRoute === "customers") return label === "常用" ? favoritesMode : route === "customers" && !favoritesMode;
+    return RM.sectionFor(activeRoute)?.label === label;
+  }
   function appNav() {
     const items = [
       ["star", "常用", null],
@@ -3031,7 +3036,7 @@
       items
       .map(
         ([i, label, route]) =>
-          `<button class="rail-item ${(label === "常用" ? favoritesMode : route === activeRoute && !(favoritesMode && route === "customers")) || (route === "order-list" && activeRoute === "order-trash") ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${icon(i)}<span>${label}</span></button>`,
+          `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${icon(i)}<span>${label}</span></button>`,
       )
       .join("") +
       `<button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
@@ -3182,7 +3187,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", calendar: "clock", settings: "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
     return `<h3>${E(section.label)}</h3>${section.entries
       .map(
         (entry) =>
@@ -3199,6 +3204,10 @@
       "order-list",
       "order-trash",
       "analysis",
+      "team-assets",
+      "team-followups",
+      "team-tasks",
+      "team-orders",
       "calendar",
       "settings",
     ].includes(route)

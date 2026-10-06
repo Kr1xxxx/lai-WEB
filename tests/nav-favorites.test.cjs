@@ -67,7 +67,7 @@ test('rail menus list only existing destinations; reserved entries have no list'
   assert.deepEqual(rows('客户'), [['客户列表', 'screen', 'active'], ['公海客户', 'screen', 'pool'], ['客户查重', 'screen', 'duplicates'], ['客户设置', 'screen', 'customer-settings']]);
   assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash']]);
   assert.deepEqual(rows('工作台'), [['工作台', 'route', 'dashboard']]);
-  assert.deepEqual(rows('团队数据'), [['经营统计', 'route', 'analysis']]);
+  assert.deepEqual(rows('团队数据'), [['经营统计', 'route', 'analysis'], ['客户资产', 'route', 'team-assets'], ['跟进情况', 'route', 'team-followups'], ['任务完成', 'route', 'team-tasks'], ['订单业绩', 'route', 'team-orders']]);
   assert.deepEqual(rows('协同'), [['日历与待办', 'route', 'calendar']]);
   assert.deepEqual(rows('企业管理'), [['设置', 'route', 'settings']]);
   for (const reserved of ['邮件', '沟通', '线索', '商机', '不存在', '__proto__', 'constructor'])
@@ -301,7 +301,7 @@ test('placeholders are gone and the real handlers, rail attributes and mode swit
     'd.action === "favorite-nav-manage"', 'd.flyoutKind', 'd.navFavorite', 'd.favoriteJump', 'Number(d.direction)', 'd.favoriteMove', 'd.favoriteRemove',
     'if (activeRoute === "customers" && favoritesMode) return favoritesSubnav();',
     'favoritesMode = favorites && activeRoute === "customers";',
-    '(label === "常用" ? favoritesMode : route === activeRoute && !(favoritesMode && route === "customers"))'
+    'railActive(label, route) ? "active" : ""', 'return RM.sectionFor(activeRoute)?.label === label;'
   ]) assert.ok(app.includes(hook), hook);
 });
 
@@ -318,10 +318,10 @@ test('both modules are loaded before the app and the rail uses the glass styling
 
 // ---------------- each rail menu owns its own sub-navigation ----------------
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'analysis', 'calendar', 'settings'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '协同', '企业管理']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '企业管理']);
   assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站']);
   assert.deepEqual(RM.sectionFor('order-list'), RM.sectionFor('order-trash'));
   const labels = ['工作台', '交易', '团队数据', '协同', '企业管理'];
@@ -346,7 +346,10 @@ test('the shipped sub-navigation shows only the active menu and highlights the c
   assert.deepEqual(entries(html), [['全部订单', 'order-list', false, 'box'], ['订单回收站', 'order-trash', true, 'folder']]);
   html = render('analysis');
   assert.match(html, /^<h3>团队数据<\/h3>/);
-  assert.deepEqual(entries(html), [['经营统计', 'analysis', true, 'chart']]);
+  assert.deepEqual(entries(html), [['经营统计', 'analysis', true, 'chart'], ['客户资产', 'team-assets', false, 'people'], ['跟进情况', 'team-followups', false, 'chat'], ['任务完成', 'team-tasks', false, 'check'], ['订单业绩', 'team-orders', false, 'note']]);
+  html = render('team-tasks');
+  assert.match(html, /^<h3>团队数据<\/h3>/);
+  assert.deepEqual(entries(html), [['经营统计', 'analysis', false, 'chart'], ['客户资产', 'team-assets', false, 'people'], ['跟进情况', 'team-followups', false, 'chat'], ['任务完成', 'team-tasks', true, 'check'], ['订单业绩', 'team-orders', false, 'note']]);
   assert.deepEqual(entries(render('calendar')), [['日历与待办', 'calendar', true, 'clock']]);
   assert.deepEqual(entries(render('settings')), [['设置', 'settings', true, 'settings']]);
   assert.deepEqual(entries(render('dashboard')), [['工作台', 'dashboard', true, 'grid']]);

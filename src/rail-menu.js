@@ -7,7 +7,7 @@
     '客户':rows(['客户列表','screen','active'],['公海客户','screen','pool'],['客户查重','screen','duplicates'],['客户设置','screen','customer-settings']),
     '工作台':rows(['工作台','route','dashboard']),
     '交易':rows(['全部订单','route','order-list'],['订单回收站','route','order-trash']),
-    '团队数据':rows(['经营统计','route','analysis']),
+    '团队数据':rows(['经营统计','route','analysis'],['客户资产','route','team-assets'],['跟进情况','route','team-followups'],['任务完成','route','team-tasks'],['订单业绩','route','team-orders']),
     '协同':rows(['日历与待办','route','calendar']),
     '企业管理':rows(['设置','route','settings'])
   };
