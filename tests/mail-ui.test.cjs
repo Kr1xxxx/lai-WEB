@@ -327,7 +327,7 @@ test('leaving an edited message saves it as a draft; drafts can be reopened, sen
     failSave = true; assert.equal(await h.mail.select('inbox'), false, 'switching folders is refused while the draft cannot be saved');
     assert.match(h.node('mail-compose-error').textContent, /草稿保存失败：storage unavailable 再点一次「返回」将放弃这封信/); assert.equal(h.mail.composing(), true); assert.equal(h.mail.folder(), 'drafts');
     failSave = false; await h.act('compose-draft'); assert.equal(h.toasts.at(-1), '已存入草稿箱'); assert.equal(h.mail.composing(), true);
-    assert.deepEqual(h.calls('/api/mail/drafts/save').at(-1).payload, { to: 'a@b.example', cc: '', bcc: '', subject: '报价 <1>', text: '\n\n', html: '<div><br></div>', inReplyTo: '', references: '', forwardOf: null });
+    assert.deepEqual(h.calls('/api/mail/drafts/save').at(-1).payload, { to: 'a@b.example', cc: '', bcc: '', subject: '报价 <1>', text: '\n\n', html: '<div><br></div>', inReplyTo: '', references: '', forwardOf: null, attachments: [] });
     assert.equal(h.mail.composeDirty(), false); h.editor.html = '<div>more <i>text</i></div>'; assert.equal(h.mail.composeDirty(), true);
     await h.mail.select('drafts');
     assert.equal(h.calls('/api/mail/drafts/save').at(-1).payload.id, 'a'.repeat(32), 'the same draft is updated, not duplicated'); assert.equal(h.calls('/api/mail/drafts/save').at(-1).payload.html, '<div>more <i>text</i></div>'); assert.equal(h.mail.composing(), false);
@@ -401,7 +401,7 @@ test('the page module only talks through the provided request and keeps no crede
   const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
   const source = read('src/mail-ui.js');
   for (const banned of ['fetch(', 'XMLHttpRequest', 'WebSocket', 'localStorage', 'sessionStorage', 'console.', 'innerHTML = m.', 'eval(']) assert.ok(!source.includes(banned), banned);
-  assert.deepEqual([...new Set([...source.matchAll(/"(\/api\/[^"?]+)"/g)].map(m => m[1]))].sort(), ['/api/mail-account', '/api/mail-account/bind', '/api/mail-account/settings', '/api/mail-account/unbind', '/api/mail-account/verify', '/api/mail/attachment/save', '/api/mail/bulk', '/api/mail/bulk/batch', '/api/mail/bulk/cancel', '/api/mail/bulk/start', '/api/mail/correspondence', '/api/mail/drafts', '/api/mail/drafts/delete', '/api/mail/drafts/save', '/api/mail/flags', '/api/mail/message', '/api/mail/messages', '/api/mail/send', '/api/mail/trash']);
+  assert.deepEqual([...new Set([...source.matchAll(/"(\/api\/[^"?]+)"/g)].map(m => m[1]))].sort(), ['/api/mail-account', '/api/mail-account/bind', '/api/mail-account/settings', '/api/mail-account/unbind', '/api/mail-account/verify', '/api/mail/attachment/save', '/api/mail/bulk', '/api/mail/bulk/batch', '/api/mail/bulk/cancel', '/api/mail/bulk/start', '/api/mail/correspondence', '/api/mail/draft', '/api/mail/drafts', '/api/mail/drafts/delete', '/api/mail/drafts/save', '/api/mail/flags', '/api/mail/message', '/api/mail/messages', '/api/mail/send', '/api/mail/status', '/api/mail/templates', '/api/mail/templates/delete', '/api/mail/templates/save', '/api/mail/trash']);
   for (const marker of ['<!--MAIL_STYLE-->', '<!--LAI_MAIL_UI-->', '<!--LAI_MAIL_EDITOR-->']) { assert.equal(read('src/template.html').split(marker).length, 2, marker); assert.ok(read('scripts/build.py').includes(marker), marker); }
   const app = read('src/app.js');
   assert.ok(app.includes('["mail", "邮件", "mail"]')); for (const hook of ['d.mailFolder', 'd.mailAction', 'd.mailView', 'mail?.composing() && !(await mail.leave())', 'mail?.composeDirty()', 'd.feature === "写邮件"', 'LaiMailEditor.create']) assert.ok(app.includes(hook), hook);
@@ -553,10 +553,10 @@ test('sender name and signature are saved in mailbox settings and added to new m
   try {
     await h.mail.select();
     await h.act('compose'); assert.equal(h.editor.html, '<div><br></div>', 'no signature yet'); await h.act('compose-close');
-    h.act('account'); assert.match(h.dialog.body, /id="mail-settings-name"/); assert.match(h.dialog.body, /id="mail-settings-signature"/);
-    h.node('mail-settings-name').value = 'Kris'; h.node('mail-settings-signature').value = 'fail'; await h.act('settings-save'); assert.equal(h.node('mail-account-error').textContent, 'storage unavailable');
+    h.act('account'); assert.match(h.dialog.body, /id="mail-settings-name"/); assert.match(h.dialog.body, /id="mail-settings-signature"/); assert.match(h.dialog.body, /id="mail-settings-autocheck" checked> 自动检查新邮件/);
+    h.node('mail-settings-autocheck').checked = true; h.node('mail-settings-name').value = 'Kris'; h.node('mail-settings-signature').value = 'fail'; await h.act('settings-save'); assert.equal(h.node('mail-account-error').textContent, 'storage unavailable');
     h.node('mail-settings-signature').value = 'Kris <Sales>\nLai Trading'; await h.act('settings-save');
-    assert.deepEqual(saved, { senderName: 'Kris', signature: 'Kris <Sales>\nLai Trading' }); assert.equal(h.toasts.at(-1), '已保存'); assert.equal(h.mail.account().signature, 'Kris <Sales>\nLai Trading');
+    assert.deepEqual(saved, { senderName: 'Kris', signature: 'Kris <Sales>\nLai Trading', autoCheck: true }); assert.equal(h.toasts.at(-1), '已保存'); assert.equal(h.mail.account().signature, 'Kris <Sales>\nLai Trading');
     h.act('account'); assert.match(h.dialog.body, /value="Kris"/); assert.match(h.dialog.body, />\nKris &lt;Sales&gt;\nLai Trading<\/textarea>/);
     await h.act('compose'); assert.equal(h.editor.html, '<div><br></div><div><br></div><div><div>Kris &lt;Sales&gt;</div><div>Lai Trading</div></div>'); assert.equal(h.form('mail-compose-form').elements.fromName.value, 'Kris');
     await h.act('compose-close'); assert.equal(h.calls('/api/mail/drafts/save').length, 0, 'a message holding only the signature is not saved as a draft');

@@ -209,6 +209,30 @@
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
     return {...state,customers:{...state.customers,[name]:{...previous,client:name,updated:time,lastFollowup:time,lastWrittenFollowup:time,nextFollow:nextFollow===undefined?(previous.nextFollow||''):String(nextFollow||''),history:[{time,text:String(text).trim(),type:'followup',subtype:'quick'},...(previous.history||[])]}}};
   }
+  // 把一封邮件记到客户动态里（类型“往来邮件”）。同一封邮件只记一次；不改下次跟进，也不算写过跟进。
+  const mailKey=mail=>String(mail?.messageId||'').trim()||(mail?.box&&mail?.uid?`${mail.box}|${mail.uid}`:'');
+  function mailRecorded(state,name,mail) {
+    const key=mailKey(mail);
+    if(!key||typeof name!=='string'||!Object.hasOwn(state?.customers||{},name))return false;
+    return (state.customers[name].history||[]).some(item=>item&&item.type==='email'&&item.mailRef&&mailKey(item.mailRef)===key);
+  }
+  function addMailActivity(state,name,mail,time=new Date().toISOString()) {
+    const row=buildCustomers(state).find(c=>c.name===name);
+    if(!row)throw new Error('客户不存在');
+    const previous=state.customers?.[name]||{};
+    if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
+    if(!mail||typeof mail!=='object'||!mailKey(mail))throw new Error('缺少邮件信息');
+    if(mailRecorded(state,name,mail))throw new Error('这封邮件已经记在客户动态里了');
+    const sent=mail.box==='sent';
+    const line=(value,max)=>String(value??'').replace(/\s+/g,' ').trim().slice(0,max);
+    const subject=line(mail.subject,300)||'（无主题）',snippet=line(mail.snippet,300);
+    const who=sent?(Array.isArray(mail.to)?mail.to[0]:null):mail.from;
+    const sentAt=new Date(mail.date||'');
+    const item={time:Number.isFinite(sentAt.getTime())?sentAt.toISOString():time,text:`${sent?'发出邮件':'收到邮件'}：${subject}${snippet?'\n'+snippet:''}`,type:'email',subtype:sent?'sent':'received',channel:'邮件',
+      ...(who&&(who.name||who.address)?{contact:line(who.name||who.address,120)}:{}),
+      mailRef:{messageId:line(mail.messageId,300),box:sent?'sent':'inbox',uid:Number(mail.uid)||0}};
+    return {...state,customers:{...state.customers,[name]:{...previous,client:name,updated:time,history:[item,...(previous.history||[])]}}};
+  }
   function setCustomerNextFollow(state,name,rawDate,time=new Date().toISOString()) {
     if(typeof name!=='string'||!name||name==='__proto__'||!buildCustomers(state).some(row=>row.name===name))
       throw new Error('客户不存在');
@@ -336,7 +360,7 @@
     if(!changed)throw new Error('所选客户的字段无需更新');
     return {...state,customers};
   }
-  const api={contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,tags};
+  const api={contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,tags};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.PreviewModel=api;
 })(typeof window!=='undefined'?window:globalThis);
