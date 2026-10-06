@@ -1140,7 +1140,8 @@
       }
       if (compose.editor) {
         compose.values.html = compose.editor.getHTML();
-        compose.values.text = compose.editor.getText();
+        // 纯文字那一份里，连续的空行收成一行（编辑器里的一个空行读出来常是两个）。
+        compose.values.text = String(compose.editor.getText() ?? "").replace(/\n{3,}/g, "\n\n");
       }
       return compose.values;
     }
