@@ -632,3 +632,14 @@
 .mail-account .error {
   margin: 0;
 }
+.mail-demo-tag {
+  flex: 0 0 auto;
+  height: 24px;
+  line-height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: #fff4e0;
+  color: #9a5b00;
+  font-size: 12px;
+  white-space: nowrap;
+}

@@ -354,3 +354,39 @@ test('the page module only talks through the provided request and keeps no crede
   const RM = require('../src/rail-menu.js');
   assert.deepEqual(RM.menuFor('邮件', {}).map(row => [row.label, row.kind, row.target]), Mail.folders.map(f => [f.label, 'mail', f.id]));
 });
+
+test('the web trial sample mailbox is labelled as a sample everywhere and never claims a real send', async () => {
+  const h = harness({ account: { ...ACCOUNT, email: 'demo@lai-trial.example', demo: true, host: '', port: 0 }, available: false, routes: { '/api/mail/send': ({ reply }) => reply(200, { ok: true, recipients: ['a@b.example'] }) } });
+  try {
+    await h.mail.select();
+    assert.match(h.page, /mail-demo-tag[^>]*>示例邮箱 · 不会真的发信</); assert.match(h.page, /样品寄送确认/);
+    h.act('account'); assert.match(h.dialog.body, /示例邮箱（网页试用版）/); assert.match(h.dialog.body, /不会真的发出/); assert.doesNotMatch(h.dialog.body, /data-mail-action="(verify|unbind|bind)"|已绑定/);
+    h.act('compose'); const f = h.form('mail-compose-form').elements; f.to.value = 'a@b.example'; f.subject.value = 'x'; await h.submit('mail-compose-form');
+    assert.equal(h.toasts.at(-1), '示例邮箱：邮件没有真的发出，已放入发件箱');
+  } finally { h.dispose(); }
+  const real = harness();
+  try { await real.mail.select(); assert.doesNotMatch(real.page, /mail-demo-tag|示例邮箱/); } finally { real.dispose(); }
+});
+
+test('the sample mailbox script answers like the local mail service and sends nothing anywhere', async () => {
+  const outside = [];
+  const sandbox = { fetch: (...args) => { outside.push(args[0]); return Promise.resolve(new Response('{}')); }, Response, URLSearchParams, JSON, Date, Promise, String, Number, Math };
+  require('node:vm').runInNewContext(fs.readFileSync(path.join(__dirname, '../scripts/web-trial/mail-demo.js'), 'utf8'), Object.assign(sandbox, { window: sandbox }));
+  const get = async (url) => (await sandbox.fetch(url)).json(), post = async (url, body) => { const r = await sandbox.fetch(url, { method: 'POST', body: JSON.stringify(body) }); return { status: r.status, body: await r.json() }; };
+  const status = await get('/api/mail-account');
+  assert.equal(status.available, false); assert.equal(status.account.demo, true); assert.equal(status.account.password, undefined);
+  assert.equal((await post('/api/mail-account/bind', { email: 'a@b.co', password: 'x' })).status, 501);
+  const inbox = await get('/api/mail/messages?folder=inbox');
+  assert.equal(inbox.total, 4); assert.deepEqual(inbox.counts, { unread: 3, pending: 1 }); assert.ok(inbox.items.every(i => /示例|Sample/.test(i.subject)), 'every sample message says it is a sample');
+  assert.equal((await get('/api/mail/messages?folder=pending')).total, 1); assert.equal((await get('/api/mail/messages?folder=inbox&query=' + encodeURIComponent('样品'))).total, 1);
+  const opened = await get('/api/mail/message?box=inbox&uid=5'); assert.equal(opened.message.attachments.length, 1); assert.equal((await get('/api/mail/messages?folder=unread')).total, 2);
+  assert.equal((await post('/api/mail/attachment/save', { box: 'inbox', uid: 5, index: 0 })).status, 501);
+  assert.equal((await post('/api/mail/send', { to: '', subject: 's', text: 't' })).status, 400); assert.equal((await post('/api/mail/send', { to: 'nope', subject: 's', text: 't' })).status, 400);
+  const draft = (await post('/api/mail/drafts/save', { to: 'anna@nordic-lamps.example', subject: 'd' })).body.draft;
+  const sent = await post('/api/mail/send', { to: 'Anna <anna@nordic-lamps.example>', subject: 'PI', text: 'hello', draftId: draft.id, fromName: 'Kris' });
+  assert.equal(sent.status, 200); assert.deepEqual(sent.body.recipients, ['anna@nordic-lamps.example']);
+  assert.equal((await get('/api/mail/messages?folder=sent')).items[0].subject, 'PI'); assert.equal((await get('/api/mail/drafts')).items.length, 0);
+  assert.deepEqual((await get('/api/mail/correspondence?addresses=anna@nordic-lamps.example')).items.map(i => i.box), ['sent', 'inbox', 'sent']);
+  await post('/api/mail/trash', { box: 'inbox', uid: 5 }); assert.equal((await get('/api/mail/messages?folder=inbox')).total, 3);
+  await sandbox.fetch('/api/data'); assert.deepEqual(outside, ['/api/data'], 'only non-mail requests pass through; mail requests never reach the network');
+});

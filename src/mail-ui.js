@@ -254,7 +254,8 @@
     // ---- 标记：主体 ----
     const empty = (iconName, title, note, actions = "") => `<div class="empty mail-unbound"><div class="mail-unbound-art">${icon(iconName)}</div><strong>${E(title)}</strong><span>${E(note)}</span>${actions}</div>`;
     const pagebar = (title, actions = "", before = "") => `<div class="pagebar mail-pagebar">${before}<div class="page-tabs"><h1>${E(title)}</h1></div><div class="page-actions">${actions}</div></div>`;
-    const accountButton = () => (account ? `<button type="button" class="text-button" data-mail-action="account" title="${E(account.email)}">${icon("settings")}邮箱设置</button>` : "");
+    // account.demo 只会出现在网页试用版：那里是一组示例邮件，发信不会真的发出。
+    const accountButton = () => (account ? `${account.demo ? '<span class="mail-demo-tag" title="网页试用版无法连接真实邮箱">示例邮箱 · 不会真的发信</span>' : ""}<button type="button" class="text-button" data-mail-action="account" title="${E(account.email)}">${icon("settings")}邮箱设置</button>` : "");
     function gate() {
       if (status === "idle" || status === "loading") return `<div class="empty mail-unbound" aria-busy="true"><span>正在读取邮箱绑定状态…</span></div>`;
       if (status === "error") return empty("mail", "无法读取邮箱绑定状态", loadError, `<button type="button" class="primary" data-mail-action="reload">重试</button>`);
@@ -618,7 +619,7 @@
         compose = null;
         drafts.loaded = false;
         ctx.closeDialog();
-        ctx.toast(`邮件已发送给 ${data.recipients.length} 位收件人`);
+        ctx.toast(account && account.demo ? "示例邮箱：邮件没有真的发出，已放入发件箱" : `邮件已发送给 ${data.recipients.length} 位收件人`);
         if (!reading && view === "mail" && (folder === "sent" || folder === "drafts")) loadCurrent();
       } catch (error) {
         if (compose) compose.sending = false;
@@ -701,10 +702,12 @@
       const row = (label, value) => `<div><dt>${label}</dt><dd>${E(value)}</dd></div>`;
       ctx.dialog(
         "邮箱设置",
-        `<div class="drawer-body mail-account"><div class="mail-bound-head"><div class="mail-unbound-art">${icon("mail")}</div><div><span class="mail-bound-tag">${icon("check")}已绑定</span><strong>${E(account.email)}</strong></div></div>` +
-          `<dl class="mail-bound-facts">${row("邮箱服务", "Zoho 邮箱")}${row("收信服务器", `${account.host}:${account.port}`)}${row("绑定时间", fullTime(account.boundAt))}${row("最近验证通过", fullTime(account.verifiedAt))}</dl>` +
+        `<div class="drawer-body mail-account"><div class="mail-bound-head"><div class="mail-unbound-art">${icon("mail")}</div><div><span class="mail-bound-tag">${icon("check")}${account.demo ? "示例" : "已绑定"}</span><strong>${E(account.email)}</strong></div></div>` +
+          `<dl class="mail-bound-facts">${row("邮箱服务", account.demo ? "示例邮箱（网页试用版）" : "Zoho 邮箱")}${row("收信服务器", account.demo ? "无（不连接任何服务器）" : `${account.host}:${account.port}`)}${row("绑定时间", fullTime(account.boundAt))}${row("最近验证通过", fullTime(account.verifiedAt))}</dl>` +
           `<div class="error ${message ? "visible" : ""}" id="mail-account-error" role="alert">${E(message)}</div>` +
-          `<div class="mail-bound-actions"><button type="button" data-mail-action="verify" ${working ? "disabled" : ""}>${working ? "正在验证…" : "重新验证"}</button><button type="button" data-mail-action="bind">更换邮箱</button><button type="button" data-mail-action="unbind">解除绑定</button></div></div>`,
+          (account.demo
+            ? `<div class="module-note">这是网页试用版自带的示例邮箱，里面是示例邮件，写信和回复不会真的发出，刷新页面后恢复原样。真实邮箱要在 Mac 上安装的来财应用里绑定。</div></div>`
+            : `<div class="mail-bound-actions"><button type="button" data-mail-action="verify" ${working ? "disabled" : ""}>${working ? "正在验证…" : "重新验证"}</button><button type="button" data-mail-action="bind">更换邮箱</button><button type="button" data-mail-action="unbind">解除绑定</button></div></div>`),
         `<button type="button" class="primary" data-action="close-modal">关闭</button>`,
         "mail-account",
         pointerActivated,
