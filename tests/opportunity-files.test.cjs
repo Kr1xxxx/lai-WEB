@@ -162,3 +162,21 @@ test('over the real local server: upload, preview, save a copy, back up with the
     assert.equal((await post('/api/opportunity-file/delete', { fileUrls: ['/attachments/orders/x.txt'] })).status, 400);
   } finally { await stop(); fs.rmSync(temporary, { recursive: true, force: true }); }
 });
+
+test('symbolic links cannot lead reads, copies or deletes outside the opportunities folder', () => {
+  const root = temp(), outside = path.join(root, 'outside');
+  fs.mkdirSync(outside); fs.writeFileSync(path.join(outside, 'secret.txt'), 'secret');
+  const files = createOpportunityFiles({ attachmentsDir: path.join(root, 'attachments'), downloadsDir: path.join(root, 'dl') });
+  const up = files.upload({ id: 'A', name: 'ok.txt', body: Buffer.from('ok') }).file.fileUrl;
+  const folder = path.join(root, 'attachments/opportunities');
+  fs.symlinkSync(path.join(outside, 'secret.txt'), path.join(folder, 'A', 'link.txt'));
+  fs.symlinkSync(outside, path.join(folder, 'L'));
+  for (const url of ['/attachments/opportunities/A/link.txt', '/attachments/opportunities/L/secret.txt']) {
+    assert.equal(code(() => files.read(url)), 'invalid_input', url);
+    assert.equal(code(() => files.saveCopy({ fileUrl: url, name: 'x' })), 'invalid_input', url);
+    assert.equal(code(() => files.remove([url])), 'invalid_input', url);
+  }
+  assert.equal(fs.readFileSync(path.join(outside, 'secret.txt'), 'utf8'), 'secret');
+  assert.equal(files.read(up).body.toString(), 'ok');
+  fs.rmSync(root, { recursive: true, force: true });
+});

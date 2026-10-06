@@ -612,7 +612,10 @@
       const detail = OM().detailOf(state(), attachView.id, B.localDate());
       if (!box || !detail) return;
       releasePreviews();
+      // 刷新列表不能把刚显示的错误提示冲掉。
+      const shown = document.getElementById("opp-attach-error")?.textContent || "";
       box.innerHTML = OU().attachmentsInner(detail.attachments, attachView);
+      if (shown) attachError(shown);
       hydratePreview();
     }
     // 文件已经传到本机但没能记进商机时，把这些文件删掉，不留孤儿文件。
@@ -768,7 +771,7 @@
     }
     const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
     function cardKey(e) {
-      if (route !== "opportunities" || oppView.mode === "list" || e.defaultPrevented || e.isComposing) return;
+      if (route !== "opportunities" || oppView.mode === "list" || e.defaultPrevented || e.isComposing || e.repeat) return;
       if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) || e.metaKey || e.ctrlKey || e.shiftKey) return;
       if (e.target.closest?.("input,select,textarea,[contenteditable]")) return;
       const card = e.target.closest?.(".opp-card");
@@ -1144,7 +1147,7 @@
       root.setTimeout?.(() => { if (oppDrag === card.dataset.oppId) { card.classList.add("is-dragging"); card.closest?.(".opp-board")?.classList.add("is-dragging-board"); } }, 0);
     });
     document.addEventListener("dragover", (e) => {
-      if (hasFiles(e) && onOppPage() && attachView.id) {
+      if (hasFiles(e) && onOppPage() && document.getElementById("opp-attach")) {
         // 文件只能放在附件区；放在别处什么也不做（也不让浏览器把文件当网页打开）。
         e.preventDefault();
         const zone = e.target.closest?.("[data-opp-dropzone]");
@@ -1169,7 +1172,7 @@
       clearDragMarks();
     });
     document.addEventListener("drop", (e) => {
-      if (hasFiles(e) && onOppPage() && attachView.id) {
+      if (hasFiles(e) && onOppPage() && document.getElementById("opp-attach")) {
         e.preventDefault();
         document.querySelectorAll?.(".opp-dropzone.is-over").forEach((node) => node.classList.remove("is-over"));
         if (e.target.closest?.("[data-opp-dropzone]")) uploadFiles(e.dataTransfer.files);

@@ -524,6 +524,7 @@
       next={...state,laiOpportunities:raw(state).map(item=>{
         if(!affected.has(item))return item;
         const moved={...item,stage:target.id,updatedAt:now,stageHistory:[...(Array.isArray(item.stageHistory)?item.stageHistory:[]),{stage:target.id,at:now}]};
+        delete moved.sortRank;
         if(target.kind==='open')delete moved.closedAt;
         else if(stage.kind!==target.kind||!item.closedAt)moved.closedAt=now;
         return moved;
@@ -564,6 +565,13 @@
     if(size>ATTACHMENT_LIMITS.maxBytes)throw new Error(`「${name}」超过 ${mb(ATTACHMENT_LIMITS.maxBytes)}，请压缩后再传`);
     return name;
   }
+  // 地址必须是 /attachments/opportunities/<文件夹>/<文件>：恰好两段，每段解码后不是空、「.」或「..」，也不含斜杠和空字节（文件名里的「..」如 a..b.pdf 是允许的）。
+  function validFileUrl(url){
+    if(!url.startsWith(ATTACHMENT_LIMITS.urlPrefix)||/[?#]/.test(url))return false;
+    let parts;
+    try{parts=url.slice(ATTACHMENT_LIMITS.urlPrefix.length).split('/').map(decodeURIComponent);}catch{return false;}
+    return parts.length===2&&parts.every(part=>part&&part!=='.'&&part!=='..'&&!/[\\/\u0000]/.test(part));
+  }
   const rawAttachments=item=>Array.isArray(item?.attachments)?item.attachments:[];
   const validAttachment=entry=>entry&&typeof entry==='object'&&typeof entry.id==='string'&&entry.id&&typeof entry.fileUrl==='string'&&entry.fileUrl;
   // 读得懂的附件（界面用）；读不懂的条目在写入时原样保留。
@@ -581,7 +589,7 @@
     if(current.length+files.length>ATTACHMENT_LIMITS.maxCount)throw new Error(`一个商机最多 ${ATTACHMENT_LIMITS.maxCount} 个附件，现在已有 ${current.length} 个`);
     const added=files.map(file=>{
       const name=checkFile(file),fileUrl=trim(file.fileUrl);
-      if(!fileUrl.startsWith(ATTACHMENT_LIMITS.urlPrefix)||fileUrl.includes('..'))throw new Error(`「${name}」的存放位置无效`);
+      if(!validFileUrl(fileUrl))throw new Error(`「${name}」的存放位置无效`);
       return {id:trim(file.id)||newAttachmentId(),name,size:Number(file.size),type:trim(file.type),fileUrl,uploadedAt:now};
     });
     const taken=new Set(current.map(entry=>entry?.id));
@@ -597,6 +605,8 @@
     requireList(state);
     const previous=requireItem(state,id);
     const entry=requireAttachment(previous,attachmentId),name=checkFile({name:value,size:Math.max(1,Number(entry.size)||1)});
+    // 文件本身不会变，所以不能改扩展名（否则「预览」「类型」会和实际内容对不上）。
+    if(extensionOf(name)!==extensionOf(entry.name))throw new Error('改名时不能修改文件的扩展名');
     return replaceAttachments(state,id,previous,rawAttachments(previous).map(candidate=>candidate===entry?{...candidate,name}:candidate),options.now||new Date().toISOString());
   }
   function removeAttachment(state,id,attachmentId,options={}){
@@ -628,6 +638,7 @@
   // 只改动这一列里 sortRank 需要变的商机；其他商机的更新时间不变。
   function reorder(state,id,options={}){
     requireList(state);
+    if(trim(options.before)===id)return state;
     const previous=requireItem(state,id),flow=flowOfItem(state,previous),stageId=trim(options.stage)||stageOf(state,previous).id;
     if(!flow.stages.some(stage=>stage.id===stageId))throw new Error('所选销售流程里没有这个阶段');
     let next=state;

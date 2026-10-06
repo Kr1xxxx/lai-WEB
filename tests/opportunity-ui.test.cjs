@@ -917,3 +917,21 @@ test('drag helpers: where to insert and when to scroll', () => {
   assert.deepEqual([ui.scrollStep(500, 0, 1000), ui.scrollStep(0, 0, 1000), ui.scrollStep(1000, 0, 1000), ui.scrollStep(36, 0, 1000), ui.scrollStep(964, 0, 1000), ui.scrollStep(-50, 0, 1000)], [0, -28, 28, -14, 14, -28]);
   assert.deepEqual([ui.scrollStep(10, 0, 100, 72, 28), ui.scrollStep(NaN, 0, 100), ui.scrollStep(5, 100, 100), ui.scrollStep(60, 0, 100)], [-23, 0, 0, 6]);
 });
+
+test('review fixes: an error shown after a failed save survives the list refresh; names with ".." upload fine; held-down keys do not repeat moves', async () => {
+  const io = fileCtx();
+  const c = controller(sample(), '数据已发生变化', io);
+  // 模拟真实页面：重画附件区时错误框是新建的空框
+  c.errors['opp-attach'] = {set innerHTML(value) { if (c.errors['opp-attach-error']) c.errors['opp-attach-error'].textContent = ''; }};
+  c.page.navigate('opportunities');
+  await c.click({oppAction: 'detail', id: 'p1'});
+  await c.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('a.txt')]}}); await flush();
+  assert.equal(c.errors['opp-attach-error'].textContent, '数据已发生变化');
+  const d = controller(sample(), null, fileCtx());
+  d.page.navigate('opportunities'); await d.click({oppAction: 'detail', id: 'p1'});
+  await d.change2({target: {id: 'opp-attach-input', value: '', closest: () => null, files: [plain('v1..2.txt'), plain('好.txt')]}}); await flush();
+  assert.equal(O.attachmentsOf(O.list(d.state()).find(i => i.id === 'p1')).length, 2);
+  const before = d.state(), card = {dataset: {oppId: 'p1'}, closest: () => null};
+  assert.equal(await d.key({closest: sel => sel === '.opp-card' ? card : null}, {key: 'ArrowRight', repeat: true}), false);
+  assert.equal(d.state(), before);
+});

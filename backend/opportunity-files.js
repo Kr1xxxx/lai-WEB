@@ -52,6 +52,15 @@ function createOpportunityFiles({ attachmentsDir, downloadsDir, reveal = () => {
     if (!target.startsWith(root + path.sep) || path.relative(root, target).split(path.sep).length !== 2 || relative.includes('\u0000')) throw fail(400, 'invalid_input', '附件地址无效');
     return target;
   }
+  // 路径字符串合格还不够：中间若有符号链接，真实位置必须仍在商机目录里。
+  function contained(target) {
+    let real;
+    try { real = fs.realpathSync(target); } catch (_) { return target; }
+    let realRoot = root;
+    try { realRoot = fs.realpathSync(root); } catch (_) {}
+    if (!real.startsWith(realRoot + path.sep)) throw fail(400, 'invalid_input', '附件地址无效');
+    return target;
+  }
   const urlOf = (folder, file) => URL_PREFIX + encodeURIComponent(folder) + '/' + encodeURIComponent(file);
 
   // body：整个文件的字节（调用方已限制长度）。
@@ -72,7 +81,7 @@ function createOpportunityFiles({ attachmentsDir, downloadsDir, reveal = () => {
 
   // 读取：图片按图片类型内联返回（页面里预览），其他一律按下载返回；类型由扩展名决定，不信任上传时的类型。
   function read(fileUrl) {
-    const target = resolve(fileUrl);
+    const target = contained(resolve(fileUrl));
     let stat;
     try { stat = fs.statSync(target); } catch (_) { throw fail(404, 'not_found', '找不到这个文件，可能已被移动或删除'); }
     if (!stat.isFile()) throw fail(404, 'not_found', '找不到这个文件');
@@ -90,7 +99,7 @@ function createOpportunityFiles({ attachmentsDir, downloadsDir, reveal = () => {
 
   // 另存到「下载」文件夹并在访达里显示。name 是商机里记的名称（可能被改过名）。
   function saveCopy({ fileUrl, name }) {
-    const source = resolve(fileUrl);
+    const source = contained(resolve(fileUrl));
     if (!fs.existsSync(source)) throw fail(404, 'not_found', '找不到这个文件，可能已被移动或删除');
     fs.mkdirSync(downloadsDir, { recursive: true });
     const clean = safeName(name) || path.basename(source).replace(/^[0-9a-f]{10}-/, '');
@@ -109,7 +118,7 @@ function createOpportunityFiles({ attachmentsDir, downloadsDir, reveal = () => {
   function remove(fileUrls) {
     const urls = Array.isArray(fileUrls) ? fileUrls : [];
     if (urls.length > 200) throw fail(400, 'invalid_input', '一次删除的文件太多');
-    const targets = urls.map(resolve);
+    const targets = urls.map(url => contained(resolve(url)));
     let removed = 0;
     for (const target of targets) {
       try { fs.rmSync(target); removed += 1; } catch (error) { if (error.code !== 'ENOENT') throw fail(500, 'delete_failed', '删除文件失败：' + (error.code || '未知原因')); }

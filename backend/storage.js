@@ -684,7 +684,7 @@ function openStorage({ seedFile }) {
       const relative = path.relative(attachmentsDir, source);
       if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid backup attachment path');
       // 商机附件的文件如果已经不在（被手动移走、删除时没删成功的反例等），不让整个备份失败：跳过并计数。
-      if (relative.split(path.sep)[0] === 'opportunities' && !fs.existsSync(source)) { backupMissing += 1; continue; }
+      if (relative.split(path.sep)[0] === 'opportunities' && !(fs.existsSync(source) && fs.statSync(source).isFile())) { backupMissing += 1; continue; }
       const target = path.join(dir, relative);
       fs.mkdirSync(path.dirname(target), { recursive:true, mode:0o700 });
       // Independent copy (APFS may share immutable blocks), never a hard link.

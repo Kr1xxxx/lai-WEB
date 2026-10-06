@@ -626,3 +626,21 @@ test('manual sort: dropping into another column changes stage (with history) and
   const ranked = O.reorder(two, 'a', {before: ''});
   assert.equal(get(ranked, 'b').sortRank, undefined);
 });
+
+test('review fixes: ".." inside a file name is fine, real traversal is not; rename keeps the extension; removing a stage clears manual ranks', () => {
+  const state = add(base, 'm1');
+  const ok = name => O.addAttachments(state, 'm1', [FILE({fileUrl: '/attachments/opportunities/m1/ab12cd34ef-' + encodeURIComponent(name), name})]);
+  assert.doesNotThrow(() => ok('a..b.pdf')); assert.doesNotThrow(() => ok('报告..pdf'));
+  for (const url of ['/attachments/opportunities/../x/y.pdf', '/attachments/opportunities/m1/..', '/attachments/opportunities/m1/%2e%2e', '/attachments/opportunities/m1/', '/attachments/opportunities/m1', '/attachments/opportunities/m1/a/b.pdf', '/attachments/opportunities/m1/a%2Fb.pdf', '/attachments/opportunities/m1/a%00.pdf', '/attachments/opportunities/%zz/a.pdf', '/attachments/opportunities/m1/a.pdf?x=1'])
+    assert.throws(() => O.addAttachments(state, 'm1', [FILE({fileUrl: url})]), /存放位置无效/, url);
+  const withFile = O.addAttachments(state, 'm1', [FILE({id: 'a1'})]);
+  assert.throws(() => O.renameAttachment(withFile, 'm1', 'a1', '合同.png'), /不能修改文件的扩展名/);
+  assert.throws(() => O.renameAttachment(withFile, 'm1', 'a1', '合同'), /不能修改文件的扩展名/);
+  assert.equal(O.attachmentsOf(get(O.renameAttachment(withFile, 'm1', 'a1', '合同.PDF'), 'm1'))[0].name, '合同.PDF');
+  let two = add(add(base, 'a', {}, '2026-10-01T02:00:00.000Z'), 'b', {stage: 'unpaid'}, '2026-10-02T02:00:00.000Z');
+  two = O.reorder(O.reorder(two, 'a', {before: ''}), 'b', {before: ''});
+  assert.equal(get(two, 'a').sortRank, 1);
+  const removed = O.removeFlowStage(two, 'default', 'open', {moveTo: 'unpaid'});
+  assert.equal(get(removed, 'a').stage, 'unpaid'); assert.equal(Object.hasOwn(get(removed, 'a'), 'sortRank'), false);
+  assert.equal(O.reorder(two, 'a', {before: 'a'}), two, 'dropping a card before itself changes nothing');
+});
