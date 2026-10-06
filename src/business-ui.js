@@ -318,6 +318,125 @@
         "team-rule",
       );
     }
+    // ---------- 商机：看板、表单、阶段流转、归档删除、生成订单、分析 ----------
+    const OM = () => root.LaiOpportunityModel;
+    let oppUI = null;
+    const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM()));
+    const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "" };
+    let oppDraft = null,
+      oppArmed = "",
+      oppDrag = "";
+    const onOppPage = () => route === "opportunities" || route === "opp-analysis";
+    function renderOpportunities() {
+      const today = B.localDate();
+      const board = OM().board(state(), oppView.filters, today);
+      const context = { owners: OM().ownerNames(state()), today };
+      return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context)) + OU().boardMarkup(board, oppView, context);
+    }
+    function renderOppAnalysis() {
+      const T = root.LaiTeamModel;
+      const months = oppView.range === "month" ? [month] : oppView.range === "quarter" ? T.periodMonths(T.quarterOf(month)) : null;
+      const report = OM().analysis(state(), { months, currency: oppView.analysisCurrency }, B.localDate());
+      const label = months ? T.periodLabel(months.length > 1 ? T.quarterOf(month) : month) : "全部时间";
+      const range = (id, text) => `<button type="button" data-opp-range="${id}" aria-pressed="${oppView.range === id}">${text}</button>`;
+      return (
+        header(
+          "商机分析",
+          `${E(label)} · 按商机创建时间统计`,
+          `<span class="team-segment team-period" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput() : ""}`,
+        ) + OU().analysisMarkup(report)
+      );
+    }
+    const oppItem = (id) => OM().list(state()).find((item) => item.id === id);
+    const oppCard = (id) => {
+      const item = oppItem(id);
+      return item && OM().board(state(), { archived: "all", currency: item.currency }, B.localDate()).cards.find((card) => card.id === id);
+    };
+    function showOppForm(focusName = "") {
+      const values = oppDraft.values;
+      ctx.dialog(
+        oppDraft.isNew ? "新建商机" : "编辑商机",
+        OU().formMarkup(values, {
+          customers: OM().customerNames(state()),
+          contacts: OM().contactsOf(state(), String(values.client || "").trim()),
+          owners: OM().ownerNames(state()),
+          isNew: oppDraft.isNew,
+        }),
+        '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-form">确 定</button>',
+        "business-opportunity",
+      );
+      if (focusName) document.querySelector?.(`#opp-form [name="${focusName}"]${focusName === "nameMode" ? ":checked" : ""}`)?.focus({ preventScroll: true });
+    }
+    function openOppForm(id) {
+      if (id === undefined) oppDraft = { id: crypto.randomUUID(), isNew: true, values: OM().defaults(state(), B.localDate()) };
+      else {
+        const item = oppItem(id);
+        if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+        oppDraft = { id, isNew: false, values: { ...item } };
+      }
+      showOppForm();
+    }
+    // 客户、阶段、命名方式、币种变化会改变表单里要显示的内容：保留已填内容后重画。
+    function refreshOppForm(name) {
+      const form = document.getElementById("opp-form");
+      if (!form || !oppDraft) return;
+      const before = String(oppDraft.values.client || "").trim();
+      oppDraft.values = { ...oppDraft.values, ...Object.fromEntries(new FormData(form)) };
+      if (String(oppDraft.values.client || "").trim() !== before) oppDraft.values.contact = "";
+      showOppForm(name);
+    }
+    function showOppMenu(id) {
+      const card = oppCard(id);
+      if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      ctx.dialog(E(card.name), OU().menuMarkup(card, oppArmed === id), '<button type="button" data-action="close-modal">关闭</button>', "opp-menu");
+    }
+    function showOppLost(id) {
+      const card = oppCard(id);
+      if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-lost-form">确 定</button>', "opp-lost");
+    }
+    function moveOpp(id, stage, errorId) {
+      const item = oppItem(id);
+      if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      if (item.stage === stage) return;
+      if (stage === "lost") return showOppLost(id);
+      return saveNext(() => OM().moveStage(state(), id, stage), errorId, () => ctx.closeDialog());
+    }
+    const nextOrderNumber = () => {
+      const defaults = state().laiSettings || state().orderSettings || {};
+      return (defaults.orderPrefix || "L") + B.localDate().replaceAll("-", "") + "-" + String(activeOrders().length + 1).padStart(3, "0");
+    };
+    // 赢单商机生成订单：打开现有的订单表单并预填，保存订单时同时把订单记到商机上。
+    function orderFromOpp(id) {
+      const item = oppItem(id);
+      if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      ctx.closeDialog();
+      orderEditor(undefined, { ...OM().orderDraft(item, B.localDate()), num: nextOrderNumber() });
+      if (draft) draft.fromOpportunity = id;
+    }
+    function oppAction(d) {
+      const action = d.oppAction;
+      if (action !== "delete") oppArmed = "";
+      if (action === "new") return openOppForm();
+      if (action === "edit") return openOppForm(d.id);
+      if (action === "menu") return showOppMenu(d.id);
+      if (action === "more") {
+        oppView.limits[d.stage] = Math.max(root.LaiOpportunityUI.PAGE, Number(oppView.limits[d.stage]) || 0) + root.LaiOpportunityUI.PAGE;
+        return render();
+      }
+      if (action === "move") return moveOpp(d.id, d.stage, "opp-menu-error");
+      if (action === "archive") return saveNext(() => OM().setArchived(state(), d.id, d.archived === "1"), "opp-menu-error", () => ctx.closeDialog());
+      if (action === "order") return orderFromOpp(d.id);
+      if (action === "delete") {
+        if (oppArmed !== d.id) {
+          oppArmed = d.id;
+          return showOppMenu(d.id);
+        }
+        oppArmed = "";
+        return saveNext(() => OM().remove(state(), d.id), "opp-menu-error", () => ctx.closeDialog());
+      }
+    }
+    const OPP_FILTERS = { "opp-sort": "sort", "opp-currency": "currency", "opp-date-field": "dateField", "opp-from": "from", "opp-to": "to", "opp-archived": "archived", "opp-owner": "owner", "opp-search": "search" };
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
       if (!found) return;
@@ -391,6 +510,8 @@
         "team-followups": () => renderTeam("followups"),
         "team-tasks": () => renderTeam("tasks"),
         "team-orders": () => renderTeam("orders"),
+        opportunities: renderOpportunities,
+        "opp-analysis": renderOppAnalysis,
         calendar: renderCalendar,
         settings: renderSettings,
       };
@@ -415,11 +536,7 @@
       const o = unsaved ||
         old || {
           createdAt: today,
-          num:
-            (defaults.orderPrefix || "L") +
-            today.replaceAll("-", "") +
-            "-" +
-            String(activeOrders().length + 1).padStart(3, "0"),
+          num: nextOrderNumber(),
           currency: defaults.defaultCurrency || "USD",
           owner: defaults.defaultOwner || "",
           stage: "quote",
@@ -536,6 +653,17 @@
       const el = e.target.closest("button");
       if (!el || el.disabled) return;
       const d = el.dataset;
+      if (d.oppAction && onOppPage()) return oppAction(d);
+      if (d.oppView && route === "opportunities") {
+        oppView.mode = d.oppView === "list" ? "list" : "board";
+        render();
+        return document.querySelector?.(`[data-opp-view="${oppView.mode}"]`)?.focus({ preventScroll: true });
+      }
+      if (d.oppRange && route === "opp-analysis") {
+        oppView.range = ["month", "quarter"].includes(d.oppRange) ? d.oppRange : "all";
+        render();
+        return document.querySelector?.(`[data-opp-range="${oppView.range}"]`)?.focus({ preventScroll: true });
+      }
       if (d.teamDetail && route.startsWith("team-")) return showTeamDetail(d.teamDetail);
       if (d.teamRule) return showTeamRule(d.teamRule);
       if (d.teamExport && route === "team-goals") return exportBoard();
@@ -628,7 +756,38 @@
         document.getElementById("biz-search").focus();
       }
     });
+    // 看板拖动：把卡片拖到另一列即调整阶段；拖到输单会先问原因。
+    document.addEventListener("dragstart", (e) => {
+      const card = route === "opportunities" ? e.target.closest?.("[data-opp-id]") : null;
+      oppDrag = card ? card.dataset.oppId : "";
+      if (card) e.dataTransfer?.setData("text/plain", oppDrag);
+    });
+    document.addEventListener("dragover", (e) => {
+      if (oppDrag && e.target.closest?.("[data-opp-drop]")) e.preventDefault();
+    });
+    document.addEventListener("dragend", () => {
+      oppDrag = "";
+    });
+    document.addEventListener("drop", (e) => {
+      const column = oppDrag ? e.target.closest?.("[data-opp-drop]") : null;
+      if (!column) return;
+      e.preventDefault();
+      const id = oppDrag;
+      oppDrag = "";
+      return moveOpp(id, column.dataset.oppDrop, "");
+    });
     document.addEventListener("change", (e) => {
+      if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "stage", "nameMode", "currency"].includes(e.target.name)) return refreshOppForm(e.target.name);
+      if (route === "opportunities" && Object.hasOwn(OPP_FILTERS, e.target.id)) {
+        oppView.filters = { ...oppView.filters, [OPP_FILTERS[e.target.id]]: e.target.value };
+        oppView.limits = {};
+        render();
+        return document.getElementById(e.target.id)?.focus?.({ preventScroll: true });
+      }
+      if (route === "opp-analysis" && e.target.id === "opp-analysis-currency") {
+        oppView.analysisCurrency = e.target.value;
+        return render();
+      }
       if (e.target.id === "biz-stage") {
         stage = e.target.value;
         page = 1;
@@ -662,13 +821,30 @@
     document.addEventListener("submit", (e) => {
       const form = e.target;
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "opp-form", "opp-lost-form"].includes(
           form.id,
         )
       )
         return;
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form));
+      if (form.id === "opp-form") {
+        if (!oppDraft) return;
+        return saveNext(
+          () => OM().upsert(state(), oppDraft.id, data),
+          "opp-error",
+          () => {
+            oppDraft = null;
+            ctx.closeDialog();
+          },
+        );
+      }
+      if (form.id === "opp-lost-form")
+        return saveNext(
+          () => OM().moveStage(state(), form.dataset.id, "lost", data),
+          "opp-lost-error",
+          () => ctx.closeDialog(),
+        );
       if (form.id === "biz-target-form")
         return saveNext(
           () => root.LaiTeamModel.setTarget(state(), data),
@@ -678,7 +854,13 @@
       if (form.id === "biz-order-form") {
         data.isDraft = form.elements.isDraft.checked;
         return saveNext(
-          () => B.upsertOrder(state(), draft.id, data),
+          () => {
+            const next = B.upsertOrder(state(), draft.id, data);
+            // 由商机生成的订单：保存订单的同时把订单记到商机上（商机已不存在时只保存订单）。
+            return draft.fromOpportunity && OM().list(next).some((item) => item.id === draft.fromOpportunity)
+              ? OM().linkOrder(next, draft.fromOpportunity, draft.id)
+              : next;
+          },
           "biz-order-error",
           finishEditor,
         );
@@ -724,9 +906,10 @@
         render();
       },
       refresh: render,
-      hasDraft: () => !!draft || settingsDirty,
+      hasDraft: () => !!draft || !!oppDraft || settingsDirty,
       discardDraft() {
         draft = null;
+        oppDraft = null;
       },
       route: () => route,
     };

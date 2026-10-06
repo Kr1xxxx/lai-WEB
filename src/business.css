@@ -839,3 +839,190 @@ td.team-reached {
   color: #c0392b;
   font-weight: 600;
 }
+
+.opp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.opp-count {
+  margin-right: auto;
+  font-size: 13px;
+  color: #3b4a62;
+}
+.opp-count b {
+  font-size: 15px;
+  color: #1f2d45;
+}
+.opp-toolbar select,
+.opp-toolbar input,
+.opp-totals select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #d9dee7;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 13px;
+  color: #1f2d45;
+}
+.opp-toolbar input[type="search"] {
+  width: 220px;
+}
+.opp-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.opp-view {
+  margin: 0;
+}
+.opp-totals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #3b4a62;
+}
+.opp-totals b {
+  font-size: 15px;
+  color: #1f2d45;
+}
+.opp-totals b.opp-open {
+  color: #1f9d60;
+}
+.opp-totals b.opp-won {
+  color: #1a5cff;
+}
+.opp-totals-rule {
+  width: 1px;
+  height: 14px;
+  background: #d9dee7;
+}
+.opp-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(210px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+  align-items: start;
+}
+.opp-column {
+  min-width: 0;
+}
+.opp-stage {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+}
+.opp-column:first-child .opp-stage {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+}
+.opp-kind-open .opp-stage {
+  background: #35b558;
+}
+.opp-kind-won .opp-stage {
+  background: #1a5cff;
+}
+.opp-kind-lost .opp-stage {
+  background: #e9ecf1;
+  color: #3b4a62;
+  clip-path: none;
+}
+.opp-stage-amount {
+  padding: 6px 0 8px;
+  text-align: center;
+  font-size: 13px;
+  color: #1f2d45;
+}
+.opp-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 80px;
+  padding: 6px;
+  border-radius: 4px;
+  background: #eef0f3;
+}
+.opp-card {
+  padding: 12px 14px;
+  border-radius: 4px;
+  background: #fff;
+  cursor: grab;
+}
+.opp-card.is-archived {
+  opacity: 0.7;
+}
+.opp-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.opp-card-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.opp-card-menu {
+  flex: 0 0 auto;
+  padding: 0 6px;
+}
+.opp-card-line {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #1f2d45;
+  overflow-wrap: anywhere;
+}
+.opp-overdue {
+  color: #c0392b;
+  font-weight: 600;
+}
+.opp-empty {
+  margin: 12px 0;
+  text-align: center;
+}
+.opp-more {
+  width: 100%;
+  font-size: 12px;
+}
+.opp-required {
+  color: #c0392b;
+}
+.opp-form fieldset.opp-name {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.opp-form fieldset.opp-name legend {
+  padding: 0;
+  font-size: inherit;
+}
+.opp-form fieldset.opp-name label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 16px;
+}
+.opp-form input[readonly] {
+  background: #f1f2f4;
+  color: #6b7a90;
+}
+.opp-menu h3 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  color: #3b4a62;
+}
+.opp-menu-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

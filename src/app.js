@@ -3029,7 +3029,7 @@
       ["chat", "沟通", null],
       ["lead", "线索", null],
       ["people", "客户", "customers"],
-      ["globe", "商机", null],
+      ["globe", "商机", "opportunities"],
       ["search", "OKKI Leads", null],
       ["note", "交易", "order-list"],
       ["chart", "团队数据", "team-goals"],
@@ -3194,7 +3194,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", calendar: "clock", settings: "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}${E(entry.label)}</button>`
@@ -3227,6 +3227,8 @@
       "team-followups",
       "team-tasks",
       "team-orders",
+      "opportunities",
+      "opp-analysis",
       "calendar",
       "settings",
       "mail",
