@@ -41,4 +41,6 @@ python3 scripts/export-source.py --output ../lai-source-export
 
 ## 第三方依赖
 
+邮件功能使用的开源库同样以本地 vendor 形式保留，构建时不联网：imapflow、nodemailer、postal-mime 及其依赖打包为 `vendor/mail-libs/mail-libs.cjs`（MIT／MIT-0 等，清单与全文见 `vendor/mail-libs/README.md`、`LICENSES.txt`），富文本编辑器 Squire（MIT，`vendor/squire`），HTML 净化库 DOMPurify（MPL-2.0 或 Apache-2.0，`vendor/dompurify`）。分发应用时需随附这些许可证，构建脚本已把它们复制进应用包。
+
 SheetJS 0.20.3 以本地 vendor 形式保留，许可证见 `vendor/sheetjs-0.20.3/LICENSE`。Node 运行时由构建者自行提供；分发应用时应遵守对应 Node 发行版的许可证要求。代码库没有为项目自有代码新增开源许可，私人仓库不等于授权公开分发。
