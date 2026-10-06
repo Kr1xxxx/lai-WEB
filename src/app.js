@@ -309,7 +309,35 @@
         }
       });
   }
+  // 客户详情页里的商机：数字来自商机模块；detailOpp 记住当前显示的是第几个进行中的商机。
+  const detailOpp = { name: "", index: 0 };
+  function customerOpportunities(name) {
+    const stats = window.LaiOpportunityModel.customerStats(state, name);
+    if (detailOpp.name !== name) Object.assign(detailOpp, { name, index: 0 });
+    detailOpp.index = Math.min(Math.max(0, detailOpp.index), Math.max(0, stats.activeOpportunities.length - 1));
+    return { ...stats, activeOpportunityIndex: detailOpp.index };
+  }
+  // 详情页上原来只弹提示的商机按钮：添加／新建、全部、上一个／下一个、更多操作、点阶段调整。返回 true 表示已处理。
+  function customerOpportunityFeature(feature) {
+    if (!currentName || activeRoute !== "customers" || !window.LaiOpportunityModel) return false;
+    if (feature === "添加商机" || feature === "新建商机") return business.newOpportunity(currentName), true;
+    if (feature === "全部商机") return business.showOpportunities(currentName), true;
+    const known = ["上一个商机", "下一个商机", "商机更多操作"].includes(feature) || feature.startsWith("商机阶段：");
+    if (!known) return false;
+    const stats = customerOpportunities(currentName), active = stats.activeOpportunities, current = active[stats.activeOpportunityIndex];
+    if (!current) return true;
+    if (feature === "上一个商机" || feature === "下一个商机") {
+      if (active.length < 2) return toast("这个客户只有一个进行中的商机"), true;
+      detailOpp.index = (detailOpp.index + (feature === "下一个商机" ? 1 : -1) + active.length) % active.length;
+      return detail(currentName, true, ""), true;
+    }
+    if (feature === "商机更多操作") return business.opportunityMenu(current.id, currentName), true;
+    const stage = window.LaiOpportunityModel.STAGES[["未成单", "付款未到账", "待付尾款.", "已完成", "输单"].indexOf(feature.slice("商机阶段：".length))];
+    if (stage) business.moveOpportunity(current.id, stage.id, currentName);
+    return true;
+  }
   function detailMarkup(c) {
+    c = window.LaiOpportunityModel ? { ...c, ...customerOpportunities(c.name) } : c;
     return window.LaiCustomerDetail.render(c, {
       tab,
       icon,
@@ -1597,6 +1625,7 @@
       return;
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
+    let wantOpportunity = false;
     const saveContinue = e.submitter?.value === "continue";
     if (form.id === "customer-form") {
       if (form.dataset.oldName) {
@@ -1645,12 +1674,8 @@
           }),
         ]),
       );
-      if (fd.get("createOpportunity")) {
-        toast(
-          "同时新建商机的入口已保留，商机创建待后续实现；请关闭该选项后保存客户。",
-        );
-        return;
-      }
+      // 勾选了「同时新建商机」：客户保存成功后直接打开新建商机表单，客户已填好。
+      wantOpportunity = !!fd.get("createOpportunity");
     }
 
     if (form.id === "filter-form") {
@@ -1719,6 +1744,7 @@
       }
       enhanceDropdowns($(".drawer") || $("#app"));
       toast("已保存到来财");
+      if (wantOpportunity && form.id === "customer-form") business.newOpportunity(data.name.trim());
     } catch (err) {
       error.textContent = err.message;
       error.classList.add("visible");
@@ -3028,7 +3054,7 @@
       ["chat", "沟通", null],
       ["lead", "线索", null],
       ["people", "客户", "customers"],
-      ["globe", "商机", null],
+      ["globe", "商机", "opportunities"],
       ["search", "OKKI Leads", null],
       ["note", "交易", "order-list"],
       ["chart", "团队数据", "team-goals"],
@@ -3193,7 +3219,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", calendar: "clock", settings: "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}${E(entry.label)}</button>`
@@ -3228,6 +3254,8 @@
       "team-followups",
       "team-tasks",
       "team-orders",
+      "opportunities",
+      "opp-analysis",
       "calendar",
       "settings",
       "mail",
@@ -3799,6 +3827,7 @@
       const fromList = !!el.closest(".replica-batch"), name = currentName;
       return mail.composeFor(fromList ? [...selected] : name ? [name] : [], e.detail > 0, () => navigateApp("customers", fromList ? "" : name, false));
     }
+    if (d.feature && customerOpportunityFeature(d.feature)) return;
     if (d.feature) return featureNotice(d.feature, e.detail > 0);
     if (d.groupTab) {
       groupTab = d.groupTab;

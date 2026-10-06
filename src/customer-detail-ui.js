@@ -156,9 +156,12 @@
         "",
       )}${miniAction("设置客户标签", "plus", "customer-tags", "lcd-add-tag")}</div><div class="lcd-owner">跟进人：<span>${E(c.owner || "—")}</span></div><div class="lcd-summary-fields"><dl>${summary}</dl>${miniAction("客户摘要字段设置", "settings", "summary-fields")}</div>${analysis}</section>${contactsCard}</aside>`;
     const phases = ["未成单", "付款未到账", "待付尾款.", "已完成", "输单"];
+    const phaseIds = ["open", "unpaid", "balance", "done", "lost"];
     const hasActiveOpportunity = Number.isFinite(Number(c.activeOpportunityCount)) && Number(c.activeOpportunityCount) > 0;
+    // 当前显示的那一个进行中商机（由页面决定是第几个）；没有传入时保持原来的占位显示。
+    const activeOpportunity = hasActiveOpportunity && Array.isArray(c.activeOpportunities) ? c.activeOpportunities[Math.min(Math.max(0, Number(c.activeOpportunityIndex) || 0), c.activeOpportunities.length - 1)] : null;
     const opportunityDetails = hasActiveOpportunity
-      ? `<div class="lcd-opportunity-row"><div>${mini("上一个商机", "back")}<span>—</span>${mini("下一个商机", "next")}</div><div>销售金额 <b>—</b></div><div>结束日期 <b>—</b></div><div>备注 <b>—</b></div>${mini("商机更多操作", "more")}</div><div class="lcd-phases">${phases.map((phase, i) => feature(`商机阶段：${phase}`, E(phase), `lcd-phase phase-${i}`)).join("")}</div>`
+      ? `<div class="lcd-opportunity-row"><div>${mini("上一个商机", "back")}<span>${activeOpportunity ? E(activeOpportunity.name) : "—"}</span>${mini("下一个商机", "next")}</div><div>销售金额 <b>${activeOpportunity ? `${E(activeOpportunity.currency)} ${numeric(activeOpportunity.amount, true)}` : "—"}</b></div><div>结束日期 <b>${activeOpportunity ? E(activeOpportunity.endDate || "—") : "—"}</b></div><div>备注 <b>${activeOpportunity?.note ? E(activeOpportunity.note) : "—"}</b></div>${mini("商机更多操作", "more")}</div><div class="lcd-phases">${phases.map((phase, i) => feature(`商机阶段：${phase}`, E(phase), `lcd-phase phase-${i}${activeOpportunity && phaseIds[i] === activeOpportunity.stage ? " is-current" : ""}`)).join("")}</div>`
       : "";
     const opportunity = `<section class="lcd-card lcd-opportunity${hasActiveOpportunity ? "" : " is-empty"}">${heading(`进行中的商机 （${numeric(c.activeOpportunityCount)}）`, feature("添加商机", "添加"))}${opportunityDetails}</section><section class="lcd-card lcd-schedule">${heading(`计划日程 （${c.nextFollow ? 1 : 0}）`, '<button type="button" class="lcd-feature" data-action="schedule-edit" aria-label="安排客户跟进日程">添加</button>')}${c.nextFollow ? `<div class="lcd-schedule-entry">${icon("clock")} ${E(date(c.nextFollow))} <span>客户跟进</span><button type="button" class="lcd-feature" data-action="schedule-view" aria-label="在日历查看客户跟进日程">查看</button></div>` : ""}</section>`;
     function info() {
@@ -333,12 +336,12 @@
         ["最近赢单日期 ⓘ", E(date(c.lastWonDate))],
         ["进行中的商机数 ⓘ", numeric(c.activeOpportunityCount)],
         ["赢单商机数", numeric(c.opportunityCount)],
-        ["赢单率", "—"],
-        ["平均销售周期", "—"],
+        ["赢单率", Number.isFinite(c.opportunityWinRate) ? `${c.opportunityWinRate}%` : "—"],
+        ["平均销售周期", Number.isFinite(c.opportunityCycle) ? `${c.opportunityCycle} 天` : "—"],
         ["已生效回款单数", "—"],
         ["已生效回款金额", "—"],
       ];
-      return `${heading("商机", `<div class="lcd-heading-inline">${feature("全部商机", "全部 (—) ›")}${mini("新建商机", "plus")}</div>`)}<div class="lcd-metrics">${metrics.map(([name, content]) => `<div><span>${E(name)}</span><strong>${content}</strong></div>`).join("")}</div><div class="lcd-table-scroll"><table class="lcd-table"><thead><tr>${["商机编号", "商机名称", "当前阶段", "销售金额", "结束日期", "已生效回款金额", "未回款金额", "操作"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody><tr><td colspan="8" class="lcd-no-data">暂无商机数据</td></tr></tbody></table></div><div class="lcd-pagination">共 0 条　 ‹　 1　 ›</div>${heading("产品", feature("产品筛选", "成交的产品　⌄"))}<table class="lcd-table"><thead><tr>${["产品", "销售订单", "报价单", "商机", "操作"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody><tr><td colspan="5" class="lcd-no-data">暂无关联产品数据</td></tr></tbody></table><div class="lcd-rule"></div>${heading(`销售订单 (${list(c.orders).length})`, `<button type="button" class="lcd-feature" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`)}<div class="lcd-table-scroll"><table class="lcd-table"><thead><tr><th>订单编号</th><th>订单日期</th><th>订单金额</th><th>当前阶段</th><th>产品类型</th></tr></thead><tbody>${
+      return `${heading("商机", `<div class="lcd-heading-inline">${feature("全部商机", `全部 (${Number.isFinite(c.opportunityAllCount) ? c.opportunityAllCount : "—"}) ›`)}${mini("新建商机", "plus")}</div>`)}<div class="lcd-metrics">${metrics.map(([name, content]) => `<div><span>${E(name)}</span><strong>${content}</strong></div>`).join("")}</div><div class="lcd-table-scroll"><table class="lcd-table"><thead><tr>${["商机编号", "商机名称", "当前阶段", "销售金额", "结束日期", "已生效回款金额", "未回款金额", "操作"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody><tr><td colspan="8" class="lcd-no-data">暂无商机数据</td></tr></tbody></table></div><div class="lcd-pagination">共 0 条　 ‹　 1　 ›</div>${heading("产品", feature("产品筛选", "成交的产品　⌄"))}<table class="lcd-table"><thead><tr>${["产品", "销售订单", "报价单", "商机", "操作"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody><tr><td colspan="5" class="lcd-no-data">暂无关联产品数据</td></tr></tbody></table><div class="lcd-rule"></div>${heading(`销售订单 (${list(c.orders).length})`, `<button type="button" class="lcd-feature" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`)}<div class="lcd-table-scroll"><table class="lcd-table"><thead><tr><th>订单编号</th><th>订单日期</th><th>订单金额</th><th>当前阶段</th><th>产品类型</th></tr></thead><tbody>${
         list(c.orders)
           .map(
             (order) =>

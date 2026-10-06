@@ -1618,3 +1618,8 @@
 .lcd-root .lcd-activity-arrow[hidden] { display: none; }
 .lcd-activity-arrow .icon { width: 14px; height: 14px; }
 @media (prefers-reduced-motion: reduce) { .lcd-activity-list { transition: none; } }
+
+.lcd-phases .lcd-phase.is-current {
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.28);
+}

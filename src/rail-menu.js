@@ -6,6 +6,7 @@
   const rows=(...items)=>items.map(([label,kind,target,group])=>Object.freeze(group?{label,kind,target,group}:{label,kind,target}));
   const fixed={
     '客户':rows(['客户列表','screen','active'],['公海客户','screen','pool'],['客户查重','screen','duplicates'],['客户设置','screen','customer-settings']),
+    '商机':rows(['商机看板','route','opportunities'],['商机分析','route','opp-analysis']),
     '工作台':rows(['工作台','route','dashboard']),
     // 邮件目前只有界面骨架：六个文件夹都显示「未绑定邮箱」，不连接邮箱。
     '邮件':rows(['收件箱','mail','inbox'],['待处理邮件','mail','pending'],['未读邮件','mail','unread'],['草稿箱','mail','drafts'],['发件箱','mail','sent'],['群发箱','mail','bulk']),
