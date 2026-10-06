@@ -8,20 +8,21 @@ const client = require('./mail-client.js');
 const smtp = require('./mail-smtp.js');
 const mime = require('./mail-mime.js');
 
-// 邮件读写服务：列表、阅读、标记、删除、附件、发送、草稿。
-// 每次操作单独登录一次、用完退出；不在本机缓存邮件内容（草稿除外）。
+// 邮件读写服务：列表、阅读、标记、删除、附件、发送、草稿、群发。
+// 协议与解析交给开源库（imapflow、nodemailer、postal-mime，见 vendor/mail-libs），这里只做来财自己的业务规则。
+// 每次操作单独登录一次、用完退出；不在本机缓存邮件内容（草稿与群发记录除外）。
 
 const PAGE_SIZE = 50;
 const MAX_MESSAGE_BYTES = 30 * 1024 * 1024;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const MAX_RECIPIENTS = 50;
-const LIST_HEADERS = 'BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE MESSAGE-ID CONTENT-TYPE)]';
+const MAX_HTML_BYTES = 2 * 1024 * 1024;
 // 界面上的文件夹 → 服务器上的邮箱与筛选条件。「待处理」用邮件的星标（\Flagged）表示。
 const FOLDERS = Object.freeze({
-  inbox: { box: 'inbox', criteria: ['ALL'] },
-  unread: { box: 'inbox', criteria: ['UNSEEN'] },
-  pending: { box: 'inbox', criteria: ['FLAGGED'] },
-  sent: { box: 'sent', criteria: ['ALL'] },
+  inbox: { box: 'inbox', query: { all: true } },
+  unread: { box: 'inbox', query: { seen: false } },
+  pending: { box: 'inbox', query: { flagged: true } },
+  sent: { box: 'sent', query: { all: true } },
 });
 const BOXES = Object.freeze({
   inbox: { fixed: 'INBOX' },
@@ -29,9 +30,11 @@ const BOXES = Object.freeze({
   trash: { flag: '\\trash', names: ['Trash', 'Deleted Items', 'Deleted Messages', '已删除'] },
 });
 
-function createMailService({ store, connectImap, connectSmtp, now = () => new Date(), downloadsDir = path.join(os.homedir(), 'Downloads'), reveal = () => {}, bulkPauseMs = 1500 }) {
+function createMailService({ store, endpoints = {}, now = () => new Date(), downloadsDir = path.join(os.homedir(), 'Downloads'), reveal = () => {}, bulkPauseMs = 1500 }) {
   const boxNames = new Map();   // 邮箱账号 → { sent, trash } 的实际名称
   const recent = new Map();     // 最近读过的几封（供保存附件、转发用），只在内存里
+  const imapOptions = endpoints.imap ? { endpoint: endpoints.imap } : {};
+  const smtpOptions = endpoints.smtp ? { endpoint: endpoints.smtp } : {};
 
   const fail = (status, code, message) => httpError(status, message, { code });
   function asHttp(error) {
@@ -48,19 +51,19 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     const current = account();
     let session;
     try {
-      session = await client.open(current, connectImap ? { connect: connectImap } : {});
+      session = await client.open(current, imapOptions);
       return await task(session, current);
     } catch (error) { throw asHttp(error); }
-    finally { if (session) await session.close().catch(() => {}); }
+    finally { if (session) await session.close(); }
   }
   async function resolveBox(session, current, box) {
     const spec = BOXES[box];
     if (!spec) throw fail(400, 'invalid_input', '不支持的邮件文件夹');
     if (spec.fixed) return spec.fixed;
-    const key = current.email + '|' + current.host;
+    const key = current.email + '|' + session.server.host;
     if (!boxNames.has(key)) {
-      const boxes = await client.listMailboxes(session);
-      const find = target => (boxes.find(item => item.flags.includes(target.flag)) || boxes.find(item => target.names.some(name => name.toLowerCase() === item.name.toLowerCase())) || {}).name || '';
+      const boxes = await session.listMailboxes();
+      const find = target => (boxes.find(item => item.specialUse === target.flag || item.flags.includes(target.flag)) || boxes.find(item => target.names.some(name => name.toLowerCase() === item.name.toLowerCase())) || {}).name || '';
       boxNames.set(key, { sent: find(BOXES.sent), trash: find(BOXES.trash) });
     }
     const name = boxNames.get(key)[box];
@@ -76,54 +79,43 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     if (value !== 'inbox' && value !== 'sent') throw fail(400, 'invalid_input', '不支持的邮件文件夹');
     return value;
   };
-  function summary(message, box) {
-    const headers = mime.summarizeHeaders(mime.parseHeaderBlock(message.body || Buffer.alloc(0)));
-    const type = mime.parseParameterized(mime.parseHeaderBlock(message.body || Buffer.alloc(0)).get('content-type')).value;
-    const flags = message.flags || [];
+  async function summary(message, box) {
+    const headers = await mime.parseHeaders(message.headers);
+    const internal = message.internalDate ? new Date(message.internalDate) : null;
     return {
       box, uid: message.uid, from: headers.from, to: headers.to, cc: headers.cc, subject: headers.subject, messageId: headers.messageId,
-      date: headers.date || internalDate(message.internalDate), size: message.size || 0,
-      seen: flags.includes('\\seen'), pending: flags.includes('\\flagged'), answered: flags.includes('\\answered'),
-      hasAttachment: type === 'multipart/mixed',
+      date: headers.date || (internal && Number.isFinite(internal.getTime()) ? internal.toISOString() : ''), size: message.size,
+      seen: message.flags.includes('\\seen'), pending: message.flags.includes('\\flagged'), answered: message.flags.includes('\\answered'),
+      hasAttachment: headers.hasAttachment, snippet: await mime.snippet(message.headers, message.preview),
     };
   }
-  function internalDate(value) {
-    const parsed = new Date(String(value || '').replace(/^(\d{1,2})-(\w{3})-(\d{4})/, '$1 $2 $3'));
-    return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : '';
-  }
   // 搜索词：主题、发件人、收件人任一包含。
-  function queryCriteria(query) {
+  function queryFilter(query) {
     const text = String(query ?? '').trim().slice(0, 100);
-    if (!text) return [];
+    if (!text) return {};
     if (/[\r\n\u0000]/.test(text)) throw fail(400, 'invalid_input', '搜索内容无效');
-    const term = client.astring(text);
-    return ['OR', 'OR', 'SUBJECT', term, 'FROM', term, 'TO', term];
+    return { or: [{ subject: text }, { from: text }, { to: text }] };
   }
-  // 与若干邮箱地址有关的邮件（发件人、收件人或抄送中出现）。
-  function addressCriteria(addresses) {
-    const terms = addresses.map(address => ['OR', 'OR', 'FROM', client.astring(address), 'TO', client.astring(address), 'CC', client.astring(address)]);
-    let criteria = terms.pop();
-    while (terms.length) criteria = ['OR', ...terms.pop(), ...criteria];
-    return criteria;
-  }
-  async function page(session, box, mailbox, criteria, pageNumber, limit = PAGE_SIZE) {
-    await client.select(session, mailbox, true);
-    const uids = await client.search(session, criteria);
-    const start = Math.max(0, uids.length - pageNumber * limit), end = Math.max(0, uids.length - (pageNumber - 1) * limit);
-    const messages = await client.fetch(session, uids.slice(start, end), `(UID FLAGS INTERNALDATE RFC822.SIZE ${LIST_HEADERS})`);
-    return { total: uids.length, items: messages.map(message => summary(message, box)).sort((a, b) => b.uid - a.uid) };
+  async function page(session, box, mailbox, query, pageNumber, limit = PAGE_SIZE) {
+    return session.withMailbox(mailbox, true, async () => {
+      const uids = await session.search(query);
+      const start = Math.max(0, uids.length - pageNumber * limit), end = Math.max(0, uids.length - (pageNumber - 1) * limit);
+      const messages = await session.fetchSummaries(uids.slice(start, end), { preview: true });
+      const items = await Promise.all(messages.map(message => summary(message, box)));
+      const counts = box === 'inbox' && limit === PAGE_SIZE ? { unread: (await session.search({ seen: false })).length, pending: (await session.search({ flagged: true })).length } : null;
+      return { total: uids.length, items: items.sort((a, b) => b.uid - a.uid), counts };
+    });
   }
 
   async function list({ folder, page: pageValue, query } = {}) {
     const spec = FOLDERS[folder];
     if (!spec) throw fail(400, 'invalid_input', '不支持的邮件文件夹');
     const pageNumber = Math.max(1, Math.min(10000, Number.parseInt(pageValue, 10) || 1));
-    const extra = queryCriteria(query);
+    const filter = queryFilter(query);
     return withSession(async (session, current) => {
       const mailbox = await resolveBox(session, current, spec.box);
-      const result = await page(session, spec.box, mailbox, [...spec.criteria, ...extra], pageNumber);
-      const counts = spec.box === 'inbox' ? { unread: (await client.search(session, ['UNSEEN'])).length, pending: (await client.search(session, ['FLAGGED'])).length } : null;
-      return { ok: true, folder, page: pageNumber, pageSize: PAGE_SIZE, total: result.total, items: result.items, ...(counts ? { counts } : {}) };
+      const result = await page(session, spec.box, mailbox, { ...spec.query, ...filter }, pageNumber);
+      return { ok: true, folder, page: pageNumber, pageSize: PAGE_SIZE, total: result.total, items: result.items, ...(result.counts ? { counts: result.counts } : {}) };
     });
   }
 
@@ -133,31 +125,31 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     let normalized;
     try { normalized = [...new Set(list.map(imap.normalizeEmail))]; } catch (error) { throw asHttp(error); }
     if (!normalized.length || normalized.length > 20) throw fail(400, 'invalid_input', '请提供 1 到 20 个邮箱地址');
+    const query = { or: normalized.flatMap(address => [{ from: address }, { to: address }, { cc: address }]) };
     return withSession(async (session, current) => {
       const items = [];
       for (const box of ['inbox', 'sent']) {
         let mailbox;
         try { mailbox = await resolveBox(session, current, box); } catch (error) { if (box === 'sent') continue; throw error; }
-        items.push(...(await page(session, box, mailbox, addressCriteria(normalized), 1, 100)).items);
+        items.push(...(await page(session, box, mailbox, query, 1, 100)).items);
       }
       items.sort((a, b) => String(b.date).localeCompare(String(a.date)) || b.uid - a.uid);
       return { ok: true, addresses: normalized, items };
     });
   }
 
+  // 在已打开的文件夹里读取一封并解析；最近几封留在内存里供保存附件、转发用。
   async function load(session, current, box, uid) {
-    const mailbox = await resolveBox(session, current, box);
-    await client.select(session, mailbox, false);
-    const [meta] = await client.fetch(session, [uid], '(UID FLAGS RFC822.SIZE)');
+    const meta = await session.fetchMeta(uid);
     if (!meta) throw fail(404, 'not_found', '这封邮件已经不在邮箱里了，可能已被移动或删除。');
     if (meta.size > MAX_MESSAGE_BYTES) throw fail(413, 'too_large', '这封邮件超过 30 MB，无法在来财里打开，请到 Zoho 邮箱查看。');
-    const [full] = await client.fetch(session, [uid], '(UID BODY.PEEK[])');
-    if (!full || !full.body) throw fail(404, 'not_found', '这封邮件已经不在邮箱里了，可能已被移动或删除。');
-    const parsed = mime.parseMessage(full.body);
+    const source = await session.fetchSource(uid);
+    if (!source) throw fail(404, 'not_found', '这封邮件已经不在邮箱里了，可能已被移动或删除。');
+    const parsed = await mime.parseMessage(source);
     const key = `${current.email}|${box}|${uid}`;
     recent.delete(key); recent.set(key, parsed);
     while (recent.size > 4) recent.delete(recent.keys().next().value);
-    return { parsed, flags: meta.flags || [] };
+    return { parsed, flags: meta.flags };
   }
   // 邮件里以 cid: 引用的内嵌图片换成 data: 地址，这样不联网也能显示；其余远程内容由界面拦截。
   function inlineImages(html, attachments) {
@@ -171,9 +163,9 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
   }
   async function read({ box: boxValue, uid: uidValue } = {}) {
     const box = boxOf(boxValue), uid = uidOf(uidValue);
-    return withSession(async (session, current) => {
+    return withSession(async (session, current) => session.withMailbox(await resolveBox(session, current, box), false, async () => {
       const { parsed, flags } = await load(session, current, box, uid);
-      if (!flags.includes('\\seen')) await client.store(session, uid, '+FLAGS.SILENT', ['\\Seen']);
+      if (!flags.includes('\\seen')) await session.addFlags(uid, ['\\Seen']);
       return { ok: true, message: {
         box, uid, from: parsed.from, to: parsed.to, cc: parsed.cc, replyTo: parsed.replyTo, subject: parsed.subject, date: parsed.date,
         messageId: parsed.messageId, references: parsed.references, text: parsed.text.slice(0, 2 * 1024 * 1024),
@@ -181,35 +173,32 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
         attachments: parsed.attachments.filter(item => !(item.inline && item.contentId && parsed.html.includes('cid:' + item.contentId))).map(({ index, filename, contentType, size }) => ({ index, filename, contentType, size })),
         seen: true, pending: flags.includes('\\flagged'),
       } };
-    });
+    }));
   }
 
   async function flags({ box: boxValue, uid: uidValue, seen, pending } = {}) {
     const box = boxOf(boxValue), uid = uidOf(uidValue);
     if (typeof seen !== 'boolean' && typeof pending !== 'boolean') throw fail(400, 'invalid_input', '没有要修改的标记');
-    return withSession(async (session, current) => {
-      await client.select(session, await resolveBox(session, current, box), false);
-      if (typeof seen === 'boolean') await client.store(session, uid, (seen ? '+' : '-') + 'FLAGS.SILENT', ['\\Seen']);
-      if (typeof pending === 'boolean') await client.store(session, uid, (pending ? '+' : '-') + 'FLAGS.SILENT', ['\\Flagged']);
+    return withSession(async (session, current) => session.withMailbox(await resolveBox(session, current, box), false, async () => {
+      if (typeof seen === 'boolean') await (seen ? session.addFlags : session.removeFlags)(uid, ['\\Seen']);
+      if (typeof pending === 'boolean') await (pending ? session.addFlags : session.removeFlags)(uid, ['\\Flagged']);
       return { ok: true };
-    });
+    }));
   }
 
   // 删除＝移到邮箱的「已删除」，不是永久删除，可在 Zoho 里恢复。
   async function trash({ box: boxValue, uid: uidValue } = {}) {
     const box = boxOf(boxValue), uid = uidOf(uidValue);
     return withSession(async (session, current) => {
-      const target = await resolveBox(session, current, 'trash');
-      await client.select(session, await resolveBox(session, current, box), false);
-      await client.move(session, uid, target);
-      return { ok: true };
+      const target = await resolveBox(session, current, 'trash'), source = await resolveBox(session, current, box);
+      return session.withMailbox(source, false, async () => { await session.move(uid, target); return { ok: true }; });
     });
   }
 
   async function cachedMessage(box, uid) {
     const current = account(), key = `${current.email}|${box}|${uid}`;
     if (recent.has(key)) return recent.get(key);
-    return withSession(async (session, active) => (await load(session, active, box, uid)).parsed);
+    return withSession(async (session, active) => session.withMailbox(await resolveBox(session, active, box), true, async () => (await load(session, active, box, uid)).parsed));
   }
   async function saveAttachment({ box: boxValue, uid: uidValue, index } = {}) {
     const box = boxOf(boxValue), uid = uidOf(uidValue);
@@ -231,11 +220,16 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
   function recipients(value, label) {
     const text = Array.isArray(value) ? value.join(',') : String(value ?? '');
     if (/[\r\n\u0000]/.test(text)) throw fail(400, 'invalid_input', `${label}里有无法使用的字符`);
-    const parsed = mime.parseAddressList(text);
-    const pieces = text.split(/[,;]/).map(item => item.trim()).filter(Boolean);
-    if (parsed.length !== pieces.length && !/["<]/.test(text)) throw fail(400, 'invalid_input', `${label}里有格式不正确的邮箱地址`);
-    for (const item of parsed) { try { imap.normalizeEmail(item.address); } catch (_) { throw fail(400, 'invalid_input', `${label}里的 ${item.address} 不是有效的邮箱地址`); } }
-    if (text.trim() && !parsed.length) throw fail(400, 'invalid_input', `${label}里有格式不正确的邮箱地址`);
+    // 按逗号、分号切分（引号里的不切），每一段必须是 地址 或 名字 <地址>。
+    const pieces = text.match(/(?:"(?:[^"\\]|\\.)*"|[^,;])+/g) || [];
+    const parsed = [];
+    for (const piece of pieces.map(item => item.trim()).filter(Boolean)) {
+      const match = /^(.*)<([^<>]+)>$/.exec(piece);
+      const raw = (match ? match[2] : piece).trim();
+      let address;
+      try { address = imap.normalizeEmail(raw); } catch (_) { throw fail(400, 'invalid_input', `${label}里的 ${raw.slice(0, 80)} 不是有效的邮箱地址`); }
+      parsed.push({ name: match ? match[1].trim().replace(/^"|"$/g, '').replace(/\\(.)/g, '$1').trim().slice(0, 80) : '', address });
+    }
     return parsed;
   }
   function cleanDraft(input, id) {
@@ -244,12 +238,29 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     return {
       id, to: line(request.to, 4000), cc: line(request.cc, 4000), bcc: line(request.bcc, 4000), subject: line(request.subject, 500),
       text: String(request.text ?? '').replace(/\u0000/g, '').slice(0, 1024 * 1024),
+      html: String(request.html ?? '').replace(/\u0000/g, '').slice(0, MAX_HTML_BYTES),
       inReplyTo: line(request.inReplyTo, 1000), references: line(request.references, 8000),
       forwardOf: request.forwardOf && typeof request.forwardOf === 'object' && (request.forwardOf.box === 'inbox' || request.forwardOf.box === 'sent') && Number.isSafeInteger(Number(request.forwardOf.uid)) ? { box: request.forwardOf.box, uid: Number(request.forwardOf.uid) } : null,
       updatedAt: now().toISOString(),
     };
   }
   const draftId = value => /^[0-9a-f]{32}$/.test(String(value ?? '')) ? String(value) : '';
+  const messageIds = value => (String(value ?? '').match(/<[^<>\s]{1,300}>/g) || []).slice(-20);
+  // 正文里以 data: 写入的图片（编辑器里粘贴的截图）改成邮件内嵌附件，多数邮箱不显示 data: 图片。
+  function embedImages(html) {
+    const images = [];
+    const out = String(html || '').replace(/(<img\b[^>]*?\bsrc=")data:(image\/(?:png|jpe?g|gif|webp));base64,([A-Za-z0-9+/=]+)(")/gi, (whole, before, type, data, after) => {
+      if (images.length >= 20) return whole;
+      const cid = `img${images.length + 1}.${crypto.randomBytes(6).toString('hex')}@lai`;
+      images.push({ filename: `image-${images.length + 1}.${type.split('/')[1].replace('jpeg', 'jpg')}`, contentType: type.toLowerCase(), content: Buffer.from(data, 'base64'), cid });
+      return `${before}cid:${cid}${after}`;
+    });
+    return { html: out, images };
+  }
+  function body(draft) {
+    const { html, images } = embedImages(draft.html);
+    return { html, images, text: draft.text.trim() || !html ? draft.text : mime.htmlToText(html) };
+  }
 
   function uploadedAttachments(request) {
     const attachments = [];
@@ -258,7 +269,7 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
       if (!item || typeof item.contentBase64 !== 'string' || !/^[A-Za-z0-9+/=\s]*$/.test(item.contentBase64)) throw fail(400, 'invalid_input', '附件内容无效');
       const content = Buffer.from(item.contentBase64, 'base64');
       bytes += content.length;
-      attachments.push({ filename: mime.safeFilename(item.filename), contentType: String(item.contentType || ''), content });
+      attachments.push({ filename: mime.safeFilename(item.filename), contentType: /^[\w.+-]+\/[\w.+-]+$/.test(String(item.contentType || '')) ? String(item.contentType) : 'application/octet-stream', content });
     }
     return { attachments, bytes };
   }
@@ -271,9 +282,10 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     if (!everyone.length) throw fail(400, 'invalid_input', '请至少填写一位收件人');
     if (everyone.length > MAX_RECIPIENTS) throw fail(400, 'invalid_input', `一封邮件最多 ${MAX_RECIPIENTS} 位收件人`);
     const draft = cleanDraft(request, '');
-    if (!draft.subject.trim() && !draft.text.trim()) throw fail(400, 'invalid_input', '主题和正文不能都为空');
+    const content = body(draft);
+    if (!draft.subject.trim() && !content.text.trim() && !content.images.length) throw fail(400, 'invalid_input', '主题和正文不能都为空');
     const { attachments, bytes: uploaded } = uploadedAttachments(request);
-    let bytes = uploaded;
+    let bytes = uploaded + content.images.reduce((sum, item) => sum + item.content.length, 0);
     if (draft.forwardOf && request.forwardAttachments !== false) {
       const original = await cachedMessage(draft.forwardOf.box, draft.forwardOf.uid).catch((error) => { throw asHttp(error); });
       for (const item of original.attachments) { bytes += item.size; attachments.push({ filename: item.filename, contentType: item.contentType, content: item.content }); }
@@ -281,13 +293,15 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     if (attachments.length > 30) throw fail(400, 'invalid_input', '附件不能超过 30 个');
     if (bytes > MAX_ATTACHMENT_BYTES) throw fail(413, 'too_large', '附件合计超过 10 MB，无法发送');
     const senderName = String(request.fromName ?? current.senderName ?? '').replace(/[\r\n\u0000]+/g, ' ').trim().slice(0, 80);
-    const built = mime.buildMessage({ from: { name: senderName, address: current.email }, to, cc, subject: draft.subject, text: draft.text, attachments, inReplyTo: draft.inReplyTo, references: draft.references, date: now() });
-    try { await smtp.send({ account: current, from: current.email, recipients: everyone, raw: built.raw }, connectSmtp ? { connect: connectSmtp } : {}); }
-    catch (error) { throw asHttp(error); }
+    let result;
+    try {
+      result = await smtp.send({ account: current, mail: { from: { name: senderName, address: current.email }, to, cc, bcc, subject: draft.subject, text: content.text, html: content.html, attachments: [...content.images, ...attachments],
+        inReplyTo: messageIds(draft.inReplyTo)[0] || '', references: messageIds(draft.references), date: now() } }, smtpOptions);
+    } catch (error) { throw asHttp(error); }
     // 发出之后的收尾都不能让用户以为没发出去：失败只忽略。
     try { if (senderName !== (current.senderName || '')) store.writeMailAccount({ ...store.readMailAccount(), senderName }); } catch (_) {}
     try { if (draftId(request.draftId)) store.deleteMailDraft(draftId(request.draftId)); } catch (_) {}
-    return { ok: true, messageId: built.messageId, recipients: everyone, attachmentCount: attachments.length };
+    return { ok: true, messageId: result.messageId, recipients: result.accepted, rejected: result.rejected, attachmentCount: attachments.length };
   }
 
   function drafts() {
@@ -305,6 +319,7 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     store.deleteMailDraft(id);
     return { ok: true };
   }
+
   // ---- 群发：给每位收件人单独发一封（对方看不到其他收件人），逐封记录结果 ----
   const MAX_BULK = 200;
   let bulkRunning = null;
@@ -312,7 +327,8 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
   const bulkSummary = batch => ({ id: batch.id, createdAt: batch.createdAt, finishedAt: batch.finishedAt || '', subject: batch.subject, status: batch.status, stopReason: batch.stopReason || '',
     total: batch.items.length, sent: bulkCount(batch, 'sent'), failed: bulkCount(batch, 'failed'), pending: bulkCount(batch, 'pending'), skipped: bulkCount(batch, 'skipped') });
   // 正文和主题里的 {{姓名}}、{{公司}} 换成每位收件人自己的；没有联系人姓名时用公司名。
-  const personalize = (text, item) => String(text).replace(/\{\{\s*姓名\s*\}\}/g, item.name || item.customer || '').replace(/\{\{\s*公司\s*\}\}/g, item.customer || '');
+  const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const personalize = (text, item, asHtml = false) => { const put = value => (asHtml ? escapeHtml(value) : value); return String(text).replace(/\{\{\s*姓名\s*\}\}/g, put(item.name || item.customer || '')).replace(/\{\{\s*公司\s*\}\}/g, put(item.customer || '')); };
   const saveBulk = (batch) => { try { store.writeMailBulk(batch); } catch (_) {} };
   // 应用在发送途中被关闭的批次不会自动续发（无法确定最后一封是否已发出），标为中断。
   function settleInterrupted(batch) {
@@ -330,8 +346,8 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
         const item = batch.items[index];
         if (running.cancel) break;
         try {
-          const built = mime.buildMessage({ from: { name: senderName, address: current.email }, to: [{ name: item.name, address: item.address }], subject: personalize(batch.subject, item), text: personalize(batch.text, item), attachments, date: now() });
-          await smtp.send({ account: current, from: current.email, recipients: [item.address], raw: built.raw }, connectSmtp ? { connect: connectSmtp } : {});
+          const content = body({ text: personalize(batch.text, item), html: personalize(batch.html || '', item, true) });
+          await smtp.send({ account: current, mail: { from: { name: senderName, address: current.email }, to: [{ name: item.name, address: item.address }], subject: personalize(batch.subject, item), text: content.text, html: content.html, attachments: [...content.images, ...attachments], date: now() } }, smtpOptions);
           item.status = 'sent'; item.sentAt = now().toISOString(); streak = 0;
         } catch (error) {
           item.status = 'failed'; item.error = String(error?.message || '发送失败').slice(0, 300); streak++;
@@ -368,12 +384,12 @@ function createMailService({ store, connectImap, connectSmtp, now = () => new Da
     if (items.length > MAX_BULK) throw fail(400, 'invalid_input', `一批群发最多 ${MAX_BULK} 位收件人`);
     const draft = cleanDraft(request, '');
     if (!draft.subject.trim()) throw fail(400, 'invalid_input', '请填写主题');
-    if (!draft.text.trim()) throw fail(400, 'invalid_input', '请填写正文');
+    if (!draft.text.trim() && !mime.htmlToText(draft.html).trim()) throw fail(400, 'invalid_input', '请填写正文');
     const { attachments, bytes } = uploadedAttachments(request);
     if (attachments.length > 30) throw fail(400, 'invalid_input', '附件不能超过 30 个');
     if (bytes > MAX_ATTACHMENT_BYTES) throw fail(413, 'too_large', '附件合计超过 10 MB，无法发送');
     const senderName = String(request.fromName ?? current.senderName ?? '').replace(/[\r\n\u0000]+/g, ' ').trim().slice(0, 80);
-    const batch = { id: crypto.randomBytes(16).toString('hex'), createdAt: now().toISOString(), finishedAt: '', subject: draft.subject, text: draft.text, attachmentNames: attachments.map(item => item.filename), status: 'sending', stopReason: '', items };
+    const batch = { id: crypto.randomBytes(16).toString('hex'), createdAt: now().toISOString(), finishedAt: '', subject: draft.subject, text: draft.text.trim() ? draft.text : mime.htmlToText(draft.html), html: draft.html, attachmentNames: attachments.map(item => item.filename), status: 'sending', stopReason: '', items };
     store.writeMailBulk(batch);
     bulkRunning = { id: batch.id, cancel: false };
     bulkRunning.done = runBulk(batch, current, attachments, senderName).catch(() => {});

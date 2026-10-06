@@ -9,7 +9,6 @@ const { httpError } = require('./errors.js');
 const { createMailAccounts } = require('./mail-account.js');
 const { createMailService } = require('./mail-service.js');
 const mailImap = require('./mail-imap.js');
-const net = require('node:net');
 const os = require('node:os');
 
 const port = Number(process.env.LAI_APP_PORT || (49152 + crypto.randomInt(16383)));
@@ -21,11 +20,10 @@ const auth = createAuth({ port, token: apiToken });
 // 仅供隔离测试：数据目录被改到测试目录时（storage-path.js 只允许系统临时目录下的 lai-test-*），
 // 可以把邮件连接指到本机回环地址上的假服务器。正式数据目录下这个变量不起作用。
 const mailTest = process.env.LAI_DATA_DIR && /^\d{1,5},\d{1,5}$/.test(process.env.LAI_MAIL_TEST_ENDPOINTS || '') ? process.env.LAI_MAIL_TEST_ENDPOINTS.split(',').map(Number) : null;
-const connectImap = mailTest ? () => net.connect(mailTest[0], '127.0.0.1') : undefined;
-const connectSmtp = mailTest ? () => net.connect(mailTest[1], '127.0.0.1') : undefined;
-const mailAccounts = createMailAccounts({ store, verify: input => mailImap.verifyLogin(input, connectImap ? { connect: connectImap } : {}) });
+const mailEndpoints = mailTest ? { imap: { host: '127.0.0.1', port: mailTest[0] }, smtp: { host: '127.0.0.1', port: mailTest[1] } } : {};
+const mailAccounts = createMailAccounts({ store, verify: input => mailImap.verifyLogin(input, mailEndpoints.imap ? { endpoint: mailEndpoints.imap } : {}) });
 const mailService = createMailService({
-  store, connectImap, connectSmtp,
+  store, endpoints: mailEndpoints,
   downloadsDir: process.env.LAI_DATA_DIR ? path.join(store.directory, 'downloads') : path.join(os.homedir(), 'Downloads'),
   reveal: file => { if (process.env.LAI_APP_NO_OPEN !== '1') spawn('/usr/bin/open', ['-R', file], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref(); }
 });
@@ -46,7 +44,7 @@ const mailRoutes = {
   'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
   'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 
 function securityHeaders(type = '') {
   return {
@@ -111,6 +109,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (!auth.authorized(req)) throw httpError(401, 'API session token required');
     if (isDocument) return send(res, 200, fs.readFileSync(htmlFile), 'text/html; charset=utf-8');
+    if (url.pathname === '/vendor/purify.min.js' || url.pathname === '/vendor/squire-raw.js') return send(res, 200, fs.readFileSync(path.join(__dirname, 'vendor', path.basename(url.pathname))), 'text/javascript; charset=utf-8');
     if (url.pathname === '/vendor/xlsx.full.min.js') return send(res, 200, fs.readFileSync(path.join(__dirname, 'vendor/xlsx.full.min.js')), 'text/javascript; charset=utf-8');
     if (url.pathname === '/api/data') return send(res, 200, JSON.stringify(store.readSnapshot()));
     if (url.pathname === '/api/import-log') return send(res, 200, JSON.stringify({ok:true,issues:store.readImportLog(url.searchParams.get('id'))}));

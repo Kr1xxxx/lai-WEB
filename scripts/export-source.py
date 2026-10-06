@@ -11,6 +11,9 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 SINGLE_FILES = ['package.json', '.gitignore', 'README.github.md', 'native/Package.swift', 'assets/AppIcon.icns',
                 'vendor/sheetjs-0.20.3/xlsx.full.min.js', 'vendor/sheetjs-0.20.3/LICENSE', 'vendor/sheetjs-0.20.3/README.md',
+                'vendor/mail-libs/mail-libs.cjs', 'vendor/mail-libs/LICENSES.txt', 'vendor/mail-libs/README.md',
+                'vendor/mail-libs/build/entry.js', 'vendor/mail-libs/build/pino-stub.js', 'vendor/mail-libs/build/socks-stub.js',
+                'vendor/squire/squire-raw.js', 'vendor/squire/LICENSE', 'vendor/dompurify/purify.min.js', 'vendor/dompurify/LICENSE',
                 'tests/fixtures/cus-list-003-fields.txt', 'tests/fixtures/cus-list-003-fields-provenance.json']
 TREES = [('src', {'.js', '.css', '.html'}), ('backend', {'.js'}), ('native/Sources', {'.swift'})]
 SECRET_PATTERNS = [re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),

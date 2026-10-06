@@ -22,14 +22,16 @@
 | `src/customer-detail-ui.js` | 客户详情展示与对应已有信息 |
 | `src/customer-list-ui.js`、`customer-fields.js` | 列表绘制与字段目录。目录中有字段不代表对应外部服务上线 |
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
-| `src/nav-favorites.js` | 常用导航：收藏哪些既有导航条目及其顺序（存于`laiSettings.favoriteNav`，只存条目ID，不含业务字段）；从未设置过时默认全部收藏 |
-| `src/rail-menu.js` | 左侧栏悬停浮层的内容：每个菜单列出应用里已有的页面入口；沟通、线索、商机仍是保留入口 |
+| `src/nav-favorites.js` | 常用导航：哪些既有导航条目被设为常用及其顺序（存于`laiSettings.favoriteNav`，只存条目ID如`screen:active`、`route:order-list`、`mail:inbox`，不含业务字段）；从未设置过时为空。可设为常用的清单不在这里另抄，直接取自`rail-menu.js`，所以在菜单里加页面就自动能设为常用。依赖`rail-menu.js` |
+| `src/rail-menu.js` | 左侧栏各菜单有哪些真实页面入口（悬停浮层、各菜单二级导航、可设为常用的清单都读这一份）；沟通、线索仍是保留入口。不依赖其他模块，装载在`nav-favorites.js`之前 |
 | `src/opportunity-model.js`、`opportunity-ui.js` | 商机：数据保存在`laiOpportunities`；model 负责校验、命名、阶段流转、看板汇总、分析和客户维度统计，ui 只生成看板、表单、菜单、分析页的标记；控制逻辑在`business-ui.js` |
-| `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表（收件箱、待处理、未读、草稿箱、发件箱）、阅读、回复／转发／写信、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |
-| `backend/mail-imap.js` | Zoho 服务器地址（固定四个 IMAP 主机）与登录验证 |
-| `backend/mail-client.js` | 收信会话：登录、列出文件夹、搜索、取邮件头与全文、改标记、移动；每次操作单独登录、用完退出 |
-| `backend/mail-smtp.js` | 发信：TLS 465 提交一封已生成的邮件，主机固定；任一收件人被拒则整封不发 |
-| `backend/mail-mime.js` | 邮件解析（编码、多部分、附件、内嵌图片）与生成（纯文本正文＋附件） |
+| `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表、阅读、独立的写信页（回复／转发／群发共用）、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；收到的邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |
+| `src/mail-editor.js` | 写信用的富文本编辑器：开源编辑器 Squire 加一条工具栏；放进编辑器的 HTML（含引用的原邮件）先经 DOMPurify 净化，两个库缺失时退回纯文本 |
+| `backend/mail-libs.js` | 加载 `vendor/mail-libs` 里打包好的第三方邮件库（imapflow、nodemailer、postal-mime） |
+| `backend/mail-imap.js` | Zoho 服务器地址（固定主机）、输入校验、连接参数（正式使用一律 TLS）、登录验证、把库的错误换成界面能显示的说明 |
+| `backend/mail-client.js` | 收信：imapflow 之上的薄封装——列出文件夹、搜索、取邮件头与全文、改标记、移动；每次操作单独登录、用完退出 |
+| `backend/mail-smtp.js` | 发信：由 nodemailer 生成邮件并经 TLS 465 提交，主机固定；全部收件人被拒时报错，部分被拒时照常发给其余人并报告被拒地址 |
+| `backend/mail-mime.js` | 把 postal-mime 的解析结果整理成来财用的形状（地址、正文、附件、内嵌图片），以及文件名净化 |
 | `backend/mail-service.js` | 邮件服务：文件夹列表与分页、搜索、阅读、待处理／未读标记、删除（移到服务器的已删除）、保存附件、发送、本机草稿、客户往来 |
 | `backend/mail-account.js` | 邮箱绑定服务：先验证后保存、查询、重新验证、解绑；对外应答不含密码 |
 | `src/team-model.js`、`team-ui.js` | 团队数据四类报表（客户资产、跟进情况、任务完成、订单业绩）：只用现有客户／跟进／任务／订单数据，按跟进人名称汇总；model 为纯统计，ui 只生成页面标记与明细列表 |
@@ -74,7 +76,13 @@
 
 `界面 → 本机接口 /api/mail-account/*、/api/mail/* → backend/mail-account.js、mail-service.js → mail-client.js（IMAP 993）／mail-smtp.js（SMTP 465）→ Zoho`
 
-- 这是应用唯一的对外连接。只在用户打开邮件页、点击操作时连接；没有后台定时收信，也不在本机缓存邮件内容。
+- 协议与解析不再自己实现：IMAP 用 imapflow，SMTP 与邮件生成用 nodemailer，解析用 postal-mime，富文本编辑用 Squire，HTML 净化用 DOMPurify。它们以 vendor 形式随源码保存（来源、版本、提交、许可证见 `vendor/mail-libs/README.md` 及各目录的 LICENSE），构建时不联网下载。库的日志（pino）与代理（socks）在打包时换成空实现。
+- 写信是邮件页里的独立页面，不是抽屉。正在写信时切换文件夹或离开邮件页，会先把内容自动存成草稿；存不下来就留在写信页。群发没有草稿，离开前要再点一次确认放弃。
+- 发出的邮件是 HTML 加一份纯文本；编辑器里粘贴的图片在服务端改成内嵌附件。草稿保存 HTML，不保存附件。
+- 这是应用唯一的对外连接。只在用户打开邮件页、点击操作时连接；没有后台定时收信，也不把邮件内容存到磁盘。页面在内存里留着最近读过的 40 封正文和两分钟内查过的往来邮件，再点同一封不用重新下载；关闭应用、解绑或换邮箱后就没有了。
+- 邮件页是三栏版面（参考常见桌面邮件客户端的布局，没有使用它们的代码）：左侧导航里的文件夹｜邮件列表（发件人、主题、正文预览）｜阅读区，阅读区右侧是联系人栏（对应的客户、最近往来）。窗口宽度不超过 1080px 时退回单栏；联系人栏在 1360px 以上默认显示，可手动开关。列表宽度可拖动，只在本次运行期间记住。
+- 列表里的正文预览：取邮件头时顺带取每封正文的前 4096 字节（`BODY.PEEK[TEXT]<0.4096>`，不改已读状态），和邮件头拼成一封截断的邮件交给 postal-mime 解码，去掉引用的原文后取前 140 个字。服务器不支持或解析失败时预览为空，列表照常显示。
+- 键盘快捷键只在邮件页、没有弹窗、焦点不在输入框时生效：↑↓ 或 J／K 切换，R／A／F 回复、回复全部、转发，S 待处理，U 未读，Delete 删除（仍要确认），C 写信，/ 搜索，Esc 收起阅读区。
 - 凭据按用户决定以明文存放在本机 SQLite 的 `mail_account` 表（单行）。它不属于 `/api/data` 快照，不随 `/api/save` 改动，接口应答与界面都不含密码；但数据库文件和 `backups/` 里的备份文件都包含它，解绑只删除当前库里的记录，不清理旧备份。
 - 连接主机不可由界面指定：中国站 `imap.zoho.com.cn`／`imappro.zoho.com.cn`、`smtp.zoho.com.cn`／`smtppro.zoho.com.cn`，国际站为不带 `.cn` 的同名主机，按站点与账号类型（个人／企业域名）选择。
 - 界面文件夹与服务器的对应：收件箱＝INBOX 全部，未读邮件＝INBOX 未读，待处理邮件＝INBOX 里加了星标（\Flagged）的邮件，发件箱＝服务器的已发送文件夹。删除＝移到服务器的已删除文件夹。已发送、已删除文件夹先按服务器标记找，再按常见名称找。

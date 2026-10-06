@@ -11,7 +11,7 @@ async function port() { return new Promise(resolve => {const server=net.createSe
 async function fixture() {
   const temporary=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'lai-test-shutdown-'));
   const resources=path.join(temporary,'resources'); fs.mkdirSync(resources);
-  for(const name of ['server.js','storage.js','storage-path.js','auth.js','errors.js','mail-account.js','mail-imap.js','mail-client.js','mail-smtp.js','mail-mime.js','mail-service.js'])fs.copyFileSync(path.join(__dirname,'../backend',name),path.join(resources,name));
+  for(const name of ['server.js','storage.js','storage-path.js','auth.js','errors.js','mail-account.js','mail-imap.js','mail-client.js','mail-smtp.js','mail-mime.js','mail-service.js','mail-libs.js'])fs.copyFileSync(path.join(__dirname,'../backend',name),path.join(resources,name));
   fs.writeFileSync(path.join(resources,'trade-order-system.html'),'<!doctype html><title>Private shutdown fixture</title>');
   const children=[],sockets=[];
   async function start() {

@@ -308,7 +308,9 @@ test('navigation: 商机 is a real menu with its own pages and highlight', () =>
   assert.equal(RM.sectionFor('opp-analysis').label, '商机');
   const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
   assert.match(app, /\["globe", "商机", "opportunities"\]/);
-  for (const route of ['"opportunities",', '"opp-analysis",']) assert.ok(app.includes(route), route);
+  // 业务页面清单不再在 app.js 里另抄一份，而是取自 rail-menu.js（与「可设为常用」同一来源）。
+  assert.match(app, /const businessRoutes = new Set\(RM\.favoritable\(\)\.filter/);
+  for (const route of ['opportunities', 'opp-analysis']) assert.ok(RM.favoritable().some(e => e.kind === 'route' && e.target === route), route);
   const template = fs.readFileSync(path.join(__dirname, '../src/template.html'), 'utf8');
   const at = marker => template.indexOf(`<!--${marker}-->`);
   assert.ok(at('TEAM_UI') < at('OPP_MODEL') && at('OPP_MODEL') < at('OPP_UI') && at('OPP_UI') < at('LAI_BUSINESS_UI'));

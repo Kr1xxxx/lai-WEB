@@ -250,12 +250,13 @@ function appHarness() {
   elements['.drawer']=dialog;
   elements['#filter-error']={textContent:'',classList:{add(){}}};
   elements['#toast']={textContent:'',classList:{add(){},remove(){}}};
+  elements['#app']={classList:{add(){},remove(){},toggle(){},contains(){return false;}}};
   const document={activeElement:null,querySelector(q){return elements[q]||null;},addEventListener(event,fn){(callbacks[event]||=[]).push(fn);}};
   class FormData {constructor(form){this.entries=form.entries||form.elements.filter(e=>e.name&&!['button','submit'].includes(e.type)&&(e.type!=='radio'||e.checked)).map(e=>[e.name,e.value]);}[Symbol.iterator](){return this.entries[Symbol.iterator]();}}
   let draft=false,opened=0,navigated=0;
   const business={hasDraft:()=>draft,navigate(){navigated++;},openOrder(){opened++;}};
   const M=require('../src/model.js'), S=require('../src/segments.js');
-  const context={window:{addEventListener(event,fn){(callbacks[event]||=[]).push(fn);},PreviewModel:M,PreviewSegments:S,LaiCustomerFields:F,LaiModules:require('../src/modules.js'),LaiBusinessUI:{create:()=>business},LaiMailUI:(require('../src/mail-ui.js'),globalThis.LaiMailUI)},document,FormData,structuredClone,Intl,crypto:require('node:crypto').webcrypto,history:{replaceState(){}},setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){}};
+  const context={window:{addEventListener(event,fn){(callbacks[event]||=[]).push(fn);},PreviewModel:M,PreviewSegments:S,LaiCustomerFields:F,LaiModules:require('../src/modules.js'),LaiBusinessUI:{create:()=>business},LaiRailMenu:require('../src/rail-menu.js'),LaiNavFavorites:require('../src/nav-favorites.js'),LaiMailUI:(require('../src/mail-ui.js'),globalThis.LaiMailUI)},document,FormData,structuredClone,Intl,crypto:require('node:crypto').webcrypto,history:{replaceState(){}},setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){}};
   vm.createContext(context);
   const source=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8').replace('  boot();','  window.testApp={filterForm,drawer,navigateApp,displayCell,snapshot:()=>({filters,advancedSpec,modal,segmentDraft}), setRows:value=>{rows=value;}};');
   vm.runInContext(source,context);

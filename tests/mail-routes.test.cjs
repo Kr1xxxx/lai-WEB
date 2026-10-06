@@ -12,7 +12,7 @@ const { DatabaseSync } = require('node:sqlite');
 test('mail account routes require the session, validate input before any network use, and never return the password', async () => {
   const temporary = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-mailhttp-'));
   const resources = path.join(temporary, 'resources'); fs.mkdirSync(resources);
-  for (const file of ['server.js', 'storage.js', 'storage-path.js', 'auth.js', 'errors.js', 'mail-account.js', 'mail-imap.js', 'mail-client.js', 'mail-smtp.js', 'mail-mime.js', 'mail-service.js']) fs.copyFileSync(path.join(__dirname, '../backend', file), path.join(resources, file));
+  for (const file of ['server.js', 'storage.js', 'storage-path.js', 'auth.js', 'errors.js', 'mail-account.js', 'mail-imap.js', 'mail-client.js', 'mail-smtp.js', 'mail-mime.js', 'mail-service.js', 'mail-libs.js']) fs.copyFileSync(path.join(__dirname, '../backend', file), path.join(resources, file));
   fs.writeFileSync(path.join(resources, 'trade-order-system.html'), '<!doctype html><title>fixture</title>');
   const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
   const token = crypto.randomBytes(32).toString('hex'), base = `http://127.0.0.1:${port}`, data = path.join(temporary, 'data');
@@ -65,6 +65,9 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
   const resources = path.join(temporary, 'resources'); fs.mkdirSync(resources);
   for (const file of fs.readdirSync(path.join(__dirname, '../backend'))) fs.copyFileSync(path.join(__dirname, '../backend', file), path.join(resources, file));
   fs.writeFileSync(path.join(resources, 'trade-order-system.html'), '<!doctype html><title>fixture</title>');
+  // 应用包里第三方库放在 vendor/ 下，这里按同样的布局摆放。
+  fs.mkdirSync(path.join(resources, 'vendor'));
+  for (const [from, name] of [['mail-libs/mail-libs.cjs', 'mail-libs.cjs'], ['squire/squire-raw.js', 'squire-raw.js'], ['dompurify/purify.min.js', 'purify.min.js']]) fs.copyFileSync(path.join(__dirname, '../vendor', from), path.join(resources, 'vendor', name));
   const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
   const token = crypto.randomBytes(32).toString('hex'), base = `http://127.0.0.1:${port}`, data = path.join(temporary, 'data');
   const child = spawn(process.execPath, [path.join(resources, 'server.js')], { env: { ...process.env, LAI_DATA_DIR: data, LAI_APP_PORT: String(port), LAI_API_TOKEN: token, LAI_APP_NO_OPEN: '1', LAI_MAIL_TEST_ENDPOINTS: `${imap.port},${smtp.port}` }, stdio: ['ignore', 'ignore', 'pipe'] });
@@ -73,7 +76,9 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
   const post = (route, body) => request(route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   try {
     for (let i = 0; i < 200; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 20)); }
-    for (const route of ['/api/mail/messages?folder=inbox', '/api/mail/message?box=inbox&uid=1', '/api/mail/drafts', '/api/mail/correspondence?addresses=a@b.co']) assert.equal((await fetch(base + route)).status, 401, route);
+    for (const route of ['/api/mail/messages?folder=inbox', '/api/mail/message?box=inbox&uid=1', '/api/mail/drafts', '/api/mail/correspondence?addresses=a@b.co', '/vendor/purify.min.js', '/vendor/squire-raw.js']) assert.equal((await fetch(base + route)).status, 401, route);
+    for (const file of ['purify.min.js', 'squire-raw.js']) { const served = await fetch(base + '/vendor/' + file, { headers: { 'x-trade-token': token } }); assert.equal(served.status, 200, file); assert.match(served.headers.get('content-type'), /javascript/); }
+    assert.equal((await fetch(base + '/vendor/mail-libs.cjs', { headers: { 'x-trade-token': token } })).status, 404, 'the server-side bundle is not served to the page');
     for (const route of ['/api/mail/send', '/api/mail/flags', '/api/mail/trash', '/api/mail/attachment/save', '/api/mail/drafts/save', '/api/mail/drafts/delete']) {
       assert.equal((await fetch(base + route, { method: 'POST' })).status, 401, route);
       assert.equal((await fetch(base + route, { method: 'POST', headers: { 'x-trade-token': token, Origin: 'https://untrusted.example', 'Content-Type': 'application/json' }, body: '{}' })).status, 403, route);
@@ -104,7 +109,7 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
     const bulk = await post('/api/mail/bulk/start', { subject: 'Hi {{公司}}', text: 'Dear {{姓名}}', recipients: [{ address: 'anna@nordic-lamps.example', name: 'Anna', customer: 'Nordic Lamps AB' }] });
     assert.equal(bulk.status, 200); assert.equal(bulk.body.batch.total, 1);
     let batchState; for (let i = 0; i < 200; i++) { batchState = (await request('/api/mail/bulk/batch?id=' + bulk.body.batch.id)).body.batch; if (batchState.status !== 'sending') break; await new Promise(r => setTimeout(r, 25)); }
-    assert.deepEqual([batchState.status, batchState.sent], ['done', 1]); assert.equal(smtp.state.sent.at(-1).parsed.subject, 'Hi Nordic Lamps AB'); assert.equal(smtp.state.sent.at(-1).parsed.text, 'Dear Anna');
+    assert.deepEqual([batchState.status, batchState.sent], ['done', 1]); assert.equal(smtp.state.sent.at(-1).parsed.subject, 'Hi Nordic Lamps AB'); assert.equal(smtp.state.sent.at(-1).parsed.text.trim(), 'Dear Anna');
     assert.equal((await request('/api/mail/bulk')).body.items.length, 1); assert.equal((await post('/api/mail/bulk/cancel', { id: bulk.body.batch.id })).status, 200);
     assert.equal((await post('/api/mail/trash', { box: 'inbox', uid: 5 })).status, 200); assert.equal(imap.state.boxes.get('Trash').messages.length, 1);
     assert.equal((await request('/api/mail/message?box=inbox&uid=5')).status, 404);
@@ -117,7 +122,7 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
 test('the test-only mail endpoint override cannot apply to the real data folder', () => {
   const server = fs.readFileSync(path.join(__dirname, '../backend/server.js'), 'utf8');
   assert.match(server, /const mailTest = process\.env\.LAI_DATA_DIR && \/\^\\d\{1,5\},\\d\{1,5\}\$\/\.test\(process\.env\.LAI_MAIL_TEST_ENDPOINTS \|\| ''\)/);
-  assert.match(server, /net\.connect\(mailTest\[0\], '127\.0\.0\.1'\)/); assert.match(server, /net\.connect\(mailTest\[1\], '127\.0\.0\.1'\)/);
+  assert.match(server, /const mailEndpoints = mailTest \? \{ imap: \{ host: '127\.0\.0\.1', port: mailTest\[0\] \}, smtp: \{ host: '127\.0\.0\.1', port: mailTest\[1\] \} \} : \{\};/);
   assert.match(fs.readFileSync(path.join(__dirname, '../backend/storage-path.js'), 'utf8'), /Lai override is restricted to canonical test directories/);
   assert.match(server, /downloadsDir: process\.env\.LAI_DATA_DIR \? path\.join\(store\.directory, 'downloads'\) : path\.join\(os\.homedir\(\), 'Downloads'\)/);
 });
