@@ -24,8 +24,12 @@
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
 | `src/nav-favorites.js` | 常用导航：收藏哪些既有导航条目及其顺序（存于`laiSettings.favoriteNav`，只存条目ID，不含业务字段）；从未设置过时默认全部收藏 |
 | `src/rail-menu.js` | 左侧栏悬停浮层的内容：每个菜单列出应用里已有的页面入口；沟通、线索、商机仍是保留入口 |
-| `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、六个文件夹、Zoho 邮箱绑定表单与已绑定状态。只通过本机接口通信，界面不保存密码。不读取、不发送邮件；写信仍是保留入口，客户／下属页签只有说明 |
-| `backend/mail-imap.js` | 用 IMAP 登录验证 Zoho 邮箱凭据（TLS 993，主机限定为 Zoho 的四个固定地址），成功后立即退出登录；不选文件夹、不读信、不发信 |
+| `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表（收件箱、待处理、未读、草稿箱、发件箱）、阅读、回复／转发／写信、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |
+| `backend/mail-imap.js` | Zoho 服务器地址（固定四个 IMAP 主机）与登录验证 |
+| `backend/mail-client.js` | 收信会话：登录、列出文件夹、搜索、取邮件头与全文、改标记、移动；每次操作单独登录、用完退出 |
+| `backend/mail-smtp.js` | 发信：TLS 465 提交一封已生成的邮件，主机固定；任一收件人被拒则整封不发 |
+| `backend/mail-mime.js` | 邮件解析（编码、多部分、附件、内嵌图片）与生成（纯文本正文＋附件） |
+| `backend/mail-service.js` | 邮件服务：文件夹列表与分页、搜索、阅读、待处理／未读标记、删除（移到服务器的已删除）、保存附件、发送、本机草稿、客户往来 |
 | `backend/mail-account.js` | 邮箱绑定服务：先验证后保存、查询、重新验证、解绑；对外应答不含密码 |
 | `src/team-model.js`、`team-ui.js` | 团队数据四类报表（客户资产、跟进情况、任务完成、订单业绩）：只用现有客户／跟进／任务／订单数据，按跟进人名称汇总；model 为纯统计，ui 只生成页面标记与明细列表 |
 | `src/business-model.js`、`business-ui.js` | 现有订单、工作台、日历／待办和统计规则及界面 |
@@ -65,11 +69,17 @@
 
 仓库保持私人，不新增项目自有代码开源许可；私人上传不等于授权对外发布。公司共享部署、公开发行、公证和外部账号接入另行决定。
 
-## 邮箱绑定（2026-10-06 起）
+## 邮件（2026-10-06 起）
 
-`界面 → 本机接口 /api/mail-account(/bind｜/verify｜/unbind) → backend/mail-account.js → backend/mail-imap.js → Zoho IMAP`
+`界面 → 本机接口 /api/mail-account/*、/api/mail/* → backend/mail-account.js、mail-service.js → mail-client.js（IMAP 993）／mail-smtp.js（SMTP 465）→ Zoho`
 
-- 这是应用第一处对外连接，用户已确认解除「外部沟通暂缓」中绑定与验证这一部分；读取、发送邮件仍未做。
+- 这是应用唯一的对外连接。只在用户打开邮件页、点击操作时连接；没有后台定时收信，也不在本机缓存邮件内容。
 - 凭据按用户决定以明文存放在本机 SQLite 的 `mail_account` 表（单行）。它不属于 `/api/data` 快照，不随 `/api/save` 改动，接口应答与界面都不含密码；但数据库文件和 `backups/` 里的备份文件都包含它，解绑只删除当前库里的记录，不清理旧备份。
-- 连接主机不可由界面指定：中国站 `imap.zoho.com.cn`／`imappro.zoho.com.cn`，国际站 `imap.zoho.com`／`imappro.zoho.com`，按站点与账号类型（个人／企业域名）选择。
-- 网页试用版没有本机服务，无法连接邮箱；它的数据替身对 `/api/mail-account` 返回 `available:false`，绑定表单随之禁用。
+- 连接主机不可由界面指定：中国站 `imap.zoho.com.cn`／`imappro.zoho.com.cn`、`smtp.zoho.com.cn`／`smtppro.zoho.com.cn`，国际站为不带 `.cn` 的同名主机，按站点与账号类型（个人／企业域名）选择。
+- 界面文件夹与服务器的对应：收件箱＝INBOX 全部，未读邮件＝INBOX 未读，待处理邮件＝INBOX 里加了星标（\Flagged）的邮件，发件箱＝服务器的已发送文件夹。删除＝移到服务器的已删除文件夹。已发送、已删除文件夹先按服务器标记找，再按常见名称找。
+- 发信后不往已发送文件夹另存副本，依赖 Zoho 自身保存已发送邮件；若用户在 Zoho 里关闭了该选项，发件箱里就看不到从来财发出的信。
+- 草稿只存在本机 `mail_drafts` 表，不同步到 Zoho 的草稿箱，也不保存附件。
+- 附件保存到用户的「下载」文件夹（文件名净化、不覆盖同名文件）并在访达中显示。
+- 客户与邮件的对应只按邮箱地址匹配客户档案里的公司邮箱与联系人邮箱，不改动客户数据。
+- 网页试用版没有本机服务，无法连接邮箱；它的数据替身对 `/api/mail-account` 返回 `available:false`，绑定与写信随之禁用。
+- 测试用开关：数据目录被改到测试目录（`storage-path.js` 只允许系统临时目录下的 `lai-test-*`）时，`LAI_MAIL_TEST_ENDPOINTS` 可把连接指向本机回环地址上的假服务器，附件也改存到该测试目录；正式数据目录下不起作用。
