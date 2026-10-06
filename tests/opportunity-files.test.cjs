@@ -145,6 +145,17 @@ test('over the real local server: upload, preview, save a copy, back up with the
     const copied = path.join(backup.attachmentsDir, decodeURIComponent(made.file.fileUrl.slice('/attachments/'.length)));
     assert.deepEqual(fs.readFileSync(copied), png);
 
+    // 一个附件的文件不见了：备份照常完成，只是不带这个文件，并报告缺了几个。
+    const lone = await (await upload('opp-77', 'lost.txt', 'gone soon')).json();
+    const withLost = { ...next, data: { ...next.data, laiOpportunities: [{ id: 'opp-77', name: 'N', attachments: [...next.data.laiOpportunities[0].attachments, { id: 'att-2', name: 'lost.txt', size: 9, type: 'text/plain', fileUrl: lone.file.fileUrl, uploadedAt: '2026-10-07T00:00:00.000Z' }] }] } };
+    const latest = await (await request('/api/data')).json();
+    assert.equal((await post('/api/save', { state: withLost, baseRevision: latest.revision })).status, 200);
+    fs.rmSync(path.join(data, 'attachments', decodeURIComponent(lone.file.fileUrl.slice('/attachments/'.length))));
+    const partial = await (await post('/api/manual-backup', {})).json();
+    assert.equal(partial.ok, true); assert.equal(partial.missingAttachments, 1);
+    assert.equal(fs.existsSync(path.join(partial.attachmentsDir, decodeURIComponent(lone.file.fileUrl.slice('/attachments/'.length)))), false);
+    assert.deepEqual(fs.readFileSync(path.join(partial.attachmentsDir, decodeURIComponent(made.file.fileUrl.slice('/attachments/'.length)))), png);
+
     const removed = await (await post('/api/opportunity-file/delete', { fileUrls: [made.file.fileUrl] })).json();
     assert.deepEqual(removed, { ok: true, removed: 1 });
     assert.equal((await request('/api/opportunity-file?url=' + encodeURIComponent(made.file.fileUrl))).status, 404);
