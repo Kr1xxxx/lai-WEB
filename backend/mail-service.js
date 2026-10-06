@@ -10,13 +10,18 @@ const mime = require('./mail-mime.js');
 
 // 邮件读写服务：列表、阅读、标记、删除、附件、发送、草稿、群发。
 // 协议与解析交给开源库（imapflow、nodemailer、postal-mime，见 vendor/mail-libs），这里只做来财自己的业务规则。
-// 每次操作单独登录一次、用完退出；不在本机缓存邮件内容（草稿与群发记录除外）。
+// 登录邮箱后连接会留一小会儿（keepAliveMs），接下来的操作直接复用，不用每点一下都重新登录；闲置到时间就退出。
+// 不在本机缓存邮件内容（草稿、模板与群发记录除外）。
 
 const PAGE_SIZE = 50;
 const MAX_MESSAGE_BYTES = 30 * 1024 * 1024;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const MAX_RECIPIENTS = 50;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
+const MAX_BATCH = 200;        // 一次批量标记／删除最多多少封
+const MAX_TEMPLATES = 200;
+const STALE_CHECK_MS = 20000; // 连接闲了这么久再用之前，先问服务器一声它还在不在
+const OPERATION_TIMEOUT_MS = 120000; // 一次操作最多等这么久；超时就放弃这条连接
 // 界面上的文件夹 → 服务器上的邮箱与筛选条件。「待处理」用邮件的星标（\Flagged）表示。
 const FOLDERS = Object.freeze({
   inbox: { box: 'inbox', query: { all: true } },
@@ -30,10 +35,11 @@ const BOXES = Object.freeze({
   trash: { flag: '\\trash', names: ['Trash', 'Deleted Items', 'Deleted Messages', '已删除'] },
 });
 
-function createMailService({ store, endpoints = {}, now = () => new Date(), downloadsDir = path.join(os.homedir(), 'Downloads'), reveal = () => {}, bulkPauseMs = 1500 }) {
+function createMailService({ store, endpoints = {}, now = () => new Date(), downloadsDir = path.join(os.homedir(), 'Downloads'), reveal = () => {}, bulkPauseMs = 1500, keepAliveMs = 0, staleCheckMs = STALE_CHECK_MS, operationTimeoutMs = OPERATION_TIMEOUT_MS, clock = () => Date.now() }) {
   const boxNames = new Map();   // 邮箱账号 → { sent, trash } 的实际名称
   const recent = new Map();     // 最近读过的几封（供保存附件、转发用），只在内存里
-  const imapOptions = endpoints.imap ? { endpoint: endpoints.imap } : {};
+  // 要留着连接复用时，连接本身的闲置超时必须比保留时间长，否则库会先把它关掉；单次操作另有超时兜底。
+  const imapOptions = { ...(endpoints.imap ? { endpoint: endpoints.imap } : {}), ...(keepAliveMs > 0 ? { socketTimeout: keepAliveMs + 60000 } : {}) };
   const smtpOptions = endpoints.smtp ? { endpoint: endpoints.smtp } : {};
 
   const fail = (status, code, message) => httpError(status, message, { code });
@@ -47,14 +53,86 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     if (!found) throw fail(409, 'not_bound', '还没有绑定邮箱');
     return found;
   }
-  async function withSession(task) {
-    const current = account();
-    let session;
-    try {
-      session = await client.open(current, imapOptions);
-      return await task(session, current);
-    } catch (error) { throw asHttp(error); }
-    finally { if (session) await session.close(); }
+  // ---- 邮箱连接：同一个账号只留一条，用完不马上退出 ----
+  // generation：解绑或换邮箱时加一。之前开始的登录、重试一律作废，不会把旧账号的连接留下来。
+  const pool = { session: null, key: '', timer: null, opening: null, usedAt: 0 };
+  let generation = 0;
+  const leases = new Map();     // 连接 → 正在用它的操作数
+  const accountKey = current => crypto.createHash('sha256').update([current.email, current.password, current.site, current.accountType].join('\u0000')).digest('hex');
+  const inUse = session => leases.get(session) || 0;
+  const closeQuietly = session => { leases.delete(session); return session.close().catch(() => {}); };
+  // 不再把这条连接当作“留着的那条”。还有操作在用它时先不关，等最后一个用完再关。
+  async function dropSession(session = pool.session) {
+    if (!session) return;
+    if (pool.session === session) { pool.session = null; pool.key = ''; clearTimeout(pool.timer); pool.timer = null; }
+    if (!inUse(session)) await closeQuietly(session);
+  }
+  async function acquire(current) {
+    const key = accountKey(current), started = generation;
+    clearTimeout(pool.timer); pool.timer = null;
+    if (pool.session && (pool.key !== key || !pool.session.usable())) await dropSession();
+    // 闲了一阵的连接可能已经被服务器断开而这边还不知道：先问一声，不通就重新登录。
+    if (pool.session && !inUse(pool.session) && clock() - pool.usedAt >= staleCheckMs) {
+      const session = pool.session;
+      let alive = false;
+      try { await session.noop(); alive = session.usable(); } catch (_) { alive = false; }
+      if (!alive) await dropSession(session);
+    }
+    if (started !== generation) throw fail(409, 'not_bound', '邮箱绑定刚刚变了，请重试');
+    if (pool.session && pool.key === key) { leases.set(pool.session, inUse(pool.session) + 1); return { session: pool.session, fresh: false }; }
+    if (!pool.opening || pool.opening.key !== key || pool.opening.generation !== started) {
+      const promise = client.open(current, imapOptions).then(async (session) => {
+        // 登录期间解绑或换了邮箱：这条连接不能用，也不能留。
+        if (started !== generation) { await closeQuietly(session); throw fail(409, 'not_bound', '邮箱绑定刚刚变了，请重试'); }
+        const previous = pool.session;
+        pool.session = session; pool.key = key;
+        if (previous && previous !== session && !inUse(previous)) await closeQuietly(previous);
+        return session;
+      });
+      const opening = { key, generation: started, promise };
+      pool.opening = opening;
+      promise.then(() => {}, () => {}).then(() => { if (pool.opening === opening) pool.opening = null; });
+    }
+    const session = await pool.opening.promise;
+    leases.set(session, inUse(session) + 1);
+    return { session, fresh: true };
+  }
+  function release(session) {
+    const left = Math.max(0, inUse(session) - 1);
+    if (left) leases.set(session, left); else leases.delete(session);
+    pool.usedAt = clock();
+    if (pool.session !== session) return left ? undefined : closeQuietly(session);
+    if (left) return undefined;
+    if (keepAliveMs <= 0) return dropSession(session);
+    clearTimeout(pool.timer);
+    pool.timer = setTimeout(() => { if (!inUse(session)) dropSession(session).catch(() => {}); }, keepAliveMs);
+    if (pool.timer.unref) pool.timer.unref();
+    return undefined;
+  }
+  // 单次操作的超时：到时间还没做完就放弃（连接随后会被丢掉）。
+  function limited(work) {
+    if (!(operationTimeoutMs > 0)) return work;
+    let timer;
+    const expired = new Promise((_, reject) => { timer = setTimeout(() => reject(imap.mailError('timeout', '邮箱服务器长时间没有回应，这次操作已放弃，请稍后重试。')), operationTimeoutMs); if (timer.unref) timer.unref(); });
+    return Promise.race([work, expired]).finally(() => clearTimeout(timer));
+  }
+  // retry：复用的连接中途断了时，重新登录再做一次。只读操作和改标记可以重做；移动邮件不重做（可能已经移过去了）。
+  async function withSession(task, { retry = true } = {}) {
+    for (let attempt = 0; ; attempt++) {
+      const current = account();   // 每次都重新读：重试时如果已经解绑，就按没绑定报错，不会拿旧密码再登录
+      let lease = null, again = false;
+      try {
+        lease = await acquire(current);
+        return await limited(task(lease.session, current));
+      } catch (error) {
+        const dead = !!lease && !lease.session.usable();
+        // 超时的连接多半卡住了：直接断开，不等它回话。
+        if (lease && error?.code === 'timeout') lease.session.destroy();
+        if (lease && (dead || error?.code === 'auth_failed' || error?.code === 'timeout')) await dropSession(lease.session).catch(() => {});
+        again = dead && !lease.fresh && retry && attempt === 0;
+        if (!again) throw asHttp(error);
+      } finally { if (lease) await release(lease.session); }
+    }
   }
   async function resolveBox(session, current, box) {
     const spec = BOXES[box];
@@ -75,6 +153,14 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     if (!Number.isSafeInteger(uid) || uid <= 0) throw fail(400, 'invalid_input', '邮件编号无效');
     return uid;
   };
+  // 一封（uid）或多封（uids 数组）：统一成去重后的编号数组。
+  const uidsOf = (request) => {
+    if (request.uids === undefined) return [uidOf(request.uid)];
+    if (!Array.isArray(request.uids) || !request.uids.length) throw fail(400, 'invalid_input', '没有选中邮件');
+    const uids = [...new Set(request.uids.map(uidOf))];
+    if (uids.length > MAX_BATCH) throw fail(400, 'invalid_input', `一次最多处理 ${MAX_BATCH} 封邮件`);
+    return uids;
+  };
   const boxOf = (value) => {
     if (value !== 'inbox' && value !== 'sent') throw fail(400, 'invalid_input', '不支持的邮件文件夹');
     return value;
@@ -84,6 +170,8 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     const internal = message.internalDate ? new Date(message.internalDate) : null;
     return {
       box, uid: message.uid, from: headers.from, to: headers.to, cc: headers.cc, subject: headers.subject, messageId: headers.messageId,
+      // 会话串联用：这封信回复的是哪一封、它所在的一串邮件的编号。
+      inReplyTo: headers.inReplyTo, references: headers.references,
       date: headers.date || (internal && Number.isFinite(internal.getTime()) ? internal.toISOString() : ''), size: message.size,
       seen: message.flags.includes('\\seen'), pending: message.flags.includes('\\flagged'), answered: message.flags.includes('\\answered'),
       hasAttachment: headers.hasAttachment, snippet: await mime.snippet(message.headers, message.preview),
@@ -117,6 +205,16 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       const result = await page(session, spec.box, mailbox, { ...spec.query, ...filter }, pageNumber);
       return { ok: true, folder, page: pageNumber, pageSize: PAGE_SIZE, total: result.total, items: result.items, ...(result.counts ? { counts: result.counts } : {}) };
     });
+  }
+
+  // 收件箱概况：未读数、待处理数、封数，以及“下一封新邮件的编号”（当前最大编号加一）。界面定时来问，用它判断有没有新邮件。
+  // 都在打开的收件箱里用搜索和取编号得到，不用 STATUS 命令（对正打开着的文件夹发 STATUS 不合规范，有的服务器会拒绝）。
+  async function status() {
+    return withSession(session => session.withMailbox('INBOX', true, async () => {
+      const total = session.exists();
+      const top = total ? await session.top() : 0;
+      return { ok: true, unread: (await session.search({ seen: false })).length, pending: (await session.search({ flagged: true })).length, total, uidNext: top + 1 };
+    }));
   }
 
   // 某个客户的往来邮件：收件箱与已发送里与这些地址有关的最近邮件，按时间倒序合并。
@@ -168,7 +266,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       if (!flags.includes('\\seen')) await session.addFlags(uid, ['\\Seen']);
       return { ok: true, message: {
         box, uid, from: parsed.from, to: parsed.to, cc: parsed.cc, replyTo: parsed.replyTo, subject: parsed.subject, date: parsed.date,
-        messageId: parsed.messageId, references: parsed.references, text: parsed.text.slice(0, 2 * 1024 * 1024),
+        messageId: parsed.messageId, inReplyTo: parsed.inReplyTo, references: parsed.references, text: parsed.text.slice(0, 2 * 1024 * 1024),
         html: inlineImages(parsed.html, parsed.attachments).slice(0, 8 * 1024 * 1024),
         attachments: parsed.attachments.filter(item => !(item.inline && item.contentId && parsed.html.includes('cid:' + item.contentId))).map(({ index, filename, contentType, size }) => ({ index, filename, contentType, size })),
         seen: true, pending: flags.includes('\\flagged'),
@@ -176,23 +274,26 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     }));
   }
 
-  async function flags({ box: boxValue, uid: uidValue, seen, pending } = {}) {
-    const box = boxOf(boxValue), uid = uidOf(uidValue);
+  // 改已读／待处理标记。可以一次改多封（uids）。
+  async function flags(input = {}) {
+    const request = input && typeof input === 'object' ? input : {};
+    const box = boxOf(request.box), uids = uidsOf(request), { seen, pending } = request;
     if (typeof seen !== 'boolean' && typeof pending !== 'boolean') throw fail(400, 'invalid_input', '没有要修改的标记');
     return withSession(async (session, current) => session.withMailbox(await resolveBox(session, current, box), false, async () => {
-      if (typeof seen === 'boolean') await (seen ? session.addFlags : session.removeFlags)(uid, ['\\Seen']);
-      if (typeof pending === 'boolean') await (pending ? session.addFlags : session.removeFlags)(uid, ['\\Flagged']);
-      return { ok: true };
+      if (typeof seen === 'boolean') await (seen ? session.addFlags : session.removeFlags)(uids, ['\\Seen']);
+      if (typeof pending === 'boolean') await (pending ? session.addFlags : session.removeFlags)(uids, ['\\Flagged']);
+      return { ok: true, count: uids.length };
     }));
   }
 
-  // 删除＝移到邮箱的「已删除」，不是永久删除，可在 Zoho 里恢复。
-  async function trash({ box: boxValue, uid: uidValue } = {}) {
-    const box = boxOf(boxValue), uid = uidOf(uidValue);
+  // 删除＝移到邮箱的「已删除」，不是永久删除，可在 Zoho 里恢复。可以一次删多封（uids）。
+  async function trash(input = {}) {
+    const request = input && typeof input === 'object' ? input : {};
+    const box = boxOf(request.box), uids = uidsOf(request);
     return withSession(async (session, current) => {
       const target = await resolveBox(session, current, 'trash'), source = await resolveBox(session, current, box);
-      return session.withMailbox(source, false, async () => { await session.move(uid, target); return { ok: true }; });
-    });
+      return session.withMailbox(source, false, async () => { await session.move(uids, target); return { ok: true, count: uids.length }; });
+    }, { retry: false });
   }
 
   async function cachedMessage(box, uid) {
@@ -304,19 +405,65 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     return { ok: true, messageId: result.messageId, recipients: result.accepted, rejected: result.rejected, attachmentCount: attachments.length };
   }
 
+  // 草稿连同附件一起存在本机。列表里只带附件的名字和大小；打开某一份草稿时才把附件内容取出来。
+  const fileMeta = item => ({ filename: item.filename, contentType: item.contentType, size: item.content.length });
   function drafts() {
     return { ok: true, items: store.listMailDrafts() };
   }
+  function getDraft({ id } = {}) {
+    const found = draftId(id) && store.listMailDrafts().find(item => item.id === draftId(id));
+    if (!found) throw fail(404, 'not_found', '找不到这份草稿');
+    const files = store.readMailDraftFiles ? store.readMailDraftFiles(found.id) : [];
+    return { ok: true, draft: found, attachments: files.filter(item => item && typeof item.contentBase64 === 'string').map(item => ({ filename: String(item.filename || ''), contentType: String(item.contentType || 'application/octet-stream'), contentBase64: item.contentBase64 })) };
+  }
   function saveDraft(input) {
-    const id = draftId(input?.id) || crypto.randomBytes(16).toString('hex');
-    const draft = cleanDraft(input, id);
-    store.writeMailDraft(draft);
+    const request = input && typeof input === 'object' ? input : {};
+    const id = draftId(request.id) || crypto.randomBytes(16).toString('hex');
+    const draft = cleanDraft(request, id);
+    // 没带 attachments 字段（只改了文字）时，原来存着的附件保持不动。
+    if (Array.isArray(request.attachments)) {
+      const { attachments, bytes } = uploadedAttachments(request);
+      if (attachments.length > 30) throw fail(400, 'invalid_input', '附件不能超过 30 个');
+      if (bytes > MAX_ATTACHMENT_BYTES) throw fail(413, 'too_large', '附件合计超过 10 MB，无法随草稿保存');
+      draft.attachments = attachments.map(fileMeta);
+      store.writeMailDraft(draft);
+      store.writeMailDraftFiles(id, attachments.map(item => ({ filename: item.filename, contentType: item.contentType, contentBase64: item.content.toString('base64') })));
+    } else {
+      const previous = store.listMailDrafts().find(item => item.id === id);
+      draft.attachments = previous && Array.isArray(previous.attachments) ? previous.attachments : [];
+      store.writeMailDraft(draft);
+    }
     return { ok: true, draft };
   }
   function deleteDraft(input) {
     const id = draftId(input?.id);
     if (!id) throw fail(400, 'invalid_input', '草稿编号无效');
     store.deleteMailDraft(id);
+    return { ok: true };
+  }
+
+  // ---- 模板：常用的主题和正文，写信时插入。只存在这台电脑上 ----
+  function templates() {
+    return { ok: true, items: store.listMailTemplates() };
+  }
+  function saveTemplate(input) {
+    const request = input && typeof input === 'object' ? input : {};
+    const name = String(request.name ?? '').replace(/[\r\n\u0000]+/g, ' ').trim().slice(0, 80);
+    if (!name) throw fail(400, 'invalid_input', '请给模板起个名字');
+    const content = cleanDraft(request, '');
+    if (!content.subject.trim() && !content.text.trim() && !mime.htmlToText(content.html).trim()) throw fail(400, 'invalid_input', '模板的主题和正文不能都为空');
+    const existing = store.listMailTemplates();
+    const id = draftId(request.id) && existing.some(item => item.id === draftId(request.id)) ? draftId(request.id) : crypto.randomBytes(16).toString('hex');
+    if (existing.some(item => item.id !== id && item.name === name)) throw fail(409, 'duplicate', `已经有一个叫「${name}」的模板，请换个名字`);
+    if (!existing.some(item => item.id === id) && existing.length >= MAX_TEMPLATES) throw fail(400, 'invalid_input', `模板最多 ${MAX_TEMPLATES} 个，请先删掉不用的`);
+    const template = { id, name, subject: content.subject, html: content.html, text: content.text.trim() ? content.text : mime.htmlToText(content.html), updatedAt: content.updatedAt };
+    store.writeMailTemplate(template);
+    return { ok: true, template };
+  }
+  function deleteTemplate(input) {
+    const id = draftId(input?.id);
+    if (!id) throw fail(400, 'invalid_input', '模板编号无效');
+    store.deleteMailTemplate(id);
     return { ok: true };
   }
 
@@ -328,7 +475,8 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     total: batch.items.length, sent: bulkCount(batch, 'sent'), failed: bulkCount(batch, 'failed'), pending: bulkCount(batch, 'pending'), skipped: bulkCount(batch, 'skipped') });
   // 正文和主题里的 {{姓名}}、{{公司}} 换成每位收件人自己的；没有联系人姓名时用公司名。
   const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const personalize = (text, item, asHtml = false) => { const put = value => (asHtml ? escapeHtml(value) : value); return String(text).replace(/\{\{\s*姓名\s*\}\}/g, put(item.name || item.customer || '')).replace(/\{\{\s*公司\s*\}\}/g, put(item.customer || '')); };
+  // 用函数做替换：客户名里的 $ 不会被当成替换记号。
+  const personalize = (text, item, asHtml = false) => { const put = value => (asHtml ? escapeHtml(value) : value); return String(text).replace(/\{\{\s*姓名\s*\}\}/g, () => put(item.name || item.customer || '')).replace(/\{\{\s*公司\s*\}\}/g, () => put(item.customer || '')); };
   const saveBulk = (batch) => { try { store.writeMailBulk(batch); } catch (_) {} };
   // 应用在发送途中被关闭的批次不会自动续发（无法确定最后一封是否已发出），标为中断。
   function settleInterrupted(batch) {
@@ -410,9 +558,13 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
   }
   const bulkIdle = () => (bulkRunning ? bulkRunning.done : Promise.resolve());
 
-  function forget() { boxNames.clear(); recent.clear(); if (bulkRunning) bulkRunning.cancel = true; }
+  // 解绑、换邮箱时：忘掉文件夹名称和读过的邮件，停掉群发，并退出还留着的连接。
+  function forget() { generation++; boxNames.clear(); recent.clear(); if (bulkRunning) bulkRunning.cancel = true; return dropSession().catch(() => {}); }
+  const shutdown = () => dropSession().catch(() => {});
+  // 供测试看：现在是不是还留着一条连接。
+  const connected = () => !!pool.session;
 
-  return { list, correspondence, read, flags, trash, saveAttachment, send, drafts, saveDraft, deleteDraft, bulkStart, bulkList, bulkGet, bulkCancel, bulkIdle, forget };
+  return { list, status, correspondence, read, flags, trash, saveAttachment, send, drafts, getDraft, saveDraft, deleteDraft, templates, saveTemplate, deleteTemplate, bulkStart, bulkList, bulkGet, bulkCancel, bulkIdle, forget, shutdown, connected };
 }
 
-module.exports = { createMailService, PAGE_SIZE, FOLDERS };
+module.exports = { createMailService, PAGE_SIZE, FOLDERS, MAX_BATCH };

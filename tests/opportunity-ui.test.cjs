@@ -29,20 +29,26 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   const board = O.board(sample(), {}, TODAY);
   const html = ui.boardMarkup(board, {}, {today: TODAY});
   assert.match(html, /共 <b>4<\/b> 个商机/);
-  for (const id of ['opp-search', 'opp-sort', 'opp-flow', 'opp-date-field', 'opp-from', 'opp-to', 'opp-archived', 'opp-currency']) assert.ok(html.includes(`id="${id}"`), id);
-  assert.match(html, /<option value="default" selected>默认销售流程<\/option>/);
-  assert.match(html, /总销售金额：<b>USD 631\.74<\/b>/); assert.match(html, /进行中金额：<b class="opp-open">USD 431\.74<\/b>/); assert.match(html, /赢单金额：<b class="opp-won">USD 200\.00<\/b>/);
+  for (const id of ['opp-search', 'opp-sort', 'opp-owner', 'opp-date-field', 'opp-from', 'opp-to', 'opp-archived', 'opp-currency']) assert.ok(html.includes(`id="${id}"`), id);
+  assert.doesNotMatch(html, /opp-flow/, 'only one sales flow exists, so there is nothing to choose');
+  assert.deepEqual([...html.matchAll(/<div class="opp-stat is-(\w+)"><span>([^<]+)<\/span><b>([^<]+)<\/b><\/div>/g)].map(m => [m[1], m[2], m[3]]),
+    [['total', '总销售金额', 'USD 631.74'], ['open', '进行中', 'USD 431.74'], ['won', '赢单', 'USD 200.00'], ['lost', '输单', 'USD 50.00']]);
   assert.match(html, /另有 1 个其他币种的商机/);
-  assert.deepEqual([...html.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span>([^<]+)<\/span><\/header><div class="opp-stage-amount">([^<]+)</g)].map(m => [m[1], m[2], m[3], m[4]]),
+  assert.deepEqual([...html.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span class="opp-stage-name">([^<]+)<\/span><span class="opp-stage-count">(\d+)<\/span><span class="opp-stage-amount">([^<]+)</g)].map(m => [m[1], m[2], `${m[3]}(${m[4]})`, m[5]]),
     [['open', 'open', '未成单(2)', 'USD 431.74'], ['open', 'unpaid', '付款未到账(0)', 'USD 0.00'], ['won', 'balance', '待付尾款(0)', 'USD 0.00'], ['won', 'done', '已完成(1)', 'USD 200.00'], ['lost', 'lost', '输单(1)', 'USD 50.00']]);
   assert.equal((html.match(/class="opp-card"/g) || []).length, 4);
   assert.equal((html.match(/draggable="true"/g) || []).length, 4);
   assert.equal((html.match(/暂无商机/g) || []).length, 2);
-  assert.match(html, /结束日期：04-02/, 'this year: month-day only');
-  assert.match(html, /结束日期：2025-12-15/, 'other years: full date');
-  assert.equal((html.match(/class="opp-overdue"/g) || []).length, 2, 'two open opportunities are past their end date');
+  assert.match(html, /<span class="opp-due is-overdue">逾期 04-02<\/span>/, 'this year: month-day only');
+  assert.match(html, /<span class="opp-due is-overdue">逾期 2025-12-15<\/span>/, 'other years: full date');
+  assert.equal((html.match(/class="opp-due is-overdue"/g) || []).length, 2, 'two open opportunities are past their end date');
+  assert.equal((html.match(/<span class="opp-due">11-05<\/span>/g) || []).length, 2, 'won and lost cards show the date without 截止');
+  assert.doesNotMatch(html, /截止/, 'no open card in this sample is still within its date');
+  assert.match(html, /<i class="opp-avatar" aria-hidden="true">A<\/i><span class="opp-owner-name">Amy<\/span>/);
   assert.match(html, /输单原因：价格原因/);
-  assert.match(html, /data-opp-view="board" aria-pressed="true"/);
+  assert.match(ui.headerActions(board, {}, {}), /data-opp-view="board" aria-pressed="true"/);
+  const soon = ui.boardMarkup(O.board(add(base, 's1', {endDate: '2026-10-20'}), {}, TODAY), {}, {today: TODAY});
+  assert.match(soon, /<span class="opp-due">10-20 截止<\/span>/, 'an open opportunity still within its date');
 });
 
 test('customer and owner text is always escaped', () => {
@@ -60,7 +66,8 @@ test('list view shows the same opportunities as a table; long columns are paged'
   const html = ui.boardMarkup(board, {mode: 'list'}, {today: TODAY});
   assert.doesNotMatch(html, /opp-board/);
   assert.equal((html.match(/data-opp-action="menu"/g) || []).length, 4);
-  assert.match(html, /<td>已完成<\/td>/); assert.match(html, /data-opp-view="list" aria-pressed="true"/);
+  assert.match(html, /<td><span class="opp-chip opp-stage-chip opp-kind-won">已完成<\/span><\/td>/); assert.match(html, /<span class="opp-due is-overdue">逾期 2026-04-02<\/span>/);
+  assert.match(ui.headerActions(board, {}, {mode: 'list'}), /data-opp-view="list" aria-pressed="true"/);
   let many = base;
   for (let i = 0; i < 65; i++) many = add(many, 'm' + i, {nameMode: 'custom', name: 'N' + String(i).padStart(2, '0')});
   const big = O.board(many, {}, TODAY);
@@ -79,18 +86,20 @@ test('form: reference fields, required marks, and the parts that depend on what 
   for (const name of ['nameMode', 'client', 'contact', 'amount', 'endDate', 'flow', 'exchangeRate', 'currency', 'stage', 'owner', 'collaborators', 'tags', 'note', 'products']) assert.ok(fresh.includes(`name="${name}"`), name);
   assert.match(fresh, /value="auto" checked/); assert.match(fresh, /name="name" value=""[^>]* hidden disabled>/, 'the name input is there but off until 自定义 is chosen');
   assert.match(fresh, /name="endDate" type="date" value="2026-11-05"/, 'end date defaults to 30 days ahead');
-  assert.match(fresh, /name="exchangeRate" value="100" data-rate="100" inputmode="decimal" readonly/);
+  assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="100" data-rate="100" inputmode="decimal" readonly/, 'USD needs no rate, so the field stays out of sight');
+  assert.match(fresh, /<input type="hidden" name="flow" value="default">/);
+  assert.equal((fresh.match(/<i class="opp-req" aria-hidden="true">\*<\/i>/g) || []).length, 8, 'name, customer, owner, amount, stage, end date, and the two hidden conditional ones');
   assert.match(fresh, /<option value="" selected>请先选择客户<\/option>/); assert.doesNotMatch(fresh, /name="contact" required/);
-  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="field" hidden>输单原因[^<]*<span[^>]*>\*<\/span><select name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
+  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
   const chosen = ui.formMarkup({...O.defaults(base, TODAY), client: 'Alpha <b>Co</b>', contact: 'Bo', nameMode: 'custom', name: '大单', currency: 'EUR', exchangeRate: 108, stage: 'lost', lostReason: '交期原因',
     collaborators: ['Bob', 'Cara'], tags: ['VIP'], products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B', quantity: 1, unitPrice: 4}]}, {contacts: ['Ann', 'Bo'], isNew: false});
   assert.match(chosen, /name="contact" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
   assert.match(chosen, /value="custom" checked/); assert.match(chosen, /name="name" value="大单"[^>]* required>/);
   assert.match(chosen, /<select name="lostReason" required>/);
-  assert.match(chosen, /name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
+  assert.match(chosen, /<label class="opp-field"><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
   assert.match(chosen, /<option value="交期原因" selected>/); assert.match(chosen, /name="lostNote"/);
   assert.match(chosen, /name="collaborators" value="Bob，Cara"/);
-  assert.match(chosen, />A, 10, 2\.5\nB, 1, 4<\/textarea><span class="muted tiny">共 2 项，合计 29\.00/);
+  assert.match(chosen, />A, 10, 2\.5\nB, 1, 4<\/textarea><span class="opp-field-hint">共 2 项，合计 29\.00/);
   assert.match(ui.formMarkup({client: 'Beta Ltd'}, {contacts: []}), /该客户没有联系人，可留空/);
   // 原来的联系人已不在客户联系人里：仍然作为已选项保留，保存别的修改时不会被清掉
   assert.match(ui.formMarkup({client: 'X', contact: 'Ann'}, {contacts: ['Bo']}), /<option value="Bo">Bo<\/option><option value="Ann" selected>Ann（已不在该客户的联系人中）<\/option>/);
@@ -110,7 +119,7 @@ test('card menu offers the right actions for each state', () => {
   assert.doesNotMatch(linked, /生成订单/); assert.match(linked, /data-biz-order="ord-9">查看关联订单/);
   assert.match(ui.menuMarkup({...card('p1'), archived: true}), /data-archived="0">取消归档/);
   assert.match(ui.menuMarkup(card('p1'), true), /class="team-danger" data-opp-action="delete" data-id="p1">再点一次确认删除（不可恢复）/);
-  assert.match(ui.lostMarkup(card('p1')), /<form class="drawer-body" id="opp-lost-form" data-id="p1">/);
+  assert.match(ui.lostMarkup(card('p1')), /<form class="drawer-body opp-form" id="opp-lost-form" data-id="p1">/);
 });
 
 test('analysis page shows the figures from the model', () => {
@@ -119,6 +128,8 @@ test('analysis page shows the figures from the model', () => {
   assert.match(html, /<span>赢单率<\/span><strong>50%<\/strong>/);
   assert.match(html, /<span>赢单<\/span><strong>1<\/strong><span class="muted tiny">USD 200\.00<\/span>/);
   assert.match(html, /<td>价格原因<\/td><td>1<\/td><td>USD 50\.00<\/td>/);
+  assert.deepEqual([...html.matchAll(/<div class="opp-bar opp-kind-(\w+)"><span class="opp-bar-label">([^<]+)<\/span><span class="opp-bar-track"><i style="width:(\d+)%"><\/i><\/span><b class="opp-bar-count">([^<]+)<\/b><span class="opp-bar-amount">([^<]+)<\/span>/g)].map(m => m.slice(1)),
+    [['open', '未成单', '100', '2 个 · 50%', 'USD 431.74'], ['open', '付款未到账', '0', '0 个 · 0%', 'USD 0.00'], ['won', '待付尾款', '0', '0 个 · 0%', 'USD 0.00'], ['won', '已完成', '50', '1 个 · 25%', 'USD 200.00'], ['lost', '输单', '50', '1 个 · 25%', 'USD 50.00']]);
   assert.match(html, /另有 1 个其他币种的商机未计入本页/);
   const empty = ui.analysisMarkup(O.analysis({}, {}, TODAY));
   assert.match(empty, /<span>赢单率<\/span><strong>—<\/strong>/); assert.match(empty, /所选范围内没有商机/); assert.match(empty, /所选范围内没有输单/);
@@ -141,7 +152,7 @@ function controller(initial, failWith = null) {
   const target = dataset => ({closest: sel => sel === 'button' ? {dataset, disabled: false} : null});
   const fakeForm = values => {
     const field = value => { const label = {hidden: false}; return {value, disabled: false, hidden: false, required: false, readOnly: false, innerHTML: '', dataset: {}, label, closest: () => label}; };
-    const elements = Object.fromEntries(['client', 'contact', 'stage', 'lostReason', 'lostNote', 'nameMode', 'name', 'currency', 'exchangeRate'].map(name => [name, field(values[name] ?? '')]));
+    const elements = Object.fromEntries(['client', 'contact', 'flow', 'stage', 'lostReason', 'lostNote', 'nameMode', 'name', 'currency', 'exchangeRate'].map(name => [name, field(values[name] ?? '')]));
     form = {elements, values};
     return elements;
   };
@@ -149,9 +160,11 @@ function controller(initial, failWith = null) {
     replaceState: next => { current = next; }, breakDialog: () => { broken = true; },
     click: dataset => Promise.all(listeners.click.map(fn => fn({target: target(dataset)}))),
     submit: (id, values, dataset = {}) => Promise.all(listeners.submit.map(fn => fn({target: {id, values, dataset, elements: {isDraft: {checked: false}}}, preventDefault() {}}))),
+    changeTarget: target => { target.closest ||= () => null; listeners.change.forEach(fn => fn({target})); },
     change: el => listeners.change.forEach(fn => fn({target: {dataset: {}, closest: sel => sel === '#opp-form' ? (el.inForm ? {} : null) : null, ...el}})),
     drag: (type, el) => { let prevented = false; listeners[type].forEach(fn => fn({target: el, preventDefault() { prevented = true; }, dataTransfer: {setData() {}}})); return prevented; }};
 }
+const listenersChange = (c, target) => c.changeTarget(target);
 const valid = {nameMode: 'auto', client: 'Beta Ltd', contact: '', amount: '120', endDate: '2026-11-05', flow: 'default', exchangeRate: '100', currency: 'USD', stage: 'open', owner: 'Amy', collaborators: '', tags: '', note: '', products: ''};
 
 test('controller: board renders, a new opportunity can be created, edited and its form reacts to the customer', async () => {
@@ -233,7 +246,7 @@ test('controller: filters, views, paging and drag-and-drop', async () => {
   const c = controller(sample());
   c.page.navigate('opportunities');
   c.change({id: 'opp-currency', value: 'EUR'});
-  assert.match(c.mounted.at(-1), /总销售金额：<b>EUR 70\.00<\/b>/);
+  assert.match(c.mounted.at(-1), /<span>总销售金额<\/span><b>EUR 70\.00<\/b>/);
   c.change({id: 'opp-currency', value: 'USD'}); c.change({id: 'opp-search', value: '26100602'});
   assert.match(c.mounted.at(-1), /共 <b>1<\/b> 个商机/);
   c.change({id: 'opp-search', value: ''}); c.change({id: 'opp-archived', value: 'all'}); c.change({id: 'opp-owner', value: 'amy'});
@@ -293,13 +306,13 @@ test('controller: a failed save keeps the form and its content; analysis page an
 });
 
 test('navigation: 商机 is a real menu with its own pages and highlight', () => {
-  assert.deepEqual(RM.sectionFor('opportunities').entries.map(e => [e.label, e.target]), [['商机看板', 'opportunities'], ['商机分析', 'opp-analysis']]);
+  assert.deepEqual(RM.sectionFor('opportunities').entries.map(e => [e.label, e.target]), [['商机看板', 'opportunities'], ['商机分析', 'opp-analysis'], ['销售流程设置', 'opp-flows']]);
   assert.equal(RM.sectionFor('opp-analysis').label, '商机');
   const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
   assert.match(app, /\["globe", "商机", "opportunities"\]/);
   // 业务页面清单不再在 app.js 里另抄一份，而是取自 rail-menu.js（与「可设为常用」同一来源）。
   assert.match(app, /const businessRoutes = new Set\(RM\.favoritable\(\)\.filter/);
-  for (const route of ['opportunities', 'opp-analysis']) assert.ok(RM.favoritable().some(e => e.kind === 'route' && e.target === route), route);
+  for (const route of ['opportunities', 'opp-analysis', 'opp-flows']) assert.ok(RM.favoritable().some(e => e.kind === 'route' && e.target === route), route);
   const template = fs.readFileSync(path.join(__dirname, '../src/template.html'), 'utf8');
   const at = marker => template.indexOf(`<!--${marker}-->`);
   assert.ok(at('TEAM_UI') < at('OPP_MODEL') && at('OPP_MODEL') < at('OPP_UI') && at('OPP_UI') < at('LAI_BUSINESS_UI'));
@@ -390,7 +403,7 @@ test('customer page: detail shows the current in-progress opportunity, real coun
   const stats = run('customerOpportunities(currentName)');
   assert.deepEqual([stats.activeOpportunityCount, stats.activeOpportunityIndex, stats.activeOpportunities.map(c => c.id)], [2, 0, ['p1', 'p2']]);
   for (const [feature, expected] of [['添加商机', ['new', 'Alpha <b>Co</b>']], ['新建商机', ['new', 'Alpha <b>Co</b>']], ['全部商机', ['all', 'Alpha <b>Co</b>']],
-    ['商机更多操作', ['menu', 'p1', 'Alpha <b>Co</b>']], ['商机阶段：待付尾款.', ['move', 'p1', 'balance', 'Alpha <b>Co</b>']], ['商机阶段：输单', ['move', 'p1', 'lost', 'Alpha <b>Co</b>']]]) {
+    ['商机更多操作', ['menu', 'p1', 'Alpha <b>Co</b>']], ['商机阶段：待付尾款', ['move', 'p1', 'balance', 'Alpha <b>Co</b>']], ['商机阶段：输单', ['move', 'p1', 'lost', 'Alpha <b>Co</b>']]]) {
     assert.equal(run(`customerOpportunityFeature(${JSON.stringify(feature)})`), true, feature);
     assert.deepEqual(calls.at(-1), expected, feature);
   }
@@ -420,4 +433,180 @@ test('customer editor: ticking 同时新建商机 no longer blocks saving; it op
   assert.match(app, /wantOpportunity = !!fd\.get\("createOpportunity"\);/);
   assert.match(app, /toast\("已保存到来财"\);\s*if \(wantOpportunity && form\.id === "customer-form"\) business\.newOpportunity\(data\.name\.trim\(\)\);/);
   assert.match(app, /if \(d\.feature && customerOpportunityFeature\(d\.feature\)\) return;\s*if \(d\.feature\) return featureNotice/);
+});
+
+
+// ---------------- 销售流程 ----------------
+// 两个流程：默认流程，和「样品单」流程（阶段：寄样中 → 已确认(赢单) → 输单）。
+function twoFlows() {
+  let s = O.addFlow(sample(), {label: '样品单'}, {id: 'fs'});
+  s = O.addFlowStage(s, 'fs', {label: '寄样中', kind: 'open'}, {id: 'sending'});
+  s = O.addFlowStage(s, 'fs', {label: '已确认', kind: 'won'}, {id: 'confirmed'});
+  for (const id of ['open', 'unpaid', 'balance', 'done']) s = O.removeFlowStage(s, 'fs', id);
+  s = add(s, 's1', {flow: 'fs', stage: 'sending', amount: '10'});
+  return O.moveStage(add(s, 's2', {flow: 'fs', stage: 'sending', amount: '20'}), 's2', 'confirmed', {now: '2026-10-06T06:00:00.000Z'});
+}
+
+test('board and analysis show one sales flow at a time; the flow picker appears only when there is a choice', () => {
+  const one = ui.boardMarkup(O.board(sample(), {}, TODAY), {}, {today: TODAY});
+  assert.doesNotMatch(one, /id="opp-flow"/);
+  const s = twoFlows();
+  const main = ui.boardMarkup(O.board(s, {}, TODAY), {}, {today: TODAY});
+  assert.match(main, /<select id="opp-flow" aria-label="销售流程"><option value="default" selected>默认销售流程（5）<\/option><option value="fs">样品单（2）<\/option><\/select>/, 'the count is every opportunity in the flow, whatever the currency');
+  assert.match(main, /共 <b>4<\/b> 个商机/);
+  const sampleBoard = ui.boardMarkup(O.board(s, {flow: 'fs'}, TODAY), {}, {today: TODAY});
+  assert.deepEqual([...sampleBoard.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span class="opp-stage-name">([^<]+)<\/span><span class="opp-stage-count">(\d+)<\/span><span class="opp-stage-amount">([^<]+)</g)].map(m => m.slice(1)),
+    [['open', 'sending', '寄样中', '1', 'USD 10.00'], ['won', 'confirmed', '已确认', '1', 'USD 20.00'], ['lost', 'lost', '输单', '0', 'USD 0.00']]);
+  assert.match(sampleBoard, /<span>总销售金额<\/span><b>USD 30\.00<\/b>/);
+  const list = ui.boardMarkup(O.board(s, {flow: 'fs'}, TODAY), {mode: 'list'}, {today: TODAY});
+  assert.match(list, /<span class="opp-chip opp-stage-chip opp-kind-won">已确认<\/span>/);
+  const report = ui.analysisMarkup(O.analysis(s, {flow: 'fs'}, TODAY));
+  assert.match(report, /<select id="opp-analysis-flow" aria-label="销售流程"><option value="default">默认销售流程（5）<\/option><option value="fs" selected>样品单（2）<\/option>/);
+  assert.deepEqual([...report.matchAll(/<div class="opp-bar opp-kind-(\w+)"><span class="opp-bar-label">([^<]+)<\/span>[\s\S]*?<b class="opp-bar-count">([^<]+)<\/b>/g)].map(m => m.slice(1)), [['open', '寄样中', '1 个 · 50%'], ['won', '已确认', '1 个 · 50%'], ['lost', '输单', '0 个 · 0%']]);
+  assert.doesNotMatch(ui.analysisMarkup(O.analysis(sample(), {}, TODAY)), /opp-analysis-flow/);
+});
+
+test('form and menu offer the stages of the opportunity\'s own flow', () => {
+  const s = twoFlows(), flows = O.flowsOf(s);
+  const form = ui.formMarkup({...O.list(s).find(i => i.id === 's1')}, {flows, stages: O.flowOf(s, 'fs').stages});
+  assert.match(form, /<select name="flow" id="opp-form-flow"><option value="default">默认销售流程<\/option><option value="fs" selected>样品单<\/option><\/select>/);
+  assert.match(form, /<select name="stage" id="opp-form-stage"><option value="sending" selected>寄样中<\/option><option value="confirmed">已确认<\/option><option value="lost">输单<\/option><\/select>/);
+  assert.doesNotMatch(form, /type="hidden" name="flow"/);
+  assert.match(ui.formMarkup({stage: 'gone'}, {stages: O.flowOf(s, 'fs').stages}), /<option value="gone" selected>原阶段：gone<\/option>/);
+  assert.equal(ui.stageOptions(O.flowOf(s, 'fs').stages, ''), '<option value="sending" selected>寄样中</option><option value="confirmed">已确认</option><option value="lost">输单</option>');
+  const menu = ui.menuMarkup(O.cardOf(s, 's2', TODAY));
+  assert.deepEqual([...menu.matchAll(/data-opp-action="move" data-id="s2" data-stage="(\w+)">移到「([^」]+)」/g)].map(m => [m[1], m[2]]), [['sending', '寄样中'], ['lost', '输单']]);
+  assert.match(menu, /<span class="opp-chip opp-stage-chip opp-kind-won">已确认<\/span>/); assert.match(menu, /data-opp-action="order" data-id="s2">生成订单/);
+  const detail = require('../src/customer-detail-ui.js');
+  assert.deepEqual(O.customerStats(s, 'Alpha <b>Co</b>', TODAY).activeOpportunities.map(c => [c.id, c.stages.map(st => st.label).join('>')]), [['p1', '未成单>付款未到账>待付尾款>已完成>输单'], ['p2', '未成单>付款未到账>待付尾款>已完成>输单'], ['s1', '寄样中>已确认>输单']]);
+  // 客户详情页的阶段条：用当前这个商机所在流程的阶段，并标出它所在的那一个
+  const strip = index => [...detail.render({name: 'Alpha <b>Co</b>', orders: [], history: [], ...O.customerStats(s, 'Alpha <b>Co</b>', TODAY), activeOpportunityIndex: index}, {escape: escapeHtml}).matchAll(/class="lcd-feature lcd-phase phase-\d( is-current)?" data-feature="商机阶段：([^"]+)"/g)].map(m => m[2] + (m[1] ? '*' : ''));
+  assert.deepEqual(strip(2), ['寄样中*', '已确认', '输单']);
+  assert.deepEqual(strip(0), ['未成单*', '付款未到账', '待付尾款', '已完成', '输单']);
+});
+
+test('流程设置页: flows on the left, stages grouped by kind with usage, and the right buttons', () => {
+  const s = twoFlows();
+  const html = ui.flowsMarkup(O.flowSummary(s), {flow: 'default'});
+  assert.deepEqual([...html.matchAll(/data-flow-select="(\w+)" aria-pressed="(\w+)"><span>([^<]+)<\/span><small>([^<]+)<\/small>/g)].map(m => m.slice(1)), [['default', 'true', '默认销售流程', '5 个阶段 · 5 个商机'], ['fs', 'false', '样品单', '3 个阶段 · 2 个商机']]);
+  assert.deepEqual([...html.matchAll(/data-stage-rename="(\w+)" data-flow="default" value="([^"]+)"[^>]*><span class="opp-stage-usage">(\d+) 个商机/g)].map(m => m.slice(1)), [['open', '未成单', '3'], ['unpaid', '付款未到账', '0'], ['balance', '待付尾款', '0'], ['done', '已完成', '1'], ['lost', '输单', '1']]);
+  assert.match(html, /默认流程不能删除/); assert.doesNotMatch(html, /data-flow-action="flow-remove"/);
+  assert.match(html, /data-flow-action="stage-up" data-flow="default" data-stage="open"[^>]* disabled>/, 'first of its kind cannot move up');
+  assert.match(html, /data-flow-action="stage-down" data-flow="default" data-stage="unpaid"[^>]* disabled>/);
+  assert.doesNotMatch(html, /data-flow-action="stage-(up|down|remove)" data-flow="default" data-stage="lost"/, 'the lost stage is fixed');
+  assert.match(html, /<form class="opp-stage-add" id="opp-stage-add-open" data-flow="default" data-kind="open">/); assert.match(html, /id="opp-stage-add-won"/); assert.doesNotMatch(html, /opp-stage-add-lost/);
+  const other = ui.flowsMarkup(O.flowSummary(s), {flow: 'fs', armed: 'stage:sending'});
+  assert.match(other, /data-flow-rename="fs" value="样品单"/);
+  assert.match(other, /data-flow-action="flow-remove" data-flow="fs" disabled title="还有 2 个商机在用这个流程">删除这个流程/);
+  assert.match(other, /data-flow-action="stage-remove" data-flow="fs" data-stage="sending" disabled title="至少保留一个进行中阶段"/, 'the only open stage cannot be removed');
+  const empty = ui.flowsMarkup(O.flowSummary(O.addFlow(sample(), {label: 'X<b>'}, {id: 'fx'})), {flow: 'fx', armed: 'flow:fx'});
+  assert.match(empty, /class="team-danger" data-flow-action="flow-remove" data-flow="fx">再点一次确认删除/); assert.doesNotMatch(empty, /X<b>/);
+  assert.match(ui.flowsMarkup(O.flowSummary(s), {flow: 'default', armed: 'stage:unpaid'}), /class="text-button team-danger" data-flow-action="stage-remove" data-flow="default" data-stage="unpaid" aria-label="再点一次确认删除：付款未到账">再点一次确认删除/);
+  assert.match(ui.flowsMarkup(O.flowSummary(s), {flow: 'nope'}), /data-flow-select="default" aria-pressed="true"/, 'an unknown flow falls back to the first');
+  const flow = O.flowSummary(s)[0];
+  const ask = ui.stageRemoveMarkup(flow, flow.stages[0]);
+  assert.match(ask, /「未成单」里还有 3 个商机/);
+  assert.deepEqual([...ask.matchAll(/<option value="(\w+)">/g)].map(m => m[1]), ['unpaid', 'balance', 'done'], 'never offers the stage itself or the lost stage');
+});
+
+test('controller: flow settings save each action, confirm deletions, and the board and form follow', async () => {
+  const c = controller(sample());
+  c.page.navigate('opp-flows');
+  assert.match(c.mounted.at(-1), /<h1>销售流程设置<\/h1>/);
+  await c.submit('opp-stage-add-open', {label: '已报价'}, {flow: 'default', kind: 'open'});
+  assert.deepEqual(O.flowOf(c.state(), 'default').stages.map(st => st.label), ['未成单', '付款未到账', '已报价', '待付尾款', '已完成', '输单']);
+  const quoted = O.flowOf(c.state(), 'default').stages[2].id;
+  await c.click({flowAction: 'stage-up', flow: 'default', stage: quoted});
+  assert.deepEqual(O.flowOf(c.state(), 'default').stages.map(st => st.label).slice(0, 3), ['未成单', '已报价', '付款未到账']);
+  c.change({dataset: {stageRename: 'unpaid', flow: 'default'}, value: ' 等待付款 '}); await new Promise(r => setTimeout(r));
+  assert.equal(O.flowOf(c.state(), 'default').stages[2].label, '等待付款');
+  await c.submit('opp-stage-add-won', {label: '已完成'}, {flow: 'default', kind: 'won'});
+  assert.equal(c.errors['opp-flow-error'].textContent, '这个流程里已经有同名的阶段');
+  // 删除空阶段：点两次
+  await c.click({flowAction: 'stage-remove', flow: 'default', stage: quoted});
+  assert.ok(O.flowOf(c.state(), 'default').stages.some(st => st.id === quoted), 'first click only arms');
+  assert.match(c.mounted.at(-1), /再点一次确认删除/);
+  await c.click({flowAction: 'stage-remove', flow: 'default', stage: quoted});
+  assert.ok(!O.flowOf(c.state(), 'default').stages.some(st => st.id === quoted));
+  // 删除有商机的阶段：先问移到哪里
+  await c.click({flowAction: 'stage-remove', flow: 'default', stage: 'open'});
+  assert.equal(c.dialogs.at(-1)[0], '删除阶段'); assert.match(c.dialogs.at(-1)[1], /里还有 3 个商机/);
+  await c.submit('opp-stage-remove-form', {moveTo: ''}, {flow: 'default', stage: 'open'});
+  assert.match(c.errors['opp-stage-remove-error'].textContent, /请先选择把它们移到哪个阶段/);
+  await c.submit('opp-stage-remove-form', {moveTo: 'unpaid'}, {flow: 'default', stage: 'open'});
+  assert.deepEqual(O.list(c.state()).filter(i => i.currency === 'USD').map(i => i.stage).sort(), ['done', 'lost', 'unpaid', 'unpaid']);
+  assert.deepEqual(O.flowOf(c.state(), 'default').stages.map(st => st.id), ['unpaid', 'balance', 'done', 'lost']);
+  // 新建流程、改名、删除
+  await c.submit('opp-flow-add', {label: '样品单', copyFrom: 'default'});
+  assert.deepEqual(O.flowsOf(c.state()).map(f => [f.id, f.label, f.stages.length]), [['default', '默认销售流程', 4], ['fnew-id', '样品单', 4]]);
+  assert.match(c.mounted.at(-1), /data-flow-select="fnew-id" aria-pressed="true"/, 'the new flow is shown right away');
+  c.change({dataset: {flowRename: 'fnew-id'}, value: '样品流程'}); await new Promise(r => setTimeout(r));
+  assert.equal(O.flowOf(c.state(), 'fnew-id').label, '样品流程');
+  // 看板切到新流程；新建商机默认落在这个流程的第一个阶段
+  c.page.navigate('opportunities');
+  c.change({id: 'opp-flow', value: 'fnew-id'});
+  assert.match(c.mounted.at(-1), /<option value="fnew-id" selected>样品流程（0）/); assert.match(c.mounted.at(-1), /共 <b>0<\/b> 个商机/);
+  await c.click({oppAction: 'new'});
+  assert.match(c.dialogs.at(-1)[1], /<option value="fnew-id" selected>样品流程<\/option>/);
+  const f = c.fakeForm({flow: 'default', stage: 'unpaid'});
+  f.flow.value = 'default'; c.change({name: 'flow', inForm: true});
+  assert.match(f.stage.innerHTML, /^<option value="unpaid" selected>等待付款<\/option>/);
+  assert.equal(f.stage.value, 'unpaid');
+  // 编辑一个处在「已完成」的商机：换到别的流程再换回来，阶段回到原来的「已完成」，而不是落到第一个阶段
+  await c.click({oppAction: 'edit', id: 'p3'});
+  const g = c.fakeForm({flow: 'default', stage: 'done'});
+  g.flow.value = 'fnew-id'; c.change({name: 'flow', inForm: true});
+  assert.equal(g.stage.value, 'unpaid', 'another flow: its first stage');
+  g.flow.value = 'default'; c.change({name: 'flow', inForm: true});
+  assert.equal(g.stage.value, 'done', 'back to the original flow: the original stage');
+  assert.match(g.stage.innerHTML, /<option value="done" selected>已完成<\/option>/);
+  c.page.discardDraft();
+  await c.click({oppAction: 'new'});
+  await c.submit('opp-form', {...valid, flow: 'fnew-id', stage: 'unpaid'});
+  assert.equal(O.list(c.state()).find(i => i.id === 'new-id').flow, 'fnew-id');
+  c.page.navigate('opp-flows');
+  await c.click({flowSelect: 'fnew-id'});
+  await c.click({flowAction: 'flow-remove', flow: 'fnew-id'}); await c.click({flowAction: 'flow-remove', flow: 'fnew-id'});
+  assert.match(c.errors['opp-flow-error'].textContent, /里还有 1 个商机/);
+  assert.equal(O.flowsOf(c.state()).length, 2);
+  // 页面外的点击不触发流程操作
+  c.page.navigate('opportunities');
+  await c.click({flowAction: 'flow-remove', flow: 'fnew-id'});
+  assert.equal(O.flowsOf(c.state()).length, 2);
+});
+
+
+test('review fixes: matches in other flows are announced, a customer\'s board opens on the fullest flow, armed deletes do not survive leaving the page', async () => {
+  const s = twoFlows();
+  const main = ui.boardMarkup(O.board(s, {}, TODAY), {}, {today: TODAY});
+  assert.match(main, /另有 2 个符合当前筛选的商机在其他销售流程里（样品单 2 个），在左上角切换流程查看。/);
+  assert.doesNotMatch(ui.boardMarkup(O.board(sample(), {}, TODAY), {}, {today: TODAY}), /其他销售流程/);
+  // Beta Ltd 只有一个商机（EUR，默认流程）；Alpha 在默认流程 4 个、样品单 2 个 → 再给样品单加 3 个，样品单变成最多
+  let more = s;
+  for (const id of ['s3', 's4', 's5']) more = add(more, id, {flow: 'fs', stage: 'sending'});
+  const c = controller(more);
+  c.page.showOpportunities('Alpha <b>Co</b>');
+  c.page.navigate('opportunities');
+  assert.match(c.mounted.at(-1), /<option value="fs" selected>样品单（5）/, 'opens the flow where this customer has most opportunities');
+  assert.match(c.mounted.at(-1), /另有 4 个符合当前筛选的商机在其他销售流程里（默认销售流程 4 个）/);
+  // 流程设置页：点了一次删除后离开，再回来不应该还停在“再点一次确认”
+  const d = controller(O.addFlow(sample(), {label: '空流程'}, {id: 'fe'}));
+  d.page.navigate('opp-flows');
+  await d.click({flowSelect: 'fe'}); await d.click({flowAction: 'flow-remove', flow: 'fe'});
+  assert.match(d.mounted.at(-1), /再点一次确认删除/);
+  d.page.navigate('opportunities'); d.page.navigate('opp-flows');
+  assert.doesNotMatch(d.mounted.at(-1), /再点一次确认删除/);
+  await d.click({flowAction: 'flow-remove', flow: 'fe'});
+  assert.equal(O.flowsOf(d.state()).length, 2, 'one click after coming back only arms again');
+  // 改名失败：输入框恢复成已保存的名称
+  const input = {dataset: {stageRename: 'unpaid', flow: 'default'}, value: '未成单'};
+  listenersChange(d, input); await new Promise(r => setTimeout(r));
+  assert.equal(d.errors['opp-flow-error'].textContent, '这个流程里已经有同名的阶段');
+  assert.equal(input.value, '付款未到账');
+  // 表单：原流程读不到的商机，表单里显示为默认流程并选中
+  const lostLink = {...more, laiOpportunities: more.laiOpportunities.map(i => i.id === 'p1' ? {...i, flow: 'gone'} : i)};
+  const e = controller(lostLink);
+  e.page.navigate('opportunities');
+  await e.click({oppAction: 'edit', id: 'p1'});
+  assert.match(e.dialogs.at(-1)[1], /<select name="flow" id="opp-form-flow"><option value="default" selected>默认销售流程<\/option>/);
 });

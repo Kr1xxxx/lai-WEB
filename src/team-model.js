@@ -6,6 +6,8 @@
   const PM=node?require('./model.js'):root.PreviewModel;
   const LM=node?require('./modules.js'):root.LaiModules;
   const BM=node?require('./business-model.js'):root.LaiBusinessModel;
+  // 商机模块在浏览器里比本文件晚加载，所以用到时再取。
+  const OM=()=>node?require('./opportunity-model.js'):root.LaiOpportunityModel;
   const trim=value=>String(value??'').trim();
   const validMonth=value=>/^\d{4}-(0[1-9]|1[0-2])$/.test(String(value||''));
   const TREND_MONTHS=6;
@@ -74,6 +76,7 @@
     };
     for(const owner of customerOwners)add(owner,1);
     for(const order of Array.isArray(state?.orders)?state.orders:[])add(order?.owner,1);
+    for(const item of Array.isArray(state?.laiOpportunities)?state.laiOpportunities:[])if(typeof item?.owner==='string')add(item.owner,1);
     // 目标里的写法只在数据里完全没有这个人时才用得上。
     for(const target of Array.isArray(state?.laiTargets)?state.laiTargets:[])if(typeof target?.owner==='string')add(target.owner,0);
     const names=new Map();
@@ -269,10 +272,16 @@
     orders:`统计${unit}订单月份内的非草稿订单数量。`,
     records:'统计客户动态中类型为「跟进」的记录数量，归到客户当前的跟进人；回收站客户不计入。',
     customers:`统计${unit}至少有一条跟进记录的客户数量。`,
-    tasksDone:`统计任务日期在${unit}且已完成的任务数量；完成率＝已完成÷任务数。`
+    tasksDone:`统计任务日期在${unit}且已完成的任务数量；完成率＝已完成÷任务数。`,
+    oppNew:`统计${unit}创建的商机数量，按商机上填写的负责人汇总；已归档的商机也计入，已删除的不计入。`,
+    oppWon:`统计${unit}赢单的商机数量：商机当前处在所属销售流程的赢单类阶段，并且是在${unit}进入赢单的。赢单率＝${unit}赢单÷（${unit}赢单＋${unit}输单），不足 1% 的部分舍去。`,
+    oppWonAmount:`统计${unit}赢单商机的销售金额，不同币种分开统计、不折算；排名以${unit}赢单金额最大的币种为准。`
   });
   // ---- 目标：按周期（月／季度）、对象（企业／成员）、指标保存一个目标值；金额目标按币种分别设置。 ----
-  const TARGET_METRICS=Object.freeze(['amount','repeat','newDeal','added','orders','records','tasksDone']);
+  const TARGET_METRICS=Object.freeze(['amount','repeat','newDeal','added','orders','records','tasksDone','oppWonAmount','oppWon','oppNew']);
+  // 金额类指标：目标按币种分别设置；值是「成员／合计」上保存各币种金额的字段名。
+  const MONEY_METRICS=Object.freeze({amount:'amounts',oppWonAmount:'oppAmounts'});
+  const isMoney=metric=>Object.hasOwn(MONEY_METRICS,metric);
   function normalizeTarget(input){
     const metric=trim(input?.metric);
     if(!TARGET_METRICS.includes(metric))throw new Error('请选择可设置目标的指标');
@@ -284,14 +293,14 @@
     else if(scope!=='company')throw new Error('请选择目标对象');
     else if(trim(input?.owner))throw new Error('已选择成员，请把「对象」改为成员；如果要设企业整体目标，请清空成员');
     let currency='';
-    if(metric==='amount'){currency=trim(input?.currency).toUpperCase();if(!/^[A-Z]{3}$/.test(currency))throw new Error('请填写三位币种代码');}
+    if(isMoney(metric)){currency=trim(input?.currency).toUpperCase();if(!/^[A-Z]{3}$/.test(currency))throw new Error('请填写三位币种代码');}
     // 只接受普通的十进制写法（不接受逗号、十六进制、科学计数法），避免把输错的内容存成别的数。
     const raw=input?.value;
     const text=typeof raw==='number'&&Number.isFinite(raw)?String(raw):typeof raw==='string'?raw.trim():'';
     if(!/^\d+(\.\d+)?$/.test(text)||Number(text)<=0)throw new Error('请输入大于 0 的目标值（只填数字，不要带逗号）');
     const value=Number(text);
-    if(metric!=='amount'&&!Number.isInteger(value))throw new Error('数量类目标请填写整数');
-    if(metric==='amount'&&value<0.01)throw new Error('金额目标不能小于 0.01');
+    if(!isMoney(metric)&&!Number.isInteger(value))throw new Error('数量类目标请填写整数');
+    if(isMoney(metric)&&value<0.01)throw new Error('金额目标不能小于 0.01');
     return {metric,period,owner,currency,value};
   }
   // 成员名不区分大小写：给「amy」设目标会覆盖「Amy」的同一个目标。
@@ -346,6 +355,30 @@
     }
     return result;
   }
+  // 商机指标：新建按创建时间归月；赢单、输单按进入该结果的时间归月，只看商机当前所处的阶段。
+  function opportunityStats(state,months){
+    const model=OM(),selected=new Set(months),owners=new Map();
+    const row=owner=>{
+      if(!owners.has(owner))owners.set(owner,{oppNew:0,oppWon:0,oppLost:0,amounts:new Map()});
+      return owners.get(owner);
+    };
+    const total={oppNew:0,oppWon:0,oppLost:0,amounts:new Map()};
+    for(const item of model?model.list(state):[]){
+      const owner=canonOwner(state,item.owner),kind=model.stageOf(state,item).kind;
+      if(selected.has(monthOf(item.createdAt))){row(owner).oppNew++;total.oppNew++;}
+      // 赢单／输单的时间：优先用记录下来的结束时间；老数据没有时，退到最后一次换阶段的时间，再退到创建时间。
+      const closed=monthOf(item.closedAt)||monthOf(Array.isArray(item.stageHistory)?item.stageHistory.at(-1)?.at:'')||monthOf(item.createdAt);
+      if(kind==='open'||!selected.has(closed))continue;
+      if(kind==='lost'){row(owner).oppLost++;total.oppLost++;continue;}
+      const amount=Number.isFinite(Number(item.amount))&&Number(item.amount)>0?Number(item.amount):0;
+      const currency=model.currencyOf(item);
+      for(const target of [row(owner),total]){target.oppWon++;target.amounts.set(currency,(target.amounts.get(currency)||0)+amount);}
+    }
+    const finish=entry=>({oppNew:entry.oppNew,oppWon:entry.oppWon,oppLost:entry.oppLost,
+      oppAmounts:[...entry.amounts].map(([currency,sum])=>({currency,total:sum})).sort((x,y)=>x.currency.localeCompare(y.currency)),
+      oppWinRate:entry.oppWon+entry.oppLost?Math.floor(entry.oppWon/(entry.oppWon+entry.oppLost)*100):null});
+    return {owners:new Map([...owners].map(([owner,entry])=>[owner,finish(entry)])),total:finish(total)};
+  }
   function overview(state,month){
     requireMonth(month);
     state=state||{};
@@ -360,7 +393,7 @@
     const a=assets(state,month),f=followups(state,month),t=tasks(state,month),o=orders(state,month);
     const members=new Map();
     const member=owner=>{
-      if(!members.has(owner))members.set(owner,{owner,label:owner||'未分配',added:0,orders:0,amounts:[],amount:0,newDeal:0,repeat:0,records:0,customers:0,tasksTotal:0,tasksDone:0,taskRate:null});
+      if(!members.has(owner))members.set(owner,{owner,label:owner||'未分配',added:0,orders:0,amounts:[],amount:0,newDeal:0,repeat:0,records:0,customers:0,tasksTotal:0,tasksDone:0,taskRate:null,oppNew:0,oppWon:0,oppLost:0,oppAmounts:[],oppWonAmount:0,oppWinRate:null});
       return members.get(owner);
     };
     for(const row of a.rows)member(row.owner).added=row.cells.added.value;
@@ -369,6 +402,9 @@
     for(const row of o.rows){const m=member(row.owner);m.orders+=row.cells.count.value;m.amounts.push({currency:row.currency,total:row.cells.total.value});}
     const deals=dealCustomers(state,periodMonths(month));
     for(const kind of ['newDeal','repeat'])for(const [owner,count] of deals[kind])member(owner)[kind]=count;
+    const opp=opportunityStats(state,periodMonths(month));
+    for(const [owner,entry] of opp.owners)Object.assign(member(owner),entry);
+    const oppCurrency=[...opp.total.oppAmounts].sort((x,y)=>y.total-x.total||x.currency.localeCompare(y.currency))[0]?.currency||'';
     const targets=listTargets(state).filter(target=>target.period===month).map(target=>target.owner===null?target:{...target,owner:canonOwner(state,target.owner)});
     for(const target of targets)if(target.owner!==null)member(target.owner);
     const amounts=o.totals.map(total=>({currency:total.currency,total:total.cells.total.value}));
@@ -377,6 +413,7 @@
     for(const m of members.values()){
       m.amounts.sort((x,y)=>x.currency.localeCompare(y.currency));
       m.amount=m.amounts.find(item=>item.currency===primaryCurrency)?.total||0;
+      m.oppWonAmount=m.oppAmounts.find(item=>item.currency===oppCurrency)?.total||0;
     }
     const list=[...members.values()].sort((x,y)=>(x.owner===''?1:0)-(y.owner===''?1:0)||byLabel(x,y));
     const pick=(report,id)=>report.trend.months.map(entry=>entry.values[id]);
@@ -389,15 +426,21 @@
       {id:'records',label:'跟进记录数',format:'count',values:pick(f,'records')},
       {id:'tasksDone',label:'任务完成数',format:'count',values:pick(t,'done')}
     ]};
+    const oppMonths=trend.months.map(entry=>opportunityStats(state,[entry]).total);
+    const oppCurrencies=[...new Set(oppMonths.flatMap(entry=>entry.oppAmounts.map(item=>item.currency)))].sort();
+    trend.series.push(
+      ...oppCurrencies.map(code=>({id:'oppWonAmount:'+code,label:`赢单金额（${code}）`,format:'money',currency:code,values:oppMonths.map(entry=>entry.oppAmounts.find(item=>item.currency===code)?.total||0)})),
+      {id:'oppWon',label:'赢单商机数',format:'count',values:oppMonths.map(entry=>entry.oppWon)},
+      {id:'oppNew',label:'新建商机数',format:'count',values:oppMonths.map(entry=>entry.oppNew)});
     const total={added:a.total.added.value,orders:o.tiles[0].value,amounts,newDeal:deals.totals.newDeal,repeat:deals.totals.repeat,records:f.total.records.value,customers:f.total.customers.value,
-      tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value};
+      tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value,...opp.total};
     // 完成率＝完成值÷目标值，向下取整到整数百分比（99.5% 显示 99%，不会提前显示成 100%），可以超过 100%。
     // 是否达标直接比较完成值与目标值，不看取整后的百分比；金额相加有浮点误差，留极小的容差。
     const EPSILON=1e-9;
     const goalsFor=(owner,source)=>{
       const out={};
       for(const target of targets.filter(item=>item.owner===owner)){
-        const actual=target.metric==='amount'?(source.amounts.find(item=>item.currency===target.currency)?.total||0):source[target.metric];
+        const actual=isMoney(target.metric)?(source[MONEY_METRICS[target.metric]].find(item=>item.currency===target.currency)?.total||0):source[target.metric];
         (out[target.metric]||(out[target.metric]=[])).push({key:target.key,currency:target.currency,value:target.value,actual,rate:Math.floor(actual/target.value*100+EPSILON),reached:actual+EPSILON>=target.value});
       }
       return out;
@@ -406,7 +449,7 @@
     const months=periodMonths(month);
     return {
       month:months.at(-1),period:month,periodType:months.length>1?'quarter':'month',periodLabel:periodLabel(month),months,
-      members:list,primaryCurrency,rules:rulesFor(months.length>1?'本季度':'本月'),trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
+      members:list,primaryCurrency,oppCurrency,moneyMetrics:MONEY_METRICS,rules:rulesFor(months.length>1?'本季度':'本月'),trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
       total};
   }
   const reports={assets,followups,tasks,orders};
@@ -415,6 +458,6 @@
     if(!Object.hasOwn(reports,kind))throw new Error('不支持的团队数据报表');
     return reports[kind](state||{},month);
   }
-  const api={kinds,report,overview,monthOf,monthsEnding,periodMonths,quarterOf,periodLabel,validPeriod,targetMetrics:TARGET_METRICS,listTargets,setTarget,removeTarget};
+  const api={kinds,report,overview,monthOf,monthsEnding,periodMonths,quarterOf,periodLabel,validPeriod,targetMetrics:TARGET_METRICS,moneyMetrics:MONEY_METRICS,opportunityStats,listTargets,setTarget,removeTarget};
   if(node)module.exports=api;else root.LaiTeamModel=api;
 })(typeof window!=='undefined'?window:globalThis);

@@ -223,7 +223,7 @@
         teamView.period = d.teamPeriod === "quarter" ? "quarter" : "month";
         focus = `[data-team-period="${teamView.period}"]`;
       } else if (d.teamTab) {
-        teamView.tab = d.teamTab === "process" ? "process" : "result";
+        teamView.tab = Object.hasOwn(TU().tabs, d.teamTab) ? d.teamTab : "result";
         teamView.sort = null;
         focus = `[data-team-tab="${teamView.tab}"]`;
       } else if (d.teamMode) {
@@ -258,6 +258,19 @@
         ) + TU().targetsMarkup(T.listTargets(state()), T.periodLabel, armedTarget)
       );
     }
+    // 设置目标表单：币种只在金额类指标时出现，成员只在对象选「成员」时出现；收起来的栏位不参与提交。
+    function syncTargetForm(form) {
+      const fields = form?.elements;
+      if (!fields) return;
+      const shown = { currency: TU().isMoney(fields.metric?.value), owner: fields.scope?.value === "member" };
+      for (const name of Object.keys(shown)) {
+        const field = fields[name];
+        if (!field) continue;
+        field.disabled = !shown[name];
+        const label = field.closest?.("label");
+        if (label) label.hidden = !shown[name];
+      }
+    }
     function showTargetForm(metric) {
       const T = root.LaiTeamModel;
       // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
@@ -271,7 +284,7 @@
           metric,
           period: periodKey(),
           value: existing?.value,
-          currency: existing?.currency,
+          currency: existing?.currency || (metric === "oppWonAmount" ? overview.oppCurrency : "") || undefined,
           periods: [
             { key: month, label: T.periodLabel(month) },
             { key: quarter, label: T.periodLabel(quarter) },
@@ -298,7 +311,7 @@
       if (!teamOverview) return;
       if (!root.XLSX) return ctx.toast("Excel 组件未加载，请重新打开来财");
       const workbook = root.XLSX.utils.book_new();
-      root.XLSX.utils.book_append_sheet(workbook, root.XLSX.utils.aoa_to_sheet(TU().boardRows(teamOverview, teamView)), teamView.tab === "process" ? "过程目标" : "结果目标");
+      root.XLSX.utils.book_append_sheet(workbook, root.XLSX.utils.aoa_to_sheet(TU().boardRows(teamOverview, teamView)), TU().tabLabels[teamView.tab] || "结果目标");
       const bytes = root.XLSX.write(workbook, { type: "array", bookType: "xlsx" });
       const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
       const link = document.createElement("a");
@@ -322,7 +335,10 @@
     const OM = () => root.LaiOpportunityModel;
     let oppUI = null;
     const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM()));
-    const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "" };
+    const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "", analysisFlow: "" };
+    // 销售流程设置页：当前看的流程，以及等待再次确认删除的那一项（"flow:ID" 或 "stage:ID"）。
+    const flowView = { flow: "default", armed: "" };
+    const cssEscape = (value) => (root.CSS?.escape ? root.CSS.escape(String(value)) : String(value).replace(/["\\]/g, "\\$&"));
     let oppDraft = null,
       oppArmed = "",
       oppDrag = "",
@@ -341,12 +357,12 @@
       const today = B.localDate();
       const board = OM().board(state(), oppView.filters, today);
       const context = { owners: OM().ownerNames(state()), today };
-      return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context)) + OU().boardMarkup(board, oppView, context);
+      return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
     }
     function renderOppAnalysis() {
       const T = root.LaiTeamModel;
       const months = oppView.range === "month" ? [month] : oppView.range === "quarter" ? T.periodMonths(T.quarterOf(month)) : null;
-      const report = OM().analysis(state(), { months, currency: oppView.analysisCurrency }, B.localDate());
+      const report = OM().analysis(state(), { months, currency: oppView.analysisCurrency, flow: oppView.analysisFlow }, B.localDate());
       const label = months ? T.periodLabel(months.length > 1 ? T.quarterOf(month) : month) : "全部时间";
       const range = (id, text) => `<button type="button" data-opp-range="${id}" aria-pressed="${oppView.range === id}">${text}</button>`;
       return (
@@ -357,17 +373,65 @@
         ) + OU().analysisMarkup(report)
       );
     }
+    function renderOppFlows() {
+      const summary = OM().flowSummary(state());
+      if (!summary.some((flow) => flow.id === flowView.flow)) flowView.flow = summary[0].id;
+      return header("销售流程设置", "每个流程有自己的一组阶段；看板的列、表单里的阶段都跟着这里走") + OU().flowsMarkup(summary, flowView);
+    }
+    // 流程设置页的每个动作各自保存；保存后停在原页面，出错时提示写在页面上方。
+    const saveFlow = (makeNext, focus) =>
+      saveNext(makeNext, "opp-flow-error", () => {
+        flowView.armed = "";
+        render();
+        if (focus) document.querySelector?.(focus)?.focus?.({ preventScroll: true });
+        return false;
+      });
+    function flowAction(d) {
+      const action = d.flowAction,
+        key = action === "flow-remove" ? "flow:" + d.flow : "stage:" + d.stage;
+      if (action === "stage-up" || action === "stage-down") {
+        flowView.armed = "";
+        return saveFlow(() => OM().moveFlowStage(state(), d.flow, d.stage, action === "stage-up" ? -1 : 1), `[data-flow-action="${action}"][data-stage="${cssEscape(d.stage)}"]`);
+      }
+      if (action === "stage-remove") {
+        const flow = OM().flowSummary(state()).find((item) => item.id === d.flow),
+          stage = flow?.stages.find((item) => item.id === d.stage);
+        if (!stage) return ctx.toast("阶段不存在，可能已被删除，请刷新后重试");
+        // 阶段里还有商机：先问清楚移到哪里。
+        if (stage.count) {
+          flowView.armed = "";
+          return ctx.dialog("删除阶段", OU().stageRemoveMarkup(flow, stage), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-stage-remove-form">移动并删除</button>', "opp-stage-remove");
+        }
+      }
+      if (flowView.armed !== key) {
+        flowView.armed = key;
+        render();
+        return document.querySelector?.(`[data-flow-action="${action}"]${action === "flow-remove" ? "" : `[data-stage="${cssEscape(d.stage)}"]`}`)?.focus?.({ preventScroll: true });
+      }
+      if (action === "flow-remove")
+        return saveFlow(() => {
+          const next = OM().removeFlow(state(), d.flow);
+          flowView.flow = "default";
+          return next;
+        });
+      return saveFlow(() => OM().removeFlowStage(state(), d.flow, d.stage));
+    }
     const oppItem = (id) => OM().list(state()).find((item) => item.id === id);
     const oppCard = (id) => OM().cardOf(state(), id, B.localDate());
     function openOppForm(id, client = "") {
       let next;
-      if (id === undefined) next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client } };
+      if (id === undefined) {
+        // 新建时默认放进看板当前正在看的那个流程的第一个阶段。
+        const flow = OM().flowOf(state(), oppView.filters.flow);
+        next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client, flow: flow.id, stage: flow.stages[0].id } };
+      }
       else {
         const item = oppItem(id);
         if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
         next = { id, isNew: false, values: { ...item } };
       }
-      const values = next.values;
+      // 表单里显示的是商机实际归属的流程（原来的流程读不到时按默认流程）。
+      const values = { ...next.values, flow: OM().flowOf(state(), next.values.flow).id };
       try {
         ctx.dialog(
           next.isNew ? "新建商机" : "编辑商机",
@@ -375,9 +439,11 @@
             customers: OM().customerNames(state()),
             contacts: OM().contactsOf(state(), String(values.client || "").trim()),
             owners: OM().ownerNames(state()),
+            flows: OM().flowsOf(state()),
+            stages: OM().flowOf(state(), values.flow).stages,
             isNew: next.isNew,
           }),
-          '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-form">确 定</button>',
+          '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>',
           "business-opportunity",
         );
       } catch (error) {
@@ -385,7 +451,7 @@
         return ctx.toast(`无法打开商机表单：${error.message}`);
       }
       // 只有表单真的打开了才算进入编辑；记下原来的客户和联系人，换回原客户时能恢复原联系人。
-      oppDraft = { id: next.id, isNew: next.isNew, client: String(values.client || "").trim(), contact: String(values.contact || "") };
+      oppDraft = { id: next.id, isNew: next.isNew, client: String(values.client || "").trim(), contact: String(values.contact || ""), flow: OM().flowOf(state(), values.flow).id, stage: String(values.stage || "") };
     }
     // 客户、阶段、命名方式、币种变化时，只就地更新表单里受影响的那几处，不重画，不打断正在输入的内容。
     function syncOppForm(name) {
@@ -397,6 +463,13 @@
         const contacts = OM().contactsOf(state(), client);
         el.contact.innerHTML = OU().contactOptions(contacts, client === oppDraft.client ? oppDraft.contact : "", client);
         el.contact.required = contacts.length > 0;
+      } else if (name === "flow") {
+        // 换流程：阶段选项换成新流程的；换回原流程时恢复原来的阶段，否则落在第一个阶段。
+        const flow = OM().flowOf(state(), el.flow.value);
+        const keep = flow.id === oppDraft.flow && flow.stages.some((stage) => stage.id === oppDraft.stage) ? oppDraft.stage : flow.stages[0].id;
+        el.stage.innerHTML = OU().stageOptions(flow.stages, keep);
+        el.stage.value = keep;
+        return syncOppForm("stage");
       } else if (name === "stage") {
         const lost = el.stage.value === "lost";
         for (const field of [el.lostReason, el.lostNote]) {
@@ -420,6 +493,8 @@
           rate.value = "100";
         } else if (!usd && rate.readOnly) rate.value = rate.dataset.rate || "100";
         rate.readOnly = usd;
+        const label = rate.closest("label");
+        if (label) label.hidden = usd;
       }
     }
     function showOppMenu(id) {
@@ -430,7 +505,7 @@
     function showOppLost(id) {
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-      ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-lost-form">确 定</button>', "opp-lost");
+      ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
     }
     function moveOpp(id, stage, errorId) {
       const item = oppItem(id);
@@ -448,7 +523,7 @@
       const item = oppItem(id);
       if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       const card = oppCard(id);
-      if (!OM().STAGES.some((stage) => stage.id === item.stage && stage.kind === "won")) return ctx.toast("只有赢单阶段的商机可以生成订单");
+      if (card.kind !== "won") return ctx.toast("只有赢单阶段的商机可以生成订单");
       if (card.orderId) return ctx.toast("这个商机已经关联了订单");
       const back = oppReturn;
       ctx.closeDialog();
@@ -477,7 +552,7 @@
         return saveNext(() => OM().remove(state(), d.id), "opp-menu-error", oppDone);
       }
     }
-    const OPP_FILTERS = { "opp-sort": "sort", "opp-currency": "currency", "opp-date-field": "dateField", "opp-from": "from", "opp-to": "to", "opp-archived": "archived", "opp-owner": "owner", "opp-search": "search" };
+    const OPP_FILTERS = { "opp-flow": "flow", "opp-sort": "sort", "opp-currency": "currency", "opp-date-field": "dateField", "opp-from": "from", "opp-to": "to", "opp-archived": "archived", "opp-owner": "owner", "opp-search": "search" };
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
       if (!found) return;
@@ -553,6 +628,7 @@
         "team-orders": () => renderTeam("orders"),
         opportunities: renderOpportunities,
         "opp-analysis": renderOppAnalysis,
+        "opp-flows": renderOppFlows,
         calendar: renderCalendar,
         settings: renderSettings,
       };
@@ -695,6 +771,13 @@
       if (!el || el.disabled) return;
       const d = el.dataset;
       if (d.oppAction && onOppPage()) return oppAction(d);
+      if (route === "opp-flows" && d.flowAction) return flowAction(d);
+      if (route === "opp-flows" && d.flowSelect) {
+        flowView.flow = d.flowSelect;
+        flowView.armed = "";
+        render();
+        return document.querySelector?.(`[data-flow-select="${cssEscape(flowView.flow)}"]`)?.focus?.({ preventScroll: true });
+      }
       if (d.oppView && route === "opportunities") {
         oppView.mode = d.oppView === "list" ? "list" : "board";
         render();
@@ -818,7 +901,21 @@
       return moveOpp(id, column.dataset.oppDrop, "");
     });
     document.addEventListener("change", (e) => {
-      if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
+      if (e.target.closest?.("#biz-target-form") && ["metric", "scope"].includes(e.target.name)) return syncTargetForm(e.target.closest("#biz-target-form"));
+      if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "flow", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
+      // 改名没保存成功（空名、重名）时，输入框恢复成已保存的名称，提示留在页面上方。
+      if (route === "opp-flows" && e.target.dataset?.flowRename) {
+        const input = e.target, id = input.dataset.flowRename;
+        return saveFlow(() => OM().renameFlow(state(), id, input.value), "[data-flow-rename]").then((ok) => {
+          if (!ok) input.value = OM().flowOf(state(), id).label;
+        });
+      }
+      if (route === "opp-flows" && e.target.dataset?.stageRename) {
+        const input = e.target, flowId = input.dataset.flow, id = input.dataset.stageRename;
+        return saveFlow(() => OM().renameFlowStage(state(), flowId, id, input.value), `[data-stage-rename="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.value = OM().flowOf(state(), flowId).stages.find((stage) => stage.id === id)?.label ?? input.value;
+        });
+      }
       if (route === "opportunities" && Object.hasOwn(OPP_FILTERS, e.target.id)) {
         oppView.filters = { ...oppView.filters, [OPP_FILTERS[e.target.id]]: e.target.value };
         oppView.limits = {};
@@ -827,6 +924,10 @@
       }
       if (route === "opp-analysis" && e.target.id === "opp-analysis-currency") {
         oppView.analysisCurrency = e.target.value;
+        return render();
+      }
+      if (route === "opp-analysis" && e.target.id === "opp-analysis-flow") {
+        oppView.analysisFlow = e.target.value;
         return render();
       }
       if (e.target.id === "biz-stage") {
@@ -862,13 +963,29 @@
     document.addEventListener("submit", (e) => {
       const form = e.target;
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "opp-form", "opp-lost-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "opp-form", "opp-lost-form", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
           form.id,
         )
       )
         return;
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form));
+      if (form.id === "opp-flow-add") {
+        const id = "f" + crypto.randomUUID().slice(0, 8);
+        return saveFlow(() => {
+          const next = OM().addFlow(state(), data, { id });
+          flowView.flow = id;
+          return next;
+        }, "[data-flow-rename]");
+      }
+      if (form.id === "opp-stage-add-open" || form.id === "opp-stage-add-won")
+        return saveFlow(() => OM().addFlowStage(state(), form.dataset.flow, { label: data.label, kind: form.dataset.kind }), `#${form.id} input`);
+      if (form.id === "opp-stage-remove-form")
+        return saveNext(
+          () => OM().removeFlowStage(state(), form.dataset.flow, form.dataset.stage, { moveTo: data.moveTo }),
+          "opp-stage-remove-error",
+          () => ctx.closeDialog(),
+        );
       if (form.id === "opp-form") {
         if (!oppDraft) return;
         return saveNext(
@@ -957,12 +1074,16 @@
       },
       showOpportunities(client) {
         oppView.filters = { search: String(client || ""), archived: "all" };
+        // 这个客户的商机可能分在几个销售流程里：先打开商机最多的那个，其余的页面上会提示。
+        const flows = OM().board(state(), oppView.filters, B.localDate()).flows;
+        oppView.filters.flow = [...flows].sort((a, b) => b.count - a.count)[0]?.id || "default";
         oppView.limits = {};
         return ctx.navigate("opportunities");
       },
       navigate(next) {
         oppReturn = "";
         armedTarget = "";
+        flowView.armed = "";
         route = next;
         render();
       },

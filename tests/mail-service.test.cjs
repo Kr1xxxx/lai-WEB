@@ -17,13 +17,17 @@ async function harness(options = {}) {
   const smtp = await fake.startSmtp({ reject: options.reject || [], password: options.serverPassword || SECRET, user: me.address });
   let account = options.unbound ? null : { provider: 'zoho', email: me.address, password: SECRET, site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993 };
   const drafts = new Map(); let clock = 0; const revealed = [];
-  const store = { listMailBulk: () => [], readMailBulk: () => null, writeMailBulk() {}, readMailAccount: () => account, writeMailAccount: (next) => { account = next; }, listMailDrafts: () => [...drafts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailDraft: draft => drafts.set(draft.id, draft), deleteMailDraft: id => drafts.delete(id) };
+  const draftFiles = new Map(), templates = new Map();
+  const store = { listMailBulk: () => [], readMailBulk: () => null, writeMailBulk() {}, readMailAccount: () => account, writeMailAccount: (next) => { account = next; }, listMailDrafts: () => [...drafts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailDraft: draft => drafts.set(draft.id, draft), deleteMailDraft: (id) => { drafts.delete(id); draftFiles.delete(id); },
+    readMailDraftFiles: id => draftFiles.get(id) || [], writeMailDraftFiles: (id, files) => { if (files.length) draftFiles.set(id, files); else draftFiles.delete(id); },
+    listMailTemplates: () => [...templates.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailTemplate: t => templates.set(t.id, t), deleteMailTemplate: id => templates.delete(id) };
   const downloads = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-dl-'));
-  const service = createMailService({ store, endpoints: { imap: imap.endpoint, smtp: smtp.endpoint }, now: () => new Date(Date.UTC(2026, 9, 6, 10, 0, clock++)), downloadsDir: downloads, reveal: file => revealed.push(file) });
+  let ticks = 0;
+  const service = createMailService({ store, endpoints: { imap: imap.endpoint, smtp: smtp.endpoint }, now: () => new Date(Date.UTC(2026, 9, 6, 10, 0, clock++)), downloadsDir: downloads, reveal: file => revealed.push(file), keepAliveMs: options.keepAliveMs || 0, staleCheckMs: options.staleCheckMs ?? 20000, ...(options.operationTimeoutMs ? { operationTimeoutMs: options.operationTimeoutMs } : {}), clock: () => ticks });
   const sentMail = index => mime.parseMessage(smtp.state.sent.at(index).raw);
-  return { imap, smtp, service, drafts, downloads, revealed, sentMail, get account() { return account; }, set account(value) { account = value; },
+  return { imap, smtp, service, drafts, draftFiles, templates, downloads, revealed, sentMail, get account() { return account; }, set account(value) { account = value; }, advance(ms) { ticks += ms; },
     box: name => imap.state.boxes.get(name).messages,
-    async close() { await imap.close(); await smtp.close(); fs.rmSync(downloads, { recursive: true, force: true }); } };
+    async close() { await service.shutdown(); await imap.close(); await smtp.close(); fs.rmSync(downloads, { recursive: true, force: true }); } };
 }
 const until = async (check) => { for (let i = 0; i < 400 && !check(); i++) await new Promise(resolve => setTimeout(resolve, 5)); };
 const rejects = (promise, status, code, pattern) => assert.rejects(promise, (error) => { assert.equal(error.status, status, error.message); assert.equal(error.code, code); if (pattern) assert.match(error.message, pattern); assert.doesNotMatch(error.message, new RegExp(SECRET)); return true; });
@@ -76,7 +80,7 @@ test('reading returns decoded content, marks the message read, and hides nothing
   const h = await harness();
   try {
     const { message } = await h.service.read({ box: 'inbox', uid: '4' });
-    assert.deepEqual({ ...message, text: undefined }, { box: 'inbox', uid: 4, from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', references: '', text: undefined, html: '',
+    assert.deepEqual({ ...message, text: undefined }, { box: 'inbox', uid: 4, from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', inReplyTo: '', references: '', text: undefined, html: '',
       attachments: [{ index: 0, filename: '装箱单 2026-10.pdf', contentType: 'application/pdf', size: 31 }, { index: 1, filename: 'photo.png', contentType: 'image/png', size: sample.png.length }], seen: true, pending: false });
     assert.equal(message.text, '您好，\n\n样品已于今天寄出，附件是装箱单。\n\n李伟');
     assert.ok(h.imap.state.message('INBOX', 4).flags.has('\\Seen')); assert.deepEqual((await h.service.list({ folder: 'inbox' })).counts, { unread: 2, pending: 1 });
@@ -253,7 +257,7 @@ test('local drafts are created, updated, listed newest first and deleted', async
     assert.deepEqual(h.service.drafts(), { ok: true, items: [] });
     const first = h.service.saveDraft({ to: 'a@b.example\r\nX: y', cc: '', subject: 'One\nTwo', text: 'body\u0000 text', inReplyTo: '<m@x>', forwardOf: { box: 'inbox', uid: '4' }, password: 'nope', extra: 1 }).draft;
     assert.match(first.id, /^[0-9a-f]{32}$/);
-    assert.deepEqual(first, { id: first.id, to: 'a@b.example X: y', cc: '', bcc: '', subject: 'One Two', text: 'body text', html: '', inReplyTo: '<m@x>', references: '', forwardOf: { box: 'inbox', uid: 4 }, updatedAt: '2026-10-06T10:00:00.000Z' });
+    assert.deepEqual(first, { id: first.id, to: 'a@b.example X: y', cc: '', bcc: '', subject: 'One Two', text: 'body text', html: '', inReplyTo: '<m@x>', references: '', forwardOf: { box: 'inbox', uid: 4 }, updatedAt: '2026-10-06T10:00:00.000Z', attachments: [] });
     const second = h.service.saveDraft({ subject: 'Second' }).draft;
     const updated = h.service.saveDraft({ id: first.id, subject: 'One (edited)' }).draft;
     assert.equal(updated.id, first.id); assert.deepEqual(h.service.drafts().items.map(d => d.subject), ['One (edited)', 'Second']);
@@ -394,4 +398,137 @@ test('previews drop quoted originals, survive truncation and never fail the list
   assert.equal(await mime.snippet(Buffer.from('Content-Type: text/html\r\n\r\n'), Buffer.from('<style>p{color:red}</style><p>Hello <b>there</b></p><script>x()</script>')), 'Hello there');
   assert.equal(await mime.snippet(Buffer.from('Content-Type: multipart/alternative; boundary="b"\r\n\r\n'), Buffer.from('--b\r\nContent-Type: text/plain\r\n\r\nFirst part only, the rest is cut of')), 'First part only, the rest is cut of');
   assert.equal(await mime.snippet(Buffer.alloc(0), null), ''); assert.equal(await mime.snippet(null, Buffer.from('bare body')), 'bare body');
+});
+
+test('a kept-alive connection is reused across operations, checked when stale, replaced when dead, and closed on idle or unbind', async () => {
+  const h = await harness({ keepAliveMs: 80 });
+  try {
+    await h.service.list({ folder: 'inbox' }); await h.service.read({ box: 'inbox', uid: 4 }); await h.service.flags({ box: 'inbox', uid: 4, pending: true }); await h.service.status();
+    assert.equal(h.imap.state.logins, 1, 'four operations, one login'); assert.equal(h.service.connected(), true);
+    assert.equal(h.imap.state.commands.filter(c => c === 'NOOP').length, 0, 'a connection used a moment ago is not probed');
+    await Promise.all([h.service.list({ folder: 'sent' }), h.service.list({ folder: 'unread' }), h.service.read({ box: 'inbox', uid: 3 })]);
+    assert.equal(h.imap.state.logins, 1, 'simultaneous requests share the connection');
+    h.advance(30000); await h.service.status();
+    assert.equal(h.imap.state.commands.filter(c => c === 'NOOP').length, 1, 'after sitting idle the server is asked first'); assert.equal(h.imap.state.logins, 1);
+    // 服务器悄悄断开了连接：下一次操作前的探测发现它断了，重新登录，用户看不到错误。删除这种不重做的操作也一样。
+    h.imap.dropConnections(); h.advance(30000);
+    assert.deepEqual(await h.service.trash({ box: 'inbox', uid: 1 }), { ok: true, count: 1 }); assert.equal(h.imap.state.logins, 2, 'the dead connection was noticed before the move, so the move itself ran once on a fresh login');
+    assert.equal(h.box('Trash').length, 1);
+    // 命令发出去之后连接才断：只读和改标记的操作重新登录再做一次；
+    h.imap.state.dropOn = 'UID SEARCH';
+    assert.deepEqual((await h.service.list({ folder: 'pending' })).items.map(i => i.uid), [4, 3]); assert.equal(h.imap.state.logins, 3);
+    // 移动邮件不重做（服务器可能已经移了），如实报错。
+    h.imap.state.dropOn = 'UID MOVE';
+    await rejects(h.service.trash({ box: 'inbox', uid: 2 }), 502, 'imap_no', /没有完成「移动邮件」/); assert.equal(h.imap.state.logins, 3, 'no second login, no second move'); assert.equal(h.imap.state.commands.filter(c => c.startsWith('UID MOVE')).length, 2);
+    // 换了密码：旧连接不能接着用。
+    h.account = { ...h.account, password: 'changed' };
+    await rejects(h.service.list({ folder: 'inbox' }), 422, 'auth_failed'); assert.equal(h.service.connected(), false);
+    h.account = { ...h.account, password: SECRET };
+    await h.service.list({ folder: 'inbox' }); assert.equal(h.service.connected(), true);
+    await new Promise(resolve => setTimeout(resolve, 160));
+    assert.equal(h.service.connected(), false, 'the connection is closed once it has been idle for the keep-alive time');
+    await until(() => h.imap.state.commands.filter(c => c === 'LOGOUT').length >= 2);
+    await h.service.list({ folder: 'inbox' }); assert.equal(h.service.connected(), true);
+    await h.service.forget(); assert.equal(h.service.connected(), false, 'unbinding closes the connection at once');
+    // 登录还没完成就解绑：这次登录作废，连接不会留下来。
+    const pending = h.service.list({ folder: 'inbox' }); await h.service.forget();
+    await rejects(pending, 409, 'not_bound'); assert.equal(h.service.connected(), false); await until(() => h.imap.openConnections() === 0); assert.equal(h.imap.openConnections(), 0, 'no connection to the old mailbox is left open');
+    // 操作途中解绑并删掉了账号：重试不会拿旧密码再登录。
+    await h.service.list({ folder: 'inbox' }); const logins = h.imap.state.logins;
+    h.imap.state.dropOn = 'UID SEARCH'; const running = h.service.list({ folder: 'inbox' }); const saved = h.account; h.account = null;
+    await rejects(running, 409, 'not_bound'); assert.equal(h.imap.state.logins, logins); h.account = saved;
+  } finally { await h.close(); }
+});
+
+test('an operation that gets no answer is given up after the time limit and the connection is discarded', async () => {
+  const h = await harness({ keepAliveMs: 5000, operationTimeoutMs: 500 });
+  try {
+    await h.service.list({ folder: 'inbox' }); assert.equal(h.service.connected(), true);
+    h.imap.state.stall = 'UID SEARCH';
+    await rejects(h.service.list({ folder: 'inbox' }), 504, 'timeout', /长时间没有回应/); assert.equal(h.service.connected(), false);
+    h.imap.state.stall = null;
+    assert.equal((await h.service.list({ folder: 'inbox' })).total, 5, 'the next operation logs in again and works');
+  } finally { await h.close(); }
+});
+
+test('the inbox status reports unread, pending and the next uid without touching any message', async () => {
+  const h = await harness();
+  try {
+    assert.deepEqual(await h.service.status(), { ok: true, unread: 3, pending: 1, total: 5, uidNext: 6 });
+    assert.ok(h.imap.state.commands.every(c => !/^(UID STORE|UID MOVE|SELECT|UID FETCH|STATUS)/.test(c)), 'status reads no message body, changes nothing, and does not send STATUS for the open folder');
+    const before = h.imap.state.nextUid;
+    await h.imap.deliver('INBOX', { from: { name: 'New', address: 'new@x.example' }, to: [me], subject: 'Fresh', date: '2026-10-07T01:00:00Z', text: 'hi', messageId: '<fresh@x.example>' });
+    const after = await h.service.status();
+    assert.deepEqual([after.unread, after.total, after.uidNext], [4, 6, before + 1], 'a newly arrived message moves the next uid');
+  } finally { await h.close(); }
+  const unbound = await harness({ unbound: true });
+  try { await rejects(unbound.service.status(), 409, 'not_bound'); } finally { await unbound.close(); }
+});
+
+test('several messages can be marked or deleted in one request, within limits', async () => {
+  const h = await harness();
+  try {
+    assert.deepEqual(await h.service.flags({ box: 'inbox', uids: [5, 4, 4, '3'], seen: true, pending: true }), { ok: true, count: 3 });
+    assert.deepEqual(h.box('INBOX').filter(m => m.uid >= 3).map(m => [m.uid, m.flags.has('\\Seen'), m.flags.has('\\Flagged')]), [[3, true, true], [4, true, true], [5, true, true]]);
+    assert.equal(h.imap.state.commands.filter(c => c.startsWith('UID STORE')).length, 2, 'one command per flag, not per message');
+    assert.deepEqual(await h.service.flags({ box: 'inbox', uids: [5, 4], seen: false }), { ok: true, count: 2 });
+    assert.deepEqual(await h.service.trash({ box: 'inbox', uids: [1, 2] }), { ok: true, count: 2 });
+    assert.deepEqual(h.box('INBOX').map(m => m.uid), [3, 4, 5]); assert.equal(h.box('Trash').length, 2);
+    for (const bad of [{ box: 'inbox', uids: [] }, { box: 'inbox', uids: 'x' }, { box: 'inbox', uids: [1, 0] }, { box: 'inbox', uids: [1, 'a'] }, { box: 'inbox', uids: Array.from({ length: 201 }, (_, i) => i + 1) }]) { await rejects(h.service.trash(bad), 400, 'invalid_input'); await rejects(h.service.flags({ ...bad, seen: true }), 400, 'invalid_input'); }
+    assert.equal(h.box('INBOX').length, 3, 'a refused request changes nothing');
+  } finally { await h.close(); }
+});
+
+test('list rows carry the reply headers used to group conversations', async () => {
+  const h = await harness({ mailboxes: { INBOX: [
+    { message: { from: { name: 'A', address: 'a@x.example' }, to: [me], subject: 'Order', date: '2026-10-01T00:00:00Z', text: 'one', messageId: '<1@x>' }, flags: [] },
+    { message: { from: { name: 'A', address: 'a@x.example' }, to: [me], subject: 'Re: Order', date: '2026-10-02T00:00:00Z', text: 'two', messageId: '<2@x>', inReplyTo: '<1@x>', references: '<1@x>' }, flags: [] }], Sent: [], Trash: [] } });
+  try {
+    const items = (await h.service.list({ folder: 'inbox' })).items;
+    assert.deepEqual(items.map(i => [i.messageId, i.inReplyTo, i.references]), [['<2@x>', '<1@x>', '<1@x>'], ['<1@x>', '', '']]);
+  } finally { await h.close(); }
+});
+
+test('drafts keep their attachments on this computer; the list carries names only', async () => {
+  const h = await harness();
+  try {
+    const file = { filename: '../报价.pdf', contentType: 'application/pdf', contentBase64: Buffer.from('%PDF-1').toString('base64') };
+    const saved = h.service.saveDraft({ to: 'a@b.example', subject: 'With file', attachments: [file, { filename: 'n.txt', contentType: 'bad type', contentBase64: Buffer.from('hi').toString('base64') }] }).draft;
+    assert.deepEqual(saved.attachments, [{ filename: '_报价.pdf', contentType: 'application/pdf', size: 6 }, { filename: 'n.txt', contentType: 'application/octet-stream', size: 2 }]);
+    assert.equal(JSON.stringify(h.service.drafts()).includes(file.contentBase64), false, 'the draft list never carries file contents');
+    const opened = h.service.getDraft({ id: saved.id });
+    assert.deepEqual(opened.attachments.map(a => [a.filename, a.contentType, Buffer.from(a.contentBase64, 'base64').toString()]), [['_报价.pdf', 'application/pdf', '%PDF-1'], ['n.txt', 'application/octet-stream', 'hi']]);
+    const edited = h.service.saveDraft({ id: saved.id, to: 'a@b.example', subject: 'Text only edit' }).draft;
+    assert.equal(edited.attachments.length, 2, 'saving without the attachments field keeps the stored files'); assert.equal(h.service.getDraft({ id: saved.id }).attachments.length, 2);
+    assert.equal(h.service.saveDraft({ id: saved.id, subject: 'One left', attachments: [file] }).draft.attachments.length, 1); assert.equal(h.service.getDraft({ id: saved.id }).attachments.length, 1);
+    assert.equal(h.service.saveDraft({ id: saved.id, subject: 'None', attachments: [] }).draft.attachments.length, 0); assert.equal(h.draftFiles.size, 0);
+    assert.throws(() => h.service.saveDraft({ subject: 'big', attachments: [{ filename: 'big.bin', contentBase64: Buffer.alloc(10 * 1024 * 1024 + 1).toString('base64') }] }), e => e.status === 413);
+    assert.throws(() => h.service.saveDraft({ subject: 'bad', attachments: [{ filename: 'x', contentBase64: '***' }] }), e => e.status === 400);
+    assert.throws(() => h.service.saveDraft({ subject: 'many', attachments: Array.from({ length: 31 }, () => file) }), e => e.status === 400);
+    assert.deepEqual(h.service.drafts().items.map(d => d.subject), ['None'], 'refused saves leave no draft behind');
+    h.service.saveDraft({ id: saved.id, subject: 'Send me', to: 'anna@nordic-lamps.example', text: 'see file', attachments: [file] });
+    const sending = h.service.getDraft({ id: saved.id });
+    await h.service.send({ ...sending.draft, draftId: saved.id, attachments: sending.attachments }); await h.smtp.state.parsing;
+    assert.deepEqual((await h.sentMail(-1)).attachments.map(a => a.filename), ['_报价.pdf']); assert.equal(h.drafts.size, 0); assert.equal(h.draftFiles.size, 0, 'sending removes the draft and its files');
+    for (const bad of [{}, { id: 'x' }, { id: 'f'.repeat(32) }]) assert.throws(() => h.service.getDraft(bad), e => e.status === 404);
+  } finally { await h.close(); }
+});
+
+test('templates are saved by name, updated in place, listed newest first and deleted', async () => {
+  const h = await harness();
+  try {
+    assert.deepEqual(h.service.templates(), { ok: true, items: [] });
+    const first = h.service.saveTemplate({ name: ' 报价\n跟进 ', subject: 'Quotation for {{公司}}', html: '<p>Dear {{姓名}},</p>', password: 'nope' }).template;
+    assert.deepEqual(first, { id: first.id, name: '报价 跟进', subject: 'Quotation for {{公司}}', html: '<p>Dear {{姓名}},</p>', text: 'Dear {{姓名}},', updatedAt: first.updatedAt }); assert.match(first.id, /^[0-9a-f]{32}$/);
+    const second = h.service.saveTemplate({ name: 'Second', text: 'plain body' }).template;
+    assert.deepEqual(h.service.templates().items.map(t => t.name), ['Second', '报价 跟进']);
+    const renamed = h.service.saveTemplate({ id: first.id, name: 'Renamed', subject: 's', text: 't' }).template;
+    assert.equal(renamed.id, first.id); assert.deepEqual(h.service.templates().items.map(t => t.name), ['Renamed', 'Second']);
+    assert.throws(() => h.service.saveTemplate({ name: 'Second', text: 'dup' }), e => e.status === 409 && /Second/.test(e.message));
+    assert.throws(() => h.service.saveTemplate({ name: '  ', text: 'x' }), e => e.status === 400); assert.throws(() => h.service.saveTemplate({ name: 'Empty' }), e => e.status === 400);
+    assert.notEqual(h.service.saveTemplate({ id: '../x', name: 'Odd id', text: 'x' }).template.id, '../x');
+    assert.deepEqual(h.service.deleteTemplate({ id: second.id }), { ok: true }); assert.equal(h.service.templates().items.some(t => t.id === second.id), false);
+    for (const bad of [{}, { id: 'x' }, undefined]) assert.throws(() => h.service.deleteTemplate(bad), e => e.status === 400);
+    assert.equal(h.imap.state.logins + h.smtp.state.commands.length, 0, 'templates never leave this computer');
+  } finally { await h.close(); }
 });

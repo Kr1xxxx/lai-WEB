@@ -1,7 +1,7 @@
 const { httpError } = require('./errors.js');
 const imap = require('./mail-imap.js');
 
-// 邮箱绑定：验证凭据、保存、查询、重新验证、解绑。目前只支持 Zoho 邮箱，且只做登录验证，不读取或发送邮件。
+// 邮箱绑定：验证凭据、保存、查询、重新验证、解绑，以及发件人名称、签名、是否自动检查新邮件这几项设置。目前只支持 Zoho 邮箱。
 // 对外（返回给界面的内容）永远不包含密码。
 function createMailAccounts({ store, verify = imap.verifyLogin, now = () => new Date().toISOString() }) {
   let busy = false;
@@ -10,7 +10,9 @@ function createMailAccounts({ store, verify = imap.verifyLogin, now = () => new 
     provider: 'zoho', email: account.email, site: account.site, accountType: account.accountType,
     host: account.host, port: account.port, boundAt: account.boundAt, verifiedAt: account.verifiedAt,
     ...(account.senderName ? { senderName: account.senderName } : {}),
-    ...(account.signature ? { signature: account.signature } : {})
+    ...(account.signature ? { signature: account.signature } : {}),
+    // 是否自动检查新邮件：没设置过就是开。
+    autoCheck: account.autoCheck !== false
   } : null;
 
   // 把验证失败转换成界面可以直接显示的应答：输入问题 400，登录被拒 422，网络类 502。
@@ -74,7 +76,8 @@ function createMailAccounts({ store, verify = imap.verifyLogin, now = () => new 
     const request = input && typeof input === 'object' ? input : {};
     const updated = { ...account,
       senderName: String(request.senderName ?? account.senderName ?? '').replace(/[\r\n\u0000]+/g, ' ').trim().slice(0, 80),
-      signature: String(request.signature ?? account.signature ?? '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n').trim().slice(0, 2000) };
+      signature: String(request.signature ?? account.signature ?? '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n').trim().slice(0, 2000),
+      autoCheck: typeof request.autoCheck === 'boolean' ? request.autoCheck : account.autoCheck !== false };
     store.writeMailAccount(updated);
     return { ok: true, available: true, account: publicView(updated) };
   }

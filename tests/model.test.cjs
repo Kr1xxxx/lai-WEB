@@ -474,3 +474,23 @@ test('batch field editing validates the selected field, value and private custom
   assert.equal(M.buildCustomers(reverted)[0].stage,'已成交');
  assert.deepEqual(state,before);
 });
+
+test('a mail is recorded once in the customer activity as 往来邮件 without touching follow-up dates',()=>{
+ const s=source();s.customers['Élodie Martin'].nextFollow='2026-10-20';s.customers['Élodie Martin'].lastFollowup='2026-09-01T00:00:00Z';
+ const mail={box:'inbox',uid:7,messageId:'<m-7@x.example>',subject:'  Re:\n Quotation ',snippet:'The price   works for us.',date:'2026-10-05T14:20:00Z',from:{name:'Élodie',address:'sales@example.test'},to:[{name:'',address:'me@x.example'}],password:'nope'};
+ assert.equal(M.mailRecorded(s,'Élodie Martin',mail),false);
+ const next=M.addMailActivity(s,'Élodie Martin',mail,'2026-10-07T01:00:00Z');
+ const profile=next.customers['Élodie Martin'];
+ assert.deepEqual(profile.history[0],{time:'2026-10-05T14:20:00.000Z',text:'收到邮件：Re: Quotation\nThe price works for us.',type:'email',subtype:'received',channel:'邮件',contact:'Élodie',mailRef:{messageId:'<m-7@x.example>',box:'inbox',uid:7}});
+ assert.equal(profile.updated,'2026-10-07T01:00:00Z');assert.equal(profile.nextFollow,'2026-10-20');assert.equal(profile.lastFollowup,'2026-09-01T00:00:00Z');assert.equal(profile.customLegacy.preserve,true);
+ assert.equal(s.customers['Élodie Martin'].history,undefined,'the input state is not changed');
+ assert.equal(M.mailRecorded(next,'Élodie Martin',mail),true);assert.equal(M.mailRecorded(next,'Élodie Martin',{box:'sent',uid:99,messageId:'<m-7@x.example>'}),true,'the same message is recognised wherever it is opened from');
+ assert.equal(M.mailRecorded(next,'No Orders',mail),false);assert.equal(M.mailRecorded(next,'__proto__',mail),false);assert.equal(M.mailRecorded(next,'Élodie Martin',{}),false);
+ assert.throws(()=>M.addMailActivity(next,'Élodie Martin',mail),/已经记在客户动态里/);
+ const afterSent=M.addMailActivity(next,'Élodie Martin',{box:'sent',uid:3,subject:'',date:'not a date',to:[{name:'',address:'sales@example.test'}]},'2026-10-07T02:00:00Z');
+ const sent=afterSent.customers['Élodie Martin'].history[0];
+ assert.deepEqual(sent,{time:'2026-10-07T02:00:00Z',text:'发出邮件：（无主题）',type:'email',subtype:'sent',channel:'邮件',contact:'sales@example.test',mailRef:{messageId:'',box:'sent',uid:3}});
+ assert.throws(()=>M.addMailActivity(afterSent,'Élodie Martin',{box:'sent',uid:3}),/已经记在客户动态里/,'without a Message-ID the folder and number identify the mail');
+ assert.throws(()=>M.addMailActivity(s,'Nobody',mail),/客户不存在/);assert.throws(()=>M.addMailActivity(s,'Élodie Martin',{}),/缺少邮件信息/);assert.throws(()=>M.addMailActivity(s,'Élodie Martin',null),/缺少邮件信息/);
+ assert.throws(()=>M.addMailActivity({orders:[],customers:{Bin:{laiBucket:'trash'}}},'Bin',mail),/恢复回收站客户/);
+});

@@ -338,7 +338,8 @@
       return detail(currentName, true, ""), true;
     }
     if (feature === "商机更多操作") return business.opportunityMenu(current.id, currentName), true;
-    const stage = window.LaiOpportunityModel.STAGES[["未成单", "付款未到账", "待付尾款.", "已完成", "输单"].indexOf(feature.slice("商机阶段：".length))];
+    // 阶段按当前商机所在销售流程的阶段名称找（详情页上显示的就是这些名称）。
+    const stage = (current.stages || window.LaiOpportunityModel.STAGES).find((item) => item.label === feature.slice("商机阶段：".length));
     if (stage) business.moveOpportunity(current.id, stage.id, currentName);
     return true;
   }
@@ -365,6 +366,8 @@
       activityGroupState,
       activitySort,
       activityAdvanced,
+      // 动态里选了「往来邮件」时，上面多一块从邮箱实时查到的往来邮件。
+      mailPanel: tab === "activity" && activityFilter === "email" && mail ? mail.customerPanel(c.name) : "",
     });
   }
   function setDetailCardCollapsed(card, closed) {
@@ -1204,6 +1207,7 @@
       const c = allCustomerRows().find((row) => row.name === currentName);
       if (!c) return;
       activityFilter = el.dataset.activityFilter;
+      if (activityFilter === "email") mail?.loadCustomerPanel(currentName);
       replaceActivityResults(e.detail === 0);
       window.LaiActivityCategoryNavigation.update(el, e.detail === 0);
       animateActivityResults(e.detail > 0);
@@ -1887,6 +1891,8 @@
       const initialCustomer = new URLSearchParams(location.search).get("customer");
       if (location.hash === "#favorites") await openFavorites();
       else await navigateApp(location.hash.slice(1) || "customers", initialCustomer, false);
+      // 绑定了邮箱就开始定时检查新邮件（没绑定或关掉了自动检查时什么也不做）。
+      mail?.start().catch(() => {});
     } catch (err) {
       $("#app").innerHTML =
         `<div class="boot"><div><h3>暂时无法载入客户</h3><p>${E(err.message)}</p><p class="muted tiny">请关闭后重新打开来财Lai。</p></div></div>`;
@@ -3074,7 +3080,7 @@
       items
       .map(
         ([i, label, route]) =>
-          `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${icon(i)}<span>${label}</span></button>`,
+          `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${icon(i)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`,
       )
       .join("") +
       `<button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
@@ -3289,6 +3295,17 @@
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") hideRailFlyout();
   });
+  // 左侧「邮件」图标上的未读数：邮件模块一有新数字就更新，不用重画整页。
+  function mailBadge() {
+    const unread = Number(mail?.counts?.()?.unread) || 0;
+    return unread ? `<i class="rail-badge" aria-label="${unread} 封未读邮件">${unread > 99 ? "99+" : unread}</i>` : "";
+  }
+  function updateMailBadge() {
+    const item = $('.rail-item[data-lai-route="mail"]');
+    if (!item) return;
+    item.querySelector(".rail-badge")?.remove();
+    item.insertAdjacentHTML("beforeend", mailBadge());
+  }
   function subnav() {
     if (favoritesMode) return favoritesSubnav();
     if (activeRoute === "mail") return mail.subnav();
@@ -3298,7 +3315,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", calendar: "clock", settings: "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
@@ -4377,6 +4394,23 @@
         : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
     isActive: () => activeRoute === "mail",
     hasDialog: () => !!modal,
+    customerRows: () => allCustomerRows(),
+    onCounts: () => updateMailBadge(),
+    // 把邮件记到客户动态：和别的客户资料改动一样保存到来财。
+    recordMail: async (name, item) => {
+      try {
+        await persist(M.addMailActivity(state, name, item));
+        toast("已记到客户动态");
+        return true;
+      } catch (error) {
+        toast(error.message);
+        return false;
+      }
+    },
+    isMailRecorded: (name, item) => M.mailRecorded(state, name, item),
+    refreshCustomerPanel: (name) => {
+      if (activeRoute === "customers" && currentName === name && tab === "activity" && activityFilter === "email" && $("#activity-results")) replaceActivityResults(true);
+    },
     dialog: drawer,
     closeDialog: () => {
       if (String(modal || "").startsWith("mail-")) closeModal(false, true);

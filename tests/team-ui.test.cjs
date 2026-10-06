@@ -181,13 +181,14 @@ const bodyRows = html => [...html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].matchAl
 
 test('ranking: highest first, equal values share a rank, 未分配 last and never ranked', () => {
   assert.deepEqual(ui.ranked(overview, 'added').map(r => [r.member.label, r.rank]), [['Bob', 1], ['Cy <i>', 1], ['Amy', 3], ['未分配', null]]);
-  assert.deepEqual(ui.ranked(overview, 'amount').map(r => [r.member.label, r.rank]), [['Amy', 1], ['Bob', 2], ['Cy <i>', 3], ['未分配', null]]);
+  assert.deepEqual(ui.ranked(overview, 'amount').map(r => [r.member.label, r.rank]), [['Amy', 1], ['Bob', 2], ['Cy <i>', null], ['未分配', null]], 'a member with nothing to show gets no rank');
 });
 
 test('目标完成情况: tabs, overview cells with rule and unset target, member board', () => {
   const html = ui.goalsMarkup(overview, {});
   assert.match(html, /data-team-tab="result" aria-selected="true">结果目标/);
   assert.match(html, /data-team-tab="process" aria-selected="false">过程目标/);
+  assert.match(html, /data-team-tab="opportunity" aria-selected="false">商机目标/);
   assert.match(html, /<h3>结果概览<\/h3>/);
   assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['amount', 'repeat', 'newDeal', 'added', 'orders']);
   assert.equal((html.match(/未设定目标值/g) || []).length, 5);
@@ -198,7 +199,7 @@ test('目标完成情况: tabs, overview cells with rule and unset target, membe
   assert.match(html, /<strong>16<\/strong>/); assert.match(html, /<strong>5<\/strong>/);
   assert.match(html, /<th colspan="3">成交订单金额<\/th><th colspan="3">复购客户数<\/th><th colspan="3">成交新客户数<\/th><th colspan="3">新建客户数<\/th><th colspan="3">新建销售订单数<\/th>/);
   assert.match(html, /<th aria-sort="descending"><button type="button" class="team-sort" data-team-sort="amount"/);
-  assert.deepEqual(bodyRows(html), [['Amy', '1'], ['Bob', '2'], ['Cy &lt;i&gt;', '3'], ['未分配', '—']]);
+  assert.deepEqual(bodyRows(html), [['Amy', '1'], ['Bob', '2'], ['Cy &lt;i&gt;', '—'], ['未分配', '—']]);
   assert.match(html, /<td>5\.00 EUR<br>300\.00 USD<\/td><td class="muted">—<\/td><td class="muted">--%<\/td>/);
   assert.doesNotMatch(html, /Cy <i>/);
   assert.match(html, /data-team-mode="rank" aria-pressed="true"/);
@@ -218,7 +219,7 @@ test('目标完成情况: column toggles, sorting, process tab and trend view', 
   assert.match(html, /<h3>过程概览<\/h3>/);
   assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['records', 'customers', 'tasksDone']);
   assert.match(html, /共 4 个任务，完成率 50%/);
-  assert.deepEqual(bodyRows(html), [['Cy &lt;i&gt;', '1'], ['Amy', '2'], ['Bob', '3'], ['未分配', '—']]);
+  assert.deepEqual(bodyRows(html), [['Cy &lt;i&gt;', '1'], ['Amy', '2'], ['Bob', '—'], ['未分配', '—']]);
   html = ui.goalsMarkup(overview, {mode: 'trend'});
   assert.doesNotMatch(html, /team-board/);
   assert.deepEqual([...html.matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['成交订单金额（EUR）', '成交订单金额（USD）', '复购客户数', '成交新客户数', '新建客户数', '新建销售订单数']);
@@ -244,10 +245,10 @@ test('团队墙: countdown ring, amount card, ranking lists, number cards and PK
   assert.ok(html.includes(`stroke-dasharray="${(ring * 25 / 31).toFixed(1)} ${ring.toFixed(1)}"`));
   assert.match(html, /<h3>成交订单金额<\/h3>[\s\S]*?<strong>75\.00 EUR<br>375\.00 USD<\/strong>[\s\S]*?<b>—<\/b>[\s\S]*?<b>--%<\/b>/);
   const list = title => [...html.split(`<h3>${title}</h3>`)[1].split('</ol>')[0].matchAll(/aria-label="第 (\d+) 名">\d+<\/span><span class="team-rank-name">([^<]+)<\/span><span class="team-rank-value">([^<]+)<\/span><span class="team-bar" aria-hidden="true"><i style="width:(\d+)%">/g)].map(m => [m[1], m[2], m[3], m[4]]);
-  assert.deepEqual(list('成交订单金额排行榜'), [['1', 'Amy', '300.00 USD', '100'], ['2', 'Bob', '75.00 USD', '25'], ['3', 'Cy &lt;i&gt;', '0.00 USD', '0']]);
+  assert.deepEqual(list('成交订单金额排行榜'), [['1', 'Amy', '300.00 USD', '100'], ['2', 'Bob', '75.00 USD', '25']], 'members at zero are left off the list');
   assert.match(html, /按 USD 排名；其他币种见「订单业绩」。/);
   assert.deepEqual(list('新建客户数排行榜'), [['1', 'Bob', '4', '100'], ['1', 'Cy &lt;i&gt;', '4', '100'], ['3', 'Amy', '1', '25']]);
-  assert.deepEqual(list('跟进记录数排行榜').map(r => r[1]), ['Cy &lt;i&gt;', 'Amy', 'Bob']);
+  assert.deepEqual(list('跟进记录数排行榜').map(r => r[1]), ['Cy &lt;i&gt;', 'Amy']);
   assert.match(html, /<h3>新建客户数<\/h3><span class="muted tiny">我的企业<\/span><strong>16<\/strong>/);
   assert.match(html, /<h3>新建销售订单数<\/h3><span class="muted tiny">我的企业<\/span><strong>5<\/strong>/);
   assert.match(html, /<h3>任务完成率<\/h3>[\s\S]*?<strong>50%<\/strong><span class="muted tiny">已完成 2 ／ 共 4 个任务<\/span><div class="team-progress" aria-hidden="true"><i style="width:50%">/);
@@ -261,7 +262,8 @@ test('团队墙: countdown ring, amount card, ranking lists, number cards and PK
 
 test('团队墙 with no data shows zeros and dashes, never invented figures', () => {
   const html = ui.wallMarkup(T.overview({}, '2026-10'), {}, '2026-10-06');
-  assert.match(html, /暂无成员数据/); assert.match(html, /第一名：—/); assert.match(html, /本月暂无数据/);
+  assert.doesNotMatch(html, /aria-label="第 \d+ 名"/, 'nobody is ranked when there is nothing to rank'); assert.match(html, /第一名：—/); assert.ok((html.match(/本月暂无数据/g) || []).length >= 4);
+  assert.match(html, /<h3>赢单商机数<\/h3><span class="muted tiny">我的企业<\/span><strong>0<\/strong><span class="muted tiny">本月还没有赢单或输单的商机<\/span>/);
   assert.match(html, /<h3>任务完成率<\/h3>[\s\S]*?<strong>—<\/strong>/);
   assert.doesNotMatch(html, /排名；其他币种/);
 });
@@ -493,7 +495,7 @@ test('the board export matches what is on screen: tab, order, per-currency amoun
   assert.equal(rows[0].length, 2 + 5 * 3);
   assert.deepEqual(rows[1].slice(0, 5), [1, 'Amy', '5.00 EUR / 300.00 USD', '200.00 USD', '150%']);
   assert.deepEqual(rows[2].slice(0, 5), [2, 'Bob', '75.00 USD', '', '']);
-  assert.deepEqual(rows[3].slice(0, 2), [3, 'Cy <i>'], 'export is plain text, not HTML-escaped');
+  assert.deepEqual(rows[3].slice(0, 2), ['', 'Cy <i>'], 'export is plain text, not HTML-escaped; no amount, no rank');
   assert.deepEqual(rows[4].slice(0, 3), ['', '未分配', '70.00 EUR']);
   assert.deepEqual(rows.at(-1).slice(0, 5), ['', '合计', '75.00 EUR / 375.00 USD', '50.00 EUR / 500.00 USD', '150% / 75%']);
   const added = rows[0].indexOf('新建客户数 完成值');
@@ -521,4 +523,73 @@ test('the exported workbook can be read back with the same cells', () => {
   const bytes = XLSX.write(book, {type: 'array', bookType: 'xlsx'});
   const back = XLSX.utils.sheet_to_json(XLSX.read(bytes, {type: 'array'}).Sheets['结果目标'], {header: 1, defval: ''});
   assert.deepEqual(back, ui.boardRows(withGoals, {}));
+});
+
+
+// ---------------- 商机目标页签与团队墙上的商机卡片 ----------------
+const oppOverview = {
+  ...overview, oppCurrency: 'USD',
+  rules: {...overview.rules, oppWonAmount: '赢单金额规则', oppWon: '赢单规则', oppNew: '新建商机规则'},
+  members: [
+    member('Amy', {oppNew: 2, oppWon: 1, oppLost: 0, oppAmounts: [{currency: 'USD', total: 100}], oppWonAmount: 100, goals: {oppWon: [{key: 'k1', currency: '', value: 2, actual: 1, rate: 50, reached: false}]}}),
+    member('Bob', {oppNew: 2, oppWon: 1, oppLost: 1, oppAmounts: [{currency: 'EUR', total: 50}], oppWonAmount: 0}),
+    member('Cy <i>', {oppNew: 0, oppWon: 0, oppLost: 0, oppAmounts: [], oppWonAmount: 0}),
+    member('', {oppNew: 1, oppWon: 0, oppLost: 0, oppAmounts: [], oppWonAmount: 0})
+  ],
+  total: {...overview.total, oppNew: 5, oppWon: 2, oppLost: 1, oppAmounts: [{currency: 'EUR', total: 50}, {currency: 'USD', total: 100}], oppWinRate: 67},
+  goals: {oppWonAmount: [{key: 'k2', currency: 'USD', value: 200, actual: 100, rate: 50, reached: false}]},
+  trend: {months, series: [...overview.trend.series,
+    {id: 'oppWonAmount:USD', label: '赢单金额（USD）', format: 'money', currency: 'USD', values: [0, 0, 0, 0, 50, 100]},
+    {id: 'oppWon', label: '赢单商机数', format: 'count', values: [0, 0, 0, 0, 1, 2]},
+    {id: 'oppNew', label: '新建商机数', format: 'count', values: [0, 0, 0, 0, 1, 5]}]}
+};
+
+test('商机目标 tab: three opportunity figures with targets, win rate, ranking and trend', () => {
+  const html = ui.goalsMarkup(oppOverview, {tab: 'opportunity'});
+  assert.match(html, /data-team-tab="opportunity" aria-selected="true">商机目标/); assert.match(html, /<h3>商机概览<\/h3>/);
+  assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['oppWonAmount', 'oppWon', 'oppNew']);
+  assert.match(html, /<strong>50\.00 EUR<br>100\.00 USD<\/strong>/, 'won amount per currency, never added together');
+  assert.match(html, /目标 200\.00 USD，完成率 50%/); assert.match(html, /data-team-target="oppWonAmount">修改目标值/);
+  assert.match(html, /<strong>2<\/strong><span class="muted tiny">赢单率 67%（赢单 2 ／ 输单 1）<\/span>/);
+  assert.match(html, /<th colspan="3">赢单金额<\/th><th colspan="3">赢单商机数<\/th><th colspan="3">新建商机数<\/th>/);
+  assert.deepEqual(bodyRows(html), [['Amy', '1'], ['Bob', '—'], ['Cy &lt;i&gt;', '—'], ['未分配', '—']], 'ranked by won amount in USD; Bob won only in EUR');
+  assert.match(html, /<td>1<\/td><td>2<\/td><td>50%<\/td>/, 'Amy: 1 won against a target of 2');
+  assert.deepEqual(bodyRows(ui.goalsMarkup(oppOverview, {tab: 'opportunity', sort: {id: 'oppNew', dir: 'desc'}})), [['Amy', '1'], ['Bob', '1'], ['Cy &lt;i&gt;', '—'], ['未分配', '—']]);
+  assert.deepEqual([...ui.goalsMarkup(oppOverview, {tab: 'opportunity', mode: 'trend'}).matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['赢单金额（USD）', '赢单商机数', '新建商机数']);
+  assert.match(ui.goalsMarkup({...oppOverview, total: {...oppOverview.total, oppWinRate: null}}, {tab: 'opportunity'}), /本月还没有赢单或输单的商机/);
+  assert.match(ui.goalsMarkup(oppOverview, {tab: 'nonsense'}), /<h3>结果概览<\/h3>/, 'an unknown tab falls back to the first one');
+  assert.doesNotMatch(html, /Cy <i>/);
+});
+
+test('团队墙 shows the opportunity cards; export and target list handle the won amount as money', () => {
+  const html = ui.wallMarkup(oppOverview, {}, '2026-10-06');
+  const list = html.split('<h3>赢单金额排行榜</h3>')[1].split('</ol>')[0];
+  assert.deepEqual([...list.matchAll(/class="team-rank-name">([^<]+)<\/span><span class="team-rank-value">([^<]+)</g)].map(m => [m[1], m[2]]), [['Amy', '100.00 USD']]);
+  assert.match(html, /按 USD 排名；其他币种见「商机分析」。/);
+  assert.match(ui.wallMarkup({...oppOverview, oppCurrency: 'EUR'}, {}, '2026-10-06').split('<h3>赢单金额排行榜</h3>')[1].split('</ol>')[0], /<span class="team-rank-value">100\.00 EUR<\/span>/, 'the won-amount list uses its own ranking currency, not the order one');
+  assert.match(html, /<h3>新建商机数<\/h3><span class="muted tiny">我的企业<\/span><strong>5<\/strong>/);
+  assert.match(html, /<h3>赢单商机数<\/h3><span class="muted tiny">我的企业<\/span><strong>2<\/strong><span class="muted tiny">赢单率 67%（赢单 2 ／ 输单 1）<\/span>/);
+  assert.match(html, /data-team-wall-sort="oppWonAmount"[^>]*>赢单金额（USD）/);
+  assert.match(ui.wallMarkup(oppOverview, {wallSort: {id: 'oppWon', dir: 'desc'}}, '2026-10-06'), /第一名：Amy/);
+  const rows = ui.boardRows(oppOverview, {tab: 'opportunity'});
+  assert.deepEqual(rows[0], ['排名', '成员', '赢单金额 完成值', '赢单金额 目标值', '赢单金额 完成率', '赢单商机数 完成值', '赢单商机数 目标值', '赢单商机数 完成率', '新建商机数 完成值', '新建商机数 目标值', '新建商机数 完成率']);
+  assert.deepEqual(rows[1], [1, 'Amy', '100.00 USD', '', '', 1, 2, '50%', 2, '', '']);
+  assert.deepEqual(rows[2].slice(0, 3), ['', 'Bob', '50.00 EUR']);
+  assert.deepEqual(rows.at(-1).slice(0, 5), ['', '合计', '50.00 EUR / 100.00 USD', '200.00 USD', '50%']);
+  const listed = ui.targetsMarkup([{key: 'k', metric: 'oppWonAmount', period: '2026-10', owner: null, currency: 'USD', value: 200}, {key: 'j', metric: 'oppNew', period: '2026-10', owner: 'Amy', currency: '', value: 5}], p => p);
+  assert.match(listed, /<td>赢单金额<\/td><td>200\.00 USD<\/td>/); assert.match(listed, /<td>新建商机数<\/td><td>5<\/td>/);
+  assert.match(ui.targetFormMarkup({...oppOverview, targetMetrics: T.targetMetrics}, {metric: 'oppWon', periods: []}), /<option value="oppWon" selected>赢单商机数<\/option>/);
+});
+
+test('target form: currency only for money figures, member only once 对象 is 成员', () => {
+  const o = {...oppOverview, targetMetrics: T.targetMetrics};
+  const count = ui.targetFormMarkup(o, {metric: 'added', periods: []});
+  assert.match(count, /<label class="field" hidden>币种<input name="currency"[^>]* disabled>/);
+  assert.match(count, /<label class="field" hidden>成员<select name="owner" disabled>/);
+  for (const metric of ['amount', 'oppWonAmount']) {
+    const money = ui.targetFormMarkup(o, {metric, periods: [], currency: 'EUR'});
+    assert.match(money, /<label class="field">币种<input name="currency" value="EUR"/, metric);
+    assert.doesNotMatch(money, /name="currency"[^>]* disabled/, metric);
+  }
+  assert.deepEqual(['amount', 'oppWonAmount', 'oppWon', 'added'].map(ui.isMoney), [true, true, false, false]);
 });

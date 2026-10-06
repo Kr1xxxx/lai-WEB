@@ -36,6 +36,8 @@ const state = {
     {id: 't7', title: '坏日期', date: 'bad', customer: 'Alpha Co', done: true}
   ]
 };
+// 没有商机数据时，商机指标全部为 0，赢单率为空。
+const NO_OPP = {oppNew: 0, oppWon: 0, oppLost: 0, oppAmounts: [], oppWinRate: null};
 const snapshot = JSON.stringify(state);
 const cells = (row, ids) => ids.map(id => row.cells[id].value);
 const find = (report, owner) => report.rows.find(row => row.owner === owner);
@@ -132,10 +134,10 @@ test('member overview merges the four reports per 跟进人 without changing any
     ['未分配', 1, 1, 'EUR:70', 0, 1, 1, 2, 1, 50]
   ]);
   assert.equal(o.primaryCurrency, 'USD', 'ranking currency is the one with the largest amount this month');
-  assert.deepEqual(o.total, {added: 3, orders: 5, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 375}], newDeal: 2, repeat: 1, records: 4, customers: 3, tasksTotal: 5, tasksDone: 3, taskRate: 60});
+  assert.deepEqual(o.total, {added: 3, orders: 5, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 375}], newDeal: 2, repeat: 1, records: 4, customers: 3, tasksTotal: 5, tasksDone: 3, taskRate: 60, ...NO_OPP});
   assert.deepEqual(o.trend.months, ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']);
   const series = Object.fromEntries(o.trend.series.map(s => [s.id, s.values]));
-  assert.deepEqual(Object.keys(series), ['amount:EUR', 'amount:USD', 'repeat', 'newDeal', 'added', 'orders', 'records', 'tasksDone']);
+  assert.deepEqual(Object.keys(series), ['amount:EUR', 'amount:USD', 'repeat', 'newDeal', 'added', 'orders', 'records', 'tasksDone', 'oppWon', 'oppNew']);
   assert.deepEqual(series['amount:USD'], [0, 0, 0, 0, 300, 375]);
   assert.deepEqual(series['amount:EUR'], [0, 0, 0, 0, 0, 70]);
   assert.deepEqual([series.added, series.orders, series.records, series.tasksDone], [[0, 0, 0, 0, 1, 3], [0, 0, 0, 0, 1, 5], [0, 0, 0, 0, 1, 4], [0, 0, 0, 0, 1, 3]]);
@@ -181,10 +183,10 @@ test('a quarter adds up its three months, but counts each followed customer once
   later.laiTasks.push({id: 't8', title: '十二月任务', date: '2026-12-01', customer: 'Gamma Inc', done: true});
   const q4 = T.overview(later, '2026-Q4');
   assert.deepEqual([q4.period, q4.periodType, q4.periodLabel, q4.month, q4.months], ['2026-Q4', 'quarter', '2026 年第 4 季度', '2026-12', ['2026-10', '2026-11', '2026-12']]);
-  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], newDeal: 2, repeat: 1, records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 67});
+  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], newDeal: 2, repeat: 1, records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 67, ...NO_OPP});
   assert.deepEqual(q4.members.find(m => m.owner === 'Amy').customers, 2, 'Beta followed in Oct and Nov is still one customer');
   const q3 = T.overview(later, '2026-Q3');
-  assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], newDeal: 1, repeat: 0, records: 1, customers: 1, tasksTotal: 1, tasksDone: 1, taskRate: 100});
+  assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], newDeal: 1, repeat: 0, records: 1, customers: 1, tasksTotal: 1, tasksDone: 1, taskRate: 100, ...NO_OPP});
   assert.deepEqual(q4.trend.months.at(-1), '2026-12');
   const month = T.overview(later, '2026-10');
   assert.deepEqual([month.periodType, month.month, month.total.orders], ['month', '2026-10', 5], 'month view is unchanged by later months');
@@ -380,4 +382,92 @@ test('names that differ by width, spacing or case are one member; a literal 未�
   assert.throws(() => T.setTarget(data, {metric: 'added', period: '2026-10', scope: 'member', owner: '未分配', value: 1}), /选择成员/);
   const s = T.setTarget(data, {metric: 'added', period: '2026-10', scope: 'member', owner: 'ＡＭＹ  LIN', value: 6});
   assert.deepEqual(T.overview(s, '2026-10').members[0].goals.added.map(g => [g.value, g.rate]), [[6, 50]]);
+});
+
+
+// ---------------- 商机指标 ----------------
+// 手算：2026-10 新建 a b c d f 共 5 个（e 是 9 月建的）；10 月赢单 a(100 USD) c(50 EUR) e(30 USD)；10 月输单 d；
+// b 还在进行中；f 是 9 月就赢单的（closedAt 在 9 月），只算 10 月新建，不算 10 月赢单。
+const opp = (id, owner, stage, amount, currency, createdAt, closedAt, extra = {}) => ({id, name: id, client: 'Alpha Co', owner, stage, amount, currency, createdAt, ...(closedAt ? {closedAt} : {}), ...extra});
+const oppState = {...state, laiOpportunities: [
+  opp('a', 'Amy', 'done', 100, 'USD', '2026-10-02T03:00:00.000Z', '2026-10-05T03:00:00.000Z'),
+  opp('b', 'amy', 'open', 999, 'USD', '2026-10-03T03:00:00.000Z'),
+  opp('c', 'Bob', 'balance', 50, 'EUR', '2026-10-04T03:00:00.000Z', '2026-10-06T03:00:00.000Z', {archived: true}),
+  opp('d', 'Bob', 'lost', 70, 'USD', '2026-10-04T03:00:00.000Z', '2026-10-07T03:00:00.000Z'),
+  opp('e', 'Zoe', 'done', 30, 'USD', '2026-09-20T03:00:00.000Z', '2026-10-01T03:00:00.000Z'),
+  opp('f', '', 'done', 500, 'USD', '2026-10-01T03:00:00.000Z', '2026-09-30T03:00:00.000Z'),
+  null, {name: 'no id'}
+]};
+
+test('opportunity figures: created, won and lost by month, per owner, currencies kept apart', () => {
+  const before = JSON.stringify(oppState);
+  const o = T.overview(oppState, '2026-10');
+  assert.deepEqual(o.members.map(m => [m.label, m.oppNew, m.oppWon, m.oppLost, m.oppAmounts.map(a => `${a.currency}:${a.total}`).join(','), m.oppWonAmount, m.oppWinRate]), [
+    ['Amy', 2, 1, 0, 'USD:100', 100, 100],
+    ['Bob', 2, 1, 1, 'EUR:50', 0, 50],
+    ['Zoe', 0, 1, 0, 'USD:30', 30, 100],
+    ['未分配', 1, 0, 0, '', 0, null]
+  ], 'amy and Amy are one person; an owner known only from opportunities still gets a row');
+  assert.deepEqual([o.total.oppNew, o.total.oppWon, o.total.oppLost, o.total.oppAmounts, o.total.oppWinRate], [5, 3, 1, [{currency: 'EUR', total: 50}, {currency: 'USD', total: 130}], 75]);
+  assert.equal(o.oppCurrency, 'USD', 'ranking uses the currency with the largest won amount');
+  const series = Object.fromEntries(o.trend.series.map(s => [s.id, s.values]));
+  assert.deepEqual(series['oppWonAmount:USD'], [0, 0, 0, 0, 500, 130]);
+  assert.deepEqual(series['oppWonAmount:EUR'], [0, 0, 0, 0, 0, 50]);
+  assert.deepEqual(series.oppWon, [0, 0, 0, 0, 1, 3]); assert.deepEqual(series.oppNew, [0, 0, 0, 0, 1, 5]);
+  for (const id of ['oppNew', 'oppWon', 'oppWonAmount']) assert.ok(o.rules[id].includes('本月'), id);
+  const q = T.overview(oppState, '2026-Q4');
+  assert.deepEqual([q.total.oppNew, q.total.oppWon, q.total.oppLost], [5, 3, 1]);
+  assert.match(q.rules.oppWon, /本季度/);
+  assert.deepEqual([T.overview(oppState, '2026-09').total.oppNew, T.overview(oppState, '2026-09').total.oppWon, T.overview(oppState, '2026-09').total.oppAmounts], [1, 1, [{currency: 'USD', total: 500}]]);
+  assert.equal(JSON.stringify(oppState), before, 'reading the figures changes nothing');
+});
+
+test('opportunity targets: counts are whole numbers, won amount is set per currency', () => {
+  let s = T.setTarget(oppState, {metric: 'oppWonAmount', period: '2026-10', scope: 'company', currency: 'usd', value: '260'});
+  s = T.setTarget(s, {metric: 'oppWonAmount', period: '2026-10', scope: 'company', currency: 'EUR', value: 50});
+  s = T.setTarget(s, {metric: 'oppWon', period: '2026-10', scope: 'member', owner: 'AMY', value: 2});
+  s = T.setTarget(s, {metric: 'oppNew', period: '2026-10', scope: 'company', value: 5});
+  const o = T.overview(s, '2026-10');
+  assert.deepEqual(o.goals.oppWonAmount.map(g => [g.currency, g.value, g.actual, g.rate, g.reached]), [['EUR', 50, 50, 100, true], ['USD', 260, 130, 50, false]]);
+  assert.deepEqual(o.goals.oppNew.map(g => [g.value, g.actual, g.rate, g.reached]), [[5, 5, 100, true]]);
+  assert.deepEqual(o.members.find(m => m.owner === 'Amy').goals.oppWon.map(g => [g.value, g.actual, g.rate, g.reached]), [[2, 1, 50, false]]);
+  assert.throws(() => T.setTarget(oppState, {metric: 'oppWonAmount', period: '2026-10', scope: 'company', value: 10}), /三位币种代码/);
+  assert.throws(() => T.setTarget(oppState, {metric: 'oppWon', period: '2026-10', scope: 'company', value: 1.5}), /整数/);
+  assert.deepEqual(T.targetMetrics.slice(-3), ['oppWonAmount', 'oppWon', 'oppNew']);
+});
+
+
+test('opportunity figures: local month at the boundary, floor for the win rate, old data without a close date, odd currencies', () => {
+  // 不带时区的时间按本地时间理解，所以这一段在任何时区结果都一样：9 月 30 日 23:30 属于 9 月，10 月 1 日 00:10 属于 10 月。
+  const edge = {...state, laiOpportunities: [
+    opp('late', 'Amy', 'done', 10, 'USD', '2026-09-30 23:30', '2026-09-30 23:50'),
+    opp('early', 'Amy', 'done', 20, 'USD', '2026-10-01 00:10', '2026-10-01 00:20'),
+    opp('q', 'Amy', 'lost', 5, 'USD', '2026-12-31 23:00', '2027-01-01 00:00')]};
+  const pick = period => { const t = T.overview(edge, period).total; return [t.oppNew, t.oppWon, t.oppLost, t.oppAmounts.map(a => a.total).join()]; };
+  assert.deepEqual(pick('2026-09'), [1, 1, 0, '10']);
+  assert.deepEqual(pick('2026-10'), [1, 1, 0, '20']);
+  assert.deepEqual(pick('2026-Q4'), [2, 1, 0, '20'], 'created on 12-31 is in Q4; lost at 01-01 00:00 is not');
+  // 带时区的时间：同一个时刻在台北是 10 月，在洛杉矶还是 9 月
+  const zoned = {...state, laiOpportunities: [opp('z', 'Amy', 'done', 7, 'USD', '2026-09-30T17:00:00.000Z', '2026-10-01T05:00:00.000Z')]};
+  const saved = process.env.TZ;
+  try {
+    process.env.TZ = 'Asia/Taipei';
+    assert.deepEqual([T.overview({...zoned}, '2026-10').total.oppNew, T.overview({...zoned}, '2026-10').total.oppWon], [1, 1]);
+    process.env.TZ = 'America/Los_Angeles';
+    assert.deepEqual([T.overview({...zoned}, '2026-10').total.oppNew, T.overview({...zoned}, '2026-09').total.oppNew, T.overview({...zoned}, '2026-09').total.oppWon], [0, 1, 1]);
+  } finally { if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved; }
+  // 2 赢 1 输：66.67% 舍去为 66%，与商机分析页一致
+  const rate = {...state, laiOpportunities: [opp('w1', 'Amy', 'done', 1, 'USD', '2026-10-02 10:00', '2026-10-03 10:00'), opp('w2', 'Amy', 'done', 1, 'USD', '2026-10-02 10:00', '2026-10-03 10:00'), opp('l1', 'Amy', 'lost', 1, 'USD', '2026-10-02 10:00', '2026-10-03 10:00')]};
+  assert.equal(T.overview(rate, '2026-10').total.oppWinRate, 66);
+  assert.equal(require('../src/opportunity-model.js').analysis(rate, {months: ['2026-10']}).summary.winRate, 66);
+  // 老数据没有结束时间：用最后一次换阶段的时间，再不行用创建时间；不会凭空消失
+  const old = {...state, laiOpportunities: [
+    opp('h', 'Amy', 'done', 9, 'USD', '2026-09-05 10:00', '', {stageHistory: [{stage: 'open', at: '2026-09-05 10:00'}, {stage: 'done', at: '2026-10-08 10:00'}]}),
+    opp('n', 'Amy', 'done', 4, 'USD', '2026-10-05 10:00', ''),
+    opp('o', 'Amy', 'open', 99, 'USD', '2026-10-05 10:00', '2026-10-06 10:00')]};
+  assert.deepEqual([T.overview(old, '2026-10').total.oppWon, T.overview(old, '2026-10').total.oppAmounts], [2, [{currency: 'USD', total: 13}]], 'a close date left on an open opportunity is ignored');
+  // 写得不像币种代码的，和商机看板一样算作 USD，不会冒出新的“币种”
+  const odd = {...state, laiOpportunities: [opp('c1', 'Amy', 'done', 3, 'EURO', '2026-10-02 10:00', '2026-10-03 10:00'), opp('c2', 'Amy', 'done', 4.5, 'us', '2026-10-02 10:00', '2026-10-03 10:00'), opp('c3', 'Amy', 'done', 2, ' eur ', '2026-10-02 10:00', '2026-10-03 10:00')]};
+  assert.deepEqual([T.overview(odd, '2026-10').total.oppAmounts, T.overview(odd, '2026-10').oppCurrency], [[{currency: 'EUR', total: 2}, {currency: 'USD', total: 7.5}], 'USD']);
+  assert.doesNotMatch(T.overview(old, '2026-10').rules.oppWon, /待付尾款|已完成/, 'the rule text no longer names the default stages');
 });
