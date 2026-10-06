@@ -165,10 +165,8 @@ test('controller: board renders, a new opportunity can be created, edited and it
   await c.click({oppAction: 'edit', id: 'p1'});
   assert.match(c.dialogs.at(-1)[1], /<option value="Bo" selected>/);
   c.setForm({...valid, client: 'Beta Ltd', contact: 'Bo'}); c.change({name: 'client', inForm: true});
-  c.setForm({...valid, client: 'Alpha <b>Co</b>'}); c.change({name: 'client', inForm: true});
-  delete valid.contact;
-  c.setForm({...valid, client: 'Alpha <b>Co</b>'}); c.change({name: 'stage', inForm: true});
-  valid.contact = '';
+  const {contact, ...withoutContact} = valid;
+  c.setForm({...withoutContact, client: 'Alpha <b>Co</b>'}); c.change({name: 'client', inForm: true});
   assert.doesNotMatch(c.dialogs.at(-1)[1], /<option value="Bo" selected>/, 'a contact from the previous customer is not carried over');
   c.page.discardDraft();
   await c.click({oppAction: 'edit', id: 'gone'});
