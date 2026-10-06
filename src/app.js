@@ -338,7 +338,8 @@
       return detail(currentName, true, ""), true;
     }
     if (feature === "商机更多操作") return business.opportunityMenu(current.id, currentName), true;
-    const stage = window.LaiOpportunityModel.STAGES[["未成单", "付款未到账", "待付尾款.", "已完成", "输单"].indexOf(feature.slice("商机阶段：".length))];
+    // 阶段按当前商机所在销售流程的阶段名称找（详情页上显示的就是这些名称）。
+    const stage = (current.stages || window.LaiOpportunityModel.STAGES).find((item) => item.label === feature.slice("商机阶段：".length));
     if (stage) business.moveOpportunity(current.id, stage.id, currentName);
     return true;
   }
@@ -3314,7 +3315,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", calendar: "clock", settings: "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
