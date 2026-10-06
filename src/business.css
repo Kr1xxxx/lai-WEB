@@ -1548,3 +1548,63 @@ td.team-reached {
 .business-columns:has(.opp-bars) {
   align-items: start;
 }
+
+/* 团队数据：版式微调（截图核对后）。 */
+/* 可点开明细的数字：平时只用颜色提示，悬停时才出现下划线，整张表不再满是横线。 */
+.team-number {
+  text-decoration: none;
+}
+.team-number:hover,
+.team-number:focus-visible {
+  text-decoration: underline;
+}
+.team-table td {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+/* 目标卡片：目标说明和进度条固定在卡片底部，同一行的卡片底边对齐。 */
+.team-goal-foot {
+  align-items: flex-end;
+  margin-top: auto;
+}
+.team-goal-foot .team-link {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+/* 团队墙金额卡片：完成值独占一行不折行，目标值、完成率并排在下面。 */
+.team-figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: 12px 16px;
+}
+.team-figures > div:first-child {
+  grid-column: 1 / -1;
+}
+.team-figures strong {
+  font-size: 24px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.team-figures b {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.team-rank-value,
+.team-board td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 团队墙：两张数字卡片上下叠在一列里，和旁边的排行榜等高。 */
+.team-stack {
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 12px;
+  min-width: 0;
+}
+.team-rank-empty {
+  justify-content: center;
+  padding: 28px 0;
+}

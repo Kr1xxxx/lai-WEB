@@ -223,7 +223,7 @@
         teamView.period = d.teamPeriod === "quarter" ? "quarter" : "month";
         focus = `[data-team-period="${teamView.period}"]`;
       } else if (d.teamTab) {
-        teamView.tab = d.teamTab === "process" ? "process" : "result";
+        teamView.tab = Object.hasOwn(TU().tabs, d.teamTab) ? d.teamTab : "result";
         teamView.sort = null;
         focus = `[data-team-tab="${teamView.tab}"]`;
       } else if (d.teamMode) {
@@ -258,6 +258,19 @@
         ) + TU().targetsMarkup(T.listTargets(state()), T.periodLabel, armedTarget)
       );
     }
+    // 设置目标表单：币种只在金额类指标时出现，成员只在对象选「成员」时出现；收起来的栏位不参与提交。
+    function syncTargetForm(form) {
+      const fields = form?.elements;
+      if (!fields) return;
+      const shown = { currency: TU().isMoney(fields.metric?.value), owner: fields.scope?.value === "member" };
+      for (const name of Object.keys(shown)) {
+        const field = fields[name];
+        if (!field) continue;
+        field.disabled = !shown[name];
+        const label = field.closest?.("label");
+        if (label) label.hidden = !shown[name];
+      }
+    }
     function showTargetForm(metric) {
       const T = root.LaiTeamModel;
       // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
@@ -271,7 +284,7 @@
           metric,
           period: periodKey(),
           value: existing?.value,
-          currency: existing?.currency,
+          currency: existing?.currency || (metric === "oppWonAmount" ? overview.oppCurrency : "") || undefined,
           periods: [
             { key: month, label: T.periodLabel(month) },
             { key: quarter, label: T.periodLabel(quarter) },
@@ -298,7 +311,7 @@
       if (!teamOverview) return;
       if (!root.XLSX) return ctx.toast("Excel 组件未加载，请重新打开来财");
       const workbook = root.XLSX.utils.book_new();
-      root.XLSX.utils.book_append_sheet(workbook, root.XLSX.utils.aoa_to_sheet(TU().boardRows(teamOverview, teamView)), teamView.tab === "process" ? "过程目标" : "结果目标");
+      root.XLSX.utils.book_append_sheet(workbook, root.XLSX.utils.aoa_to_sheet(TU().boardRows(teamOverview, teamView)), TU().tabLabels[teamView.tab] || "结果目标");
       const bytes = root.XLSX.write(workbook, { type: "array", bookType: "xlsx" });
       const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
       const link = document.createElement("a");
@@ -820,6 +833,7 @@
       return moveOpp(id, column.dataset.oppDrop, "");
     });
     document.addEventListener("change", (e) => {
+      if (e.target.closest?.("#biz-target-form") && ["metric", "scope"].includes(e.target.name)) return syncTargetForm(e.target.closest("#biz-target-form"));
       if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
       if (route === "opportunities" && Object.hasOwn(OPP_FILTERS, e.target.id)) {
         oppView.filters = { ...oppView.filters, [OPP_FILTERS[e.target.id]]: e.target.value };
