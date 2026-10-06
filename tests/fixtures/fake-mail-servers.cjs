@@ -11,6 +11,7 @@ const track = (server) => {
   const close = () => new Promise(resolve => { for (const socket of sockets) socket.destroy(); server.close(resolve); });
   // 模拟服务器悄悄断开现有连接（服务器本身还开着）。
   close.drop = () => { for (const socket of sockets) socket.destroy(); };
+  close.open = () => sockets.size;
   return close;
 };
 const address = item => (item.name ? { name: item.name, address: item.address } : item.address);
@@ -113,6 +114,10 @@ async function startImap({ password = 'app-password-1', mailboxes, supportsMove 
       if (verb === 'UID') verb = 'UID ' + String(parts.shift() || '').toUpperCase();
       state.commands.push(verb === 'LOGIN' ? `LOGIN ${parts[0]} ***` : `${verb} ${rest.replace(/^(UID )?\S+ ?/i, '')}`.trim());
       if (state.failNext && state.failNext.verb === verb) { const reply = state.failNext.reply; state.failNext = null; return send(`${tag} ${reply}\r\n`); }
+      // 模拟服务器收到命令后一直不回话。
+      if (state.stall && state.stall === verb) return undefined;
+      // 模拟“命令发到了、连接却断了”：不回话直接断开。
+      if (state.dropOn && state.dropOn === verb) { state.dropOn = null; return socket.destroy(); }
       if (verb === 'CAPABILITY') return send(`* CAPABILITY ${capabilities()}\r\n${tag} OK\r\n`);
       if (verb === 'NOOP') return send(`${tag} OK\r\n`);
       if (verb === 'LOGOUT') { send(`* BYE bye\r\n${tag} OK\r\n`); return socket.end(); }
@@ -142,6 +147,12 @@ async function startImap({ password = 'app-password-1', mailboxes, supportsMove 
       if (verb === 'UID FETCH') {
         const items = rest.slice(rest.indexOf(String(parts[0])) + String(parts[0]).length);
         selected.messages.forEach((message, index) => { if (inSet(parts[0], message.uid, max)) fetchLine(message, index, items); });
+        return send(`${tag} OK\r\n`);
+      }
+      // 按序号取（第 n 封），imapflow 用它取最后一封的编号。
+      if (verb === 'FETCH') {
+        const items = rest.slice(rest.indexOf(String(parts[0])) + String(parts[0]).length);
+        selected.messages.forEach((message, index) => { if (inSet(parts[0], index + 1, selected.messages.length)) fetchLine(message, index, items); });
         return send(`${tag} OK\r\n`);
       }
       if (verb === 'UID STORE') {
@@ -198,7 +209,7 @@ async function startImap({ password = 'app-password-1', mailboxes, supportsMove 
   });
   const close = track(server);
   const port = await listen(server);
-  return { port, state, endpoint: { host: '127.0.0.1', port }, close, dropConnections: close.drop, deliver: (box, message, flags) => state.add(box, message, flags) };
+  return { port, state, endpoint: { host: '127.0.0.1', port }, close, dropConnections: close.drop, openConnections: close.open, deliver: (box, message, flags) => state.add(box, message, flags) };
 }
 
 async function startSmtp({ user = '', password = 'app-password-1', reject = [] } = {}) {

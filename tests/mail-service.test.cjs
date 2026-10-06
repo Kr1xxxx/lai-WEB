@@ -23,7 +23,7 @@ async function harness(options = {}) {
     listMailTemplates: () => [...templates.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailTemplate: t => templates.set(t.id, t), deleteMailTemplate: id => templates.delete(id) };
   const downloads = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-dl-'));
   let ticks = 0;
-  const service = createMailService({ store, endpoints: { imap: imap.endpoint, smtp: smtp.endpoint }, now: () => new Date(Date.UTC(2026, 9, 6, 10, 0, clock++)), downloadsDir: downloads, reveal: file => revealed.push(file), keepAliveMs: options.keepAliveMs || 0, staleCheckMs: options.staleCheckMs ?? 20000, clock: () => ticks });
+  const service = createMailService({ store, endpoints: { imap: imap.endpoint, smtp: smtp.endpoint }, now: () => new Date(Date.UTC(2026, 9, 6, 10, 0, clock++)), downloadsDir: downloads, reveal: file => revealed.push(file), keepAliveMs: options.keepAliveMs || 0, staleCheckMs: options.staleCheckMs ?? 20000, ...(options.operationTimeoutMs ? { operationTimeoutMs: options.operationTimeoutMs } : {}), clock: () => ticks });
   const sentMail = index => mime.parseMessage(smtp.state.sent.at(index).raw);
   return { imap, smtp, service, drafts, draftFiles, templates, downloads, revealed, sentMail, get account() { return account; }, set account(value) { account = value; }, advance(ms) { ticks += ms; },
     box: name => imap.state.boxes.get(name).messages,
@@ -80,7 +80,7 @@ test('reading returns decoded content, marks the message read, and hides nothing
   const h = await harness();
   try {
     const { message } = await h.service.read({ box: 'inbox', uid: '4' });
-    assert.deepEqual({ ...message, text: undefined }, { box: 'inbox', uid: 4, from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', references: '', text: undefined, html: '',
+    assert.deepEqual({ ...message, text: undefined }, { box: 'inbox', uid: 4, from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', inReplyTo: '', references: '', text: undefined, html: '',
       attachments: [{ index: 0, filename: '装箱单 2026-10.pdf', contentType: 'application/pdf', size: 31 }, { index: 1, filename: 'photo.png', contentType: 'image/png', size: sample.png.length }], seen: true, pending: false });
     assert.equal(message.text, '您好，\n\n样品已于今天寄出，附件是装箱单。\n\n李伟');
     assert.ok(h.imap.state.message('INBOX', 4).flags.has('\\Seen')); assert.deepEqual((await h.service.list({ folder: 'inbox' })).counts, { unread: 2, pending: 1 });
@@ -410,9 +410,16 @@ test('a kept-alive connection is reused across operations, checked when stale, r
     assert.equal(h.imap.state.logins, 1, 'simultaneous requests share the connection');
     h.advance(30000); await h.service.status();
     assert.equal(h.imap.state.commands.filter(c => c === 'NOOP').length, 1, 'after sitting idle the server is asked first'); assert.equal(h.imap.state.logins, 1);
-    // 服务器悄悄断开了连接：下一次操作发现后重新登录，用户看不到错误。
+    // 服务器悄悄断开了连接：下一次操作前的探测发现它断了，重新登录，用户看不到错误。删除这种不重做的操作也一样。
     h.imap.dropConnections(); h.advance(30000);
-    assert.deepEqual((await h.service.list({ folder: 'pending' })).items.map(i => i.uid), [4, 3]); assert.equal(h.imap.state.logins, 2);
+    assert.deepEqual(await h.service.trash({ box: 'inbox', uid: 1 }), { ok: true, count: 1 }); assert.equal(h.imap.state.logins, 2, 'the dead connection was noticed before the move, so the move itself ran once on a fresh login');
+    assert.equal(h.box('Trash').length, 1);
+    // 命令发出去之后连接才断：只读和改标记的操作重新登录再做一次；
+    h.imap.state.dropOn = 'UID SEARCH';
+    assert.deepEqual((await h.service.list({ folder: 'pending' })).items.map(i => i.uid), [4, 3]); assert.equal(h.imap.state.logins, 3);
+    // 移动邮件不重做（服务器可能已经移了），如实报错。
+    h.imap.state.dropOn = 'UID MOVE';
+    await rejects(h.service.trash({ box: 'inbox', uid: 2 }), 502, 'imap_no', /没有完成「移动邮件」/); assert.equal(h.imap.state.logins, 3, 'no second login, no second move'); assert.equal(h.imap.state.commands.filter(c => c.startsWith('UID MOVE')).length, 2);
     // 换了密码：旧连接不能接着用。
     h.account = { ...h.account, password: 'changed' };
     await rejects(h.service.list({ folder: 'inbox' }), 422, 'auth_failed'); assert.equal(h.service.connected(), false);
@@ -423,14 +430,32 @@ test('a kept-alive connection is reused across operations, checked when stale, r
     await until(() => h.imap.state.commands.filter(c => c === 'LOGOUT').length >= 2);
     await h.service.list({ folder: 'inbox' }); assert.equal(h.service.connected(), true);
     await h.service.forget(); assert.equal(h.service.connected(), false, 'unbinding closes the connection at once');
+    // 登录还没完成就解绑：这次登录作废，连接不会留下来。
+    const pending = h.service.list({ folder: 'inbox' }); await h.service.forget();
+    await rejects(pending, 409, 'not_bound'); assert.equal(h.service.connected(), false); await until(() => h.imap.openConnections() === 0); assert.equal(h.imap.openConnections(), 0, 'no connection to the old mailbox is left open');
+    // 操作途中解绑并删掉了账号：重试不会拿旧密码再登录。
+    await h.service.list({ folder: 'inbox' }); const logins = h.imap.state.logins;
+    h.imap.state.dropOn = 'UID SEARCH'; const running = h.service.list({ folder: 'inbox' }); const saved = h.account; h.account = null;
+    await rejects(running, 409, 'not_bound'); assert.equal(h.imap.state.logins, logins); h.account = saved;
+  } finally { await h.close(); }
+});
+
+test('an operation that gets no answer is given up after the time limit and the connection is discarded', async () => {
+  const h = await harness({ keepAliveMs: 5000, operationTimeoutMs: 500 });
+  try {
+    await h.service.list({ folder: 'inbox' }); assert.equal(h.service.connected(), true);
+    h.imap.state.stall = 'UID SEARCH';
+    await rejects(h.service.list({ folder: 'inbox' }), 504, 'timeout', /长时间没有回应/); assert.equal(h.service.connected(), false);
+    h.imap.state.stall = null;
+    assert.equal((await h.service.list({ folder: 'inbox' })).total, 5, 'the next operation logs in again and works');
   } finally { await h.close(); }
 });
 
 test('the inbox status reports unread, pending and the next uid without touching any message', async () => {
   const h = await harness();
   try {
-    assert.deepEqual(await h.service.status(), { ok: true, unread: 3, pending: 1, total: 5, uidNext: h.imap.state.nextUid });
-    assert.ok(h.imap.state.commands.every(c => !/^(UID STORE|UID MOVE|SELECT|UID FETCH)/.test(c)), 'status reads no message and changes nothing');
+    assert.deepEqual(await h.service.status(), { ok: true, unread: 3, pending: 1, total: 5, uidNext: 6 });
+    assert.ok(h.imap.state.commands.every(c => !/^(UID STORE|UID MOVE|SELECT|UID FETCH|STATUS)/.test(c)), 'status reads no message body, changes nothing, and does not send STATUS for the open folder');
     const before = h.imap.state.nextUid;
     await h.imap.deliver('INBOX', { from: { name: 'New', address: 'new@x.example' }, to: [me], subject: 'Fresh', date: '2026-10-07T01:00:00Z', text: 'hi', messageId: '<fresh@x.example>' });
     const after = await h.service.status();

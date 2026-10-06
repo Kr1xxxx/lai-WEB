@@ -21,6 +21,7 @@ const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_BATCH = 200;        // 一次批量标记／删除最多多少封
 const MAX_TEMPLATES = 200;
 const STALE_CHECK_MS = 20000; // 连接闲了这么久再用之前，先问服务器一声它还在不在
+const OPERATION_TIMEOUT_MS = 120000; // 一次操作最多等这么久；超时就放弃这条连接
 // 界面上的文件夹 → 服务器上的邮箱与筛选条件。「待处理」用邮件的星标（\Flagged）表示。
 const FOLDERS = Object.freeze({
   inbox: { box: 'inbox', query: { all: true } },
@@ -34,10 +35,11 @@ const BOXES = Object.freeze({
   trash: { flag: '\\trash', names: ['Trash', 'Deleted Items', 'Deleted Messages', '已删除'] },
 });
 
-function createMailService({ store, endpoints = {}, now = () => new Date(), downloadsDir = path.join(os.homedir(), 'Downloads'), reveal = () => {}, bulkPauseMs = 1500, keepAliveMs = 0, staleCheckMs = STALE_CHECK_MS, clock = () => Date.now() }) {
+function createMailService({ store, endpoints = {}, now = () => new Date(), downloadsDir = path.join(os.homedir(), 'Downloads'), reveal = () => {}, bulkPauseMs = 1500, keepAliveMs = 0, staleCheckMs = STALE_CHECK_MS, operationTimeoutMs = OPERATION_TIMEOUT_MS, clock = () => Date.now() }) {
   const boxNames = new Map();   // 邮箱账号 → { sent, trash } 的实际名称
   const recent = new Map();     // 最近读过的几封（供保存附件、转发用），只在内存里
-  const imapOptions = endpoints.imap ? { endpoint: endpoints.imap } : {};
+  // 要留着连接复用时，连接本身的闲置超时必须比保留时间长，否则库会先把它关掉；单次操作另有超时兜底。
+  const imapOptions = { ...(endpoints.imap ? { endpoint: endpoints.imap } : {}), ...(keepAliveMs > 0 ? { socketTimeout: keepAliveMs + 60000 } : {}) };
   const smtpOptions = endpoints.smtp ? { endpoint: endpoints.smtp } : {};
 
   const fail = (status, code, message) => httpError(status, message, { code });
@@ -52,54 +54,81 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     return found;
   }
   // ---- 邮箱连接：同一个账号只留一条，用完不马上退出 ----
-  const pool = { session: null, key: '', active: 0, timer: null, opening: null, usedAt: 0 };
+  // generation：解绑或换邮箱时加一。之前开始的登录、重试一律作废，不会把旧账号的连接留下来。
+  const pool = { session: null, key: '', timer: null, opening: null, usedAt: 0 };
+  let generation = 0;
+  const leases = new Map();     // 连接 → 正在用它的操作数
   const accountKey = current => crypto.createHash('sha256').update([current.email, current.password, current.site, current.accountType].join('\u0000')).digest('hex');
+  const inUse = session => leases.get(session) || 0;
+  const closeQuietly = session => { leases.delete(session); return session.close().catch(() => {}); };
+  // 不再把这条连接当作“留着的那条”。还有操作在用它时先不关，等最后一个用完再关。
   async function dropSession(session = pool.session) {
     if (!session) return;
     if (pool.session === session) { pool.session = null; pool.key = ''; clearTimeout(pool.timer); pool.timer = null; }
-    await session.close();
+    if (!inUse(session)) await closeQuietly(session);
   }
   async function acquire(current) {
-    const key = accountKey(current);
+    const key = accountKey(current), started = generation;
     clearTimeout(pool.timer); pool.timer = null;
     if (pool.session && (pool.key !== key || !pool.session.usable())) await dropSession();
     // 闲了一阵的连接可能已经被服务器断开而这边还不知道：先问一声，不通就重新登录。
-    if (pool.session && !pool.active && clock() - pool.usedAt >= staleCheckMs) {
+    if (pool.session && !inUse(pool.session) && clock() - pool.usedAt >= staleCheckMs) {
       const session = pool.session;
-      try { await session.noop(); } catch (_) { await dropSession(session); }
+      let alive = false;
+      try { await session.noop(); alive = session.usable(); } catch (_) { alive = false; }
+      if (!alive) await dropSession(session);
     }
-    if (pool.session && pool.key === key) { pool.active++; return { session: pool.session, fresh: false }; }
-    if (!pool.opening || pool.opening.key !== key) {
-      const opening = client.open(current, imapOptions).then((session) => { pool.session = session; pool.key = key; return session; });
-      pool.opening = { key, promise: opening };
-      opening.then(() => {}, () => {}).then(() => { if (pool.opening && pool.opening.promise === opening) pool.opening = null; });
+    if (started !== generation) throw fail(409, 'not_bound', '邮箱绑定刚刚变了，请重试');
+    if (pool.session && pool.key === key) { leases.set(pool.session, inUse(pool.session) + 1); return { session: pool.session, fresh: false }; }
+    if (!pool.opening || pool.opening.key !== key || pool.opening.generation !== started) {
+      const promise = client.open(current, imapOptions).then(async (session) => {
+        // 登录期间解绑或换了邮箱：这条连接不能用，也不能留。
+        if (started !== generation) { await closeQuietly(session); throw fail(409, 'not_bound', '邮箱绑定刚刚变了，请重试'); }
+        const previous = pool.session;
+        pool.session = session; pool.key = key;
+        if (previous && previous !== session && !inUse(previous)) await closeQuietly(previous);
+        return session;
+      });
+      const opening = { key, generation: started, promise };
+      pool.opening = opening;
+      promise.then(() => {}, () => {}).then(() => { if (pool.opening === opening) pool.opening = null; });
     }
     const session = await pool.opening.promise;
-    pool.active++;
+    leases.set(session, inUse(session) + 1);
     return { session, fresh: true };
   }
   function release(session) {
-    pool.active = Math.max(0, pool.active - 1);
+    const left = Math.max(0, inUse(session) - 1);
+    if (left) leases.set(session, left); else leases.delete(session);
     pool.usedAt = clock();
-    if (pool.session !== session) { if (!pool.active) session.close().catch(() => {}); return undefined; }
-    if (pool.active) return undefined;
+    if (pool.session !== session) return left ? undefined : closeQuietly(session);
+    if (left) return undefined;
     if (keepAliveMs <= 0) return dropSession(session);
     clearTimeout(pool.timer);
-    pool.timer = setTimeout(() => { if (!pool.active) dropSession(session).catch(() => {}); }, keepAliveMs);
+    pool.timer = setTimeout(() => { if (!inUse(session)) dropSession(session).catch(() => {}); }, keepAliveMs);
     if (pool.timer.unref) pool.timer.unref();
     return undefined;
   }
+  // 单次操作的超时：到时间还没做完就放弃（连接随后会被丢掉）。
+  function limited(work) {
+    if (!(operationTimeoutMs > 0)) return work;
+    let timer;
+    const expired = new Promise((_, reject) => { timer = setTimeout(() => reject(imap.mailError('timeout', '邮箱服务器长时间没有回应，这次操作已放弃，请稍后重试。')), operationTimeoutMs); if (timer.unref) timer.unref(); });
+    return Promise.race([work, expired]).finally(() => clearTimeout(timer));
+  }
   // retry：复用的连接中途断了时，重新登录再做一次。只读操作和改标记可以重做；移动邮件不重做（可能已经移过去了）。
   async function withSession(task, { retry = true } = {}) {
-    const current = account();
     for (let attempt = 0; ; attempt++) {
+      const current = account();   // 每次都重新读：重试时如果已经解绑，就按没绑定报错，不会拿旧密码再登录
       let lease = null, again = false;
       try {
         lease = await acquire(current);
-        return await task(lease.session, current);
+        return await limited(task(lease.session, current));
       } catch (error) {
         const dead = !!lease && !lease.session.usable();
-        if (dead || error?.code === 'auth_failed') await dropSession(lease ? lease.session : pool.session).catch(() => {});
+        // 超时的连接多半卡住了：直接断开，不等它回话。
+        if (lease && error?.code === 'timeout') lease.session.destroy();
+        if (lease && (dead || error?.code === 'auth_failed' || error?.code === 'timeout')) await dropSession(lease.session).catch(() => {});
         again = dead && !lease.fresh && retry && attempt === 0;
         if (!again) throw asHttp(error);
       } finally { if (lease) await release(lease.session); }
@@ -178,13 +207,14 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     });
   }
 
-  // 收件箱概况：未读数、待处理数、下一封新邮件会用的编号。界面定时来问，用它判断有没有新邮件。
+  // 收件箱概况：未读数、待处理数、封数，以及“下一封新邮件的编号”（当前最大编号加一）。界面定时来问，用它判断有没有新邮件。
+  // 都在打开的收件箱里用搜索和取编号得到，不用 STATUS 命令（对正打开着的文件夹发 STATUS 不合规范，有的服务器会拒绝）。
   async function status() {
-    return withSession(async (session) => {
-      const inbox = await session.status('INBOX');
-      const pending = await session.withMailbox('INBOX', true, async () => (await session.search({ flagged: true })).length);
-      return { ok: true, unread: inbox.unseen, pending, total: inbox.messages, uidNext: inbox.uidNext };
-    });
+    return withSession(session => session.withMailbox('INBOX', true, async () => {
+      const total = session.exists();
+      const top = total ? await session.top() : 0;
+      return { ok: true, unread: (await session.search({ seen: false })).length, pending: (await session.search({ flagged: true })).length, total, uidNext: top + 1 };
+    }));
   }
 
   // 某个客户的往来邮件：收件箱与已发送里与这些地址有关的最近邮件，按时间倒序合并。
@@ -236,7 +266,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       if (!flags.includes('\\seen')) await session.addFlags(uid, ['\\Seen']);
       return { ok: true, message: {
         box, uid, from: parsed.from, to: parsed.to, cc: parsed.cc, replyTo: parsed.replyTo, subject: parsed.subject, date: parsed.date,
-        messageId: parsed.messageId, references: parsed.references, text: parsed.text.slice(0, 2 * 1024 * 1024),
+        messageId: parsed.messageId, inReplyTo: parsed.inReplyTo, references: parsed.references, text: parsed.text.slice(0, 2 * 1024 * 1024),
         html: inlineImages(parsed.html, parsed.attachments).slice(0, 8 * 1024 * 1024),
         attachments: parsed.attachments.filter(item => !(item.inline && item.contentId && parsed.html.includes('cid:' + item.contentId))).map(({ index, filename, contentType, size }) => ({ index, filename, contentType, size })),
         seen: true, pending: flags.includes('\\flagged'),
@@ -445,7 +475,8 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     total: batch.items.length, sent: bulkCount(batch, 'sent'), failed: bulkCount(batch, 'failed'), pending: bulkCount(batch, 'pending'), skipped: bulkCount(batch, 'skipped') });
   // 正文和主题里的 {{姓名}}、{{公司}} 换成每位收件人自己的；没有联系人姓名时用公司名。
   const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const personalize = (text, item, asHtml = false) => { const put = value => (asHtml ? escapeHtml(value) : value); return String(text).replace(/\{\{\s*姓名\s*\}\}/g, put(item.name || item.customer || '')).replace(/\{\{\s*公司\s*\}\}/g, put(item.customer || '')); };
+  // 用函数做替换：客户名里的 $ 不会被当成替换记号。
+  const personalize = (text, item, asHtml = false) => { const put = value => (asHtml ? escapeHtml(value) : value); return String(text).replace(/\{\{\s*姓名\s*\}\}/g, () => put(item.name || item.customer || '')).replace(/\{\{\s*公司\s*\}\}/g, () => put(item.customer || '')); };
   const saveBulk = (batch) => { try { store.writeMailBulk(batch); } catch (_) {} };
   // 应用在发送途中被关闭的批次不会自动续发（无法确定最后一封是否已发出），标为中断。
   function settleInterrupted(batch) {
@@ -528,7 +559,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
   const bulkIdle = () => (bulkRunning ? bulkRunning.done : Promise.resolve());
 
   // 解绑、换邮箱时：忘掉文件夹名称和读过的邮件，停掉群发，并退出还留着的连接。
-  function forget() { boxNames.clear(); recent.clear(); if (bulkRunning) bulkRunning.cancel = true; return dropSession().catch(() => {}); }
+  function forget() { generation++; boxNames.clear(); recent.clear(); if (bulkRunning) bulkRunning.cancel = true; return dropSession().catch(() => {}); }
   const shutdown = () => dropSession().catch(() => {});
   // 供测试看：现在是不是还留着一条连接。
   const connected = () => !!pool.session;

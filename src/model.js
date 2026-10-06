@@ -210,7 +210,7 @@
     return {...state,customers:{...state.customers,[name]:{...previous,client:name,updated:time,lastFollowup:time,lastWrittenFollowup:time,nextFollow:nextFollow===undefined?(previous.nextFollow||''):String(nextFollow||''),history:[{time,text:String(text).trim(),type:'followup',subtype:'quick'},...(previous.history||[])]}}};
   }
   // 把一封邮件记到客户动态里（类型“往来邮件”）。同一封邮件只记一次；不改下次跟进，也不算写过跟进。
-  const mailKey=mail=>String(mail?.messageId||'').trim()||(mail?.box&&mail?.uid?`${mail.box}|${mail.uid}`:'');
+  const mailKey=mail=>String(mail?.messageId||'').replace(/\s+/g,' ').trim().slice(0,300)||(mail?.box&&mail?.uid?`${mail.box}|${mail.uid}`:'');
   function mailRecorded(state,name,mail) {
     const key=mailKey(mail);
     if(!key||typeof name!=='string'||!Object.hasOwn(state?.customers||{},name))return false;
