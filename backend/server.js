@@ -40,6 +40,11 @@ const mailRoutes = {
   'POST /api/mail/send': (_, body) => mailService.send(body),
   'POST /api/mail/drafts/save': (_, body) => mailService.saveDraft(body),
   'POST /api/mail/drafts/delete': (_, body) => mailService.deleteDraft(body),
+  'GET /api/mail/bulk': () => mailService.bulkList(),
+  'GET /api/mail/bulk/batch': query => mailService.bulkGet({ id: query.get('id') }),
+  'POST /api/mail/bulk/start': (_, body) => mailService.bulkStart(body),
+  'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
+  'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
 const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 

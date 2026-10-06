@@ -9,7 +9,8 @@ function createMailAccounts({ store, verify = imap.verifyLogin, now = () => new 
   const publicView = account => account ? {
     provider: 'zoho', email: account.email, site: account.site, accountType: account.accountType,
     host: account.host, port: account.port, boundAt: account.boundAt, verifiedAt: account.verifiedAt,
-    ...(account.senderName ? { senderName: account.senderName } : {})
+    ...(account.senderName ? { senderName: account.senderName } : {}),
+    ...(account.signature ? { signature: account.signature } : {})
   } : null;
 
   // 把验证失败转换成界面可以直接显示的应答：输入问题 400，登录被拒 422，网络类 502。
@@ -66,7 +67,19 @@ function createMailAccounts({ store, verify = imap.verifyLogin, now = () => new 
     return { ok: true, available: true, account: null };
   }
 
-  return { status, bind, reverify, unbind };
+  // 发件人名称与签名：只改这两项，不重新验证。
+  function settings(input) {
+    const account = store.readMailAccount();
+    if (!account) throw httpError(404, '还没有绑定邮箱', { code: 'not_bound' });
+    const request = input && typeof input === 'object' ? input : {};
+    const updated = { ...account,
+      senderName: String(request.senderName ?? account.senderName ?? '').replace(/[\r\n\u0000]+/g, ' ').trim().slice(0, 80),
+      signature: String(request.signature ?? account.signature ?? '').replace(/\u0000/g, '').replace(/\r\n?/g, '\n').trim().slice(0, 2000) };
+    store.writeMailAccount(updated);
+    return { ok: true, available: true, account: publicView(updated) };
+  }
+
+  return { status, bind, reverify, unbind, settings };
 }
 
 module.exports = { createMailAccounts };

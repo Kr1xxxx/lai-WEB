@@ -195,7 +195,7 @@
     }
     if (
       business?.hasDraft() ||
-      ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind", "mail-compose"].includes(
+      ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind", "mail-compose", "mail-bulk"].includes(
         modal,
       ) ||
       [...followupDrafts.values()].some((d) => d.text.trim())
@@ -3793,6 +3793,8 @@
       removePopover();
       return;
     }
+    // 客户列表批量栏与客户详情里的「写邮件」：一位客户直接写信，多位走群发。
+    if (d.feature === "写邮件") return mail.composeFor(el.closest(".replica-batch") ? [...selected] : currentName ? [currentName] : [], e.detail > 0);
     if (d.feature) return featureNotice(d.feature, e.detail > 0);
     if (d.groupTab) {
       groupTab = d.groupTab;
@@ -4275,6 +4277,7 @@
     closeDialog: () => {
       if (String(modal || "").startsWith("mail-")) closeModal(false, true);
     },
+    openMail: (folder) => navigateApp("mail", "", true, false, folder),
     getCustomers: () => state.customers || {},
     isArchived: (profile) => L.bucket(profile) === "trash",
     openCustomer: (name) => navigateApp("customers", name),

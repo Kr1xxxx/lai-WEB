@@ -26,7 +26,7 @@ function harness({ routes = {}, account = ACCOUNT, available = true, active = tr
     for (const match of html.matchAll(/<form\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/form>/g)) {
       const elements = {};
       for (const [, attrs] of match[2].matchAll(/<input\b([^>]*)>/g)) { const name = (/\bname="([^"]+)"/.exec(attrs) || [])[1]; if (name) elements[name] = { value: decode((/\bvalue="([^"]*)"/.exec(attrs) || [])[1]), checked: /\bchecked\b/.test(attrs) }; }
-      for (const [, attrs, inner] of match[2].matchAll(/<textarea\b([^>]*)>([\s\S]*?)<\/textarea>/g)) elements[(/\bname="([^"]+)"/.exec(attrs))[1]] = { value: decode(inner) };
+      for (const [, attrs, inner] of match[2].matchAll(/<textarea\b([^>]*)>([\s\S]*?)<\/textarea>/g)) elements[(/\bname="([^"]+)"/.exec(attrs))[1]] = { value: decode(inner.replace(/^\n/, '')) };  // browsers drop one newline right after <textarea>
       for (const [, attrs, inner] of match[2].matchAll(/<select\b([^>]*)>([\s\S]*?)<\/select>/g)) elements[(/\bname="([^"]+)"/.exec(attrs))[1]] = { value: (/<option value="([^"]*)" selected/.exec(inner) || /<option value="([^"]*)"/.exec(inner) || [])[1] };
       forms.set(match[1], { elements, addEventListener: (type, fn) => submitters.set(match[1], fn) });
     }
@@ -41,12 +41,13 @@ function harness({ routes = {}, account = ACCOUNT, available = true, active = tr
     '/api/mail/message': () => reply(200, { ok: true, message: { ...MESSAGE } }),
     '/api/mail/drafts': () => reply(200, { ok: true, items: [] }),
     '/api/mail/correspondence': () => reply(200, { ok: true, items: [] }),
+    '/api/mail/bulk': () => reply(200, { ok: true, items: [] }),
   };
   const mail = Mail.create({
     escape: escapeHtml, icon: name => `<svg data-icon="${name}"></svg>`,
     mount: (html) => { forms = new Map([...forms].filter(([id]) => dialog && id.startsWith('mail-') && !id.startsWith('mail-search'))); mounted.push(html); scan(html); },
     request: async (url, payload) => { const [route, queryString = ''] = url.split('?'); const query = Object.fromEntries(new URLSearchParams(queryString)); payload = payload === undefined ? undefined : JSON.parse(JSON.stringify(payload)); requests.push({ route, query, payload }); const handler = routes[route] || defaults[route]; return handler ? handler({ query, payload, reply }) : reply(200, { ok: true }); },
-    isActive: () => active,
+    isActive: () => active, pollMs: 0, openMail: folder => opened.push('mail:' + folder),
     dialog: (title, body, footer, type) => { dialog = { title, body, footer, type }; scan(body + footer); },
     closeDialog: () => { closed++; dialog = null; },
     toast: text => toasts.push(text),
@@ -56,7 +57,7 @@ function harness({ routes = {}, account = ACCOUNT, available = true, active = tr
   return { mail, mounted, requests, toasts, opened, node, get page() { return mounted.at(-1); }, get dialog() { return dialog; }, get closed() { return closed; },
     form: id => forms.get(id), submit: id => submitters.get(id)({ preventDefault() {} }), fire: (id, type) => listeners.get(id + ':' + type)(), act: (name, dataset = {}) => mail.action(name, false, element(dataset)),
     calls: route => requests.filter(r => r.route === route), setActive(value) { active = value; },
-    dispose() { globalThis.document = previous.document || { getElementById: () => null, querySelectorAll: () => [] }; globalThis.FileReader = previous.FileReader; } };
+    dispose() { active = false; globalThis.document = previous.document || { getElementById: () => null, querySelectorAll: () => [] }; globalThis.FileReader = previous.FileReader; } };
 }
 
 test('navigation shows the three tabs, compose, six folders and live counts', async () => {
@@ -148,7 +149,7 @@ test('empty and failed lists explain themselves', async () => {
     h.form('mail-search-form').elements.query.value = 'zzz'; h.submit('mail-search-form'); await new Promise(resolve => setImmediate(resolve));
     assert.match(h.page, /没有符合搜索条件的邮件/); await h.act('clear-search'); assert.equal(h.calls('/api/mail/messages').at(-1).query.query, undefined);
     mode = 'fail'; await h.act('refresh'); assert.match(h.page, /读取邮件失败/); assert.match(h.page, /请重新验证/); assert.match(h.page, /data-mail-action="refresh">重试/);
-    await h.mail.select('bulk'); assert.match(h.page, /群发还没有做/);
+    await h.mail.select('bulk'); assert.match(h.page, /还没有群发记录/); assert.match(h.page, /data-mail-action="bulk-new"/);
   } finally { h.dispose(); }
 });
 
@@ -346,10 +347,10 @@ test('the page module only talks through the provided request and keeps no crede
   const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
   const source = read('src/mail-ui.js');
   for (const banned of ['fetch(', 'XMLHttpRequest', 'WebSocket', 'localStorage', 'sessionStorage', 'console.', 'innerHTML = m.', 'eval(']) assert.ok(!source.includes(banned), banned);
-  assert.deepEqual([...new Set([...source.matchAll(/"(\/api\/[^"?]+)"/g)].map(m => m[1]))].sort(), ['/api/mail-account', '/api/mail-account/bind', '/api/mail-account/unbind', '/api/mail-account/verify', '/api/mail/attachment/save', '/api/mail/correspondence', '/api/mail/drafts', '/api/mail/drafts/delete', '/api/mail/drafts/save', '/api/mail/flags', '/api/mail/message', '/api/mail/messages', '/api/mail/send', '/api/mail/trash']);
+  assert.deepEqual([...new Set([...source.matchAll(/"(\/api\/[^"?]+)"/g)].map(m => m[1]))].sort(), ['/api/mail-account', '/api/mail-account/bind', '/api/mail-account/settings', '/api/mail-account/unbind', '/api/mail-account/verify', '/api/mail/attachment/save', '/api/mail/bulk', '/api/mail/bulk/batch', '/api/mail/bulk/cancel', '/api/mail/bulk/start', '/api/mail/correspondence', '/api/mail/drafts', '/api/mail/drafts/delete', '/api/mail/drafts/save', '/api/mail/flags', '/api/mail/message', '/api/mail/messages', '/api/mail/send', '/api/mail/trash']);
   for (const marker of ['<!--MAIL_STYLE-->', '<!--LAI_MAIL_UI-->']) { assert.equal(read('src/template.html').split(marker).length, 2, marker); assert.ok(read('scripts/build.py').includes(marker), marker); }
   const app = read('src/app.js');
-  assert.ok(app.includes('["mail", "邮件", "mail"]')); for (const hook of ['d.mailFolder', 'd.mailAction', 'd.mailView', 'modal === "mail-compose" && !confirmed']) assert.ok(app.includes(hook), hook);
+  assert.ok(app.includes('["mail", "邮件", "mail"]')); for (const hook of ['d.mailFolder', 'd.mailAction', 'd.mailView', 'modal === "mail-compose" && !confirmed', 'd.feature === "写邮件"']) assert.ok(app.includes(hook), hook);
   for (const file of ['mail-account.js', 'mail-imap.js', 'mail-client.js', 'mail-smtp.js', 'mail-mime.js', 'mail-service.js']) assert.ok(read('scripts/build.py').includes(`'${file}'`), file + ' is bundled into the app');
   const RM = require('../src/rail-menu.js');
   assert.deepEqual(RM.menuFor('邮件', {}).map(row => [row.label, row.kind, row.target]), Mail.folders.map(f => [f.label, 'mail', f.id]));
@@ -388,5 +389,120 @@ test('the sample mailbox script answers like the local mail service and sends no
   assert.equal((await get('/api/mail/messages?folder=sent')).items[0].subject, 'PI'); assert.equal((await get('/api/mail/drafts')).items.length, 0);
   assert.deepEqual((await get('/api/mail/correspondence?addresses=anna@nordic-lamps.example')).items.map(i => i.box), ['sent', 'inbox', 'sent']);
   await post('/api/mail/trash', { box: 'inbox', uid: 5 }); assert.equal((await get('/api/mail/messages?folder=inbox')).total, 3);
+  assert.equal((await post('/api/mail/bulk/start', { subject: 's', text: 't', recipients: [] })).status, 400);
+  const bulk = await post('/api/mail/bulk/start', { subject: 's', text: 't', recipients: [{ address: 'a@b.example', name: 'A', customer: 'Co' }, { address: 'c@d.example' }] });
+  assert.deepEqual([bulk.body.batch.status, bulk.body.batch.total, bulk.body.batch.sent], ['done', 2, 2]); assert.equal((await get('/api/mail/bulk')).items.length, 1);
+  assert.equal((await get('/api/mail/bulk/batch?id=' + bulk.body.batch.id)).batch.items[0].status, 'sent'); assert.equal((await sandbox.fetch('/api/mail/bulk/batch?id=nope')).status, 404);
+  assert.equal((await post('/api/mail-account/settings', { senderName: 'K', signature: 'sig' })).body.account.signature, 'sig'); assert.equal((await get('/api/mail-account')).account.signature, 'sig');
   await sandbox.fetch('/api/data'); assert.deepEqual(outside, ['/api/data'], 'only non-mail requests pass through; mail requests never reach the network');
+});
+
+const BATCH = { id: 'c'.repeat(32), createdAt: '2026-10-06T09:00:00.000Z', finishedAt: '', subject: '新品目录 <2026>', status: 'sending', stopReason: '', total: 2, sent: 1, failed: 0, pending: 1, skipped: 0, text: 'Hi {{姓名}}', attachmentNames: ['目录.pdf'],
+  items: [{ address: 'anna@nordic-lamps.example', name: 'Anna', customer: 'Nordic Lamps AB', status: 'sent', error: '', sentAt: '2026-10-06T09:00:02.000Z' }, { address: 'liwei@shenzhen-parts.example', name: '', customer: '深圳配件', status: 'pending', error: '' }] };
+
+test('bulk mail picks customers, previews the personalised text, and only sends after a second confirming click', async () => {
+  let fail = true;
+  const customers = { 'Nordic Lamps AB': { email: 'anna@nordic-lamps.example', contact: 'Anna Berg' }, '深圳配件': { contacts: [{ contact: '王磊', email: 'wanglei@shenzhen-parts.example' }, { contact: '李伟', email: 'liwei@shenzhen-parts.example' }] }, 'Gulf <b>': { email: 'omar@gulf.example' }, 'No Mail Co': {} };
+  const h = harness({ customers, account: { ...ACCOUNT, signature: 'Kris\nLai Trading' }, routes: {
+    '/api/mail/bulk/start': ({ reply }) => fail ? reply(409, { ok: false, code: 'busy', message: '上一批群发还在发送' }) : reply(200, { ok: true, batch: { ...BATCH, text: undefined, items: undefined } }),
+    '/api/mail/bulk/batch': ({ reply }) => reply(200, { ok: true, batch: { ...BATCH, status: 'done', sent: 2, pending: 0, items: BATCH.items.map(i => ({ ...i, status: 'sent', sentAt: '2026-10-06T09:00:04.000Z' })) } }) } });
+  try {
+    await h.mail.select('bulk');
+    await h.act('bulk-new');
+    assert.equal(h.dialog.type, 'mail-bulk'); assert.match(h.dialog.body, /看不到其他收件人/); assert.match(h.dialog.body, /已选 0 \/ 3 位客户/);
+    assert.deepEqual([...h.dialog.body.matchAll(/data-mail-action="bulk-toggle" data-name="([^"]+)"[^>]*>.*?mail-bulk-address">([^<]*)</g)].map(m => m.slice(1)).sort(), [['Gulf &lt;b&gt;', 'omar@gulf.example'], ['Nordic Lamps AB', 'Anna Berg · anna@nordic-lamps.example'], ['深圳配件', '王磊 · wanglei@shenzhen-parts.example']]);
+    const f = h.form('mail-bulk-form').elements;
+    assert.equal(f.text.value, '\n\nKris\nLai Trading', 'the signature is prefilled');
+    await h.submit('mail-bulk-form'); assert.equal(h.node('mail-bulk-error').textContent, '请至少选择一位客户');
+    h.act('bulk-all'); assert.equal(h.node('mail-bulk-count').textContent, '已选 3 / 3 位客户'); assert.equal([...h.node('mail-bulk-recipients').innerHTML.matchAll(/aria-checked="true"/g)].length, 3);
+    h.act('bulk-none'); h.act('bulk-toggle', { name: '深圳配件' }); h.act('bulk-toggle', { name: 'Nordic Lamps AB' }); h.act('bulk-toggle', { name: 'Gulf <b>' }); h.act('bulk-toggle', { name: 'Gulf <b>' });
+    assert.equal(h.node('mail-bulk-count').textContent, '已选 2 / 3 位客户');
+    await h.submit('mail-bulk-form'); assert.equal(h.node('mail-bulk-error').textContent, '请填写主题');
+    f.subject.value = '{{公司}} 新品目录'; f.text.value = '  '; await h.submit('mail-bulk-form'); assert.equal(h.node('mail-bulk-error').textContent, '请填写正文');
+    f.text.value = 'Hi {{ 姓名 }}，这是给{{公司}}的目录。';
+    h.act('bulk-toggle', { name: '深圳配件' }); h.act('bulk-preview'); h.act('bulk-toggle', { name: '深圳配件' }); assert.equal(h.node('mail-bulk-preview').hidden, false);
+    assert.equal(h.node('mail-bulk-preview').textContent, '收件人：Anna Berg <anna@nordic-lamps.example>\n主题：Nordic Lamps AB 新品目录\n\nHi Anna Berg，这是给Nordic Lamps AB的目录。');
+    await h.submit('mail-bulk-form');
+    assert.equal(h.node('mail-bulk-submit').textContent, '确认向 2 位客户分别发送'); assert.equal(h.calls('/api/mail/bulk/start').length, 0, 'the first click only asks for confirmation');
+    h.act('bulk-toggle', { name: 'Gulf <b>' }); assert.equal(h.node('mail-bulk-submit').textContent, '发送', 'changing the recipients cancels the pending confirmation');
+    await h.submit('mail-bulk-form'); assert.equal(h.node('mail-bulk-submit').textContent, '确认向 3 位客户分别发送'); h.act('bulk-toggle', { name: 'Gulf <b>' });
+    await h.submit('mail-bulk-form'); await h.submit('mail-bulk-form');
+    assert.equal(h.node('mail-bulk-error').textContent, '上一批群发还在发送'); assert.equal(h.closed, 0); assert.equal(h.node('mail-bulk-submit').textContent, '发送'); assert.equal(h.node('mail-bulk-submit').disabled, false);
+    fail = false; await h.submit('mail-bulk-form'); await h.submit('mail-bulk-form');
+    const started = h.calls('/api/mail/bulk/start').at(-1).payload; started.recipients.sort((a, b) => a.address.localeCompare(b.address));
+    assert.deepEqual(started, { subject: '{{公司}} 新品目录', text: 'Hi {{ 姓名 }}，这是给{{公司}}的目录。', attachments: [],
+      recipients: [{ customer: 'Nordic Lamps AB', name: 'Anna Berg', address: 'anna@nordic-lamps.example' }, { customer: '深圳配件', name: '王磊', address: 'wanglei@shenzhen-parts.example' }] });
+    assert.equal(h.closed, 1); assert.equal(h.toasts.at(-1), '已开始向 2 位客户发送');
+    assert.deepEqual(h.calls('/api/mail/bulk/batch').at(-1).query, { id: 'c'.repeat(32) }); assert.match(h.page, /<h1>新品目录 &lt;2026&gt;<\/h1>/); assert.match(h.page, /已发 2 \/ 共 2/);
+  } finally { h.dispose(); }
+});
+
+test('the bulk box lists batches, follows a sending batch until it finishes, and can stop it', async () => {
+  let reads = 0, cancelled = false;
+  const h = harness({ routes: {
+    '/api/mail/bulk': ({ reply }) => reply(200, { ok: true, items: [{ ...BATCH, items: undefined, text: undefined }, { ...BATCH, id: 'd'.repeat(32), subject: 'Old', status: 'stopped', stopReason: '发信登录失败，已停止', sent: 0, failed: 1, pending: 0, skipped: 1 }] }),
+    '/api/mail/bulk/batch': ({ reply }) => { reads++; return reply(200, { ok: true, batch: reads < 3 && !cancelled ? BATCH : { ...BATCH, status: cancelled ? 'cancelled' : 'done', stopReason: cancelled ? '已手动停止' : '', sent: cancelled ? 1 : 2, pending: 0, skipped: cancelled ? 1 : 0, items: [BATCH.items[0], { ...BATCH.items[1], status: cancelled ? 'skipped' : 'failed', error: cancelled ? '已手动停止' : '收件人被拒绝 <x>' }] } }); },
+    '/api/mail/bulk/cancel': ({ reply }) => { cancelled = true; return reply(200, { ok: true }); } } });
+  try {
+    await h.mail.select('bulk');
+    assert.match(h.page, /<h1>群发箱（2）<\/h1>/);
+    assert.deepEqual([...h.page.matchAll(/data-mail-action="bulk-open" data-id="(\w)\w+"><span class="mail-row-who"><span class="mail-bulk-tag (\w+)">([^<]+)<\/span> ([^<]+)</g)].map(m => m.slice(1)), [['c', 'sending', '发送中', '已发 1 / 共 2'], ['d', 'stopped', '已停止', '已发 0 / 共 2 · 失败 1 · 未发 1']]);
+    await h.act('bulk-open', { id: 'c'.repeat(32) });
+    assert.match(h.page, /正在逐封发送/); assert.match(h.page, /data-mail-action="bulk-cancel"/); assert.match(h.page, /mail-item-status pending">待发送</); assert.match(h.page, /mail-item-status sent">已发送</);
+    assert.match(h.page, /data-mail-action="customer-open" data-name="Nordic Lamps AB"/); assert.match(h.page, /附件 1 个/); assert.match(h.page, /Hi \{\{姓名\}\}/);
+    for (let i = 0; i < 50 && reads < 3; i++) await new Promise(resolve => setTimeout(resolve, 5));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(reads, 3, 'polling stops once the batch is no longer sending'); assert.match(h.page, /mail-bulk-tag done">已完成</); assert.match(h.page, /mail-item-status failed">失败</); assert.match(h.page, /收件人被拒绝 &lt;x&gt;/); assert.doesNotMatch(h.page, /bulk-cancel|正在逐封发送/);
+    const listReads = h.calls('/api/mail/bulk').length; await h.act('bulk-back'); assert.match(h.page, /<h1>群发箱（2）<\/h1>/);
+    await new Promise(resolve => setTimeout(resolve, 30)); assert.ok(h.calls('/api/mail/bulk').length > listReads + 1, 'the list keeps refreshing while a batch is sending');
+    reads = 0; await h.act('bulk-open', { id: 'c'.repeat(32) }); await h.act('bulk-cancel');
+    assert.deepEqual(h.calls('/api/mail/bulk/cancel').at(-1).payload, { id: 'c'.repeat(32) }); assert.match(h.page, /已手动停止/); assert.match(h.page, /mail-item-status skipped">未发送</);
+    const before = reads; h.setActive(false); await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(reads, before);
+  } finally { h.dispose(); }
+});
+
+test('写邮件 from the customer pages opens a normal message for one customer and bulk mail for several', async () => {
+  const h = harness({ active: false, customers: { 'Nordic Lamps AB': { email: 'anna@nordic-lamps.example', contact: 'Anna Berg' }, '深圳配件': { email: 'liwei@shenzhen-parts.example' }, 'No Mail Co': {} } });
+  try {
+    await h.mail.composeFor(['Nordic Lamps AB']);
+    assert.deepEqual(h.requests.map(r => r.route), ['/api/mail-account'], 'the binding is read first, without loading any mail');
+    assert.equal(h.dialog.type, 'mail-compose'); assert.equal(h.form('mail-compose-form').elements.to.value, 'Anna Berg <anna@nordic-lamps.example>'); assert.equal(h.mounted.length, 0, 'the customer page underneath is not redrawn');
+    await h.act('compose-close');
+    await h.mail.composeFor(['No Mail Co']); assert.equal(h.toasts.at(-1), '这位客户还没有填写邮箱'); assert.equal(h.dialog, null);
+    await h.mail.composeFor(['No Mail Co', 'Nordic Lamps AB', '深圳配件', 'Nordic Lamps AB']);
+    assert.equal(h.toasts.at(-1), '1 位客户没有填写邮箱，已略过'); assert.equal(h.dialog.type, 'mail-bulk'); assert.match(h.dialog.body, /已选 2 \/ 2 位客户/);
+    await h.mail.composeFor([]); await h.mail.composeFor(['No Mail Co', 'Unknown']); assert.equal(h.toasts.at(-1), '选中的客户都没有填写邮箱');
+  } finally { h.dispose(); }
+  const away = harness({ active: false, customers: { A: { email: 'a@x.example' }, B: { email: 'b@x.example' } }, routes: { '/api/mail/bulk/start': ({ reply }) => reply(200, { ok: true, batch: { ...BATCH, items: undefined } }), '/api/mail/bulk/batch': ({ reply }) => reply(200, { ok: true, batch: { ...BATCH, status: 'done' } }) } });
+  try {
+    await away.mail.composeFor(['A', 'B']); const f = away.form('mail-bulk-form').elements; f.subject.value = 's'; f.text.value = 't';
+    await away.submit('mail-bulk-form'); await away.submit('mail-bulk-form');
+    assert.deepEqual(away.opened, ['mail:bulk'], 'starting from a customer page jumps to the bulk box'); away.setActive(true); await away.mail.select('bulk');
+    assert.deepEqual(away.calls('/api/mail/bulk/batch').at(-1).query, { id: 'c'.repeat(32) }); assert.match(away.page, /<h1>新品目录/, 'and opens the batch that was just started');
+    await away.mail.select('bulk'); assert.match(away.page, /<h1>群发箱/, 'only the first time');
+  } finally { away.dispose(); }
+  const unbound = harness({ account: null, active: false });
+  try { await unbound.mail.composeFor(['Nordic Lamps AB']); assert.equal(unbound.toasts.at(-1), '请先绑定邮箱'); assert.equal(unbound.dialog.type, 'mail-bind'); } finally { unbound.dispose(); }
+  const broken = harness({ active: false, routes: { '/api/mail-account': ({ reply }) => reply(503, { ok: false, message: 'down' }) } });
+  try { await broken.mail.composeFor(['Nordic Lamps AB']); assert.match(broken.toasts.at(-1), /无法读取邮箱绑定状态/); assert.equal(broken.dialog, null); } finally { broken.dispose(); }
+});
+
+test('sender name and signature are saved in mailbox settings and added to new mail, replies and forwards', async () => {
+  let saved = null;
+  const h = harness({ routes: { '/api/mail-account/settings': ({ payload, reply }) => payload.signature === 'fail' ? reply(503, { ok: false, message: 'storage unavailable' }) : (saved = payload, reply(200, { ok: true, available: true, account: { ...ACCOUNT, ...payload } })),
+    '/api/mail/drafts': ({ reply }) => reply(200, { ok: true, items: [{ id: 'a'.repeat(32), to: 'a@b.example', subject: 's', text: 'draft body', updatedAt: '2026-10-06T09:00:00.000Z' }] }) } });
+  try {
+    await h.mail.select();
+    h.act('compose'); assert.equal(h.form('mail-compose-form').elements.text.value, '', 'no signature yet'); await h.act('compose-close');
+    h.act('account'); assert.match(h.dialog.body, /id="mail-settings-name"/); assert.match(h.dialog.body, /id="mail-settings-signature"/);
+    h.node('mail-settings-name').value = 'Kris'; h.node('mail-settings-signature').value = 'fail'; await h.act('settings-save'); assert.equal(h.node('mail-account-error').textContent, 'storage unavailable');
+    h.node('mail-settings-signature').value = 'Kris <Sales>\nLai Trading'; await h.act('settings-save');
+    assert.deepEqual(saved, { senderName: 'Kris', signature: 'Kris <Sales>\nLai Trading' }); assert.equal(h.toasts.at(-1), '已保存'); assert.equal(h.mail.account().signature, 'Kris <Sales>\nLai Trading');
+    h.act('account'); assert.match(h.dialog.body, /value="Kris"/); assert.match(h.dialog.body, />\nKris &lt;Sales&gt;\nLai Trading<\/textarea>/);
+    h.act('compose'); assert.equal(h.form('mail-compose-form').elements.text.value, '\n\nKris <Sales>\nLai Trading'); assert.equal(h.form('mail-compose-form').elements.fromName.value, 'Kris');
+    await h.act('compose-close'); assert.equal(h.calls('/api/mail/drafts/save').length, 0, 'a message holding only the signature is not saved as a draft');
+    await h.act('open', { box: 'inbox', uid: '4' }); h.act('reply');
+    assert.match(h.form('mail-compose-form').elements.text.value, /^\n\nKris <Sales>\nLai Trading\n\n在 .* 写道：\n> 您好，/); await h.act('compose-close');
+    await h.mail.select('drafts'); h.act('draft-open', { id: 'a'.repeat(32) }); assert.equal(h.form('mail-compose-form').elements.text.value, 'draft body', 'a reopened draft does not get a second signature');
+  } finally { h.dispose(); }
 });

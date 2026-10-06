@@ -99,6 +99,13 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
     assert.equal((await request('/api/mail/drafts')).body.items.length, 0); assert.equal((await request('/api/mail-account')).body.account.senderName, 'Kris');
     assert.equal((await post('/api/mail/send', { to: '', subject: 'x', text: 'y' })).status, 400); assert.equal(smtp.state.sent.length, 1);
     assert.deepEqual((await request('/api/mail/correspondence?addresses=anna@nordic-lamps.example')).body.items.map(i => i.box), ['inbox', 'sent']);
+    assert.equal((await post('/api/mail-account/settings', { senderName: 'Kris', signature: 'Kris\nLai' })).body.account.signature, 'Kris\nLai');
+    assert.equal((await post('/api/mail/bulk/start', { subject: 's', text: 't', recipients: [] })).status, 400);
+    const bulk = await post('/api/mail/bulk/start', { subject: 'Hi {{公司}}', text: 'Dear {{姓名}}', recipients: [{ address: 'anna@nordic-lamps.example', name: 'Anna', customer: 'Nordic Lamps AB' }] });
+    assert.equal(bulk.status, 200); assert.equal(bulk.body.batch.total, 1);
+    let batchState; for (let i = 0; i < 200; i++) { batchState = (await request('/api/mail/bulk/batch?id=' + bulk.body.batch.id)).body.batch; if (batchState.status !== 'sending') break; await new Promise(r => setTimeout(r, 25)); }
+    assert.deepEqual([batchState.status, batchState.sent], ['done', 1]); assert.equal(smtp.state.sent.at(-1).parsed.subject, 'Hi Nordic Lamps AB'); assert.equal(smtp.state.sent.at(-1).parsed.text, 'Dear Anna');
+    assert.equal((await request('/api/mail/bulk')).body.items.length, 1); assert.equal((await post('/api/mail/bulk/cancel', { id: bulk.body.batch.id })).status, 200);
     assert.equal((await post('/api/mail/trash', { box: 'inbox', uid: 5 })).status, 200); assert.equal(imap.state.boxes.get('Trash').messages.length, 1);
     assert.equal((await request('/api/mail/message?box=inbox&uid=5')).status, 404);
     assert.equal((await post('/api/mail-account/unbind', {})).status, 200); assert.equal((await request('/api/mail/messages?folder=inbox')).status, 409);

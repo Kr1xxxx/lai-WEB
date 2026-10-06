@@ -81,7 +81,16 @@
       thread = { name: "", loading: false, error: "", items: [] },
       threadToken = 0,
       compose = null,
-      confirmTarget = null;
+      confirmTarget = null,
+      // 群发：批次列表、正在查看的批次、新建群发窗口的状态。
+      bulk = { loading: false, error: "", items: [] },
+      batch = null,
+      batchToken = 0,
+      pendingBatch = "",
+      bulkToken = 0,
+      bulkDraft = null;
+    const BULK_STATUS = { sending: "发送中", done: "已完成", stopped: "已停止", cancelled: "已手动停止", interrupted: "已中断" };
+    const ITEM_STATUS = { pending: "待发送", sent: "已发送", failed: "失败", skipped: "未发送" };
     const current = () => folders.find((item) => item.id === folder);
     const option = (item, selected) => `<option value="${item.id}" ${item.id === selected ? "selected" : ""}>${E(item.label)}</option>`;
     const onMailPage = () => ctx.isActive?.() !== false;
@@ -96,7 +105,12 @@
       for (const name of Object.keys(all)) {
         if (ctx.isArchived && ctx.isArchived(all[name])) continue;
         const addresses = customerAddresses(all[name]);
-        if (addresses.length) rows.push({ name, addresses });
+        if (!addresses.length) continue;
+        // 群发时用的称呼：邮箱对应的联系人姓名，其次主要联系人。
+        const contacts = Array.isArray(all[name].contacts) ? all[name].contacts.filter((item) => item && typeof item === "object") : [];
+        const matched = contacts.find((item) => String(item.email ?? "").trim().toLowerCase() === addresses[0]);
+        const contact = String((matched && (matched.contact || matched.name)) || all[name].contact || (contacts[0] && (contacts[0].contact || contacts[0].name)) || "").trim();
+        rows.push({ name, addresses, contact });
       }
       return rows.sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"));
     }
@@ -135,9 +149,12 @@
       reading = null;
       query = "";
       thread = { name: "", loading: false, error: "", items: [] };
+      bulk = { loading: false, error: "", items: [] };
+      batch = null;
       listToken++;
       readToken++;
       threadToken++;
+      batchToken++;
     }
     async function loadAccount() {
       const token = ++loadToken;
@@ -209,7 +226,46 @@
       if (view !== "mail") return rerender();
       if (folder === "drafts") return loadDrafts();
       if (serverFolder()) return loadList(1);
+      if (folder === "bulk") return batch ? loadBatch(batch.id) : loadBulk();
       return rerender();
+    }
+    async function loadBulk() {
+      const token = ++bulkToken;
+      bulk = { ...bulk, loading: true, error: "" };
+      rerender();
+      try {
+        const items = (await call("/api/mail/bulk")).items || [];
+        if (token !== bulkToken) return;
+        bulk = { loading: false, error: "", items };
+      } catch (error) {
+        if (token !== bulkToken) return;
+        bulk = { loading: false, error: error.message, items: [] };
+      }
+      rerender();
+      // 有批次还在发送时，列表也自动更新进度。
+      if (bulk.items.some((item) => item.status === "sending"))
+        root.setTimeout(() => {
+          if (token === bulkToken && !batch && onMailPage() && view === "mail" && folder === "bulk") loadBulk();
+        }, ctx.pollMs ?? 2500);
+    }
+    // 读取一批群发的进度；还在发送时每隔几秒自动再读一次，离开这个页面就停。
+    async function loadBatch(id) {
+      const token = ++batchToken;
+      if (!batch || batch.id !== id) batch = { id, loading: true, error: "", data: null };
+      rerender();
+      try {
+        const data = await call(withQuery("/api/mail/bulk/batch", { id }));
+        if (token !== batchToken || !batch || batch.id !== id) return;
+        batch = { id, loading: false, error: "", data: data.batch };
+      } catch (error) {
+        if (token !== batchToken || !batch || batch.id !== id) return;
+        batch = { id, loading: false, error: error.message, data: batch.data };
+      }
+      rerender();
+      if (batch.data && batch.data.status === "sending" && !batch.error)
+        root.setTimeout(() => {
+          if (token === batchToken && batch && batch.id === id && onMailPage() && view === "mail" && folder === "bulk") loadBatch(id);
+        }, ctx.pollMs ?? 2500);
     }
 
     // ---- 标记：导航 ----
@@ -362,6 +418,46 @@
       else body = `<p class="mail-thread-note">${E(row.addresses.join("、"))} · 收件箱与已发送中最近的 ${thread.items.length} 封</p><div class="mail-list" role="list">${thread.items.map((message) => rowMarkup(message, new Map(), true)).join("")}</div>`;
       return pagebar(row.name, actions) + `<section class="module-page mail-page mail-list-page">${body}</section>`;
     }
+    const bulkProgress = (b) => `已发 ${b.sent} / 共 ${b.total}${b.failed ? ` · 失败 ${b.failed}` : ""}${b.skipped ? ` · 未发 ${b.skipped}` : ""}`;
+    const bulkTag = (b) => `<span class="mail-bulk-tag ${E(b.status)}">${E(BULK_STATUS[b.status] || b.status)}</span>`;
+    function bulkPage() {
+      const actions = `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button><button type="button" data-mail-action="refresh" ${bulk.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
+      let body;
+      if (bulk.loading && !bulk.items.length) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在读取群发记录…</span></div>`;
+      else if (bulk.error) body = empty("people", "读取群发记录失败", bulk.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
+      else if (!bulk.items.length) body = empty("people", "还没有群发记录", "群发会给每位客户单独发一封，对方看不到其他收件人；正文里可以用 {{姓名}}、{{公司}} 自动换成每位客户自己的。", `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button>`);
+      else
+        body =
+          `<div class="mail-list" role="list">` +
+          bulk.items
+            .map(
+              (b) =>
+                `<div class="mail-row" role="listitem"><span class="mail-pending-slot"></span><button type="button" class="mail-row-main" data-mail-action="bulk-open" data-id="${E(b.id)}"><span class="mail-row-who">${bulkTag(b)} ${E(bulkProgress(b))}</span><span class="mail-row-subject">${E(b.subject || "（无主题）")}</span><span class="mail-row-time">${E(shortTime(b.createdAt))}</span></button></div>`,
+            )
+            .join("") +
+          `</div>`;
+      return pagebar(`群发箱${bulk.items.length ? `（${bulk.items.length}）` : ""}`, actions) + `<section class="module-page mail-page mail-list-page">${body}</section>`;
+    }
+    function batchPage() {
+      const back = `<button type="button" class="mail-back" data-mail-action="bulk-back">${icon("back")}返回</button>`;
+      const b = batch.data;
+      if (!b) return pagebar(batch.error ? "无法打开群发记录" : "正在打开…", "", back) + `<section class="module-page mail-page">${batch.error ? empty("people", "无法打开这批群发", batch.error, `<button type="button" class="primary" data-mail-action="bulk-back">返回群发箱</button>`) : `<div class="empty mail-unbound" aria-busy="true"><span>正在读取发送进度…</span></div>`}</section>`;
+      const actions = (b.status === "sending" ? `<button type="button" data-mail-action="bulk-cancel">停止发送</button>` : "") + `<button type="button" data-mail-action="refresh">${icon("refresh")}刷新</button>`;
+      const rows = b.items
+        .map(
+          (item) =>
+            `<tr class="${E(item.status)}"><td>${item.customer ? `<button type="button" class="company-link" data-mail-action="customer-open" data-name="${E(item.customer)}">${E(item.customer)}</button>` : "—"}</td><td>${E(item.name || "—")}</td><td>${E(item.address)}</td><td><span class="mail-item-status ${E(item.status)}">${E(ITEM_STATUS[item.status] || item.status)}</span></td><td>${E(item.status === "sent" ? fullTime(item.sentAt) : item.error || "")}</td></tr>`,
+        )
+        .join("");
+      return (
+        pagebar(b.subject || "（无主题）", actions, back) +
+        `<section class="module-page mail-page mail-reader mail-batch"><div class="mail-batch-summary">${bulkTag(b)}<strong>${E(bulkProgress(b))}</strong><span>${E(fullTime(b.createdAt))} 开始${b.stopReason ? ` · ${E(b.stopReason)}` : ""}</span></div>` +
+        (batch.error ? `<div class="error visible" role="alert">${E(batch.error)}</div>` : "") +
+        (b.status === "sending" ? `<p class="mail-body-note">正在逐封发送，这个页面会自动更新。可以离开去做别的事，发送不会中断；关闭来财应用则会中断。</p>` : "") +
+        `<div class="mail-batch-table"><table class="order-table"><thead><tr><th>客户</th><th>称呼</th><th>邮箱</th><th>状态</th><th>发送时间／原因</th></tr></thead><tbody>${rows}</tbody></table></div>` +
+        `<details class="mail-batch-text"><summary>查看这批邮件的正文${(b.attachmentNames || []).length ? `（附件 ${b.attachmentNames.length} 个）` : ""}</summary><div class="mail-body-text">${E(b.text || "")}</div>${(b.attachmentNames || []).length ? `<p class="mail-body-note">附件：${E(b.attachmentNames.join("、"))}</p>` : ""}</details></section>`
+      );
+    }
     function page() {
       if (view === "team") return pagebar("下属邮件") + `<section class="module-page mail-page">${empty("lead", "查看下属的邮件", "这需要公司账号和上下级关系。来财目前是单机版，还没有这部分。")}</section>`;
       const blocked = gate();
@@ -369,7 +465,7 @@
       if (reading) return readerPage();
       if (view === "customer") return customerPage();
       if (folder === "drafts") return draftsPage();
-      if (folder === "bulk") return pagebar("群发箱", accountButton()) + `<section class="module-page mail-page">${empty("people", "群发还没有做", "目前可以在写信时填写多位收件人（最多 50 位）。按客户批量单独发送的群发功能尚未实现。")}</section>`;
+      if (folder === "bulk") return batch ? batchPage() : bulkPage();
       return listPage();
     }
     function render() {
@@ -499,43 +595,72 @@
       return { to: value("to").trim(), cc: value("cc").trim(), bcc: value("bcc").trim(), subject: value("subject").trim(), text: value("text"), fromName: value("fromName").trim(), forwardAttachments: form.elements.forwardAttachments ? !!form.elements.forwardAttachments.checked : true };
     }
     const composeSnapshot = (fields) => JSON.stringify([fields.to, fields.cc, fields.bcc, fields.subject, fields.text]);
-    function renderFiles() {
-      const box = document.getElementById("mail-compose-file-list");
-      if (!box || !compose) return;
-      box.innerHTML = compose.files.map((file, index) => `<li><span class="mail-attachment-name">${icon("folder")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span><button type="button" data-mail-action="file-remove" data-index="${index}">移除</button></li>`).join("");
+    function renderFileList(id, files, removeAction) {
+      const box = document.getElementById(id);
+      if (!box) return;
+      box.innerHTML = files.map((file, index) => `<li><span class="mail-attachment-name">${icon("folder")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span><button type="button" data-mail-action="${removeAction}" data-index="${index}">移除</button></li>`).join("");
     }
-    function addFiles(fileList) {
-      if (!compose) return;
-      const incoming = Array.from(fileList || []);
-      let total = compose.files.reduce((sum, file) => sum + file.size, 0);
-      for (const file of incoming) {
+    // 把选中的文件读进 holder.files；合计超过 10 MB 的不加。
+    function readFiles(fileList, holder, errorId, redraw) {
+      let total = holder.files.reduce((sum, file) => sum + file.size, 0);
+      for (const file of Array.from(fileList || [])) {
         if (total + file.size > MAX_ATTACHMENT_BYTES) {
-          showError("mail-compose-error", `附件合计不能超过 10 MB，「${file.name}」没有添加。`);
+          showError(errorId, `附件合计不能超过 10 MB，「${file.name}」没有添加。`);
           continue;
         }
         total += file.size;
         const entry = { name: file.name, type: file.type || "application/octet-stream", size: file.size, base64: "", ready: false };
-        compose.files.push(entry);
+        holder.files.push(entry);
         const reader = new root.FileReader();
         reader.onload = () => {
           entry.base64 = String(reader.result || "").replace(/^data:[^,]*,/, "");
           entry.ready = true;
         };
         reader.onerror = () => {
-          if (!compose) return;
-          compose.files = compose.files.filter((item) => item !== entry);
-          renderFiles();
-          showError("mail-compose-error", `无法读取「${file.name}」。`);
+          const index = holder.files.indexOf(entry);
+          if (index >= 0) holder.files.splice(index, 1);
+          redraw();
+          showError(errorId, `无法读取「${file.name}」。`);
         };
         reader.readAsDataURL(file);
       }
-      renderFiles();
+      redraw();
     }
+    function renderFiles() {
+      if (compose) renderFileList("mail-compose-file-list", compose.files, "file-remove");
+    }
+    function addFiles(fileList) {
+      if (compose) readFiles(fileList, compose, "mail-compose-error", renderFiles);
+    }
+    // 写信类入口共用：没读过绑定状态就先读；没有可用邮箱时提示并打开绑定窗口。
+    async function ready(pointerActivated) {
+      if (status === "idle" || status === "error") {
+        const token = ++loadToken;
+        status = "loading";
+        try {
+          const data = await call("/api/mail-account");
+          if (token === loadToken) accept(data);
+        } catch (error) {
+          if (token === loadToken) {
+            status = "error";
+            loadError = error.message;
+          }
+        }
+      }
+      if (status === "ready" && account) return true;
+      ctx.toast(status !== "ready" ? "无法读取邮箱绑定状态，请到邮件页重试" : available ? "请先绑定邮箱" : "网页试用版无法收发邮件");
+      if (status === "ready") bindDialog(pointerActivated);
+      return false;
+    }
+    const withSignature = (text) => (account && account.signature ? `\n\n${account.signature}${text || ""}` : text || "");
     function openCompose(initial = {}, pointerActivated = false) {
       if (status !== "ready" || !account) {
         ctx.toast(available ? "请先绑定邮箱" : "网页试用版无法收发邮件");
         return status === "ready" ? bindDialog(pointerActivated) : undefined;
       }
+      // 新写、回复、转发时带上签名；继续写草稿时不重复加。
+      // （下面各个 <textarea> 开头多写一个换行，是因为浏览器会吃掉紧跟标签的第一个换行。）
+      if (!initial.id) initial = { ...initial, text: withSignature(initial.text) };
       compose = { draftId: initial.id || "", inReplyTo: initial.inReplyTo || "", references: initial.references || "", forwardOf: initial.forwardOf || null, forwardCount: initial.forwardCount || 0, files: [], sending: false, force: false, snapshot: "" };
       const field = (label, name, value, extra = "") => `<label class="field">${label}<input name="${name}" id="mail-compose-${name}" value="${E(value || "")}" autocomplete="off" spellcheck="false" ${extra}></label>`;
       ctx.dialog(
@@ -544,7 +669,7 @@
           field("收件人", "to", initial.to, 'placeholder="多个地址用逗号分隔"') +
           `<div class="form-grid">${field("抄送", "cc", initial.cc)}${field("密送", "bcc", initial.bcc)}</div>` +
           field("主题", "subject", initial.subject, 'maxlength="500"') +
-          `<label class="field">正文<textarea name="text" id="mail-compose-text" rows="14">${E(initial.text || "")}</textarea></label>` +
+          `<label class="field">正文<textarea name="text" id="mail-compose-text" rows="14">\n${E(initial.text || "")}</textarea></label>` +
           `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB</span><ul id="mail-compose-file-list"></ul>` +
           (compose.forwardOf && compose.forwardCount ? `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" checked> 附带原邮件的 ${compose.forwardCount} 个附件</label>` : "") +
           `</div>` +
@@ -704,6 +829,9 @@
         "邮箱设置",
         `<div class="drawer-body mail-account"><div class="mail-bound-head"><div class="mail-unbound-art">${icon("mail")}</div><div><span class="mail-bound-tag">${icon("check")}${account.demo ? "示例" : "已绑定"}</span><strong>${E(account.email)}</strong></div></div>` +
           `<dl class="mail-bound-facts">${row("邮箱服务", account.demo ? "示例邮箱（网页试用版）" : "Zoho 邮箱")}${row("收信服务器", account.demo ? "无（不连接任何服务器）" : `${account.host}:${account.port}`)}${row("绑定时间", fullTime(account.boundAt))}${row("最近验证通过", fullTime(account.verifiedAt))}</dl>` +
+          `<label class="field">发件人名称<input id="mail-settings-name" value="${E(account.senderName || "")}" maxlength="80" placeholder="收件人看到的名字" autocomplete="off"></label>` +
+          `<label class="field">签名<textarea id="mail-settings-signature" rows="5" maxlength="2000" placeholder="写信、回复时自动加在正文末尾">\n${E(account.signature || "")}</textarea></label>` +
+          `<div class="mail-bound-actions"><button type="button" class="primary" data-mail-action="settings-save">保存名称与签名</button></div>` +
           `<div class="error ${message ? "visible" : ""}" id="mail-account-error" role="alert">${E(message)}</div>` +
           (account.demo
             ? `<div class="module-note">这是网页试用版自带的示例邮箱，里面是示例邮件，写信和回复不会真的发出，刷新页面后恢复原样。真实邮箱要在 Mac 上安装的来财应用里绑定。</div></div>`
@@ -713,6 +841,150 @@
         pointerActivated,
       );
     }
+    async function saveSettings() {
+      const name = document.getElementById("mail-settings-name"),
+        signature = document.getElementById("mail-settings-signature");
+      if (!account || !name || !signature) return;
+      try {
+        accept(await call("/api/mail-account/settings", { senderName: String(name.value || ""), signature: String(signature.value || "") }));
+        showError("mail-account-error", "");
+        ctx.toast("已保存");
+      } catch (error) {
+        showError("mail-account-error", error.message);
+      }
+    }
+
+    // ---- 群发 ----
+    const bulkRecipients = () => customers().map((row) => ({ customer: row.name, name: row.contact, address: row.addresses[0] }));
+    const bulkFill = (text, item) => String(text).replace(/\{\{\s*姓名\s*\}\}/g, item.name || item.customer || "").replace(/\{\{\s*公司\s*\}\}/g, item.customer || "");
+    function bulkListMarkup() {
+      return bulkDraft.all
+        .map((item) => {
+          const on = bulkDraft.selected.has(item.customer);
+          return `<button type="button" role="checkbox" class="mail-bulk-pick ${on ? "on" : ""}" aria-checked="${on}" data-mail-action="bulk-toggle" data-name="${E(item.customer)}"><span class="mail-bulk-box">${on ? icon("check") : ""}</span><span class="mail-bulk-name">${E(item.customer)}</span><span class="mail-bulk-address">${E(item.name ? `${item.name} · ${item.address}` : item.address)}</span></button>`;
+        })
+        .join("");
+    }
+    function bulkRefresh() {
+      const listBox = document.getElementById("mail-bulk-recipients"),
+        count = document.getElementById("mail-bulk-count"),
+        submit = document.getElementById("mail-bulk-submit");
+      if (listBox) listBox.innerHTML = bulkListMarkup();
+      if (count) count.textContent = `已选 ${bulkDraft.selected.size} / ${bulkDraft.all.length} 位客户`;
+      bulkDraft.confirm = false;
+      if (submit) submit.textContent = "发送";
+    }
+    function bulkDialog(names, pointerActivated) {
+      const all = bulkRecipients();
+      if (!all.length) return ctx.toast("还没有填写了邮箱的客户，无法群发");
+      const known = new Set(all.map((item) => item.customer));
+      bulkDraft = { all, selected: new Set((names || []).filter((name) => known.has(name))), files: [], confirm: false, sending: false };
+      ctx.dialog(
+        "新建群发",
+        `<form class="drawer-body mail-compose-form" id="mail-bulk-form" autocomplete="off" novalidate>` +
+          `<div class="module-note">每位客户单独收到一封，看不到其他收件人。主题和正文里的 <b>{{姓名}}</b> 会换成联系人姓名（没有就用公司名），<b>{{公司}}</b> 换成客户名称。一批最多 200 位。</div>` +
+          `<div class="field"><div class="mail-bulk-toolbar"><span id="mail-bulk-count">已选 ${bulkDraft.selected.size} / ${all.length} 位客户</span><button type="button" data-mail-action="bulk-all">全选</button><button type="button" data-mail-action="bulk-none">清空</button><input id="mail-bulk-filter" type="search" placeholder="搜索客户" aria-label="搜索客户" autocomplete="off"></div><div class="mail-bulk-recipients" id="mail-bulk-recipients" role="group" aria-label="收件客户">${bulkListMarkup()}</div></div>` +
+          `<label class="field">主题<input name="subject" id="mail-bulk-subject" maxlength="500" autocomplete="off"></label>` +
+          `<label class="field">正文<textarea name="text" id="mail-bulk-text" rows="10">\n${E(withSignature(""))}</textarea></label>` +
+          `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-bulk-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB，每封都会带上</span><ul id="mail-bulk-file-list"></ul></div>` +
+          `<div class="mail-bulk-preview-row"><button type="button" data-mail-action="bulk-preview">预览第一封</button></div><div class="mail-body-text mail-bulk-preview" id="mail-bulk-preview" hidden></div>` +
+          `<div class="error" id="mail-bulk-error" role="alert"></div></form>`,
+        `<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="mail-bulk-form" id="mail-bulk-submit">发送</button>`,
+        "mail-bulk",
+        pointerActivated,
+      );
+      const form = document.getElementById("mail-bulk-form");
+      if (!form) return;
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        return bulkSend();
+      });
+      const picker = document.getElementById("mail-bulk-file");
+      if (picker && picker.addEventListener)
+        picker.addEventListener("change", () => {
+          const holder = { files: bulkDraft.files };
+          readFiles(picker.files, holder, "mail-bulk-error", () => renderFileList("mail-bulk-file-list", bulkDraft.files, "bulk-file-remove"));
+          picker.value = "";
+        });
+      const filter = document.getElementById("mail-bulk-filter");
+      if (filter && filter.addEventListener)
+        filter.addEventListener("input", () => {
+          const needle = String(filter.value || "").trim().toLowerCase();
+          document.querySelectorAll("#mail-bulk-recipients [data-name]").forEach((button) => {
+            button.hidden = !!needle && !button.textContent.toLowerCase().includes(needle);
+          });
+        });
+    }
+    function bulkFields() {
+      const form = document.getElementById("mail-bulk-form");
+      if (!form || !bulkDraft) return null;
+      return { subject: String(form.elements.subject.value || "").trim(), text: String(form.elements.text.value || ""), recipients: bulkDraft.all.filter((item) => bulkDraft.selected.has(item.customer)) };
+    }
+    function bulkPreview() {
+      const fields = bulkFields(),
+        box = document.getElementById("mail-bulk-preview");
+      if (!fields || !box) return;
+      const first = fields.recipients[0];
+      box.hidden = false;
+      box.textContent = first ? `收件人：${first.name ? first.name + " " : ""}<${first.address}>\n主题：${bulkFill(fields.subject, first)}\n\n${bulkFill(fields.text, first)}` : "先选择至少一位客户，再预览。";
+    }
+    async function bulkSend() {
+      const fields = bulkFields();
+      if (!fields || bulkDraft.sending) return;
+      const submit = document.getElementById("mail-bulk-submit");
+      if (!fields.recipients.length) return showError("mail-bulk-error", "请至少选择一位客户");
+      if (fields.recipients.length > 200) return showError("mail-bulk-error", "一批群发最多 200 位，请分批发送");
+      if (!fields.subject) return showError("mail-bulk-error", "请填写主题");
+      if (!fields.text.trim()) return showError("mail-bulk-error", "请填写正文");
+      if (bulkDraft.files.some((file) => !file.ready)) return showError("mail-bulk-error", "附件还在读取，请稍候再发送");
+      showError("mail-bulk-error", "");
+      // 发出去收不回来：第一次点只是确认人数，再点一次才真的开始发。
+      if (!bulkDraft.confirm) {
+        bulkDraft.confirm = true;
+        if (submit) submit.textContent = `确认向 ${fields.recipients.length} 位客户分别发送`;
+        return;
+      }
+      bulkDraft.sending = true;
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = "正在开始…";
+      }
+      try {
+        const data = await call("/api/mail/bulk/start", { subject: fields.subject, text: fields.text, recipients: fields.recipients, attachments: bulkDraft.files.map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 })) });
+        bulkDraft = null;
+        ctx.closeDialog();
+        ctx.toast(account && account.demo ? "示例邮箱：群发不会真的发出" : `已开始向 ${data.batch.total} 位客户发送`);
+        view = "mail";
+        folder = "bulk";
+        reading = null;
+        batch = null;
+        if (onMailPage()) return loadBatch(data.batch.id);
+        // 从客户页发起的：跳到群发箱并直接打开这一批的进度。
+        pendingBatch = data.batch.id;
+        if (ctx.openMail) return ctx.openMail("bulk");
+      } catch (error) {
+        if (bulkDraft) {
+          bulkDraft.sending = false;
+          bulkDraft.confirm = false;
+        }
+        showError("mail-bulk-error", error.message);
+        if (submit && submit.isConnected !== false) {
+          submit.disabled = false;
+          submit.textContent = "发送";
+        }
+      }
+    }
+    // 从客户列表、客户详情进来的「写邮件」：一位客户直接写信，多位客户走群发。
+    async function composeFor(names, pointerActivated = false) {
+      const wanted = [...new Set(names || [])];
+      if (!wanted.length || !(await ready(pointerActivated))) return;
+      const rows = customers().filter((row) => wanted.includes(row.name));
+      if (!rows.length) return ctx.toast(wanted.length === 1 ? "这位客户还没有填写邮箱" : "选中的客户都没有填写邮箱");
+      if (wanted.length === 1) return openCompose({ to: rows[0].contact ? `${rows[0].contact} <${rows[0].addresses[0]}>` : rows[0].addresses[0] }, pointerActivated);
+      if (rows.length < wanted.length) ctx.toast(`${wanted.length - rows.length} 位客户没有填写邮箱，已略过`);
+      return bulkDialog(rows.map((row) => row.name), pointerActivated);
+    }
+
     async function verify() {
       if (working || !account) return;
       working = true;
@@ -763,6 +1035,42 @@
       if (name === "bind") return bindDialog(pointerActivated);
       if (name === "account") return accountDialog(pointerActivated);
       if (name === "verify") return verify();
+      if (name === "settings-save") return saveSettings();
+      if (name === "bulk-new") return ready(pointerActivated).then((ok) => ok && bulkDialog([], pointerActivated));
+      if (name === "bulk-open") {
+        batch = null;
+        return loadBatch(data.id);
+      }
+      if (name === "bulk-back") {
+        batch = null;
+        batchToken++;
+        return loadBulk();
+      }
+      if (name === "bulk-cancel")
+        return batch
+          ? call("/api/mail/bulk/cancel", { id: batch.id }).then(
+              () => loadBatch(batch.id),
+              (error) => ctx.toast(error.message),
+            )
+          : undefined;
+      if (name === "bulk-toggle" && bulkDraft) {
+        if (bulkDraft.selected.has(data.name)) bulkDraft.selected.delete(data.name);
+        else bulkDraft.selected.add(data.name);
+        return bulkRefresh();
+      }
+      if (name === "bulk-all" && bulkDraft) {
+        bulkDraft.selected = new Set(bulkDraft.all.map((item) => item.customer));
+        return bulkRefresh();
+      }
+      if (name === "bulk-none" && bulkDraft) {
+        bulkDraft.selected = new Set();
+        return bulkRefresh();
+      }
+      if (name === "bulk-preview") return bulkPreview();
+      if (name === "bulk-file-remove" && bulkDraft) {
+        bulkDraft.files.splice(Number(data.index), 1);
+        return renderFileList("mail-bulk-file-list", bulkDraft.files, "bulk-file-remove");
+      }
       if (name === "unbind") return unbindDialog(pointerActivated);
       if (name === "unbind-confirm") return unbind();
       if (name === "reload") {
@@ -835,12 +1143,16 @@
         view = "mail";
         folder = normalize(next);
         query = "";
+        batch = folder === "bulk" && pendingBatch ? { id: pendingBatch, loading: true, error: "", data: null } : null;
+        pendingBatch = "";
+        batchToken++;
         return enter();
       },
       folder: () => folder,
       account: () => account,
       busy: () => working || !!(compose && compose.sending),
       composing: () => !!compose,
+      composeFor,
     };
   }
   root.LaiMailUI = { create, folders, views, DEFAULT_FOLDER, customerAddresses };

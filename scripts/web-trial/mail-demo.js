@@ -107,3 +107,36 @@
   };
   root.LaiWebTrialMailDemo = {account: function () { return account; }};
 })(typeof window !== 'undefined' ? window : globalThis);
+
+/* 示例邮箱的群发与设置：群发立刻“完成”，同样不发出任何邮件。 */
+(function (root) {
+  'use strict';
+  var demo = root.LaiWebTrialMailDemo, batches = [], next = 1, inner = root.fetch;
+  function json(status, body) { return new Response(JSON.stringify(body), {status: status, headers: {'Content-Type': 'application/json'}}); }
+  function summary(b) { return {id: b.id, createdAt: b.createdAt, finishedAt: b.finishedAt, subject: b.subject, status: b.status, stopReason: '', total: b.items.length, sent: b.items.length, failed: 0, pending: 0, skipped: 0}; }
+  root.fetch = function (input, init) {
+    var url = String(typeof input === 'string' ? input : (input && input.url) || ''), method = String(init && init.method || 'GET').toUpperCase(), body = {};
+    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/mail(?:-account\/settings|\/bulk(?:\/[a-z]+)?))(?:\?([^#]*))?$/.exec(url);
+    if (!match) return inner.apply(root, arguments);
+    try { body = init && init.body ? JSON.parse(init.body) : {}; } catch (error) { return Promise.resolve(json(400, {ok: false, message: '请求内容无效'})); }
+    var path = match[1], account = demo.account();
+    if (path === '/api/mail-account/settings') { account.senderName = String(body.senderName || '').trim(); account.signature = String(body.signature || '').trim(); return Promise.resolve(json(200, {ok: true, available: false, account: account})); }
+    if (path === '/api/mail/bulk' && method === 'GET') return Promise.resolve(json(200, {ok: true, items: batches.map(summary).reverse()}));
+    if (path === '/api/mail/bulk/batch') {
+      var id = new URLSearchParams(match[2] || '').get('id'), found = batches.filter(function (b) { return b.id === id; })[0];
+      return Promise.resolve(found ? json(200, {ok: true, batch: Object.assign(summary(found), {text: found.text, attachmentNames: found.attachmentNames, items: found.items})}) : json(404, {ok: false, message: '找不到这批群发记录'}));
+    }
+    if (path === '/api/mail/bulk/cancel') return Promise.resolve(json(200, {ok: true}));
+    if (path === '/api/mail/bulk/start') {
+      var list = Array.isArray(body.recipients) ? body.recipients : [];
+      if (!list.length) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '请至少选择一位收件人'}));
+      if (!String(body.subject || '').trim() || !String(body.text || '').trim()) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '请填写主题和正文'}));
+      var now = new Date().toISOString();
+      var batch = {id: 'demo-batch-' + next++, createdAt: now, finishedAt: now, subject: body.subject, text: body.text, status: 'done', attachmentNames: (body.attachments || []).map(function (a) { return a.filename; }),
+        items: list.map(function (r) { return {address: r.address, name: r.name || '', customer: r.customer || '', status: 'sent', error: '', sentAt: now}; })};
+      batches.push(batch);
+      return Promise.resolve(json(200, {ok: true, batch: summary(batch)}));
+    }
+    return Promise.resolve(json(404, {ok: false, message: 'not found'}));
+  };
+})(typeof window !== 'undefined' ? window : globalThis);

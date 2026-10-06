@@ -227,6 +227,12 @@ function openStorage({ seedFile }) {
         data_json TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS mail_bulk (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        data_json TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS mail_drafts (
         id TEXT PRIMARY KEY,
         updated_at TEXT NOT NULL,
@@ -801,6 +807,26 @@ function openStorage({ seedFile }) {
     database.prepare('DELETE FROM mail_drafts WHERE id = ?').run(String(id));
   }
 
+  // 群发批次记录：每批的主题、正文、收件人及各自的发送结果。
+  function listMailBulk() {
+    requireDatabase();
+    return database.prepare('SELECT data_json FROM mail_bulk ORDER BY created_at DESC, id').all()
+      .map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } }).filter(Boolean);
+  }
+  function readMailBulk(id) {
+    requireDatabase();
+    const row = database.prepare('SELECT data_json FROM mail_bulk WHERE id = ?').get(String(id));
+    if (!row) return null;
+    try { return JSON.parse(row.data_json); } catch (_) { return null; }
+  }
+  function writeMailBulk(batch) {
+    requireDatabase();
+    database.prepare(`
+      INSERT INTO mail_bulk(id, created_at, data_json) VALUES(?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
+    `).run(String(batch.id), String(batch.createdAt), JSON.stringify(batch));
+  }
+
   function health() {
     const integrity = storageMode === 'sqlite' ? databaseIntegrity() : { ok: false, message: storageError || storageMode };
     storageRevision = Number(metadataValue('revision', '0'));
@@ -821,6 +847,6 @@ function openStorage({ seedFile }) {
   }
 
   initializeStorage();
-  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, backup: createBackup, health, close, directory: supportDir };
+  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

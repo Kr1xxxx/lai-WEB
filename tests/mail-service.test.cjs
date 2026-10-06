@@ -279,3 +279,75 @@ test('message lines that start with a dot cross the sending connection unchanged
     assert.throws(() => smtpClient.send({ account: { email: me.address, password: SECRET, site: 'cn' }, from: me.address, recipients: ['a@b.example>\r\nRCPT TO:<evil@x.io'], raw }, { connect: smtp.connect }), { code: 'invalid_input' });
   } finally { await smtp.close(); }
 });
+
+test('bulk mail sends one personalised message per recipient and records each result', async () => {
+  const smtp = await fake.startSmtp({ user: me.address, reject: ['gone@x.example'] });
+  const batches = new Map(); let account = { provider: 'zoho', email: me.address, password: SECRET, site: 'cn', accountType: 'organization', senderName: 'Kris' }; let clock = 0;
+  const store = { readMailAccount: () => account, writeMailAccount: (next) => { account = next; }, listMailDrafts: () => [], writeMailDraft() {}, deleteMailDraft() {},
+    listMailBulk: () => [...batches.values()].map(b => JSON.parse(b)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), readMailBulk: id => batches.has(id) ? JSON.parse(batches.get(id)) : null, writeMailBulk: batch => batches.set(batch.id, JSON.stringify(batch)) };
+  const make = () => createMailService({ store, connectSmtp: smtp.connect, now: () => new Date(Date.UTC(2026, 9, 6, 10, 0, clock++)), bulkPauseMs: 0 });
+  let service = make();
+  try {
+    assert.deepEqual(service.bulkList(), { ok: true, items: [] });
+    const ok = { subject: '{{公司}} 新品目录', text: 'Hi {{ 姓名 }},\n\n给{{公司}}的目录。', recipients: [{ address: 'Anna@Nordic-Lamps.example', name: 'Anna Berg', customer: 'Nordic Lamps AB' }, { address: 'gone@x.example', name: '', customer: 'Gone Co' }, { address: 'anna@nordic-lamps.example', name: 'dup', customer: 'dup' }, { address: 'li@shenzhen.example', name: '', customer: '' }],
+      attachments: [{ filename: '目录.pdf', contentType: 'application/pdf', contentBase64: Buffer.from('%PDF').toString('base64') }] };
+    for (const [change, pattern] of [[{ recipients: [] }, /至少选择一位/], [{ recipients: [{ address: 'nope' }] }, /不是有效的邮箱地址/], [{ recipients: [null] }, /不是有效的邮箱地址/], [{ subject: ' ' }, /请填写主题/], [{ text: '\n ' }, /请填写正文/],
+      [{ recipients: Array.from({ length: 201 }, (_, i) => ({ address: `r${i}@x.example` })) }, /最多 200 位/], [{ attachments: [{ filename: 'a', contentBase64: '!!' }] }, /附件内容无效/]])
+      assert.throws(() => service.bulkStart({ ...ok, ...change }), error => error.status === 400 && pattern.test(error.message), String(pattern));
+    assert.equal(smtp.state.sent.length, 0); assert.equal(batches.size, 0, 'a refused request leaves no batch behind');
+    const started = service.bulkStart(ok);
+    assert.match(started.batch.id, /^[0-9a-f]{32}$/); assert.match(started.batch.createdAt, /^2026-10-06T10:00:\d\d\.000Z$/);
+    assert.deepEqual({ ...started.batch, id: undefined, createdAt: undefined }, { id: undefined, createdAt: undefined, finishedAt: '', subject: '{{公司}} 新品目录', status: 'sending', stopReason: '', total: 3, sent: 0, failed: 0, pending: 3, skipped: 0 });
+    assert.throws(() => service.bulkStart(ok), error => error.status === 409 && error.code === 'busy');
+    await service.bulkIdle();
+    const done = service.bulkGet({ id: started.batch.id }).batch;
+    assert.deepEqual([done.status, done.total, done.sent, done.failed, done.pending, done.skipped, done.stopReason], ['done', 3, 2, 1, 0, 0, '']); assert.deepEqual(done.attachmentNames, ['目录.pdf']); assert.ok(done.finishedAt);
+    assert.deepEqual(done.items.map(i => [i.address, i.status]), [['anna@nordic-lamps.example', 'sent'], ['gone@x.example', 'failed'], ['li@shenzhen.example', 'sent']]); assert.match(done.items[1].error, /gone@x\.example 被发信服务器拒绝/);
+    assert.deepEqual(smtp.state.sent.map(m => [m.recipients, m.parsed.to, m.parsed.subject, m.parsed.text, m.parsed.from.name, m.parsed.attachments.map(a => a.filename)]), [
+      [['anna@nordic-lamps.example'], [{ name: 'Anna Berg', address: 'anna@nordic-lamps.example' }], 'Nordic Lamps AB 新品目录', 'Hi Anna Berg,\n\n给Nordic Lamps AB的目录。', 'Kris', ['目录.pdf']],
+      [['li@shenzhen.example'], [{ name: '', address: 'li@shenzhen.example' }], '新品目录', 'Hi ,\n\n给的目录。', 'Kris', ['目录.pdf']]], 'each recipient gets their own message and sees nobody else');
+    assert.equal(service.bulkList().items[0].sent, 2); assert.equal(service.bulkList().items[0].text, undefined, 'the list carries no message bodies');
+    for (const bad of [{}, { id: 'x' }, { id: 'f'.repeat(32) }, undefined]) assert.throws(() => service.bulkGet(bad), error => error.status === 404);
+    assert.doesNotMatch([...batches.values()].join(''), new RegExp(SECRET));
+  } finally { await smtp.close(); }
+});
+
+test('bulk mail stops on a login failure or repeated failures, can be cancelled, and never resumes by itself', async () => {
+  const recipients = Array.from({ length: 8 }, (_, i) => ({ address: `r${i}@x.example`, name: '', customer: `C${i}` }));
+  const setup = async (options) => {
+    const smtp = await fake.startSmtp({ user: me.address, ...options });
+    const batches = new Map(); let account = { provider: 'zoho', email: me.address, password: options.password ? 'stale' : SECRET, site: 'cn', accountType: 'organization' };
+    const store = { readMailAccount: () => account, writeMailAccount() {}, listMailBulk: () => [...batches.values()].map(b => JSON.parse(b)), readMailBulk: id => batches.has(id) ? JSON.parse(batches.get(id)) : null, writeMailBulk: batch => batches.set(batch.id, JSON.stringify(batch)) };
+    const make = (pause = 0) => createMailService({ store, connectSmtp: smtp.connect, bulkPauseMs: pause });
+    return { smtp, batches, make };
+  };
+  const auth = await setup({ password: 'something-else' });
+  try {
+    const service = auth.make(); const { batch } = service.bulkStart({ subject: 's', text: 't', recipients }); await service.bulkIdle();
+    const result = service.bulkGet({ id: batch.id }).batch;
+    assert.deepEqual([result.status, result.sent, result.failed, result.skipped, result.stopReason], ['stopped', 0, 1, 7, '发信登录失败，已停止']); assert.equal(result.items[1].error, '发信登录失败，已停止'); assert.doesNotMatch(JSON.stringify(result), /stale/);
+  } finally { await auth.smtp.close(); }
+  const streak = await setup({ reject: recipients.slice(1, 7).map(r => r.address) });
+  try {
+    const service = streak.make(); const { batch } = service.bulkStart({ subject: 's', text: 't', recipients }); await service.bulkIdle();
+    const result = service.bulkGet({ id: batch.id }).batch;
+    assert.deepEqual([result.status, result.sent, result.failed, result.skipped, result.stopReason], ['stopped', 1, 5, 2, '连续 5 封发送失败，已停止']); assert.equal(streak.smtp.state.sent.length, 1);
+  } finally { await streak.smtp.close(); }
+  const cancel = await setup({});
+  try {
+    const service = cancel.make(40); const { batch } = service.bulkStart({ subject: 's', text: 't', recipients });
+    for (let i = 0; i < 400 && cancel.smtp.state.sent.length < 1; i++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(service.bulkGet({ id: batch.id }).batch.status, 'sending');
+    assert.deepEqual(service.bulkCancel({ id: 'not-this-one' }), { ok: true }); assert.deepEqual(service.bulkCancel({ id: batch.id }), { ok: true }); await service.bulkIdle();
+    const result = service.bulkGet({ id: batch.id }).batch;
+    assert.equal(result.status, 'cancelled'); assert.equal(result.stopReason, '已手动停止'); assert.ok(result.sent >= 1 && result.sent < 8); assert.equal(result.sent + result.skipped, 8); assert.equal(cancel.smtp.state.sent.length, result.sent);
+    // 模拟应用在发送途中关闭：库里留着一批「发送中」，新启动的服务不续发，只标为中断。
+    const stale = { id: 'e'.repeat(32), createdAt: '2026-10-06T08:00:00.000Z', finishedAt: '', subject: 'half', text: 't', status: 'sending', stopReason: '', items: [{ address: 'a@x.example', name: '', customer: '', status: 'sent', error: '' }, { address: 'b@x.example', name: '', customer: '', status: 'pending', error: '' }] };
+    cancel.batches.set(stale.id, JSON.stringify(stale));
+    const restarted = cancel.make(); const before = cancel.smtp.state.sent.length;
+    const listed = restarted.bulkList().items.find(item => item.id === stale.id);
+    assert.deepEqual([listed.status, listed.sent, listed.skipped, listed.pending, listed.stopReason], ['interrupted', 1, 1, 0, '应用在发送过程中关闭']);
+    assert.match(restarted.bulkGet({ id: stale.id }).batch.items[1].error, /没有发送/); await restarted.bulkIdle(); assert.equal(cancel.smtp.state.sent.length, before, 'nothing is re-sent');
+    assert.equal(JSON.parse(cancel.batches.get(stale.id)).status, 'interrupted');
+  } finally { await cancel.smtp.close(); }
+});
