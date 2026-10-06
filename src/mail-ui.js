@@ -461,13 +461,14 @@
         sent = m.box === "sent",
         customer = customerOf(m, addressIndex()),
         ref = `data-box="${m.box}" data-uid="${m.uid}"`;
-      const tool = (action, iconName, label, attrs = "") => `<button type="button" class="mail-tool" data-mail-action="${action}" ${attrs}>${icon(iconName)}<span>${label}</span></button>`;
+      // 左边三个主要操作带文字；右边几个次要操作只有图标，文字放在提示里，窄的时候也排得下。
+      const tool = (action, iconName, label, attrs = "", compact = false) => `<button type="button" class="mail-tool${compact ? " compact" : ""}" data-mail-action="${action}" ${attrs} title="${label}"${compact ? ` aria-label="${label}"` : ""}>${icon(iconName)}${compact ? "" : `<span>${label}</span>`}</button>`;
       const panel = contactPanel(m);
       const bar =
         `<div class="mail-reader-bar" role="toolbar" aria-label="邮件操作">${back}${tool("reply", "reply", "回复")}${tool("reply-all", "replyAll", "回复全部")}${tool("forward", "forward", "转发")}<span class="mail-bar-gap"></span>` +
-        (sent ? "" : tool("toggle-pending", "star", m.pending ? "取消待处理" : "待处理", `${ref} aria-pressed="${!!m.pending}"`) + tool("mark-unread", "mail", "标为未读")) +
-        tool("delete", "trash", "删除") +
-        (panel ? tool("contact-toggle", "people", "联系人", `aria-pressed="${contactMode !== "off"}" title="显示或收起右侧的联系人栏"`) : "") +
+        (sent ? "" : tool("toggle-pending", "star", m.pending ? "取消待处理" : "标为待处理", `${ref} aria-pressed="${!!m.pending}"`, true) + tool("mark-unread", "mail", "标为未读", "", true)) +
+        tool("delete", "trash", "删除", "", true) +
+        (panel ? tool("contact-toggle", "people", "显示或收起联系人栏", `aria-pressed="${contactMode !== "off"}"`, true) : "") +
         `</div>`;
       const fact = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : "");
       const attachments = (m.attachments || []).length

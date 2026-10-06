@@ -629,10 +629,11 @@
 .mail-reader-bar {
   flex: 0 0 auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   min-height: 48px;
-  padding: 0 12px;
+  padding: 4px 12px;
   border-bottom: 1px solid var(--line);
 }
 .mail-reader-bar .mail-back {
@@ -661,6 +662,11 @@
 .mail-tool .icon {
   width: 16px;
   height: 16px;
+}
+.mail-tool.compact {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
 }
 .mail-tool[data-mail-action="toggle-pending"][aria-pressed="true"] {
   color: #d98a00;
