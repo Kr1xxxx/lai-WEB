@@ -17,7 +17,7 @@ const INBOX = [
 const MESSAGE = { box: 'inbox', uid: 4, from: li, to: [self, { name: 'Ops', address: 'ops@example-trade.com' }], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', references: '<s-8@x>', text: '您好，\n样品已寄出。', html: '', attachments: [{ index: 0, filename: '装箱单 <1>.pdf', contentType: 'application/pdf', size: 2048 }], seen: true, pending: false };
 const CUSTOMERS = { 'Nordic Lamps AB': { email: 'Anna@Nordic-Lamps.example' }, '深圳配件': { contacts: [{ email: 'liwei@shenzhen-parts.example' }, { email: 'wanglei@shenzhen-parts.example' }, { email: 'bad' }] }, 'No Mail Co': {}, 'Archived Co': { email: 'old@x.example', laiBucket: 'trash' } };
 
-function harness({ routes = {}, account = ACCOUNT, available = true, active = true, customers = CUSTOMERS } = {}) {
+function harness({ routes = {}, account = ACCOUNT, available = true, active = true, customers = CUSTOMERS, favoriteHeart } = {}) {
   const mounted = [], requests = [], toasts = [], opened = [], nodes = new Map(), submitters = new Map(), listeners = new Map();
   let dialog = null, closed = 0, forms = new Map(), pageForms = new Map(), editor = null;
   const editors = [];
@@ -53,7 +53,7 @@ function harness({ routes = {}, account = ACCOUNT, available = true, active = tr
     createEditor: (node, bar, html) => { editor = { html, destroyed: false, getHTML() { return this.html; }, getText() { return this.html.replace(/<br\s*\/?>/g, '\n').replace(/<\/(div|p|blockquote)>/g, '\n').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&'); }, setHTML(next) { this.html = next; }, destroy() { this.destroyed = true; } }; editors.push(editor); return editor; },
     editorToolbar: () => '<div class="mail-editor-toolbar"></div>',
     request: async (url, payload) => { const [route, queryString = ''] = url.split('?'); const query = Object.fromEntries(new URLSearchParams(queryString)); payload = payload === undefined ? undefined : JSON.parse(JSON.stringify(payload)); requests.push({ route, query, payload }); const handler = routes[route] || defaults[route]; return handler ? handler({ query, payload, reply }) : reply(200, { ok: true }); },
-    isActive: () => active, pollMs: 0, keyDelayMs: 0, hasDialog: () => !!dialog, openMail: folder => opened.push('mail:' + folder),
+    isActive: () => active, favoriteHeart, pollMs: 0, keyDelayMs: 0, hasDialog: () => !!dialog, openMail: folder => opened.push('mail:' + folder),
     dialog: (title, body, footer, type) => { dialog = { title, body, footer, type }; forms = new Map(); scan(body + footer); },
     closeDialog: () => { closed++; dialog = null; forms = new Map(); },
     toast: text => toasts.push(text),
@@ -80,6 +80,20 @@ test('navigation shows the three tabs, compose, six folders and live counts', as
     html = h.mail.subnav();
     assert.deepEqual([...html.matchAll(/data-mail-folder="(\w+)"[^>]*>.*?<\/button>/g)].map(m => [m[1], (/mail-count">(\d+)/.exec(m[0]) || [])[1]]), [['inbox', '1'], ['pending', '1'], ['unread', '1'], ['drafts', undefined], ['sent', undefined], ['bulk', undefined]]);
   } finally { h.dispose(); }
+});
+
+test('each folder row carries the heart from the page shell; without one the row stays plain', () => {
+  const heart = (id, label) => `<heart ${id}|${label}>`;
+  const h = harness({ favoriteHeart: heart });
+  try {
+    const html = h.mail.subnav();
+    assert.deepEqual([...html.matchAll(/<heart ([^|]+)\|([^>]+)>/g)].map(m => [m[1], m[2]]), Mail.folders.map(f => ['mail:' + f.id, f.label]));
+    assert.equal([...html.matchAll(/<div class="nav-row" role="listitem"><button type="button" class="nav-entry [^"]*" data-mail-folder="(\w+)"[^>]*>.*?<\/button><heart /g)].length, 6, 'the heart sits beside the folder button, never inside it');
+    h.mail.select('drafts');
+    assert.match(h.mail.subnav(), /class="nav-entry active" data-mail-folder="drafts" aria-current="page"/);
+  } finally { h.dispose(); }
+  const plain = harness();
+  try { assert.doesNotMatch(plain.mail.subnav(), /nav-heart|<heart/); assert.equal([...plain.mail.subnav().matchAll(/data-mail-folder=/g)].length, 6); } finally { plain.dispose(); }
 });
 
 test('the page waits for the binding, offers a retry on failure, and never pretends to be unbound', async () => {
