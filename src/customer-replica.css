@@ -289,7 +289,10 @@ input::placeholder {
   top: 56px;
   bottom: 0;
   width: 72px;
-  background: #0c163d;
+  background:
+    radial-gradient(130% 120px at 0 0, rgba(132, 72, 235, 0.6), rgba(132, 72, 235, 0) 72%),
+    linear-gradient(180deg, #1c1b52 0, #101a45 160px, #0c163d 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.06);
   color: #b7bdd2;
   display: flex;
   flex-direction: column;
@@ -3096,3 +3099,58 @@ button.subnav-restore {
 .summary-dialog .summary-settings-scope { margin: 16px 24px 0 0; font-size: 12px; line-height: 16px; color: #9ea1a8; }
 .summary-dialog .summary-search-empty { margin: 16px 16px 0 0; color: #9ea1a8; font-size: 12px; }
 .summary-dialog #workspace-error.visible { flex: 0 0 auto; margin: 8px 24px 0; }
+
+.subnav-empty {
+  margin: 8px 8px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #8c8c8c;
+}
+.rail-flyout {
+  position: absolute;
+  left: 72px;
+  z-index: 15;
+  padding-left: 8px;
+  animation: rail-flyout-in var(--motion-normal, 160ms) var(--ease-standard, ease-out);
+}
+.rail-flyout-panel {
+  min-width: 184px;
+  max-width: 260px;
+  padding: 8px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(155deg, rgba(92, 52, 190, 0.7) 0%, rgba(22, 28, 74, 0.82) 42%, rgba(14, 19, 54, 0.88) 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 34px rgba(8, 12, 40, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.rail-flyout-item {
+  display: block;
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  text-align: left;
+}
+.rail-flyout-item:hover,
+.rail-flyout-item:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+.rail-flyout-note {
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #c3caea;
+}
+@keyframes rail-flyout-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-flyout { animation: none; }
+}
