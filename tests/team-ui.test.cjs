@@ -189,8 +189,9 @@ test('目标完成情况: tabs, overview cells with rule and unset target, membe
   assert.match(html, /<h3>结果概览<\/h3>/);
   assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['amount', 'added', 'orders']);
   assert.equal((html.match(/未设定目标值/g) || []).length, 3);
-  assert.equal((html.match(/data-feature="设置目标值"/g) || []).length, 3, 'setting a target stays a reserved entry');
-  assert.match(html, /data-feature="新建目标"/);
+  assert.deepEqual([...html.matchAll(/data-team-target="(\w+)">([^<]+)</g)].map(m => [m[1], m[2].trim()]).slice(0, 3), [['amount', '设置目标值 »'], ['added', '设置目标值 »'], ['orders', '设置目标值 »']]);
+  assert.match(html, /class="team-goal team-goal-new" data-team-target="new"/);
+  assert.doesNotMatch(html, /已达标/);
   assert.match(html, /<strong>75\.00 EUR<br>375\.00 USD<\/strong>/, 'currencies listed separately, never added together');
   assert.match(html, /<strong>16<\/strong>/); assert.match(html, /<strong>5<\/strong>/);
   assert.match(html, /<th colspan="3">成交订单金额<\/th><th colspan="3">新建客户数<\/th><th colspan="3">新建销售订单数<\/th>/);
@@ -268,7 +269,7 @@ test('controller: the two pages render, view actions re-render, rules open, and 
   const toasts = [];
   c.ui.navigate('team-goals');
   assert.match(c.mounted.at(-1), /<h1>目标完成情况<\/h1>/);
-  assert.match(c.mounted.at(-1), /data-feature="AI团队分析"/); assert.match(c.mounted.at(-1), /data-feature="目标设置"/);
+  assert.match(c.mounted.at(-1), /data-feature="AI团队分析"/); assert.match(c.mounted.at(-1), /data-lai-route="team-targets">目标设置</);
   let count = c.mounted.length;
   c.click({teamTab: 'process'});
   assert.equal(c.mounted.length, count + 1); assert.match(c.mounted.at(-1), /<h3>过程概览<\/h3>/);
@@ -294,4 +295,119 @@ test('controller: the two pages render, view actions re-render, rules open, and 
   count = c.mounted.length;
   c.click({teamTab: 'process'}); c.click({teamRefresh: '1'});
   assert.equal(c.mounted.length, count, 'team view actions do nothing on other pages');
+});
+
+// ---------------- 目标值与季度 ----------------
+const withGoals = {...overview, targetMetrics: ['amount', 'added', 'orders', 'records', 'tasksDone'], periodType: 'month', months: ['2026-10'],
+  goals: {amount: [{key: 'k1', currency: 'EUR', value: 50, actual: 75, rate: 150}, {key: 'k2', currency: 'USD', value: 500, actual: 375, rate: 75}], added: [{key: 'k3', currency: '', value: 16, actual: 16, rate: 100}]},
+  members: overview.members.map(m => m.owner === 'Amy' ? {...m, goals: {amount: [{key: 'k4', currency: 'USD', value: 200, actual: 300, rate: 150}]}} : {...m, goals: {}})};
+
+test('目标完成情况 shows saved targets, completion, progress and the reached mark', () => {
+  const html = ui.goalsMarkup(withGoals, {});
+  assert.match(html, /目标 50\.00 EUR，完成率 150%<br>目标 500\.00 USD，完成率 75%/);
+  assert.match(html, /data-team-target="amount">修改目标值 »/);
+  assert.match(html, /<i style="width:75%"><\/i>/, 'the bar follows the currency that is furthest behind');
+  assert.match(html, /新建客户数 <em class="team-reached">已达标<\/em>/);
+  assert.doesNotMatch(html, /成交订单金额 <em class="team-reached">/, 'not reached until every currency target is met');
+  assert.match(html, /目标 16，完成率 100%/); assert.match(html, /<i style="width:100%"><\/i>/);
+  assert.match(html, /<td>5\.00 EUR<br>300\.00 USD<\/td><td>200\.00 USD<\/td><td class="team-reached">150%<\/td>/);
+  assert.match(html, /<td>75\.00 USD<\/td><td class="muted">—<\/td><td class="muted">--%<\/td>/, 'members without a target stay empty');
+  const process = ui.goalsMarkup(withGoals, {tab: 'process'});
+  assert.match(process, /该指标暂不支持设置目标/, '涉及客户数 cannot be added up across months, so it has no target');
+  assert.equal((process.match(/data-team-target="(records|tasksDone)"/g) || []).length, 2);
+});
+
+test('团队墙 amount card shows the company target; quarter view counts down to the quarter end', () => {
+  const html = ui.wallMarkup(withGoals, {}, '2026-10-06');
+  assert.match(html, /<b>50\.00 EUR<br>500\.00 USD<\/b><span class="muted tiny">目标值<\/span>/);
+  assert.match(html, /<b>150%<br>75%<\/b><span class="muted tiny">完成率<\/span>/);
+  assert.match(html, /<div class="team-segbar" aria-hidden="true"><i style="width:75%">/);
+  assert.deepEqual(ui.countdown(['2026-10', '2026-11', '2026-12'], '2026-10-06'), {left: 86, days: 92, remaining: 86 / 92, label: '离本季度结束还剩', date: '10-06 周二'});
+  assert.equal(ui.countdown(['2026-10', '2026-11', '2026-12'], '2026-12-31').left, 0);
+  assert.equal(ui.countdown(['2026-07', '2026-08', '2026-09'], '2026-10-06').label, '本季度已结束');
+  assert.equal(ui.countdown(['2027-01', '2027-02', '2027-03'], '2026-10-06').label, '本季度尚未开始');
+  const quarter = ui.wallMarkup({...withGoals, periodType: 'quarter', months: ['2026-10', '2026-11', '2026-12'], members: []}, {}, '2026-10-06');
+  assert.match(quarter, /<strong>86<small>天<\/small><\/strong><span>离本季度结束还剩<\/span>/);
+  assert.match(quarter, /本季度暂无数据/);
+});
+
+test('target form offers the metrics, both periods, company or member, and escapes names', () => {
+  const html = ui.targetFormMarkup(withGoals, {metric: 'orders', period: '2026-Q4', periods: [{key: '2026-10', label: '2026 年 10 月'}, {key: '2026-Q4', label: '2026 年第 4 季度'}]});
+  assert.match(html, /<form class="drawer-body" id="biz-target-form">/); assert.match(html, /id="biz-target-error" role="alert"/);
+  assert.deepEqual([...html.split('name="metric"')[1].split('</select>')[0].matchAll(/value="(\w+)"( selected)?/g)].map(m => [m[1], Boolean(m[2])]), [['amount', false], ['added', false], ['orders', true], ['records', false], ['tasksDone', false]]);
+  assert.match(html, /<option value="2026-10">2026 年 10 月<\/option><option value="2026-Q4" selected>2026 年第 4 季度<\/option>/);
+  assert.match(html, /<option value="company" selected>企业整体<\/option><option value="member">成员（跟进人）<\/option>/);
+  assert.deepEqual([...html.split('name="owner"')[1].split('</select>')[0].matchAll(/<option value="([^"]*)"/g)].map(m => m[1]), ['', 'Amy', 'Bob', 'Cy &lt;i&gt;'], '未分配 cannot be given a target');
+  assert.match(html, /name="currency" value="USD"/); assert.match(html, /name="value"[^>]*required/);
+  assert.match(ui.targetFormMarkup(withGoals, {metric: '__proto__', periods: []}), /<option value="amount" selected>/);
+});
+
+test('目标管理 lists every saved target with a delete action, or explains how to add one', () => {
+  const targets = T.listTargets(T.setTarget(T.setTarget({}, {metric: 'amount', period: '2026-Q4', scope: 'company', currency: 'USD', value: 5000}), {metric: 'added', period: '2026-10', scope: 'member', owner: 'A <b>', value: 3}));
+  const html = ui.targetsMarkup(targets, T.periodLabel);
+  assert.match(html, /共 2 个/);
+  assert.match(html, /<td>2026 年第 4 季度<\/td><td>企业整体<\/td><td>成交订单金额<\/td><td>5,000\.00 USD<\/td>/);
+  assert.match(html, /<td>2026 年 10 月<\/td><td>A &lt;b&gt;<\/td><td>新建客户数<\/td><td>3<\/td>/);
+  assert.equal((html.match(/data-team-target-remove="/g) || []).length, 2);
+  assert.doesNotMatch(html, /A <b>/);
+  assert.match(ui.targetsMarkup([], T.periodLabel), /还没有设置任何目标/);
+});
+
+// 带保存能力的控制器：保存后状态更新，页面随之变化。
+function savingController(initial, failWith = null) {
+  let current = initial;
+  const mounted = [], dialogs = [], listeners = {}, toasts = [], closed = [];
+  const B = require('../src/business-model.js');
+  const errors = {};
+  const sandbox = {FormData: function (form) { return Object.entries(form.values)[Symbol.iterator](); }, document: {
+    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); }, getElementById: id => id ? (errors[id] ||= {textContent: '', classList: {add() {}}}) : null,
+    querySelectorAll: () => [], querySelector: () => null}};
+  sandbox.window = {LaiBusinessModel: B, LaiTeamModel: T, LaiTeamUI: U};
+  vm.createContext(sandbox);
+  vm.runInContext(source, sandbox);
+  const ui = sandbox.window.LaiBusinessUI.create({getState: () => current, escape: escapeHtml, mount: html => mounted.push(html),
+    save: async next => { if (failWith) throw new Error(failWith); current = next; return true; }, openCustomer() {}, refreshCustomer() {}, navigate() {},
+    toast: text => toasts.push(text), dialog: (...args) => dialogs.push(args), closeDialog: () => closed.push(1)});
+  return {ui, mounted, dialogs, toasts, closed, errors, state: () => current,
+    click: dataset => Promise.all(listeners.click.map(fn => fn({target: {closest: () => ({dataset, disabled: false})}}))),
+    submit: (id, values) => Promise.all(listeners.submit.map(fn => fn({target: {id, values, elements: {}}, preventDefault() {}})))};
+}
+
+test('controller: period switch, opening the form, saving a target and deleting it', async () => {
+  const c = savingController(state);
+  c.ui.navigate('team-goals');
+  assert.match(c.mounted.at(-1), /data-team-period="month" aria-pressed="true"/);
+  await c.click({teamPeriod: 'quarter'});
+  assert.match(c.mounted.at(-1), /data-team-period="quarter" aria-pressed="true"/);
+  assert.match(c.mounted.at(-1), /年第 \d 季度 · 按跟进人名称汇总/);
+  await c.click({teamPeriod: 'month'});
+  await c.click({teamTarget: 'added'});
+  const [title, body, footer, type] = c.dialogs.at(-1);
+  assert.deepEqual([title, type], ['设置目标', 'team-target']);
+  assert.match(body, /<option value="added" selected>/); assert.match(footer, /type="submit" form="biz-target-form"/);
+  const month = body.match(/name="period"><option value="(\d{4}-\d{2})" selected/)[1];
+  await c.submit('biz-target-form', {metric: 'added', period: month, scope: 'company', owner: '', currency: 'USD', value: '4'});
+  assert.deepEqual(T.listTargets(c.state()).map(t => [t.metric, t.period, t.owner, t.value]), [['added', month, null, 4]]);
+  assert.equal(c.closed.length, 1); assert.deepEqual(c.toasts, ['已保存到来财']);
+  assert.match(c.mounted.at(-1), /目标 4，完成率 \d+%/, 'the page re-renders with the new target');
+  await c.submit('biz-target-form', {metric: 'added', period: month, scope: 'member', owner: '', value: '4'});
+  assert.equal(c.errors['biz-target-error'].textContent, '请选择成员', 'validation errors appear in the form and nothing is saved');
+  assert.equal(T.listTargets(c.state()).length, 1); assert.equal(c.closed.length, 1);
+  c.ui.navigate('team-targets');
+  assert.match(c.mounted.at(-1), /<h1>目标管理<\/h1>/); assert.match(c.mounted.at(-1), /共 1 个/);
+  await c.click({teamTargetRemove: T.listTargets(c.state())[0].key});
+  assert.equal(T.listTargets(c.state()).length, 0); assert.match(c.mounted.at(-1), /还没有设置任何目标/);
+  await c.click({teamTargetRemove: 'missing'});
+  assert.equal(c.toasts.at(-1), '目标不存在或已删除');
+});
+
+test('controller: a failed save keeps the form open, shows the reason and saves nothing', async () => {
+  const c = savingController(state, '数据已发生变化，请重新打开来财后再编辑。');
+  c.ui.navigate('team-goals');
+  await c.submit('biz-target-form', {metric: 'added', period: '2026-10', scope: 'company', value: '4'});
+  assert.equal(c.errors['biz-target-error'].textContent, '数据已发生变化，请重新打开来财后再编辑。');
+  assert.equal(c.closed.length, 0); assert.equal(c.state(), state);
+  c.ui.navigate('analysis');
+  await c.click({teamTarget: 'added'}); await c.click({teamTargetRemove: 'x'});
+  assert.equal(c.dialogs.length, 0, 'target actions do nothing outside the team pages');
 });

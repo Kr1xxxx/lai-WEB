@@ -28,6 +28,17 @@
     }
     return months;
   }
+  // 统计周期：月份 YYYY-MM，或自然季度 YYYY-Qn（1–3 月为 Q1，以此类推）。
+  const validQuarter=value=>/^\d{4}-Q[1-4]$/.test(String(value||''));
+  const validPeriod=value=>validMonth(value)||validQuarter(value);
+  function periodMonths(period){
+    if(validMonth(period))return [period];
+    if(!validQuarter(period))throw new Error('请选择有效月份');
+    const first=(Number(period.slice(6))-1)*3+1;
+    return [0,1,2].map(offset=>`${period.slice(0,4)}-${String(first+offset).padStart(2,'0')}`);
+  }
+  const quarterOf=month=>`${month.slice(0,4)}-Q${Math.ceil(Number(month.slice(5,7))/3)}`;
+  const periodLabel=period=>validQuarter(period)?`${period.slice(0,4)} 年第 ${period.slice(6)} 季度`:`${period.slice(0,4)} 年 ${Number(period.slice(5,7))} 月`;
   const day=value=>trim(value).slice(0,10);
   const snippet=value=>{const text=trim(value).replace(/\s+/g,' ');return text.length>60?text.slice(0,60)+'…':text;};
 
@@ -78,15 +89,15 @@
   function trendOf(months,series,valueFor){
     return {months:months.map(month=>({month,values:Object.fromEntries(series.map(item=>[item.id,valueFor(month,item.id)]))})),series};
   }
-  function requireMonth(month){if(!validMonth(month))throw new Error('请选择有效月份');}
+  function requireMonth(period){if(!validPeriod(period))throw new Error('请选择有效月份');}
 
   function assets(state,month){
     requireMonth(month);
-    const rows=customerRows(state),months=monthsEnding(month);
+    const rows=customerRows(state),selected=new Set(periodMonths(month)),months=monthsEnding(periodMonths(month).at(-1));
     const live=rows.filter(row=>row.bucket!=='trash');
     const entries=[];
     for(const row of rows.filter(item=>item.bucket==='active'))entries.push({col:'customers',owner:row.owner,item:customerItem(row,row.source||'来源未填写')});
-    for(const row of live)if(monthOf(row.createdAt)===month)entries.push({col:'added',owner:row.owner,item:customerItem(row,`创建于 ${day(row.createdAt)}`)});
+    for(const row of live)if(selected.has(monthOf(row.createdAt)))entries.push({col:'added',owner:row.owner,item:customerItem(row,`创建于 ${day(row.createdAt)}`)});
     const columns=[{id:'customers',label:'在库客户',format:'count'},{id:'added',label:'本月新增',format:'count'}];
     const table=tabulate(columns,entries,knownOwners(rows));
     const sources=new Map();
@@ -112,7 +123,7 @@
 
   function followups(state,month){
     requireMonth(month);
-    const rows=customerRows(state),months=monthsEnding(month);
+    const rows=customerRows(state),selected=new Set(periodMonths(month)),months=monthsEnding(periodMonths(month).at(-1));
     const live=rows.filter(row=>row.bucket!=='trash');
     const records=[];
     for(const row of live)for(const entry of row.history){
@@ -122,7 +133,7 @@
       if(m)records.push({row,entry,at,month:m});
     }
     const entries=[];
-    for(const record of records.filter(item=>item.month===month)){
+    for(const record of records.filter(item=>selected.has(item.month))){
       entries.push({col:'records',owner:record.row.owner,item:{kind:'followup',title:record.row.name,meta:day(record.at),text:snippet(record.entry.text||record.entry.content||record.entry.note),customer:record.row.name}});
       entries.push({col:'customers',owner:record.row.owner,distinct:record.row.name,item:customerItem(record.row)});
     }
@@ -139,12 +150,12 @@
 
   function tasks(state,month){
     requireMonth(month);
-    const rows=customerRows(state),months=monthsEnding(month);
+    const rows=customerRows(state),selected=new Set(periodMonths(month)),months=monthsEnding(periodMonths(month).at(-1));
     const ownerOf=new Map(rows.map(row=>[row.name,row.owner]));
     const all=(Array.isArray(state.laiTasks)?state.laiTasks:[]).filter(task=>task&&typeof task==='object').map(task=>({task,month:monthOf(task.date),owner:ownerOf.get(trim(task.customer))||''})).filter(item=>item.month);
     const itemOf=({task})=>({kind:'task',title:trim(task.title)||'（未命名任务）',meta:`${day(task.date)} · ${task.done===true?'已完成':'未完成'}`,customer:trim(task.customer)});
     const entries=[];
-    for(const record of all.filter(item=>item.month===month)){
+    for(const record of all.filter(item=>selected.has(item.month))){
       entries.push({col:'total',owner:record.owner,item:itemOf(record)});
       if(record.task.done===true)entries.push({col:'done',owner:record.owner,item:itemOf(record)});
     }
@@ -162,8 +173,9 @@
 
   function orders(state,month){
     requireMonth(month);
-    const months=monthsEnding(month);
-    const analysis=BM.monthlyAnalysis(state.orders||[],month);
+    const months=monthsEnding(periodMonths(month).at(-1));
+    const picked=periodMonths(month).flatMap(m=>BM.monthlyAnalysis(state.orders||[],m).orders);
+    const analysis={orders:picked,metrics:BM.orderMetrics(picked)};
     const itemOf=order=>({kind:'order',title:trim(order.num)||'（未编号）',meta:`${trim(order.client)} · ${(trim(order.currency||'USD').toUpperCase()||'USD')} ${Number(order.amount)||0}`,customer:trim(order.client),orderId:order.id});
     const currencyOf=order=>trim(order.currency||'USD').toUpperCase()||'USD';
     const groups=new Map();
@@ -208,6 +220,50 @@
     customers:'统计本月至少有一条跟进记录的客户数量。',
     tasksDone:'统计任务日期在本月且已完成的任务数量；完成率＝已完成÷任务数。'
   });
+  // ---- 目标：按周期（月／季度）、对象（企业／成员）、指标保存一个目标值；金额目标按币种分别设置。 ----
+  const TARGET_METRICS=Object.freeze(['amount','added','orders','records','tasksDone']);
+  function normalizeTarget(input){
+    const metric=trim(input?.metric);
+    if(!TARGET_METRICS.includes(metric))throw new Error('请选择可设置目标的指标');
+    const period=trim(input?.period);
+    if(!validPeriod(period))throw new Error('请选择有效的目标周期');
+    const scope=trim(input?.scope);
+    let owner=null;
+    if(scope==='member'){owner=trim(input?.owner);if(!owner)throw new Error('请选择成员');}
+    else if(scope!=='company')throw new Error('请选择目标对象');
+    let currency='';
+    if(metric==='amount'){currency=trim(input?.currency).toUpperCase();if(!/^[A-Z]{3}$/.test(currency))throw new Error('请填写三位币种代码');}
+    const raw=input?.value;
+    if(raw===null||raw===undefined||typeof raw==='boolean'||!trim(raw)||!Number.isFinite(Number(raw))||Number(raw)<=0)throw new Error('请输入大于 0 的目标值');
+    const value=Number(raw);
+    if(metric!=='amount'&&!Number.isInteger(value))throw new Error('数量类目标请填写整数');
+    return {metric,period,owner,currency,value};
+  }
+  const targetKey=target=>[target.metric,target.period,target.owner===null?'#':'@'+target.owner,target.currency].join('|');
+  // 读取已保存的目标：格式不对的条目跳过不用，但保存时原样保留，不擅自删除。
+  function readTarget(raw){
+    try{
+      if(!raw||typeof raw!=='object')return null;
+      const target=normalizeTarget({...raw,scope:raw.owner===null||raw.owner===undefined?'company':'member'});
+      return {...target,key:targetKey(target)};
+    }catch{return null;}
+  }
+  const rawTargets=state=>Array.isArray(state?.laiTargets)?state.laiTargets:[];
+  function listTargets(state){
+    const seen=new Map();
+    for(const raw of rawTargets(state)){const target=readTarget(raw);if(target)seen.set(target.key,target);}
+    return [...seen.values()].sort((a,b)=>b.period.localeCompare(a.period)||TARGET_METRICS.indexOf(a.metric)-TARGET_METRICS.indexOf(b.metric)
+      ||(a.owner===null?0:1)-(b.owner===null?0:1)||String(a.owner||'').localeCompare(String(b.owner||''),'zh')||a.currency.localeCompare(b.currency));
+  }
+  function setTarget(state,input){
+    const target=normalizeTarget(input),key=targetKey(target);
+    return {...state,laiTargets:[...rawTargets(state).filter(raw=>readTarget(raw)?.key!==key),target]};
+  }
+  function removeTarget(state,key){
+    const list=rawTargets(state);
+    if(!list.some(raw=>readTarget(raw)?.key===key))throw new Error('目标不存在或已删除');
+    return {...state,laiTargets:list.filter(raw=>readTarget(raw)?.key!==key)};
+  }
   function overview(state,month){
     requireMonth(month);
     state=state||{};
@@ -221,6 +277,8 @@
     for(const row of f.rows){const m=member(row.owner);m.records=row.cells.records.value;m.customers=row.cells.customers.value;}
     for(const row of t.rows){const m=member(row.owner);m.tasksTotal=row.cells.total.value;m.tasksDone=row.cells.done.value;m.taskRate=row.cells.rate.value;}
     for(const row of o.rows){const m=member(row.owner);m.orders+=row.cells.count.value;m.amounts.push({currency:row.currency,total:row.cells.total.value});}
+    const targets=listTargets(state).filter(target=>target.period===month);
+    for(const target of targets)if(target.owner!==null)member(target.owner);
     const amounts=o.totals.map(total=>({currency:total.currency,total:total.cells.total.value}));
     // 主币种：本月金额最大的币种，金额相同按代码排序；没有订单时为空。
     const primaryCurrency=[...amounts].sort((x,y)=>y.total-x.total||x.currency.localeCompare(y.currency))[0]?.currency||'';
@@ -237,11 +295,23 @@
       {id:'records',label:'跟进记录数',format:'count',values:pick(f,'records')},
       {id:'tasksDone',label:'任务完成数',format:'count',values:pick(t,'done')}
     ]};
-    return {
-      month,members:list,primaryCurrency,rules:RULES,trend,
-      total:{added:a.total.added.value,orders:o.tiles[0].value,amounts,records:f.total.records.value,customers:f.total.customers.value,
-        tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value}
+    const total={added:a.total.added.value,orders:o.tiles[0].value,amounts,records:f.total.records.value,customers:f.total.customers.value,
+      tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value};
+    // 完成率＝完成值÷目标值，四舍五入到整数百分比，可以超过 100%。
+    const goalsFor=(owner,source)=>{
+      const out={};
+      for(const target of targets.filter(item=>item.owner===owner)){
+        const actual=target.metric==='amount'?(source.amounts.find(item=>item.currency===target.currency)?.total||0):source[target.metric];
+        (out[target.metric]||(out[target.metric]=[])).push({key:target.key,currency:target.currency,value:target.value,actual,rate:Math.round(actual/target.value*100)});
+      }
+      return out;
     };
+    for(const m of list)m.goals=goalsFor(m.owner,m);
+    const months=periodMonths(month);
+    return {
+      month:months.at(-1),period:month,periodType:months.length>1?'quarter':'month',periodLabel:periodLabel(month),months,
+      members:list,primaryCurrency,rules:RULES,trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
+      total};
   }
   const reports={assets,followups,tasks,orders};
   const kinds=Object.freeze(Object.keys(reports));
@@ -249,6 +319,6 @@
     if(!Object.hasOwn(reports,kind))throw new Error('不支持的团队数据报表');
     return reports[kind](state||{},month);
   }
-  const api={kinds,report,overview,monthOf,monthsEnding};
+  const api={kinds,report,overview,monthOf,monthsEnding,periodMonths,quarterOf,periodLabel,validPeriod,targetMetrics:TARGET_METRICS,listTargets,setTarget,removeTarget};
   if(node)module.exports=api;else root.LaiTeamModel=api;
 })(typeof window!=='undefined'?window:globalThis);

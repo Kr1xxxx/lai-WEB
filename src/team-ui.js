@@ -68,6 +68,14 @@
     const TREND={result:id=>id.startsWith('amount:')||id==='added'||id==='orders',process:id=>id==='records'||id==='tasksDone'};
     const amountLines=amounts=>amounts.length?amounts.map(item=>`${number(item.total)} ${E(item.currency)}`):['0'];
     const shown=(overview,id,source)=>id==='amount'?amountLines(source.amounts).join('<br>'):String(source[id]);
+    // 目标：没有目标时显示「—」「--%」；金额目标按币种各占一行。
+    const goalList=(source,id)=>source?.goals&&Object.hasOwn(source.goals,id)?source.goals[id]:[];
+    const targetShown=(id,list)=>list.length?list.map(goal=>id==='amount'?`${number(goal.value)} ${E(goal.currency)}`:String(goal.value)).join('<br>'):'—';
+    const rateShown=list=>list.length?list.map(goal=>`${goal.rate}%`).join('<br>'):'--%';
+    const lowestRate=list=>list.length?Math.max(0,Math.min(100,...list.map(goal=>goal.rate))):0;
+    const reached=list=>list.length>0&&list.every(goal=>goal.rate>=100);
+    const targetable=(overview,id)=>(overview.targetMetrics||['amount','added','orders','records','tasksDone']).includes(id);
+    const unit=overview=>overview.periodType==='quarter'?'本季度':'本月';
     const badge=rank=>rank?`<span class="team-rank${rank<=3?' team-rank-'+rank:''}" aria-label="第 ${rank} 名">${rank}</span>`:'<span class="team-rank team-rank-none" aria-label="不参与排名">—</span>';
     // 排名只针对填了名字的跟进人，按该列从高到低，数值相同按名称；「未分配」排在最后且不给名次。
     function ranked(overview,id){
@@ -90,29 +98,39 @@
     function goalsMarkup(overview,view={}){
       const tab=view.tab==='process'?'process':'result',ids=TABS[tab];
       const showTarget=view.showTarget!==false,showRate=view.showRate!==false;
-      const goal=id=>`<div class="team-goal"><div class="team-goal-head"><span>${E(COLUMNS[id].label)}</span><button type="button" class="team-link" data-team-rule="${id}">规则 ›</button></div><strong>${shown(overview,id,overview.total)}</strong>${id==='tasksDone'?`<span class="muted tiny">共 ${overview.total.tasksTotal} 个任务，完成率 ${text(overview.total.taskRate,'percent')}</span>`:''}<div class="team-goal-foot"><span class="muted tiny">未设定目标值</span><button type="button" class="team-link" data-feature="设置目标值">设置目标值 »</button></div><div class="team-goal-bar" aria-hidden="true"><i></i></div></div>`;
+      const goal=id=>{
+        const list=goalList(overview,id);
+        const foot=!targetable(overview,id)
+          ?'<span class="muted tiny">该指标暂不支持设置目标</span>'
+          :`<span class="muted tiny">${list.length?list.map(item=>`目标 ${targetShown(id,[item])}，完成率 ${item.rate}%`).join('<br>'):'未设定目标值'}</span><button type="button" class="team-link" data-team-target="${id}">${list.length?'修改目标值':'设置目标值'} »</button>`;
+        return `<div class="team-goal"><div class="team-goal-head"><span>${E(COLUMNS[id].label)}${reached(list)?' <em class="team-reached">已达标</em>':''}</span><button type="button" class="team-link" data-team-rule="${id}">规则 ›</button></div><strong>${shown(overview,id,overview.total)}</strong>${id==='tasksDone'?`<span class="muted tiny">共 ${overview.total.tasksTotal} 个任务，完成率 ${text(overview.total.taskRate,'percent')}</span>`:''}<div class="team-goal-foot">${foot}</div><div class="team-goal-bar" aria-hidden="true"><i style="width:${lowestRate(list)}%"></i></div></div>`;
+      };
       const {id:sortId,dir,rows}=ordered(overview,view.sort,ids);
       const span=1+(showTarget?1:0)+(showRate?1:0);
       const head=`<tr><th rowspan="2">排名</th><th rowspan="2">成员</th>${ids.map(id=>`<th colspan="${span}">${E(COLUMNS[id].label)}</th>`).join('')}</tr><tr>${ids.map(id=>`<th${id===sortId?` aria-sort="${dir==='asc'?'ascending':'descending'}"`:''}>${sortButton('data-team-sort',id,id===sortId?dir:'','完成值')}</th>${showTarget?'<th>目标值</th>':''}${showRate?'<th>完成率</th>':''}`).join('')}</tr>`;
-      const body=rows.map(({member,rank})=>`<tr><td>${badge(rank)}</td><td>${E(member.label)}</td>${ids.map(id=>`<td>${shown(overview,id,member)}</td>${showTarget?'<td class="muted">—</td>':''}${showRate?'<td class="muted">--%</td>':''}`).join('')}</tr>`).join('');
+      const body=rows.map(({member,rank})=>`<tr><td>${badge(rank)}</td><td>${E(member.label)}</td>${ids.map(id=>{const list=goalList(member,id);return `<td>${shown(overview,id,member)}</td>${showTarget?`<td${list.length?'':' class="muted"'}>${targetShown(id,list)}</td>`:''}${showRate?`<td${list.length?(reached(list)?' class="team-reached"':''):' class="muted"'}>${rateShown(list)}</td>`:''}`;}).join('')}</tr>`).join('');
       const board=view.mode==='trend'
         ?`<section class="business-section"><div class="section-head"><h3>近 ${overview.trend.months.length} 个月趋势</h3></div>${trendBlocks(overview,TREND[tab])}</section>`
-        :`<section class="business-section"><div class="section-head"><h3>成员排行榜</h3><div class="team-tools"><button type="button" data-team-toggle="target" aria-pressed="${showTarget}">目标值</button><button type="button" data-team-toggle="rate" aria-pressed="${showRate}">完成率</button><button type="button" data-feature="下载Excel">下载Excel</button></div></div><div class="team-table-scroll"><table class="order-table team-table team-board"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${2+ids.length*span}">本月暂无数据</td></tr>`}</tbody></table></div><p class="muted tiny team-note">成员按跟进人名称统计，不是员工账号；「未分配」不参与排名。目标值尚未开放，所以目标值与完成率为空。</p></section>`;
-      return `<div class="business-scroll team-page team-goals"><div class="team-tabs" role="tablist"><button type="button" role="tab" data-team-tab="result" aria-selected="${tab==='result'}">结果目标</button><button type="button" role="tab" data-team-tab="process" aria-selected="${tab==='process'}">过程目标</button></div><section class="business-section"><div class="section-head"><h3>${tab==='result'?'结果概览':'过程概览'}</h3></div><div class="team-goal-grid">${ids.map(goal).join('')}<button type="button" class="team-goal team-goal-new" data-feature="新建目标"><span aria-hidden="true">⊕</span>新建目标</button></div></section><div class="team-segment" role="group" aria-label="展示方式"><button type="button" data-team-mode="rank" aria-pressed="${view.mode!=='trend'}">排行榜</button><button type="button" data-team-mode="trend" aria-pressed="${view.mode==='trend'}">趋势图</button></div>${board}</div>`;
+        :`<section class="business-section"><div class="section-head"><h3>成员排行榜</h3><div class="team-tools"><button type="button" data-team-toggle="target" aria-pressed="${showTarget}">目标值</button><button type="button" data-team-toggle="rate" aria-pressed="${showRate}">完成率</button><button type="button" data-feature="下载Excel">下载Excel</button></div></div><div class="team-table-scroll"><table class="order-table team-table team-board"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${2+ids.length*span}">${unit(overview)}暂无数据</td></tr>`}</tbody></table></div><p class="muted tiny team-note">成员按跟进人名称统计，不是员工账号；「未分配」不参与排名。没有设置目标的格子显示为空。</p></section>`;
+      return `<div class="business-scroll team-page team-goals"><div class="team-tabs" role="tablist"><button type="button" role="tab" data-team-tab="result" aria-selected="${tab==='result'}">结果目标</button><button type="button" role="tab" data-team-tab="process" aria-selected="${tab==='process'}">过程目标</button></div><section class="business-section"><div class="section-head"><h3>${tab==='result'?'结果概览':'过程概览'}</h3></div><div class="team-goal-grid">${ids.map(goal).join('')}<button type="button" class="team-goal team-goal-new" data-team-target="new"><span aria-hidden="true">⊕</span>新建目标</button></div></section><div class="team-segment" role="group" aria-label="展示方式"><button type="button" data-team-mode="rank" aria-pressed="${view.mode!=='trend'}">排行榜</button><button type="button" data-team-mode="trend" aria-pressed="${view.mode==='trend'}">趋势图</button></div>${board}</div>`;
     }
 
-    // 倒计时：只依赖所选月份和今天的日期。
-    function countdown(month,today){
-      const year=Number(month.slice(0,4)),number=Number(month.slice(5,7));
-      const days=new Date(year,number,0).getDate();
-      const current=String(today).slice(0,7);
-      const weekday='周'+'日一二三四五六'[new Date(Number(String(today).slice(0,4)),Number(String(today).slice(5,7))-1,Number(String(today).slice(8,10))).getDay()];
-      const date=`${String(today).slice(5,10)} ${weekday}`;
-      if(current===month){const left=days-Number(String(today).slice(8,10));return {left,days,remaining:left/days,label:'离本月结束还剩',date};}
-      return current>month?{left:0,days,remaining:0,label:'本月已结束',date}:{left:days,days,remaining:1,label:'本月尚未开始',date};
+    // 倒计时：只依赖所选周期（一个月或一个季度的月份列表）和今天的日期。
+    function countdown(period,today){
+      const list=Array.isArray(period)?period:[period],name=list.length>1?'本季度':'本月';
+      const parts=value=>[Number(String(value).slice(0,4)),Number(String(value).slice(5,7)),Number(String(value).slice(8,10))||1];
+      const [startYear,startMonth]=parts(list[0]),[endYear,endMonth]=parts(list.at(-1)),[year,month,dayOfMonth]=parts(today);
+      const DAY=86400000,start=Date.UTC(startYear,startMonth-1,1),end=Date.UTC(endYear,endMonth,0),now=Date.UTC(year,month-1,dayOfMonth);
+      const days=Math.round((end-start)/DAY)+1;
+      const date=`${String(today).slice(5,10)} ${'周'+'日一二三四五六'[new Date(year,month-1,dayOfMonth).getDay()]}`;
+      if(now<start)return {left:days,days,remaining:1,label:`${name}尚未开始`,date};
+      if(now>end)return {left:0,days,remaining:0,label:`${name}已结束`,date};
+      const left=Math.round((end-now)/DAY);
+      return {left,days,remaining:left/days,label:`离${name}结束还剩`,date};
     }
     function wallMarkup(overview,view={},today){
-      const clock=countdown(overview.month,today),ring=2*Math.PI*54;
+      const clock=countdown(overview.months||overview.month,today),ring=2*Math.PI*54;
+      const amountGoals=goalList(overview,'amount');
       const currency=overview.primaryCurrency;
       const others=overview.total.amounts.length>1;
       const list=(id,title,note='')=>{
@@ -128,15 +146,35 @@
       const pkCell=(member,id)=>id==='amount'?number(member.amount):COLUMNS[id].value(member);
       return `<div class="business-scroll team-page"><div class="team-wall">`
         +`<section class="team-card team-countdown"><h3>倒计时</h3><div class="team-ring"><svg viewBox="0 0 120 120" role="img" aria-label="${clock.label} ${clock.left} 天"><circle cx="60" cy="60" r="54" class="team-ring-track"/><circle cx="60" cy="60" r="54" class="team-ring-value" stroke-dasharray="${(ring*clock.remaining).toFixed(1)} ${ring.toFixed(1)}" transform="rotate(-90 60 60)"/></svg><div class="team-ring-text"><strong>${clock.left}<small>天</small></strong><span>${clock.label}</span></div></div><span class="team-countdown-date">${E(clock.date)}</span></section>`
-        +`<section class="team-card"><h3>成交订单金额</h3><span class="muted tiny">我的企业</span><div class="team-figures"><div><strong>${amountLines(overview.total.amounts).join('<br>')}</strong><span class="muted tiny">完成值</span></div><div><b>—</b><span class="muted tiny">目标值</span></div><div><b>--%</b><span class="muted tiny">完成率</span></div></div><div class="team-segbar" aria-hidden="true"></div></section>`
+        +`<section class="team-card"><h3>成交订单金额</h3><span class="muted tiny">我的企业</span><div class="team-figures"><div><strong>${amountLines(overview.total.amounts).join('<br>')}</strong><span class="muted tiny">完成值</span></div><div><b>${targetShown('amount',amountGoals)}</b><span class="muted tiny">目标值</span></div><div><b>${rateShown(amountGoals)}</b><span class="muted tiny">完成率</span></div></div><div class="team-segbar" aria-hidden="true"><i style="width:${lowestRate(amountGoals)}%"></i></div></section>`
         +list('amount','成交订单金额排行榜',others?`按 ${E(currency)} 排名；其他币种见「订单业绩」。`:'')
         +list('added','新建客户数排行榜')+list('records','跟进记录数排行榜')
         +figure('新建客户数',overview.total.added)+figure('新建销售订单数',overview.total.orders)
         +`<section class="team-card team-card-number"><h3>任务完成率</h3><span class="muted tiny">我的企业</span><strong>${text(overview.total.taskRate,'percent')}</strong><span class="muted tiny">已完成 ${overview.total.tasksDone} ／ 共 ${overview.total.tasksTotal} 个任务</span><div class="team-progress" aria-hidden="true"><i style="width:${overview.total.taskRate||0}%"></i></div></section>`
-        +`<section class="team-card team-card-wide"><div class="section-head"><h3>员工PK榜</h3><span class="team-first">第一名：${first?E(first.member.label):'—'}</span></div><div class="team-table-scroll"><table class="order-table team-table team-board"><thead><tr><th>排名</th><th>成员</th>${pkIds.map(id=>`<th${id===pk.id?` aria-sort="${pk.dir==='asc'?'ascending':'descending'}"`:''}>${sortButton('data-team-wall-sort',id,id===pk.id?pk.dir:'',pkLabel[id])}</th>`).join('')}</tr></thead><tbody>${pk.rows.map(({member,rank})=>`<tr><td>${badge(rank)}</td><td>${E(member.label)}</td>${pkIds.map(id=>`<td>${pkCell(member,id)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${2+pkIds.length}">本月暂无数据</td></tr>`}</tbody></table></div><p class="muted tiny team-note">成员按跟进人名称统计，不是员工账号；「未分配」不参与排名。</p></section>`
+        +`<section class="team-card team-card-wide"><div class="section-head"><h3>员工PK榜</h3><span class="team-first">第一名：${first?E(first.member.label):'—'}</span></div><div class="team-table-scroll"><table class="order-table team-table team-board"><thead><tr><th>排名</th><th>成员</th>${pkIds.map(id=>`<th${id===pk.id?` aria-sort="${pk.dir==='asc'?'ascending':'descending'}"`:''}>${sortButton('data-team-wall-sort',id,id===pk.id?pk.dir:'',pkLabel[id])}</th>`).join('')}</tr></thead><tbody>${pk.rows.map(({member,rank})=>`<tr><td>${badge(rank)}</td><td>${E(member.label)}</td>${pkIds.map(id=>`<td>${pkCell(member,id)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${2+pkIds.length}">${unit(overview)}暂无数据</td></tr>`}</tbody></table></div><p class="muted tiny team-note">成员按跟进人名称统计，不是员工账号；「未分配」不参与排名。</p></section>`
         +`</div></div>`;
     }
-    return {markup,itemsFor,detailMarkup,goalsMarkup,wallMarkup,countdown,ranked,columns:COLUMNS,tabs:TABS};
+
+    // ---------- 目标设置表单与目标管理列表 ----------
+    function targetFormMarkup(overview,options={}){
+      const ids=(overview.targetMetrics||[]).filter(id=>Object.hasOwn(COLUMNS,id));
+      const metric=ids.includes(options.metric)?options.metric:ids[0];
+      const names=overview.members.filter(member=>member.owner!=='').map(member=>member.label);
+      const choice=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
+      return `<form class="drawer-body" id="biz-target-form"><div class="error" id="biz-target-error" role="alert"></div><div class="form-grid">`
+        +`<label class="field">指标<select name="metric">${ids.map(id=>choice(id,COLUMNS[id].label,metric)).join('')}</select></label>`
+        +`<label class="field">周期<select name="period">${(options.periods||[]).map(item=>choice(item.key,item.label,options.period)).join('')}</select></label>`
+        +`<label class="field">对象<select name="scope">${choice('company','企业整体','company')}${choice('member','成员（跟进人）','company')}</select></label>`
+        +`<label class="field">成员<select name="owner"><option value="">仅对象为成员时选择</option>${names.map(name=>choice(name,name,'')).join('')}</select></label>`
+        +`<label class="field">币种<input name="currency" value="${E(overview.primaryCurrency||'USD')}" maxlength="3" autocomplete="off" aria-describedby="biz-target-currency-note"><span class="muted tiny" id="biz-target-currency-note">仅金额目标需要，三位代码</span></label>`
+        +`<label class="field">目标值<input name="value" inputmode="decimal" autocomplete="off" required></label></div>`
+        +`<p class="muted tiny">同一周期、对象、指标（金额再加币种）只保留一个目标，再次保存会覆盖。完成率＝完成值÷目标值。成员是跟进人名称，不是员工账号。</p></form>`;
+    }
+    function targetsMarkup(targets,periodLabel){
+      const value=target=>target.metric==='amount'?`${number(target.value)} ${E(target.currency)}`:String(target.value);
+      return `<div class="business-scroll team-page"><section class="business-section"><div class="section-head"><h3>已设置的目标</h3><span class="muted tiny">共 ${targets.length} 个</span></div><table class="order-table team-table"><thead><tr><th>周期</th><th>对象</th><th>指标</th><th>目标值</th><th>操作</th></tr></thead><tbody>${targets.map(target=>`<tr><td>${E(periodLabel(target.period))}</td><td>${target.owner===null?'企业整体':E(target.owner)}</td><td>${E(COLUMNS[target.metric]?.label||target.metric)}</td><td>${value(target)}</td><td><button type="button" class="text-button" data-team-target-remove="${E(target.key)}" aria-label="删除目标：${E(periodLabel(target.period))} ${target.owner===null?'企业整体':E(target.owner)} ${E(COLUMNS[target.metric]?.label||target.metric)}">删除</button></td></tr>`).join('')||'<tr><td colspan="5">还没有设置任何目标。可在「目标完成情况」里点「设置目标值」或「新建目标」。</td></tr>'}</tbody></table></section></div>`;
+    }
+    return {markup,itemsFor,detailMarkup,goalsMarkup,wallMarkup,countdown,ranked,targetFormMarkup,targetsMarkup,columns:COLUMNS,tabs:TABS};
   }
   const api={create,DETAIL_LIMIT};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiTeamUI=api;

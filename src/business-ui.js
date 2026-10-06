@@ -188,33 +188,41 @@
       );
     }
     // 目标完成情况 / 团队墙：页签、展示方式、列显示与排序只是界面状态，不保存。
-    const teamView = { tab: "result", mode: "rank", showTarget: true, showRate: true, sort: null, wallSort: null };
+    const teamView = { period: "month", tab: "result", mode: "rank", showTarget: true, showRate: true, sort: null, wallSort: null };
     let teamOverview = null;
     const monthInput = () => `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`;
+    // 周期：按月看所选月份，按季度看所选月份所在的自然季度。
+    const periodKey = () => (teamView.period === "quarter" ? root.LaiTeamModel.quarterOf(month) : month);
+    const periodSwitch = () =>
+      `<span class="team-segment team-period" role="group" aria-label="统计周期"><button type="button" data-team-period="month" aria-pressed="${teamView.period !== "quarter"}">按月</button><button type="button" data-team-period="quarter" aria-pressed="${teamView.period === "quarter"}">按季度</button></span>`;
+    const targetsButton = () => '<button type="button" data-lai-route="team-targets">目标设置</button>';
     function renderGoals() {
-      teamOverview = root.LaiTeamModel.overview(state(), month);
+      teamOverview = root.LaiTeamModel.overview(state(), periodKey());
       return (
         header(
           "目标完成情况",
-          "按跟进人名称汇总",
-          `${monthInput()}<span class="team-scope">我的企业</span><button type="button" data-feature="AI团队分析">✦ AI团队分析</button><button type="button" data-feature="目标设置">目标设置</button>`,
+          `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
+          `${periodSwitch()}${monthInput()}<span class="team-scope">我的企业</span><button type="button" data-feature="AI团队分析">✦ AI团队分析</button>${targetsButton()}`,
         ) + TU().goalsMarkup(teamOverview, teamView)
       );
     }
     function renderWall() {
-      teamOverview = root.LaiTeamModel.overview(state(), month);
+      teamOverview = root.LaiTeamModel.overview(state(), periodKey());
       return (
         header(
           "团队墙",
-          "按跟进人名称汇总",
-          `${monthInput()}<button type="button" data-feature="目标设置">目标设置</button><button type="button" data-team-refresh="1">刷新</button><button type="button" data-feature="组件配置">组件配置</button>`,
+          `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
+          `${periodSwitch()}${monthInput()}${targetsButton()}<button type="button" data-team-refresh="1">刷新</button><button type="button" data-feature="组件配置">组件配置</button>`,
         ) + TU().wallMarkup(teamOverview, teamView, B.localDate())
       );
     }
     const nextSort = (current, id) => ({ id, dir: current?.id === id && current.dir !== "asc" ? "asc" : "desc" });
     function teamViewAction(d) {
       let focus = "";
-      if (d.teamTab) {
+      if (d.teamPeriod) {
+        teamView.period = d.teamPeriod === "quarter" ? "quarter" : "month";
+        focus = `[data-team-period="${teamView.period}"]`;
+      } else if (d.teamTab) {
         teamView.tab = d.teamTab === "process" ? "process" : "result";
         teamView.sort = null;
         focus = `[data-team-tab="${teamView.tab}"]`;
@@ -238,6 +246,34 @@
       render();
       document.querySelector?.(focus)?.focus({ preventScroll: true });
       return true;
+    }
+    function renderTargets() {
+      const T = root.LaiTeamModel;
+      return (
+        header("目标管理", "按周期、对象、指标保存的目标值", '<button type="button" class="primary" data-team-target="new">新建目标</button>') +
+        TU().targetsMarkup(T.listTargets(state()), T.periodLabel)
+      );
+    }
+    function showTargetForm(metric) {
+      const T = root.LaiTeamModel;
+      const overview = teamOverview || T.overview(state(), periodKey());
+      const quarter = T.quarterOf(month);
+      ctx.dialog(
+        "设置目标",
+        TU().targetFormMarkup(overview, {
+          metric,
+          period: periodKey(),
+          periods: [
+            { key: month, label: T.periodLabel(month) },
+            { key: quarter, label: T.periodLabel(quarter) },
+          ],
+        }),
+        '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="biz-target-form">保存目标</button>',
+        "team-target",
+      );
+    }
+    function removeTarget(key) {
+      return saveNext(() => root.LaiTeamModel.removeTarget(state(), key), "");
     }
     function showTeamRule(id) {
       if (!teamOverview || !Object.hasOwn(TU().columns, id)) return;
@@ -316,6 +352,7 @@
         "order-trash": renderOrderTrash,
         analysis: renderAnalysis,
         "team-goals": renderGoals,
+        "team-targets": renderTargets,
         "team-wall": renderWall,
         "team-assets": () => renderTeam("assets"),
         "team-followups": () => renderTeam("followups"),
@@ -468,6 +505,8 @@
       const d = el.dataset;
       if (d.teamDetail) return showTeamDetail(d.teamDetail);
       if (d.teamRule) return showTeamRule(d.teamRule);
+      if (d.teamTarget && ["team-goals", "team-wall", "team-targets"].includes(route)) return showTargetForm(d.teamTarget);
+      if (d.teamTargetRemove && route === "team-targets") return removeTarget(d.teamTargetRemove);
       if (["team-goals", "team-wall"].includes(route) && teamViewAction(d)) return;
       if (d.bizOrder) return orderEditor(d.bizOrder);
       if (d.bizCustomer) return ctx.openCustomer(d.bizCustomer);
@@ -585,13 +624,19 @@
     document.addEventListener("submit", (e) => {
       const form = e.target;
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form"].includes(
           form.id,
         )
       )
         return;
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form));
+      if (form.id === "biz-target-form")
+        return saveNext(
+          () => root.LaiTeamModel.setTarget(state(), data),
+          "biz-target-error",
+          () => ctx.closeDialog(),
+        );
       if (form.id === "biz-order-form") {
         data.isDraft = form.elements.isDraft.checked;
         return saveNext(

@@ -813,3 +813,24 @@
     grid-row: auto;
   }
 }
+
+.team-period {
+  margin: 0;
+}
+.team-reached {
+  font-style: normal;
+  font-size: 12px;
+  color: #1f9d60;
+}
+td.team-reached {
+  font-size: inherit;
+  font-weight: 600;
+}
+.team-segbar {
+  overflow: hidden;
+}
+.team-segbar i {
+  display: block;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, #1a5cff 0 6px, #fff 6px 8px);
+}

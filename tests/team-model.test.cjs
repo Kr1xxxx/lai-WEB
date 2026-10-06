@@ -163,3 +163,81 @@ test('overview with no data or equal currencies stays well defined', () => {
   assert.deepEqual(tie.members[0].amounts, [{currency: 'EUR', total: 10}, {currency: 'USD', total: 10}]);
   assert.equal(JSON.stringify(state), snapshot);
 });
+
+// ---------------- 季度周期 ----------------
+test('quarters are calendar quarters and labels read naturally', () => {
+  assert.deepEqual(T.periodMonths('2026-Q4'), ['2026-10', '2026-11', '2026-12']);
+  assert.deepEqual(T.periodMonths('2026-Q1'), ['2026-01', '2026-02', '2026-03']);
+  assert.deepEqual(T.periodMonths('2026-10'), ['2026-10']);
+  assert.deepEqual(['2026-01', '2026-03', '2026-04', '2026-09', '2026-10', '2026-12'].map(T.quarterOf), ['2026-Q1', '2026-Q1', '2026-Q2', '2026-Q3', '2026-Q4', '2026-Q4']);
+  assert.deepEqual([T.periodLabel('2026-10'), T.periodLabel('2026-Q4')], ['2026 年 10 月', '2026 年第 4 季度']);
+  for (const bad of ['2026-Q5', '2026-Q0', '2026-q4', 'Q4', '', null]) { assert.equal(T.validPeriod(bad), false, String(bad)); assert.throws(() => T.periodMonths(bad), /有效月份/); }
+});
+
+test('a quarter adds up its three months, but counts each followed customer once', () => {
+  const later = structuredClone(state);
+  later.orders.push({id: 'o8', num: 'N1', client: 'Beta Ltd', owner: 'Bob', amount: 10, paidAmount: 0, currency: 'USD', stage: 'quote', orderMonth: '2026-11'});
+  later.customers['Beta Ltd'].history.push({type: 'followup', time: '2026-11-05', text: '十一月跟进'});
+  later.laiTasks.push({id: 't8', title: '十二月任务', date: '2026-12-01', customer: 'Gamma Inc', done: true});
+  const q4 = T.overview(later, '2026-Q4');
+  assert.deepEqual([q4.period, q4.periodType, q4.periodLabel, q4.month, q4.months], ['2026-Q4', 'quarter', '2026 年第 4 季度', '2026-12', ['2026-10', '2026-11', '2026-12']]);
+  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 67});
+  assert.deepEqual(q4.members.find(m => m.owner === 'Amy').customers, 2, 'Beta followed in Oct and Nov is still one customer');
+  const q3 = T.overview(later, '2026-Q3');
+  assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], records: 1, customers: 1, tasksTotal: 1, tasksDone: 1, taskRate: 100});
+  assert.deepEqual(q4.trend.months.at(-1), '2026-12');
+  const month = T.overview(later, '2026-10');
+  assert.deepEqual([month.periodType, month.month, month.total.orders], ['month', '2026-10', 5], 'month view is unchanged by later months');
+});
+
+// ---------------- 目标 ----------------
+test('targets: saved per period, object and metric; completion = actual / target', () => {
+  let s = T.setTarget(state, {metric: 'amount', period: '2026-10', scope: 'company', currency: 'usd', value: '500'});
+  s = T.setTarget(s, {metric: 'amount', period: '2026-10', scope: 'company', currency: 'EUR', value: 35});
+  s = T.setTarget(s, {metric: 'added', period: '2026-10', scope: 'member', owner: ' Amy ', value: 2});
+  s = T.setTarget(s, {metric: 'records', period: '2026-10', scope: 'member', owner: 'Zed', value: 4});
+  s = T.setTarget(s, {metric: 'orders', period: '2026-Q4', scope: 'company', value: 3});
+  assert.equal(state.laiTargets, undefined, 'input state untouched');
+  const o = T.overview(s, '2026-10');
+  const brief = list => list.map(g => [g.currency, g.value, g.actual, g.rate]);
+  assert.deepEqual(brief(o.goals.amount), [['EUR', 35, 70, 200], ['USD', 500, 375, 75]]);
+  assert.equal(o.goals.orders, undefined, 'a quarter target does not show in the month view');
+  assert.deepEqual(brief(o.members.find(m => m.owner === 'Amy').goals.added), [['', 2, 1, 50]]);
+  const zed = o.members.find(m => m.owner === 'Zed');
+  assert.deepEqual([zed.added, zed.records, brief(zed.goals.records)], [0, 0, [['', 4, 0, 0]]], 'a member with a target but no activity is still listed');
+  assert.deepEqual(o.members.map(m => m.label), ['Amy', 'Bob', 'Zed', '未分配']);
+  assert.deepEqual(o.members.find(m => m.owner === 'Bob').goals, {});
+  assert.deepEqual(brief(T.overview(s, '2026-Q4').goals.orders), [['', 3, 5, 167]]);
+  assert.deepEqual(T.overview(s, '2026-Q4').goals.amount, undefined);
+});
+
+test('targets: same key replaces, others stay; removal; unreadable entries are kept untouched', () => {
+  const junk = [{junk: 1}, 'x', null, {metric: 'amount', period: '2026-10', owner: null, currency: 'USD', value: -5}];
+  let s = T.setTarget({laiTargets: junk, other: 1}, {metric: 'amount', period: '2026-10', scope: 'company', currency: 'USD', value: 500});
+  s = T.setTarget(s, {metric: 'amount', period: '2026-10', scope: 'company', currency: 'USD', value: 750});
+  s = T.setTarget(s, {metric: 'amount', period: '2026-10', scope: 'member', owner: 'Amy', currency: 'USD', value: 100});
+  assert.equal(s.other, 1);
+  assert.deepEqual(s.laiTargets.slice(0, 4), junk);
+  assert.deepEqual(T.listTargets(s).map(t => [t.owner, t.value]), [[null, 750], ['Amy', 100]]);
+  assert.equal(s.laiTargets.length, junk.length + 2, 'replacing a target does not leave the old one behind');
+  const key = T.listTargets(s)[0].key;
+  const removed = T.removeTarget(s, key);
+  assert.deepEqual(T.listTargets(removed).map(t => t.owner), ['Amy']);
+  assert.deepEqual(removed.laiTargets.slice(0, 4), junk);
+  assert.throws(() => T.removeTarget(removed, key), /不存在/);
+  assert.throws(() => T.removeTarget({}, 'x'), /不存在/);
+  assert.deepEqual(T.listTargets({}), []); assert.deepEqual(T.listTargets({laiTargets: 'oops'}), []);
+});
+
+test('targets: invalid input is rejected with a clear message', () => {
+  const ok = {metric: 'added', period: '2026-10', scope: 'company', value: 3};
+  const bad = (change, pattern) => assert.throws(() => T.setTarget({}, {...ok, ...change}), pattern, JSON.stringify(change));
+  bad({metric: 'customers'}, /可设置目标的指标/); bad({metric: '__proto__'}, /可设置目标的指标/);
+  bad({period: '2026-13'}, /目标周期/); bad({period: '2026-Q5'}, /目标周期/);
+  bad({scope: 'team'}, /目标对象/); bad({scope: 'member', owner: '  '}, /选择成员/);
+  for (const value of ['', ' ', 0, -1, 'abc', null, undefined, true, Infinity, NaN]) bad({value}, /大于 0/);
+  bad({value: 2.5}, /整数/);
+  bad({metric: 'amount', currency: 'US'}, /三位币种/); bad({metric: 'amount'}, /三位币种/);
+  assert.equal(T.setTarget({}, {...ok, metric: 'amount', currency: 'usd', value: '1200.50'}).laiTargets[0].value, 1200.5);
+  assert.equal(T.setTarget({}, ok).laiTargets[0].owner, null);
+});

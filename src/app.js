@@ -3188,7 +3188,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}${E(entry.label)}</button>`
@@ -3215,6 +3215,7 @@
       "order-trash",
       "analysis",
       "team-goals",
+      "team-targets",
       "team-wall",
       "team-assets",
       "team-followups",
