@@ -202,7 +202,7 @@
         header(
           "目标完成情况",
           `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}<span class="team-scope">我的企业</span><button type="button" data-feature="AI团队分析">✦ AI团队分析</button>${targetsButton()}`,
+          `${periodSwitch()}${monthInput()}<span class="team-scope">我的企业</span>${targetsButton()}`,
         ) + TU().goalsMarkup(teamOverview, teamView)
       );
     }
@@ -212,7 +212,7 @@
         header(
           "团队墙",
           `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}${targetsButton()}<button type="button" data-team-refresh="1">刷新</button><button type="button" data-feature="组件配置">组件配置</button>`,
+          `${periodSwitch()}${monthInput()}${targetsButton()}<button type="button" data-team-refresh="1">刷新</button>`,
         ) + TU().wallMarkup(teamOverview, teamView, B.localDate())
       );
     }
@@ -292,6 +292,21 @@
         if (!saved) render();
         return saved;
       });
+    }
+    // 把当前看到的成员排行榜导出为 Excel（与导入模板下载用同一种方式）。
+    function exportBoard() {
+      if (!teamOverview) return;
+      if (!root.XLSX) return ctx.toast("Excel 组件未加载，请重新打开来财");
+      const workbook = root.XLSX.utils.book_new();
+      root.XLSX.utils.book_append_sheet(workbook, root.XLSX.utils.aoa_to_sheet(TU().boardRows(teamOverview, teamView)), teamView.tab === "process" ? "过程目标" : "结果目标");
+      const bytes = root.XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `来财-目标完成情况-${teamOverview.period}.xlsx`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      ctx.toast("已导出成员排行榜");
     }
     function showTeamRule(id) {
       if (!teamOverview || !Object.hasOwn(TU().columns, id)) return;
@@ -523,6 +538,7 @@
       const d = el.dataset;
       if (d.teamDetail && route.startsWith("team-")) return showTeamDetail(d.teamDetail);
       if (d.teamRule) return showTeamRule(d.teamRule);
+      if (d.teamExport && route === "team-goals") return exportBoard();
       if (d.teamTarget && ["team-goals", "team-wall", "team-targets"].includes(route)) return showTargetForm(d.teamTarget);
       if (d.teamTargetRemove && route === "team-targets") return removeTarget(d.teamTargetRemove);
       if (d.teamTargetCancel && route === "team-targets") {
