@@ -70,7 +70,8 @@ test('rail menus list only existing destinations; reserved entries have no list'
   assert.deepEqual(rows('团队数据'), [['目标完成情况', 'route', 'team-goals'], ['目标管理', 'route', 'team-targets'], ['团队墙', 'route', 'team-wall'], ['经营统计', 'route', 'analysis'], ['客户资产', 'route', 'team-assets'], ['跟进情况', 'route', 'team-followups'], ['任务完成', 'route', 'team-tasks'], ['订单业绩', 'route', 'team-orders']]);
   assert.deepEqual(rows('协同'), [['日历与待办', 'route', 'calendar']]);
   assert.deepEqual(rows('企业管理'), [['设置', 'route', 'settings']]);
-  for (const reserved of ['沟通', '线索', '商机', '不存在', '__proto__', 'constructor'])
+  assert.deepEqual(rows('商机'), [['商机看板', 'route', 'opportunities'], ['商机分析', 'route', 'opp-analysis']]);
+  for (const reserved of ['沟通', '线索', '不存在', '__proto__', 'constructor'])
     assert.equal(RM.menuFor(reserved, {}), null, reserved);
   RM.menuFor('客户', {}).pop();
   assert.equal(RM.menuFor('客户', {}).length, 4, 'callers cannot alter the menu definition');
