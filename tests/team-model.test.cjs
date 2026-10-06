@@ -123,3 +123,43 @@ test('building a report never changes the saved data', () => {
   for (const kind of T.kinds) T.report(kind, state, '2026-10');
   assert.equal(JSON.stringify(state), snapshot);
 });
+
+test('member overview merges the four reports per 跟进人 without changing any figure', () => {
+  const o = T.overview(state, '2026-10');
+  assert.deepEqual(o.members.map(m => [m.label, m.added, m.orders, m.amounts.map(a => `${a.currency}:${a.total}`).join(','), m.amount, m.records, m.customers, m.tasksTotal, m.tasksDone, m.taskRate]), [
+    ['Amy', 1, 2, 'USD:300', 300, 3, 2, 2, 1, 50],
+    ['Bob', 1, 2, 'USD:75', 75, 0, 0, 1, 1, 100],
+    ['未分配', 1, 1, 'EUR:70', 0, 1, 1, 2, 1, 50]
+  ]);
+  assert.equal(o.primaryCurrency, 'USD', 'ranking currency is the one with the largest amount this month');
+  assert.deepEqual(o.total, {added: 3, orders: 5, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 375}], records: 4, customers: 3, tasksTotal: 5, tasksDone: 3, taskRate: 60});
+  assert.deepEqual(o.trend.months, ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']);
+  const series = Object.fromEntries(o.trend.series.map(s => [s.id, s.values]));
+  assert.deepEqual(Object.keys(series), ['amount:EUR', 'amount:USD', 'added', 'orders', 'records', 'tasksDone']);
+  assert.deepEqual(series['amount:USD'], [0, 0, 0, 0, 300, 375]);
+  assert.deepEqual(series['amount:EUR'], [0, 0, 0, 0, 0, 70]);
+  assert.deepEqual([series.added, series.orders, series.records, series.tasksDone], [[0, 0, 0, 0, 1, 3], [0, 0, 0, 0, 1, 5], [0, 0, 0, 0, 1, 4], [0, 0, 0, 0, 1, 3]]);
+  for (const id of ['amount', 'added', 'orders', 'records', 'customers', 'tasksDone']) assert.ok(o.rules[id].length > 8, id);
+});
+
+test('overview totals always equal the individual report pages', () => {
+  const o = T.overview(state, '2026-10');
+  assert.equal(o.total.added, T.report('assets', state, '2026-10').total.added.value);
+  assert.equal(o.total.records, T.report('followups', state, '2026-10').total.records.value);
+  assert.equal(o.total.tasksDone, T.report('tasks', state, '2026-10').total.done.value);
+  assert.deepEqual(o.total.amounts.map(a => a.total), T.report('orders', state, '2026-10').totals.map(t => t.cells.total.value));
+  assert.equal(o.members.reduce((sum, m) => sum + m.orders, 0), o.total.orders);
+  assert.equal(o.members.reduce((sum, m) => sum + m.added, 0), o.total.added);
+});
+
+test('overview with no data or equal currencies stays well defined', () => {
+  const empty = T.overview({}, '2026-10');
+  assert.deepEqual([empty.members, empty.primaryCurrency, empty.total.amounts, empty.total.taskRate], [[], '', [], null]);
+  assert.throws(() => T.overview(state, 'x'), /有效月份/);
+  const tie = T.overview({orders: [
+    {id: '1', num: 'a', client: 'A', owner: 'Z', amount: 10, currency: 'USD', stage: 'quote', orderMonth: '2026-10'},
+    {id: '2', num: 'b', client: 'A', owner: 'Z', amount: 10, currency: 'EUR', stage: 'quote', orderMonth: '2026-10'}]}, '2026-10');
+  assert.equal(tie.primaryCurrency, 'EUR', 'equal amounts fall back to currency code order');
+  assert.deepEqual(tie.members[0].amounts, [{currency: 'EUR', total: 10}, {currency: 'USD', total: 10}]);
+  assert.equal(JSON.stringify(state), snapshot);
+});

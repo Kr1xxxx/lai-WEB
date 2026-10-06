@@ -3028,7 +3028,7 @@
       ["globe", "商机", null],
       ["search", "OKKI Leads", null],
       ["note", "交易", "order-list"],
-      ["chart", "团队数据", "analysis"],
+      ["chart", "团队数据", "team-goals"],
       ["folder", "协同", "calendar"],
       ["settings", "企业管理", "settings"],
     ];
@@ -3148,6 +3148,7 @@
   function activateRailFlyout(kind, target) {
     hideRailFlyout();
     if (kind === "route") return navigateApp(target);
+    if (kind === "feature") return featureNotice(target);
     return openCustomerScreen(target, kind === "favorite");
   }
   document.addEventListener("pointerover", (event) => {
@@ -3187,11 +3188,20 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
-    return `<h3>${E(section.label)}</h3>${section.entries
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", calendar: "clock", settings: "settings" };
+    const entryButton = (entry) =>
+      entry.kind === "feature"
+        ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}${E(entry.label)}</button>`
+        : `<button class="nav-entry ${entry.target === activeRoute ? "active" : ""}" data-lai-route="${entry.target}">${icon(routeIcons[entry.target])}${E(entry.label)}</button>`;
+    const groups = [...new Set(section.entries.map((entry) => entry.group).filter(Boolean))];
+    if (!groups.length) return `<h3>${E(section.label)}</h3>${section.entries.map(entryButton).join("")}`;
+    return `<h3>${E(section.label)}</h3>${groups
       .map(
-        (entry) =>
-          `<button class="nav-entry ${entry.target === activeRoute ? "active" : ""}" data-lai-route="${entry.target}">${icon(routeIcons[entry.target])}${E(entry.label)}</button>`,
+        (group) =>
+          `<details class="subnav-group" open><summary>${E(group)}</summary>${section.entries
+            .filter((entry) => entry.group === group)
+            .map(entryButton)
+            .join("")}</details>`,
       )
       .join("")}`;
   }
@@ -3204,6 +3214,8 @@
       "order-list",
       "order-trash",
       "analysis",
+      "team-goals",
+      "team-wall",
       "team-assets",
       "team-followups",
       "team-tasks",

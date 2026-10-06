@@ -67,7 +67,7 @@ test('rail menus list only existing destinations; reserved entries have no list'
   assert.deepEqual(rows('客户'), [['客户列表', 'screen', 'active'], ['公海客户', 'screen', 'pool'], ['客户查重', 'screen', 'duplicates'], ['客户设置', 'screen', 'customer-settings']]);
   assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash']]);
   assert.deepEqual(rows('工作台'), [['工作台', 'route', 'dashboard']]);
-  assert.deepEqual(rows('团队数据'), [['经营统计', 'route', 'analysis'], ['客户资产', 'route', 'team-assets'], ['跟进情况', 'route', 'team-followups'], ['任务完成', 'route', 'team-tasks'], ['订单业绩', 'route', 'team-orders']]);
+  assert.deepEqual(rows('团队数据'), [['目标完成情况', 'route', 'team-goals'], ['目标管理', 'feature', '目标管理'], ['团队墙', 'route', 'team-wall'], ['经营统计', 'route', 'analysis'], ['客户资产', 'route', 'team-assets'], ['跟进情况', 'route', 'team-followups'], ['任务完成', 'route', 'team-tasks'], ['订单业绩', 'route', 'team-orders']]);
   assert.deepEqual(rows('协同'), [['日历与待办', 'route', 'calendar']]);
   assert.deepEqual(rows('企业管理'), [['设置', 'route', 'settings']]);
   for (const reserved of ['邮件', '沟通', '线索', '商机', '不存在', '__proto__', 'constructor'])
@@ -118,6 +118,7 @@ function harness({settings, flush = true, failSave = null, favoritesMode = false
     navigateApp: async (...args) => { calls.navigate.push(args); return boundary.navigateResult !== false; },
     showCustomerScreen: screen => calls.screens.push(screen),
     customerSettings: () => { calls.settingsOpened++; },
+    featureNotice: name => { (calls.notices ||= []).push(name); },
     setTimeout: (fn, ms) => { calls.timers.push({fn, ms}); return calls.timers.length; },
     clearTimeout: () => {},
     navigateResult: true,
@@ -318,14 +319,14 @@ test('both modules are loaded before the app and the rail uses the glass styling
 
 // ---------------- each rail menu owns its own sub-navigation ----------------
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'team-goals', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '企业管理']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '企业管理']);
   assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站']);
   assert.deepEqual(RM.sectionFor('order-list'), RM.sectionFor('order-trash'));
   const labels = ['工作台', '交易', '团队数据', '协同', '企业管理'];
-  const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label, {})[0].target).entries.map(e => e.target));
+  const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label, {})[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
   assert.deepEqual([...all].sort(), [...routes].sort(), 'together they cover every page once, with no duplicates');
   for (const label of labels)
     assert.deepEqual(RM.sectionFor(RM.menuFor(label, {})[0].target).entries.map(e => e.target), RM.menuFor(label, {}).map(e => e.target), `${label}: sub-navigation matches the hover menu`);
@@ -346,12 +347,24 @@ test('the shipped sub-navigation shows only the active menu and highlights the c
   assert.deepEqual(entries(html), [['全部订单', 'order-list', false, 'box'], ['订单回收站', 'order-trash', true, 'folder']]);
   html = render('analysis');
   assert.match(html, /^<h3>团队数据<\/h3>/);
-  assert.deepEqual(entries(html), [['经营统计', 'analysis', true, 'chart'], ['客户资产', 'team-assets', false, 'people'], ['跟进情况', 'team-followups', false, 'chat'], ['任务完成', 'team-tasks', false, 'check'], ['订单业绩', 'team-orders', false, 'note']]);
+  assert.deepEqual(entries(html), [['目标完成情况', 'team-goals', false, 'check'], ['团队墙', 'team-wall', false, 'grid'], ['经营统计', 'analysis', true, 'chart'], ['客户资产', 'team-assets', false, 'people'], ['跟进情况', 'team-followups', false, 'chat'], ['任务完成', 'team-tasks', false, 'check'], ['订单业绩', 'team-orders', false, 'note']]);
   html = render('team-tasks');
   assert.match(html, /^<h3>团队数据<\/h3>/);
-  assert.deepEqual(entries(html), [['经营统计', 'analysis', false, 'chart'], ['客户资产', 'team-assets', false, 'people'], ['跟进情况', 'team-followups', false, 'chat'], ['任务完成', 'team-tasks', true, 'check'], ['订单业绩', 'team-orders', false, 'note']]);
+  assert.deepEqual(entries(html), [['目标完成情况', 'team-goals', false, 'check'], ['团队墙', 'team-wall', false, 'grid'], ['经营统计', 'analysis', false, 'chart'], ['客户资产', 'team-assets', false, 'people'], ['跟进情况', 'team-followups', false, 'chat'], ['任务完成', 'team-tasks', true, 'check'], ['订单业绩', 'team-orders', false, 'note']]);
+  assert.deepEqual([...html.matchAll(/<details class="subnav-group" open><summary>([^<]+)<\/summary>/g)].map(m => m[1]), ['目标数据', '统计报表'], 'grouped like the reference layout');
+  assert.match(html, /<summary>目标数据<\/summary><button class="nav-entry " data-lai-route="team-goals">[^]*?<button class="nav-entry" data-feature="目标管理">[^]*?data-lai-route="team-wall"[^]*?<\/details><details/, 'reserved 目标管理 sits between the two live pages and only shows a notice');
+  assert.doesNotMatch(render('order-list'), /<details/, 'menus without groups stay flat');
   assert.deepEqual(entries(render('calendar')), [['日历与待办', 'calendar', true, 'clock']]);
   assert.deepEqual(entries(render('settings')), [['设置', 'settings', true, 'settings']]);
   assert.deepEqual(entries(render('dashboard')), [['工作台', 'dashboard', true, 'grid']]);
   assert.doesNotMatch(app, /<h3>经营管理<\/h3>/);
+});
+
+test('a reserved flyout entry only shows the reserved-entry notice and navigates nowhere', async () => {
+  const h = harness({settings: {}});
+  hover(h, railItem('团队数据'));
+  assert.match(h.flyout.innerHTML, /data-flyout-kind="feature" data-flyout-target="目标管理">目标管理</);
+  assert.match(h.flyout.innerHTML, /data-flyout-kind="route" data-flyout-target="team-wall">团队墙</);
+  await run(h, 'activateRailFlyout("feature", "目标管理")');
+  assert.deepEqual([h.calls.notices, h.calls.navigate], [['目标管理'], []]);
 });

@@ -3154,3 +3154,34 @@ button.subnav-restore {
 @media (prefers-reduced-motion: reduce) {
   .rail-flyout { animation: none; }
 }
+
+.subnav-group {
+  margin-top: 6px;
+}
+.subnav-group > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #243e62;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.subnav-group > summary::-webkit-details-marker {
+  display: none;
+}
+.subnav-group > summary::after {
+  content: "⌄";
+  font-weight: 400;
+  color: #8c8c8c;
+}
+.subnav-group:not([open]) > summary::after {
+  content: "›";
+}
+.subnav-group > .nav-entry {
+  padding-left: 22px;
+}

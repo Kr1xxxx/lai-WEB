@@ -199,12 +199,56 @@
     };
   }
 
+  // 目标完成情况、团队墙共用的成员汇总：把四类报表按跟进人合并，不引入新的统计规则。
+  const RULES=Object.freeze({
+    amount:'统计本月订单月份内的非草稿订单金额，不同币种分开统计、不折算；排名以本月金额最大的币种为准。',
+    added:'统计本月创建的客户数量，回收站客户不计入。',
+    orders:'统计本月订单月份内的非草稿订单数量。',
+    records:'统计客户动态中类型为「跟进」的记录数量，归到客户当前的跟进人；回收站客户不计入。',
+    customers:'统计本月至少有一条跟进记录的客户数量。',
+    tasksDone:'统计任务日期在本月且已完成的任务数量；完成率＝已完成÷任务数。'
+  });
+  function overview(state,month){
+    requireMonth(month);
+    state=state||{};
+    const a=assets(state,month),f=followups(state,month),t=tasks(state,month),o=orders(state,month);
+    const members=new Map();
+    const member=owner=>{
+      if(!members.has(owner))members.set(owner,{owner,label:owner||'未分配',added:0,orders:0,amounts:[],amount:0,records:0,customers:0,tasksTotal:0,tasksDone:0,taskRate:null});
+      return members.get(owner);
+    };
+    for(const row of a.rows)member(row.owner).added=row.cells.added.value;
+    for(const row of f.rows){const m=member(row.owner);m.records=row.cells.records.value;m.customers=row.cells.customers.value;}
+    for(const row of t.rows){const m=member(row.owner);m.tasksTotal=row.cells.total.value;m.tasksDone=row.cells.done.value;m.taskRate=row.cells.rate.value;}
+    for(const row of o.rows){const m=member(row.owner);m.orders+=row.cells.count.value;m.amounts.push({currency:row.currency,total:row.cells.total.value});}
+    const amounts=o.totals.map(total=>({currency:total.currency,total:total.cells.total.value}));
+    // 主币种：本月金额最大的币种，金额相同按代码排序；没有订单时为空。
+    const primaryCurrency=[...amounts].sort((x,y)=>y.total-x.total||x.currency.localeCompare(y.currency))[0]?.currency||'';
+    for(const m of members.values()){
+      m.amounts.sort((x,y)=>x.currency.localeCompare(y.currency));
+      m.amount=m.amounts.find(item=>item.currency===primaryCurrency)?.total||0;
+    }
+    const list=[...members.values()].sort((x,y)=>(x.owner===''?1:0)-(y.owner===''?1:0)||byLabel(x,y));
+    const pick=(report,id)=>report.trend.months.map(entry=>entry.values[id]);
+    const trend={months:a.trend.months.map(entry=>entry.month),series:[
+      ...o.trend.series.filter(item=>item.id!=='count').map(item=>({id:item.id,label:`成交订单金额（${item.currency}）`,format:'money',currency:item.currency,values:pick(o,item.id)})),
+      {id:'added',label:'新建客户数',format:'count',values:pick(a,'added')},
+      {id:'orders',label:'新建销售订单数',format:'count',values:pick(o,'count')},
+      {id:'records',label:'跟进记录数',format:'count',values:pick(f,'records')},
+      {id:'tasksDone',label:'任务完成数',format:'count',values:pick(t,'done')}
+    ]};
+    return {
+      month,members:list,primaryCurrency,rules:RULES,trend,
+      total:{added:a.total.added.value,orders:o.tiles[0].value,amounts,records:f.total.records.value,customers:f.total.customers.value,
+        tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value}
+    };
+  }
   const reports={assets,followups,tasks,orders};
   const kinds=Object.freeze(Object.keys(reports));
   function report(kind,state,month){
     if(!Object.hasOwn(reports,kind))throw new Error('不支持的团队数据报表');
     return reports[kind](state||{},month);
   }
-  const api={kinds,report,monthOf,monthsEnding};
+  const api={kinds,report,overview,monthOf,monthsEnding};
   if(node)module.exports=api;else root.LaiTeamModel=api;
 })(typeof window!=='undefined'?window:globalThis);

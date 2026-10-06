@@ -187,6 +187,68 @@
         ) + TU().markup(teamReport)
       );
     }
+    // 目标完成情况 / 团队墙：页签、展示方式、列显示与排序只是界面状态，不保存。
+    const teamView = { tab: "result", mode: "rank", showTarget: true, showRate: true, sort: null, wallSort: null };
+    let teamOverview = null;
+    const monthInput = () => `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`;
+    function renderGoals() {
+      teamOverview = root.LaiTeamModel.overview(state(), month);
+      return (
+        header(
+          "目标完成情况",
+          "按跟进人名称汇总",
+          `${monthInput()}<span class="team-scope">我的企业</span><button type="button" data-feature="AI团队分析">✦ AI团队分析</button><button type="button" data-feature="目标设置">目标设置</button>`,
+        ) + TU().goalsMarkup(teamOverview, teamView)
+      );
+    }
+    function renderWall() {
+      teamOverview = root.LaiTeamModel.overview(state(), month);
+      return (
+        header(
+          "团队墙",
+          "按跟进人名称汇总",
+          `${monthInput()}<button type="button" data-feature="目标设置">目标设置</button><button type="button" data-team-refresh="1">刷新</button><button type="button" data-feature="组件配置">组件配置</button>`,
+        ) + TU().wallMarkup(teamOverview, teamView, B.localDate())
+      );
+    }
+    const nextSort = (current, id) => ({ id, dir: current?.id === id && current.dir !== "asc" ? "asc" : "desc" });
+    function teamViewAction(d) {
+      let focus = "";
+      if (d.teamTab) {
+        teamView.tab = d.teamTab === "process" ? "process" : "result";
+        teamView.sort = null;
+        focus = `[data-team-tab="${teamView.tab}"]`;
+      } else if (d.teamMode) {
+        teamView.mode = d.teamMode === "trend" ? "trend" : "rank";
+        focus = `[data-team-mode="${teamView.mode}"]`;
+      } else if (d.teamToggle === "target" || d.teamToggle === "rate") {
+        const key = d.teamToggle === "target" ? "showTarget" : "showRate";
+        teamView[key] = !teamView[key];
+        focus = `[data-team-toggle="${d.teamToggle}"]`;
+      } else if (d.teamSort && Object.hasOwn(TU().columns, d.teamSort)) {
+        teamView.sort = nextSort(teamView.sort || { id: TU().tabs[teamView.tab][0], dir: "desc" }, d.teamSort);
+        focus = `[data-team-sort="${d.teamSort}"]`;
+      } else if (d.teamWallSort && Object.hasOwn(TU().columns, d.teamWallSort)) {
+        teamView.wallSort = nextSort(teamView.wallSort || { id: "added", dir: "desc" }, d.teamWallSort);
+        focus = `[data-team-wall-sort="${d.teamWallSort}"]`;
+      } else if (d.teamRefresh) {
+        focus = "[data-team-refresh]";
+        ctx.toast("已按当前数据刷新");
+      } else return false;
+      render();
+      document.querySelector?.(focus)?.focus({ preventScroll: true });
+      return true;
+    }
+    function showTeamRule(id) {
+      if (!teamOverview || !Object.hasOwn(TU().columns, id)) return;
+      const column = TU().columns[id];
+      ctx.dialog(
+        `${E(column.label)} · 统计规则`,
+        `<div class="drawer-body"><p>${E(teamOverview.rules[id])}</p></div>`,
+        '<button class="primary" data-action="close-modal">知道了</button>',
+        "team-rule",
+      );
+    }
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
       if (!found) return;
@@ -253,6 +315,8 @@
         "order-list": renderOrders,
         "order-trash": renderOrderTrash,
         analysis: renderAnalysis,
+        "team-goals": renderGoals,
+        "team-wall": renderWall,
         "team-assets": () => renderTeam("assets"),
         "team-followups": () => renderTeam("followups"),
         "team-tasks": () => renderTeam("tasks"),
@@ -403,6 +467,8 @@
       if (!el || el.disabled) return;
       const d = el.dataset;
       if (d.teamDetail) return showTeamDetail(d.teamDetail);
+      if (d.teamRule) return showTeamRule(d.teamRule);
+      if (["team-goals", "team-wall"].includes(route) && teamViewAction(d)) return;
       if (d.bizOrder) return orderEditor(d.bizOrder);
       if (d.bizCustomer) return ctx.openCustomer(d.bizCustomer);
       if (d.bizStage) {
