@@ -73,7 +73,7 @@ def main(argv=None):
         shutil.copy2(binary_directory / 'Lai', macos / 'Lai')
         shutil.copy2(runtime, resources / 'node-runtime')
         shutil.copy2(icon, resources / 'AppIcon.icns')
-        for filename in ['server.js', 'storage.js', 'storage-path.js', 'auth.js', 'errors.js']:
+        for filename in ['server.js', 'storage.js', 'storage-path.js', 'auth.js', 'errors.js', 'mail-account.js', 'mail-imap.js']:
             shutil.copy2(ROOT / 'backend' / filename, resources / filename)
         vendor = resources / 'vendor'
         vendor.mkdir()

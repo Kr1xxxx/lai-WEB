@@ -6,6 +6,7 @@ const { spawn } = require('node:child_process');
 const { openStorage } = require('./storage.js');
 const { createAuth } = require('./auth.js');
 const { httpError } = require('./errors.js');
+const { createMailAccounts } = require('./mail-account.js');
 
 const port = Number(process.env.LAI_APP_PORT || (49152 + crypto.randomInt(16383)));
 const apiToken = String(process.env.LAI_API_TOKEN || crypto.randomBytes(32).toString('base64url'));
@@ -13,7 +14,8 @@ const instanceNonce = String(process.env.LAI_INSTANCE_NONCE || crypto.randomByte
 const htmlFile = path.join(__dirname, 'trade-order-system.html');
 const store = openStorage({ seedFile: path.join(__dirname, 'trade-order-data.json') });
 const auth = createAuth({ port, token: apiToken });
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder']);
+const mailAccounts = createMailAccounts({ store });
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind']);
 
 function securityHeaders(type = '') {
   return {
@@ -90,6 +92,13 @@ const server = http.createServer(async (req, res) => {
       try { backup = store.backup(false); } catch (error) { backup = { ok: false, message: error.message || 'automatic backup failed' }; }
       return send(res, 200, JSON.stringify({ ok: true, storageMode: 'sqlite', ...result, backup }));
     }
+    if (url.pathname === '/api/mail-account') return send(res, 200, JSON.stringify(mailAccounts.status()));
+    if (url.pathname === '/api/mail-account/bind') {
+      if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
+      return send(res, 200, JSON.stringify(await mailAccounts.bind(await readJsonBody(req))));
+    }
+    if (url.pathname === '/api/mail-account/verify') return send(res, 200, JSON.stringify(await mailAccounts.reverify()));
+    if (url.pathname === '/api/mail-account/unbind') return send(res, 200, JSON.stringify(mailAccounts.unbind()));
     if (url.pathname === '/api/manual-backup') {
       const backup = store.backup(true);
       return send(res, backup.ok ? 200 : 503, JSON.stringify(backup));
@@ -106,7 +115,7 @@ const server = http.createServer(async (req, res) => {
     }
   } catch (error) {
     const status = Number.isInteger(error.status) ? error.status : 500;
-    return send(res, status, JSON.stringify({ ok: false, message: error.message || 'internal server error', ...(Number.isInteger(error.currentRevision) ? { currentRevision: error.currentRevision } : {}) }), 'application/json; charset=utf-8', status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {});
+    return send(res, status, JSON.stringify({ ok: false, message: error.message || 'internal server error', ...(Number.isInteger(error.currentRevision) ? { currentRevision: error.currentRevision } : {}), ...(typeof error.code === 'string' && /^[a-z_]+$/.test(error.code) ? { code: error.code } : {}) }), 'application/json; charset=utf-8', status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {});
   }
 });
 

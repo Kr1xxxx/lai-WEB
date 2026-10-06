@@ -222,6 +222,11 @@ function openStorage({ seedFile }) {
         data_json TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS mail_account (
+        id INTEGER PRIMARY KEY CHECK(id = 1),
+        data_json TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS import_logs (
         id TEXT PRIMARY KEY,
         data_json TEXT NOT NULL
@@ -749,6 +754,29 @@ function openStorage({ seedFile }) {
     return JSON.parse(row.data_json);
   }
 
+  // 绑定的邮箱账号单独存一行，不属于 /api/data 的业务快照，也不随 /api/save 改动。
+  // 按用户决定，凭据以明文存放在本机数据库（文件权限 0600），因此数据库备份文件里也包含它。
+  function requireDatabase() {
+    if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+  }
+  function readMailAccount() {
+    requireDatabase();
+    const row = database.prepare('SELECT data_json FROM mail_account WHERE id = 1').get();
+    if (!row) return null;
+    try { return JSON.parse(row.data_json); } catch (_) { return null; }
+  }
+  function writeMailAccount(account) {
+    requireDatabase();
+    database.prepare(`
+      INSERT INTO mail_account(id, data_json) VALUES(1, ?)
+      ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
+    `).run(JSON.stringify(account));
+  }
+  function deleteMailAccount() {
+    requireDatabase();
+    database.prepare('DELETE FROM mail_account WHERE id = 1').run();
+  }
+
   function health() {
     const integrity = storageMode === 'sqlite' ? databaseIntegrity() : { ok: false, message: storageError || storageMode };
     storageRevision = Number(metadataValue('revision', '0'));
@@ -769,6 +797,6 @@ function openStorage({ seedFile }) {
   }
 
   initializeStorage();
-  return { readSnapshot, save, readImportLog, backup: createBackup, health, close, directory: supportDir };
+  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, backup: createBackup, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

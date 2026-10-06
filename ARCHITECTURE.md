@@ -24,7 +24,9 @@
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
 | `src/nav-favorites.js` | 常用导航：收藏哪些既有导航条目及其顺序（存于`laiSettings.favoriteNav`，只存条目ID，不含业务字段）；从未设置过时默认全部收藏 |
 | `src/rail-menu.js` | 左侧栏悬停浮层的内容：每个菜单列出应用里已有的页面入口；沟通、线索、商机仍是保留入口 |
-| `src/mail-ui.js`、`mail.css` | 邮件页界面骨架：六个文件夹导航与「未绑定邮箱」空态。不连接邮箱、不收发、不读写数据；写信、绑定邮箱仍是保留入口 |
+| `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、六个文件夹、Zoho 邮箱绑定表单与已绑定状态。只通过本机接口通信，界面不保存密码。不读取、不发送邮件；写信仍是保留入口，客户／下属页签只有说明 |
+| `backend/mail-imap.js` | 用 IMAP 登录验证 Zoho 邮箱凭据（TLS 993，主机限定为 Zoho 的四个固定地址），成功后立即退出登录；不选文件夹、不读信、不发信 |
+| `backend/mail-account.js` | 邮箱绑定服务：先验证后保存、查询、重新验证、解绑；对外应答不含密码 |
 | `src/team-model.js`、`team-ui.js` | 团队数据四类报表（客户资产、跟进情况、任务完成、订单业绩）：只用现有客户／跟进／任务／订单数据，按跟进人名称汇总；model 为纯统计，ui 只生成页面标记与明细列表 |
 | `src/business-model.js`、`business-ui.js` | 现有订单、工作台、日历／待办和统计规则及界面 |
 | `src/customer-motion.js`及导航／建议组件 | 既有菜单、抽屉、页签、建议控件与局部动效 |
@@ -62,3 +64,12 @@
 旧验收脚本可能依赖本地历史候选、采集参考或已被替代的验证时点。仓库刻意不复制真实采集和历史应用包；需要外部参考的专项检查必须另备不含业务数据的参考文件，不能只运行脚本就认为证据完整。基础构建及单元／集成的独立运行方式见[VALIDATION.md](VALIDATION.md)。
 
 仓库保持私人，不新增项目自有代码开源许可；私人上传不等于授权对外发布。公司共享部署、公开发行、公证和外部账号接入另行决定。
+
+## 邮箱绑定（2026-10-06 起）
+
+`界面 → 本机接口 /api/mail-account(/bind｜/verify｜/unbind) → backend/mail-account.js → backend/mail-imap.js → Zoho IMAP`
+
+- 这是应用第一处对外连接，用户已确认解除「外部沟通暂缓」中绑定与验证这一部分；读取、发送邮件仍未做。
+- 凭据按用户决定以明文存放在本机 SQLite 的 `mail_account` 表（单行）。它不属于 `/api/data` 快照，不随 `/api/save` 改动，接口应答与界面都不含密码；但数据库文件和 `backups/` 里的备份文件都包含它，解绑只删除当前库里的记录，不清理旧备份。
+- 连接主机不可由界面指定：中国站 `imap.zoho.com.cn`／`imappro.zoho.com.cn`，国际站 `imap.zoho.com`／`imappro.zoho.com`，按站点与账号类型（个人／企业域名）选择。
+- 网页试用版没有本机服务，无法连接邮箱；它的数据替身对 `/api/mail-account` 返回 `available:false`，绑定表单随之禁用。

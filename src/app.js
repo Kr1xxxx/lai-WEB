@@ -195,7 +195,7 @@
     }
     if (
       business?.hasDraft() ||
-      ["edit", "segment", "columns", "membership", "transition", "import"].includes(
+      ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind"].includes(
         modal,
       ) ||
       [...followupDrafts.values()].some((d) => d.text.trim())
@@ -3367,6 +3367,8 @@
     if (el.closest(".rail")) hideRailFlyout();
     if (d.laiRoute) return navigateApp(d.laiRoute);
     if (d.mailFolder) return mail.select(d.mailFolder);
+    if (d.mailAction) return mail.action(d.mailAction, e.detail > 0);
+    if (d.mailView) return mail.showView(d.mailView);
     if (d.navFavorite) return saveFavoriteNav((settings) => NF.toggle(settings, d.navFavorite));
     if (d.action === "favorite-nav") return openFavorites();
     if (d.action === "favorite-nav-manage") return favoriteNavPanel(e.detail > 0);
@@ -4261,6 +4263,17 @@
   mail = window.LaiMailUI.create({
     escape: E,
     icon,
+    // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
+    request: (path, payload) =>
+      fetch(path, payload === undefined
+        ? { cache: "no-store" }
+        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+    isActive: () => activeRoute === "mail",
+    dialog: drawer,
+    closeDialog: () => {
+      if (modal === "mail-bind" || modal === "mail-unbind") closeModal(false, true);
+    },
+    toast,
     mount: (html) => {
       window.LaiActivityCategoryNavigation.mount(null);
       closeDropdowns();
