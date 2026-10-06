@@ -341,7 +341,7 @@
       const today = B.localDate();
       const board = OM().board(state(), oppView.filters, today);
       const context = { owners: OM().ownerNames(state()), today };
-      return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context)) + OU().boardMarkup(board, oppView, context);
+      return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
     }
     function renderOppAnalysis() {
       const T = root.LaiTeamModel;
@@ -377,7 +377,7 @@
             owners: OM().ownerNames(state()),
             isNew: next.isNew,
           }),
-          '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-form">确 定</button>',
+          '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>',
           "business-opportunity",
         );
       } catch (error) {
@@ -420,6 +420,8 @@
           rate.value = "100";
         } else if (!usd && rate.readOnly) rate.value = rate.dataset.rate || "100";
         rate.readOnly = usd;
+        const label = rate.closest("label");
+        if (label) label.hidden = usd;
       }
     }
     function showOppMenu(id) {
@@ -430,7 +432,7 @@
     function showOppLost(id) {
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-      ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-lost-form">确 定</button>', "opp-lost");
+      ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
     }
     function moveOpp(id, stage, errorId) {
       const item = oppItem(id);
