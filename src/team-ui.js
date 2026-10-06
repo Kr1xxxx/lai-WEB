@@ -58,14 +58,16 @@
     // ---------- 目标完成情况 / 团队墙（成员＝跟进人名称；没有目标的格子显示「—」「--%」） ----------
     const COLUMNS={
       amount:{label:'成交订单金额',value:member=>member.amount},
+      repeat:{label:'复购客户数',value:member=>member.repeat},
+      newDeal:{label:'成交新客户数',value:member=>member.newDeal},
       added:{label:'新建客户数',value:member=>member.added},
       orders:{label:'新建销售订单数',value:member=>member.orders},
       records:{label:'跟进记录数',value:member=>member.records},
       customers:{label:'涉及客户数',value:member=>member.customers},
       tasksDone:{label:'任务完成数',value:member=>member.tasksDone}
     };
-    const TABS={result:['amount','added','orders'],process:['records','customers','tasksDone']};
-    const TREND={result:id=>id.startsWith('amount:')||id==='added'||id==='orders',process:id=>id==='records'||id==='tasksDone'};
+    const TABS={result:['amount','repeat','newDeal','added','orders'],process:['records','customers','tasksDone']};
+    const TREND={result:id=>id.startsWith('amount:')||['repeat','newDeal','added','orders'].includes(id),process:id=>id==='records'||id==='tasksDone'};
     const amountLines=amounts=>amounts.length?amounts.map(item=>`${number(item.total)} ${E(item.currency)}`):['0'];
     const shown=(overview,id,source)=>id==='amount'?amountLines(source.amounts).join('<br>'):String(source[id]);
     // 目标：没有目标时显示「—」「--%」；金额目标按币种各占一行。
@@ -74,7 +76,7 @@
     const rateShown=list=>list.length?list.map(goal=>`${goal.rate}%`).join('<br>'):'--%';
     const lowestRate=list=>list.length?Math.max(0,Math.min(100,...list.map(goal=>goal.rate))):0;
     const reached=list=>list.length>0&&list.every(goal=>goal.reached===true);
-    const targetable=(overview,id)=>(overview.targetMetrics||['amount','added','orders','records','tasksDone']).includes(id);
+    const targetable=(overview,id)=>(overview.targetMetrics||['amount','repeat','newDeal','added','orders','records','tasksDone']).includes(id);
     const unit=overview=>overview.periodType==='quarter'?'本季度':'本月';
     const badge=rank=>rank?`<span class="team-rank${rank<=3?' team-rank-'+rank:''}" aria-label="第 ${rank} 名">${rank}</span>`:'<span class="team-rank team-rank-none" aria-label="不参与排名">—</span>';
     // 排名只针对填了名字的跟进人，按该列从高到低；「未分配」排在最后且不给名次。
@@ -113,7 +115,7 @@
       const body=rows.map(({member,rank})=>`<tr><td>${badge(rank)}</td><td>${E(member.label)}</td>${ids.map(id=>{const list=goalList(member,id);return `<td>${shown(overview,id,member)}</td>${showTarget?`<td${list.length?'':' class="muted"'}>${targetShown(id,list)}</td>`:''}${showRate?`<td${list.length?(reached(list)?' class="team-reached"':''):' class="muted"'}>${rateShown(list)}</td>`:''}`;}).join('')}</tr>`).join('');
       const board=view.mode==='trend'
         ?`<section class="business-section"><div class="section-head"><h3>近 ${overview.trend.months.length} 个月趋势</h3></div>${trendBlocks(overview,TREND[tab])}</section>`
-        :`<section class="business-section"><div class="section-head"><h3>成员排行榜</h3><div class="team-tools"><button type="button" data-team-toggle="target" aria-pressed="${showTarget}">目标值</button><button type="button" data-team-toggle="rate" aria-pressed="${showRate}">完成率</button><button type="button" data-feature="下载Excel">下载Excel</button></div></div><div class="team-table-scroll"><table class="order-table team-table team-board"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${2+ids.length*span}">${unit(overview)}暂无数据</td></tr>`}</tbody></table></div><p class="muted tiny team-note">成员按跟进人名称统计，不是员工账号；「未分配」不参与排名。没有设置目标的格子显示「—」。</p></section>`;
+        :`<section class="business-section"><div class="section-head"><h3>成员排行榜</h3><div class="team-tools"><button type="button" data-team-toggle="target" aria-pressed="${showTarget}">目标值</button><button type="button" data-team-toggle="rate" aria-pressed="${showRate}">完成率</button><button type="button" data-team-export="board">下载Excel</button></div></div><div class="team-table-scroll"><table class="order-table team-table team-board"><thead>${head}</thead><tbody>${body||`<tr><td colspan="${2+ids.length*span}">${unit(overview)}暂无数据</td></tr>`}</tbody></table></div><p class="muted tiny team-note">成员按跟进人名称统计，不是员工账号；「未分配」不参与排名。没有设置目标的格子显示「—」。</p></section>`;
       return `<div class="business-scroll team-page team-goals"><div class="team-tabs" role="tablist"><button type="button" role="tab" data-team-tab="result" aria-selected="${tab==='result'}">结果目标</button><button type="button" role="tab" data-team-tab="process" aria-selected="${tab==='process'}">过程目标</button></div><section class="business-section"><div class="section-head"><h3>${tab==='result'?'结果概览':'过程概览'}</h3></div><div class="team-goal-grid">${ids.map(goal).join('')}<button type="button" class="team-goal team-goal-new" data-team-target="new"><span aria-hidden="true">⊕</span>新建目标</button></div></section><div class="team-segment" role="group" aria-label="展示方式"><button type="button" data-team-mode="rank" aria-pressed="${view.mode!=='trend'}">排行榜</button><button type="button" data-team-mode="trend" aria-pressed="${view.mode==='trend'}">趋势图</button></div>${board}</div>`;
     }
 
@@ -141,20 +143,32 @@
         return `<section class="team-card${id==='amount'?' team-card-tall':''}"><h3>${title}</h3><ol class="team-rank-list">${rows.map(row=>`<li>${badge(row.rank)}<span class="team-rank-name">${E(row.member.label)}</span><span class="team-rank-value">${id==='amount'?(currency?`${number(value(row.member))} ${E(currency)}`:'0'):value(row.member)}</span><span class="team-bar" aria-hidden="true"><i style="width:${Math.round(value(row.member)/max*100)}%"></i></span></li>`).join('')||'<li class="muted">暂无成员数据</li>'}</ol>${note?`<p class="muted tiny team-note">${note}</p>`:''}</section>`;
       };
       const figure=(title,value,foot='完成值')=>`<section class="team-card team-card-number"><h3>${title}</h3><span class="muted tiny">我的企业</span><strong>${value}</strong><span class="muted tiny">${foot}</span></section>`;
-      const pkIds=['added','records','customers','orders','amount','tasksDone'];
+      const pkIds=['added','records','customers','orders','amount','newDeal','repeat','tasksDone'];
       const pk=ordered(overview,view.wallSort,pkIds);
       const first=pk.dir==='desc'?pk.rows.find(row=>row.rank===1&&COLUMNS[pk.id].value(row.member)>0):ranked(overview,pk.id).find(row=>row.rank===1&&COLUMNS[pk.id].value(row.member)>0);
-      const pkLabel={added:'新建客户数',records:'跟进记录数',customers:'涉及客户数',orders:'新建订单数',amount:`成交订单金额${currency?`（${E(currency)}）`:''}`,tasksDone:'任务完成数'};
+      const pkLabel={newDeal:'成交新客户数',repeat:'复购客户数',added:'新建客户数',records:'跟进记录数',customers:'涉及客户数',orders:'新建订单数',amount:`成交订单金额${currency?`（${E(currency)}）`:''}`,tasksDone:'任务完成数'};
       const pkCell=(member,id)=>id==='amount'?number(member.amount):COLUMNS[id].value(member);
       return `<div class="business-scroll team-page"><div class="team-wall">`
         +`<section class="team-card team-countdown"><h3>倒计时</h3><div class="team-ring"><svg viewBox="0 0 120 120" role="img" aria-label="${clock.label} ${clock.left} 天"><circle cx="60" cy="60" r="54" class="team-ring-track"/><circle cx="60" cy="60" r="54" class="team-ring-value" stroke-dasharray="${(ring*clock.remaining).toFixed(1)} ${ring.toFixed(1)}" transform="rotate(-90 60 60)"/></svg><div class="team-ring-text"><strong>${clock.left}<small>天</small></strong><span>${clock.label}</span></div></div><span class="team-countdown-date">${E(clock.date)}</span></section>`
         +`<section class="team-card"><h3>成交订单金额</h3><span class="muted tiny">我的企业</span><div class="team-figures"><div><strong>${amountLines(overview.total.amounts).join('<br>')}</strong><span class="muted tiny">完成值</span></div><div><b>${targetShown('amount',amountGoals)}</b><span class="muted tiny">目标值</span></div><div><b>${rateShown(amountGoals)}</b><span class="muted tiny">完成率</span></div></div><div class="team-segbar" aria-hidden="true"><i style="width:${lowestRate(amountGoals)}%"></i></div></section>`
         +list('amount','成交订单金额排行榜',others?`按 ${E(currency)} 排名；其他币种见「订单业绩」。`:'')
         +list('added','新建客户数排行榜')+list('records','跟进记录数排行榜')
-        +figure('新建客户数',overview.total.added)+figure('新建销售订单数',overview.total.orders)
+        +figure('新建客户数',overview.total.added)+figure('新建销售订单数',overview.total.orders)+figure('成交新客户数',overview.total.newDeal)+figure('复购客户数',overview.total.repeat)
         +`<section class="team-card team-card-number"><h3>任务完成率</h3><span class="muted tiny">我的企业</span><strong>${text(overview.total.taskRate,'percent')}</strong><span class="muted tiny">已完成 ${overview.total.tasksDone} ／ 共 ${overview.total.tasksTotal} 个任务</span><div class="team-progress" aria-hidden="true"><i style="width:${overview.total.taskRate||0}%"></i></div></section>`
         +`<section class="team-card team-card-wide"><div class="section-head"><h3>员工PK榜</h3><span class="team-first">第一名：${first?E(first.member.label):'—'}</span></div><div class="team-table-scroll"><table class="order-table team-table team-board"><thead><tr><th>排名</th><th>成员</th>${pkIds.map(id=>`<th${id===pk.id?` aria-sort="${pk.dir==='asc'?'ascending':'descending'}"`:''}>${sortButton('data-team-wall-sort',id,id===pk.id?pk.dir:'',pkLabel[id])}</th>`).join('')}</tr></thead><tbody>${pk.rows.map(({member,rank})=>`<tr><td>${badge(rank)}</td><td>${E(member.label)}</td>${pkIds.map(id=>`<td>${pkCell(member,id)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${2+pkIds.length}">${unit(overview)}暂无数据</td></tr>`}</tbody></table></div><p class="muted tiny team-note">成员按跟进人名称统计，不是员工账号；「未分配」不参与排名。</p></section>`
         +`</div></div>`;
+    }
+
+    // 导出成员排行榜：返回二维数组（表头＋每行），内容与页面当前页签、排序一致；纯文本，不含标记。
+    function boardRows(overview,view={}){
+      const tab=view.tab==='process'?'process':'result',ids=TABS[tab];
+      const plain=(id,source)=>id==='amount'?(source.amounts.length?source.amounts.map(item=>`${number(item.total)} ${item.currency}`).join(' / '):0):source[id];
+      const target=(id,list)=>list.length?list.map(goal=>id==='amount'?`${number(goal.value)} ${goal.currency}`:goal.value).join(' / '):'';
+      const rate=list=>list.length?list.map(goal=>`${goal.rate}%`).join(' / '):'';
+      const head=['排名','成员',...ids.flatMap(id=>[`${COLUMNS[id].label} 完成值`,`${COLUMNS[id].label} 目标值`,`${COLUMNS[id].label} 完成率`])];
+      const rows=ordered(overview,view.sort,ids).rows.map(({member,rank})=>[rank??'',member.label,...ids.flatMap(id=>{const list=goalList(member,id);const value=target(id,list);return [plain(id,member),list.length===1&&id!=='amount'?list[0].value:value,rate(list)];})]);
+      const total=['','合计',...ids.flatMap(id=>{const list=goalList(overview,id);return [plain(id,overview.total),list.length===1&&id!=='amount'?list[0].value:target(id,list),rate(list)];})];
+      return [head,...rows,total];
     }
 
     // ---------- 目标设置表单与目标管理列表 ----------
@@ -177,7 +191,7 @@
       const value=target=>target.metric==='amount'?`${number(target.value)} ${E(target.currency)}`:String(target.value);
       return `<div class="business-scroll team-page"><section class="business-section"><div class="section-head"><h3>已设置的目标</h3><span class="muted tiny">共 ${targets.length} 个</span></div><table class="order-table team-table"><thead><tr><th>周期</th><th>对象</th><th>指标</th><th>目标值</th><th>操作</th></tr></thead><tbody>${targets.map(target=>`<tr><td>${E(periodLabel(target.period))}</td><td>${target.owner===null?'企业整体':E(target.owner)}</td><td>${E(COLUMNS[target.metric]?.label||target.metric)}</td><td>${value(target)}</td><td><button type="button" class="text-button${target.key===armedKey?' team-danger':''}" data-team-target-remove="${E(target.key)}" aria-label="${target.key===armedKey?'再点一次确认删除':'删除目标'}：${E(periodLabel(target.period))} ${target.owner===null?'企业整体':E(target.owner)} ${E(COLUMNS[target.metric]?.label||target.metric)}">${target.key===armedKey?'再点一次确认删除':'删除'}</button>${target.key===armedKey?'<button type="button" class="text-button" data-team-target-cancel="1">取消</button>':''}</td></tr>`).join('')||'<tr><td colspan="5">还没有设置任何目标。可在「目标完成情况」里点「设置目标值」或「新建目标」。</td></tr>'}</tbody></table></section></div>`;
     }
-    return {markup,itemsFor,detailMarkup,goalsMarkup,wallMarkup,countdown,ranked,targetFormMarkup,targetsMarkup,columns:COLUMNS,tabs:TABS};
+    return {markup,itemsFor,detailMarkup,goalsMarkup,wallMarkup,countdown,ranked,boardRows,targetFormMarkup,targetsMarkup,columns:COLUMNS,tabs:TABS};
   }
   const api={create,DETAIL_LIMIT};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiTeamUI=api;
