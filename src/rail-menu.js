@@ -13,6 +13,7 @@
   });
   const fixed={
     '客户':menu('客户',['客户列表','screen','active'],['公海客户','screen','pool'],['客户查重','screen','duplicates'],['客户设置','screen','customer-settings']),
+    '商机':menu('商机',['商机看板','route','opportunities'],['商机分析','route','opp-analysis']),
     '工作台':menu('工作台',['工作台','route','dashboard']),
     // 邮件文件夹：与 mail-ui.js 的 folders 一一对应（测试里核对）。邮箱没有绑定时六个文件夹都显示「未绑定邮箱」。
     '邮件':menu('邮件',['收件箱','mail','inbox'],['待处理邮件','mail','pending'],['未读邮件','mail','unread'],['草稿箱','mail','drafts'],['发件箱','mail','sent'],['群发箱','mail','bulk']),
@@ -22,7 +23,7 @@
     '协同':menu('协同',['日历与待办','route','calendar']),
     '企业管理':menu('企业管理',['设置','route','settings'])
   };
-  // 返回条目数组；null 表示该菜单目前只是保留入口（沟通、线索、商机）或不是真实菜单（常用有自己的清单，见 nav-favorites.js）。
+  // 返回条目数组；null 表示该菜单目前只是保留入口（沟通、线索）或不是真实菜单（常用有自己的清单，见 nav-favorites.js）。
   function menuFor(label){
     return Object.hasOwn(fixed,label)?fixed[label].map(row=>({...row})):null;
   }

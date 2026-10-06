@@ -71,7 +71,7 @@
     if (path === '/api/mail/trash') { messages = messages.filter(function (m) { return !(m.box === body.box && m.uid === Number(body.uid)); }); return json(200, {ok: true}); }
     if (path === '/api/mail/attachment/save') return json(501, {ok: false, message: '网页试用版里的附件是示例，不能保存。在 Mac 应用里会保存到「下载」文件夹。'});
     if (path === '/api/mail/drafts/save') {
-      var draft = {id: body.id || ('demo' + String(nextDraft++)), to: body.to || '', cc: body.cc || '', bcc: body.bcc || '', subject: body.subject || '', text: body.text || '', inReplyTo: body.inReplyTo || '', references: body.references || '', forwardOf: body.forwardOf || null, updatedAt: new Date().toISOString()};
+      var draft = {id: body.id || ('demo' + String(nextDraft++)), to: body.to || '', cc: body.cc || '', bcc: body.bcc || '', subject: body.subject || '', text: body.text || '', html: body.html || '', inReplyTo: body.inReplyTo || '', references: body.references || '', forwardOf: body.forwardOf || null, updatedAt: new Date().toISOString()};
       drafts = drafts.filter(function (d) { return d.id !== draft.id; }).concat([draft]);
       return json(200, {ok: true, draft: draft});
     }
@@ -81,13 +81,13 @@
       if (!everyone.length) return bad('请至少填写一位收件人');
       var wrong = everyone.filter(function (p) { return !p.valid; })[0];
       if (wrong) return bad(wrong.address + ' 不是有效的邮箱地址');
-      if (!String(body.subject || '').trim() && !String(body.text || '').trim()) return bad('主题和正文不能都为空');
+      if (!String(body.subject || '').trim() && !String(body.text || '').trim() && !String(body.html || '').replace(/<[^>]+>/g, '').trim()) return bad('主题和正文不能都为空');
       var strip = function (p) { return {name: p.name, address: p.address}; };
       var original = body.forwardOf && body.forwardAttachments !== false ? find(body.forwardOf.box, body.forwardOf.uid) : null;
       var files = (body.attachments || []).map(function (a, index) { return {index: index, filename: a.filename, contentType: a.contentType || 'application/octet-stream', size: Math.floor(String(a.contentBase64 || '').length * 3 / 4)}; });
       if (original) original.attachments.forEach(function (a) { files.push({index: files.length, filename: a.filename, contentType: a.contentType, size: a.size}); });
       var uid = nextUid++;
-      messages.push({box: 'sent', uid: uid, from: {name: body.fromName || '', address: ME}, to: to.map(strip), cc: cc.map(strip), subject: body.subject || '', date: new Date().toISOString(), seen: true, pending: false, text: body.text || '', html: '', attachments: files, messageId: '<demo-' + uid + '@lai-trial.example>', references: body.references || ''});
+      messages.push({box: 'sent', uid: uid, from: {name: body.fromName || '', address: ME}, to: to.map(strip), cc: cc.map(strip), subject: body.subject || '', date: new Date().toISOString(), seen: true, pending: false, text: body.text || '', html: body.html || '', attachments: files, messageId: '<demo-' + uid + '@lai-trial.example>', references: body.references || ''});
       if (body.draftId) drafts = drafts.filter(function (d) { return d.id !== body.draftId; });
       if (body.fromName !== undefined) account.senderName = body.fromName;
       return json(200, {ok: true, messageId: '<demo-' + uid + '@lai-trial.example>', recipients: everyone.map(function (p) { return p.address; }), attachmentCount: files.length});
@@ -106,4 +106,37 @@
     catch (error) { return Promise.resolve(json(500, {ok: false, message: '示例邮箱出错：' + error.message})); }
   };
   root.LaiWebTrialMailDemo = {account: function () { return account; }};
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* 示例邮箱的群发与设置：群发立刻“完成”，同样不发出任何邮件。 */
+(function (root) {
+  'use strict';
+  var demo = root.LaiWebTrialMailDemo, batches = [], next = 1, inner = root.fetch;
+  function json(status, body) { return new Response(JSON.stringify(body), {status: status, headers: {'Content-Type': 'application/json'}}); }
+  function summary(b) { return {id: b.id, createdAt: b.createdAt, finishedAt: b.finishedAt, subject: b.subject, status: b.status, stopReason: '', total: b.items.length, sent: b.items.length, failed: 0, pending: 0, skipped: 0}; }
+  root.fetch = function (input, init) {
+    var url = String(typeof input === 'string' ? input : (input && input.url) || ''), method = String(init && init.method || 'GET').toUpperCase(), body = {};
+    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/mail(?:-account\/settings|\/bulk(?:\/[a-z]+)?))(?:\?([^#]*))?$/.exec(url);
+    if (!match) return inner.apply(root, arguments);
+    try { body = init && init.body ? JSON.parse(init.body) : {}; } catch (error) { return Promise.resolve(json(400, {ok: false, message: '请求内容无效'})); }
+    var path = match[1], account = demo.account();
+    if (path === '/api/mail-account/settings') { account.senderName = String(body.senderName || '').trim(); account.signature = String(body.signature || '').trim(); return Promise.resolve(json(200, {ok: true, available: false, account: account})); }
+    if (path === '/api/mail/bulk' && method === 'GET') return Promise.resolve(json(200, {ok: true, items: batches.map(summary).reverse()}));
+    if (path === '/api/mail/bulk/batch') {
+      var id = new URLSearchParams(match[2] || '').get('id'), found = batches.filter(function (b) { return b.id === id; })[0];
+      return Promise.resolve(found ? json(200, {ok: true, batch: Object.assign(summary(found), {text: found.text, attachmentNames: found.attachmentNames, items: found.items})}) : json(404, {ok: false, message: '找不到这批群发记录'}));
+    }
+    if (path === '/api/mail/bulk/cancel') return Promise.resolve(json(200, {ok: true}));
+    if (path === '/api/mail/bulk/start') {
+      var list = Array.isArray(body.recipients) ? body.recipients : [];
+      if (!list.length) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '请至少选择一位收件人'}));
+      if (!String(body.subject || '').trim() || !(String(body.text || '').trim() || String(body.html || '').replace(/<[^>]+>/g, '').trim())) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '请填写主题和正文'}));
+      var now = new Date().toISOString();
+      var batch = {id: 'demo-batch-' + next++, createdAt: now, finishedAt: now, subject: body.subject, text: body.text, status: 'done', attachmentNames: (body.attachments || []).map(function (a) { return a.filename; }),
+        items: list.map(function (r) { return {address: r.address, name: r.name || '', customer: r.customer || '', status: 'sent', error: '', sentAt: now}; })};
+      batches.push(batch);
+      return Promise.resolve(json(200, {ok: true, batch: summary(batch)}));
+    }
+    return Promise.resolve(json(404, {ok: false, message: 'not found'}));
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -81,12 +81,21 @@
       thread = { name: "", loading: false, error: "", items: [] },
       threadToken = 0,
       compose = null,
-      confirmTarget = null;
+      confirmTarget = null,
+      // 群发：批次列表、正在查看的批次、新建群发窗口的状态。
+      bulk = { loading: false, error: "", items: [] },
+      batch = null,
+      batchToken = 0,
+      pendingBatch = "",
+      bulkToken = 0;
+    const BULK_STATUS = { sending: "发送中", done: "已完成", stopped: "已停止", cancelled: "已手动停止", interrupted: "已中断" };
+    const ITEM_STATUS = { pending: "待发送", sent: "已发送", failed: "失败", skipped: "未发送" };
     const current = () => folders.find((item) => item.id === folder);
     const option = (item, selected) => `<option value="${item.id}" ${item.id === selected ? "selected" : ""}>${E(item.label)}</option>`;
     const onMailPage = () => ctx.isActive?.() !== false;
+    // 正在写信时不重画页面（后台读完的列表只更新状态），免得打断输入。
     const rerender = () => {
-      if (onMailPage()) render();
+      if (onMailPage() && !compose) render();
     };
 
     // ---- 客户与邮箱地址的对应 ----
@@ -96,7 +105,12 @@
       for (const name of Object.keys(all)) {
         if (ctx.isArchived && ctx.isArchived(all[name])) continue;
         const addresses = customerAddresses(all[name]);
-        if (addresses.length) rows.push({ name, addresses });
+        if (!addresses.length) continue;
+        // 群发时用的称呼：邮箱对应的联系人姓名，其次主要联系人。
+        const contacts = Array.isArray(all[name].contacts) ? all[name].contacts.filter((item) => item && typeof item === "object") : [];
+        const matched = contacts.find((item) => String(item.email ?? "").trim().toLowerCase() === addresses[0]);
+        const contact = String((matched && (matched.contact || matched.name)) || all[name].contact || (contacts[0] && (contacts[0].contact || contacts[0].name)) || "").trim();
+        rows.push({ name, addresses, contact });
       }
       return rows.sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"));
     }
@@ -135,9 +149,12 @@
       reading = null;
       query = "";
       thread = { name: "", loading: false, error: "", items: [] };
+      bulk = { loading: false, error: "", items: [] };
+      batch = null;
       listToken++;
       readToken++;
       threadToken++;
+      batchToken++;
     }
     async function loadAccount() {
       const token = ++loadToken;
@@ -209,7 +226,46 @@
       if (view !== "mail") return rerender();
       if (folder === "drafts") return loadDrafts();
       if (serverFolder()) return loadList(1);
+      if (folder === "bulk") return batch ? loadBatch(batch.id) : loadBulk();
       return rerender();
+    }
+    async function loadBulk() {
+      const token = ++bulkToken;
+      bulk = { ...bulk, loading: true, error: "" };
+      rerender();
+      try {
+        const items = (await call("/api/mail/bulk")).items || [];
+        if (token !== bulkToken) return;
+        bulk = { loading: false, error: "", items };
+      } catch (error) {
+        if (token !== bulkToken) return;
+        bulk = { loading: false, error: error.message, items: [] };
+      }
+      rerender();
+      // 有批次还在发送时，列表也自动更新进度。
+      if (bulk.items.some((item) => item.status === "sending"))
+        root.setTimeout(() => {
+          if (token === bulkToken && !batch && onMailPage() && view === "mail" && folder === "bulk") loadBulk();
+        }, ctx.pollMs ?? 2500);
+    }
+    // 读取一批群发的进度；还在发送时每隔几秒自动再读一次，离开这个页面就停。
+    async function loadBatch(id) {
+      const token = ++batchToken;
+      if (!batch || batch.id !== id) batch = { id, loading: true, error: "", data: null };
+      rerender();
+      try {
+        const data = await call(withQuery("/api/mail/bulk/batch", { id }));
+        if (token !== batchToken || !batch || batch.id !== id) return;
+        batch = { id, loading: false, error: "", data: data.batch };
+      } catch (error) {
+        if (token !== batchToken || !batch || batch.id !== id) return;
+        batch = { id, loading: false, error: error.message, data: batch.data };
+      }
+      rerender();
+      if (batch.data && batch.data.status === "sending" && !batch.error)
+        root.setTimeout(() => {
+          if (token === batchToken && batch && batch.id === id && onMailPage() && view === "mail" && folder === "bulk") loadBatch(id);
+        }, ctx.pollMs ?? 2500);
     }
 
     // ---- 标记：导航 ----
@@ -363,18 +419,61 @@
       else body = `<p class="mail-thread-note">${E(row.addresses.join("、"))} · 收件箱与已发送中最近的 ${thread.items.length} 封</p><div class="mail-list" role="list">${thread.items.map((message) => rowMarkup(message, new Map(), true)).join("")}</div>`;
       return pagebar(row.name, actions) + `<section class="module-page mail-page mail-list-page">${body}</section>`;
     }
+    const bulkProgress = (b) => `已发 ${b.sent} / 共 ${b.total}${b.failed ? ` · 失败 ${b.failed}` : ""}${b.skipped ? ` · 未发 ${b.skipped}` : ""}`;
+    const bulkTag = (b) => `<span class="mail-bulk-tag ${E(b.status)}">${E(BULK_STATUS[b.status] || b.status)}</span>`;
+    function bulkPage() {
+      const actions = `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button><button type="button" data-mail-action="refresh" ${bulk.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
+      let body;
+      if (bulk.loading && !bulk.items.length) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在读取群发记录…</span></div>`;
+      else if (bulk.error) body = empty("people", "读取群发记录失败", bulk.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
+      else if (!bulk.items.length) body = empty("people", "还没有群发记录", "群发会给每位客户单独发一封，对方看不到其他收件人；正文里可以用 {{姓名}}、{{公司}} 自动换成每位客户自己的。", `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button>`);
+      else
+        body =
+          `<div class="mail-list" role="list">` +
+          bulk.items
+            .map(
+              (b) =>
+                `<div class="mail-row" role="listitem"><span class="mail-pending-slot"></span><button type="button" class="mail-row-main" data-mail-action="bulk-open" data-id="${E(b.id)}"><span class="mail-row-who">${bulkTag(b)} ${E(bulkProgress(b))}</span><span class="mail-row-subject">${E(b.subject || "（无主题）")}</span><span class="mail-row-time">${E(shortTime(b.createdAt))}</span></button></div>`,
+            )
+            .join("") +
+          `</div>`;
+      return pagebar(`群发箱${bulk.items.length ? `（${bulk.items.length}）` : ""}`, actions) + `<section class="module-page mail-page mail-list-page">${body}</section>`;
+    }
+    function batchPage() {
+      const back = `<button type="button" class="mail-back" data-mail-action="bulk-back">${icon("back")}返回</button>`;
+      const b = batch.data;
+      if (!b) return pagebar(batch.error ? "无法打开群发记录" : "正在打开…", "", back) + `<section class="module-page mail-page">${batch.error ? empty("people", "无法打开这批群发", batch.error, `<button type="button" class="primary" data-mail-action="bulk-back">返回群发箱</button>`) : `<div class="empty mail-unbound" aria-busy="true"><span>正在读取发送进度…</span></div>`}</section>`;
+      const actions = (b.status === "sending" ? `<button type="button" data-mail-action="bulk-cancel">停止发送</button>` : "") + `<button type="button" data-mail-action="refresh">${icon("refresh")}刷新</button>`;
+      const rows = b.items
+        .map(
+          (item) =>
+            `<tr class="${E(item.status)}"><td>${item.customer ? `<button type="button" class="company-link" data-mail-action="customer-open" data-name="${E(item.customer)}">${E(item.customer)}</button>` : "—"}</td><td>${E(item.name || "—")}</td><td>${E(item.address)}</td><td><span class="mail-item-status ${E(item.status)}">${E(ITEM_STATUS[item.status] || item.status)}</span></td><td>${E(item.status === "sent" ? fullTime(item.sentAt) : item.error || "")}</td></tr>`,
+        )
+        .join("");
+      return (
+        pagebar(b.subject || "（无主题）", actions, back) +
+        `<section class="module-page mail-page mail-reader mail-batch"><div class="mail-batch-summary">${bulkTag(b)}<strong>${E(bulkProgress(b))}</strong><span>${E(fullTime(b.createdAt))} 开始${b.stopReason ? ` · ${E(b.stopReason)}` : ""}</span></div>` +
+        (batch.error ? `<div class="error visible" role="alert">${E(batch.error)}</div>` : "") +
+        (b.status === "sending" ? `<p class="mail-body-note">正在逐封发送，这个页面会自动更新。可以离开去做别的事，发送不会中断；关闭来财应用则会中断。</p>` : "") +
+        `<div class="mail-batch-table"><table class="order-table"><thead><tr><th>客户</th><th>称呼</th><th>邮箱</th><th>状态</th><th>发送时间／原因</th></tr></thead><tbody>${rows}</tbody></table></div>` +
+        `<details class="mail-batch-text"><summary>查看这批邮件的正文${(b.attachmentNames || []).length ? `（附件 ${b.attachmentNames.length} 个）` : ""}</summary><div class="mail-body-text">${E(b.text || "")}</div>${(b.attachmentNames || []).length ? `<p class="mail-body-note">附件：${E(b.attachmentNames.join("、"))}</p>` : ""}</details></section>`
+      );
+    }
     function page() {
+      if (compose) return composePage();
       if (view === "team") return pagebar("下属邮件") + `<section class="module-page mail-page">${empty("lead", "查看下属的邮件", "这需要公司账号和上下级关系。来财目前是单机版，还没有这部分。")}</section>`;
       const blocked = gate();
       if (blocked) return pagebar(view === "customer" ? "客户邮件" : current().label) + `<section class="module-page mail-page">${blocked}</section>`;
       if (reading) return readerPage();
       if (view === "customer") return customerPage();
       if (folder === "drafts") return draftsPage();
-      if (folder === "bulk") return pagebar("群发箱", accountButton()) + `<section class="module-page mail-page">${empty("people", "群发还没有做", "目前可以在写信时填写多位收件人（最多 50 位）。按客户批量单独发送的群发功能尚未实现。")}</section>`;
+      if (folder === "bulk") return batch ? batchPage() : bulkPage();
       return listPage();
     }
     function render() {
+      capture();
       ctx.mount(page());
+      if (compose) return mountCompose();
       const search = document.getElementById("mail-search-form");
       if (search)
         search.addEventListener("submit", (event) => {
@@ -492,120 +591,226 @@
       }
     }
 
-    // ---- 写信 ----
-    function composeFields() {
-      const form = document.getElementById("mail-compose-form");
-      if (!form) return null;
-      const value = (name) => String(form.elements[name]?.value ?? "");
-      return { to: value("to").trim(), cc: value("cc").trim(), bcc: value("bcc").trim(), subject: value("subject").trim(), text: value("text"), fromName: value("fromName").trim(), forwardAttachments: form.elements.forwardAttachments ? !!form.elements.forwardAttachments.checked : true };
+    // ---- 写信（独立页面，富文本） ----
+    const textToHtml = (text) => String(text ?? "").split("\n").map((line) => `<div>${E(line) || "<br>"}</div>`).join("");
+    const signatureHtml = () => (account && account.signature ? `<div><br></div><div>${textToHtml(account.signature)}</div>` : "");
+    const WRAP = `font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.6;color:#1d273e`;
+    const QUOTE = `margin:8px 0 0 .8ex;border-left:2px solid #ccd3de;padding-left:1.2ex;color:#53617b`;
+    // 发出的 HTML：包一层基本字体，引用块写上内联样式（收件方的邮箱不认我们的样式表）。
+    const outgoingHtml = (html) => `<div style="${WRAP}">${String(html || "").replace(/<blockquote(?![^>]*\bstyle=)/gi, `<blockquote style="${QUOTE}"`)}</div>`;
+    function renderFileList(id, files, removeAction) {
+      const box = document.getElementById(id);
+      if (!box) return;
+      box.innerHTML = files.map((file, index) => `<li><span class="mail-attachment-name">${icon("folder")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span><button type="button" data-mail-action="${removeAction}" data-index="${index}">移除</button></li>`).join("");
     }
-    const composeSnapshot = (fields) => JSON.stringify([fields.to, fields.cc, fields.bcc, fields.subject, fields.text]);
-    function renderFiles() {
-      const box = document.getElementById("mail-compose-file-list");
-      if (!box || !compose) return;
-      box.innerHTML = compose.files.map((file, index) => `<li><span class="mail-attachment-name">${icon("folder")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span><button type="button" data-mail-action="file-remove" data-index="${index}">移除</button></li>`).join("");
-    }
-    function addFiles(fileList) {
-      if (!compose) return;
-      const incoming = Array.from(fileList || []);
-      let total = compose.files.reduce((sum, file) => sum + file.size, 0);
-      for (const file of incoming) {
+    // 把选中的文件读进 holder.files；合计超过 10 MB 的不加。
+    function readFiles(fileList, holder, errorId, redraw) {
+      let total = holder.files.reduce((sum, file) => sum + file.size, 0);
+      for (const file of Array.from(fileList || [])) {
         if (total + file.size > MAX_ATTACHMENT_BYTES) {
-          showError("mail-compose-error", `附件合计不能超过 10 MB，「${file.name}」没有添加。`);
+          showError(errorId, `附件合计不能超过 10 MB，「${file.name}」没有添加。`);
           continue;
         }
         total += file.size;
         const entry = { name: file.name, type: file.type || "application/octet-stream", size: file.size, base64: "", ready: false };
-        compose.files.push(entry);
+        holder.files.push(entry);
         const reader = new root.FileReader();
         reader.onload = () => {
           entry.base64 = String(reader.result || "").replace(/^data:[^,]*,/, "");
           entry.ready = true;
         };
         reader.onerror = () => {
-          if (!compose) return;
-          compose.files = compose.files.filter((item) => item !== entry);
-          renderFiles();
-          showError("mail-compose-error", `无法读取「${file.name}」。`);
+          const index = holder.files.indexOf(entry);
+          if (index >= 0) holder.files.splice(index, 1);
+          redraw();
+          showError(errorId, `无法读取「${file.name}」。`);
         };
         reader.readAsDataURL(file);
       }
-      renderFiles();
+      redraw();
     }
-    function openCompose(initial = {}, pointerActivated = false) {
-      if (status !== "ready" || !account) {
-        ctx.toast(available ? "请先绑定邮箱" : "网页试用版无法收发邮件");
-        return status === "ready" ? bindDialog(pointerActivated) : undefined;
+    // 写信类入口共用：没读过绑定状态就先读；没有可用邮箱时提示并打开绑定窗口。
+    async function ready(pointerActivated) {
+      if (status === "idle" || status === "error") {
+        const token = ++loadToken;
+        status = "loading";
+        try {
+          const data = await call("/api/mail-account");
+          if (token === loadToken) accept(data);
+        } catch (error) {
+          if (token === loadToken) {
+            status = "error";
+            loadError = error.message;
+          }
+        }
       }
-      compose = { draftId: initial.id || "", inReplyTo: initial.inReplyTo || "", references: initial.references || "", forwardOf: initial.forwardOf || null, forwardCount: initial.forwardCount || 0, files: [], sending: false, force: false, snapshot: "" };
-      const field = (label, name, value, extra = "") => `<label class="field">${label}<input name="${name}" id="mail-compose-${name}" value="${E(value || "")}" autocomplete="off" spellcheck="false" ${extra}></label>`;
-      ctx.dialog(
-        initial.title || "写信",
-        `<form class="drawer-body mail-compose-form" id="mail-compose-form" autocomplete="off" novalidate>` +
-          field("收件人", "to", initial.to, 'placeholder="多个地址用逗号分隔"') +
-          `<div class="form-grid">${field("抄送", "cc", initial.cc)}${field("密送", "bcc", initial.bcc)}</div>` +
-          field("主题", "subject", initial.subject, 'maxlength="500"') +
-          `<label class="field">正文<textarea name="text" id="mail-compose-text" rows="14">${E(initial.text || "")}</textarea></label>` +
-          `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB</span><ul id="mail-compose-file-list"></ul>` +
-          (compose.forwardOf && compose.forwardCount ? `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" checked> 附带原邮件的 ${compose.forwardCount} 个附件</label>` : "") +
-          `</div>` +
-          `<div class="form-grid">${field("发件人名称", "fromName", account.senderName || "", 'maxlength="80" placeholder="收件人看到的名字"')}<label class="field">发件邮箱<input value="${E(account.email)}" disabled></label></div>` +
-          `<div class="error" id="mail-compose-error" role="alert"></div></form>`,
-        `<button type="button" data-mail-action="compose-close">取消</button><button type="button" data-mail-action="compose-draft">存草稿</button><button class="primary" type="submit" form="mail-compose-form" id="mail-compose-submit">发送</button>`,
-        "mail-compose",
-        pointerActivated,
-      );
+      if (status === "ready" && account) return true;
+      ctx.toast(status !== "ready" ? "无法读取邮箱绑定状态，请到邮件页重试" : available ? "请先绑定邮箱" : "网页试用版无法收发邮件");
+      if (status === "ready") bindDialog(pointerActivated);
+      return false;
+    }
+    // 把页面上正在填的内容收进 compose.values，这样页面被重画也不丢。
+    function capture() {
+      if (!compose) return null;
       const form = document.getElementById("mail-compose-form");
-      if (!form) return;
-      // 打开时的内容作为基准：只有用户改动过才算有未保存内容。
-      compose.snapshot = composeSnapshot(composeFields());
+      if (form) {
+        const value = (name, fallback) => (form.elements[name] ? String(form.elements[name].value ?? "") : fallback);
+        const v = compose.values;
+        compose.values = { ...v, to: value("to", v.to).trim(), cc: value("cc", v.cc).trim(), bcc: value("bcc", v.bcc).trim(), subject: value("subject", v.subject).trim(), fromName: value("fromName", v.fromName).trim(), forwardAttachments: form.elements.forwardAttachments ? !!form.elements.forwardAttachments.checked : v.forwardAttachments };
+      }
+      if (compose.editor) {
+        compose.values.html = compose.editor.getHTML();
+        compose.values.text = compose.editor.getText();
+      }
+      return compose.values;
+    }
+    const composeSnapshot = () => JSON.stringify([compose.values.to, compose.values.cc, compose.values.bcc, compose.values.subject, compose.values.html, compose.mode === "bulk" ? [...compose.selected].sort() : 0]);
+    const composeHasContent = () => !!(compose.values.to || compose.values.cc || compose.values.bcc || compose.values.subject || String(compose.values.text || "").trim() || compose.files.length);
+    // 还没显示出来的写信页（snapshot 为空）不算有改动。
+    const composeDirty = () => !!compose && !!compose.snapshot && !!capture() && (composeSnapshot() !== compose.snapshot || compose.files.length > 0) && composeHasContent();
+    function renderFiles() {
+      if (compose) renderFileList("mail-compose-file-list", compose.files, "file-remove");
+    }
+    function bulkListMarkup() {
+      return compose.all
+        .map((item) => {
+          const on = compose.selected.has(item.customer);
+          return `<button type="button" role="checkbox" class="mail-bulk-pick ${on ? "on" : ""}" aria-checked="${on}" data-mail-action="bulk-toggle" data-name="${E(item.customer)}"><span class="mail-bulk-box">${on ? icon("check") : ""}</span><span class="mail-bulk-name">${E(item.customer)}</span><span class="mail-bulk-address">${E(item.name ? `${item.name} · ${item.address}` : item.address)}</span></button>`;
+        })
+        .join("");
+    }
+    function composePage() {
+      const v = compose.values,
+        bulkMode = compose.mode === "bulk";
+      const back = `<button type="button" class="mail-back" data-mail-action="compose-close">${icon("back")}返回</button>`;
+      const actions = (bulkMode ? `<button type="button" data-mail-action="bulk-preview">预览第一封</button>` : `<button type="button" data-mail-action="compose-draft">存草稿</button>`) + `<button class="primary" type="submit" form="mail-compose-form" id="mail-compose-submit">${compose.confirm ? `确认向 ${compose.selected.size} 位客户分别发送` : "发送"}</button>`;
+      const row = (label, name, value, extra = "") => `<label class="mail-compose-row"><span>${label}</span><input name="${name}" id="mail-compose-${name}" value="${E(value || "")}" autocomplete="off" spellcheck="false" ${extra}></label>`;
+      const who = bulkMode
+        ? `<div class="module-note">每位客户单独收到一封，看不到其他收件人。主题和正文里的 <b>{{姓名}}</b> 会换成联系人姓名（没有就用公司名），<b>{{公司}}</b> 换成客户名称。一批最多 200 位。</div>` +
+          `<div class="mail-compose-row tall"><span>收件客户</span><div class="mail-bulk-picker"><div class="mail-bulk-toolbar"><span id="mail-bulk-count">已选 ${compose.selected.size} / ${compose.all.length} 位客户</span><button type="button" data-mail-action="bulk-all">全选</button><button type="button" data-mail-action="bulk-none">清空</button><input id="mail-bulk-filter" type="search" placeholder="搜索客户" aria-label="搜索客户" autocomplete="off"></div><div class="mail-bulk-recipients" id="mail-bulk-recipients" role="group" aria-label="收件客户">${bulkListMarkup()}</div></div></div>`
+        : row("收件人", "to", v.to, 'placeholder="多个地址用逗号分隔"') +
+          (compose.showCc ? row("抄送", "cc", v.cc) + row("密送", "bcc", v.bcc) : `<div class="mail-compose-row slim"><span></span><button type="button" class="text-button" data-mail-action="compose-cc">添加抄送／密送</button></div>`);
+      return (
+        pagebar(compose.title, actions, back) +
+        `<section class="module-page mail-page mail-compose-page"><form class="mail-compose-form" id="mail-compose-form" autocomplete="off" novalidate>` +
+        `<div class="error" id="mail-compose-error" role="alert"></div>` +
+        who +
+        row("主题", "subject", v.subject, 'maxlength="500"') +
+        (ctx.editorToolbar ? ctx.editorToolbar() : "") +
+        `<div class="mail-editor" id="mail-compose-editor" role="textbox" aria-multiline="true" aria-label="正文"></div>` +
+        (bulkMode ? `<div class="mail-body-text mail-bulk-preview" id="mail-bulk-preview" hidden></div>` : "") +
+        `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB${bulkMode ? "，每封都会带上" : ""}</span><ul id="mail-compose-file-list"></ul>` +
+        (compose.forwardOf && compose.forwardCount ? `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" ${v.forwardAttachments ? "checked" : ""}> 附带原邮件的 ${compose.forwardCount} 个附件</label>` : "") +
+        `</div>` +
+        `<div class="mail-compose-from">${row("发件人名称", "fromName", v.fromName, 'maxlength="80" placeholder="收件人看到的名字"')}<span class="mail-compose-address">${E(account ? account.email : "")}</span></div>` +
+        `</form></section>`
+      );
+    }
+    // 页面画好之后接上编辑器、附件选择和表单提交。
+    function mountCompose() {
+      const form = document.getElementById("mail-compose-form"),
+        node = document.getElementById("mail-compose-editor");
+      if (!compose || !form || !node) return;
+      if (compose.editor && compose.editor.destroy) compose.editor.destroy();
+      compose.editor = ctx.createEditor(node, document.querySelector ? document.querySelector(".mail-editor-toolbar") : null, compose.values.html);
+      renderFiles();
       form.addEventListener("submit", (event) => {
         event.preventDefault();
-        return sendCompose();
+        return compose && compose.mode === "bulk" ? bulkSend() : sendCompose();
       });
+      if (form.addEventListener) form.addEventListener("mail-editor-error", (event) => showError("mail-compose-error", event.detail));
       const picker = document.getElementById("mail-compose-file");
       if (picker && picker.addEventListener)
         picker.addEventListener("change", () => {
-          addFiles(picker.files);
+          if (compose) readFiles(picker.files, compose, "mail-compose-error", renderFiles);
           picker.value = "";
         });
+      const filter = document.getElementById("mail-bulk-filter");
+      if (filter && filter.addEventListener)
+        filter.addEventListener("input", () => {
+          const needle = String(filter.value || "").trim().toLowerCase();
+          document.querySelectorAll("#mail-bulk-recipients [data-name]").forEach((button) => {
+            button.hidden = !!needle && !button.textContent.toLowerCase().includes(needle);
+          });
+        });
+      // 打开时的内容作为基准：只有改动过才算有未保存内容。
+      if (!compose.snapshot) {
+        capture();
+        compose.snapshot = composeSnapshot();
+      }
     }
-    const draftPayload = (fields) => ({ id: compose.draftId || undefined, to: fields.to, cc: fields.cc, bcc: fields.bcc, subject: fields.subject, text: fields.text, inReplyTo: compose.inReplyTo, references: compose.references, forwardOf: compose.forwardOf });
+    // 打开写信页。已有一封在写时先把它存成草稿。
+    async function openCompose(initial = {}) {
+      if (status !== "ready" || !account) {
+        ctx.toast(available && status === "ready" ? "请先绑定邮箱" : available ? "无法读取邮箱绑定状态，请到邮件页重试" : "网页试用版无法收发邮件");
+        return status === "ready" ? bindDialog(false) : undefined;
+      }
+      if (compose && !(await leaveCompose())) return;
+      const bulkMode = initial.mode === "bulk";
+      // 新写、回复、转发时带上签名；继续写草稿时不重复加。
+      const html = initial.id ? initial.html || textToHtml(initial.text) : `<div><br></div>${signatureHtml()}${initial.html || ""}`;
+      compose = {
+        mode: bulkMode ? "bulk" : "mail", title: initial.title || (bulkMode ? "新建群发" : "写信"), draftId: initial.id || "", inReplyTo: initial.inReplyTo || "", references: initial.references || "",
+        forwardOf: initial.forwardOf || null, forwardCount: initial.forwardCount || 0, files: [], sending: false, force: false, snapshot: "", editor: null, origin: initial.origin || null,
+        showCc: !!(initial.cc || initial.bcc), confirm: false, all: initial.all || [], selected: new Set(initial.selected || []),
+        values: { to: initial.to || "", cc: initial.cc || "", bcc: initial.bcc || "", subject: initial.subject || "", fromName: account.senderName || "", forwardAttachments: true, html, text: "" },
+      };
+      if (!onMailPage() && ctx.openMail) {
+        compose.fresh = true;
+        return ctx.openMail(folder);
+      }
+      render();
+    }
+    // 离开写信页后回到哪里：从客户页进来的回客户页，否则留在邮件页。
+    function afterCompose(origin) {
+      if (origin) return origin();
+      if (onMailPage()) return loadCurrent();
+    }
+    const draftPayload = () => ({ id: compose.draftId || undefined, to: compose.values.to, cc: compose.values.cc, bcc: compose.values.bcc, subject: compose.values.subject, text: compose.values.text, html: compose.values.html, inReplyTo: compose.inReplyTo, references: compose.references, forwardOf: compose.forwardOf });
     async function saveDraft(close) {
-      const fields = composeFields();
-      if (!compose || !fields || compose.sending) return;
+      if (!compose || compose.sending || compose.mode === "bulk") return false;
+      capture();
       try {
-        const data = await call("/api/mail/drafts/save", draftPayload(fields));
+        const data = await call("/api/mail/drafts/save", draftPayload());
         compose.draftId = data.draft.id;
-        compose.snapshot = composeSnapshot(fields);
+        compose.snapshot = composeSnapshot();
         compose.force = false;
         drafts.loaded = false;
       } catch (error) {
         compose.force = close;
-        showError("mail-compose-error", `草稿保存失败：${error.message}${close ? " 再点一次「取消」将放弃这封信。" : ""}`);
+        showError("mail-compose-error", `草稿保存失败：${error.message}${close ? " 再点一次「返回」将放弃这封信。" : ""}`);
         return false;
       }
-      if (close) {
-        compose = null;
-        ctx.closeDialog();
-      }
-      ctx.toast(compose && compose.files.length ? "已存入草稿箱（附件不随草稿保存）" : "已存入草稿箱");
-      if (folder === "drafts" && view === "mail" && !reading) loadDrafts();
+      ctx.toast(compose.files.length ? "已存入草稿箱（附件不随草稿保存）" : "已存入草稿箱");
       return true;
     }
-    function closeCompose() {
-      if (!compose || compose.sending) return;
-      const fields = composeFields();
-      const dirty = fields && (composeSnapshot(fields) !== compose.snapshot || compose.files.length > 0);
-      if (dirty && !compose.force && (fields.to || fields.cc || fields.bcc || fields.subject || fields.text.trim())) return saveDraft(true);
+    // 关闭写信页：改过的普通邮件自动存草稿；群发没有草稿，改过的要再点一次才放弃。成功离开返回 true。
+    async function leaveCompose() {
+      if (!compose) return true;
+      if (compose.sending) return false;
+      if (composeDirty() && !compose.force) {
+        if (compose.mode === "bulk") {
+          compose.force = true;
+          showError("mail-compose-error", "群发内容还没发送，离开后不会保存。再点一次「返回」放弃。");
+          return false;
+        }
+        if (!(await saveDraft(true))) return false;
+      }
+      if (compose.editor && compose.editor.destroy) compose.editor.destroy();
       compose = null;
-      ctx.closeDialog();
+      return true;
+    }
+    async function closeCompose() {
+      const origin = compose && compose.origin;
+      if (!(await leaveCompose())) return false;
+      await afterCompose(origin);
+      return true;
     }
     async function sendCompose() {
-      const fields = composeFields();
-      if (!compose || !fields || compose.sending) return;
-      if (!fields.to && !fields.cc && !fields.bcc) return showError("mail-compose-error", "请至少填写一位收件人");
-      if (!fields.subject && !fields.text.trim()) return showError("mail-compose-error", "主题和正文不能都为空");
+      if (!compose || compose.sending) return;
+      const v = capture();
+      if (!v.to && !v.cc && !v.bcc) return showError("mail-compose-error", "请至少填写一位收件人");
+      if (!v.subject && !String(v.text).trim()) return showError("mail-compose-error", "主题和正文不能都为空");
       if (compose.files.some((file) => !file.ready)) return showError("mail-compose-error", "附件还在读取，请稍候再发送");
       const submit = document.getElementById("mail-compose-submit");
       compose.sending = true;
@@ -615,13 +820,15 @@
         submit.textContent = "正在发送…";
       }
       try {
-        const data = await call("/api/mail/send", { ...draftPayload(fields), id: undefined, draftId: compose.draftId || undefined, fromName: fields.fromName, forwardAttachments: fields.forwardAttachments, attachments: compose.files.map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 })) });
-        if (account) account = { ...account, senderName: fields.fromName };
+        const data = await call("/api/mail/send", { ...draftPayload(), id: undefined, html: outgoingHtml(v.html), draftId: compose.draftId || undefined, fromName: v.fromName, forwardAttachments: v.forwardAttachments, attachments: compose.files.map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 })) });
+        if (account) account = { ...account, senderName: v.fromName };
+        const origin = compose.origin;
+        if (compose.editor && compose.editor.destroy) compose.editor.destroy();
         compose = null;
         drafts.loaded = false;
-        ctx.closeDialog();
-        ctx.toast(account && account.demo ? "示例邮箱：邮件没有真的发出，已放入发件箱" : `邮件已发送给 ${data.recipients.length} 位收件人`);
-        if (!reading && view === "mail" && (folder === "sent" || folder === "drafts")) loadCurrent();
+        const rejected = data.rejected || [];
+        ctx.toast(account && account.demo ? "示例邮箱：邮件没有真的发出，已放入发件箱" : rejected.length ? `已发送给 ${data.recipients.length} 位收件人；${rejected.join("、")} 被服务器拒绝，没有收到` : `邮件已发送给 ${data.recipients.length} 位收件人`);
+        await afterCompose(origin);
       } catch (error) {
         if (compose) compose.sending = false;
         showError("mail-compose-error", error.message);
@@ -631,17 +838,18 @@
         }
       }
     }
-    function replyTo(mode, pointerActivated) {
+    function replyTo(mode) {
       const m = reading && reading.message;
       if (!m) return;
       const me = account ? account.email : "";
-      const header = `在 ${fullTime(m.date)}，${addressLine([m.from])} 写道：`;
+      // 引用原邮件：有 HTML 用 HTML（放进编辑器前会净化），否则用文字。
+      const original = m.html || textToHtml(m.text);
       const ids = { inReplyTo: m.messageId || "", references: [m.references, m.messageId].filter(Boolean).join(" ") };
       if (mode === "forward")
-        return openCompose({ title: "转发", subject: replySubject(m.subject, "Fwd"), text: `\n\n---------- 转发的邮件 ----------\n发件人：${addressLine([m.from])}\n时间：${fullTime(m.date)}\n主题：${m.subject || ""}\n收件人：${addressLine(m.to)}\n\n${m.text || ""}`, forwardOf: { box: m.box, uid: m.uid }, forwardCount: (m.attachments || []).length }, pointerActivated);
+        return openCompose({ title: "转发", subject: replySubject(m.subject, "Fwd"), html: `<div><br></div><div>---------- 转发的邮件 ----------</div><div>发件人：${E(addressLine([m.from]))}</div><div>时间：${E(fullTime(m.date))}</div><div>主题：${E(m.subject || "")}</div><div>收件人：${E(addressLine(m.to))}</div><div><br></div>${original}`, forwardOf: { box: m.box, uid: m.uid }, forwardCount: (m.attachments || []).length });
       const target = m.box === "sent" ? m.to || [] : (m.replyTo && m.replyTo.length ? m.replyTo : [m.from]).filter(Boolean);
       const others = mode === "all" ? [...(m.box === "sent" ? [] : m.to || []), ...(m.cc || [])].filter((item) => item.address !== me && !target.some((t) => t.address === item.address)) : [];
-      openCompose({ title: mode === "all" ? "回复全部" : "回复", to: addressLine(target), cc: addressLine(others), subject: replySubject(m.subject, "Re"), text: `\n\n${header}\n${quote(m.text)}`, ...ids }, pointerActivated);
+      return openCompose({ title: mode === "all" ? "回复全部" : "回复", to: addressLine(target), cc: addressLine(others), subject: replySubject(m.subject, "Re"), html: `<div><br></div><div>在 ${E(fullTime(m.date))}，${E(addressLine([m.from]))} 写道：</div><blockquote>${original}</blockquote>`, ...ids });
     }
 
     // ---- 绑定、设置 ----
@@ -705,6 +913,9 @@
         "邮箱设置",
         `<div class="drawer-body mail-account"><div class="mail-bound-head"><div class="mail-unbound-art">${icon("mail")}</div><div><span class="mail-bound-tag">${icon("check")}${account.demo ? "示例" : "已绑定"}</span><strong>${E(account.email)}</strong></div></div>` +
           `<dl class="mail-bound-facts">${row("邮箱服务", account.demo ? "示例邮箱（网页试用版）" : "Zoho 邮箱")}${row("收信服务器", account.demo ? "无（不连接任何服务器）" : `${account.host}:${account.port}`)}${row("绑定时间", fullTime(account.boundAt))}${row("最近验证通过", fullTime(account.verifiedAt))}</dl>` +
+          `<label class="field">发件人名称<input id="mail-settings-name" value="${E(account.senderName || "")}" maxlength="80" placeholder="收件人看到的名字" autocomplete="off"></label>` +
+          `<label class="field">签名<textarea id="mail-settings-signature" rows="5" maxlength="2000" placeholder="写信、回复时自动加在正文末尾">\n${E(account.signature || "")}</textarea></label>` +
+          `<div class="mail-bound-actions"><button type="button" class="primary" data-mail-action="settings-save">保存名称与签名</button></div>` +
           `<div class="error ${message ? "visible" : ""}" id="mail-account-error" role="alert">${E(message)}</div>` +
           (account.demo
             ? `<div class="module-note">这是网页试用版自带的示例邮箱，里面是示例邮件，写信和回复不会真的发出，刷新页面后恢复原样。真实邮箱要在 Mac 上安装的来财应用里绑定。</div></div>`
@@ -714,6 +925,103 @@
         pointerActivated,
       );
     }
+    async function saveSettings() {
+      const name = document.getElementById("mail-settings-name"),
+        signature = document.getElementById("mail-settings-signature");
+      if (!account || !name || !signature) return;
+      try {
+        accept(await call("/api/mail-account/settings", { senderName: String(name.value || ""), signature: String(signature.value || "") }));
+        showError("mail-account-error", "");
+        ctx.toast("已保存");
+      } catch (error) {
+        showError("mail-account-error", error.message);
+      }
+    }
+
+    // ---- 群发（在写信页里，收件人换成勾选客户） ----
+    const bulkRecipients = () => customers().map((row) => ({ customer: row.name, name: row.contact, address: row.addresses[0] }));
+    const bulkFill = (text, item) => String(text).replace(/\{\{\s*姓名\s*\}\}/g, item.name || item.customer || "").replace(/\{\{\s*公司\s*\}\}/g, item.customer || "");
+    function bulkRefresh() {
+      const listBox = document.getElementById("mail-bulk-recipients"),
+        count = document.getElementById("mail-bulk-count"),
+        submit = document.getElementById("mail-compose-submit");
+      if (listBox) listBox.innerHTML = bulkListMarkup();
+      if (count) count.textContent = `已选 ${compose.selected.size} / ${compose.all.length} 位客户`;
+      compose.confirm = false;
+      if (submit) submit.textContent = "发送";
+    }
+    function openBulk(names, origin) {
+      const all = bulkRecipients();
+      if (!all.length) return ctx.toast("还没有填写了邮箱的客户，无法群发");
+      const known = new Set(all.map((item) => item.customer));
+      return openCompose({ mode: "bulk", all, selected: (names || []).filter((name) => known.has(name)), origin });
+    }
+    const bulkSelected = () => compose.all.filter((item) => compose.selected.has(item.customer));
+    function bulkPreview() {
+      const box = document.getElementById("mail-bulk-preview");
+      if (!compose || compose.mode !== "bulk" || !box) return;
+      const v = capture(),
+        first = bulkSelected()[0];
+      box.hidden = false;
+      box.textContent = first ? `收件人：${first.name ? first.name + " " : ""}<${first.address}>\n主题：${bulkFill(v.subject, first)}\n\n${bulkFill(v.text, first)}` : "先选择至少一位客户，再预览。";
+    }
+    async function bulkSend() {
+      if (!compose || compose.mode !== "bulk" || compose.sending) return;
+      const v = capture(),
+        recipients = bulkSelected(),
+        submit = document.getElementById("mail-compose-submit");
+      if (!recipients.length) return showError("mail-compose-error", "请至少选择一位客户");
+      if (recipients.length > 200) return showError("mail-compose-error", "一批群发最多 200 位，请分批发送");
+      if (!v.subject) return showError("mail-compose-error", "请填写主题");
+      if (!String(v.text).trim()) return showError("mail-compose-error", "请填写正文");
+      if (compose.files.some((file) => !file.ready)) return showError("mail-compose-error", "附件还在读取，请稍候再发送");
+      showError("mail-compose-error", "");
+      // 发出去收不回来：第一次点只是确认人数，再点一次才真的开始发。
+      if (!compose.confirm) {
+        compose.confirm = true;
+        if (submit) submit.textContent = `确认向 ${recipients.length} 位客户分别发送`;
+        return;
+      }
+      compose.sending = true;
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = "正在开始…";
+      }
+      try {
+        const data = await call("/api/mail/bulk/start", { subject: v.subject, text: v.text, html: outgoingHtml(v.html), fromName: v.fromName, recipients, attachments: compose.files.map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 })) });
+        if (compose.editor && compose.editor.destroy) compose.editor.destroy();
+        compose = null;
+        ctx.toast(account && account.demo ? "示例邮箱：群发不会真的发出" : `已开始向 ${data.batch.total} 位客户发送`);
+        view = "mail";
+        folder = "bulk";
+        reading = null;
+        batch = null;
+        if (onMailPage()) return loadBatch(data.batch.id);
+        pendingBatch = data.batch.id;
+        if (ctx.openMail) return ctx.openMail("bulk");
+      } catch (error) {
+        if (compose) {
+          compose.sending = false;
+          compose.confirm = false;
+        }
+        showError("mail-compose-error", error.message);
+        if (submit && submit.isConnected !== false) {
+          submit.disabled = false;
+          submit.textContent = "发送";
+        }
+      }
+    }
+    // 从客户列表、客户详情进来的「写邮件」：一位客户直接写信，多位客户走群发。origin 用来在写完后回到原来的客户页。
+    async function composeFor(names, pointerActivated = false, origin = null) {
+      const wanted = [...new Set(names || [])];
+      if (!wanted.length || !(await ready(pointerActivated))) return;
+      const rows = customers().filter((row) => wanted.includes(row.name));
+      if (!rows.length) return ctx.toast(wanted.length === 1 ? "这位客户还没有填写邮箱" : "选中的客户都没有填写邮箱");
+      if (wanted.length === 1) return openCompose({ to: rows[0].contact ? `${rows[0].contact} <${rows[0].addresses[0]}>` : rows[0].addresses[0], origin });
+      if (rows.length < wanted.length) ctx.toast(`${wanted.length - rows.length} 位客户没有填写邮箱，已略过`);
+      return openBulk(rows.map((row) => row.name), origin);
+    }
+
     async function verify() {
       if (working || !account) return;
       working = true;
@@ -764,6 +1072,43 @@
       if (name === "bind") return bindDialog(pointerActivated);
       if (name === "account") return accountDialog(pointerActivated);
       if (name === "verify") return verify();
+      if (name === "settings-save") return saveSettings();
+      if (name === "bulk-new") return ready(pointerActivated).then((ok) => ok && openBulk([]));
+      if (name === "bulk-open") {
+        batch = null;
+        return loadBatch(data.id);
+      }
+      if (name === "bulk-back") {
+        batch = null;
+        batchToken++;
+        return loadBulk();
+      }
+      if (name === "bulk-cancel")
+        return batch
+          ? call("/api/mail/bulk/cancel", { id: batch.id }).then(
+              () => loadBatch(batch.id),
+              (error) => ctx.toast(error.message),
+            )
+          : undefined;
+      if (name === "bulk-toggle" && compose && compose.mode === "bulk") {
+        if (compose.selected.has(data.name)) compose.selected.delete(data.name);
+        else compose.selected.add(data.name);
+        return bulkRefresh();
+      }
+      if (name === "bulk-all" && compose && compose.mode === "bulk") {
+        compose.selected = new Set(compose.all.map((item) => item.customer));
+        return bulkRefresh();
+      }
+      if (name === "bulk-none" && compose && compose.mode === "bulk") {
+        compose.selected = new Set();
+        return bulkRefresh();
+      }
+      if (name === "bulk-preview") return bulkPreview();
+      if (name === "compose-cc" && compose) {
+        capture();
+        compose.showCc = true;
+        return render();
+      }
       if (name === "unbind") return unbindDialog(pointerActivated);
       if (name === "unbind-confirm") return unbind();
       if (name === "reload") {
@@ -771,7 +1116,7 @@
         render();
         return pending;
       }
-      if (name === "compose") return openCompose({}, pointerActivated);
+      if (name === "compose") return openCompose({});
       if (name === "compose-close") return closeCompose();
       if (name === "compose-draft") return saveDraft(false);
       if (name === "file-remove") {
@@ -792,12 +1137,12 @@
       if (name === "delete") return confirmDelete(pointerActivated);
       if (name === "delete-confirm") return deleteMessage();
       if (name === "attachment-save") return saveAttachment(Number(data.index));
-      if (name === "reply") return replyTo("one", pointerActivated);
-      if (name === "reply-all") return replyTo("all", pointerActivated);
-      if (name === "forward") return replyTo("forward", pointerActivated);
+      if (name === "reply") return replyTo("one");
+      if (name === "reply-all") return replyTo("all");
+      if (name === "forward") return replyTo("forward");
       if (name === "draft-open") {
         const draft = drafts.items.find((item) => item.id === data.id);
-        return draft ? openCompose({ ...draft, title: "继续写信" }, pointerActivated) : undefined;
+        return draft ? openCompose({ ...draft, title: "继续写信" }) : undefined;
       }
       if (name === "draft-delete")
         return call("/api/mail/drafts/delete", { id: data.id }).then(
@@ -812,7 +1157,7 @@
       if (name === "customer-open") return ctx.openCustomer && ctx.openCustomer(data.name);
       if (name === "customer-compose") {
         const row = customers().find((item) => item.name === customerName);
-        return openCompose({ to: row ? row.addresses[0] : "" }, pointerActivated);
+        return openCompose({ to: row ? row.addresses[0] : "" });
       }
     }
     function enter() {
@@ -827,21 +1172,39 @@
       page,
       render,
       action,
+      // 切换页签或文件夹前先收好正在写的信（自动存草稿）；存不下来就留在写信页。
       showView(next) {
-        view = views.some((item) => item.id === next) ? next : "mail";
-        return enter();
+        const go = () => {
+          view = views.some((item) => item.id === next) ? next : "mail";
+          return enter();
+        };
+        return compose ? leaveCompose().then((left) => (left ? go() : false)) : go();
       },
       view: () => view,
       select(next) {
-        view = "mail";
-        folder = normalize(next);
-        query = "";
-        return enter();
+        // 刚从别的页面发起写信：进入邮件页后直接显示写信页。
+        if (compose && compose.fresh) {
+          compose.fresh = false;
+          return render();
+        }
+        const go = () => {
+          view = "mail";
+          folder = normalize(next);
+          query = "";
+          batch = folder === "bulk" && pendingBatch ? { id: pendingBatch, loading: true, error: "", data: null } : null;
+          pendingBatch = "";
+          batchToken++;
+          return enter();
+        };
+        return compose ? leaveCompose().then((left) => (left ? go() : false)) : go();
       },
       folder: () => folder,
       account: () => account,
       busy: () => working || !!(compose && compose.sending),
       composing: () => !!compose,
+      composeDirty,
+      leave: leaveCompose,
+      composeFor,
     };
   }
   root.LaiMailUI = { create, folders, views, DEFAULT_FOLDER, customerAddresses };

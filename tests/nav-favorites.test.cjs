@@ -12,17 +12,18 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 企业管理 1。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 2 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 企业管理 1。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
+  'route:opportunities', 'route:opp-analysis',
   'route:dashboard',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
   'route:order-list', 'route:order-trash',
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
   'route:calendar', 'route:settings'
 ];
-const MENUS = ['客户', '工作台', '邮件', '交易', '团队数据', '协同', '企业管理'];
-const RESERVED = ['沟通', '线索', '商机'];
+const MENUS = ['客户', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '企业管理'];
+const RESERVED = ['沟通', '线索'];
 
 // ---------------- 清单只有一份来源 ----------------
 test('every real entry of every menu is favoritable, in menu order; the reserved menus have nothing to favorite', () => {
@@ -145,6 +146,7 @@ test('rail menus list only existing destinations; callers cannot alter the menu 
   const rows = label => RM.menuFor(label).map(r => [r.label, r.kind, r.target]);
   assert.deepEqual(rows('客户'), [['客户列表', 'screen', 'active'], ['公海客户', 'screen', 'pool'], ['客户查重', 'screen', 'duplicates'], ['客户设置', 'screen', 'customer-settings']]);
   assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash']]);
+  assert.deepEqual(rows('商机'), [['商机看板', 'route', 'opportunities'], ['商机分析', 'route', 'opp-analysis']]);
   assert.deepEqual(rows('邮件').map(r => r[2]), Mail.folders.map(f => f.id), 'the same six folders as the mail page');
   assert.deepEqual(rows('邮件').map(r => r[0]), Mail.folders.map(f => f.label));
   for (const unknown of ['不存在', '__proto__', 'constructor', ...RESERVED]) assert.equal(RM.menuFor(unknown), null, unknown);
@@ -211,7 +213,7 @@ function harness({settings, flush = true, failSave = null, route = 'customers', 
     NF: F, RM, E: escapeHtml, icons: {heart: 'M0 0h24v24z'}, icon: name => `<i:${name}>`,
     state: {customers: {}, orders: [], laiSettings: settings},
     activeRoute: route, favoritesMode, customerScreen, currentName: '', failSave, flush,
-    mail: {view: () => mailState.view, folder: () => mailState.folder, subnav: () => '<MAIL-SUBNAV/>', select: folder => { mailState.view = 'mail'; mailState.folder = folder || 'inbox'; calls.mailSelect.push(folder); boundary.shell('<MAIL-PAGE/>'); }},
+    mail: {view: () => mailState.view, folder: () => mailState.folder, subnav: () => '<MAIL-SUBNAV/>', composing: () => false, leave: async () => true, select: folder => { mailState.view = 'mail'; mailState.folder = folder || 'inbox'; calls.mailSelect.push(folder); boundary.shell('<MAIL-PAGE/>'); }},
     business: {navigate: target => { calls.business.push(target); boundary.shell(`<BUSINESS ${target}/>`); }},
     customerNavToggle: () => '<TOGGLE>',
     // 与真实 persist 一样：上一次保存还没完成时再保存会报错。

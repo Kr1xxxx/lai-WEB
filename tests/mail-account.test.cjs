@@ -147,3 +147,17 @@ test('unexpected errors are not disguised as verification results', async () => 
     h.pass(); await h.accounts.bind({ email: 'a@zoho.com.cn', password: SECRET });
   } finally { h.dispose(); }
 });
+
+test('sender name and signature can be changed without re-verifying and never expose the password', async () => {
+  const h = harness();
+  try {
+    assert.throws(() => h.accounts.settings({ senderName: 'x' }), error => error.status === 404 && error.code === 'not_bound');
+    await h.accounts.bind({ email: 'a@zoho.com.cn', password: SECRET });
+    const saved = h.accounts.settings({ senderName: ' Kris\r\nBcc: x ', signature: ' Kris\r\nLai Trading\u0000 \n', password: 'ignored', host: 'evil.example' });
+    assert.equal(saved.account.senderName, 'Kris Bcc: x'); assert.equal(saved.account.signature, 'Kris\nLai Trading'); assert.equal(saved.account.host, 'imap.zoho.com.cn');
+    assert.doesNotMatch(JSON.stringify(saved), new RegExp(SECRET)); assert.equal(h.store.readMailAccount().password, SECRET); assert.equal(h.calls.length, 1, 'no extra login');
+    assert.equal(h.accounts.settings({ signature: 'x'.repeat(5000) }).account.signature.length, 2000); assert.equal(h.accounts.settings({}).account.senderName, 'Kris Bcc: x', 'omitted fields are kept');
+    assert.equal(h.accounts.settings({ senderName: '', signature: '' }).account.signature, undefined);
+    h.reopen(); assert.equal(h.accounts.status().account.email, 'a@zoho.com.cn');
+  } finally { h.dispose(); }
+});

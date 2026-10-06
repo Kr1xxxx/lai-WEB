@@ -1,39 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const net = require('node:net');
 const imap = require('../backend/mail-imap.js');
+const fake = require('./fixtures/fake-mail-servers.cjs');
 
-// 本机假 IMAP 服务：按脚本应答并记录客户端发来的每一行。不连接任何真实邮箱。
-async function fakeServer(script) {
-  const received = [];
-  const sockets = new Set();
-  const server = net.createServer((socket) => {
-    sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.on('error', () => {});
-    socket.setEncoding('utf8');
-    let buffer = '';
-    const reply = (text) => { if (text !== undefined && text !== null) socket.write(text); };
-    reply(script.greeting === undefined ? '* OK fake IMAP ready\r\n' : script.greeting);
-    if (script.closeAfterGreeting) return socket.end();
-    socket.on('data', (chunk) => {
-      buffer += chunk;
-      let index;
-      while ((index = buffer.indexOf('\r\n')) >= 0) {
-        const line = buffer.slice(0, index); buffer = buffer.slice(index + 2);
-        received.push(line);
-        reply(script.onLine(line, received));
-      }
-    });
-  });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const port = server.address().port;
-  return {
-    received,
-    connect: () => net.connect(port, '127.0.0.1'),
-    close: () => new Promise(resolve => { for (const s of sockets) s.destroy(); server.close(resolve); }),
-  };
-}
-const accept = line => /^A1 LOGIN/.test(line) ? 'A1 OK LOGIN completed\r\n' : /^A2 LOGOUT/.test(line) ? '* BYE\r\nA2 OK\r\n' : null;
-const until = async (check) => { for (let i = 0; i < 200 && !check(); i++) await new Promise(r => setTimeout(r, 5)); };
+// 登录验证由开源库 imapflow 完成；这里测来财自己的部分：服务器地址、输入校验、连接参数和错误说明。
+const account = { email: 'sales@example-trade.com', password: 'app-password-1', site: 'cn', accountType: 'auto' };
 
 test('Zoho servers come from a fixed list chosen by site and account type', () => {
   const server = (email, site, accountType) => { const r = imap.resolveServer({ email, site, accountType }); return [r.host, r.port, r.accountType]; };
@@ -47,98 +20,67 @@ test('Zoho servers come from a fixed list chosen by site and account type', () =
   assert.equal(imap.resolveServer({ email: 'a@zoho.com.cn' }).host, 'imap.zoho.com.cn', 'defaults to the CN site');
   for (const bad of [{ site: 'evil.example' }, { site: '__proto__' }, { accountType: 'custom' }, { site: 'constructor' }])
     assert.throws(() => imap.resolveServer({ email: 'a@zoho.com.cn', ...bad }), { code: 'invalid_input' });
-  const hosts = Object.values(imap.SITES).flatMap(site => [site.personal, site.organization]);
-  assert.deepEqual(hosts.sort(), ['imap.zoho.com', 'imap.zoho.com.cn', 'imappro.zoho.com', 'imappro.zoho.com.cn']);
+  assert.deepEqual(Object.values(imap.SITES).flatMap(site => [site.personal, site.organization]).sort(), ['imap.zoho.com', 'imap.zoho.com.cn', 'imappro.zoho.com', 'imappro.zoho.com.cn']);
 });
 
-test('a successful login sends only LOGIN and LOGOUT', async () => {
-  const fake = await fakeServer({ onLine: accept });
-  try {
-    const result = await imap.verifyLogin({ email: ' Sales@Example-Trade.com ', password: 'abcd efgh1234', site: 'cn' }, { connect: fake.connect });
-    assert.deepEqual(result, { site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993 });
-    await until(() => fake.received.length >= 2);
-    assert.deepEqual(fake.received, ['A1 LOGIN "sales@example-trade.com" "abcd efgh1234"', 'A2 LOGOUT']);
-  } finally { await fake.close(); }
+test('real connections are always TLS to the resolved host, with certificate checks left on and logging off', () => {
+  const { server, options } = imap.clientOptions({ ...account, host: 'attacker.example', port: 1 });
+  assert.deepEqual(server, { site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993 });
+  assert.deepEqual({ host: options.host, port: options.port, secure: options.secure, servername: options.servername, logger: options.logger, tls: options.tls }, { host: 'imappro.zoho.com.cn', port: 993, secure: true, servername: 'imappro.zoho.com.cn', logger: false, tls: { minVersion: 'TLSv1.2' } });
+  assert.deepEqual(options.auth, { user: 'sales@example-trade.com', pass: 'app-password-1' }); assert.equal(options.doSTARTTLS, undefined); assert.equal(options.proxy, undefined);
+  const local = imap.clientOptions(account, { host: '127.0.0.1', port: 1143 }).options;
+  assert.deepEqual([local.host, local.port, local.secure, local.doSTARTTLS], ['127.0.0.1', 1143, false, false], 'only the test endpoint is plaintext');
+  const source = ['mail-imap.js', 'mail-client.js', 'mail-smtp.js', 'mail-service.js', 'mail-libs.js'].map(file => fs.readFileSync(require.resolve('../backend/' + file), 'utf8')).join('\n');
+  assert.doesNotMatch(source, /rejectUnauthorized|checkServerIdentity|console\.|NODE_TLS_REJECT_UNAUTHORIZED/);
 });
 
-test('quotes and backslashes in the password are escaped, not interpreted', async () => {
-  const fake = await fakeServer({ onLine: accept });
-  try {
-    await imap.verifyLogin({ email: 'a@zoho.com.cn', password: 'p"a\\ss" A9 LOGOUT' }, { connect: fake.connect });
-    assert.equal(fake.received[0], 'A1 LOGIN "a@zoho.com.cn" "p\\"a\\\\ss\\" A9 LOGOUT"');
-  } finally { await fake.close(); }
-});
-
-test('a non-ASCII password is sent as a literal after the server continues', async () => {
-  const fake = await fakeServer({ onLine: (line, all) => /^A1 LOGIN .* \{\d+\}$/.test(line) ? '+ go ahead\r\n' : all.length === 2 ? 'A1 OK\r\n' : accept(line) });
-  try {
-    await imap.verifyLogin({ email: 'a@zoho.com.cn', password: '密码abc' }, { connect: fake.connect });
-    assert.equal(fake.received[0], `A1 LOGIN "a@zoho.com.cn" {${Buffer.byteLength('密码abc')}}`);
-    assert.equal(fake.received[1], '密码abc');
-  } finally { await fake.close(); }
-});
-
-test('input that could inject IMAP commands is refused before connecting', async () => {
-  let connects = 0;
-  const connect = () => { connects++; throw new Error('must not connect'); };
+test('invalid input is refused before any connection is attempted', async () => {
   for (const input of [
     { email: 'a@zoho.com.cn', password: 'x\r\nA9 DELETE INBOX' }, { email: 'a@zoho.com.cn', password: 'x\ny' }, { email: 'a@zoho.com.cn', password: 'x\u0000' },
     { email: 'a@zoho.com.cn', password: '' }, { email: 'a@zoho.com.cn', password: 12345678 }, { email: 'a@zoho.com.cn', password: 'x'.repeat(257) },
     { email: 'a"@zoho.com.cn', password: 'ok' }, { email: 'a b@zoho.com.cn', password: 'ok' }, { email: 'a@zoho.com.cn\r\nA9 LOGOUT', password: 'ok' },
-    { email: '', password: 'ok' }, { email: 'no-at-sign', password: 'ok' }, { email: '用户@zoho.com.cn', password: 'ok' },
-    { email: 'a@zoho.com.cn', password: 'ok', site: 'attacker.example' },
-  ]) assert.throws(() => imap.verifyLogin(input, { connect }), { code: 'invalid_input' }, JSON.stringify(input.email));
-  assert.equal(connects, 0);
+    { email: '', password: 'ok' }, { email: 'no-at-sign', password: 'ok' }, { email: '用户@zoho.com.cn', password: 'ok' }, { email: 'a@zoho.com.cn', password: 'ok', site: 'attacker.example' },
+  ]) await assert.rejects(imap.verifyLogin(input, { endpoint: { host: '127.0.0.1', port: 1 } }), { code: 'invalid_input' }, JSON.stringify(input.email));
 });
 
-test('a rejected login reports the cause without echoing the password', async () => {
-  const fake = await fakeServer({ onLine: line => /^A1 LOGIN/.test(line) ? 'A1 NO [AUTHENTICATIONFAILED] Invalid credentials\x07\x1b[31m\r\n' : null });
+test('login verification succeeds with the right password and only logs in and out', async () => {
+  const server = await fake.startImap({});
   try {
-    await assert.rejects(imap.verifyLogin({ email: 'a@zoho.com.cn', password: 'Secret-Pass-9981' }, { connect: fake.connect }), (error) => {
-      assert.equal(error.code, 'auth_failed');
-      assert.match(error.message, /应用专用密码/); assert.match(error.message, /IMAP/); assert.match(error.message, /Invalid credentials/);
-      assert.doesNotMatch(error.message, /Secret-Pass-9981/); assert.doesNotMatch(error.message, /[\x00-\x1f]/);
+    assert.deepEqual(await imap.verifyLogin({ ...account, email: ' Sales@Example-Trade.com ' }, { endpoint: server.endpoint }), { site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993 });
+    for (let i = 0; i < 200 && !server.state.commands.includes('LOGOUT'); i++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.deepEqual(server.state.commands.filter(command => !/^(CAPABILITY|NOOP|LIST "" ""$)/.test(command)), ['LOGIN sales@example-trade.com ***', 'LOGOUT']);
+    assert.ok(server.state.commands.every(command => !/^(SELECT|EXAMINE|UID|STATUS|LSUB)/.test(command)), 'no mailbox is opened and nothing is read');
+    await imap.verifyLogin({ ...account, password: 'p"a\\ss w0rd' }, { endpoint: (await (async () => { server.state.password = 'p"a\\ss w0rd'; return server; })()).endpoint });
+    server.state.password = '密码abc'; await imap.verifyLogin({ ...account, password: '密码abc' }, { endpoint: server.endpoint });
+  } finally { await server.close(); }
+});
+
+test('a rejected login, an unreachable server and a non-mail server each explain themselves without the password', async () => {
+  const server = await fake.startImap({});
+  try {
+    await assert.rejects(imap.verifyLogin({ ...account, password: 'Secret-Pass-9981' }, { endpoint: server.endpoint }), (error) => {
+      assert.equal(error.code, 'auth_failed'); assert.match(error.message, /应用专用密码/); assert.match(error.message, /IMAP/); assert.match(error.message, /Invalid credentials/);
+      assert.doesNotMatch(error.message, /Secret-Pass-9981/); assert.doesNotMatch(error.message, /[\u0000-\u001f]/);
       return true;
     });
-  } finally { await fake.close(); }
+    server.state.greeting = '* BYE too many connections\r\n';
+    await assert.rejects(imap.verifyLogin(account, { endpoint: server.endpoint }), error => ['network', 'protocol', 'imap_no'].includes(error.code) && !/app-password-1/.test(error.message));
+  } finally { await server.close(); }
+  await assert.rejects(imap.verifyLogin(account, { endpoint: { host: '127.0.0.1', port: 1 } }), error => error.code === 'network' && /无法连接邮箱服务器 imappro\.zoho\.com\.cn/.test(error.message));
+  const web = net.createServer(socket => { socket.on('error', () => {}); socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'); });
+  await new Promise(resolve => web.listen(0, '127.0.0.1', resolve));
+  try { await assert.rejects(imap.verifyLogin(account, { endpoint: { host: '127.0.0.1', port: web.address().port } }), error => ['network', 'protocol', 'timeout'].includes(error.code)); }
+  finally { await new Promise(resolve => web.close(resolve)); }
 });
 
-test('server refusals, wrong services, silence and dropped connections each fail clearly', async () => {
-  const cases = [
-    [{ greeting: '* BYE too many connections\r\n', onLine: () => null }, 'protocol', /too many connections/],
-    [{ greeting: 'HTTP/1.1 400 Bad Request\r\n', onLine: () => null }, 'protocol', /不是 IMAP/],
-    [{ greeting: '', closeAfterGreeting: true, onLine: () => null }, 'network', /断开/],
-    [{ onLine: line => /^A1 LOGIN/.test(line) ? '* BYE autologout\r\n' : null }, 'protocol', /autologout/],
-    [{ greeting: '* OK ' + 'x'.repeat(70000), onLine: () => null }, 'protocol', /异常/],
-  ];
-  for (const [script, code, pattern] of cases) {
-    const fake = await fakeServer(script);
-    try { await assert.rejects(imap.verifyLogin({ email: 'a@zoho.com.cn', password: 'ok-password' }, { connect: fake.connect }), error => error.code === code && pattern.test(error.message), code + ' ' + pattern); }
-    finally { await fake.close(); }
-  }
-  const silent = await fakeServer({ greeting: '', onLine: () => null });
-  try { await assert.rejects(imap.verifyLogin({ email: 'a@zoho.com.cn', password: 'ok-password' }, { connect: silent.connect, timeoutMs: 60 }), { code: 'timeout' }); }
-  finally { await silent.close(); }
-  const stalled = await fakeServer({ onLine: () => null });
-  try {
-    await assert.rejects(imap.verifyLogin({ email: 'a@zoho.com.cn', password: 'ok-password' }, { connect: stalled.connect, timeoutMs: 60 }), { code: 'timeout' });
-    assert.equal(stalled.received.length, 1, 'only the login was sent');
-  } finally { await stalled.close(); }
-});
-
-test('connection errors are translated and never retried on another host', async () => {
-  const failing = (code) => () => { const { EventEmitter } = require('node:events'); const s = new EventEmitter(); s.write = () => {}; s.destroy = () => {}; setImmediate(() => s.emit('error', Object.assign(new Error('x'), { code }))); return s; };
-  let attempts = 0;
-  for (const [code, expected, pattern] of [['ENOTFOUND', 'network', /找不到邮箱服务器 imap\.zoho\.com\.cn.*站点/], ['ECONNREFUSED', 'network', /无法连接/], ['ETIMEDOUT', 'timeout', /超时/], ['CERT_HAS_EXPIRED', 'tls', /证书/], ['DEPTH_ZERO_SELF_SIGNED_CERT', 'tls', /证书/], ['ERR_TLS_CERT_ALTNAME_INVALID', 'tls', /证书/]]) {
-    const connect = failing(code);
-    await assert.rejects(imap.verifyLogin({ email: 'a@zoho.com.cn', password: 'ok-password' }, { connect: (...args) => { attempts++; return connect(...args); } }), error => error.code === expected && pattern.test(error.message), code);
-  }
-  assert.equal(attempts, 6);
-});
-
-test('the real connection is TLS to the resolved host with certificate checks left on', () => {
-  const source = require('node:fs').readFileSync(require.resolve('../backend/mail-imap.js'), 'utf8');
-  assert.match(source, /tls\.connect\(\{ host: server\.host, port: server\.port, servername: server\.host, minVersion: 'TLSv1\.2' \}\)/);
-  assert.doesNotMatch(source, /rejectUnauthorized|checkServerIdentity|console\.|STARTTLS/);
-  assert.doesNotMatch(source, /SELECT|FETCH|APPEND|STORE|EXPUNGE|smtp/i);
+test('library errors are translated into plain explanations', () => {
+  const t = (error) => { const out = imap.translate(error, 'imap.zoho.com.cn'); return [out.code, out.message]; };
+  assert.deepEqual(t({ code: 'ENOTFOUND' })[0], 'network'); assert.match(t({ code: 'ENOTFOUND' })[1], /找不到邮箱服务器 imap\.zoho\.com\.cn.*站点/);
+  for (const code of ['CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'ERR_TLS_CERT_ALTNAME_INVALID', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE']) { assert.equal(t({ code })[0], 'tls', code); assert.match(t({ code })[1], /证书/); }
+  assert.equal(t({ code: 'ETIMEDOUT' })[0], 'timeout'); assert.equal(t({ code: 'ECONNREFUSED' })[0], 'network');
+  assert.deepEqual(t({ authenticationFailed: true, responseText: 'Invalid\u0007 credentials' })[0], 'auth_failed'); assert.doesNotMatch(t({ authenticationFailed: true, responseText: 'Invalid\u0007 credentials' })[1], /\u0007/);
+  assert.deepEqual(t({ responseStatus: 'NO', responseText: 'try later' }), ['imap_no', '邮箱服务器拒绝了这个请求：try later']);
+  const passthrough = Object.assign(new Error('gone'), { status: 404, code: 'not_found' }); assert.equal(imap.translate(passthrough, 'h'), passthrough);
+  const already = imap.mailError('auth_failed', 'x'); assert.equal(imap.translate(already, 'h'), already);
+  assert.equal(t(new Error('weird'))[0], 'network');
 });
