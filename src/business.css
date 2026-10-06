@@ -1026,3 +1026,7 @@ td.team-reached {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.opp-form [hidden] {
+  display: none !important;
+}

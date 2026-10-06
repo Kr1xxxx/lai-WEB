@@ -1,3 +1,5 @@
+// 固定时区：夹具里的时间按台北时间的日期来写；跨时区的行为在文件末尾单独验证。
+process.env.TZ = 'Asia/Taipei';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const O = require('../src/opportunity-model.js');
@@ -216,4 +218,109 @@ test('malformed stored data never throws when reading', () => {
   }
   const odd = O.board({laiOpportunities: [{id: 'ok', amount: 'abc', currency: 'zz', stage: 'weird', endDate: 5}]}, {}, TODAY);
   assert.deepEqual([odd.count, odd.currency, odd.columns[0].count, odd.totals.total], [1, 'USD', 1, 0], 'unknown stage shows in the first column; bad amount counts as 0');
+});
+
+// ---------------- 独立评审后补充 ----------------
+test('review: automatic numbers ignore custom look-alikes and the item being renamed', () => {
+  let s = add(base, 'c1', {nameMode: 'custom', name: '2610061234567-PO'});
+  s = add(s, 'c2', {nameMode: 'custom', name: '26100699999999999999999999-PO'});
+  s = add(s, 'a1');
+  assert.equal(get(s, 'a1').name, '26100601-Amy');
+  s = O.upsert(s, 'a1', {nameMode: 'custom', name: '26100601-Amy'}, {now: NOW, today: TODAY});
+  s = O.upsert(s, 'a1', {nameMode: 'auto'}, {now: NOW, today: TODAY});
+  assert.equal(get(s, 'a1').name, '26100601-Amy', 'switching back to automatic does not count its own old name');
+  for (let i = 2; i <= 101; i++) s = add(s, 'n' + i);
+  assert.equal(get(s, 'n100').name, '261006100-Amy'); assert.equal(get(s, 'n101').name, '261006101-Amy');
+  assert.equal(get(add(base, 'x', {owner: 'A-(b)*'}), 'x').name, '26100601-A-(b)*');
+});
+
+test('review: amounts that overflow are rejected; products with extra columns are rejected, unchanged products are kept as stored', () => {
+  assert.throws(() => add(base, 'x', {amount: '9'.repeat(400)}), /数值过大/);
+  assert.throws(() => add(base, 'x', {amount: '10000000000000000'}), /数值过大/);
+  assert.throws(() => add(base, 'x', {products: 'A, 1, 1,000'}), /多于三项/);
+  let s = add(base, 'a');
+  s = {...s, laiOpportunities: [{...s.laiOpportunities[0], products: [{name: 'A,B', quantity: 2, unitPrice: 3, sku: 'S1'}]}]};
+  const text = O.productsText(get(s, 'a').products);
+  const kept = O.upsert(s, 'a', {amount: '9', products: text}, {now: NOW, today: TODAY});
+  assert.deepEqual(get(kept, 'a').products, [{name: 'A,B', quantity: 2, unitPrice: 3, sku: 'S1'}], 'untouched product text keeps the stored rows, unknown fields included');
+  assert.deepEqual(O.productsText([null, 'x', {name: ' A '}]), 'A, 1, 0');
+});
+
+test('review: legacy data — an unknown stage or reason does not block other edits or get silently changed', () => {
+  let s = add(base, 'a');
+  s = {...s, laiOpportunities: [{...s.laiOpportunities[0], stage: 'legacy', closedAt: 'x'}]};
+  const edited = O.upsert(s, 'a', {amount: '9', stage: 'legacy'}, {now: NOW, today: TODAY});
+  assert.deepEqual([get(edited, 'a').amount, get(edited, 'a').stage, get(edited, 'a').closedAt], [9, 'legacy', 'x']);
+  assert.throws(() => O.upsert(s, 'a', {stage: 'nope'}, {now: NOW, today: TODAY}), /销售阶段/);
+  let lost = O.moveStage(add(base, 'b'), 'b', 'lost', {now: NOW, lostReason: '价格原因'});
+  lost = {...lost, laiOpportunities: [{...lost.laiOpportunities[0], lostReason: '老原因'}]};
+  const kept = O.upsert(lost, 'b', {amount: '7', stage: 'lost', lostReason: '老原因', lostNote: '补充'}, {now: NOW, today: TODAY});
+  assert.deepEqual([get(kept, 'b').amount, get(kept, 'b').lostReason, get(kept, 'b').lostNote], [7, '老原因', '补充']);
+  assert.throws(() => O.upsert(lost, 'b', {stage: 'lost', lostReason: '乱填'}, {now: NOW, today: TODAY}), /输单原因/);
+});
+
+test('review: edits must still exist; duplicate ids change only the first entry', () => {
+  assert.throws(() => O.upsert(base, 'ghost', input(), {now: NOW, today: TODAY, mustExist: true}), /商机不存在/);
+  let s = add(base, 'a');
+  s = {...s, laiOpportunities: [s.laiOpportunities[0], {...s.laiOpportunities[0], amount: 777}]};
+  const edited = O.upsert(s, 'a', {amount: '10'}, {now: NOW, today: TODAY});
+  assert.deepEqual(edited.laiOpportunities.map(i => i.amount), [10, 777]);
+  assert.deepEqual(O.moveStage(s, 'a', 'unpaid', {now: NOW}).laiOpportunities.map(i => i.stage), ['unpaid', 'open']);
+});
+
+test('review: search uses the same name matching as the owner filter; currency ties prefer the default currency', () => {
+  const s = add(add(base, 'a', {owner: 'Amy Lee'}), 'b', {currency: 'EUR', exchangeRate: '108', owner: 'Bob'});
+  assert.deepEqual(O.board(s, {search: 'ＡＭＹ  lee', archived: 'all', currency: 'USD'}, TODAY).cards.map(c => c.id), ['a']);
+  assert.equal(O.board(s, {}, TODAY).currency, 'USD', 'one USD and one EUR: the default currency wins the tie');
+  assert.equal(O.board({...s, laiSettings: {defaultCurrency: 'eur'}}, {}, TODAY).currency, 'EUR');
+  assert.equal(O.defaults({laiSettings: {defaultCurrency: 'usdollar'}, orderSettings: {defaultOwner: 'Zed'}}, TODAY).currency, 'USD');
+  assert.equal(O.defaults({orderSettings: {defaultOwner: 'Zed', defaultCurrency: 'gbp'}}, TODAY).owner, 'Zed');
+  assert.equal(O.defaults({orderSettings: {defaultCurrency: 'gbp'}}, TODAY).currency, 'GBP');
+});
+
+test('review: a linked order that is no longer among the orders counts as not linked; cardOf ignores board filters', () => {
+  let s = O.moveStage(add(base, 'a'), 'a', 'done', {now: NOW});
+  s = O.linkOrder(s, 'a', 'o1');
+  assert.equal(O.cardOf(s, 'a', TODAY).orderId, 'o1');
+  assert.equal(O.cardOf({...s, orders: []}, 'a', TODAY).orderId, '');
+  assert.equal(O.cardOf(s, 'nope', TODAY), null);
+  const odd = {laiOpportunities: [{id: 'odd', amount: 5}, {id: 'e', amount: 1, currency: 'EUR'}, {id: 'f', amount: 1, currency: 'EUR'}]};
+  assert.equal(O.cardOf(odd, 'odd', TODAY).currency, 'USD');
+});
+
+test('review: day boundaries follow the local timezone for naming, range filters and month buckets', () => {
+  const saved = process.env.TZ;
+  try {
+    const late = '2026-10-06T23:30:00.000Z'; // 台北 10-07 07:30；洛杉矶 10-06 16:30
+    process.env.TZ = 'Asia/Taipei';
+    let s = O.upsert(base, 'a', input(), {now: late});
+    assert.equal(get(s, 'a').name, '26100701-Amy');
+    assert.deepEqual(O.board(s, {from: '2026-10-07', to: '2026-10-07'}, '2026-10-07').cards.map(c => c.id), ['a'], 'range ends are inclusive');
+    assert.deepEqual(O.board(s, {to: '2026-10-06'}, '2026-10-07').cards, []);
+    process.env.TZ = 'America/Los_Angeles';
+    s = O.upsert(base, 'a', input(), {now: late});
+    assert.equal(get(s, 'a').name, '26100601-Amy');
+    assert.equal(O.analysis(s, {months: ['2026-10']}, '2026-10-06').summary.created, 1);
+    const monthEnd = O.upsert(base, 'b', input(), {now: '2026-11-01T02:00:00.000Z'}); // 洛杉矶仍是 10-31
+    assert.equal(O.analysis(monthEnd, {months: ['2026-10']}, '2026-10-31').summary.created, 1);
+    assert.equal(O.analysis(monthEnd, {months: ['2026-11']}, '2026-10-31').summary.created, 0);
+  } finally { process.env.TZ = saved; }
+});
+
+// ---------------- 客户详情页用的客户商机情况 ----------------
+test('customer stats: active list, won count and USD amount, win rate, cycle', () => {
+  let s = add(base, 'a1', {amount: '100'}, '2026-10-01T04:00:00.000Z');
+  s = add(s, 'a2', {amount: '50', note: '第二个'}, '2026-10-03T04:00:00.000Z');
+  s = O.moveStage(add(s, 'w1', {amount: '200'}, '2026-09-01T04:00:00.000Z'), 'w1', 'done', {now: '2026-09-11T04:00:00.000Z'});
+  s = O.moveStage(add(s, 'w2', {amount: '400'}, '2026-09-01T04:00:00.000Z'), 'w2', 'balance', {now: '2026-09-05T04:00:00.000Z'});
+  s = O.moveStage(add(s, 'w3', {amount: '70', currency: 'EUR', exchangeRate: '108'}, '2026-09-01T04:00:00.000Z'), 'w3', 'done', {now: '2026-09-02T04:00:00.000Z'});
+  s = O.moveStage(add(s, 'l1', {amount: '9'}, '2026-09-01T04:00:00.000Z'), 'l1', 'lost', {now: '2026-09-02T04:00:00.000Z', lostReason: '价格原因'});
+  s = O.setArchived(add(s, 'arch', {amount: '1'}, '2026-10-04T04:00:00.000Z'), 'arch', true, {now: NOW});
+  s = add(s, 'other', {client: 'Beta Ltd', contact: '', amount: '999'}, '2026-10-05T04:00:00.000Z');
+  const stats = O.customerStats(s, 'Alpha Co', TODAY);
+  assert.deepEqual(stats.activeOpportunities.map(c => [c.id, c.amount, c.note]), [['a2', 50, '第二个'], ['a1', 100, '']], 'newest first; archived and other customers are left out');
+  assert.deepEqual({...stats, activeOpportunities: null}, {opportunityAllCount: 7, activeOpportunityCount: 2, opportunityCount: 3, opportunityTotal: 600, opportunityAverage: 300,
+    opportunityWinRate: 75, opportunityCycle: 5, activeOpportunities: null}, 'USD figures ignore the EUR win; win rate 3 of 4; cycle (10 + 4 + 1) / 3');
+  assert.deepEqual({...O.customerStats(s, 'Nobody', TODAY), activeOpportunities: null}, {opportunityAllCount: 0, activeOpportunityCount: 0, opportunityCount: 0, opportunityTotal: null, opportunityAverage: null,
+    opportunityWinRate: null, opportunityCycle: null, activeOpportunities: null});
 });

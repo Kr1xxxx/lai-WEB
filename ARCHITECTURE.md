@@ -24,6 +24,7 @@
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
 | `src/nav-favorites.js` | 常用导航：收藏哪些既有导航条目及其顺序（存于`laiSettings.favoriteNav`，只存条目ID，不含业务字段）；从未设置过时默认全部收藏 |
 | `src/rail-menu.js` | 左侧栏悬停浮层的内容：每个菜单列出应用里已有的页面入口；沟通、线索、商机仍是保留入口 |
+| `src/opportunity-model.js`、`opportunity-ui.js` | 商机：数据保存在`laiOpportunities`；model 负责校验、命名、阶段流转、看板汇总、分析和客户维度统计，ui 只生成看板、表单、菜单、分析页的标记；控制逻辑在`business-ui.js` |
 | `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表（收件箱、待处理、未读、草稿箱、发件箱）、阅读、回复／转发／写信、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |
 | `backend/mail-imap.js` | Zoho 服务器地址（固定四个 IMAP 主机）与登录验证 |
 | `backend/mail-client.js` | 收信会话：登录、列出文件夹、搜索、取邮件头与全文、改标记、移动；每次操作单独登录、用完退出 |

@@ -325,8 +325,18 @@
     const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "" };
     let oppDraft = null,
       oppArmed = "",
-      oppDrag = "";
-    const onOppPage = () => route === "opportunities" || route === "opp-analysis";
+      oppDrag = "",
+      // 从客户详情页发起的商机操作：记下客户名，保存后回到该客户，而不是画商机页面。
+      oppReturn = "";
+    const onOppPage = () => route === "opportunities" || route === "opp-analysis" || !!oppReturn;
+    const oppDone = () => {
+      const back = oppReturn;
+      ctx.closeDialog();
+      if (back) {
+        ctx.refreshCustomer(back);
+        return false;
+      }
+    };
     function renderOpportunities() {
       const today = B.localDate();
       const board = OM().board(state(), oppView.filters, today);
@@ -348,42 +358,69 @@
       );
     }
     const oppItem = (id) => OM().list(state()).find((item) => item.id === id);
-    const oppCard = (id) => {
-      const item = oppItem(id);
-      return item && OM().board(state(), { archived: "all", currency: item.currency }, B.localDate()).cards.find((card) => card.id === id);
-    };
-    function showOppForm(focusName = "") {
-      const values = oppDraft.values;
-      ctx.dialog(
-        oppDraft.isNew ? "新建商机" : "编辑商机",
-        OU().formMarkup(values, {
-          customers: OM().customerNames(state()),
-          contacts: OM().contactsOf(state(), String(values.client || "").trim()),
-          owners: OM().ownerNames(state()),
-          isNew: oppDraft.isNew,
-        }),
-        '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-form">确 定</button>',
-        "business-opportunity",
-      );
-      if (focusName) document.querySelector?.(`#opp-form [name="${focusName}"]${focusName === "nameMode" ? ":checked" : ""}`)?.focus({ preventScroll: true });
-    }
-    function openOppForm(id) {
-      if (id === undefined) oppDraft = { id: crypto.randomUUID(), isNew: true, values: OM().defaults(state(), B.localDate()) };
+    const oppCard = (id) => OM().cardOf(state(), id, B.localDate());
+    function openOppForm(id, client = "") {
+      let next;
+      if (id === undefined) next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client } };
       else {
         const item = oppItem(id);
         if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-        oppDraft = { id, isNew: false, values: { ...item } };
+        next = { id, isNew: false, values: { ...item } };
       }
-      showOppForm();
+      const values = next.values;
+      try {
+        ctx.dialog(
+          next.isNew ? "新建商机" : "编辑商机",
+          OU().formMarkup(values, {
+            customers: OM().customerNames(state()),
+            contacts: OM().contactsOf(state(), String(values.client || "").trim()),
+            owners: OM().ownerNames(state()),
+            isNew: next.isNew,
+          }),
+          '<button type="button" data-action="close-modal">取 消</button><button class="primary" type="submit" form="opp-form">确 定</button>',
+          "business-opportunity",
+        );
+      } catch (error) {
+        // 表单没能打开时不留下「正在编辑」的状态，否则会挡住之后的页面切换。
+        return ctx.toast(`无法打开商机表单：${error.message}`);
+      }
+      // 只有表单真的打开了才算进入编辑；记下原来的客户和联系人，换回原客户时能恢复原联系人。
+      oppDraft = { id: next.id, isNew: next.isNew, client: String(values.client || "").trim(), contact: String(values.contact || "") };
     }
-    // 客户、阶段、命名方式、币种变化会改变表单里要显示的内容：保留已填内容后重画。
-    function refreshOppForm(name) {
+    // 客户、阶段、命名方式、币种变化时，只就地更新表单里受影响的那几处，不重画，不打断正在输入的内容。
+    function syncOppForm(name) {
       const form = document.getElementById("opp-form");
       if (!form || !oppDraft) return;
-      const before = String(oppDraft.values.client || "").trim();
-      oppDraft.values = { ...oppDraft.values, ...Object.fromEntries(new FormData(form)) };
-      if (String(oppDraft.values.client || "").trim() !== before) oppDraft.values.contact = "";
-      showOppForm(name);
+      const el = form.elements;
+      if (name === "client") {
+        const client = String(el.client.value || "").trim();
+        const contacts = OM().contactsOf(state(), client);
+        el.contact.innerHTML = OU().contactOptions(contacts, client === oppDraft.client ? oppDraft.contact : "", client);
+        el.contact.required = contacts.length > 0;
+      } else if (name === "stage") {
+        const lost = el.stage.value === "lost";
+        for (const field of [el.lostReason, el.lostNote]) {
+          field.disabled = !lost;
+          const label = field.closest("label");
+          if (label) label.hidden = !lost;
+        }
+        el.lostReason.required = lost;
+      } else if (name === "nameMode") {
+        const custom = el.nameMode.value === "custom";
+        el.name.disabled = !custom;
+        el.name.hidden = !custom;
+        el.name.required = custom;
+        const note = document.getElementById("opp-name-note");
+        if (note) note.hidden = custom;
+      } else if (name === "currency") {
+        const rate = el.exchangeRate;
+        const usd = String(el.currency.value || "").trim().toUpperCase() === "USD";
+        if (usd && !rate.readOnly) {
+          rate.dataset.rate = rate.value;
+          rate.value = "100";
+        } else if (!usd && rate.readOnly) rate.value = rate.dataset.rate || "100";
+        rate.readOnly = usd;
+      }
     }
     function showOppMenu(id) {
       const card = oppCard(id);
@@ -400,7 +437,7 @@
       if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       if (item.stage === stage) return;
       if (stage === "lost") return showOppLost(id);
-      return saveNext(() => OM().moveStage(state(), id, stage), errorId, () => ctx.closeDialog());
+      return saveNext(() => OM().moveStage(state(), id, stage), errorId, oppDone);
     }
     const nextOrderNumber = () => {
       const defaults = state().laiSettings || state().orderSettings || {};
@@ -410,8 +447,12 @@
     function orderFromOpp(id) {
       const item = oppItem(id);
       if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      const card = oppCard(id);
+      if (!OM().STAGES.some((stage) => stage.id === item.stage && stage.kind === "won")) return ctx.toast("只有赢单阶段的商机可以生成订单");
+      if (card.orderId) return ctx.toast("这个商机已经关联了订单");
+      const back = oppReturn;
       ctx.closeDialog();
-      orderEditor(undefined, { ...OM().orderDraft(item, B.localDate()), num: nextOrderNumber() });
+      orderEditor(undefined, { ...OM().orderDraft(item, B.localDate()), num: nextOrderNumber() }, back);
       if (draft) draft.fromOpportunity = id;
     }
     function oppAction(d) {
@@ -425,7 +466,7 @@
         return render();
       }
       if (action === "move") return moveOpp(d.id, d.stage, "opp-menu-error");
-      if (action === "archive") return saveNext(() => OM().setArchived(state(), d.id, d.archived === "1"), "opp-menu-error", () => ctx.closeDialog());
+      if (action === "archive") return saveNext(() => OM().setArchived(state(), d.id, d.archived === "1"), "opp-menu-error", oppDone);
       if (action === "order") return orderFromOpp(d.id);
       if (action === "delete") {
         if (oppArmed !== d.id) {
@@ -433,7 +474,7 @@
           return showOppMenu(d.id);
         }
         oppArmed = "";
-        return saveNext(() => OM().remove(state(), d.id), "opp-menu-error", () => ctx.closeDialog());
+        return saveNext(() => OM().remove(state(), d.id), "opp-menu-error", oppDone);
       }
     }
     const OPP_FILTERS = { "opp-sort": "sort", "opp-currency": "currency", "opp-date-field": "dateField", "opp-from": "from", "opp-to": "to", "opp-archived": "archived", "opp-owner": "owner", "opp-search": "search" };
@@ -777,7 +818,7 @@
       return moveOpp(id, column.dataset.oppDrop, "");
     });
     document.addEventListener("change", (e) => {
-      if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "stage", "nameMode", "currency"].includes(e.target.name)) return refreshOppForm(e.target.name);
+      if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
       if (route === "opportunities" && Object.hasOwn(OPP_FILTERS, e.target.id)) {
         oppView.filters = { ...oppView.filters, [OPP_FILTERS[e.target.id]]: e.target.value };
         oppView.limits = {};
@@ -831,11 +872,11 @@
       if (form.id === "opp-form") {
         if (!oppDraft) return;
         return saveNext(
-          () => OM().upsert(state(), oppDraft.id, data),
+          () => OM().upsert(state(), oppDraft.id, data, { mustExist: !oppDraft.isNew }),
           "opp-error",
           () => {
             oppDraft = null;
-            ctx.closeDialog();
+            return oppDone();
           },
         );
       }
@@ -843,7 +884,7 @@
         return saveNext(
           () => OM().moveStage(state(), form.dataset.id, "lost", data),
           "opp-lost-error",
-          () => ctx.closeDialog(),
+          oppDone,
         );
       if (form.id === "biz-target-form")
         return saveNext(
@@ -900,7 +941,27 @@
         route = "calendar";
         render();
       },
+      // 供客户详情页调用：新建商机、打开某个商机的操作菜单、调整阶段、查看该客户的全部商机。
+      newOpportunity(client) {
+        oppReturn = String(client || "");
+        openOppForm(undefined, oppReturn);
+      },
+      opportunityMenu(id, client) {
+        oppReturn = String(client || "");
+        oppArmed = "";
+        showOppMenu(id);
+      },
+      moveOpportunity(id, stage, client) {
+        oppReturn = String(client || "");
+        return moveOpp(id, stage, "");
+      },
+      showOpportunities(client) {
+        oppView.filters = { search: String(client || ""), archived: "all" };
+        oppView.limits = {};
+        return ctx.navigate("opportunities");
+      },
       navigate(next) {
+        oppReturn = "";
         armedTarget = "";
         route = next;
         render();
