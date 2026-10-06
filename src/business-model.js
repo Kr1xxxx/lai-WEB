@@ -21,18 +21,32 @@
     if(value===null||value===undefined||typeof value==='boolean'||!String(value).trim()||!Number.isFinite(Number(value))||Number(value)<0)throw new Error(`${label}必须为不小于 0 的有效数字`);
     return Number(value);
   }
+  const currencyOf=order=>trim(order?.currency||'USD').toUpperCase()||'USD';
   function orderMetrics(orders=[]){
     const grouped=new Map();let count=0,activeCount=0;
     for(const order of orders){
       if(order.isDraft)continue;
       count++;if(order.stage!=='done')activeCount++;
-      const currency=trim(order.currency||'USD').toUpperCase()||'USD';
+      const currency=currencyOf(order);
       const metric=grouped.get(currency)||{currency,total:0,paid:0,due:0,count:0};
       const total=amount(order.amount),paid=['shipment','done'].includes(order.stage)?total:Math.min(total,amount(order.paidAmount));
       metric.total+=total;metric.paid+=paid;metric.due+=Math.max(0,total-paid);metric.count++;
       grouped.set(currency,metric);
     }
     return {byCurrency:[...grouped.values()],count,activeCount};
+  }
+  // Existing statistics rules only: drafts excluded, month = orderMonth or createdAt, currencies never converted.
+  function monthlyAnalysis(orders=[],month){
+    const selected=validMonth(month)?orders.filter(order=>order&&!order.isDraft&&String(order.orderMonth||order.createdAt||'').slice(0,7)===month):[];
+    const stageRows=stages.map(stage=>{const count=selected.filter(order=>order.stage===stage.id).length;return {id:stage.id,label:stage.label,count,percent:Math.round(count/Math.max(1,selected.length)*100)};});
+    const grouped=new Map();
+    for(const order of selected){
+      const currency=currencyOf(order),key=currency+'\0'+order.client;
+      const row=grouped.get(key)||{client:order.client,currency,amount:0,count:0};
+      row.amount+=amount(order.amount);row.count++;grouped.set(key,row);
+    }
+    const contributions=[...grouped.values()].sort((a,b)=>a.currency.localeCompare(b.currency)||b.amount-a.amount);
+    return {month,orders:selected,stages:stageRows,contributions,metrics:orderMetrics(selected)};
   }
   function assertUnique(state,id,num,excludeBucket){
     for(const bucket of buckets){
@@ -118,6 +132,6 @@
     if(typeof next.done!=='boolean')throw new Error('任务完成状态无效');
     return {...state,laiTasks:previous?state.laiTasks.map(task=>task.id===id?next:task):[next,...(state.laiTasks||[])]};
   }
-  const api={stages,localDate,orderMetrics,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
+  const api={stages,localDate,orderMetrics,monthlyAnalysis,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiBusinessModel=api;
 })(typeof window!=='undefined'?window:globalThis);
