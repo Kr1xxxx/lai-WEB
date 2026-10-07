@@ -2,6 +2,21 @@ const test=require('node:test');const assert=require('node:assert/strict');
 const UI=require('../src/customer-list-ui.js');const M=require('../src/model.js');const S=require('../src/segments.js');const F=require('../src/customer-fields.js');
 const row={name:'A <B>',country:'美国',tags:[],owner:'Kris',orderCount:1,orders:[],history:[],followed:false};
 function render(extra={}){return UI.render({rows:[row],p:{items:[row],total:1,page:1,pageCount:1},filters:{group:'all',field:'country',query:'',owner:''},selected:new Set(),pageSize:20,segments:[],groupTab:'groups',expanded:new Set(),team:'team',icon:n=>`<svg data-icon="${n}"></svg>`,escape:M.escapeHtml,countryLabel:F.countryLabel,tableMarkup:()=>'<table data-live-customer-table></table>',...extra});}
+test('receivable badge counts customers owing in any currency once and agrees with its group',()=>{
+ const rows=M.buildCustomers({customers:{},orders:[
+  {client:'USD buyer',currency:'USD',amount:100,paidAmount:25},
+  {client:'EUR buyer',currency:'EUR',amount:100,paidAmount:25},
+  {client:'Mixed buyer',currency:'USD',amount:100,paidAmount:25},
+  {client:'Mixed buyer',currency:'EUR',amount:100,paidAmount:25},
+  {client:'Settled buyer',currency:'EUR',amount:100,paidAmount:100},
+  {client:'Draft buyer',currency:'EUR',amount:100,paidAmount:0,isDraft:true},
+ ]});
+ const count=M.filterCustomers(rows,{group:'due'}).length;
+ assert.equal(count,3);
+ const badge=render({rows}).match(/data-group="due"[^>]*><span>待收款客户<\/span><small>(\d+)<\/small>/);
+ assert.ok(badge);
+ assert.equal(Number(badge[1]),count);
+});
 test('followup group count uses the same due customers as its list and excludes future dates',()=>{
  const rows=[{...row,name:'Yesterday',nextFollow:'2000-01-01'},{...row,name:'Future',nextFollow:'9999-01-01'},{...row,name:'Empty',nextFollow:''}];
  const count=M.filterCustomers(rows,{group:'followup'}).length;

@@ -86,7 +86,7 @@ def main(argv=None):
             shutil.copy2(ROOT / source, vendor / name)
         (resources / 'trade-order-system.html').write_text(html)
         # No seed resource: storage starts empty only when its own database is absent.
-        info = {'CFBundleDevelopmentRegion':'zh_CN', 'CFBundleDisplayName':'来财Lai', 'CFBundleExecutable':'Lai', 'CFBundleIconFile':'AppIcon', 'CFBundleIdentifier':'com.local.laicai.lai', 'CFBundleInfoDictionaryVersion':'6.0', 'CFBundleName':'来财Lai', 'CFBundlePackageType':'APPL', 'CFBundleShortVersionString':version, 'CFBundleVersion':'356', 'LSMinimumSystemVersion':'13.5', 'NSHighResolutionCapable':True}
+        info = {'CFBundleDevelopmentRegion':'zh_CN', 'CFBundleDisplayName':'来财Lai', 'CFBundleExecutable':'Lai', 'CFBundleIconFile':'AppIcon', 'CFBundleIdentifier':'com.local.laicai.lai', 'CFBundleInfoDictionaryVersion':'6.0', 'CFBundleName':'来财Lai', 'CFBundlePackageType':'APPL', 'CFBundleShortVersionString':version, 'CFBundleVersion':'357', 'LSMinimumSystemVersion':'13.5', 'NSHighResolutionCapable':True}
         (staging / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
         run(['/usr/bin/codesign', '--force', '--deep', '--sign', '-', str(staging)])
         run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(staging)])
@@ -99,7 +99,7 @@ def main(argv=None):
             if previous.exists():
                 previous.rename(app)
             raise
-    metadata = {'builtAt':datetime.datetime.now(datetime.timezone.utc).isoformat(), 'version':version, 'build':'356', 'standalone':True, 'seedIncluded':False, 'tosAccessed':False, 'newlyCompiledNative':True, 'signatureVerified':True, 'nodeVersion':runtime_info['version'], 'runtimeSha256':digest(app / 'Contents/Resources/node-runtime'), 'nativeSha256':digest(app / 'Contents/MacOS/Lai'), 'htmlSha256':digest(app / 'Contents/Resources/trade-order-system.html')}
+    metadata = {'builtAt':datetime.datetime.now(datetime.timezone.utc).isoformat(), 'version':version, 'build':'357', 'standalone':True, 'seedIncluded':False, 'tosAccessed':False, 'newlyCompiledNative':True, 'signatureVerified':True, 'nodeVersion':runtime_info['version'], 'runtimeSha256':digest(app / 'Contents/Resources/node-runtime'), 'nativeSha256':digest(app / 'Contents/MacOS/Lai'), 'htmlSha256':digest(app / 'Contents/Resources/trade-order-system.html')}
     (app.parent / 'build-metadata.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
     print('Built standalone empty-data 来财Lai: ' + str(app))
 

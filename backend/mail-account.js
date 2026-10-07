@@ -7,7 +7,7 @@ function createMailAccounts({ store, verify = imap.verifyLogin, now = () => new 
   let busy = false;
 
   const publicView = account => account ? {
-    provider: 'zoho', email: account.email, site: account.site, accountType: account.accountType,
+    identity: imap.accountIdentity(account), provider: 'zoho', email: account.email, site: account.site, accountType: account.accountType,
     host: account.host, port: account.port, boundAt: account.boundAt, verifiedAt: account.verifiedAt,
     ...(account.senderName ? { senderName: account.senderName } : {}),
     ...(account.signature ? { signature: account.signature } : {}),

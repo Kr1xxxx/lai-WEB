@@ -123,7 +123,7 @@
       for(const column of columns){
         if(column.rate){
           const num=cells[column.rate.num]?.value||0,den=cells[column.rate.den]?.value||0;
-          out[column.id]={value:den?Math.round(num/den*100):null,items:cells[column.rate.den]?.items||[]};
+          out[column.id]={value:den?Math.floor(num/den*100):null,items:cells[column.rate.den]?.items||[]};
         }else{
           const cell=cells[column.id];
           out[column.id]={value:cell?cell.value:0,items:cell?cell.items:[]};
@@ -254,7 +254,7 @@
       tiles:[{id:'count',label:'订单数',value:analysis.metrics.count,format:'count',items:analysis.orders.map(itemOf)},
         ...totals.map(total=>({id:'amount:'+total.currency,label:`订单金额（${total.currency}）`,value:total.cells.total.value,format:'money',currency:total.currency,items:total.cells.total.items}))],
       columns:[{id:'count',label:'订单数',format:'count'},{id:'total',label:'订单金额',format:'money'},{id:'paid',label:'已收款',format:'money'},{id:'due',label:'待收款',format:'money'}],
-      rows,total:null,totals,extra:[],notes:[],
+      rows,total:null,totals,extra:[],notes:[...(analysis.metrics.unknownPaidCount?[`${analysis.metrics.unknownPaidCount} 笔订单未记录实收，暂按 0 汇总并计入待收；请核对补录。`]:[]),...(analysis.metrics.unknownAmountCount?[`${analysis.metrics.unknownAmountCount} 笔订单金额未记录或无效，订单额和待收汇总不含这些金额，已记录实收保留。`]:[]),...(analysis.metrics.overpaidCount?[`${analysis.metrics.overpaidCount} 笔订单实收超过订单金额，请核对；待收按 0 展示。`]:[])],
       trend:trendOf(months,series,(m,id)=>{
         const metrics=monthly.find(item=>item.month===m).metrics;
         if(id==='count')return metrics.count;
@@ -299,6 +299,7 @@
     const text=typeof raw==='number'&&Number.isFinite(raw)?String(raw):typeof raw==='string'?raw.trim():'';
     if(!/^\d+(\.\d+)?$/.test(text)||Number(text)<=0)throw new Error('请输入大于 0 的目标值（只填数字，不要带逗号）');
     const value=Number(text);
+    if(!Number.isFinite(value)||value>Number.MAX_SAFE_INTEGER)throw new Error('目标值超出可可靠保存的范围，请使用不超过 9007199254740991 的数值');
     if(!isMoney(metric)&&!Number.isInteger(value))throw new Error('数量类目标请填写整数');
     if(isMoney(metric)&&value<0.01)throw new Error('金额目标不能小于 0.01');
     return {metric,period,owner,currency,value};
@@ -340,8 +341,8 @@
   function dealCustomers(state,months){
     const selected=new Set(months),start=months[0],first=new Map(),active=new Set();
     for(const order of Array.isArray(state?.orders)?state.orders:[]){
-      if(!order||order.isDraft||!(Number(order.amount)>0)||!order.client)continue;
-      const month=String(order.orderMonth||order.createdAt||'').slice(0,7);
+      if(!order||order.isDraft||order.trashedAt||order.deletedAt||order.archived===true||!(BM.orderPayment(order).total>0)||!order.client)continue;
+      const month=BM.statisticalMonth(order);
       if(!validMonth(month))continue;
       if(!first.has(order.client)||month<first.get(order.client))first.set(order.client,month);
       if(selected.has(month))active.add(order.client);
@@ -370,9 +371,9 @@
       const closed=monthOf(item.closedAt)||monthOf(Array.isArray(item.stageHistory)?item.stageHistory.at(-1)?.at:'')||monthOf(item.createdAt);
       if(kind==='open'||!selected.has(closed))continue;
       if(kind==='lost'){row(owner).oppLost++;total.oppLost++;continue;}
-      const amount=Number.isFinite(Number(item.amount))&&Number(item.amount)>0?Number(item.amount):0;
+      const amount=BM.orderPayment({amount:item.amount}).total;
       const currency=model.currencyOf(item);
-      for(const target of [row(owner),total]){target.oppWon++;target.amounts.set(currency,(target.amounts.get(currency)||0)+amount);}
+      for(const target of [row(owner),total]){target.oppWon++;target.amounts.set(currency,Math.round((target.amounts.get(currency)||0)*100+amount*100)/100);}
     }
     const finish=entry=>({oppNew:entry.oppNew,oppWon:entry.oppWon,oppLost:entry.oppLost,
       oppAmounts:[...entry.amounts].map(([currency,sum])=>({currency,total:sum})).sort((x,y)=>x.currency.localeCompare(y.currency)),

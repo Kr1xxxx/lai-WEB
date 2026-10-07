@@ -269,9 +269,34 @@ function openStorage({ seedFile }) {
     `);
   }
 
+  function validateReplacement(raw) {
+    const data = raw?.data || raw;
+    const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    const invalid = key => { throw httpError(400, `完整保存快照缺少或含无效字段：${key}，原数据未修改`); };
+    if (!object(data)) invalid('data');
+    if (!Array.isArray(data.orders)) invalid('orders');
+    if (!object(data.customers)) invalid('customers');
+    for (const key of ['trashOrders', 'deletedOrders', 'trackingLookups']) {
+      if (Object.hasOwn(data, key) && !Array.isArray(data[key])) invalid(key);
+    }
+    // Optional module containers historically allow null before their first use.
+    // Existing array containers must still be sent as arrays (checked below).
+    for (const key of ['laiTasks', 'laiOpportunities', 'laiOpportunityFlows', 'laiTargets']) {
+      if (Object.hasOwn(data, key) && data[key] !== null && !Array.isArray(data[key])) invalid(key);
+    }
+    for (const [name, customer] of Object.entries(data.customers)) if (!object(customer)) invalid(`customers.${name}`);
+    const previous = readCurrentPayload().data;
+    for (const key of Object.keys(previous)) {
+      if (!Object.hasOwn(data, key) || data[key] === undefined) invalid(key);
+      if (Array.isArray(previous[key]) && !Array.isArray(data[key])) invalid(key);
+      if (object(previous[key]) && !object(data[key])) invalid(key);
+    }
+  }
+
   function writeStateToDatabase(rawPayload, { migration = false, baseRevision, importLog } = {}) {
     if (!database) throw new Error('SQLite database is not available');
-    const payload = normalizeDataPayload(rawPayload);
+    if (!migration) validateReplacement(rawPayload);
+    const payload = normalizeDataPayload(structuredClone(rawPayload));
     const data = payload.data;
     const validatedImportLog = normalizeImportLog(importLog, data);
     const orderInsert = database.prepare(`
@@ -454,6 +479,7 @@ function openStorage({ seedFile }) {
       setMetadata('payload_version', payload.version);
       setMetadata('exported_at', payload.exportedAt);
       setMetadata('revision', String(nextRevision));
+      setMetadata('business_backup_revision', migration ? '0' : String(nextRevision));
       setMetadata('last_saved_at', new Date().toISOString());
       if (migration) setMetadata('migrated_at', new Date().toISOString());
 
@@ -470,6 +496,7 @@ function openStorage({ seedFile }) {
       }
       database.exec('COMMIT');
       storageRevision = nextRevision;
+      if (!migration) queueBackup();
       return { revision: nextRevision, counts: actual };
     } catch (error) {
       try { database.exec('ROLLBACK'); } catch (_) {}
@@ -623,13 +650,24 @@ function openStorage({ seedFile }) {
   }
 
   function availableFileName(dir, base, ext) {
-    let index = 1;
-    let name = `${base}.${ext}`;
-    while (fs.existsSync(path.join(dir, name))) {
-      index += 1;
-      name = `${base}-${index}.${ext}`;
+    // Do not reuse pruned suffixes: the sequence must keep its creation order.
+    const ending = `.${ext}`, prefix = base + '-';
+    let last = 0;
+    for (const name of fs.readdirSync(dir)) {
+      if (name === base + ending) last = Math.max(last, 1);
+      else if (name.startsWith(prefix) && name.endsWith(ending)) {
+        const suffix = name.slice(prefix.length, -ending.length);
+        if (/^\d+$/.test(suffix) && Number.isSafeInteger(Number(suffix))) last = Math.max(last, Number(suffix));
+      }
     }
-    return name;
+    return last ? `${base}-${last + 1}.${ext}` : `${base}.${ext}`;
+  }
+
+  function compareBackupNames(a, b) {
+    const parse = name => /^(lai-data-\d{8}-\d{6})(?:-(\d+))?\.(?:sqlite|json)$/.exec(name);
+    const left = parse(a), right = parse(b);
+    if (left && right) return right[1].localeCompare(left[1]) || Number(right[2] || 1) - Number(left[2] || 1);
+    return b.localeCompare(a);
   }
 
   function attachmentTargetFromUrl(fileUrl = '') {
@@ -665,10 +703,13 @@ function openStorage({ seedFile }) {
     try {
       const refs = new Set();
       const tables = new Set(backup.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map(row => row.name));
-      for (const table of ['orders', 'customers', 'tracking_lookups', 'app_state']) {
+      for (const table of ['orders', 'customers', 'tracking_lookups', 'app_state', 'mail_account', 'mail_drafts', 'mail_draft_files', 'mail_templates', 'mail_bulk']) {
         if (!tables.has(table)) continue;
         for (const row of backup.prepare(`SELECT data_json FROM ${table}`).all()) {
-          collectAttachmentRefs(JSON.parse(row.data_json), refs);
+          let data;
+          try { data = JSON.parse(row.data_json); }
+          catch (_) { throw new Error(table.startsWith('mail_') ? 'Backup contains invalid stored mail data' : 'Backup contains invalid stored business data'); }
+          collectAttachmentRefs(data, refs);
         }
       }
       return refs;
@@ -690,7 +731,7 @@ function openStorage({ seedFile }) {
     }
     return count;
   }
-  function createBackup(force = false) {
+  function performBackup(force = false) {
     ensureStorage();
     if (storageMode !== 'sqlite' || !database) return { ok: false, message: storageError || 'SQLite unavailable' };
     let meta = {};
@@ -707,11 +748,17 @@ function openStorage({ seedFile }) {
     const stagingFile = backupFile + '.partial';
     database.exec('PRAGMA wal_checkpoint(FULL)');
     const quoted = stagingFile.replaceAll("'", "''");
-    let attachmentCount;
+    let attachmentCount, coveredMailRevision = 0, coveredBusinessRevision = 0;
     try {
       database.exec(`VACUUM INTO '${quoted}'`);
       fs.chmodSync(stagingFile, 0o600);
       attachmentCount = copyBackupAttachments(stagingFile);
+      const snapshot = new DatabaseSync(stagingFile, { readOnly:true });
+      try {
+        coveredMailRevision = Number(snapshot.prepare("SELECT value FROM metadata WHERE key = 'mail_backup_revision'").get()?.value || 0);
+        coveredBusinessRevision = Number(snapshot.prepare("SELECT value FROM metadata WHERE key = 'business_backup_revision'").get()?.value || 0);
+      }
+      finally { snapshot.close(); }
       fs.renameSync(stagingFile + '.attachments', backupFile + '.attachments');
       fs.renameSync(stagingFile, backupFile);
     } catch (error) {
@@ -722,27 +769,96 @@ function openStorage({ seedFile }) {
     }
     const backups = fs.readdirSync(backupDir)
       .filter(name => name.endsWith(`.${extension}`))
-      .sort()
-      .reverse();
-    backups.slice(30).forEach(name => {
+      .sort(compareBackupNames);
+    // The file just completed is always retained, including a backwards clock.
+    backups.filter(name => name !== backupName).slice(29).forEach(name => {
       fs.rmSync(path.join(backupDir, name), { force:true });
       fs.rmSync(path.join(backupDir, name) + '.attachments', { recursive:true, force:true });
     });
-    atomicWrite(backupMetaFile, JSON.stringify({ lastBackupAt: now, lastBackupFile: backupFile }, null, 2));
+    atomicWrite(backupMetaFile, JSON.stringify({ lastBackupAt: now, lastBackupFile: backupFile, lastMailRevision: coveredMailRevision, lastBusinessRevision: coveredBusinessRevision }, null, 2));
     return { ok:true, file:backupFile, attachmentsDir:backupFile + '.attachments', attachmentCount };
+  }
+
+  let backupFailure = '', backupTimer = null, backupTimerAt = 0;
+  const BACKUP_INTERVAL_MS = 60 * 60 * 1000, BACKUP_RETRY_MS = 60 * 1000;
+  function backupMeta() {
+    try { return fs.existsSync(backupMetaFile) ? readJson(backupMetaFile) : {}; } catch (_) { return {}; }
+  }
+  function backupPending(meta = backupMeta()) {
+    return !!database && (Number(metadataValue('mail_backup_revision', '0')) > Number(meta.lastMailRevision || 0)
+      || Number(metadataValue('business_backup_revision', '0')) > Number(meta.lastBusinessRevision || 0));
+  }
+  function backupStatus() {
+    const meta = backupMeta();
+    return { ok: !(backupFailure || meta.lastError), message: backupFailure || meta.lastError || '', lastSuccessfulAt: meta.lastBackupAt || 0,
+      pending: backupPending(meta), nextAttemptAt: backupTimerAt };
+  }
+  function cancelBackupTimer() {
+    if (backupTimer) clearTimeout(backupTimer);
+    backupTimer = null; backupTimerAt = 0;
+  }
+  // A fixed deadline coalesces checkpoints without allowing later writes to
+  // postpone the last committed change indefinitely. The marker lives in SQLite.
+  function queueBackup() {
+    try {
+      const meta = backupMeta();
+      if (!backupPending(meta)) { cancelBackupTimer(); return; }
+      if (backupTimer) return;
+      const now = Date.now();
+      const earliest = backupFailure || meta.lastError ? Number(meta.failedAt || now) + BACKUP_RETRY_MS : Number(meta.lastBackupAt || 0) + BACKUP_INTERVAL_MS;
+      backupTimerAt = Math.max(now + 2000, earliest);
+      backupTimer = setTimeout(() => {
+        backupTimer = null; backupTimerAt = 0;
+        if (!database) return;
+        const latest = backupMeta();
+        createBackup(!!(backupFailure || latest.lastError));
+      }, backupTimerAt - now);
+      backupTimer.unref?.();
+    } catch (_) {
+      // Scheduling is secondary to the already committed primary write.
+      backupTimer = null; backupTimerAt = 0;
+      backupFailure = '自动备份排队失败，请手动重试';
+    }
+  }
+  function createBackup(force = false) {
+    let result;
+    try {
+      result = performBackup(force);
+      if (result.ok && !result.skipped) backupFailure = '';
+    } catch (error) {
+      cancelBackupTimer();
+      backupFailure = error.message || 'automatic backup failed';
+      try {
+        atomicWrite(backupMetaFile, JSON.stringify({ ...backupMeta(), lastError: backupFailure, failedAt: Date.now() }, null, 2));
+      } catch (_) { /* A full disk may also prevent failure metadata from being saved. */ }
+      result = { ok:false, message:backupFailure };
+    }
+    queueBackup();
+    return { ...result, ...backupStatus(), ...(result.ok === false ? { ok:false, message:result.message } : {}) };
+  }
+
+  function commitMailWrite(write) {
+    requireDatabase();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      write();
+      setMetadata('mail_backup_revision', String(Number(metadataValue('mail_backup_revision', '0')) + 1));
+      database.exec('COMMIT');
+    } catch (error) { database.exec('ROLLBACK'); throw error; }
+    queueBackup();
   }
 
   function backupSummary() {
     ensureStorage();
     const backups = fs.readdirSync(backupDir)
       .filter(name => name.endsWith('.json') || name.endsWith('.sqlite'))
-      .sort()
-      .reverse();
+      .sort(compareBackupNames);
+    const lastFile = path.basename(backupMeta().lastBackupFile || '');
     return {
       count: backups.length,
       sqliteCount: backups.filter(name => name.endsWith('.sqlite')).length,
       jsonCount: backups.filter(name => name.endsWith('.json')).length,
-      latest: backups[0] || null
+      latest: backups.includes(lastFile) ? lastFile : backups[0] || null
     };
   }
 
@@ -789,15 +905,17 @@ function openStorage({ seedFile }) {
     try { return JSON.parse(row.data_json); } catch (_) { return null; }
   }
   function writeMailAccount(account) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_account(id, data_json) VALUES(1, ?)
-      ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
-    `).run(JSON.stringify(account));
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_account(id, data_json) VALUES(1, ?)
+        ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
+      `).run(JSON.stringify(account));
+    });
   }
   function deleteMailAccount() {
-    requireDatabase();
-    database.prepare('DELETE FROM mail_account WHERE id = 1').run();
+    commitMailWrite(() => {
+      database.prepare('DELETE FROM mail_account WHERE id = 1').run();
+    });
   }
 
   // 本机草稿：只存在这台电脑上，不同步到邮箱服务器的草稿箱。
@@ -806,17 +924,20 @@ function openStorage({ seedFile }) {
     return database.prepare('SELECT data_json FROM mail_drafts ORDER BY updated_at DESC, id').all()
       .map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } }).filter(Boolean);
   }
-  function writeMailDraft(draft) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_drafts(id, updated_at, data_json) VALUES(?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
-    `).run(String(draft.id), String(draft.updatedAt), JSON.stringify(draft));
+  function writeMailDraft(draft, files) {
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_drafts(id, updated_at, data_json) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
+      `).run(String(draft.id), String(draft.updatedAt), JSON.stringify(draft));
+      if (files !== undefined) replaceMailDraftFiles(draft.id, files);
+    });
   }
   function deleteMailDraft(id) {
-    requireDatabase();
-    database.prepare('DELETE FROM mail_drafts WHERE id = ?').run(String(id));
-    database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id));
+    commitMailWrite(() => {
+      database.prepare('DELETE FROM mail_drafts WHERE id = ?').run(String(id));
+      database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id));
+    });
   }
   // 草稿的附件单独存一张表：列草稿箱时不用把附件内容读出来。
   function readMailDraftFiles(id) {
@@ -826,7 +947,9 @@ function openStorage({ seedFile }) {
     try { const files = JSON.parse(row.data_json); return Array.isArray(files) ? files : []; } catch (_) { return []; }
   }
   function writeMailDraftFiles(id, files) {
-    requireDatabase();
+    commitMailWrite(() => replaceMailDraftFiles(id, files));
+  }
+  function replaceMailDraftFiles(id, files) {
     if (!Array.isArray(files) || !files.length) { database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id)); return; }
     database.prepare(`
       INSERT INTO mail_draft_files(draft_id, data_json) VALUES(?, ?)
@@ -841,15 +964,17 @@ function openStorage({ seedFile }) {
       .map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } }).filter(Boolean);
   }
   function writeMailTemplate(template) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_templates(id, updated_at, data_json) VALUES(?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
-    `).run(String(template.id), String(template.updatedAt), JSON.stringify(template));
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_templates(id, updated_at, data_json) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
+      `).run(String(template.id), String(template.updatedAt), JSON.stringify(template));
+    });
   }
   function deleteMailTemplate(id) {
-    requireDatabase();
-    database.prepare('DELETE FROM mail_templates WHERE id = ?').run(String(id));
+    commitMailWrite(() => {
+      database.prepare('DELETE FROM mail_templates WHERE id = ?').run(String(id));
+    });
   }
 
   // 群发批次记录：每批的主题、正文、收件人及各自的发送结果。
@@ -865,11 +990,12 @@ function openStorage({ seedFile }) {
     try { return JSON.parse(row.data_json); } catch (_) { return null; }
   }
   function writeMailBulk(batch) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_bulk(id, created_at, data_json) VALUES(?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
-    `).run(String(batch.id), String(batch.createdAt), JSON.stringify(batch));
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_bulk(id, created_at, data_json) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
+      `).run(String(batch.id), String(batch.createdAt), JSON.stringify(batch));
+    });
   }
 
   function health() {
@@ -886,12 +1012,24 @@ function openStorage({ seedFile }) {
 
   function close() {
     if (!database) return;
+    if (backupPending()) createBackup(true);
+    cancelBackupTimer();
     database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
     database.close();
     database = null;
   }
 
   initializeStorage();
-  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, health, close, directory: supportDir };
+  if (database && storageMode === 'sqlite') {
+    // Older stores have no business coverage marker. Cover their current revision
+    // once; only backup metadata changes, never the historical business records.
+    if (!metadataValue('business_backup_revision', '')) setMetadata('business_backup_revision', metadataValue('revision', '0'));
+    // Existing installations predate the durable marker. Cover their mail data
+    // once without changing the mailbox or rewriting its historical records.
+    if (!metadataValue('mail_backup_revision', '') && ['mail_account', 'mail_drafts', 'mail_draft_files', 'mail_templates', 'mail_bulk']
+      .some(table => database.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get())) setMetadata('mail_backup_revision', '1');
+    queueBackup();
+  }
+  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, backupStatus, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

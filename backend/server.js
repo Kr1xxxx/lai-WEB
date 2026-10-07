@@ -51,7 +51,7 @@ const mailRoutes = {
   'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
   'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/backup-status', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 
 function securityHeaders(type = '') {
   return {
@@ -118,7 +118,8 @@ const server = http.createServer(async (req, res) => {
     if (isDocument) return send(res, 200, fs.readFileSync(htmlFile), 'text/html; charset=utf-8');
     if (url.pathname === '/vendor/purify.min.js' || url.pathname === '/vendor/squire-raw.js') return send(res, 200, fs.readFileSync(path.join(__dirname, 'vendor', path.basename(url.pathname))), 'text/javascript; charset=utf-8');
     if (url.pathname === '/vendor/xlsx.full.min.js') return send(res, 200, fs.readFileSync(path.join(__dirname, 'vendor/xlsx.full.min.js')), 'text/javascript; charset=utf-8');
-    if (url.pathname === '/api/data') return send(res, 200, JSON.stringify(store.readSnapshot()));
+    if (url.pathname === '/api/backup-status') return send(res, 200, JSON.stringify({ ok:true, backup:store.backupStatus() }));
+    if (url.pathname === '/api/data') return send(res, 200, JSON.stringify({ ...store.readSnapshot(), backup: store.backupStatus() }));
     if (url.pathname === '/api/import-log') return send(res, 200, JSON.stringify({ok:true,issues:store.readImportLog(url.searchParams.get('id'))}));
     if (url.pathname === '/api/save') {
       if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
@@ -129,15 +130,15 @@ const server = http.createServer(async (req, res) => {
       try { backup = store.backup(false); } catch (error) { backup = { ok: false, message: error.message || 'automatic backup failed' }; }
       return send(res, 200, JSON.stringify({ ok: true, storageMode: 'sqlite', ...result, backup }));
     }
-    if (url.pathname === '/api/mail-account') return send(res, 200, JSON.stringify(mailAccounts.status()));
+    if (url.pathname === '/api/mail-account') return send(res, 200, JSON.stringify({ ...mailAccounts.status(), backup:store.backupStatus() }));
     if (url.pathname === '/api/mail-account/bind') {
       if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
       const bound = await mailAccounts.bind(await readJsonBody(req));
       mailService.forget();
-      return send(res, 200, JSON.stringify(bound));
+      return send(res, 200, JSON.stringify({ ...bound, backup:store.backupStatus() }));
     }
-    if (url.pathname === '/api/mail-account/verify') return send(res, 200, JSON.stringify(await mailAccounts.reverify()));
-    if (url.pathname === '/api/mail-account/unbind') { const result = mailAccounts.unbind(); mailService.forget(); return send(res, 200, JSON.stringify(result)); }
+    if (url.pathname === '/api/mail-account/verify') return send(res, 200, JSON.stringify({ ...await mailAccounts.reverify(), backup:store.backupStatus() }));
+    if (url.pathname === '/api/mail-account/unbind') { const result = mailAccounts.unbind(); mailService.forget(); return send(res, 200, JSON.stringify({ ...result, backup:store.backupStatus() })); }
     const mailRoute = mailRoutes[`${req.method} ${url.pathname}`];
     if (mailRoute) {
       let body;
@@ -145,7 +146,7 @@ const server = http.createServer(async (req, res) => {
         if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
         body = await readJsonBody(req);
       }
-      return send(res, 200, JSON.stringify(await mailRoute(url.searchParams, body)));
+      return send(res, 200, JSON.stringify({ ...await mailRoute(url.searchParams, body), backup:store.backupStatus() }));
     }
     if (url.pathname === '/api/manual-backup') {
       const backup = store.backup(true);

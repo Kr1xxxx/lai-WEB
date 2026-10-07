@@ -81,4 +81,6 @@ async function verifyLogin(account, { endpoint } = {}) {
   return { ...server };
 }
 
-module.exports = { verifyLogin, clientOptions, translate, resolveServer, normalizeEmail, normalizePassword, serverText, mailError, SITES, ACCOUNT_TYPES, PORT };
+const accountIdentity = account => require('node:crypto').createHash('sha256').update(JSON.stringify([String(account?.email || '').toLowerCase(), account?.site || '', account?.accountType || '', account?.host || ''])).digest('hex');
+
+module.exports = { accountIdentity, verifyLogin, clientOptions, translate, resolveServer, normalizeEmail, normalizePassword, serverText, mailError, SITES, ACCOUNT_TYPES, PORT };

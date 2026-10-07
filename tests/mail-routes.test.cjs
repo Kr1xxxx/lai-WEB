@@ -31,7 +31,13 @@ test('mail account routes require the session, validate input before any network
     assert.equal((await request('/api/mail-account', { method: 'POST' })).status, 404);
     assert.equal((await request('/api/mail-account/bind')).status, 404);
     assert.equal((await request('/api/mail-account/password')).status, 404);
-    assert.deepEqual(await (await request('/api/mail-account')).json(), { ok: true, available: true, account: null });
+    const initialStatus = await (await request('/api/mail-account')).json();
+    const { backup: initialBackup, ...accountStatus } = initialStatus;
+    assert.deepEqual(accountStatus, { ok: true, available: true, account: null });
+    assert.deepEqual(initialBackup, { ok:true, message:'', lastSuccessfulAt:0, pending:false, nextAttemptAt:0 });
+    assert.equal((await fetch(base + '/api/backup-status')).status, 401);
+    assert.equal((await request('/api/backup-status', { headers:{ Origin:'https://untrusted.example' } })).status, 403);
+    assert.deepEqual(await (await request('/api/backup-status')).json(), { ok:true, backup:initialBackup });
     assert.equal((await request('/api/mail-account/bind', { method: 'POST', body: '{}' })).status, 415);
     assert.equal((await request('/api/mail-account/bind', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })).status, 400);
     for (const body of [{}, { email: 'not-an-email', password: 'x' }, { email: 'a@zoho.com.cn', password: '' }, { email: 'a@zoho.com.cn', password: 'a\r\nb' }, { email: 'a@zoho.com.cn', password: 'x', site: 'attacker.example' }]) {
@@ -40,7 +46,7 @@ test('mail account routes require the session, validate input before any network
     }
     const missing = await post('/api/mail-account/verify', {});
     assert.equal(missing.status, 404); assert.equal((await missing.json()).code, 'not_bound');
-    assert.deepEqual(await (await post('/api/mail-account/unbind', {})).json(), { ok: true, available: true, account: null });
+    { const {backup,...unbound}=await (await post('/api/mail-account/unbind', {})).json(); assert.deepEqual(unbound,{ok:true,available:true,account:null}); assert.equal(backup.pending,true); assert.ok(backup.nextAttemptAt>0); }
 
     // 直接在隔离库里放一条绑定记录，确认接口只返回公开字段、业务快照不含它、解绑后被删除。
     await stop(child);
@@ -49,10 +55,10 @@ test('mail account routes require the session, validate input before any network
     seed.close();
     child = start(); await ready();
     const status = await (await request('/api/mail-account')).text();
-    assert.deepEqual(JSON.parse(status).account, { provider: 'zoho', email: 'sales@example-trade.com', site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993, boundAt: '2026-10-06T10:00:00.000Z', verifiedAt: '2026-10-06T10:00:00.000Z', autoCheck: true });
+    assert.deepEqual(JSON.parse(status).account, { identity: require('../backend/mail-imap.js').accountIdentity({email:'sales@example-trade.com',site:'cn',accountType:'organization',host:'imappro.zoho.com.cn'}), provider: 'zoho', email: 'sales@example-trade.com', site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993, boundAt: '2026-10-06T10:00:00.000Z', verifiedAt: '2026-10-06T10:00:00.000Z', autoCheck: true });
     for (const route of ['/api/mail-account', '/api/data', '/api/health']) assert.doesNotMatch(await (await request(route)).text(), /Zx9-seeded-secret|"password"/, route);
     assert.doesNotMatch(await (await request('/api/data')).text(), /example-trade/);
-    assert.deepEqual(await (await post('/api/mail-account/unbind', {})).json(), { ok: true, available: true, account: null });
+    { const {backup,...unbound}=await (await post('/api/mail-account/unbind', {})).json(); assert.deepEqual(unbound,{ok:true,available:true,account:null}); assert.equal(backup.pending,true); assert.ok(backup.nextAttemptAt>0); }
     assert.equal((await (await request('/api/mail-account')).json()).account, null);
   } finally { await stop(child); fs.rmSync(temporary, { recursive: true, force: true }); }
 });
@@ -99,7 +105,7 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
     assert.equal(saved.body.file, path.join(data, 'downloads', '装箱单 2026-10.pdf'), 'test runs save inside the isolated data folder, never the real Downloads'); assert.ok(fs.existsSync(saved.body.file));
     const draft = await post('/api/mail/drafts/save', { to: 'anna@nordic-lamps.example', subject: 'PI' });
     assert.equal((await request('/api/mail/drafts')).body.items.length, 1);
-    const sent = await post('/api/mail/send', { to: 'anna@nordic-lamps.example', subject: 'PI-1001', text: 'attached', draftId: draft.body.draft.id, fromName: 'Kris', forwardOf: { box: 'inbox', uid: 4 } });
+    const sent = await post('/api/mail/send', { to: 'anna@nordic-lamps.example', subject: 'PI-1001', text: 'attached', draftId: draft.body.draft.id, fromName: 'Kris', forwardAttachments: true, forwardOf: { box: 'inbox', uid: 4, accountIdentity: message.body.message.accountIdentity } });
     assert.equal(sent.status, 200); assert.deepEqual(sent.body.recipients, ['anna@nordic-lamps.example']); assert.equal(smtp.state.sent.length, 1); assert.equal(smtp.state.sent[0].parsed.attachments.length, 2);
     assert.equal((await request('/api/mail/drafts')).body.items.length, 0); assert.equal((await request('/api/mail-account')).body.account.senderName, 'Kris');
     assert.equal((await post('/api/mail/send', { to: '', subject: 'x', text: 'y' })).status, 400); assert.equal(smtp.state.sent.length, 1);

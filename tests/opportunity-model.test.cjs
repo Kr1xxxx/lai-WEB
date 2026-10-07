@@ -134,11 +134,12 @@ test('archive, delete and order link', () => {
   s = O.setArchived(s, 'a', true, {now: NOW});
   assert.equal(get(s, 'a').archived, true);
   assert.equal(get(O.setArchived(s, 'a', false, {now: NOW}), 'a').archived, false);
+  s = {...s, orders: [...s.orders, {id:'ord-1', client:'Alpha Co'}]};
   assert.equal(get(O.linkOrder(s, 'b', ' ord-1 '), 'b').orderId, 'ord-1');
   assert.deepEqual(O.list(O.remove(s, 'a')).map(i => i.id), ['b']);
   for (const fn of [() => O.remove(s, 'zz'), () => O.setArchived(s, 'zz', true), () => O.linkOrder(s, 'zz', 'x')]) assert.throws(fn, /不存在/);
   assert.deepEqual(O.orderDraft({...get(s, 'b'), products: [{name: 'A'}, {name: 'B'}]}, TODAY),
-    {client: 'Alpha Co', amount: 331.74, currency: 'USD', owner: 'Amy', stage: 'quote', paidAmount: 0, createdAt: TODAY, orderMonth: '2026-10', note: '由商机「26100602-Amy」生成', productType: 'A、B'});
+    {client: 'Alpha Co', amount: 331.74, currency: 'USD', owner: 'Amy', stage: 'quote', paidAmount: null, createdAt: TODAY, orderMonth: '2026-10', note: '由商机「26100602-Amy」生成', productType: 'A、B', contact: 'Ann', country: '', source: '', sourceOpportunityId: 'b', products: [{name:'A'}, {name:'B'}], orderStageNeedsConfirmation: false});
 });
 
 // ---------- 看板与分析：手算 ----------
@@ -280,6 +281,7 @@ test('review: search uses the same name matching as the owner filter; currency t
 
 test('review: a linked order that is no longer among the orders counts as not linked; cardOf ignores board filters', () => {
   let s = O.moveStage(add(base, 'a'), 'a', 'done', {now: NOW});
+  s = {...s, orders: s.orders.map(order => ({...order, client:'Alpha Co'}))};
   s = O.linkOrder(s, 'a', 'o1');
   assert.equal(O.cardOf(s, 'a', TODAY).orderId, 'o1');
   assert.equal(O.cardOf({...s, orders: []}, 'a', TODAY).orderId, '');
@@ -319,9 +321,10 @@ test('customer stats: active list, won count and USD amount, win rate, cycle', (
   s = add(s, 'other', {client: 'Beta Ltd', contact: '', amount: '999'}, '2026-10-05T04:00:00.000Z');
   const stats = O.customerStats(s, 'Alpha Co', TODAY);
   assert.deepEqual(stats.activeOpportunities.map(c => [c.id, c.amount, c.note]), [['a2', 50, '第二个'], ['a1', 100, '']], 'newest first; archived and other customers are left out');
-  assert.deepEqual({...stats, activeOpportunities: null}, {opportunityAllCount: 7, activeOpportunityCount: 2, opportunityCount: 3, opportunityTotal: 600, opportunityAverage: 300,
+  const totalsOnly = ({allOpportunities, firstWonDate, lastWonDate, opportunityAmounts, opportunityProducts, ...rest}) => ({...rest, activeOpportunities:null});
+  assert.deepEqual(totalsOnly(stats), {opportunityAllCount: 7, activeOpportunityCount: 2, opportunityCount: 3, opportunityTotal: 600, opportunityAverage: 300, opportunityTotalCny: null, opportunityAverageCny: null,
     opportunityWinRate: 75, opportunityCycle: 5, activeOpportunities: null}, 'USD figures ignore the EUR win; win rate 3 of 4; cycle (10 + 4 + 1) / 3');
-  assert.deepEqual({...O.customerStats(s, 'Nobody', TODAY), activeOpportunities: null}, {opportunityAllCount: 0, activeOpportunityCount: 0, opportunityCount: 0, opportunityTotal: null, opportunityAverage: null,
+  assert.deepEqual(totalsOnly(O.customerStats(s, 'Nobody', TODAY)), {opportunityAllCount: 0, activeOpportunityCount: 0, opportunityCount: 0, opportunityTotal: null, opportunityAverage: null, opportunityTotalCny: null, opportunityAverageCny: null,
     opportunityWinRate: null, opportunityCycle: null, activeOpportunities: null});
 });
 

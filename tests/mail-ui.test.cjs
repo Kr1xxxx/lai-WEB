@@ -69,6 +69,17 @@ function harness({ routes = {}, account = ACCOUNT, available = true, active = tr
     dispose() { active = false; globalThis.document = previous.document || { getElementById: () => null, querySelectorAll: () => [] }; globalThis.FileReader = previous.FileReader; } };
 }
 
+test('mail responses deliver backup status without mistaking backup failure for a failed mail operation', async () => {
+  const updates = [], backup = { ok: false, message: 'Synthetic backup failure', pending: true, nextAttemptAt: 123 };
+  const h = harness({ routes: { '/api/mail-account': ({ reply }) => reply(200, { ok: true, account: null, available: true, backup }) }, ctx: { onBackupStatus: value => updates.push(value) } });
+  try {
+    await h.mail.select();
+    assert.deepEqual(updates, [backup]);
+    assert.match(h.page, /未绑定邮箱/);
+    assert.doesNotMatch(h.page, /Synthetic backup failure/);
+  } finally { h.dispose(); }
+});
+
 test('navigation shows the three tabs, compose, six folders and live counts', async () => {
   assert.deepEqual(Mail.folders.map(f => f.label), ['收件箱', '待处理邮件', '未读邮件', '草稿箱', '发件箱', '群发箱']);
   assert.deepEqual(Mail.views.map(v => v.label), ['邮件', '客户', '下属']);
@@ -277,7 +288,7 @@ test('reply, reply-all and forward prefill the right recipients, subject, quoted
     assert.match(h.page, /name="forwardAttachments" checked> 附带原邮件的 1 个附件/);
     f.to.value = 'boss@example-trade.com'; f.forwardAttachments.checked = false; await h.submit('mail-compose-form');
     const forwarded = h.calls('/api/mail/send').at(-1).payload;
-    assert.deepEqual(forwarded.forwardOf, { box: 'inbox', uid: 4 }); assert.equal(forwarded.forwardAttachments, false); assert.equal(forwarded.inReplyTo, '');
+    assert.deepEqual(forwarded.forwardOf, { box: 'inbox', uid: 4, accountIdentity: '' }); assert.equal(forwarded.forwardAttachments, false); assert.equal(forwarded.inReplyTo, '');
   } finally { h.dispose(); }
   const again = harness({ routes: { '/api/mail/message': ({ reply }) => reply(200, { ok: true, message: { ...MESSAGE, subject: 'RE: already', replyTo: [{ name: '', address: 'reply-here@x.example' }] } }) } });
   try { await again.mail.select(); await again.act('open', { box: 'inbox', uid: '4' }); await again.act('reply'); const f = again.form('mail-compose-form').elements; assert.equal(f.subject.value, 'RE: already'); assert.equal(f.to.value, 'reply-here@x.example'); }
@@ -306,7 +317,7 @@ test('composing validates, attaches files, sends once and reports the result', a
     assert.equal(h.node('mail-compose-submit').textContent, '正在发送…'); await first;
     assert.equal(h.calls('/api/mail/send').length, 2, 'a second click while sending is ignored');
     const payload = h.calls('/api/mail/send').at(-1).payload;
-    assert.deepEqual({ ...payload, html: undefined }, { to: 'a@b.example', cc: 'c@d.example', bcc: '', subject: 'Hello', text: 'Body bold\n', html: undefined, inReplyTo: '', references: '', forwardOf: null, fromName: 'Kris', forwardAttachments: true, attachments: [{ filename: '报价.pdf', contentType: 'application/pdf', contentBase64: Buffer.from('%PDF').toString('base64') }] });
+    assert.deepEqual({ ...payload, html: undefined }, { to: 'a@b.example', cc: 'c@d.example', bcc: '', subject: 'Hello', text: 'Body bold\n', html: undefined, inReplyTo: '', references: '', forwardOf: null, forwardCount: 0, fromName: 'Kris', forwardAttachments: true, attachments: [{ filename: '报价.pdf', contentType: 'application/pdf', contentBase64: Buffer.from('%PDF').toString('base64') }] });
     assert.match(payload.html, /^<div style="[^"]+"><div>Body <b>bold<\/b><\/div><\/div>$/);
     assert.equal(h.mail.composing(), false); assert.equal(h.editors.at(-1).destroyed, true); assert.equal(h.toasts.at(-1), '已发送给 1 位收件人；c@d.example 被服务器拒绝，没有收到'); assert.equal(h.mail.account().senderName, 'Kris');
     assert.match(h.page, /<h1>发件箱/); assert.equal(h.calls('/api/mail/messages').length, 2, 'the sent folder is shown again and re-read after sending');
@@ -328,7 +339,7 @@ test('leaving an edited message saves it as a draft; drafts can be reopened, sen
     failSave = true; assert.equal(await h.mail.select('inbox'), false, 'switching folders is refused while the draft cannot be saved');
     assert.match(h.node('mail-compose-error').textContent, /草稿保存失败：storage unavailable 再点一次「返回」将放弃这封信/); assert.equal(h.mail.composing(), true); assert.equal(h.mail.folder(), 'drafts');
     failSave = false; await h.act('compose-draft'); assert.equal(h.toasts.at(-1), '已存入草稿箱'); assert.equal(h.mail.composing(), true);
-    assert.deepEqual(h.calls('/api/mail/drafts/save').at(-1).payload, { to: 'a@b.example', cc: '', bcc: '', subject: '报价 <1>', text: '\n\n', html: '<div><br></div>', inReplyTo: '', references: '', forwardOf: null, attachments: [] });
+    assert.deepEqual(h.calls('/api/mail/drafts/save').at(-1).payload, { to: 'a@b.example', cc: '', bcc: '', subject: '报价 <1>', text: '\n\n', html: '<div><br></div>', inReplyTo: '', references: '', forwardOf: null, forwardCount: 0, forwardAttachments: true, attachments: [] });
     assert.equal(h.mail.composeDirty(), false); h.editor.html = '<div>more <i>text</i></div>'; assert.equal(h.mail.composeDirty(), true);
     await h.mail.select('drafts');
     assert.equal(h.calls('/api/mail/drafts/save').at(-1).payload.id, 'a'.repeat(32), 'the same draft is updated, not duplicated'); assert.equal(h.calls('/api/mail/drafts/save').at(-1).payload.html, '<div>more <i>text</i></div>'); assert.equal(h.mail.composing(), false);
@@ -405,7 +416,7 @@ test('the page module only talks through the provided request and keeps no crede
   assert.deepEqual([...new Set([...source.matchAll(/"(\/api\/[^"?]+)"/g)].map(m => m[1]))].sort(), ['/api/mail-account', '/api/mail-account/bind', '/api/mail-account/settings', '/api/mail-account/unbind', '/api/mail-account/verify', '/api/mail/attachment/save', '/api/mail/bulk', '/api/mail/bulk/batch', '/api/mail/bulk/cancel', '/api/mail/bulk/start', '/api/mail/correspondence', '/api/mail/draft', '/api/mail/drafts', '/api/mail/drafts/delete', '/api/mail/drafts/save', '/api/mail/flags', '/api/mail/message', '/api/mail/messages', '/api/mail/send', '/api/mail/status', '/api/mail/templates', '/api/mail/templates/delete', '/api/mail/templates/save', '/api/mail/trash']);
   for (const marker of ['<!--MAIL_STYLE-->', '<!--LAI_MAIL_UI-->', '<!--LAI_MAIL_EDITOR-->']) { assert.equal(read('src/template.html').split(marker).length, 2, marker); assert.ok(read('scripts/build.py').includes(marker), marker); }
   const app = read('src/app.js');
-  assert.ok(app.includes('["mail", "邮件", "mail"]')); for (const hook of ['d.mailFolder', 'd.mailAction', 'd.mailView', 'mail?.composing() && !(await mail.leave())', 'mail?.composeDirty()', 'd.feature === "写邮件"', 'LaiMailEditor.create']) assert.ok(app.includes(hook), hook);
+  assert.ok(app.includes('["mail", "邮件", "mail"]')); for (const hook of ['d.mailFolder', 'd.mailAction', 'd.mailView', 'mail?.composing() && !(await mail.leave())', 'mail?.hasPendingWork()', 'd.feature === "写邮件"', 'LaiMailEditor.create']) assert.ok(app.includes(hook), hook);
   for (const file of ['mail-account.js', 'mail-imap.js', 'mail-client.js', 'mail-smtp.js', 'mail-mime.js', 'mail-service.js', 'mail-libs.js', 'mail-libs.cjs', 'squire-raw.js', 'purify.min.js']) assert.ok(read('scripts/build.py').includes(`'${file}'`), file + ' is bundled into the app');
   const RM = require('../src/rail-menu.js');
   assert.deepEqual(RM.menuFor('邮件', {}).map(row => [row.label, row.kind, row.target]), Mail.folders.map(f => [f.label, 'mail', f.id]));

@@ -18,7 +18,7 @@ function harness({dirty = false, wait = false} = {}) {
   const boundary = {
     window: {addEventListener(event, fn) { assert.equal(event, 'focus'); focus = fn; }},
     nativeWindowBridge: () => true, pending: null, modal: null,
-    state: original, revision: 1, business: {hasDraft: () => dirty},
+    state: original, revision: 1, mail: {composing:()=>false}, business: {hasDraft: () => dirty},
     followupDrafts: new Map(),
     async fetch() { reads++; return wait ? new Promise(resolve => {release = resolve;}) : response; },
     rebuildRows() {rebuilds++;}, refresh() {refreshes++;},
@@ -143,4 +143,20 @@ test('a canceled activity response does not claim keyboard focus in a reopened v
   h.release(); await pending;
   assert.equal(h.boundary.document.activeElement, h.boundary.document.body);
   assert.equal(h.rendered, 0); assert.equal(h.boundary.state, h.original);
+});
+
+const refreshStart=app.indexOf('  function refresh() {');
+const refreshEnd=app.indexOf('\n  function companyDisplayLayoutFromPanel(',refreshStart);
+const routeRefreshSource=app.slice(refreshStart,refreshEnd);
+test('focus refresh keeps the empty favorites page instead of rendering the previous business route',async()=>{
+  const h=harness();let favorites=0,business=0;
+  Object.assign(h.boundary,{activeRoute:'favorites',business:{hasDraft:()=>false,refresh:()=>business++},showFavoritesHome:()=>favorites++});
+  vm.runInContext(routeRefreshSource,h.boundary);await h.focus();
+  assert.equal(h.boundary.revision,2);assert.equal(h.rebuilds,1);assert.equal(favorites,1);assert.equal(business,0);
+});
+test('route refresh continues to dispatch mail, customer detail, list and business pages',()=>{
+  const calls=[];const ctx={activeRoute:'mail',currentName:'Synthetic',customerScreen:'pool',mail:{refresh:()=>calls.push('mail')},business:{refresh:()=>calls.push('business')},showFavoritesHome:()=>calls.push('favorites'),detail:(name,reload)=>calls.push([name,reload]),showCustomerScreen:screen=>calls.push(screen)};
+  vm.createContext(ctx);vm.runInContext(routeRefreshSource+'\nthis.runRefresh=refresh;',ctx);
+  ctx.runRefresh();ctx.activeRoute='customers';ctx.runRefresh();ctx.currentName='';ctx.runRefresh();ctx.activeRoute='analysis';ctx.runRefresh();
+  assert.deepEqual(calls,['mail',['Synthetic',true],'pool','business']);
 });

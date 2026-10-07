@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const M = root?.PreviewModel || (typeof require === 'function' ? require('./model.js') : null);
   const fields = Object.freeze([
     ['name', '公司名称'], ['contact', '联系人昵称'], ['email', '联系人邮箱'],
     ['shortName', '公司简称'], ['country', '国家地区'], ['tags', '标签'],
@@ -21,7 +22,7 @@
   const templateHeaders = Object.freeze(fields.slice(0,21).map(field => field.label));
   const normalize = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   const tagged = value => [...new Set(String(value ?? '').split(/[,，;；]/).map(item => item.trim()).filter(Boolean))];
-  const phoneKey = value => String(value ?? '').replace(/\D/g, '');
+  const phoneKey = M.contactPhoneKey;
   const companyFields = new Set(['shortName','country','tags','customerStage','source','website','landline',
     'companyAddress','companyRemark','customerCode','poolGroup','owner','level','note']);
 
@@ -124,11 +125,15 @@
       const line = parsed.lineNumbers?.[index] || index + 2;
       if (!Array.isArray(row) || row.length !== parsed.headers.length) throw new Error(`第 ${line} 行列数不一致`);
       const values = Object.fromEntries(entries.map(([key, column]) => [key, String(row[column] ?? '').trim()]));
+      if (values.email) {
+        values.email = M.emailInput(values.email);
+        if (!M.validEmail(values.email)) throw new Error(`第 ${line} 行联系人邮箱格式无效`);
+      }
       const name = values.name;
       if (!name || name.length > 200 || ['__proto__', 'constructor', 'prototype'].includes(name))
         throw new Error(`第 ${line} 行公司名称无效`);
       if (Object.values(values).some(value => value.length > 5000)) throw new Error(`第 ${line} 行字段内容过长`);
-      const key = normalize(name);
+      const key = M.customerNameKey(name);
       const first = seen.get(key);
       if (first) for (const field of companyFields) {
         if (first[field] && values[field] && first[field] !== values[field])
@@ -145,16 +150,15 @@
     if (!['active', 'pool'].includes(destination) || !['skip', 'update'].includes(duplicate)) throw new Error('导入选项无效');
     const records = mappedRecords(parsed, mapping);
     const customers = {...(state.customers || {})};
-    const known = new Map([...new Set([...Object.keys(customers), ...(state.orders || []).map(order => order.client).filter(Boolean)])]
-      .map(name => [normalize(name), name]));
+    const known = new Map();
+    for (const name of new Set([...Object.keys(customers), ...(state.orders || []).map(order => order.client).filter(Boolean)])) {
+      const key = M.customerNameKey(name), names = known.get(key) || [];
+      names.push(name);
+      known.set(key, names);
+    }
     const originallyKnown = new Set(known.keys()), processed = new Set();
     const emails = new Map(), phones = new Map();
-    const contactValues = profile => ({
-      email:[profile.email, ...(Array.isArray(profile.emails) ? profile.emails : []),
-        ...(Array.isArray(profile.extraContacts) ? profile.extraContacts.map(contact => contact?.email) : [])],
-      phone:[profile.phone, ...(Array.isArray(profile.phones) ? profile.phones : []),
-        ...(Array.isArray(profile.extraContacts) ? profile.extraContacts.map(contact => contact?.phone) : [])],
-    });
+    const contactValues = M.customerContactValues;
     const removeContact = (name, profile) => {
       const values = contactValues(profile);
       for (const value of values.email) {
@@ -181,12 +185,14 @@
     const result = {created:0, updated:0, skipped:0};
     const details = [];
     for (const [index, values] of records.entries()) {
-      const key = normalize(values.name), existingName = known.get(key);
+      const key = M.customerNameKey(values.name), equivalentNames = known.get(key) || [];
+      const existingName = equivalentNames[0];
       const name = existingName || values.name;
       const old = customers[name] || {};
       const otherEmail = normalize(values.email) && [...(emails.get(normalize(values.email)) || [])].some(owner => owner !== name);
       const otherPhone = phoneKey(values.phone).length >= 7 && [...(phones.get(phoneKey(values.phone)) || [])].some(owner => owner !== name);
-      const reason = old.laiBucket === 'trash' ? '回收站客户不可更新'
+      const reason = equivalentNames.length > 1 ? '存在多个等价客户名称，请先核对客户资料'
+        : old.laiBucket === 'trash' ? '回收站客户不可更新'
         : originallyKnown.has(key) && duplicate === 'skip' ? '同名客户已存在'
         : otherEmail ? '邮箱与其他客户重复'
         : otherPhone ? '电话与其他客户重复' : '';
@@ -277,7 +283,7 @@
         : status === 'contact-added' ? '导入新增联系人' : '导入更新客户资料', type:'operation'},
         ...(Array.isArray(old.history) ? old.history : [])];
       customers[name] = record;
-      known.set(key, name);
+      known.set(key, [name]);
       processed.add(key);
       removeContact(name, old);
       addContact(name, record);

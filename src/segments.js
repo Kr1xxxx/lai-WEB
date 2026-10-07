@@ -1,5 +1,6 @@
 (function(root) {
   'use strict';
+  const M=root.PreviewModel||(typeof require==='function'?require('./model.js'):null);
   const definitions = [
     ['name','公司名称','text',230,'基本信息'],['contact','主要联系人','text',160,'基本信息'],['country','国家地区','text',120,'基本信息'],['tags','客户标签','text',160,'基本信息'],['owner','跟进人','text',110,'基本信息'],
     ['lastWonDate','最近赢单日期','date',140,'商机信息'],['lastFollowup','最近跟进时间','date',150,'跟进信息'],['latestActivity','最近动态','text',220,'跟进信息'],['total','成交订单金额 (USD)','number',170,'订单信息'],['average','成交订单均价 (USD)','number',170,'订单信息'],['orderCount','成交订单数','number',110,'订单信息'],
@@ -48,7 +49,7 @@
         : profile.firstOrderTotal??row.firstOrderTotal??null;
       const legacyGroups=Array.isArray(row.group)?row.group:row.group?[row.group]:[];
       const manualGroups=(state.previewSegments||[]).filter(segment=>!segment.archived&&segment.kind==='manual'&&(segment.members||[]).includes(row.name)).map(segment=>segment.name);
-      return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
+      return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:row.firstWonDate??profile.opportunityFirstWonDate??'',lastWonDate:row.lastWonDate??profile.opportunityLastWonDate??'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
     });
     const memberships=(Array.isArray(state.previewSegments)?state.previewSegments:[])
       .filter(segment=>segment&&!segment.archived&&String(segment.name||'').trim())
@@ -85,7 +86,7 @@
     if(!Number.isFinite(clock))throw new Error('当前日期无效');
     const matches=(row,rule)=>{
       const raw=rule.field==='email'
-        ? [row.email,...(Array.isArray(row.emails)?row.emails:[]),...(Array.isArray(row.extraContacts)?row.extraContacts.map(contact=>contact?.email):[])]
+        ? M.customerContactValues(row).email
         : rule.field==='level'?row.displayLevel??row.level:row[rule.field],type=fields.get(rule.field).type;
       const values=type==='text'&&Array.isArray(raw)?raw.filter(value=>!empty(value)).map(norm):null;
       const missing=values?!values.length:empty(raw);

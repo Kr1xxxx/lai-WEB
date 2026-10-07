@@ -4,11 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
-const B = require('../src/business-model.js');
-const L = require('../src/modules.js');
-const { escapeHtml } = require('../src/model.js');
+const sourceRoot = path.resolve(process.env.LAI_FINANCE_SOURCE || path.join(__dirname, '..'));
+const B = require(path.join(sourceRoot, 'src/business-model.js'));
+const L = require(path.join(sourceRoot, 'src/modules.js'));
+const { escapeHtml } = require(path.join(sourceRoot, 'src/model.js'));
 
-const source = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8');
+const source = fs.readFileSync(path.join(sourceRoot, 'src/business-ui.js'), 'utf8');
 const decode = value => String(value || '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const attributes = text => Object.fromEntries([...text.matchAll(/([\w-]+)(?:="([^"]*)")?/g)].map(([, key, value]) => [key, decode(value ?? '')]));
 
@@ -36,7 +37,7 @@ function harness({ failSave = false, clock, customers, tasks, orders } = {}) {
       if (form && node.name) form.elements[node.name] = node;
       nodes.push(node);
     }
-    for (const [, id] of html.matchAll(/<div\b[^>]*id="([^"]+)"[^>]*>/g)) nodes.push({ id, textContent: '', classList: { add() {} } });
+    for (const [, id] of html.matchAll(/<div\b[^>]*id="([^"]+)"[^>]*>/g)) { const classes = new Set(); nodes.push({ id, textContent: '', classList: { add(value) {classes.add(value)}, remove(value) {classes.delete(value)}, contains(value) {return classes.has(value)} } }); }
     return nodes;
   }
   const document = {
@@ -58,9 +59,9 @@ function harness({ failSave = false, clock, customers, tasks, orders } = {}) {
     getMonth() { return this.wallClock ? clock.month - 1 : super.getMonth(); }
     getDate() { return this.wallClock ? clock.day : super.getDate(); }
   }
-  const context = { window: { LaiBusinessModel: B, LaiModules: L }, document, FormData, crypto: webcrypto, ...(clock ? { Date: ClockDate } : {}) };
+  const context = { window: { PreviewModel: require(path.join(sourceRoot, 'src/model.js')), LaiBusinessModel: B, LaiModules: L, LaiOpportunityModel: require(path.join(sourceRoot, 'src/opportunity-model.js')) }, document, FormData, crypto: webcrypto, ...(clock ? { Date: ClockDate } : {}) };
   vm.createContext(context);
-  if (clock) vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/business-model.js'), 'utf8'), context);
+  if (clock) vm.runInContext(fs.readFileSync(path.join(sourceRoot, 'src/business-model.js'), 'utf8'), context);
   vm.runInContext(source, context);
   const controller = context.window.LaiBusinessUI.create({
     getState: () => state, escape: escapeHtml,
@@ -198,7 +199,7 @@ test('new order date and generated number use the same local calendar day', asyn
   const h = harness({ clock: midnightClock }); h.controller.navigate('order-list'); await h.click('new-order');
   const form = h.document.getElementById('biz-order-form');
   assert.equal(form.elements.createdAt.value, '2026-10-01');
-  assert.equal(form.elements.num.value, 'L20261001-002');
+  assert.equal(form.elements.num.value, 'L20261001-001');
   await h.click('close-editor'); assert.equal(h.saveCalls, 0);
 });
 
@@ -322,7 +323,9 @@ test('customer-detail order saves the existing model once and returns to the ori
   const created = h.state.orders.find(order => order.id !== 'order-1');
   assert.equal(created.client, 'Synthetic Customer');
   assert.equal(created.amount, 25);
-  assert.deepEqual(h.state.customers, original);
+  assert.equal(h.state.customers[created.client].history[0].type, "order");
+  assert.equal(h.state.customers[created.client].history[0].orderId, created.id);
+  assert.deepEqual(original, {"Synthetic Customer":{}});
   assert.deepEqual(h.returnedCustomers, ['Synthetic Customer']);
   assert.equal(h.pageHtml, '', 'customer detail is not replaced by the business dashboard');
 });
@@ -371,9 +374,123 @@ test('analysis customer contributions merge legacy currency spelling the same wa
   const common={client:'Synthetic Customer',stage:'quote',createdAt:'2026-10-01',orderMonth:'2026-10'};
   const h=harness({clock:midnightClock,orders:[{...common,currency:'USD',amount:100},{...common,currency:' usd ',amount:50}]});
   h.controller.navigate('analysis');
-  const contribution=h.pageHtml.slice(h.pageHtml.indexOf('<h3>客户贡献</h3>'));
+  const contribution=h.pageHtml.slice(h.pageHtml.indexOf('<h3>客户贡献</h3>')).split('</section>')[0];
   const rows=[...contribution.matchAll(/<tr><td>.*?<\/tr>/g)].map(match=>match[0]);
   assert.equal(rows.length,1);
-  assert.match(rows[0],/<td>2<\/td><td>150\.00 USD<\/td><\/tr>$/);
+  assert.match(rows[0],/<td>2<\/td><td>150\.00 USD<\/td>/);
   assert.equal(h.saveCalls,0);
+});
+
+test('finance: editor exposes historical statistical month and preserves structured product metadata', async()=>{
+ const h=harness({orders:[{id:'order-1',num:'L1',client:'Synthetic Customer',amount:20,paidAmount:null,currency:'USD',stage:'shipment',createdAt:'2026-09-22',orderMonth:'2026-08',contact:'Pat',products:[{name:'Lash',quantity:2,unitPrice:10,extra:true}]}]});await h.openOrder();
+ const form=h.document.getElementById('biz-order-form');assert.equal(form.elements.orderMonth?.value,'2026-08');assert.equal(form.elements.contact?.value,'Pat');assert.equal(form.elements.products?.value,'Lash, 2, 10');assert.equal(form.elements.paidAmount.value,'');
+ form.elements.createdAt.value='2026-10-07';form.elements.contact.value='Sam';await h.emit('submit',form);assert.equal(h.state.orders[0].orderMonth,'2026-08');assert.equal(h.state.orders[0].products[0].extra,true);assert.equal(h.state.orders[0].contact,'Sam');assert.equal(h.state.orders[0].paidAmount,null);
+});
+test('finance: shipment lists show actual receipts and missing values explicitly',()=>{
+ const h=harness({orders:[{id:'a',num:'Paid',client:'Synthetic Customer',amount:2500,paidAmount:750,currency:'USD',stage:'shipment'},{id:'b',num:'Unknown',client:'Synthetic Customer',amount:100,currency:'USD',stage:'done'}]});h.controller.navigate('order-list');assert.match(h.pageHtml,/750\.00 USD/);assert.match(h.pageHtml,/未记录/);assert.match(h.pageHtml,/统计月份/);
+});
+test('finance: analysis exposes customer country owner product stage and currency filters',async()=>{
+ const h=harness({orders:[{id:'a',num:'A',client:'Synthetic Customer',country:'US',owner:'Amy',productType:'Lashes',amount:100,paidAmount:20,currency:'USD',stage:'quote',orderMonth:'2026-10'},{id:'b',num:'B',client:'Other',country:'GB',owner:'Bob',productType:'Tools',amount:50,currency:'EUR',stage:'done',orderMonth:'2026-10'}]});h.controller.navigate('analysis');for(const field of ['client','country','owner','productType','stage','currency'])assert.ok(h.document.getElementById('biz-analysis-'+field));
+ const filter=h.document.getElementById('biz-analysis-country');filter.value='US';await h.emit('change',filter);assert.match(h.pageHtml,/100\.00 USD/);assert.doesNotMatch(h.pageHtml,/50\.00 EUR/);assert.match(h.pageHtml,/国家地区贡献/);assert.match(h.pageHtml,/跟进人贡献/);
+});
+test('finance: transfer draft preserves source and unedited structured product metadata on actual form submit',async()=>{
+ const h=harness();const products=[{name:'Lash',quantity:2,unitPrice:10,meta:{reference:'safe'}}];h.controller.openOrder(undefined,{client:'Synthetic Customer',num:'From-opp',createdAt:'2026-10-07',orderMonth:'2026-10',amount:20,paidAmount:null,currency:'USD',stage:'quote',contact:'Pat',source:'Exhibition',sourceOpportunityId:'opp-1',products,orderStageNeedsConfirmation:true});assert.match(h.dialogHtml,/商机赢单不代表订单已交付/);const f=h.document.getElementById('biz-order-form');assert.equal(f.elements.paidAmount.value,'');await h.emit('submit',f);const saved=h.state.orders.find(o=>o.num==='From-opp');assert.ok(saved);assert.equal(saved.source,'Exhibition');assert.equal(saved.sourceOpportunityId,'opp-1');assert.deepEqual(saved.products,products);assert.equal(saved.contact,'Pat');assert.equal(saved.paidAmount,null);
+});
+test('finance: changing the statistical month and dimension filters changes the rendered totals',async()=>{
+ const h=harness({clock:midnightClock,orders:[{id:'a',num:'A',client:'Synthetic Customer',amount:100,paidAmount:20,currency:'USD',stage:'quote',owner:'Amy',country:'US',orderMonth:'2026-10'}]});h.controller.navigate('analysis');const selector=h.document.getElementById('biz-analysis-country');selector.value='US';await h.emit('change',selector);await h.click('clear-analysis-filters');assert.equal(h.document.getElementById('biz-analysis-country').value,'');const m=h.document.getElementById('biz-month');m.value='2026-09';await h.emit('change',m);assert.doesNotMatch(h.pageHtml,/100\.00 USD/);
+});
+
+test('new order number skips numbers in the recycle bin and saves normally', async () => {
+  const common={client:'Synthetic Customer',createdAt:'2026-10-01',orderMonth:'2026-10',currency:'USD',stage:'quote',amount:10,paidAmount:0};
+  const h=harness({clock:midnightClock,orders:[{...common,id:'one',num:'L20261001-001'},{...common,id:'two',num:'L20261001-002'}]});
+  h.replaceState(B.archiveOrder(h.state,'two','2026-10-01T12:00:00Z'));
+  h.controller.navigate('order-list');await h.click('new-order');
+  const form=h.document.getElementById('biz-order-form');
+  assert.equal(form.elements.num.value,'L20261001-003');
+  form.elements.client.value='Synthetic Customer';form.elements.amount.value='10';form.elements.paidAmount.value='0';
+  await h.emit('submit',form);assert.equal(h.saveCalls,1);assert.ok(h.state.orders.some(o=>o.num==='L20261001-003'));
+  assert.equal(h.state.trashOrders[0].num,'L20261001-002');
+});
+
+test('new order number compares every bucket using the saving model case and whitespace rules', async () => {
+  const common={client:'Synthetic Customer',createdAt:'2026-10-01',currency:'USD',stage:'quote',amount:10,paidAmount:0};
+  const h=harness({clock:midnightClock,orders:[{...common,id:'one',num:' l20261001-001 '}]});
+  h.replaceState({...h.state,trashOrders:[{...common,id:'two',num:' L20261001-002 '}],deletedOrders:[{...common,id:'three',num:'l20261001-003'}]});
+  h.controller.navigate('order-list');await h.click('new-order');
+  assert.equal(h.document.getElementById('biz-order-form').elements.num.value,'L20261001-004');
+});
+
+test('new order number uses the configured prefix and current day independently of old order count', async () => {
+  const h=harness({clock:midnightClock});
+  h.replaceState({...h.state,laiSettings:{orderPrefix:'SO'},trashOrders:[{num:'SO20260930-001'}]});
+  h.controller.navigate('order-list');await h.click('new-order');
+  assert.equal(h.document.getElementById('biz-order-form').elements.num.value,'SO20261001-001');
+});
+
+test('a number claimed after the form opens is still rejected by save and keeps the draft', async () => {
+  const h=harness({clock:midnightClock,orders:[]});h.controller.navigate('order-list');await h.click('new-order');
+  const form=h.document.getElementById('biz-order-form');const number=form.elements.num.value;
+  h.replaceState({...h.state,orders:[{id:'peer',num:number,client:'Synthetic Customer',createdAt:'2026-10-01',currency:'USD',stage:'quote',amount:10,paidAmount:0}]});
+  form.elements.client.value='Synthetic Customer';form.elements.amount.value='10';form.elements.paidAmount.value='0';
+  await h.emit('submit',form);assert.equal(h.saveCalls,0);assert.equal(h.controller.hasDraft(),true);
+  assert.match(h.document.getElementById('biz-order-error').textContent,/订单号已存在/);
+});
+
+function numberingForm(h) {
+  const form=h.document.getElementById('biz-numbering-form');
+  assert.ok(form,'independent numbering settings form is available');return form;
+}
+async function changeField(h,form,name,value){form.elements[name].value=value;await h.emit('input',form.elements[name]);}
+test('numbering settings inherit legacy prefix in one place and preview without reserving a number',async()=>{
+  const h=harness({clock:midnightClock,orders:[]});h.replaceState({...h.state,orderSettings:{orderPrefix:'OLD'}});h.controller.navigate('settings');
+  const form=numberingForm(h);assert.equal(form.elements.prefix.value,'OLD');assert.equal(h.document.getElementById('biz-settings-form').elements.orderPrefix,undefined);
+  await changeField(h,form,'prefix','SO');await changeField(h,form,'dateFormat','YYYYMM');await changeField(h,form,'sequenceDigits','4');
+  assert.equal(h.document.getElementById('biz-number-preview').textContent,'SO202610-0001');assert.match(h.document.getElementById('biz-number-period').textContent,/每月/);
+  assert.equal(h.saveCalls,0);assert.equal(h.state.orders.length,0);assert.equal(h.controller.hasDraft(),true);
+  await h.click('discard-numbering');assert.equal(h.saveCalls,0);assert.equal(h.controller.hasDraft(),false);assert.equal(numberingForm(h).elements.prefix.value,'OLD');
+});
+test('saving numbering preserves the other settings draft and cancel only resets its own form',async()=>{
+ const h=harness();h.controller.navigate('settings');let normal=h.document.getElementById('biz-settings-form'),rule=numberingForm(h);
+ await changeField(h,normal,'companyName','Unsaved Company');await changeField(h,rule,'prefix','SO');await changeField(h,rule,'dateFormat','none');await h.emit('submit',rule);
+ assert.equal(h.state.laiSettings.companyName,'Saved Company');assert.equal(h.state.laiSettings.orderNumberRule.prefix,'SO');assert.equal(h.document.getElementById('biz-settings-form').elements.companyName.value,'Unsaved Company');assert.equal(h.controller.hasDraft(),true);
+ await h.click('discard-settings');assert.equal(h.controller.hasDraft(),false);assert.equal(numberingForm(h).elements.prefix.value,'SO');
+});
+test('saving default settings retains the unsaved numbering form and leaves its draft guard active',async()=>{
+ const h=harness();h.controller.navigate('settings');const normal=h.document.getElementById('biz-settings-form'),rule=numberingForm(h);
+ await changeField(h,rule,'prefix','DRAFT');await changeField(h,normal,'companyName','New Company');await h.emit('submit',normal);
+ assert.equal(h.state.laiSettings.companyName,'New Company');assert.equal(h.state.laiSettings.orderNumberRule,undefined);assert.equal(numberingForm(h).elements.prefix.value,'DRAFT');assert.equal(h.controller.hasDraft(),true);
+ await h.click('discard-numbering');assert.equal(h.document.getElementById('biz-settings-form').elements.companyName.value,'New Company');assert.equal(h.controller.hasDraft(),false);
+});
+test('numbering validation and failed persistence keep the form values without claiming saved',async()=>{
+ const h=harness({failSave:true});h.controller.navigate('settings');const form=numberingForm(h);
+ await changeField(h,form,'prefix','BAD SPACE');await h.emit('submit',form);assert.equal(h.saveCalls,0);assert.ok(h.document.getElementById('biz-number-error').textContent);assert.equal(form.elements.prefix.value,'BAD SPACE');
+ await changeField(h,form,'prefix','SO');await h.emit('submit',form);assert.equal(h.saveCalls,1);assert.match(h.document.getElementById('biz-number-error').textContent,/Synthetic save failure/);assert.equal(h.controller.hasDraft(),true);assert.equal(form.elements.prefix.value,'SO');assert.equal(form.elements.prefix.disabled,false);assert.equal(h.state.laiSettings.orderNumberRule,undefined);
+});
+test('saved numbering is reopened and used by subsequent orders while old orders are unchanged',async()=>{
+ const h=harness({clock:midnightClock});h.controller.navigate('settings');const form=numberingForm(h);await changeField(h,form,'prefix','SO');await changeField(h,form,'dateFormat','none');await changeField(h,form,'sequenceDigits','4');await h.emit('submit',form);
+ assert.equal(h.controller.hasDraft(),false);assert.equal(h.state.orders[0].num,'L-1');h.controller.navigate('settings');assert.equal(numberingForm(h).elements.sequenceDigits.value,'4');
+ h.controller.navigate('order-list');await h.click('new-order');assert.equal(h.document.getElementById('biz-order-form').elements.num.value,'SO-0001');
+});
+test('automatic order numbers continue after the highest retained sequence instead of filling a gap',async()=>{
+ const h=harness({clock:midnightClock,orders:[{id:'one',num:'L20261001-001',client:'Synthetic Customer'}]});h.replaceState({...h.state,trashOrders:[{id:'three',num:'L20261001-003'}]});h.controller.navigate('order-list');await h.click('new-order');assert.equal(h.document.getElementById('biz-order-form').elements.num.value,'L20261001-004');
+});
+test('an open new-order draft keeps its manually changed number when settings change elsewhere',async()=>{
+ const h=harness({clock:midnightClock,orders:[]});h.controller.navigate('order-list');await h.click('new-order');const form=h.document.getElementById('biz-order-form');form.elements.num.value='MANUAL-100';await h.emit('input',form.elements.num);
+ h.replaceState({...h.state,laiSettings:{...h.state.laiSettings,orderNumberRule:{prefix:'SO',dateFormat:'none',sequenceDigits:6}}});form.elements.client.value='Synthetic Customer';form.elements.amount.value='1';await h.emit('submit',form);assert.equal(h.state.orders[0].num,'MANUAL-100');
+});
+test('invalid stored numbering is shown safely and blocks only automatic new numbering until explicitly repaired',async()=>{
+ const h=harness();h.replaceState({...h.state,laiSettings:{...h.state.laiSettings,orderNumberRule:'<bad rule>'}});h.controller.navigate('settings');const rule=numberingForm(h);assert.match(h.pageHtml,/&lt;bad rule&gt;/);assert.ok(h.document.getElementById('biz-number-error').textContent);
+ h.controller.navigate('order-list');await h.click('new-order');assert.equal(h.document.getElementById('biz-order-form'),null);assert.equal(h.controller.hasDraft(),false);
+ await h.openOrder();assert.equal(h.document.getElementById('biz-order-form').elements.num.value,'L-1');await h.click('close-editor');
+ h.controller.navigate('settings');const fixed=numberingForm(h);await changeField(h,fixed,'prefix','FIX');await changeField(h,fixed,'dateFormat','none');await changeField(h,fixed,'sequenceDigits','3');await h.emit('submit',fixed);assert.equal(h.state.laiSettings.orderNumberRule.prefix,'FIX');
+});
+test('invalid typed saved rule retains its raw value warning instead of a valid-looking coerced preview',async()=>{
+ const h=harness();h.replaceState({...h.state,laiSettings:{orderNumberRule:{prefix:true,dateFormat:'none',sequenceDigits:3}}});h.controller.navigate('settings');
+ assert.match(h.pageHtml,/&quot;prefix&quot;:true/);assert.equal(h.document.getElementById('biz-number-preview').textContent,'请修正规则后查看示例');assert.ok(h.document.getElementById('biz-number-error').textContent);
+ const form=numberingForm(h);await changeField(h,form,'prefix','OK');assert.equal(h.document.getElementById('biz-number-preview').textContent,'OK-001');await h.click('discard-numbering');assert.equal(h.document.getElementById('biz-number-preview').textContent,'请修正规则后查看示例');assert.equal(h.saveCalls,0);
+});
+
+test('numbering clears the visible error treatment when an invalid preview is corrected',async()=>{
+ const h=harness();h.controller.navigate('settings');const form=numberingForm(h),error=h.document.getElementById('biz-number-error');assert.equal(error.classList.contains('visible'),false);
+ await changeField(h,form,'prefix','BAD SPACE');assert.equal(error.classList.contains('visible'),true);await changeField(h,form,'prefix','OK');assert.equal(error.textContent,'');assert.equal(error.classList.contains('visible'),false);
 });

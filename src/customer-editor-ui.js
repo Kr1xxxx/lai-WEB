@@ -151,7 +151,7 @@
       const name = (key) => (extra ? `${key}Extra` : key);
       const id = (key) => `${name(key)}-${index}`;
       const contactInput = (key, placeholder = "请输入", type = "text") =>
-        `<input id="ce-${id(key)}" name="${name(key)}" type="${type === "date" ? dateInputType(record[key]) : type}" value="${E(type === "date" ? record[key] ?? "" : record[key] || "")}" placeholder="${E(placeholder)}"${type === "date" ? " data-editor-date" : ""}${(isNew || newContact) && ["contact", "email", "phone"].includes(key) ? " required" : ""}>`;
+        `<input id="ce-${id(key)}" name="${name(key)}" type="${type === "date" ? dateInputType(record[key]) : type}" value="${E(type === "date" ? record[key] ?? "" : record[key] || "")}" placeholder="${E(placeholder)}"${type === "date" ? " data-editor-date" : ""}${(isNew || newContact) && key === "contact" ? " required" : ""}>`;
       const contactField = (key, label, body, star = false) =>
         `<div class="ce-field"><label for="ce-${id(key)}">${star ? '<span class="ce-required" aria-hidden="true">*</span>' : ""}${label}</label>${body}</div>`;
       const contactSelect = (key, placeholder, options) =>
@@ -163,14 +163,15 @@
           .join("")}</select>${glyph("down")}</div>`;
       return `<section class="ce-contact-card" data-contact-card="${index}">${extra ? `<input type="hidden" name="contactIdExtra" value="${E(record.id || "legacy-" + index)}">` : ""}<div class="ce-contact-heading"><strong>联系人<span data-contact-number>${index + 1}</span></strong>${extra ? `<button type="button" class="ce-contact-remove" data-editor-action="remove-contact" aria-label="移除联系人${index + 1}">移除</button>` : '<span class="ce-main-tag">主</span><span class="ce-main-hint">主联系人默认置顶</span>'}</div>
         ${contactField("contact", "昵称", contactInput("contact", "客户姓名"), true)}
-        ${contactField("email", "邮箱", contactInput("email", "必填"), true)}
+        ${(isNew || newContact) ? '<p class="ce-helper">称呼必填，邮箱、电话或其他联系方式至少填写一项。</p>' : ""}
+        ${contactField("email", "邮箱", contactInput("email", "选填", "email"))}
         ${contactField("socialAccount", "社交平台", `<div class="ce-paired">${contactSelect("socialPlatform", "社交平台", ["Instagram", "Facebook", "Twitter", "LinkedIn", "TikTok", "其他"])}${contactInput("socialAccount", "默认Instagram，没有…")}<button class="ce-plus" type="button" data-editor-action="add-method" data-method-type="social" aria-label="添加社交平台">${glyph("plus")}</button></div>${methodList("social", record.additionalSocialAccounts)}`)}
         ${contactField("primaryContactMethod", "主要联系方式", contactSelect("primaryContactMethod", "请选择", ["WhatsApp", "邮件", "阿里巴巴", "iMessage"]))}
-        ${contactField("phone", "联系电话", `<div class="ce-paired">${contactSelect("phoneCountryCode", "电话区号", ["+1", "+44", "+33", "+49", "+61", "+86"])}${contactInput("phone", "WhatsApp")}<button class="ce-plus" type="button" data-editor-action="add-method" data-method-type="phone" aria-label="添加联系电话">${glyph("plus")}</button></div>${methodList("phone", record.additionalPhones)}`, true)}
+        ${contactField("phone", "联系电话", `<div class="ce-paired">${contactSelect("phoneCountryCode", "电话区号", ["+1", "+44", "+33", "+49", "+61", "+86"])}${contactInput("phone", "WhatsApp", "tel")}<button class="ce-plus" type="button" data-editor-action="add-method" data-method-type="phone" aria-label="添加联系电话">${glyph("plus")}</button></div>${methodList("phone", record.additionalPhones)}`)}
         <details class="ce-extra ce-contact-extra"><summary><span>展开全部 (选填)</span>${glyph("down")}</summary><div class="ce-extra-content">
           ${contactField("alibabaId", "Alibaba会员ID", contactInput("alibabaId", "阿里客户从线索中创建"))}
           ${contactField("address", "地址", `<textarea id="ce-${id("address")}" name="${name("address")}" rows="3" placeholder="请输入">${E(record.address || "")}</textarea>`)}
-          ${contactField("alternateEmail", "备用邮箱", contactInput("alternateEmail"))}
+          ${contactField("alternateEmail", "备用邮箱", contactInput("alternateEmail", "选填", "email"))}
           ${contactField("birthday", "生日", contactInput("birthday", "请选择", "date"))}
           ${contactField("contactPaymentMethod", "付款方式", contactSelect("contactPaymentMethod", "请选择", [...(Array.isArray(state.paymentMethods) ? state.paymentMethods : []).filter((value) => typeof value === "string"), "PayPal", "银行转账"]))}
           ${contactField("contactNote", "联系人备注", `<textarea id="ce-${id("contactNote")}" name="${name("contactNote")}" rows="3" placeholder="请输入">${E(record.contactNote || "")}</textarea>`)}
@@ -245,6 +246,44 @@
     form.dataset.editorBound = "true";
     for (const control of form.querySelectorAll("[data-editor-date]"))
       initialDateValues.set(control, control.value);
+    const validateEmail = email => {
+      if (!email) return true;
+      const text = M.emailInput(email.value);
+      if (email.value !== text) email.value = text;
+      const error = text && !M.validEmail(text) ? "请填写有效的邮箱地址" : "";
+      email.setCustomValidity(error);
+      return !error;
+    };
+    const validateContacts = () => {
+      let valid = validateEmail(form.querySelector('[name="paymentEmail"]'));
+      for (const card of form.querySelectorAll("[data-contact-card]")) {
+        const control = key => card.querySelector(`[name="${key}"], [name="${key}Extra"]`);
+        const value = key => String(control(key)?.value || "").trim();
+        const contact = control("contact");
+        if (!contact) continue;
+        for (const key of ["email", "alternateEmail"])
+          if (!validateEmail(control(key))) valid = false;
+        const methods = kind => [...card.querySelectorAll(`[data-method-list="${kind}"] [data-method-row]`)]
+          .map(row => String(row.querySelector("[data-method-value]")?.value || "").trim());
+        const reachable = value("email") || value("alternateEmail") || /\d/.test(value("phone")) ||
+          value("socialAccount") || value("alibabaId") || methods("phone").some(phone => /\d/.test(phone)) ||
+          methods("social").some(Boolean);
+        const error = !contact.required ? "" : !value("contact") ? "请填写联系人称呼" :
+          !reachable ? "请至少填写一种联系方式：邮箱、电话、社交账号或 Alibaba 会员 ID" : "";
+        contact.setCustomValidity(error);
+        if (error) valid = false;
+      }
+      return valid;
+    };
+    validateContacts();
+    form.addEventListener("input", validateContacts);
+    form.addEventListener("change", validateContacts);
+    form.addEventListener("submit", event => {
+      if (validateContacts()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      form.reportValidity();
+    });
     const setOptionalSection = (section, open) => {
       if (!section) return;
       section.open = open;
@@ -272,6 +311,7 @@
           index + 1,
         );
       });
+      validateContacts();
     };
     const updateMethodRows = (card, kind) => {
       const social = kind === "social";
@@ -281,6 +321,7 @@
         row.querySelector("[data-method-value]").setAttribute("aria-label", `附加${social ? "社交平台" : "联系电话"} ${number}`);
         row.querySelector("[data-editor-action='remove-method']").setAttribute("aria-label", `移除附加${social ? "社交平台" : "联系电话"} ${number}`);
       });
+      validateContacts();
     };
     form.addEventListener("click", (event) => {
       const summary = event.target.closest(".ce-extra > summary");

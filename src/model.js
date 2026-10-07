@@ -1,6 +1,36 @@
 (function (root) {
   'use strict';
   const norm = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const customerNameKey = value => norm(String(value ?? '').normalize('NFKC')).replace(/\s+/g, ' ');
+  const validEmail = value => /^[^\s@<>,;:]+@[^\s@<>,;:?#]+\.[^\s@<>,;:?#]+$/.test(value);
+  function emailInput(value) {
+    const text=String(value??'').trim();
+    if(!/^mailto:/i.test(text))return text;
+    try {
+      const address=decodeURIComponent(text.slice(7).split('?')[0]).trim();
+      return validEmail(address)?address:text;
+    } catch { return text; }
+  }
+  const contactPhoneKey = (phone, countryCode = '') => {
+    const raw=String(phone??'').trim(), digits=raw.replace(/\D/g,''), prefix=String(countryCode??'').replace(/\D/g,'');
+    if(!raw)return '';
+    return prefix&&!raw.startsWith('+')&&!digits.startsWith(prefix)?prefix+digits:digits;
+  };
+  function customerContactValues(profile = {}) {
+    const array=value=>Array.isArray(value)?value:[];
+    const contacts=[...array(profile.extraContacts),...array(profile.contacts).filter(item=>item&&typeof item==='object')].filter(Boolean);
+    const backup=contact=>contact.alternateEmail??contact.alternativeEmail??contact.backupEmail;
+    const emails=array(profile.emails), phones=array(profile.phones);
+    const phoneValues=[
+      [phones[0]??profile.phone,profile.phoneCountryCode],...phones.slice(1).map(phone=>[phone,'']),
+      ...contacts.map(contact=>[contact.phone,contact.phoneCountryCode]),
+      ...[profile,...contacts].flatMap(contact=>array(contact.additionalPhones).map(item=>[item?.phone,item?.phoneCountryCode])),
+    ];
+    return {
+      email:[emails[0]??profile.email,...emails.slice(1),backup(profile),...contacts.flatMap(contact=>[contact.email,backup(contact)])].filter(value=>value!==undefined&&value!==null).map(emailInput),
+      phone:phoneValues.map(([phone,code])=>contactPhoneKey(phone,code)).filter(Boolean),
+    };
+  }
   const tags = value => Array.isArray(value) ? value.filter(Boolean).map(String) : String(value || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
   const amount = value => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -62,18 +92,16 @@
     const orders = state.orders || [];
     const names = [...new Set([...Object.keys(state.customers || {}), ...orders.map(o => o.client).filter(Boolean)])];
     return names.map(name => {
-      const related = orders.filter(o => o.client === name && !o.isDraft && amount(o.amount)>0).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
+      const related = orders.filter(o => o.client === name && !o.isDraft && !o.trashedAt && !o.deletedAt && o.archived!==true).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
       const profile = state.customers?.[name] || {};
       const history = Array.isArray(profile.history) ? profile.history : [];
       const recent = related[0] || orders.find(o=>o.client===name) || {};
       const values = {...recent,...profile};
-      let total=0,paid=0,missingRates=0;
-      for (const order of related) {
-        if ((order.currency || 'USD').toUpperCase() !== 'USD') { missingRates++; continue; }
-        const full = amount(order.amount);
-        total += full;
-        paid += ['shipment','done'].includes(order.stage) ? full : Math.min(full,amount(order.paidAmount));
-      }
+      const business=root.LaiBusinessModel||(typeof require==='function'?require('./business-model.js'):null);
+      const orderAmounts=business.orderMetrics(related).byCurrency;
+      const usd=orderAmounts.find(item=>item.currency==='USD');
+      const total=usd?.total||0,paid=usd?.paid||0;
+      const missingRates=orderAmounts.filter(item=>item.currency!=='USD').reduce((sum,item)=>sum+item.count,0);
       const contact=profile.contacts?.[0]??values.contact??'';
       const email=profile.emails?.[0]??values.email??'';
       const phone=profile.phones?.[0]??values.phone??'';
@@ -99,7 +127,7 @@
       const row={...profile,name,client:name,country:values.country||'',contact,contactCount,
         email,phone,address,
         owner:values.owner||'',tags:tags(profile.tags),orders:related,orderCount:related.length,
-        total:missingRates?null:total,paid:missingRates?null:paid,due:missingRates?null:Math.max(0,total-paid),missingRates,
+        total:missingRates?null:total,paid:missingRates?null:paid,due:missingRates?null:(usd?.due||0),missingRates,orderAmounts,
         updated:profile.updated||'',sortUpdated:profile.updated||recent.updated||recent.createdAt||'',latestOrderDate:recent.createdAt||recent.updated||'',
         history,nextFollow:profile.nextFollow||'',
         alternativeEmail:profile.alternateEmail??profile.alternativeEmail??profile.backupEmail??'',
@@ -119,7 +147,7 @@
         &&(!filters.tag||c.tags.some(t=>norm(t).includes(norm(filters.tag))))
         &&(!filters.stage||c.stage===filters.stage)
         &&(!filters.group||filters.group==='all'||filters.group==='won'&&c.orderCount>0||filters.group==='new'&&c.orderCount===0
-        ||filters.group==='followed'&&c.followed||filters.group==='due'&&c.due>0||filters.group==='followup'&&c.nextFollow&&c.nextFollow<=today
+        ||filters.group==='followed'&&c.followed||filters.group==='due'&&(c.due>0||c.orderAmounts?.some(item=>item.due>0))||filters.group==='followup'&&c.nextFollow&&c.nextFollow<=today
         ||filters.group.startsWith('country:')&&c.orderCount>0&&c.country===filters.group.slice(8));
     }).sort((a,b)=>filters.sort==='name'?a.name.localeCompare(b.name):filters.sort==='amount'?(b.total??-1)-(a.total??-1):dateValue(b.sortUpdated||b.updated)-dateValue(a.sortUpdated||a.updated)||a.name.localeCompare(b.name));
   }
@@ -133,9 +161,9 @@
     const name=String(fields.name||'').trim();
     if (!name) throw new Error('请输入公司 / 客户名称');
     if(name==='__proto__')throw new Error('该名称为系统保留名称，请填写完整公司名称');
-    const orderNames=[...(state.orders||[]),...(state.trashOrders||[])].map(o=>o.client).filter(n=>n&&norm(n)!==norm(oldName));
+    const orderNames=[...(state.orders||[]),...(state.trashOrders||[])].map(o=>o.client).filter(n=>n&&customerNameKey(n)!==customerNameKey(oldName));
     const known=[...Object.keys(state.customers||{}),...orderNames];
-    if (known.some(n=>n!==oldName&&norm(n)===norm(name))) throw new Error('客户名称已存在，请使用其他名称');
+    if (known.some(n=>n!==oldName&&customerNameKey(n)===customerNameKey(name))) throw new Error('客户名称已存在，请使用其他名称');
     const previous=state.customers?.[oldName]||{};
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
     const record=buildCustomers(state).find(c=>c.name===oldName)||{};
@@ -153,6 +181,8 @@
     for(const key of ['country','owner','email','phone','contact','address','website','source','customerStage','nextFollow','note','permanentNote','contactNote','productType','paymentMethod','paymentEmail','currency','contactPaymentMethod','alibabaId','primaryContactMethod','level','customerStars','customerCode','timezone','defaultPaymentPlan','customerAccountPeriod','companyProducts','cardStock','customBox','socialPlatform','socialAccount','phoneCountryCode','alternateEmail','birthday','shortName','landline','companyAddress','companyRemark','poolGroup','contactTitle','contactGender']){
       if(Object.hasOwn(fields,key)) next[key]=String(fields[key]??'').trim();
     }
+    for(const key of ['email','alternateEmail','paymentEmail'])
+      if(Object.hasOwn(fields,key))next[key]=emailInput(fields[key]);
     if(oldName&&Object.hasOwn(fields,'owner')&&next.owner!==record.owner){
       next.previousOwner=record.owner||'';
       next.ownerUpdatedAt=time;
@@ -178,12 +208,14 @@
         for(const key of ['contact','email','phone','address','alibabaId','contactPaymentMethod','contactNote','contactTitle','contactGender','socialPlatform','socialAccount','primaryContactMethod','phoneCountryCode','alternateEmail','birthday'])if(Object.hasOwn(c,key))item[key]=String(c[key]??'').trim();
         for(const [key,keys,required] of methodFields)
           if(Object.hasOwn(c,key))item[key]=contactMethods(item[key],c[key],keys,required);
+        for(const key of ['email','alternateEmail'])if(Object.hasOwn(c,key))item[key]=emailInput(c[key]);
         if(Object.hasOwn(c,'contactPaymentMethod'))delete item.paymentMethod;
         return item;
       });
       for(const [single,multi] of [['contact','contacts'],['email','emails'],['phone','phones'],['address','addresses']]){
         const savedPrimary=Array.isArray(previous[multi])?previous[multi][0]:undefined;
-        next[single]=String(fields[single]??savedPrimary??previous[single]??record[single]??'').trim();
+        const value=fields[single]??savedPrimary??previous[single]??record[single]??'';
+        next[single]=single==='email'&&Object.hasOwn(fields,single)?emailInput(value):String(value).trim();
         next[multi]=[next[single],...next.extraContacts.map(c=>c[single]||'')];
       }
     }
@@ -193,11 +225,12 @@
     const customers={...state.customers};
     if(oldName&&oldName!==name)delete customers[oldName];
     customers[name]=next;
-    const relinkOrders=orders=>orders.map(o=>oldName&&o.client===oldName?{...o,client:name}:o);
+    const relinkOrders=orders=>orders.map(o=>oldName&&o&&typeof o==='object'&&o.client===oldName?{...o,client:name}:o);
     const linked={orders:relinkOrders(state.orders||[])};
     if(oldName&&oldName!==name){
       for(const bucket of ['trashOrders','deletedOrders'])
         if(Array.isArray(state[bucket]))linked[bucket]=relinkOrders(state[bucket]);
+      if(Array.isArray(state.laiOpportunities))linked.laiOpportunities=relinkOrders(state.laiOpportunities);
     }
     return {...state,customers,...linked};
   }
@@ -360,7 +393,7 @@
     if(!changed)throw new Error('所选客户的字段无需更新');
     return {...state,customers};
   }
-  const api={contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,tags};
+  const api={emailInput,validEmail,contactPhoneKey,customerContactValues,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,customerNameKey,norm,tags};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.PreviewModel=api;
 })(typeof window!=='undefined'?window:globalThis);

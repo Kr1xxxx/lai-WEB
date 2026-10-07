@@ -223,7 +223,7 @@
                 const content = item.text || item.content || item.note || "—";
                 if (activity) {
                   const panelId = `activity-detail-${history.indexOf(item)}`;
-                  const kind = { followup: "跟进记录", email: "往来邮件", chat: "聊天记录" }[item.type] || item.type || "客户动态";
+                  const kind = { followup: "跟进记录", email: "往来邮件", chat: "聊天记录", order: "订单记录" }[item.type] || item.type || "客户动态";
                   const actor = item.owner || item.actor || item.operator;
                   const contact = item.contact || item.contactName;
                   const channel = item.channel;
@@ -330,6 +330,7 @@
       return `<div class="lcd-followup-label"><button type="button" data-action="write-followup"><strong>写跟进</strong></button><div>${feature("AI写跟进", "AI写跟进", "lcd-ai-text")}${feature("选择跟进模板", `${icon("note")} 选择模板`)}</div></div><form id="followup-form" class="lcd-followup-form ${followupDraft?.text ? "has-draft" : ""}"><textarea id="followup-text" name="text" required aria-label="跟进内容" placeholder="点击这里记录跟进细节，同步最新进展。">${E(followupDraft?.text || "")}</textarea><div class="error" id="followup-error" role="alert"></div><div class="lcd-followup-footer"><label>下次跟进 <input type="date" name="nextFollow" value="${E(String(followupDraft?.nextFollow ?? c.nextFollow ?? "").slice(0, 10))}"></label><div><button type="button" data-action="cancel-followup">取消草稿</button><button type="submit" class="lcd-primary">保存跟进</button></div></div></form><div class="lcd-journey"><div class="lcd-button-group"><button class="selected" data-tab="activity">历史动态</button>${feature("AI聊天旅程")}${feature("AI谈单卡点", "AI 谈单卡点 (—)")}</div>${activityTools}</div><div class="lcd-activity-filters" aria-label="动态类别"><button type="button" class="lcd-activity-arrow" data-activity-scroll="left" aria-label="向左查看动态类别" hidden><svg class="lcd-activity-arrow-glyph" viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M724 218.3V141c0-6.7-7.7-10.4-12.9-6.3L260.3 486.8a31.86 31.86 0 000 50.3l450.8 352.1c5.3 4.1 12.9.4 12.9-6.3v-77.3c0-4.9-2.3-9.6-6.1-12.6l-360-281 360-281.1c3.8-3 6.1-7.7 6.1-12.6z"/></svg></button><div class="lcd-activity-clip"><div class="lcd-activity-list">${filterButton("all", "全部")}${filterButton("followup", "跟进记录")}${filterButton("email", "往来邮件")}${filterButton("chat", "聊天记录")}${filterButton("other", "其它")}</div></div><button type="button" class="lcd-activity-arrow" data-activity-scroll="right" aria-label="向右查看动态类别" hidden><svg class="lcd-activity-arrow-glyph" viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M765.7 486.8L314.9 134.7A7.97 7.97 0 00302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 000-50.4z"/></svg></button></div><div id="activity-results">${mailPanel}${queryHint}${shown.length ? (activityFilter === "followup" || query ? timeline(ordered, true) : groupMarkup) : query ? empty("暂无数据") : `${heading("最近 (0)")}${empty(hasAdvanced ? "未找到动态" : "暂无动态记录")}`}</div>`;
     }
     function trade() {
+      const opportunities = list(c.allOpportunities);
       const metrics = [
         ["赢单商机金额(USD)", numeric(c.opportunityTotal, true)],
         ["赢单商机均价(USD)", numeric(c.opportunityAverage, true)],
@@ -339,18 +340,35 @@
         ["赢单商机数", numeric(c.opportunityCount)],
         ["赢单率", Number.isFinite(c.opportunityWinRate) ? `${c.opportunityWinRate}%` : "—"],
         ["平均销售周期", Number.isFinite(c.opportunityCycle) ? `${c.opportunityCycle} 天` : "—"],
-        ["已生效回款单数", "—"],
-        ["已生效回款金额", "—"],
       ];
-      return `${heading("商机", `<div class="lcd-heading-inline">${feature("全部商机", `全部 (${Number.isFinite(c.opportunityAllCount) ? c.opportunityAllCount : "—"}) ›`)}${mini("新建商机", "plus")}</div>`)}<div class="lcd-metrics">${metrics.map(([name, content]) => `<div><span>${E(name)}</span><strong>${content}</strong></div>`).join("")}</div><div class="lcd-table-scroll"><table class="lcd-table"><thead><tr>${["商机编号", "商机名称", "当前阶段", "销售金额", "结束日期", "已生效回款金额", "未回款金额", "操作"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody><tr><td colspan="8" class="lcd-no-data">暂无商机数据</td></tr></tbody></table></div><div class="lcd-pagination">共 0 条　 ‹　 1　 ›</div>${heading("产品", feature("产品筛选", "成交的产品　⌄"))}<table class="lcd-table"><thead><tr>${["产品", "销售订单", "报价单", "商机", "操作"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody><tr><td colspan="5" class="lcd-no-data">暂无关联产品数据</td></tr></tbody></table><div class="lcd-rule"></div>${heading(`销售订单 (${list(c.orders).length})`, `<button type="button" class="lcd-feature" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`)}<div class="lcd-table-scroll"><table class="lcd-table"><thead><tr><th>订单编号</th><th>订单日期</th><th>订单金额</th><th>当前阶段</th><th>产品类型</th></tr></thead><tbody>${
-        list(c.orders)
-          .map(
-            (order) =>
-              `<tr><td><button class="lcd-blue" data-lai-order="${E(order.id)}">${E(order.num || order.id)}</button></td><td>${E(date(order.createdAt))}</td><td>${E(order.currency || "USD")} ${E(money(Number(order.amount)))}</td><td>${E({ quote: "报价", deposit: "定金", production: "生产中", balance: "尾款", shipment: "已发货", done: "已完成" }[order.stage] || order.stage || "—")}</td><td>${value(order.productType)}</td></tr>`,
-          )
-          .join("") ||
-        '<tr><td colspan="5" class="lcd-no-data">暂无销售订单</td></tr>'
-      }</tbody></table></div>`;
+      const sumTable = (rows, headers, cells) => `<div class="lcd-table-scroll"><table class="lcd-table"><thead><tr>${headers.map(h=>`<th>${E(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(row=>`<tr>${cells(row).map(cell=>`<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      const currencyAmount = (raw, currency) => raw === null || raw === undefined ? "未记录" : `${E(currency || "USD")} ${numeric(raw, true)}`;
+      const orderLink = order => `<button type="button" class="lcd-blue" data-lai-order="${E(order.id)}">${E(order.num || order.id)}</button>`;
+      const oppLink = item => feature(`商机记录:${item.id}`, E(item.name || item.id), "lcd-blue");
+      const opportunityRows = opportunities.map(item => {
+        const order = item.linkedOrder;
+        const linked = order ? `${orderLink(order)}<br>${E(order.stageLabel)}${order.isDraft ? "（草稿，不计入金额）" : ""}${order.stage === "done" && item.stage !== "done" ? '<br><span class="muted">订单已完成，请核对商机阶段</span>' : ""}` : "未关联订单";
+        return `<tr><td>${oppLink(item)}${item.archived ? "（已归档）" : ""}</td><td>${E(item.stageLabel)}</td><td>${currencyAmount(item.amount,item.currency)}</td><td>${E(date(item.endDate))}</td><td>${linked}</td><td>${order ? order.isDraft ? "草稿不计" : currencyAmount(order.paidAmount,order.currency) : "—"}</td><td>${order ? order.isDraft ? "草稿不计" : currencyAmount(order.dueAmount,order.currency) : "—"}</td></tr>`;
+      }).join("");
+      const productEntries = [
+        ...opportunities.flatMap(item=>list(item.products).map(product=>({product,currency:item.currency,source:`商机 ${oppLink(item)}`}))),
+        ...list(c.orders).flatMap(order=>list(order.products).map(product=>({product,currency:order.currency,source:`订单 ${orderLink(order)}`}))),
+      ];
+      const productRows=productEntries.map(({product,currency,source})=>`<tr><td>${E(product.name)}</td><td>${numeric(product.quantity)}</td><td>${currencyAmount(product.unitPrice,currency)}</td><td>${product.quantity != null && product.unitPrice != null && Number.isFinite(Number(product.quantity)) && Number.isFinite(Number(product.unitPrice)) ? currencyAmount(Number(product.quantity)*Number(product.unitPrice),currency) : "未记录"}</td><td>${source}</td></tr>`).join("");
+      const orderAmounts=list(c.orderAmounts);
+      const unknownPaid=orderAmounts.reduce((sum,row)=>sum+(row.unknownPaidCount||0),0);
+      const unknownAmount=orderAmounts.reduce((sum,row)=>sum+(row.unknownAmountCount||0),0);
+      const overpaid=orderAmounts.reduce((sum,row)=>sum+(row.overpaidCount||0),0);
+      return `${heading("商机", `<div class="lcd-heading-inline">${feature("全部商机", `全部 (${Number.isFinite(c.opportunityAllCount) ? c.opportunityAllCount : "—"}) ›`)}${mini("新建商机", "plus")}</div>`)}<div class="lcd-metrics">${metrics.map(([name, content]) => `<div><span>${E(name)}</span><strong>${content}</strong></div>`).join("")}</div><div class="lcd-table-scroll"><table class="lcd-table"><thead><tr>${["商机名称", "销售阶段", "销售金额", "结束日期", "关联订单 / 履约状态", "订单实际已收", "订单待收"].map(h=>`<th>${E(h)}</th>`).join("")}</tr></thead><tbody>${opportunityRows || '<tr><td colspan="7" class="lcd-no-data">暂无商机数据</td></tr>'}</tbody></table></div><div class="lcd-pagination">共 ${opportunities.length} 条</div>
+      ${list(c.opportunityAmounts).length ? heading("赢单金额 · 按币种") + sumTable(c.opportunityAmounts,["币种","赢单商机数","赢单金额","平均金额"],row=>[E(row.currency),numeric(row.count),numeric(row.total,true),numeric(row.average,true)]) : ""}
+      ${heading("产品明细")}<div class="lcd-table-scroll"><table class="lcd-table"><thead><tr><th>产品</th><th>数量</th><th>单价</th><th>明细小计</th><th>来源</th></tr></thead><tbody>${productRows || '<tr><td colspan="5" class="lcd-no-data">暂无关联产品数据</td></tr>'}</tbody></table></div>
+      <div class="lcd-rule"></div>${heading(`销售订单 (${list(c.orders).length})`, `<button type="button" class="lcd-feature" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`)}
+      ${orderAmounts.length ? sumTable(orderAmounts,["币种","订单数","订单金额","实际已收款","待收款"],row=>[E(row.currency),numeric(row.count),numeric(row.total,true),numeric(row.paid,true),numeric(row.due,true)]) : ""}
+      ${unknownAmount ? `<p class="muted">${unknownAmount} 笔订单金额未记录或无效，订单金额与待收款汇总不完整；已记录实收仍计入汇总，请补录金额后核对。</p>` : ""}
+      ${unknownPaid ? `<p class="muted">${unknownPaid} 笔订单未记录实收，暂按 0 计入汇总，请核对到账情况。</p>` : ""}
+      ${overpaid ? `<p class="muted">${overpaid} 笔订单实收超过订单金额，实收按原数保留；超收部分不抵减其他订单待收，请核对订单金额和到账记录。</p>` : ""}
+      <p class="muted">各币种分别统计；订单金额与赢单商机金额不相加。明细小计供核对，不替代订单确认金额。</p>
+      <div class="lcd-table-scroll"><table class="lcd-table"><thead><tr><th>订单编号</th><th>订单日期</th><th>统计月份</th><th>订单金额</th><th>履约阶段</th><th>产品</th></tr></thead><tbody>${list(c.orders).map(order=>`<tr><td>${orderLink(order)}</td><td>${E(date(order.createdAt))}</td><td>${E(order.orderMonth || String(order.createdAt || "").slice(0,7))}</td><td>${currencyAmount(order.amount,order.currency)}</td><td>${E({quote:"报价",deposit:"定金",production:"生产中",balance:"尾款",shipment:"已发货",done:"已完成"}[order.stage] || order.stage || "—")}</td><td>${value(order.productType)}</td></tr>`).join("") || '<tr><td colspan="6" class="lcd-no-data">暂无销售订单</td></tr>'}</tbody></table></div>`;
     }
     function documents() {
       const normalizeName = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();

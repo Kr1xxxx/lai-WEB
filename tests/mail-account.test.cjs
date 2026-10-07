@@ -41,7 +41,7 @@ test('binding verifies first, stores the account, and never returns the password
   try {
     assert.deepEqual(h.accounts.status(), { ok: true, available: true, account: null });
     const bound = await h.accounts.bind({ email: ' Sales@Example-Trade.com ', password: SECRET });
-    assert.deepEqual(bound.account, { provider: 'zoho', email: 'sales@example-trade.com', site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993, boundAt: '2026-10-06T10:00:00.000Z', verifiedAt: '2026-10-06T10:00:00.000Z', autoCheck: true });
+    assert.deepEqual(bound.account, { identity: imap.accountIdentity(h.store.readMailAccount()), provider: 'zoho', email: 'sales@example-trade.com', site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993, boundAt: '2026-10-06T10:00:00.000Z', verifiedAt: '2026-10-06T10:00:00.000Z', autoCheck: true });
     assert.deepEqual(h.calls, [{ email: 'sales@example-trade.com', password: SECRET, site: 'cn', accountType: 'organization' }]);
     assert.deepEqual(h.accounts.status().account, bound.account);
     assert.doesNotMatch(JSON.stringify([bound, h.accounts.status()]), new RegExp(SECRET));

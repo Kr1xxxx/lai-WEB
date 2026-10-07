@@ -3,6 +3,7 @@ import Darwin
 import Foundation
 import LaiCore
 import WebKit
+import UniformTypeIdentifiers
 
 private let laiActivationNotification = Notification.Name("com.local.laicai.lai.activate-existing")
 private let laiActivationUser = String(getuid())
@@ -50,7 +51,7 @@ final class LaiDragRegionView: NSView {
     }
 }
 
-final class LaiAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, @unchecked Sendable {
+final class LaiAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply, @unchecked Sendable {
     private var window: NSWindow?
     private var webView: WKWebView?
     private var dragRegionView: LaiDragRegionView?
@@ -136,6 +137,25 @@ final class LaiAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         return false
     }
 
+    // WKWebView's DOM focus event is not guaranteed when the macOS app becomes
+    // active again. Forward native activation to the existing guarded page handler.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        requestDocumentRefresh(webView)
+        if customerDetailWindow?.isVisible == true { requestDocumentRefresh(customerDetailWebView) }
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard let target = notification.object as? NSWindow else { return }
+        if target === window { requestDocumentRefresh(webView) }
+        else if target === customerDetailWindow { requestDocumentRefresh(customerDetailWebView) }
+    }
+
+    private func requestDocumentRefresh(_ document: WKWebView?) {
+        guard appHasLoaded, let document, let url = document.url,
+              originPolicy?.contains(url) == true else { return }
+        document.evaluateJavaScript("window.dispatchEvent(new Event('focus'));") { _, _ in }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         flushAttemptID = nil
         processLock.lock()
@@ -152,6 +172,7 @@ final class LaiAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         config.websiteDataStore = .nonPersistent()
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
         config.userContentController.add(self, name: "windowDragRegions")
+        config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "saveWorkbook")
         config.userContentController.add(self, name: "openCustomerDetail")
         config.userContentController.add(self, name: "closeCustomerDetail")
         let dragBridgeScript = WKUserScript(
@@ -275,6 +296,35 @@ final class LaiAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, W
         let dragRects = nativeRects(from: [region], in: target)
         let exclusions = nativeRects(from: body["exclusions"] as? [[String: Any]] ?? [], in: target)
         target.update(dragRects: dragRects, exclusionRects: exclusions)
+    }
+
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage,
+                               replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void) {
+        guard message.name == "saveWorkbook" else { replyHandler(nil, "无法从当前页面导出 Excel，请重新打开来财"); return }
+        guard let source = message.webView, source === webView else { replyHandler(nil, "无法从当前页面导出 Excel，请重新打开来财"); return }
+        guard let url = source.url, originPolicy?.contains(url) == true else { replyHandler(nil, "无法从当前页面导出 Excel，请重新打开来财"); return }
+        guard message.frameInfo.isMainFrame else { replyHandler(nil, "无法从当前页面导出 Excel，请重新打开来财"); return }
+        guard let body = message.body as? [String: Any] else { replyHandler(nil, "Excel 内容无法保存，请重新导出"); return }
+        guard let request = LaiWorkbookExport(body: body) else { replyHandler(nil, "Excel 内容无法保存，请重新导出"); return }
+        guard let window else { replyHandler(nil, "Excel 保存窗口未能打开，请重新打开来财"); return }
+        let panel = NSSavePanel()
+        guard let workbookType = UTType(filenameExtension: "xlsx") else { replyHandler(nil, "Excel 保存窗口未能打开，请重新打开来财"); return }
+        panel.allowedContentTypes = [workbookType]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = request.filename
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let destination = panel.url else {
+                replyHandler(["cancelled": true], nil)
+                return
+            }
+            do {
+                try request.write(to: destination)
+                replyHandler(["saved": true], nil)
+            } catch {
+                replyHandler(nil, "Excel 文件无法写入，请选择其他保存位置后重试")
+            }
+        }
     }
 
     private func showCustomerDetail(_ name: String, from sourceURL: URL) {

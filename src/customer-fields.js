@@ -1,5 +1,6 @@
 (function (root) {
   "use strict";
+  const M = root.PreviewModel || (typeof require === "function" ? require("./model.js") : null);
 
   // Labels and categories transcribed from CUS-LIST-003. Missing values stay
   // missing: an order amount must never stand in for an opportunity amount.
@@ -255,11 +256,7 @@
         : null;
   const rowValue = (row, field) =>
     field === "email"
-      ? [
-          row.email,
-          ...(Array.isArray(row.emails) ? row.emails : []),
-          ...(Array.isArray(row.extraContacts) ? row.extraContacts.map((contact) => contact?.email) : []),
-        ]
+      ? M.customerContactValues(row).email
       : field === "level" ? row.displayLevel ?? row.level : row[field];
 
   function globalCustomerSearch(rows = [], { field = "all", query = "" } = {}) {
@@ -270,13 +267,13 @@
       note: [row.companyRemark],
       shortName: [row.shortName, row.abbreviation],
       customerCode: [row.customerCode],
-      email: [row.email, ...(row.emails || []), ...(row.extraContacts || []).map((contact) => contact.email)],
-      contact: [row.contact, ...(row.contacts || []), ...(row.extraContacts || []).map((contact) => contact.contact)],
+      email: M.customerContactValues(row).email,
+      contact: [row.contact, ...(row.contacts || []), ...(row.extraContacts || []).map((contact) => contact?.contact)],
       website: [row.website],
-      phone: [row.phone, ...(row.phones || []), ...(row.additionalPhones || []).map((item) => item.phone),
-        ...(row.extraContacts || []).flatMap((contact) => [contact.phone, ...(contact.additionalPhones || []).map((item) => item.phone)])],
-      social: [row.socialPlatforms, row.socialAccount, ...(row.additionalSocialAccounts || []).map((item) => item.socialAccount),
-        ...(row.extraContacts || []).flatMap((contact) => [contact.socialAccount, ...(contact.additionalSocialAccounts || []).map((item) => item.socialAccount)])],
+      phone: [row.phone, ...(row.phones || []), ...(row.additionalPhones || []).map((item) => item?.phone),
+        ...(row.extraContacts || []).flatMap((contact) => [contact?.phone, ...(contact?.additionalPhones || []).map((item) => item?.phone)])],
+      social: [row.socialPlatforms, row.socialAccount, ...(row.additionalSocialAccounts || []).map((item) => item?.socialAccount),
+        ...(row.extraContacts || []).flatMap((contact) => [contact?.socialAccount, ...(contact?.additionalSocialAccounts || []).map((item) => item?.socialAccount)])],
     });
     return rows.filter((row) => {
       const searchable = fieldValues(row);

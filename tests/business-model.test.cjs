@@ -2,24 +2,24 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const B=require('../src/business-model.js');
 const base=()=>({customSetting:{safe:1},customers:{Alpha:{extra:'keep'}},orders:[{id:'a',num:'SO1',client:'Alpha',currency:'USD',amount:100,paidAmount:20,stage:'production',createdAt:'2026-09-01',attachments:[{id:'doc'}],logs:[{text:'first'}],unknown:3}],trashOrders:[],deletedOrders:[]});
-test('currency metrics stay separate, exclude drafts and preserve settled paid convention',()=>{
+test('currency metrics stay separate, exclude drafts and use recorded receipts for all stages',()=>{
  const result=B.orderMetrics([{currency:'USD',amount:100,paidAmount:20,stage:'production'},{currency:'EUR',amount:60,paidAmount:0,stage:'shipment'},{currency:'USD',amount:10,stage:'done'},{currency:'USD',amount:999,isDraft:true},{currency:'USD',amount:null,stage:'quote'}]);
  assert.equal(result.count,4);assert.equal(result.activeCount,3);
- assert.deepEqual(result.byCurrency.find(x=>x.currency==='USD'),{currency:'USD',total:110,paid:30,due:80,count:3});
- assert.deepEqual(result.byCurrency.find(x=>x.currency==='EUR'),{currency:'EUR',total:60,paid:60,due:0,count:1});
- assert.deepEqual(B.orderMetrics([]),{byCurrency:[],count:0,activeCount:0});
+ assert.deepEqual(result.byCurrency.find(x=>x.currency==='USD'),{currency:'USD',total:110,paid:20,due:90,count:3,unknownPaidCount:2,unknownAmountCount:1,overpaidCount:0});
+ assert.deepEqual(result.byCurrency.find(x=>x.currency==='EUR'),{currency:'EUR',total:60,paid:0,due:60,count:1,unknownPaidCount:0,unknownAmountCount:0,overpaidCount:0});
+ assert.deepEqual(B.orderMetrics([]),{byCurrency:[],count:0,activeCount:0,unknownPaidCount:0,unknownAmountCount:0,overpaidCount:0});
 });
 test('order edit preserves metadata and never mutates original; new clients create linked profiles',()=>{
  const state=base();const next=B.upsertOrder(state,'a',{num:'SO1',client:'Beta',amount:200,paidAmount:50,stage:'balance'});
  assert.equal(next.orders[0].unknown,3);assert.deepEqual(next.orders[0].attachments,state.orders[0].attachments);assert.deepEqual(next.orders[0].logs,state.orders[0].logs);
  assert.equal(state.orders[0].client,'Alpha');assert.equal(next.customers.Beta.client,'Beta');assert.deepEqual(next.customers.Alpha,state.customers.Alpha);assert.equal(state.customers.Beta,undefined);assert.deepEqual(next.customSetting,state.customSetting);
- const added=B.upsertOrder(state,'b',{num:'SO2',client:'Alpha',amount:0});assert.equal(added.orders.length,2);assert.equal(added.orders.find(x=>x.id==='b').paidAmount,0);assert.equal(added.orders.find(x=>x.id==='b').currency,'USD');
+ const added=B.upsertOrder(state,'b',{num:'SO2',client:'Alpha',amount:0});assert.equal(added.orders.length,2);assert.equal(added.orders.find(x=>x.id==='b').paidAmount,null);assert.equal(added.orders.find(x=>x.id==='b').currency,'USD');
 });
 test('invalid numbers and duplicate numbers across active/trash/deleted are rejected',()=>{
  const state=base();state.trashOrders.push({id:'t',num:'SO2'});state.deletedOrders.push({id:'d',num:'SO3'});
  const create=fields=>B.upsertOrder(state,'b',{num:'SO4',client:'Alpha',amount:100,...fields});
  for(const amount of ['',null,-1,NaN,'bad'])assert.throws(()=>create({amount}));
- for(const paidAmount of ['',null,-1,101,Infinity])assert.throws(()=>create({paidAmount}));
+ for(const paidAmount of [true,false,-1,101,Infinity])assert.throws(()=>create({paidAmount}));
  for(const num of ['SO1',' so2 ','so3',''])assert.throws(()=>create({num}));
  assert.throws(()=>create({client:''}));assert.throws(()=>create({stage:'invalid'}));assert.throws(()=>create({createdAt:'2026-02-30'}));assert.throws(()=>create({orderMonth:'2026-13'}));
  assert.throws(()=>B.upsertOrder(state,'t',{num:'SO4',client:'Alpha',amount:100}));assert.equal(state.orders[0].amount,100);
@@ -70,9 +70,9 @@ test('monthly analysis hand-checks month rule, drafts, currency grouping and sta
  assert.deepEqual(orders,before);
  assert.deepEqual(result.orders.map(order=>order.id),['1','2','3','4','7']);
  assert.deepEqual(result.stages.map(({id,count,percent})=>({id,count,percent})),[{id:'quote',count:2,percent:40},{id:'deposit',count:0,percent:0},{id:'production',count:1,percent:20},{id:'balance',count:0,percent:0},{id:'shipment',count:1,percent:20},{id:'done',count:1,percent:20}]);
- assert.deepEqual(result.contributions,[{client:'Alpha',currency:'EUR',amount:70,count:1},{client:'Beta',currency:'USD',amount:300,count:1},{client:'Alpha',currency:'USD',amount:150,count:2},{client:'Gamma',currency:'USD',amount:0,count:1}]);
- assert.deepEqual(result.metrics.byCurrency.find(row=>row.currency==='USD'),{currency:'USD',total:450,paid:320,due:130,count:4});
- assert.deepEqual(result.metrics.byCurrency.find(row=>row.currency==='EUR'),{currency:'EUR',total:70,paid:70,due:0,count:1});
+ assert.deepEqual(result.contributions.map(({client,currency,amount,count})=>({client,currency,amount,count})),[{client:'Alpha',currency:'EUR',amount:70,count:1},{client:'Beta',currency:'USD',amount:300,count:1},{client:'Alpha',currency:'USD',amount:150,count:2},{client:'Gamma',currency:'USD',amount:0,count:1}]);
+ assert.deepEqual(result.metrics.byCurrency.find(row=>row.currency==='USD'),{currency:'USD',total:450,paid:20,due:430,count:4,unknownPaidCount:3,unknownAmountCount:1,overpaidCount:0});
+ assert.deepEqual(result.metrics.byCurrency.find(row=>row.currency==='EUR'),{currency:'EUR',total:70,paid:0,due:70,count:1,unknownPaidCount:1,unknownAmountCount:0,overpaidCount:0});
  assert.equal(result.metrics.count,5);assert.equal(result.metrics.activeCount,4);
  assert.equal(result.contributions.reduce((sum,row)=>sum+row.count,0),result.metrics.count);
 });
@@ -80,7 +80,7 @@ test('monthly analysis gives empty results for months without orders, draft-only
  const orders=[{id:'d',client:'Alpha',currency:'USD',amount:10,stage:'quote',isDraft:true,orderMonth:'2026-10'}];
  for(const month of ['2026-10','2026-11','2026-13','',undefined]){
   const result=B.monthlyAnalysis(orders,month);
-  assert.deepEqual(result.orders,[]);assert.deepEqual(result.contributions,[]);assert.deepEqual(result.metrics,{byCurrency:[],count:0,activeCount:0});
+  assert.deepEqual(result.orders,[]);assert.deepEqual(result.contributions.map(({client,currency,amount,count})=>({client,currency,amount,count})),[]);assert.deepEqual(result.metrics,{byCurrency:[],count:0,activeCount:0,unknownPaidCount:0,unknownAmountCount:0,overpaidCount:0});
   assert.ok(result.stages.every(row=>row.count===0&&row.percent===0));assert.equal(result.stages.length,B.stages.length);
  }
  assert.deepEqual(B.monthlyAnalysis(undefined,'2026-10').orders,[]);

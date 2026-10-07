@@ -18,7 +18,7 @@ async function harness(options = {}) {
   let account = options.unbound ? null : { provider: 'zoho', email: me.address, password: SECRET, site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993 };
   const drafts = new Map(); let clock = 0; const revealed = [];
   const draftFiles = new Map(), templates = new Map();
-  const store = { listMailBulk: () => [], readMailBulk: () => null, writeMailBulk() {}, readMailAccount: () => account, writeMailAccount: (next) => { account = next; }, listMailDrafts: () => [...drafts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailDraft: draft => drafts.set(draft.id, draft), deleteMailDraft: (id) => { drafts.delete(id); draftFiles.delete(id); },
+  const store = { listMailBulk: () => [], readMailBulk: () => null, writeMailBulk() {}, readMailAccount: () => account, writeMailAccount: (next) => { account = next; }, listMailDrafts: () => [...drafts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailDraft: (draft, files) => { drafts.set(draft.id, draft); if(files !== undefined) { if(files.length) draftFiles.set(draft.id, files); else draftFiles.delete(draft.id); } }, deleteMailDraft: (id) => { drafts.delete(id); draftFiles.delete(id); },
     readMailDraftFiles: id => draftFiles.get(id) || [], writeMailDraftFiles: (id, files) => { if (files.length) draftFiles.set(id, files); else draftFiles.delete(id); },
     listMailTemplates: () => [...templates.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailTemplate: t => templates.set(t.id, t), deleteMailTemplate: id => templates.delete(id) };
   const downloads = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-dl-'));
@@ -80,7 +80,7 @@ test('reading returns decoded content, marks the message read, and hides nothing
   const h = await harness();
   try {
     const { message } = await h.service.read({ box: 'inbox', uid: '4' });
-    assert.deepEqual({ ...message, text: undefined }, { box: 'inbox', uid: 4, from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', inReplyTo: '', references: '', text: undefined, html: '',
+    assert.deepEqual({ ...message, text: undefined }, { box: 'inbox', uid: 4, accountIdentity: require('../backend/mail-imap.js').accountIdentity(h.account), from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', inReplyTo: '', references: '', text: undefined, html: '',
       attachments: [{ index: 0, filename: '装箱单 2026-10.pdf', contentType: 'application/pdf', size: 31 }, { index: 1, filename: 'photo.png', contentType: 'image/png', size: sample.png.length }], seen: true, pending: false });
     assert.equal(message.text, '您好，\n\n样品已于今天寄出，附件是装箱单。\n\n李伟');
     assert.ok(h.imap.state.message('INBOX', 4).flags.has('\\Seen')); assert.deepEqual((await h.service.list({ folder: 'inbox' })).counts, { unread: 2, pending: 1 });
@@ -185,11 +185,11 @@ test('sending delivers to every recipient, hides Bcc, threads replies and rememb
 test('forwarding re-attaches the original files unless switched off', async () => {
   const h = await harness();
   try {
-    await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf: { box: 'inbox', uid: 4 }, attachments: [{ filename: 'note.txt', contentBase64: Buffer.from('n').toString('base64') }] });
+    await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardAttachments: true, forwardOf: { box: 'inbox', uid: 4, accountIdentity: require('../backend/mail-imap.js').accountIdentity(h.account) }, attachments: [{ filename: 'note.txt', contentBase64: Buffer.from('n').toString('base64') }] });
     assert.deepEqual((await h.sentMail(0)).attachments.map(a => [a.filename, a.size]), [['note.txt', 1], ['装箱单 2026-10.pdf', 31], ['photo.png', sample.png.length]]);
     await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf: { box: 'inbox', uid: 4 }, forwardAttachments: false });
     assert.deepEqual((await h.sentMail(1)).attachments, []);
-    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { box: 'inbox', uid: 999 } }), 404, 'not_found'); assert.equal(h.smtp.state.sent.length, 2);
+    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardAttachments: true, forwardOf: { box: 'inbox', uid: 999, accountIdentity: require('../backend/mail-imap.js').accountIdentity(h.account) } }), 404, 'not_found'); assert.equal(h.smtp.state.sent.length, 2);
     await h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { box: 'elsewhere', uid: 4 } });
     assert.deepEqual((await h.sentMail(2)).attachments, [], 'an invalid reference is ignored, not trusted');
   } finally { await h.close(); }
@@ -257,7 +257,7 @@ test('local drafts are created, updated, listed newest first and deleted', async
     assert.deepEqual(h.service.drafts(), { ok: true, items: [] });
     const first = h.service.saveDraft({ to: 'a@b.example\r\nX: y', cc: '', subject: 'One\nTwo', text: 'body\u0000 text', inReplyTo: '<m@x>', forwardOf: { box: 'inbox', uid: '4' }, password: 'nope', extra: 1 }).draft;
     assert.match(first.id, /^[0-9a-f]{32}$/);
-    assert.deepEqual(first, { id: first.id, to: 'a@b.example X: y', cc: '', bcc: '', subject: 'One Two', text: 'body text', html: '', inReplyTo: '<m@x>', references: '', forwardOf: { box: 'inbox', uid: 4 }, updatedAt: '2026-10-06T10:00:00.000Z', attachments: [] });
+    assert.deepEqual(first, { id: first.id, to: 'a@b.example X: y', cc: '', bcc: '', subject: 'One Two', text: 'body text', html: '', inReplyTo: '<m@x>', references: '', forwardOf: { box: 'inbox', uid: 4, accountIdentity: '' }, forwardAttachments: false, forwardCount: 0, updatedAt: '2026-10-06T10:00:00.000Z', attachments: [] });
     const second = h.service.saveDraft({ subject: 'Second' }).draft;
     const updated = h.service.saveDraft({ id: first.id, subject: 'One (edited)' }).draft;
     assert.equal(updated.id, first.id); assert.deepEqual(h.service.drafts().items.map(d => d.subject), ['One (edited)', 'Second']);
@@ -311,7 +311,7 @@ test('bulk mail sends one personalised message per recipient and records each re
     assert.equal(smtp.state.sent.length, 0); assert.equal(batches.size, 0, 'a refused request leaves no batch behind');
     const started = service.bulkStart(ok);
     assert.match(started.batch.id, /^[0-9a-f]{32}$/); assert.match(started.batch.createdAt, /^2026-10-06T10:00:\d\d\.000Z$/);
-    assert.deepEqual({ ...started.batch, id: undefined, createdAt: undefined }, { id: undefined, createdAt: undefined, finishedAt: '', subject: '{{公司}} 新品目录', status: 'sending', stopReason: '', total: 3, sent: 0, failed: 0, pending: 3, skipped: 0 });
+    assert.deepEqual({ ...started.batch, id: undefined, createdAt: undefined }, { id: undefined, createdAt: undefined, finishedAt: '', subject: '{{公司}} 新品目录', status: 'sending', stopReason: '', total: 3, sent: 0, failed: 0, pending: 3, uncertain: 0, skipped: 0 });
     assert.throws(() => service.bulkStart(ok), error => error.status === 409 && error.code === 'busy');
     await service.bulkIdle();
     const done = service.bulkGet({ id: started.batch.id }).batch;
@@ -366,8 +366,8 @@ test('bulk mail stops on a login failure or repeated failures, can be cancelled,
     cancel.batches.set(stale.id, JSON.stringify(stale));
     const restarted = cancel.make(); const before = cancel.smtp.state.sent.length;
     const listed = restarted.bulkList().items.find(item => item.id === stale.id);
-    assert.deepEqual([listed.status, listed.sent, listed.skipped, listed.pending, listed.stopReason], ['interrupted', 1, 1, 0, '应用在发送过程中关闭']);
-    assert.match(restarted.bulkGet({ id: stale.id }).batch.items[1].error, /没有发送/); await restarted.bulkIdle(); assert.equal(cancel.smtp.state.sent.length, before, 'nothing is re-sent');
+    assert.deepEqual([listed.status, listed.sent, listed.skipped, listed.pending, listed.stopReason], ['interrupted', 1, 0, 0, '应用在发送过程中关闭，请先核对待核对的邮件']);
+    assert.equal(restarted.bulkGet({ id: stale.id }).batch.items[1].status, 'uncertain'); assert.match(restarted.bulkGet({ id: stale.id }).batch.items[1].error, /待核对/); await restarted.bulkIdle(); assert.equal(cancel.smtp.state.sent.length, before, 'nothing is re-sent');
     assert.equal(JSON.parse(cancel.batches.get(stale.id)).status, 'interrupted');
   } finally { await cancel.smtp.close(); }
 });
@@ -432,11 +432,11 @@ test('a kept-alive connection is reused across operations, checked when stale, r
     await h.service.forget(); assert.equal(h.service.connected(), false, 'unbinding closes the connection at once');
     // 登录还没完成就解绑：这次登录作废，连接不会留下来。
     const pending = h.service.list({ folder: 'inbox' }); await h.service.forget();
-    await rejects(pending, 409, 'not_bound'); assert.equal(h.service.connected(), false); await until(() => h.imap.openConnections() === 0); assert.equal(h.imap.openConnections(), 0, 'no connection to the old mailbox is left open');
+    await rejects(pending, 409, 'account_changed'); assert.equal(h.service.connected(), false); await until(() => h.imap.openConnections() === 0); assert.equal(h.imap.openConnections(), 0, 'no connection to the old mailbox is left open');
     // 操作途中解绑并删掉了账号：重试不会拿旧密码再登录。
     await h.service.list({ folder: 'inbox' }); const logins = h.imap.state.logins;
     h.imap.state.dropOn = 'UID SEARCH'; const running = h.service.list({ folder: 'inbox' }); const saved = h.account; h.account = null;
-    await rejects(running, 409, 'not_bound'); assert.equal(h.imap.state.logins, logins); h.account = saved;
+    await rejects(running, 409, 'account_changed'); assert.equal(h.imap.state.logins, logins); h.account = saved;
   } finally { await h.close(); }
 });
 

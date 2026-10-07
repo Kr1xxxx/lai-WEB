@@ -171,7 +171,7 @@
       // 每次解绑、换邮箱加一：之前发出去的检查回来时对不上就作废。
       epoch = 0;
     const BULK_STATUS = { sending: "发送中", done: "已完成", stopped: "已停止", cancelled: "已手动停止", interrupted: "已中断" };
-    const ITEM_STATUS = { pending: "待发送", sent: "已发送", failed: "失败", skipped: "未发送" };
+    const ITEM_STATUS = { uncertain: "发送结果待核对", sending: "正在提交发送", pending: "待发送", sent: "已发送", failed: "失败", skipped: "未发送" };
     const current = () => folders.find((item) => item.id === folder);
     const option = (item, selected) => `<option value="${item.id}" ${item.id === selected ? "selected" : ""}>${E(item.label)}</option>`;
     const onMailPage = () => ctx.isActive?.() !== false;
@@ -211,11 +211,14 @@
 
     // ---- 与本机服务通信 ----
     async function call(path, payload) {
+      if (typeof payload?.text === "string" && new TextEncoder().encode(payload.text).length > 1024 * 1024) throw new Error("邮件纯文本正文超过 1 MB，请减少正文（内容未保存或发送）");
+      if (typeof payload?.html === "string" && new TextEncoder().encode(payload.html).length > 2 * 1024 * 1024) throw new Error("邮件正文和内嵌图片合计超过 2 MB，请减少图片或正文（内容未保存或发送）");
       const response = await ctx.request(path, payload);
       let data = null;
       try {
         data = await response.json();
       } catch (_) {}
+      if (data?.backup) ctx.onBackupStatus?.(data.backup);
       if (!response.ok || !data || data.ok === false)
         throw Object.assign(new Error((data && data.message) || `请求失败（${response.status}）`), { status: response.status, code: data && data.code });
       return data;
@@ -258,7 +261,10 @@
       const mine = (async () => {
         try {
           const data = await call("/api/mail-account");
-          if (token === loadToken) accept(data);
+          if (token === loadToken) {
+            if (account && (account.identity || account.email) !== (data.account?.identity || data.account?.email)) resetMail();
+            accept(data);
+          }
         } catch (error) {
           if (token === loadToken) {
             status = "error";
@@ -662,7 +668,7 @@
       else body = `<p class="mail-thread-note">${E(row.addresses.join("、"))} · 收件箱与已发送中最近的 ${thread.items.length} 封</p>${bulkBar()}<div class="mail-list" id="mail-list" role="list">${rowsOf(thread.items).map((items) => rowMarkup(items, new Map(), true)).join("")}</div>`;
       return pagebar(row.name, actions) + split(body);
     }
-    const bulkProgress = (b) => `已发 ${b.sent} / 共 ${b.total}${b.failed ? ` · 失败 ${b.failed}` : ""}${b.skipped ? ` · 未发 ${b.skipped}` : ""}`;
+    const bulkProgress = (b) => `已发 ${b.sent} / 共 ${b.total}${b.failed ? ` · 失败 ${b.failed}` : ""}${b.uncertain ? ` · 发送结果待核对 ${b.uncertain}` : ""}${b.skipped ? ` · 未发 ${b.skipped}` : ""}`;
     const bulkTag = (b) => `<span class="mail-bulk-tag ${E(b.status)}">${E(BULK_STATUS[b.status] || b.status)}</span>`;
     function bulkPage() {
       const actions = `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button><button type="button" data-mail-action="refresh" ${bulk.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
@@ -808,7 +814,8 @@
         related = { key, loading: false, error: "", items: [] };
         return;
       }
-      const known = relatedCache.get(key);
+      const cacheKey = `${epoch}|${account?.identity || account?.email}|${key}`, started = epoch;
+      const known = relatedCache.get(cacheKey);
       if (known && Date.now() - known.at < RELATED_FRESH_MS) {
         related = { key, loading: false, error: "", items: known.items };
         return rerender();
@@ -818,8 +825,8 @@
       rerender();
       try {
         const data = await call(withQuery("/api/mail/correspondence", { addresses: key }));
-        relatedCache.set(key, { at: Date.now(), items: data.items || [] });
-        if (mine !== relatedToken || token !== readToken) return;
+        if (started !== epoch || mine !== relatedToken || token !== readToken) return;
+        relatedCache.set(cacheKey, { at: Date.now(), items: data.items || [] });
         related = { key, loading: false, error: "", items: data.items || [] };
       } catch (error) {
         if (mine !== relatedToken || token !== readToken) return;
@@ -1145,7 +1152,7 @@
       }
       return compose.values;
     }
-    const composeSnapshot = () => JSON.stringify([compose.values.to, compose.values.cc, compose.values.bcc, compose.values.subject, compose.values.html, compose.mode === "bulk" ? [...compose.selected].sort() : 0, compose.files.filter((file) => file.ready).map((file) => `${file.name}:${file.size}`)]);
+    const composeSnapshot = () => JSON.stringify([compose.values.to, compose.values.cc, compose.values.bcc, compose.values.subject, compose.values.html, compose.values.forwardAttachments, compose.forwardOf, compose.mode === "bulk" ? [...compose.selected].sort() : 0, compose.files.filter((file) => file.ready).map((file) => [file.name, file.type, file.size, file.base64])]);
     const composeHasContent = () => !!(compose.values.to || compose.values.cc || compose.values.bcc || compose.values.subject || String(compose.values.text || "").trim() || compose.files.length);
     // 还没显示出来的写信页（snapshot 为空）不算有改动。
     const composeDirty = () => !!compose && !!compose.snapshot && !!capture() && composeSnapshot() !== compose.snapshot && composeHasContent();
@@ -1203,7 +1210,7 @@
         `<div class="mail-editor" id="mail-compose-editor" role="textbox" aria-multiline="true" aria-label="正文"></div>` +
         (bulkMode ? `<div class="mail-body-text mail-bulk-preview" id="mail-bulk-preview" hidden></div>` : "") +
         `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB${bulkMode ? "，每封都会带上" : ""}</span><ul id="mail-compose-file-list"></ul>` +
-        (compose.forwardOf && compose.forwardCount ? `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" ${v.forwardAttachments ? "checked" : ""}> 附带原邮件的 ${compose.forwardCount} 个附件</label>` : "") +
+        (compose.forwardOf && (compose.forwardCount || compose.sourceUnavailable) ? `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments"${compose.sourceUnavailable ? " disabled" : ""} ${v.forwardAttachments ? "checked" : ""}> ${compose.sourceUnavailable ? "原附件来源无法确认，请在当前邮箱重新选择原邮件" : `附带原邮件的 ${compose.forwardCount} 个附件`}</label>` : "") +
         `</div>` +
         `<div class="mail-compose-from">${row("发件人名称", "fromName", v.fromName, 'maxlength="80" placeholder="收件人看到的名字"')}<span class="mail-compose-address">${E(account ? account.email : "")}</span></div>` +
         `</form></section>`
@@ -1264,11 +1271,11 @@
       const html = initial.id ? initial.html || textToHtml(initial.text) : `<div><br></div>${signatureHtml()}${initial.html || ""}`;
       compose = {
         mode: bulkMode ? "bulk" : "mail", title: initial.title || (bulkMode ? "新建群发" : "写信"), draftId: initial.id || "", inReplyTo: initial.inReplyTo || "", references: initial.references || "",
-        forwardOf: initial.forwardOf || null, forwardCount: initial.forwardCount || 0, sending: false,
+        sourceUnavailable: !!initial.sourceUnavailable, forwardOf: initial.forwardOf || null, forwardCount: initial.forwardCount || 0, sending: false,
         // 继续写草稿时把存着的附件带回来。
         files: (initial.files || []).filter((file) => file && typeof file.contentBase64 === "string").map((file) => ({ name: String(file.filename || "attachment"), type: String(file.contentType || "application/octet-stream"), size: base64Size(file.contentBase64), base64: file.contentBase64, ready: true })), force: false, snapshot: "", editor: null, origin: initial.origin || null,
         showCc: !!(initial.cc || initial.bcc), confirm: false, all: initial.all || [], selected: new Set(initial.selected || []), facts: initial.facts || new Map(), filter: { group: "", stage: "", country: "", text: "" },
-        values: { to: initial.to || "", cc: initial.cc || "", bcc: initial.bcc || "", subject: initial.subject || "", fromName: account.senderName || "", forwardAttachments: true, html, text: "" },
+        values: { to: initial.to || "", cc: initial.cc || "", bcc: initial.bcc || "", subject: initial.subject || "", fromName: account.senderName || "", forwardAttachments: initial.id ? initial.forwardAttachments === true : true, html, text: "" },
       };
       if (!onMailPage() && ctx.openMail) {
         compose.fresh = true;
@@ -1281,30 +1288,35 @@
       if (origin) return origin();
       if (onMailPage()) return loadCurrent();
     }
-    const draftPayload = () => ({ id: compose.draftId || undefined, to: compose.values.to, cc: compose.values.cc, bcc: compose.values.bcc, subject: compose.values.subject, text: compose.values.text, html: compose.values.html, inReplyTo: compose.inReplyTo, references: compose.references, forwardOf: compose.forwardOf });
+    const draftPayload = () => ({ id: compose.draftId || undefined, to: compose.values.to, cc: compose.values.cc, bcc: compose.values.bcc, subject: compose.values.subject, text: compose.values.text, html: compose.values.html, inReplyTo: compose.inReplyTo, references: compose.references, forwardOf: compose.forwardOf, forwardCount: compose.forwardCount, forwardAttachments: compose.values.forwardAttachments });
     // 只算读完了的附件；还在读的那些读完后会让这封信重新变成“有改动”，下次保存时带上。
     const filePayload = () => compose.files.filter((file) => file.ready).map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 }));
     async function saveDraft(close) {
-      if (!compose || compose.sending || compose.mode === "bulk") return false;
+      if (!compose || compose.sending || compose.saving || compose.mode === "bulk") return false;
       capture();
+      const owner = compose, submittedSnapshot = composeSnapshot();
+      owner.saving = true;
       try {
         const data = await call("/api/mail/drafts/save", { ...draftPayload(), attachments: filePayload() });
+        if (compose !== owner) return false;
         compose.draftId = data.draft.id;
-        compose.snapshot = composeSnapshot();
+        compose.snapshot = submittedSnapshot;
         compose.force = false;
         drafts.loaded = false;
       } catch (error) {
+        owner.saving = false;
         compose.force = close;
         showError("mail-compose-error", `草稿保存失败：${error.message}${close ? " 再点一次「返回」将放弃这封信。" : ""}`);
         return false;
       }
+      owner.saving = false;
       ctx.toast("已存入草稿箱");
       return true;
     }
     // 关闭写信页：改过的普通邮件自动存草稿；群发没有草稿，改过的要再点一次才放弃。成功离开返回 true。
     async function leaveCompose() {
       if (!compose) return true;
-      if (compose.sending) return false;
+      if (compose.sending || compose.saving) return false;
       // 附件还没读完就离开，这个附件会丢：先拦住。
       if (compose.files.some((file) => !file.ready) && !compose.force) {
         showError("mail-compose-error", "附件还在读取，请稍等一下再离开。");
@@ -1317,6 +1329,10 @@
           return false;
         }
         if (!(await saveDraft(true))) return false;
+        if (composeDirty()) {
+          showError("mail-compose-error", "保存期间又有改动，写信内容已保留。请再点一次返回保存最新内容。");
+          return false;
+        }
       }
       if (compose.editor && compose.editor.destroy) compose.editor.destroy();
       compose = null;
@@ -1329,7 +1345,7 @@
       return true;
     }
     async function sendCompose() {
-      if (!compose || compose.sending) return;
+      if (!compose || compose.sending || compose.saving) return;
       const v = capture();
       if (!v.to && !v.cc && !v.bcc) return showError("mail-compose-error", "请至少填写一位收件人");
       if (!v.subject && !String(v.text).trim()) return showError("mail-compose-error", "主题和正文不能都为空");
@@ -1370,7 +1386,7 @@
       const original = m.html || textToHtml(m.text);
       const ids = { inReplyTo: m.messageId || "", references: [m.references, m.messageId].filter(Boolean).join(" ") };
       if (mode === "forward")
-        return openCompose({ title: "转发", subject: replySubject(m.subject, "Fwd"), html: `<div><br></div><div>---------- 转发的邮件 ----------</div><div>发件人：${E(addressLine([m.from]))}</div><div>时间：${E(fullTime(m.date))}</div><div>主题：${E(m.subject || "")}</div><div>收件人：${E(addressLine(m.to))}</div><div><br></div>${original}`, forwardOf: { box: m.box, uid: m.uid }, forwardCount: (m.attachments || []).length });
+        return openCompose({ title: "转发", subject: replySubject(m.subject, "Fwd"), html: `<div><br></div><div>---------- 转发的邮件 ----------</div><div>发件人：${E(addressLine([m.from]))}</div><div>时间：${E(fullTime(m.date))}</div><div>主题：${E(m.subject || "")}</div><div>收件人：${E(addressLine(m.to))}</div><div><br></div>${original}`, forwardOf: { box: m.box, uid: m.uid, accountIdentity: m.accountIdentity || account.identity || "" }, forwardCount: (m.attachments || []).length });
       const target = m.box === "sent" ? m.to || [] : (m.replyTo && m.replyTo.length ? m.replyTo : [m.from]).filter(Boolean);
       const others = mode === "all" ? [...(m.box === "sent" ? [] : m.to || []), ...(m.cc || [])].filter((item) => item.address !== me && !target.some((t) => t.address === item.address)) : [];
       return openCompose({ title: mode === "all" ? "回复全部" : "回复", to: addressLine(target), cc: addressLine(others), subject: replySubject(m.subject, "Re"), html: `<div><br></div><div>在 ${E(fullTime(m.date))}，${E(addressLine([m.from]))} 写道：</div><blockquote>${original}</blockquote>`, ...ids });
@@ -1531,7 +1547,8 @@
         return done();
       }
       const key = row.addresses.slice(0, 20).join(","),
-        known = relatedCache.get(key);
+        cacheKey = `${epoch}|${account?.identity || account?.email}|${key}`, started = epoch,
+        known = relatedCache.get(cacheKey);
       if (!force && known && Date.now() - known.at < RELATED_FRESH_MS) {
         panel = { name, loading: false, error: "", items: known.items };
         return done();
@@ -1540,8 +1557,8 @@
       done();
       try {
         const data = await call(withQuery("/api/mail/correspondence", { addresses: key }));
-        relatedCache.set(key, { at: Date.now(), items: data.items || [] });
-        if (token !== panelToken) return;
+        if (started !== epoch || token !== panelToken) return;
+        relatedCache.set(cacheKey, { at: Date.now(), items: data.items || [] });
         panel = { name, loading: false, error: "", items: data.items || [] };
       } catch (error) {
         if (token !== panelToken) return;
@@ -2020,7 +2037,9 @@
       account: () => account,
       busy: () => working || !!(compose && compose.sending),
       composing: () => !!compose,
+      refresh: () => { if (!compose) rerender(); },
       composeDirty,
+      hasPendingWork: () => composeDirty() || !!(compose && (compose.sending || compose.saving || compose.files.some(file => !file.ready))),
       key: onKey,
       start,
       check,

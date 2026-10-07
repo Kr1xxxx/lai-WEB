@@ -16,7 +16,7 @@ test('backup email list honors explicit clears before legacy aliases without cha
  assert.deepEqual(state,before);
 });
 const source = () => ({customers:{'Élodie Martin':{country:'法国',contacts:['Élodie','Marie'],emails:['sales@example.test'],tags:['睫毛'],owner:'Cherry',customLegacy:{preserve:true}},'No Orders':{country:'美国',owner:'Naomi'}},orders:[{id:'o1',client:'Élodie Martin',amount:100,paidAmount:20,currency:'USD',stage:'deposit',createdAt:'2026-09-01'},{id:'o2',client:'Order Only',amount:45,paidAmount:0,currency:'USD',stage:'done',createdAt:'2026-09-02'},{id:'draft',client:'Élodie Martin',amount:9000,isDraft:true}]});
-test('customers include order-only records without counting drafts, settled stages count fully paid',()=>{const rows=M.buildCustomers?.(source()); assert.equal(rows?.length,3);const a=rows.find(r=>r.name==='Élodie Martin');assert.equal(a.total,100);assert.equal(a.due,80);assert.equal(a.orderCount,1);assert.equal(rows.find(r=>r.name==='Order Only').due,0);});
+test('customers include order-only records without counting drafts, completed stages retain actual unpaid balances',()=>{const rows=M.buildCustomers?.(source()); assert.equal(rows?.length,3);const a=rows.find(r=>r.name==='Élodie Martin');assert.equal(a.total,100);assert.equal(a.due,80);assert.equal(a.orderCount,1);assert.equal(rows.find(r=>r.name==='Order Only').due,45);});
 test('the list derives the same customer level as the name badge without changing the saved level',()=>{
  const state={customers:{Auto:{},Manual:{level:'B级翡翠客户'},Reset:{level:'自动判断'}},orders:[
   {client:'Auto',amount:600,currency:'USD',createdAt:'2026-09-01'},

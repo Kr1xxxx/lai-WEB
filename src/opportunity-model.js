@@ -4,6 +4,8 @@
   // 销售流程（每个流程有自己的一组阶段）保存在 state.laiOpportunityFlows；没保存过时用下面的默认流程。
   const node=typeof module!=='undefined'&&module.exports;
   const LM=node?require('./modules.js'):root.LaiModules;
+  // 订单模块也会调用本模块的产品解析，运行时取模型以免形成初始化循环。
+  const BM=()=>node?require('./business-model.js'):root.LaiBusinessModel;
   const trim=value=>String(value??'').trim();
   // 销售阶段：kind 决定金额归入「进行中」「赢单」还是「输单」。
   const STAGES=Object.freeze([
@@ -210,6 +212,9 @@
       if(contacts.length&&!next.contact)throw new Error('请选择关联联系人');
       if(next.contact&&contacts.length&&!contacts.includes(next.contact))throw new Error('关联联系人不属于所选客户');
     }
+    for(const bucket of ['orders','trashOrders','deletedOrders'])
+      for(const order of Array.isArray(state[bucket])?state[bucket]:[])
+        if(order&&(order.id===previous?.orderId||order.sourceOpportunityId===id))BM().assertOrderCustomer(state,order,next);
     next.amount=decimal(value('amount'),'销售金额');
     next.currency=trim(value('currency','USD')).toUpperCase();
     if(!/^[A-Z]{3}$/.test(next.currency))throw new Error('请填写三位币种代码');
@@ -267,11 +272,24 @@
     requireItem(state,id);
     return {...state,laiOpportunities:raw(state).filter(item=>item?.id!==id)};
   }
-  // 把商机与由它生成的订单关联起来（只记订单 ID）。
+  // Keep the source on orders too, so replacing an archived order cannot erase it.
   function linkOrder(state,id,orderId){
     requireList(state);
-    const previous=requireItem(state,id);
-    return {...state,laiOpportunities:replaceFirst(state,id,{...previous,orderId:trim(orderId)})};
+    const previous=requireItem(state,id),targetId=trim(orderId);
+    const active=state.orders||[];
+    if(active.some(order=>order.id!==targetId&&(order.id===previous.orderId||order.sourceOpportunityId===id)))throw new Error('这个商机已经关联了有效订单，请先处理原订单');
+    const target=['orders','trashOrders','deletedOrders'].flatMap(bucket=>Array.isArray(state[bucket])?state[bucket]:[]).find(order=>order?.id===targetId);
+    if(!target)throw new Error('关联订单不存在，请刷新后核对');
+    if(target?.sourceOpportunityId&&target.sourceOpportunityId!==id)throw new Error('订单已关联其他商机，不能重复关联');
+    if(list(state).some(item=>item.id!==id&&item.orderId===targetId))throw new Error('订单已关联其他商机，不能重复关联');
+    BM().assertOrderCustomer(state,target,previous);
+    const next={...state,laiOpportunities:replaceFirst(state,id,{...previous,orderId:targetId})};
+    for(const bucket of ['orders','trashOrders','deletedOrders']){
+      if(!Array.isArray(state[bucket]))continue;
+      next[bucket]=state[bucket].map(order=>order&&(order.id===targetId||order.id===previous.orderId)
+        ? {...order,sourceOpportunityId:order.sourceOpportunityId||id}:order);
+    }
+    return next;
   }
 
   const amountOf=item=>Number.isFinite(Number(item.amount))&&Number(item.amount)>0?Number(item.amount):0;
@@ -385,23 +403,57 @@
       owners:[...owners.values()].map(group=>({owner:group.label,...summarise(group.items)})).sort((a,b)=>b.wonAmount-a.wonAmount||b.created-a.created||a.owner.localeCompare(b.owner,'zh'))
     };
   }
-  // 某个客户的商机情况（客户详情页用）：进行中的商机列表、赢单数量与美元金额、赢单率、平均销售周期。
+  // 产品明细用于投影和订单草稿；复制每行，保留数量、单价和已有扩展字段。
+  const productRows=item=>(Array.isArray(item?.products)?item.products:[]).filter(product=>product&&typeof product==='object'&&trim(product.name)).map(product=>({...product,name:trim(product.name)}));
+  // 金额投影与财务页面一致到两位，避免派生字段保留 0.1 + 0.2 的浮点尾数。
+  const moneyRound=value=>Math.round((value+Number.EPSILON)*100)/100;
+  function linkedOrderOf(state,item){
+    const orders=(Array.isArray(state?.orders)?state.orders:[]).filter(order=>order&&typeof order==='object'&&!order.trashedAt&&!order.deletedAt&&order.archived!==true);
+    const key=(node?require('./model.js'):root.PreviewModel).customerNameKey;
+    if(Object.keys(state.customers||{}).filter(name=>key(name)===key(item.client)).length>1)return null;
+    const safe=order=>key(order.client)===key(item.client)&&(!order.sourceOpportunityId||order.sourceOpportunityId===item.id);
+    const order=orders.find(order=>order.id===trim(item.orderId)&&safe(order))||orders.find(order=>order.sourceOpportunityId===item.id&&safe(order));
+    if(!order)return null;
+    const business=BM(),payment=business.orderPayment(order),amount=payment.amountRecorded?payment.total:null;
+    const paidAmount=order.isDraft===true||!payment.paidRecorded?null:payment.paid;
+    return {id:order.id,num:trim(order.num),stage:trim(order.stage),stageLabel:business.stages.find(stage=>stage.id===order.stage)?.label||trim(order.stage)||'未填写',currency:currencyOf(order),amount,paidAmount,dueAmount:paidAmount===null||amount===null?null:payment.due,isDraft:order.isDraft===true};
+  }
+  // 客户列表与详情共用同一商机投影；赢单金额与订单收款保持独立。
   function customerStats(state,client,today=isoDay(new Date())){
     const name=trim(client),orderIds=activeOrderIds(state);
     const all=list(state).filter(item=>trim(item.client)===name);
     const kind=item=>stageOf(state,item).kind;
     const won=all.filter(item=>kind(item)==='won'),lost=all.filter(item=>kind(item)==='lost');
-    const active=sortCards(all.filter(item=>kind(item)==='open'&&item.archived!==true).map(item=>({...card(state,item,today,orderIds),createdAt:trim(item.createdAt),note:trim(item.note),stages:flowOfItem(state,item).stages})),'createdAt-desc');
+    const allOpportunities=sortCards(all.map(item=>({...card(state,item,today,orderIds),createdAt:trim(item.createdAt),closedAt:trim(item.closedAt),closedDay:localDay(item.closedAt),note:trim(item.note),products:productRows(item),stages:flowOfItem(state,item).stages,linkedOrder:linkedOrderOf(state,item)})),'createdAt-desc');
+    const active=allOpportunities.filter(item=>item.kind==='open'&&!item.archived);
     // 详情页这两项标明是美元：只统计美元的赢单商机，其他币种不折算、不计入。
     const usd=won.filter(item=>currencyOf(item)==='USD');
-    const total=usd.reduce((sum,item)=>sum+amountOf(item),0);
+    const total=moneyRound(usd.reduce((sum,item)=>sum+amountOf(item),0));
     const days=won.map(item=>{const start=localDay(item.createdAt),end=localDay(item.closedAt);return start&&end?Math.round((Date.parse(end)-Date.parse(start))/86400000):null;}).filter(value=>value!==null&&value>=0);
+    const wonDates=won.map(item=>localDay(item.closedAt)).filter(Boolean).sort();
+    const amounts=new Map(),products=new Map();
+    for(const item of won){
+      const currency=currencyOf(item),entry=amounts.get(currency)||{currency,total:0,count:0};
+      entry.total+=amountOf(item);entry.count++;amounts.set(currency,entry);
+    }
+    for(const entry of amounts.values())entry.total=moneyRound(entry.total);
+    for(const item of allOpportunities)for(const product of item.products){
+      const entry=products.get(product.name)||{name:product.name,opportunityIds:[],orderIds:[]};
+      if(!entry.opportunityIds.includes(item.id))entry.opportunityIds.push(item.id);
+      if(item.linkedOrder&&!entry.orderIds.includes(item.linkedOrder.id))entry.orderIds.push(item.linkedOrder.id);
+      products.set(product.name,entry);
+    }
     return {
       opportunityAllCount:all.length,activeOpportunityCount:active.length,opportunityCount:won.length,
-      opportunityTotal:usd.length?total:null,opportunityAverage:usd.length?total/usd.length:null,
+      opportunityTotal:usd.length?total:null,opportunityAverage:usd.length?moneyRound(total/usd.length):null,
+      // 字段目录中的人民币金额只取 CNY 赢单，不折算其他币种或沿用人工档案值。
+      opportunityTotalCny:amounts.get('CNY')?.total??null,opportunityAverageCny:amounts.has('CNY')?moneyRound(amounts.get('CNY').total/amounts.get('CNY').count):null,
       opportunityWinRate:won.length+lost.length?Math.floor(won.length/(won.length+lost.length)*100):null,
       opportunityCycle:days.length?Math.round(days.reduce((a,b)=>a+b,0)/days.length*10)/10:null,
-      activeOpportunities:active
+      activeOpportunities:active,allOpportunities,
+      firstWonDate:wonDates[0]||'',lastWonDate:wonDates.at(-1)||'',
+      opportunityAmounts:[...amounts.values()].map(entry=>({...entry,average:moneyRound(entry.total/entry.count)})).sort((a,b)=>a.currency.localeCompare(b.currency)),
+      opportunityProducts:[...products.values()].sort((a,b)=>a.name.localeCompare(b.name,'zh'))
     };
   }
   // 新建表单的默认值。
@@ -410,9 +462,15 @@
       stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner),collaborators:[],tags:[],products:[],lostReason:'',lostNote:''};
   }
   // 由赢单商机生成订单时预填的内容（交给现有的订单表单，由用户确认保存）。
-  function orderDraft(item,today=isoDay(new Date())){
-    return {client:trim(item.client),amount:amountOf(item),currency:currencyOf(item),owner:cleanName(item.owner),stage:'quote',paidAmount:0,createdAt:today,orderMonth:today.slice(0,7),
-      note:`由商机「${trim(item.name)}」生成`,productType:(Array.isArray(item.products)?item.products:[]).map(product=>product.name).join('、')};
+  function orderDraft(item,today=isoDay(new Date()),state={}){
+    const profile=state?.customers&&Object.hasOwn(state.customers,trim(item.client))?state.customers[trim(item.client)]:null;
+    const products=productRows(item),amount=amountOf(item),payment=BM().orderPayment(item);
+    // 商机的「已完成」不能证明订单已履约；仅默认流程的尾款阶段可直接对应。
+    const defaultFlow=!trim(item.flow)||item.flow==='default',stage=defaultFlow&&item.stage==='balance'?'balance':'quote';
+    const orderStageNeedsConfirmation=stage==='quote'&&(item.stage==='done'||!defaultFlow);
+    return {client:trim(item.client),amount,currency:currencyOf(item),owner:cleanName(item.owner),stage,paidAmount:payment.paidRecorded?payment.paid:null,createdAt:today,orderMonth:today.slice(0,7),
+      contact:trim(item.contact),country:trim(item.country)||trim(profile?.country),source:trim(item.source)||trim(profile?.source),sourceOpportunityId:trim(item.id),products,orderStageNeedsConfirmation,
+      note:[trim(item.note),`由商机「${trim(item.name)}」生成`].filter(Boolean).join('\n\n'),productType:products.map(product=>product.name).join('、')};
   }
   // ---- 销售流程设置：新建／改名／删除流程，添加／改名／排序／删除阶段。每个动作各自保存。 ----
   function labelOf(value,what){

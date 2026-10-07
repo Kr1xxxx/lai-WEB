@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const APP_VERSION = "1.4.126";
+  const APP_VERSION = "1.4.127";
   const importPreviewEnabled = window.__laiImportPreview === true;
   const nativeWindowBridge = () => !!window.webkit?.messageHandlers?.windowDragRegions;
   const separateCustomerWindow = nativeWindowBridge() && new URLSearchParams(location.search).has("customer");
@@ -148,6 +148,56 @@
       el.classList.toggle("save-failed", error);
     }
   }
+  let backupWarning = null, lastSuccessfulBackupAt = 0;
+  let backupStatusTimer = null, backupStatusGeneration = 0;
+  function scheduleBackupStatus(result, generation) {
+    if (!result.pending) return;
+    const delay = Math.max(1000, Math.min(60000, (Number(result.nextAttemptAt) || Date.now() + 60000) - Date.now() + 250));
+    backupStatusTimer = setTimeout(async () => {
+      backupStatusTimer = null;
+      try {
+        const response = await fetch("/api/backup-status", { cache: "no-store" });
+        if (!response.ok) throw new Error("备份状态暂不可用");
+        const data = await response.json();
+        if (!data.backup) throw new Error("备份状态暂不可用");
+        if (generation === backupStatusGeneration) updateBackupNotice(data.backup);
+      } catch (_) {
+        if (generation === backupStatusGeneration) scheduleBackupStatus({ pending: true, nextAttemptAt: Date.now() + 60000 }, generation);
+      }
+    }, delay);
+  }
+  function updateBackupNotice(result) {
+    if (!result) return;
+    if (backupStatusTimer !== null) clearTimeout(backupStatusTimer);
+    backupStatusTimer = null;
+    scheduleBackupStatus(result, ++backupStatusGeneration);
+    if (result.lastSuccessfulAt) lastSuccessfulBackupAt = result.lastSuccessfulAt;
+    if (result.ok === false) backupWarning = result.message || "自动备份未完成";
+    else if (!result.skipped) backupWarning = null;
+    let notice = document.getElementById("backup-warning");
+    if (!backupWarning) { if (notice) notice.hidden = true; return; }
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.id = "backup-warning";
+      notice.className = "backup-warning";
+      notice.setAttribute("role", "alert");
+      notice.innerHTML = '<span></span><button type="button">重试备份</button>';
+      document.body.appendChild(notice);
+      notice.querySelector("button").addEventListener("click", async () => {
+        const button = notice.querySelector("button");
+        button.disabled = true;
+        try {
+          const response = await fetch("/api/manual-backup", { method: "POST" });
+          const result = await response.json();
+          updateBackupNotice(result);
+          toast(result.ok ? "备份已完成" : "备份仍未完成：" + (result.message || "请重试"));
+        } catch (error) { toast("备份失败：" + error.message); }
+        finally { button.disabled = false; }
+      });
+    }
+    notice.hidden = false;
+    notice.querySelector("span").textContent = `数据已保存，自动备份失败：${backupWarning}。最近成功备份：${lastSuccessfulBackupAt ? new Date(lastSuccessfulBackupAt).toLocaleString() : "尚无成功备份"}`;
+  }
   async function persist(next, importLog = null) {
     if (pending) throw new Error("上一项修改正在保存，请稍候");
     status("正在保存…");
@@ -171,7 +221,8 @@
       state = next;
       revision = result.revision;
       rebuildRows();
-      status("已保存到来财");
+      updateBackupNotice(result.backup);
+      status(backupWarning ? "已保存 · 自动备份失败，请查看警告" : "已保存到来财", !!backupWarning);
       return true;
     })();
     try {
@@ -204,7 +255,7 @@
       ["edit", "segment", "columns", "membership", "transition", "import", "mail-bind"].includes(
         modal,
       ) ||
-      mail?.composeDirty() ||
+      mail?.hasPendingWork() ||
       [...followupDrafts.values()].some((d) => d.text.trim())
     ) {
       toast("请先保存或取消正在编辑的内容");
@@ -328,6 +379,12 @@
     if (!currentName || activeRoute !== "customers" || !window.LaiOpportunityModel) return false;
     if (feature === "添加商机" || feature === "新建商机") return business.newOpportunity(currentName), true;
     if (feature === "全部商机") return business.showOpportunities(currentName), true;
+    if (feature.startsWith("商机记录:")) {
+      const id = feature.slice("商机记录:".length);
+      if (window.LaiOpportunityModel.customerStats(state, currentName).allOpportunities.some((item) => item.id === id))
+        business.opportunityMenu(id, currentName);
+      return true;
+    }
     const known = ["上一个商机", "下一个商机", "商机更多操作"].includes(feature) || feature.startsWith("商机阶段：");
     if (!known) return false;
     const stats = customerOpportunities(currentName), active = stats.activeOpportunities, current = active[stats.activeOpportunityIndex];
@@ -812,6 +869,8 @@
     }
   }
   function refresh() {
+    if (activeRoute === "mail") return mail.refresh();
+    if (activeRoute === "favorites") return showFavoritesHome();
     if (activeRoute !== "customers") return business.refresh();
     if (currentName) detail(currentName, true);
     else showCustomerScreen(customerScreen);
@@ -1883,6 +1942,7 @@
       const response = await fetch("/api/data", { cache: "no-store" });
       if (!response.ok) throw new Error("本地数据服务连接失败");
       const payload = await response.json();
+      updateBackupNotice(payload.backup);
       state = payload.data;
       revision = payload.revision;
       if (!state || !Array.isArray(state.orders) || !state.customers)
@@ -3047,7 +3107,9 @@
 
   const L = window.LaiModules;
   let customerScreen = "active";
-  const allCustomerRows = () => S.enrich(M.buildCustomers(state), state);
+  const allCustomerRows = () => S.enrich(M.buildCustomers(state).map((row) =>
+    window.LaiOpportunityModel ? { ...row, ...window.LaiOpportunityModel.customerStats(state, row.name) } : row,
+  ), state);
   function rebuildRows() {
     rows = allCustomerRows().filter(
       (c) => L.bucket(state.customers[c.name]) === "active",
@@ -4340,14 +4402,14 @@
   let focusRefreshInProgress = false;
   window.addEventListener("focus", async () => {
     if (!nativeWindowBridge() || focusRefreshInProgress || pending || modal ||
-        !state?.customers || business?.hasDraft() ||
+        !state?.customers || business?.hasDraft() || mail?.composing() ||
         [...followupDrafts.values()].some((draft) => draft.text.trim())) return;
     focusRefreshInProgress = true;
     try {
       const response = await fetch("/api/data", { cache: "no-store" });
       if (!response.ok) return;
       const snapshot = await response.json();
-      if (pending || modal || business?.hasDraft() ||
+      if (pending || modal || business?.hasDraft() || mail?.composing() ||
           [...followupDrafts.values()].some((draft) => draft.text.trim()) ||
           !Number.isInteger(snapshot?.revision) || snapshot.revision <= revision ||
           !Array.isArray(snapshot.data?.orders) || !snapshot.data?.customers ||
@@ -4396,6 +4458,7 @@
     hasDialog: () => !!modal,
     customerRows: () => allCustomerRows(),
     onCounts: () => updateMailBadge(),
+    onBackupStatus: updateBackupNotice,
     // 把邮件记到客户动态：和别的客户资料改动一样保存到来财。
     recordMail: async (name, item) => {
       try {

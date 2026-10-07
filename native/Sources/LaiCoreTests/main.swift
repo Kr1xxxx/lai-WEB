@@ -45,6 +45,22 @@ do {
     try verify(!chrome.isFallbackDragPoint(x: 32, y: 730), "Traffic-light area must stay interactive")
     try verify(chrome.isFallbackDragPoint(x: 660, y: 730), "Full topbar center must be draggable")
     try verify(chrome.isFallbackDragPoint(x: 1_280, y: 730), "Full topbar trailing edge must be draggable")
+    let zip = Data([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4])
+    let workbookBody: [String: Any] = ["filename": "Synthetic.xlsx", "contentBase64": zip.base64EncodedString()]
+    let export = LaiWorkbookExport(body: workbookBody)
+    try verify(export != nil, "Generated workbook rejected")
+    for name in ["../escape.xlsx", "bad\\path.xlsx", "bad\nname.xlsx", "script.html"] {
+        try verify(LaiWorkbookExport(body: ["filename":name, "contentBase64":zip.base64EncodedString()]) == nil, "Unsafe workbook filename accepted")
+    }
+    try verify(LaiWorkbookExport(body: ["filename":"bad.xlsx", "contentBase64":"not-base64"]) == nil, "Invalid file bytes accepted")
+    try verify(LaiWorkbookExport(body: ["filename":"bad.xlsx", "contentBase64":Data("HTML".utf8).base64EncodedString()]) == nil, "Non-workbook bytes accepted")
+    let exportDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("lai-test-export-" + UUID().uuidString)
+    try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: exportDirectory) }
+    let destination = exportDirectory.appendingPathComponent("Synthetic.xlsx")
+    try export!.write(to: destination)
+    let savedExport = try Data(contentsOf: destination)
+    try verify(savedExport == zip, "Saved workbook bytes differ")
     print("Lai native runtime and environment isolation tests passed.")
 } catch {
     FileHandle.standardError.write(Data("Native runtime policy test failed: \(error)\n".utf8))

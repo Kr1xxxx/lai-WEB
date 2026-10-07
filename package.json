@@ -1,7 +1,7 @@
 {
   "name": "laicai-lai",
   "private": true,
-  "version": "1.4.126",
+  "version": "1.4.127",
   "scripts": {
     "build": "python3 scripts/build.py",
     "test": "node --test tests/*.test.cjs && node scripts/integration-test.mjs",

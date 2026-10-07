@@ -5,7 +5,7 @@ const Editor=require('../src/customer-editor-ui.js');
 test('backup email editor keeps cleared values and presents existing aliases consistently',()=>{
  for(const [profile,expected] of [[{alternateEmail:'',alternativeEmail:'stale@example.test'},''],[{alternativeEmail:'legacy@example.test'},'legacy@example.test'],[{backupEmail:'old@example.test'},'old@example.test']]){
   const html=Editor.render({name:'Acme',...profile},{state:{customers:{Acme:profile}}}).body;
-  assert.ok(html.includes(`name="alternateEmail" type="text" value="${expected}"`));
+  assert.ok(html.includes(`name="alternateEmail" type="email" value="${expected}"`));
  }
 });
 
@@ -35,19 +35,21 @@ test('customer code pencil edits the existing form draft without opening a place
  assert.doesNotMatch(html,/data-feature="客户编号规则"/);
 });
 
-test('new customer and newly added contacts validate the starred fields without blocking legacy edits',()=>{
+test('new customer and added contacts require their identity without requiring every contact channel',()=>{
  const fresh=Editor.render({}, {isNew:true,state:{customers:{}}}).body;
- for(const name of ['name','country','source','contact','email','phone'])
+ for(const name of ['name','country','source','contact'])
   assert.match(fresh,new RegExp(`<input[^>]*name="${name}"[^>]*required`));
- for(const name of ['contactExtra','emailExtra','phoneExtra'])
+ for(const name of ['contactExtra'])
   assert.match(fresh,new RegExp(`<template data-contact-template>[\\s\\S]*?<input[^>]*name="${name}"[^>]*required`));
  const legacy=Editor.render({name:'Legacy',extraContacts:[{id:'old',contact:'Older'}]},
   {isNew:false,state:{customers:{Legacy:{}}}}).body;
  const existingCards=legacy.split('<template data-contact-template>')[0];
  for(const name of ['country','source','contact','email','phone','contactExtra','emailExtra','phoneExtra'])
   assert.doesNotMatch(existingCards,new RegExp(`<input[^>]*name="${name}"[^>]*required`));
- for(const name of ['contactExtra','emailExtra','phoneExtra'])
+ for(const name of ['contactExtra'])
   assert.match(legacy,new RegExp(`<template data-contact-template>[\\s\\S]*?<input[^>]*name="${name}"[^>]*required`));
+ for(const name of ['email','phone','emailExtra','phoneExtra'])
+  assert.doesNotMatch(fresh,new RegExp(`<input[^>]*name="${name}"[^>]*required`));
 });
 
 test('company editor follows the saved common and other field layout',()=>{

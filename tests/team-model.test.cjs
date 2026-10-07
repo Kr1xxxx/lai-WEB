@@ -96,9 +96,9 @@ test('任务完成: counts, completion rate, unassigned fallback, bad dates igno
 test('订单业绩: same figures as 经营统计, by owner and currency, drafts excluded, no conversion', () => {
   const r = T.report('orders', state, '2026-10');
   assert.deepEqual(r.rows.map(row => [row.label, row.currency, ...cells(row, ['count', 'total', 'paid', 'due'])]),
-    [['未分配', 'EUR', 1, 70, 70, 0], ['Amy', 'USD', 2, 300, 240, 60], ['Bob', 'USD', 2, 75, 0, 75]]);
+    [['未分配', 'EUR', 1, 70, 70, 0], ['Amy', 'USD', 2, 300, 40, 260], ['Bob', 'USD', 2, 75, 0, 75]]);
   assert.deepEqual(r.totals.map(t => [t.currency, ...cells({cells: t.cells}, ['count', 'total', 'paid', 'due'])]),
-    [['EUR', 1, 70, 70, 0], ['USD', 4, 375, 240, 135]]);
+    [['EUR', 1, 70, 70, 0], ['USD', 4, 375, 40, 335]]);
   assert.deepEqual(r.tiles.map(t => [t.label, t.value]), [['订单数', 5], ['订单金额（EUR）', 70], ['订单金额（USD）', 375]]);
   assert.deepEqual(find(r, 'Amy').cells.total.items.map(i => i.title).sort(), ['A1', 'A2']);
   assert.ok(!JSON.stringify(r).includes('D1'), 'draft order never appears');
@@ -183,7 +183,7 @@ test('a quarter adds up its three months, but counts each followed customer once
   later.laiTasks.push({id: 't8', title: '十二月任务', date: '2026-12-01', customer: 'Gamma Inc', done: true});
   const q4 = T.overview(later, '2026-Q4');
   assert.deepEqual([q4.period, q4.periodType, q4.periodLabel, q4.month, q4.months], ['2026-Q4', 'quarter', '2026 年第 4 季度', '2026-12', ['2026-10', '2026-11', '2026-12']]);
-  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], newDeal: 2, repeat: 1, records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 67, ...NO_OPP});
+  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], newDeal: 2, repeat: 1, records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 66, ...NO_OPP});
   assert.deepEqual(q4.members.find(m => m.owner === 'Amy').customers, 2, 'Beta followed in Oct and Nov is still one customer');
   const q3 = T.overview(later, '2026-Q3');
   assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], newDeal: 1, repeat: 0, records: 1, customers: 1, tasksTotal: 1, tasksDone: 1, taskRate: 100, ...NO_OPP});
