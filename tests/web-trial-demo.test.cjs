@@ -58,7 +58,8 @@ test('the seed fills the workbench: orders in several stages, a USD 50,000 deal,
   assert.deepEqual(Object.keys(data.customers).length, 7);
   assert.ok(new Set(data.orders.map((o) => o.stage)).size >= 5, '订单分布在多个阶段');
   assert.ok(data.orders.every((o) => o.currency === 'USD' && o.paidAmount <= o.amount));
-  const board = OM.board(data, {}, new Date().toISOString().slice(0, 10));
+  const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; // 示例数据按本地日期生成，测试也按本地日期比，不受时区影响
+  const board = OM.board(data, {}, localDay(new Date()));
   assert.ok(board.columns.find((c) => c.id === 'open').count >= 4);
   assert.ok(data.laiOpportunities.some((o) => o.amount === 50000 && o.client === 'London Lash Pro'));
   assert.ok(data.laiTasks.length >= 6);
@@ -66,7 +67,7 @@ test('the seed fills the workbench: orders in several stages, a USD 50,000 deal,
   const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   const goals = TM.overview(data, month).goals;
   assert.ok(goals.amount?.[0].actual > 0, '本月金额目标有进度');
-  const late = Object.values(data.customers).filter((c) => c.nextFollow < today.toISOString().slice(0, 10) || c.nextFollow === today.toISOString().slice(0, 10));
+  const late = Object.values(data.customers).filter((c) => c.nextFollow <= localDay(today));
   assert.ok(late.length >= 3, '待跟进客户里有今天到期和已逾期的');
 });
 
@@ -90,7 +91,7 @@ test('the seed runs once and never overwrites the visitor\'s own data', () => {
   assert.equal(Object.keys(kept.data.customers).length, 7);
 });
 
-test('the 试用数据 panel script is valid, every id it looks up is in its own markup, and it only uses the data stand-in API', () => {
+test('the 测试数据 panel script is valid, every id it looks up is in its own markup, and it only uses the data stand-in API', () => {
   const source = read('scripts/web-trial/data-panel.js');
   assert.doesNotThrow(() => new vm.Script(source, { filename: 'data-panel.js' }));
   const looked = [...source.matchAll(/\$\('(lai-web-[a-z-]+)'\)/g)].map((m) => m[1]);
@@ -98,6 +99,9 @@ test('the 试用数据 panel script is valid, every id it looks up is in its own
   for (const id of new Set(looked)) assert.ok(source.includes(`id="${id}"`), `markup is missing #${id}`);
   const api = new Set([...source.matchAll(/\btrial\.([a-zA-Z]+)/g)].map((m) => m[1]));
   for (const name of api) assert.ok(['persistent', 'stats', 'snapshot', 'restore', 'clear'].includes(name), `unknown API trial.${name}`);
+  assert.doesNotMatch(source, /试用数据/, '改名为测试数据');
+  assert.doesNotMatch(source, /lai-web-data-button/, '不再有左栏悬浮按钮');
+  assert.match(source, /closest\('\[data-action="web-trial-data"\]'\)/, '入口是设置中心里的那一项');
   // every action that replaces data asks for a second click first
   for (const id of ['lai-web-demo', 'lai-web-restore-button', 'lai-web-clear']) assert.match(source, new RegExp(`armed\\(\\$\\('${id}'\\)`));
 });

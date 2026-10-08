@@ -29,6 +29,10 @@
       { id: "mail-account", title: "邮箱设置", note: "发件人名称、签名、是否自动检查新邮件", open: ["action", "open-mail-settings"] },
     ] },
   ]);
+  // 只在网页试用版里出现：试用页自带的数据面板由页面脚本接管，点击 data-action="web-trial-data" 即打开。应用本体没有这一组。
+  const TEST_DATA_GROUP = Object.freeze({ id: "test-data", title: "测试数据", items: [
+    { id: "test-data", title: "数据管理", note: "载入示例数据、备份与恢复、清空；数据只保存在当前浏览器里", open: ["action", "web-trial-data"] },
+  ] });
   const ATTR = { route: "data-lai-route", screen: "data-lai-screen", action: "data-action" };
   const identity = (s) => String(s);
   function current(item, info, E) {
@@ -39,7 +43,7 @@
   function markup(info, escape) {
     const E = escape || identity;
     const data = { orderPrefix: "L", currency: "USD", themeName: "小满", ...(info || {}) };
-    const groups = GROUPS.map((group) => `<section class="business-section sh-group" data-sh-group="${group.id}"><div class="section-head"><h3>${E(group.title)}</h3></div><div class="sh-list">${
+    const groups = (data.testData ? GROUPS.concat([TEST_DATA_GROUP]) : GROUPS).map((group) => `<section class="business-section sh-group" data-sh-group="${group.id}"><div class="section-head"><h3>${E(group.title)}</h3></div><div class="sh-list">${
       group.items.map((item) => {
         const now = current(item, data, E);
         return `<div class="sh-item" data-sh-item="${item.id}"><div class="sh-text"><strong>${E(item.title)}</strong><span>${E(item.note)}</span></div>${now ? `<em class="sh-now">${now}</em>` : ""}<button type="button" ${ATTR[item.open[0]]}="${item.open[1]}" aria-label="打开${E(item.title)}">设置</button></div>`;
@@ -47,5 +51,5 @@
     }</div></section>`).join("");
     return `<div class="pagebar"><div class="business-title"><h1>设置中心</h1><span>来财里能设置的内容都在这里，点“设置”打开对应的设置</span></div><div class="page-actions"></div></div><div class="business-scroll sh-page">${groups}</div>`;
   }
-  return { GROUPS, markup };
+  return { GROUPS, TEST_DATA_GROUP, markup };
 });

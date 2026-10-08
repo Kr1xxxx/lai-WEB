@@ -1836,3 +1836,7 @@ td.team-reached {
 .tag-manager .tag-rename-input{flex:1;min-width:0}
 .pool-rules-form .check-row{display:flex;gap:8px;align-items:flex-start;margin:8px 0}
 .duplicate-card h3 .duplicate-merge{float:right;font-size:12px}
+
+/* 订单表单顶部的「由商机生成」提示条 */
+.opp-source-banner { display: flex; gap: 8px; align-items: baseline; margin: 0 0 12px; padding: 9px 12px; border-left: 3px solid var(--brand-500, #1f6bff); border-radius: 6px; background: var(--brand-50, #eef4ff); color: var(--ink-700, #333); font-size: 13px; line-height: 1.5; }
+.opp-source-banner strong { flex: none; color: var(--brand-700, #0b4fd1); }

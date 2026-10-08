@@ -570,6 +570,18 @@
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       ctx.dialog(E(card.name), OU().menuMarkup(card, oppArmed === id), '<button type="button" data-action="close-modal">关闭</button>', "opp-menu");
+      if (glassSkin()) anchorOppMenu(id);
+    }
+    // 粉色、橙色界面里，「⋮」菜单是贴着那张卡片的小菜单（小满仍是右侧抽屉）。
+    function anchorOppMenu(id) {
+      const doc = root.document;
+      const drawerEl = doc && doc.querySelector(".overlay .drawer:has(.opp-menu)");
+      const trigger = [...(doc ? doc.querySelectorAll('[data-opp-action="menu"]') : [])].find((el) => el.dataset.id === id);
+      if (!drawerEl || !trigger) return;
+      const anchor = (trigger.closest(".opp-card, tr") || trigger).getBoundingClientRect();
+      const size = drawerEl.getBoundingClientRect();
+      const at = OU().menuPosition(anchor, { width: root.innerWidth, height: root.innerHeight }, { width: size.width || 232, height: size.height });
+      drawerEl.style.cssText += `;left:${at.left}px;top:${at.top}px;right:auto;max-height:${at.maxHeight}px`;
     }
     function showOppLost(id) {
       const card = oppCard(id);
@@ -596,8 +608,7 @@
       if (card.orderId) return ctx.toast("这个商机已经关联了订单");
       const back = oppReturn;
       ctx.closeDialog();
-      orderEditor(undefined, { ...OM().orderDraft(item, B.localDate()), num: nextOrderNumber() }, back);
-      if (draft) draft.fromOpportunity = id;
+      orderEditor(undefined, { ...OM().orderDraft(item, B.localDate()), num: nextOrderNumber() }, back, id);
     }
     function oppAction(d) {
       const action = d.oppAction;
@@ -674,7 +685,7 @@
         old = state().orderSettings || {},
         theme = THEME_CHOICES.find(([id]) => id === settings.theme) || THEME_CHOICES[0];
       return root.LaiSettingsHub.markup(
-        { orderPrefix: settings.orderPrefix || old.orderPrefix || "L", currency: settings.defaultCurrency || old.defaultCurrency || "USD", themeName: theme[1] },
+        { orderPrefix: settings.orderPrefix || old.orderPrefix || "L", currency: settings.defaultCurrency || old.defaultCurrency || "USD", themeName: theme[1], testData: Boolean(root.LaiWebTrial) },
         E,
       );
     }
@@ -722,7 +733,7 @@
         }
       }
     }
-    function orderEditor(id, unsaved, returnCustomer = "") {
+    function orderEditor(id, unsaved, returnCustomer = "", fromOpportunity = "") {
       const old = activeOrders().find((o) => o.id === id);
       if (id !== undefined && !old) {
         ctx.toast("订单不存在，可能已移入回收站，请刷新列表后重试");
@@ -731,6 +742,7 @@
       const defaults = state().laiSettings || state().orderSettings || {},
         today = B.localDate();
       draft = { id: id || crypto.randomUUID(), isNew: !old, returnCustomer };
+      if (fromOpportunity) draft.fromOpportunity = fromOpportunity;
       const o = unsaved ||
         old || {
           createdAt: today,
@@ -746,7 +758,7 @@
         `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(o[name] || "").slice(0, 10) : (o[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}></label>`;
       ctx.dialog(
         old ? "编辑订单" : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div><div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><datalist id="biz-customer-names">${Object.keys(
+        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><datalist id="biz-customer-names">${Object.keys(
           state().customers || {},
         )
           .filter(

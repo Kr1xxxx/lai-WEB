@@ -167,7 +167,23 @@
       const targets=flow.stages.filter(item=>item.id!==stage.id&&item.kind!=='lost');
       return `<form class="drawer-body opp-form" id="opp-stage-remove-form" data-flow="${E(flow.id)}" data-stage="${E(stage.id)}"><div class="error" id="opp-stage-remove-error" role="alert"></div><p class="opp-lead">「${E(stage.label)}」里还有 ${stage.count} 个商机。删除这个阶段前，先选好把它们移到哪个阶段。</p><div class="opp-grid"><label class="opp-field is-wide"><span class="opp-field-label">移到<i class="opp-req" aria-hidden="true">*</i></span><select name="moveTo" required><option value="">请选择</option>${targets.map(item=>option(item.id,`${item.label}（${(model.KIND_LABELS||{})[item.kind]||item.kind}）`,'')).join('')}</select><span class="opp-field-hint">不能直接移到输单：输单需要逐个填写原因。移到另一类阶段时，赢单时间会按现在重新记录或清除。</span></label></div></form>`;
     }
-    return {flowsMarkup,stageRemoveMarkup,stageOptions,boardMarkup,headerActions,cardMarkup,contactOptions,formMarkup,menuMarkup,lostMarkup,analysisMarkup,shortDate};
+    // 菜单贴着被点的那张卡片：优先放在卡片右边，右边放不下放左边，都不够就贴着窗口边；纵向与卡片顶对齐，不够高就上移。
+    // anchor：卡片的 getBoundingClientRect；view：{width,height}；size：{width,height}（菜单自身，高度取实际量到的）。
+    function menuPosition(anchor,view,size,gap=8,edge=8){
+      const width=Math.min(size.width,view.width-edge*2);
+      const height=Math.min(size.height,view.height-edge*2);
+      let left=anchor.right+gap;
+      if(left+width>view.width-edge) left=anchor.left-gap-width;
+      left=Math.max(edge,Math.min(left,view.width-edge-width));
+      const top=Math.max(edge,Math.min(anchor.top,view.height-edge-height));
+      return {left:Math.round(left),top:Math.round(top),maxHeight:Math.round(view.height-edge*2)};
+    }
+    // 订单表单顶部的来源提示：这张订单是从哪个商机生成的、哪些内容是预填的。
+    function sourceBannerMarkup(card){
+      if(!card) return '';
+      return `<div class="opp-source-banner" role="note"><strong>由商机生成</strong><span>「${E(card.name)}」· ${E(card.client)} · ${money(card.amount,card.currency)}。客户、金额等已按商机预填，保存订单后会自动关联到这个商机。</span></div>`;
+    }
+    return {sourceBannerMarkup,menuPosition,flowsMarkup,stageRemoveMarkup,stageOptions,boardMarkup,headerActions,cardMarkup,contactOptions,formMarkup,menuMarkup,lostMarkup,analysisMarkup,shortDate};
   }
   const api={create,PAGE};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiOpportunityUI=api;

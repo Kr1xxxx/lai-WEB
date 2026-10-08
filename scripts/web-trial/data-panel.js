@@ -1,5 +1,5 @@
-/* 来财Lai 网页试用版：「试用数据」按钮和面板。
-   在左侧栏底部放一个按钮，点开是一张浅色卡片：当前数据、载入示例数据、备份与恢复、清空。
+/* 来财Lai 网页试用版：「测试数据」面板。
+   入口在「设置中心」的「测试数据」一项（data-action="web-trial-data"，仅试用版出现），点开是一张浅色卡片：当前数据、载入示例数据、备份与恢复、清空。
    数据保存在浏览器里（由数据替身脚本提供的 window.LaiWebTrial 读写）；网页里不能下载文件，所以备份用复制和粘贴。
    样式同时适配两套界面：小满（深蓝左栏）和粉色、橙色新界面（浅色玻璃左栏）。
    发布试用版时把本文件作为一个 <script> 放在数据替身脚本之后。 */
@@ -7,17 +7,8 @@
   'use strict';
   var INK = 'var(--skin-ink-rgb, 35, 23, 32)', BRAND = 'var(--brand-500, #be185d)';
   var CSS = [
-    // ---- 按钮：放在左侧栏底部、应用自带「刷新」按钮的正上方，是左侧栏自己的空间，不会压到页面内容 ----
-    '#lai-web-data-button{position:absolute;left:8px;bottom:80px;z-index:10;width:56px;height:44px;padding:0;border:1px dashed rgba(183,189,210,.55);border-radius:10px;background:#0c163d;box-shadow:0 -13px 18px 8px #0c163d;color:#b7bdd2;font:12px/1.3 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;cursor:pointer}',
-    '#lai-web-data-button:hover,#lai-web-data-button:focus-visible,#lai-web-data-button[aria-expanded="true"]{background:#222c57;color:#fff}',
-    ':root[data-skin="glass"] #lai-web-data-button{left:18px;bottom:84px;border-color:rgba(' + INK + ',.3);background:rgba(255,255,255,.94);box-shadow:none;color:rgb(' + INK + ')}',
-    ':root[data-skin="glass"] #lai-web-data-button:hover,:root[data-skin="glass"] #lai-web-data-button:focus-visible,:root[data-skin="glass"] #lai-web-data-button[aria-expanded="true"]{background:#fff;border-color:' + BRAND + ';color:' + BRAND + '}',
-    '.rail{padding-bottom:12px !important}',
-    '.rail::after{content:"";order:1;flex:0 0 56px}',
-    '.rail .rail-refresh{position:sticky !important;left:auto !important;bottom:0 !important;order:2;margin-top:auto}',
     // ---- 面板 ----
-    '#lai-web-panel{position:absolute;left:80px;bottom:12px;z-index:30;box-sizing:border-box;width:min(400px,calc(100vw - 24px));max-height:calc(100vh - 76px);overflow:auto;padding:16px;border:1px solid rgba(' + INK + ',.1);border-radius:14px;background:#fff;color:rgb(' + INK + ');font:13px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;box-shadow:0 14px 32px rgba(' + INK + ',.18),0 2px 6px rgba(' + INK + ',.08)}',
-    ':root[data-skin="glass"] #lai-web-panel{left:92px}',
+    '#lai-web-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1000;box-sizing:border-box;width:min(400px,calc(100vw - 24px));max-height:calc(100vh - 48px);overflow:auto;padding:16px;border:1px solid rgba(' + INK + ',.1);border-radius:14px;background:#fff;color:rgb(' + INK + ');font:13px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;box-shadow:0 14px 32px rgba(' + INK + ',.18),0 2px 6px rgba(' + INK + ',.08)}',
     '#lai-web-panel[hidden]{display:none}',
     '#lai-web-panel *{box-sizing:border-box}',
     '#lai-web-panel .lw-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}',
@@ -48,24 +39,22 @@
     '#lai-web-panel .lw-danger{border-color:#c0392b;color:#c0392b}',
     '#lai-web-panel .lw-danger:hover{border-color:#c0392b;color:#c0392b;background:#fdecea}',
     '#lai-web-panel .lw-armed,#lai-web-panel .lw-armed:hover{background:#c0392b;border-color:#c0392b;color:#fff}',
-    '#lai-web-panel button:focus-visible,#lai-web-panel textarea:focus-visible,#lai-web-panel summary:focus-visible,#lai-web-data-button:focus-visible{outline:2px solid ' + BRAND + ';outline-offset:2px}',
+    '#lai-web-panel button:focus-visible,#lai-web-panel textarea:focus-visible,#lai-web-panel summary:focus-visible{outline:2px solid ' + BRAND + ';outline-offset:2px}',
     '#lai-web-msg{min-height:1.5em;margin:0;font-size:12px;color:#1e6b3a}#lai-web-msg.lw-bad{color:#b02a1c}'
   ].join('\n');
 
   function mount() {
     var trial = window.LaiWebTrial;
-    if (!trial || document.getElementById('lai-web-data-button')) return;
+    if (!trial || document.getElementById('lai-web-panel')) return;
     var style = document.createElement('style');
     style.textContent = CSS;
     document.head.appendChild(style);
 
-    var button = document.createElement('button');
-    button.id = 'lai-web-data-button'; button.type = 'button'; button.textContent = '试用数据';
-    button.title = '网页试用版数据：载入示例数据、备份、恢复、清空'; button.setAttribute('aria-expanded', 'false');
+    var opener = null;
     var panel = document.createElement('section');
-    panel.id = 'lai-web-panel'; panel.hidden = true; panel.setAttribute('aria-label', '网页试用版数据');
+    panel.id = 'lai-web-panel'; panel.hidden = true; panel.setAttribute('aria-label', '测试数据'); panel.setAttribute('role', 'dialog');
     panel.innerHTML =
-      '<div class="lw-head"><h2>试用数据</h2><button type="button" class="lw-x" id="lai-web-close" aria-label="关闭">×</button></div>' +
+      '<div class="lw-head"><h2>测试数据</h2><button type="button" class="lw-x" id="lai-web-close" aria-label="关闭">×</button></div>' +
       '<p class="lw-warn" id="lai-web-nostore" hidden>当前环境不能保存数据，刷新页面会丢失。</p>' +
       '<div class="lw-stats"><div class="lw-stat"><b id="lai-web-customers">0</b><span>位客户</span></div><div class="lw-stat"><b id="lai-web-orders">0</b><span>笔订单</span></div></div>' +
       '<p class="lw-note">数据只保存在你当前这个浏览器里，不会上传，也不会同步到其他设备。换浏览器、清除网站数据或用无痕窗口都会看不到它。</p>' +
@@ -79,10 +68,7 @@
       '<div class="lw-block"><h3>清空</h3><p>删除这个浏览器里的全部客户和订单。</p>' +
       '<button type="button" class="lw-btn lw-danger" id="lai-web-clear">清空全部数据</button></div>' +
       '<p id="lai-web-msg" role="status" aria-live="polite"></p>';
-    // 挂在页面舞台里，窗口变窄出现横向滚动时会跟着左侧栏一起移动，而不是悬在别的内容上。
-    var host = document.getElementById('lai-stage') || document.body;
-    host.appendChild(panel);
-    host.appendChild(button);
+    document.body.appendChild(panel);
 
     var $ = function (id) { return panel.querySelector('#' + id); };
     function say(text, bad) { $('lai-web-msg').textContent = text; $('lai-web-msg').className = bad ? 'lw-bad' : ''; }
@@ -93,7 +79,7 @@
       $('lai-web-backup').value = trial.snapshot();
     }
     function setOpen(open) {
-      panel.hidden = !open; button.setAttribute('aria-expanded', String(open));
+      panel.hidden = !open;
       if (open) { refresh(); say(''); }
     }
     function reload(text) {
@@ -115,9 +101,15 @@
       });
     }
 
-    button.addEventListener('click', function () { setOpen(panel.hidden); });
-    $('lai-web-close').addEventListener('click', function () { setOpen(false); button.focus(); });
-    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !panel.hidden) { setOpen(false); button.focus(); } });
+    // 入口在设置中心：点「测试数据」那一项（点击发生在页面里，用事件委托，页面重绘也不受影响）。
+    document.addEventListener('click', function (event) {
+      var entry = event.target.closest && event.target.closest('[data-action="web-trial-data"]');
+      if (!entry) return;
+      opener = entry; setOpen(true);
+      $('lai-web-close').focus();
+    });
+    $('lai-web-close').addEventListener('click', function () { setOpen(false); if (opener && document.contains(opener)) opener.focus(); });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !panel.hidden) { setOpen(false); if (opener && document.contains(opener)) opener.focus(); } });
     $('lai-web-copy').addEventListener('click', function () {
       var area = $('lai-web-backup'); area.value = trial.snapshot();
       var done = function () { say('备份已复制。'); };

@@ -43,3 +43,12 @@ test('the parts a user can set are all covered: defaults, theme, favorites, colu
   const ids = Hub.GROUPS.flatMap((g) => g.items.map((i) => i.id));
   assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'columns', 'segments', 'customer-settings', 'flows', 'targets', 'mail-account']);
 });
+
+test('the 测试数据 entry shows only in the web trial, once, and opens the trial panel', () => {
+  assert.doesNotMatch(Hub.markup({}, E), /测试数据/, '应用本体没有这一项');
+  const html = Hub.markup({ testData: true }, E);
+  assert.equal(html.split('data-sh-group="test-data"').length - 1, 1);
+  assert.match(html, /data-sh-item="test-data"[\s\S]*?data-action="web-trial-data"/);
+  assert.match(read('src/business-ui.js'), /testData: Boolean\(root\.LaiWebTrial\)/);
+  assert.match(read('scripts/web-trial/data-panel.js'), /web-trial-data/);
+});

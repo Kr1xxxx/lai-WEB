@@ -2,7 +2,7 @@
 """Rebuild the web trial page from the currently published page.
 
 The published page is the app's single HTML page plus a few blocks that exist only in the
-published page (the localStorage data stand-in, the 试用数据 panel, outer scroll styles).
+published page (the localStorage data stand-in, the 测试数据 panel, outer scroll styles).
 So the page is never built from scratch: take the live page as the base and swap each
 src/ block that changed since the commit the live page was built from.
 
