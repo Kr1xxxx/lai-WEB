@@ -4,6 +4,7 @@
   const importPreviewEnabled = window.__laiImportPreview === true;
   const nativeWindowBridge = () => !!window.webkit?.messageHandlers?.windowDragRegions;
   const separateCustomerWindow = nativeWindowBridge() && new URLSearchParams(location.search).has("customer");
+  const CT = window.LaiCustomerTools;
   const M = window.PreviewModel,
     S = window.PreviewSegments,
     C = window.LaiCustomerFields,
@@ -2574,6 +2575,164 @@
       );
     });
   }
+  // ---- 客户管理工具：合并客户、批量建档、标签管理、公海规则（计算在 customer-tools.js） ----
+  function ownerChoices() {
+    return [...new Set([
+      state.laiSettings?.defaultOwner,
+      state.orderSettings?.defaultOwner,
+      ...allCustomerRows().map((row) => row.owner),
+    ].filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+  }
+  function mergeDialog(names, pointerActivated = false) {
+    names = [...new Set(names)];
+    if (names.length < 2) return toast("请至少选择 2 位客户再合并");
+    const rows = new Map(allCustomerRows().map((row) => [row.name, row]));
+    const draw = (primary) => {
+      let preview;
+      try { preview = CT.mergePreview(state, primary, names.filter((n) => n !== primary)); } catch (error) { preview = null; $("#workspace-error") && ($("#workspace-error").textContent = error.message); }
+      return preview;
+    };
+    const first = names.find((n) => (rows.get(n)?.orderCount || 0) > 0) || names[0];
+    drawer(
+      "合并客户",
+      `<form id="merge-form" class="drawer-body merge-form"><p class="batch-tags-count">选择要<strong>保留</strong>的客户，其余 ${names.length - 1} 位并入它：</p><div class="merge-choices">${names.map((n) => { const r = rows.get(n) || {}; return `<label class="merge-choice"><input type="radio" name="primary" value="${E(n)}" ${n === first ? "checked" : ""}><span><strong>${E(n)}</strong><small>${E(r.owner || "未分配")} · ${r.orderCount || 0} 个订单 · ${(r.history || []).length} 条动态${r.email ? " · " + E(r.email) : ""}</small></span></label>`; }).join("")}</div><div id="merge-preview" class="module-note"></div><p class="muted tiny">保留客户的资料优先，空着的资料用其余客户补上；联系人、标签、动态全部并入；订单、任务、商机、客群里的客户名一并改成保留客户。合并后被并入的客户档案会删除，此操作不能撤销，建议先在设置里备份。</p><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="merge-form" class="primary">确认合并</button>`,
+      "actions",
+      pointerActivated,
+    );
+    const form = $("#merge-form");
+    const update = () => {
+      const primary = form.elements.primary.value;
+      const p = draw(primary);
+      $("#merge-preview").innerHTML = p
+        ? `将 <strong>${p.others.map(E).join("、")}</strong> 并入 <strong>${E(primary)}</strong>：${p.count.orders} 个订单、${p.count.tasks} 个任务、${p.count.opportunities} 个商机、${p.count.segments} 个客群、${p.count.contacts} 条联系人资料、${p.count.followups} 条动态`
+        : "";
+    };
+    form.addEventListener("change", update);
+    update();
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const primary = form.elements.primary.value;
+      workspaceSave(
+        () => CT.mergeCustomers(state, primary, names.filter((n) => n !== primary)),
+        () => { selected.clear(); currentName = ""; customerScreen = "active"; },
+      );
+    });
+  }
+  function batchCreateDialog(pointerActivated = false) {
+    const owners = ownerChoices();
+    drawer(
+      "批量建档",
+      `<form id="batch-create-form" class="drawer-body batch-create-form"><p class="muted tiny">每行一位客户，列之间用 Tab 或逗号分隔：<br><strong>公司名称，联系人，邮箱，电话，国家</strong>（后四列可以省略）。可以直接从 Excel 里复制粘贴。</p><label class="field"><span>客户名单</span><textarea name="text" rows="9" required placeholder="Acme Trading Ltd，Amy Li，amy@acme.com，+1 555 0100，美国&#10;Sunrise GmbH"></textarea></label><div class="form-grid"><label class="field"><span>默认国家地区</span><input name="country" maxlength="60" placeholder="行里没写国家时使用"></label><label class="field"><span>客户来源</span><input name="source" maxlength="60" value="批量建档"></label><label class="field"><span>跟进人</span><input name="owner" list="batch-create-owners" maxlength="60" value="${E(state.laiSettings?.defaultOwner || state.orderSettings?.defaultOwner || "")}"><datalist id="batch-create-owners">${owners.map((o) => `<option value="${E(o)}">`).join("")}</datalist></label><label class="field"><span>标签（逗号分隔）</span><input name="tags" maxlength="200"></label></div><div id="batch-create-result" class="module-note" hidden></div><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="batch-create-form" class="primary">建档</button>`,
+      "actions",
+      pointerActivated,
+    );
+    const form = $("#batch-create-form");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (pending) return;
+      const err = $("#workspace-error");
+      err.textContent = "";
+      let result;
+      try {
+        result = CT.batchCreate(state, form.elements.text.value, {
+          country: form.elements.country.value, source: form.elements.source.value,
+          owner: form.elements.owner.value, tags: form.elements.tags.value,
+        });
+      } catch (error) { err.textContent = error.message; err.classList.add("visible"); return; }
+      const box = $("#batch-create-result");
+      const report = () => {
+        box.hidden = false;
+        box.innerHTML = `<strong>已建档 ${result.created.length} 位</strong>${result.skipped.length ? `，跳过 ${result.skipped.length} 行：<ul class="batch-skipped">${result.skipped.map((x) => `<li>第 ${x.line} 行「${E(x.raw.slice(0, 40))}」：${E(x.reason)}</li>`).join("")}</ul><p class="tiny muted">可以修改上面的名单后只粘贴被跳过的行再建一次。</p>` : ""}`;
+      };
+      if (!result.created.length) { report(); err.textContent = "没有可建档的客户"; err.classList.add("visible"); return; }
+      try {
+        await persist(result.state);
+        form.elements.text.value = result.skipped.map((x) => x.raw).join("\n");
+        report();
+        refresh();
+        toast(`已建档 ${result.created.length} 位客户`);
+        const btn = document.querySelector('button[form="batch-create-form"]');
+        if (btn) btn.textContent = result.skipped.length ? "再建一次（仅跳过的行）" : "完成";
+        if (!result.skipped.length) form.addEventListener("submit", (e2) => { e2.preventDefault(); closeModal(); }, { once: true });
+      } catch (error) { err.textContent = error.message; err.classList.add("visible"); }
+    });
+  }
+  function tagManagerDialog(pointerActivated = false) {
+    let editing = "", confirmDelete = "", message = "";
+    const body = () => {
+      const stats = CT.tagStats(state);
+      const rows = stats.map((t) => {
+        if (editing === t.tag) return `<div class="tag-row"><input class="tag-rename-input" value="${E(t.tag)}" maxlength="40" aria-label="新的标签名称"><button type="button" data-tag-save="${E(t.tag)}" class="primary">保存</button><button type="button" data-tag-cancel>取消</button></div>`;
+        if (confirmDelete === t.tag) return `<div class="tag-row"><span class="tag-name">${E(t.tag)}</span><span class="muted tiny">从 ${t.count} 位客户身上去掉？</span><button type="button" data-tag-delete-ok="${E(t.tag)}" class="danger">确认删除</button><button type="button" data-tag-cancel>取消</button></div>`;
+        return `<div class="tag-row"><span class="tag-name">${E(t.tag)}</span><span class="muted tiny">${t.count} 位客户</span><button type="button" data-tag-rename="${E(t.tag)}">改名</button><button type="button" data-tag-delete="${E(t.tag)}">删除</button></div>`;
+      }).join("");
+      return `<div class="drawer-body tag-manager">${rows || '<div class="empty"><strong>还没有客户标签</strong><span>在客户资料或批量操作里给客户加标签后，这里就会列出来。</span></div>'}<p class="muted tiny">改名成已有的标签名，就是把两个标签合并。删除只是把标签从客户身上去掉，不影响客户资料。</p><div class="error ${message ? "visible" : ""}" id="workspace-error" role="alert">${E(message)}</div></div>`;
+    };
+    drawer("标签管理", body(), `<button type="button" data-action="close-modal">完成</button>`, "actions", pointerActivated);
+    const root = () => $("#overlay-root .drawer-body.tag-manager");
+    const redraw = () => { const old = root(); if (old) old.outerHTML = body(); root()?.querySelector(".tag-rename-input")?.focus(); };
+    const run = async (fn) => {
+      if (pending) return;
+      try { await persist(fn().state); message = ""; editing = ""; confirmDelete = ""; refresh(); toast("已保存到来财"); }
+      catch (error) { message = error.message; }
+      redraw();
+    };
+    const host = $("#overlay-root .overlay");
+    host.addEventListener("click", (event) => {
+      const t = event.target.closest("[data-tag-rename],[data-tag-save],[data-tag-delete],[data-tag-delete-ok],[data-tag-cancel]");
+      if (!t || !root()) return;
+      const d = t.dataset;
+      if (d.tagRename !== undefined) { editing = d.tagRename; confirmDelete = ""; message = ""; redraw(); }
+      else if (d.tagDelete !== undefined) { confirmDelete = d.tagDelete; editing = ""; message = ""; redraw(); }
+      else if (d.tagCancel !== undefined) { editing = ""; confirmDelete = ""; message = ""; redraw(); }
+      else if (d.tagSave !== undefined) run(() => CT.renameTag(state, d.tagSave, root().querySelector(".tag-rename-input").value));
+      else if (d.tagDeleteOk !== undefined) run(() => CT.deleteTag(state, d.tagDeleteOk));
+    });
+    host.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target.classList?.contains("tag-rename-input")) { event.preventDefault(); root().querySelector("[data-tag-save]")?.click(); }
+    });
+  }
+  function poolRulesDialog(pointerActivated = false) {
+    const r = CT.poolRules(state);
+    drawer(
+      "公海规则",
+      `<form id="pool-rules-form" class="drawer-body pool-rules-form"><label class="check-row"><input type="checkbox" name="enabled" ${r.enabled ? "checked" : ""}> 启用规则（关闭时只保存设置，下面的预览和“立即执行”仍可使用）</label><label class="field"><span>超过多少天没有任何跟进，移入公海</span><input name="noFollowDays" type="number" min="1" max="3650" value="${r.noFollowDays}" required></label><p class="muted tiny">“跟进”包括写过的跟进记录、邮件往来、新订单；从没有跟进过的客户从建档日起算。没有跟进人的客户不处理。</p><label class="check-row"><input type="checkbox" name="skipOpenOrders" ${r.skipOpenOrders ? "checked" : ""}> 有进行中订单（报价、定金、生产中、尾款）的客户不移</label><label class="check-row"><input type="checkbox" name="skipFollowed" ${r.skipFollowed ? "checked" : ""}> 已设为关注的客户不移</label><label class="field"><span>带这些标签的客户不移（逗号分隔）</span><input name="skipTags" value="${E(r.skipTags.join("，"))}" maxlength="200"></label><div id="pool-rules-preview" class="module-note"></div><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<button type="button" data-action="close-modal">取消</button><button type="button" id="pool-rules-run">立即执行</button><button type="submit" form="pool-rules-form" class="primary">保存规则</button>`,
+      "actions",
+      pointerActivated,
+    );
+    const form = $("#pool-rules-form");
+    const read = () => ({
+      enabled: form.elements.enabled.checked, noFollowDays: form.elements.noFollowDays.value,
+      skipOpenOrders: form.elements.skipOpenOrders.checked, skipFollowed: form.elements.skipFollowed.checked,
+      skipTags: form.elements.skipTags.value,
+    });
+    const preview = () => {
+      const box = $("#pool-rules-preview");
+      try {
+        const next = CT.setPoolRules(state, read());
+        const list = CT.poolCandidates(next);
+        box.innerHTML = list.length
+          ? `按当前设置，现在有 <strong>${list.length}</strong> 位客户会被移入公海：<ul class="batch-skipped">${list.slice(0, 8).map((c) => `<li>${E(c.name)}（${E(c.owner)}，${c.days} 天没动静）</li>`).join("")}${list.length > 8 ? `<li>还有 ${list.length - 8} 位…</li>` : ""}</ul>`
+          : "按当前设置，现在没有客户需要移入公海。";
+      } catch (error) { box.textContent = error.message; }
+    };
+    form.addEventListener("input", preview);
+    form.addEventListener("change", preview);
+    preview();
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      workspaceSave(() => CT.setPoolRules(state, read()));
+    });
+    $("#pool-rules-run").onclick = () =>
+      workspaceSave(() => {
+        const ruled = CT.setPoolRules(state, read());
+        const result = CT.applyPoolRules(ruled);
+        return result.state;
+      });
+  }
   function batchOwnerDialog(clearOwner = false, pointerActivated = false) {
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
@@ -3409,7 +3568,7 @@
     let body = "";
     if (screen === "duplicates") {
       const groups = L.findDuplicates(state);
-      body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定是否移入回收站；不会自动合并或删除订单。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span></h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button><span>${E(C.countryLabel(state.customers[name]?.country))}</span><button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + Object.keys(state.customers).length + " 个客户档案</span></div>"}`;
+      body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span><button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button></h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button><span>${E(C.countryLabel(state.customers[name]?.country))}</span><button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + Object.keys(state.customers).length + " 个客户档案</span></div>"}`;
     } else {
       const data = allCustomerRows().filter(
         (c) => L.bucket(state.customers[c.name]) === screen,
@@ -3905,7 +4064,7 @@
     closeModal();
     customerScreen = "customer-settings";
     $("#app").innerHTML = shell(
-      `<div class="pagebar"><div class="page-tabs"><h1>客户设置</h1></div></div><section class="customer-settings-list"><button data-action="settings">列表字段设置</button><button data-action="manage-segments">客群管理</button><button data-lai-screen="trash">客户回收站</button><button data-lai-route="settings">来财设置</button><button data-feature="公海规则">公海规则</button><button data-feature="客户字段管理">客户字段管理</button><button data-feature="标签管理">标签管理</button><button data-action="restore-table-defaults">恢复默认字段</button></section>`,
+      `<div class="pagebar"><div class="page-tabs"><h1>客户设置</h1></div></div><section class="customer-settings-list"><button data-action="settings">列表字段设置</button><button data-action="manage-segments">客群管理</button><button data-lai-screen="trash">客户回收站</button><button data-lai-route="settings">来财设置</button><button data-action="pool-rules">公海规则</button><button data-feature="客户字段管理">客户字段管理</button><button data-action="tag-manager">标签管理</button><button data-action="restore-table-defaults">恢复默认字段</button></section>`,
     );
   }
   document.addEventListener("click", async (e) => {
@@ -4075,18 +4234,23 @@
     if (a === "batch-followup") return batchFollowupDialog(e.detail > 0);
     if (a === "batch-schedule") return batchScheduleDialog(e.detail > 0);
     if (a === "batch-tags") return batchTagsDialog(e.detail > 0);
+    if (a === "batch-merge") return mergeDialog([...selected], e.detail > 0);
+    if (a === "batch-create") return batchCreateDialog(e.detail > 0);
+    if (a === "tag-manager") return tagManagerDialog(e.detail > 0);
+    if (a === "pool-rules") return poolRulesDialog(e.detail > 0);
+    if (a === "merge-group") return mergeDialog(el.dataset.names.split("\u0001"), e.detail > 0);
     if (a === "batch-edit-field") return batchFieldDialog(e.detail > 0);
     if (a === "batch-more")
       return popover(
         el,
-        `<button data-feature="合并客户">合并客户</button><button data-feature="AI批量质检">AI批量质检</button><hr><button data-feature="共享给">共享给</button><button data-action="batch-pool">移入公海</button><button data-action="batch-follow">关注</button><button data-action="batch-unfollow">取消关注</button><hr><button data-action="batch-assign-owner">重新分配</button><button data-action="batch-clear-owner">移除跟进人</button><button data-feature="变更公海分组">变更公海分组</button><hr><button data-action="remove-members">移出客群</button><button data-action="batch-trash">移入回收站</button>`,
+        `<button data-action="batch-merge">合并客户</button><button data-feature="AI批量质检">AI批量质检</button><hr><button data-feature="共享给">共享给</button><button data-action="batch-pool">移入公海</button><button data-action="batch-follow">关注</button><button data-action="batch-unfollow">取消关注</button><hr><button data-action="batch-assign-owner">重新分配</button><button data-action="batch-clear-owner">移除跟进人</button><button data-feature="变更公海分组">变更公海分组</button><hr><button data-action="remove-members">移出客群</button><button data-action="batch-trash">移入回收站</button>`,
       );
     if (a === "batch-assign-owner" || a === "batch-clear-owner")
       return batchOwnerDialog(a === "batch-clear-owner", e.detail > 0);
     if (a === "create-menu")
       return popover(
         el,
-        `<button data-action="new">新建客户</button>${importPreviewEnabled ? '<button data-action="import-customers">导入客户</button>' : ''}<button data-feature="批量建档">批量建档</button>`,
+        `<button data-action="new">新建客户</button>${importPreviewEnabled ? '<button data-action="import-customers">导入客户</button>' : ''}<button data-action="batch-create">批量建档</button>`,
       );
     if (a === "profile-menu")
       return popover(

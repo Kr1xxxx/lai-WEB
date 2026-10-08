@@ -1822,3 +1822,17 @@ td.team-reached {
 .sh-item > button { flex: 0 0 auto; min-width: 64px; height: 30px; padding: 0 14px; }
 /* 商机页头：看板／列表切换和「商机分析」入口只在新界面里挪位置，小满主题不显示 */
 .opp-view-in, .opp-analysis-link { display: none; }
+
+/* ---- 客户管理工具：合并客户、批量建档、标签管理、公海规则 ---- */
+.merge-choices{display:grid;gap:6px;margin:8px 0}
+.merge-choice{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--ink-200);border-radius:8px;cursor:pointer;background:#fff}
+.merge-choice:has(input:checked){border-color:var(--brand-500);background:var(--brand-50)}
+.merge-choice small{display:block;color:var(--ink-600);margin-top:2px}
+.batch-create-form textarea{width:100%;font:inherit;line-height:1.5;padding:8px 10px;border:1px solid var(--ink-200);border-radius:8px;resize:vertical}
+.batch-skipped{margin:6px 0 0;padding-left:18px;max-height:160px;overflow:auto}
+.tag-manager .tag-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--ink-100)}
+.tag-manager .tag-name{flex:1;font-weight:600}
+.tag-manager .tag-row .muted{white-space:nowrap}
+.tag-manager .tag-rename-input{flex:1;min-width:0}
+.pool-rules-form .check-row{display:flex;gap:8px;align-items:flex-start;margin:8px 0}
+.duplicate-card h3 .duplicate-merge{float:right;font-size:12px}
