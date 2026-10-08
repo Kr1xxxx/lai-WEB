@@ -46,3 +46,8 @@ test('the parts a user can set are all covered: defaults, theme, favorites, colu
   const ids = Hub.GROUPS.flatMap((g) => g.items.map((i) => i.id));
   assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'columns', 'segments', 'customer-settings', 'flows', 'targets', 'mail-account']);
 });
+
+test('the rail keeps room for the 刷新 button at the bottom in both skins, so the last entry is reachable when the window is short', () => {
+  assert.match(read('src/customer-replica.css'), /padding: 16px 0 72px;\n  overflow-y: auto;/);
+  assert.match(read('src/skin-glass.css'), /width: 68px; padding: 8px 6px 64px;/);
+});

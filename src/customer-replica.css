@@ -298,7 +298,8 @@ input::placeholder {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 16px 0;
+  /* 底部留出「刷新」按钮的位置：入口多了、窗口矮了，滚到底最后一项也不会被刷新按钮盖住 */
+  padding: 16px 0 72px;
   overflow-y: auto;
   scrollbar-width: none;
 }
