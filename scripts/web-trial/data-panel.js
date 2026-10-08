@@ -8,9 +8,9 @@
   var INK = 'var(--skin-ink-rgb, 35, 23, 32)', BRAND = 'var(--brand-500, #be185d)';
   var CSS = [
     // ---- 按钮：放在左侧栏底部、应用自带「刷新」按钮的正上方，是左侧栏自己的空间，不会压到页面内容 ----
-    '#lai-web-data-button{position:absolute;left:8px;bottom:80px;z-index:10;width:56px;height:44px;padding:0;border:1px dashed rgba(183,189,210,.55);border-radius:10px;background:transparent;color:#b7bdd2;font:12px/1.3 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;cursor:pointer}',
-    '#lai-web-data-button:hover,#lai-web-data-button:focus-visible,#lai-web-data-button[aria-expanded="true"]{background:rgba(255,255,255,.12);color:#fff}',
-    ':root[data-skin="glass"] #lai-web-data-button{left:18px;bottom:84px;border-color:rgba(' + INK + ',.3);background:rgba(255,255,255,.55);color:rgb(' + INK + ')}',
+    '#lai-web-data-button{position:absolute;left:8px;bottom:80px;z-index:10;width:56px;height:44px;padding:0;border:1px dashed rgba(183,189,210,.55);border-radius:10px;background:#0c163d;box-shadow:0 -13px 18px 8px #0c163d;color:#b7bdd2;font:12px/1.3 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;cursor:pointer}',
+    '#lai-web-data-button:hover,#lai-web-data-button:focus-visible,#lai-web-data-button[aria-expanded="true"]{background:#222c57;color:#fff}',
+    ':root[data-skin="glass"] #lai-web-data-button{left:18px;bottom:84px;border-color:rgba(' + INK + ',.3);background:rgba(255,255,255,.94);box-shadow:none;color:rgb(' + INK + ')}',
     ':root[data-skin="glass"] #lai-web-data-button:hover,:root[data-skin="glass"] #lai-web-data-button:focus-visible,:root[data-skin="glass"] #lai-web-data-button[aria-expanded="true"]{background:#fff;border-color:' + BRAND + ';color:' + BRAND + '}',
     '.rail{padding-bottom:12px !important}',
     '.rail::after{content:"";order:1;flex:0 0 56px}',
@@ -117,7 +117,7 @@
 
     button.addEventListener('click', function () { setOpen(panel.hidden); });
     $('lai-web-close').addEventListener('click', function () { setOpen(false); button.focus(); });
-    panel.addEventListener('keydown', function (event) { if (event.key === 'Escape') { setOpen(false); button.focus(); } });
+    document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !panel.hidden) { setOpen(false); button.focus(); } });
     $('lai-web-copy').addEventListener('click', function () {
       var area = $('lai-web-backup'); area.value = trial.snapshot();
       var done = function () { say('备份已复制。'); };

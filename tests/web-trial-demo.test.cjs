@@ -89,3 +89,15 @@ test('the seed runs once and never overwrites the visitor\'s own data', () => {
   assert.equal(kept.revision, 3);
   assert.equal(Object.keys(kept.data.customers).length, 7);
 });
+
+test('the 试用数据 panel script is valid, every id it looks up is in its own markup, and it only uses the data stand-in API', () => {
+  const source = read('scripts/web-trial/data-panel.js');
+  assert.doesNotThrow(() => new vm.Script(source, { filename: 'data-panel.js' }));
+  const looked = [...source.matchAll(/\$\('(lai-web-[a-z-]+)'\)/g)].map((m) => m[1]);
+  assert.ok(looked.length >= 8);
+  for (const id of new Set(looked)) assert.ok(source.includes(`id="${id}"`), `markup is missing #${id}`);
+  const api = new Set([...source.matchAll(/\btrial\.([a-zA-Z]+)/g)].map((m) => m[1]));
+  for (const name of api) assert.ok(['persistent', 'stats', 'snapshot', 'restore', 'clear'].includes(name), `unknown API trial.${name}`);
+  // every action that replaces data asks for a second click first
+  for (const id of ['lai-web-demo', 'lai-web-restore-button', 'lai-web-clear']) assert.match(source, new RegExp(`armed\\(\\$\\('${id}'\\)`));
+});
