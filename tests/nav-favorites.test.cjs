@@ -805,3 +805,13 @@ test('the old star and "收藏" wording is gone and the real handlers are wired'
   assert.ok(app.indexOf('d.flyoutKind') < app.indexOf('d.navFavorite'), 'a heart is never mistaken for a navigation entry');
   assert.ok(app.indexOf('d.navFavorite') < app.indexOf('d.laiScreen'), 'the heart is handled before the screen routing');
 });
+
+test('the Leads rail entry has no OKKI in its name and a 设置 option that is a reserved entry, not a favorite', () => {
+  const rows = RM.menuFor('Leads');
+  assert.deepEqual(rows.map(r => [r.label, r.kind, r.target]), [['设置', 'feature', 'Leads 设置']]);
+  assert.equal(rows[0].id, undefined, 'a reserved entry cannot be a favorite');
+  assert.equal(RM.favoritable().some(r => r.menu === 'Leads'), false);
+  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src/app.js'), 'utf8');
+  assert.match(app, /\["search", "Leads", null\]/);
+  assert.doesNotMatch(app, /\["search", "OKKI/);
+});

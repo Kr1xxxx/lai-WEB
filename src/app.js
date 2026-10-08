@@ -3081,7 +3081,7 @@
       ["lead", "线索", null],
       ["people", "客户", "customers"],
       ["globe", "商机", "opportunities"],
-      ["search", "OKKI Leads", null],
+      ["search", "Leads", null],
       ["note", "交易", "order-list"],
       ["chart", "团队数据", "team-goals"],
       ["folder", "协同", "calendar"],
