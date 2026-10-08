@@ -428,3 +428,11 @@ python3 scripts/native-drag-acceptance.py
 | 独立复核 | 已做（2026-10-07）：1 项高、3 项中、8 项低。已修：保存流程时会丢掉读不懂的阶段条目（高）；编辑商机会把读不到的流程指向改成默认；从客户页点「全部商机」只看到默认流程里的（现在打开商机最多的流程，并提示其他流程里还有多少）；设置页点过一次删除后离开再回来仍停在待确认；名称长度按字数算、去掉看不见的字符；改名失败时输入框恢复原名。未改：同一个流程 ID 存了两条时删除会两条一起删（手工改数据才会出现）；手工改出重名阶段时客户页按名称只能找到第一个 |
 | 已知限制 | 改完名称后直接点别的按钮，那一下点击可能不生效（保存时页面暂时锁住），需要再点一次；阶段不能在「进行中」和「赢单」之间互换类型；流程之间不能调整先后顺序；没有在 Mac 应用（Safari 内核）里验证 |
 | 用户验收 | 待确认 |
+
+## 2026-10-08 网页试用版：美国、欧洲睫毛公司的示例邮件和示例数据（分支 claude/trial-demo-mails，基于 main）
+
+- 示例邮件（`scripts/web-trial/mail-demo.js`）换成 12 封虚构的往来邮件：7 家美国、欧洲大型睫毛公司（London Lash Pro、Velvet Lash Co.、NordLash Studio GmbH、Maison des Cils、Lash Luxe Distribution、Bella Ciglia Srl、Lash Lab Amsterdam BV），包括 London Lash Pro 的 USD 50,000 订单（PO）、Lash Luxe 电汇尾款 USD 21,300、Velvet 旺季翻倍、NordLash 复购并求 DACH 独家、Maison des Cils 试单、Bella Ciglia 2027 年度协议 USD 180,000。主题仍带 [Sample] 标记，邮箱域名都是 `.example`，不会撞到真实公司。
+- 示例数据（`scripts/web-trial/demo-seed.js`，新文件）：第一次打开试用版、浏览器里还没有客户和订单时，放进这 7 家客户（邮箱和示例邮件一一对应，邮件页自动关联）、9 笔订单、10 个商机、7 条待办、跟进记录和本月目标。只放一次，不动访客自己的数据，已选的主题保留。
+- 发布方式：`demo-seed.js` 作为一个 `<script>` 放在所有业务模块之后、应用主脚本之前；`mail-demo.js` 仍放在数据替身脚本之后。
+- 自动测试：新增 `tests/web-trial-demo.test.cjs` 4 项；`mail-ui.test.cjs` 里的示例邮箱测试按新数据更新。全量 601 项通过。
+- 用户验收：待确认。
