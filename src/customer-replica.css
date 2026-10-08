@@ -221,7 +221,7 @@ input::placeholder {
 }
 .global-search > button:last-child {
   width: 34px;
-  color: #777;
+  color: var(--text-muted, #777);
 }
 .top-actions {
   display: flex;
@@ -589,7 +589,7 @@ input::placeholder {
   white-space: nowrap;
 }
 .page-actions .text-button {
-  color: #777;
+  color: var(--text-muted, #777);
   padding: 0;
   min-width: 18px;
 }
@@ -832,7 +832,7 @@ input::placeholder {
   min-height: 20px;
   display: flex;
   align-items: center;
-  color: #777;
+  color: var(--text-muted, #777);
   flex-shrink: 0;
 }
 .group-settings {
@@ -904,7 +904,7 @@ input::placeholder {
   font-style: normal;
   font-size: 11px;
   width: 11px;
-  color: #777;
+  color: var(--text-muted, #777);
   flex-shrink: 0;
 }
 .group-row.tree-heading:not(.won-tree-heading) i {
@@ -1039,7 +1039,7 @@ input::placeholder {
   min-height: 48px;
   height: 48px;
   padding: 0;
-  color: #777;
+  color: var(--text-muted, #777);
 }
 .collapse-groups::before {
   content: "";
@@ -1464,7 +1464,7 @@ input::placeholder {
   align-items: center;
   gap: 16px;
   font-size: 14px;
-  color: #777;
+  color: var(--text-muted, #777);
 }
 .pages {
   display: flex;
@@ -1478,7 +1478,7 @@ input::placeholder {
   border: 0;
   border-radius: 3px;
   padding: 4px 8px;
-  color: #777;
+  color: var(--text-muted, #777);
   background: transparent;
 }
 .pages button.current {
@@ -1487,7 +1487,7 @@ input::placeholder {
 }
 .pages select {
   height: 32px;
-  color: #777;
+  color: var(--text-muted, #777);
   font-size: 14px;
   padding: 3px 8px;
 }
@@ -1672,7 +1672,7 @@ input::placeholder {
 }
 .replica-batch > span {
   font-size: 12px;
-  color: #777;
+  color: var(--text-muted, #777);
 }
 .batch-divider {
   width: 1px;
@@ -1910,7 +1910,7 @@ input::placeholder {
   height: 24px;
   border: 0;
   padding: 0;
-  color: #777;
+  color: var(--text-muted, #777);
   font-size: 12px;
 }
 .follow-options {
@@ -1966,7 +1966,7 @@ input::placeholder {
 .columns-layout h4 {
   font-size: 14px;
   font-weight: 400;
-  color: #777;
+  color: var(--text-muted, #777);
   margin: 12px 0;
 }
 .columns-layout input#column-search {
@@ -2174,7 +2174,7 @@ button.subnav-restore {
 }
 .feature-state {
   font-size: 14px;
-  color: #777;
+  color: var(--text-muted, #777);
   padding: 16px;
   background: #fafafa;
   border-radius: 4px;

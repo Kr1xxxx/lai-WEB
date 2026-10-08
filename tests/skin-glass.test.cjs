@@ -62,3 +62,20 @@ test('tab strips, calendar cells and agenda rows keep square corners and their o
   assert.match(skin, /:is\(\.team-tabs button, \.calendar-day, \.agenda-item, \.team-goal-new\) \{ border-radius: 0; \}/);
   assert.match(skin, /\.team-tabs button\[aria-selected="true"\]:hover:not\(:disabled\) \{ border-color: transparent transparent var\(--brand-700\); \}/);
 });
+
+test('the active rail item, the batch bar and the follow-up card are light; only primary buttons stay dark', () => {
+  const light = skin.slice(skin.indexOf('深色强调色改浅'));
+  assert.ok(light.length > 100, 'section exists after the earlier dark rules, so it wins the cascade');
+  assert.match(light, /\.rail-item\.active:hover \{ background: var\(--brand-50\); color: var\(--brand-700\);/);
+  assert.match(light, /\.replica-batch \{ background: #fff;[^}]*border: 1px solid var\(--brand-500\)/);
+  assert.match(light, /\.wb-dark \{ background: var\(--card-bg\); color: rgb\(var\(--skin-ink-rgb\)\)/);
+  assert.doesNotMatch(light, /background: rgb\(var\(--skin-ink-rgb\)\)/, 'no dark fills in this section');
+  // 浅粉底上的玫粉字：粉色、橙色两套主题都要 ≥ 4.5
+  for (const theme of ['pink', 'orange']) {
+    const block = tokens.slice(tokens.indexOf(`:root[data-theme="${theme}"]`));
+    const brand700 = block.match(/--brand-700:\s*(#[0-9a-fA-F]{6})/)[1];
+    const brand50 = block.match(/--brand-50:\s*(#[0-9a-fA-F]{6})/)[1];
+    assert.ok(ratio(brand700, brand50) >= 4.5, `${theme}: ${brand700} on ${brand50} is ${ratio(brand700, brand50).toFixed(2)}:1`);
+    assert.ok(ratio(brand700, '#ffffff') >= 4.5, `${theme}: ${brand700} on white`);
+  }
+});
