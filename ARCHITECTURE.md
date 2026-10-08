@@ -25,7 +25,7 @@
 | `src/nav-favorites.js` | 常用导航：哪些既有导航条目被设为常用及其顺序（存于`laiSettings.favoriteNav`，只存条目ID如`screen:active`、`route:order-list`、`mail:inbox`，不含业务字段）；从未设置过时为空。可设为常用的清单不在这里另抄，直接取自`rail-menu.js`，所以在菜单里加页面就自动能设为常用。依赖`rail-menu.js` |
 | `src/rail-menu.js` | 左侧栏各菜单有哪些真实页面入口（悬停浮层、各菜单二级导航、可设为常用的清单都读这一份）；沟通、线索仍是保留入口。不依赖其他模块，装载在`nav-favorites.js`之前 |
 | `src/workbench.js` | 新界面（粉色、橙色主题）的工作台页面：纯函数 `markup(input, escape)` 生成整页 HTML，`mailRows` 生成未读邮件行；不碰 DOM、不发请求。小满主题的工作台仍在 `business-ui.js` 的 `renderDashboard()` 里。邮件列表由 `business-ui.js` 在页面画好后向 `ctx.mailSummary()` 要，再只更新对应几处 |
-| `src/settings-hub.js` | 设置中心页面（企业管理 → 设置中心）：纯函数 `markup(info, escape)` 生成整页 HTML；`GROUPS` 列出每一项设置和它打开的真实页面或弹窗，不重复实现任何设置 |
+| `src/settings-hub.js` | 设置中心页面（设置 → 设置中心）：纯函数 `markup(info, escape)` 生成整页 HTML；`GROUPS` 列出每一项设置和它打开的真实页面或弹窗，不重复实现任何设置 |
 | `src/orders-page.js` | 全部订单页面（新界面）：纯函数 `markup(input, escape)` 生成设计稿 Orders 的整页 HTML，`inPeriod` 按本月／上月／本季度／今年筛选；按钮和输入框沿用 `data-biz-*` 和 id，处理代码仍在 `business-ui.js`；小满主题仍用原来的订单表格 |
 | `src/opportunity-model.js`、`opportunity-ui.js` | 商机：数据保存在`laiOpportunities`；model 负责校验、命名、阶段流转、看板汇总、分析和客户维度统计，ui 只生成看板、表单、菜单、分析页的标记；控制逻辑在`business-ui.js`。销售流程（每个流程一组阶段）保存在`laiOpportunityFlows`，没保存过时用内置默认流程；阶段的类别（进行中／赢单／输单）一律通过`stageOf(state, item)`按商机所在流程取，其他模块不要直接用`STAGES` |
 | `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表、阅读、独立的写信页（回复／转发／群发共用）、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；收到的邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |

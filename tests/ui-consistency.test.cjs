@@ -36,7 +36,7 @@ test('the split 新建客户 button, page-header buttons and the customer form i
 test('every left-menu entry has a tinted-line icon, each drawn from its own paths, and the old icon stays for the classic skin', () => {
   const rail = [...app.matchAll(/\["(\w+)", "([^"]+)", (?:null|"[\w-]+"),? ?(?:"(\w+)")?\]/g)].map((m) => ({ icon: m[1], label: m[2], duo: m[3] }));
   const labels = rail.map((r) => r.label);
-  const expected = ['常用', '工作台', '邮件', '沟通', '线索', '客户', '商机', 'Leads', '交易', '团队数据', '协同', '企业管理'];
+  const expected = ['常用', '工作台', '邮件', '沟通', '线索', '客户', '商机', 'Leads', '交易', '团队数据', '协同', '设置', '企业管理'];
   for (const label of expected) assert.ok(labels.includes(label), label);
   const block = app.slice(app.indexOf('const duoIcons = {'), app.indexOf('const menuIcon'));
   const duoNames = new Set([...block.matchAll(/^\s{4}(\w+): \{ tint: "([^"]+)", line: "([^"]+)" \}/gm)].map((m) => { assert.ok(m[2].length > 10 && m[3].length > 10); return m[1]; }));

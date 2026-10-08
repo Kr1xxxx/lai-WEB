@@ -27,8 +27,10 @@ test("left rail pins a guarded refresh control to the bottom", () => {
     app,
     /class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据"/,
   );
-  assert.match(css, /\.rail-refresh\s*\{[^}]*position:\s*absolute/s);
-  assert.match(css, /\.rail-refresh\s*\{[^}]*bottom:\s*12px/s);
+  // 排在入口后面、停在左栏底部（sticky）；入口多了、窗口矮了也不会盖住最后一项
+  assert.match(css, /\.rail-refresh\s*\{[^}]*position:\s*sticky/s);
+  assert.match(css, /\.rail-refresh\s*\{[^}]*bottom:\s*0/s);
+  assert.match(css, /\.rail-refresh\s*\{[^}]*margin-top:\s*auto/s);
   assert.match(app, /async function refreshApplication\(\)/);
   assert.match(app, /await window\.flushPendingSave\(\)/);
   assert.match(app, /window\.location\.reload\(\)/);

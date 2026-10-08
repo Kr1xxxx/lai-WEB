@@ -12,7 +12,7 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 企业管理 1。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
@@ -22,7 +22,7 @@ const ALL = [
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
   'route:calendar', 'route:settings', 'route:settings-hub'
 ];
-const MENUS = ['客户', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '企业管理'];
+const MENUS = ['客户', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '设置'];
 const RESERVED = ['沟通', '线索'];
 
 // ---------------- 清单只有一份来源 ----------------
@@ -159,9 +159,9 @@ test('every business page belongs to exactly one menu, and menus never repeat ea
   const routes = ['dashboard', 'order-list', 'order-trash', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings', 'settings-hub'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '企业管理', '企业管理']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '设置', '设置']);
   assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站']);
-  const labels = ['工作台', '交易', '团队数据', '协同', '企业管理'];
+  const labels = ['工作台', '交易', '团队数据', '协同', '设置'];
   const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label)[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
   assert.deepEqual([...all].sort(), [...routes].sort(), 'together they cover every page once, with no duplicates');
   for (const other of ['customers', 'nope', undefined, '__proto__', 'mail', 'favorites']) assert.equal(RM.sectionFor(other), null);
@@ -333,7 +333,7 @@ test('hearts appear beside the real entries of the customer sub-navigation (four
 });
 
 test('every business menu\'s sub-navigation has a heart on each of its entries, grouped menus included', () => {
-  for (const label of ['工作台', '交易', '团队数据', '协同', '企业管理']) {
+  for (const label of ['工作台', '交易', '团队数据', '协同', '设置']) {
     const entries = RM.menuFor(label);
     const h = harness({settings: undefined, route: entries[0].target});
     h.render();
@@ -721,7 +721,7 @@ test('the rail highlight follows the page: only 常用 in 常用 mode, otherwise
   const lit = (route, favoritesMode = false) => { const h = harness({settings: {}, route, favoritesMode}); h.render(); return h.railActive(); };
   assert.deepEqual(lit('customers'), ['客户']);
   assert.deepEqual(lit('customers', true), ['常用']);
-  for (const [route, menu] of [['dashboard', '工作台'], ['order-list', '交易'], ['order-trash', '交易'], ['analysis', '团队数据'], ['team-orders', '团队数据'], ['calendar', '协同'], ['settings', '企业管理'], ['mail', '邮件']]) {
+  for (const [route, menu] of [['dashboard', '工作台'], ['order-list', '交易'], ['order-trash', '交易'], ['analysis', '团队数据'], ['team-orders', '团队数据'], ['calendar', '协同'], ['settings', '设置'], ['mail', '邮件']]) {
     assert.deepEqual(lit(route), [menu], route);
     assert.deepEqual(lit(route, true), ['常用'], route + ' in 常用 mode');
   }

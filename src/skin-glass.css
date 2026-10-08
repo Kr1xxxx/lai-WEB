@@ -42,7 +42,7 @@
 :root[data-skin="glass"] .rail-item.active,
 :root[data-skin="glass"] .rail-item.active:hover { background: rgb(var(--skin-ink-rgb)); color: #fff; box-shadow: none; }
 :root[data-skin="glass"] .rail-item.active .icon { stroke: var(--skin-gold); }
-:root[data-skin="glass"] .rail-refresh { position: absolute; left: 6px; right: 6px; bottom: 8px; background: transparent; box-shadow: none; color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .rail-refresh { position: sticky; left: auto; right: auto; bottom: 0; margin-top: auto; background: var(--glass-bg); box-shadow: none; color: rgb(var(--skin-ink-rgb)); }
 :root[data-skin="glass"] .rail-refresh::before { display: none; }
 :root[data-skin="glass"] .rail-refresh .icon { stroke: var(--brand-500); }
 

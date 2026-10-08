@@ -23,9 +23,11 @@
     '团队数据':menu('团队数据',['目标完成情况','route','team-goals','目标数据'],['目标管理','route','team-targets','目标数据'],['团队墙','route','team-wall','目标数据'],
       ['经营统计','route','analysis','统计报表'],['客户资产','route','team-assets','统计报表'],['跟进情况','route','team-followups','统计报表'],['任务完成','route','team-tasks','统计报表'],['订单业绩','route','team-orders','统计报表']),
     '协同':menu('协同',['日历与待办','route','calendar']),
-    '企业管理':menu('企业管理',['设置','route','settings'],['设置中心','route','settings-hub'])
+    // 设置和企业管理是两个独立入口：设置放配置（设置、设置中心），企业管理先保留一个入口（kind 为 feature，不能设为常用），等有真实的企业管理页面再加。
+    '设置':menu('设置',['设置','route','settings'],['设置中心','route','settings-hub']),
+    '企业管理':menu('企业管理',['企业信息','feature','企业管理 企业信息'])
   };
-  // 返回条目数组；null 表示该菜单目前只是保留入口（沟通、线索；Leads 有一个「设置」保留入口，不是 null）或不是真实菜单（常用有自己的清单，见 nav-favorites.js）。
+  // 返回条目数组；null 表示该菜单目前只是保留入口（沟通、线索；Leads、企业管理各有一个保留入口，不是 null）或不是真实菜单（常用有自己的清单，见 nav-favorites.js）。
   function menuFor(label){
     return Object.hasOwn(fixed,label)?fixed[label].map(row=>({...row})):null;
   }
