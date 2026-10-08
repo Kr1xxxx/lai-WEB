@@ -433,17 +433,17 @@ test('the sample mailbox script answers like the local mail service and sends no
   assert.equal(status.available, false); assert.equal(status.account.demo, true); assert.equal(status.account.password, undefined);
   assert.equal((await post('/api/mail-account/bind', { email: 'a@b.co', password: 'x' })).status, 501);
   const inbox = await get('/api/mail/messages?folder=inbox');
-  assert.equal(inbox.total, 10); assert.deepEqual(inbox.counts, { unread: 5, pending: 2 }); assert.ok(inbox.items.every(i => i.snippet && i.snippet.length <= 141 && !/\n/.test(i.snippet)), 'every row has a one-line preview'); assert.ok(inbox.items.every(i => /示例|Sample/.test(i.subject)), 'every sample message says it is a sample');
-  assert.equal((await get('/api/mail/messages?folder=pending')).total, 2); assert.equal((await get('/api/mail/messages?folder=inbox&query=' + encodeURIComponent('样品'))).total, 2);
-  const opened = await get('/api/mail/message?box=inbox&uid=5'); assert.equal(opened.message.attachments.length, 1); assert.equal((await get('/api/mail/messages?folder=unread')).total, 4);
-  assert.equal((await post('/api/mail/attachment/save', { box: 'inbox', uid: 5, index: 0 })).status, 501);
+  assert.equal(inbox.total, 8); assert.deepEqual(inbox.counts, { unread: 4, pending: 2 }); assert.ok(inbox.items.every(i => i.snippet && i.snippet.length <= 141 && !/\n/.test(i.snippet)), 'every row has a one-line preview'); assert.ok(inbox.items.every(i => /示例|Sample/.test(i.subject)), 'every sample message says it is a sample');
+  assert.equal((await get('/api/mail/messages?folder=pending')).total, 2); assert.equal((await get('/api/mail/messages?folder=inbox&query=' + encodeURIComponent('londonlash'))).total, 2);
+  const opened = await get('/api/mail/message?box=inbox&uid=13'); assert.equal(opened.message.attachments.length, 1); assert.equal((await get('/api/mail/messages?folder=unread')).total, 3);
+  assert.equal((await post('/api/mail/attachment/save', { box: 'inbox', uid: 13, index: 0 })).status, 501);
   assert.equal((await post('/api/mail/send', { to: '', subject: 's', text: 't' })).status, 400); assert.equal((await post('/api/mail/send', { to: 'nope', subject: 's', text: 't' })).status, 400);
-  const draft = (await post('/api/mail/drafts/save', { to: 'anna@nordic-lamps.example', subject: 'd' })).body.draft;
-  const sent = await post('/api/mail/send', { to: 'Anna <anna@nordic-lamps.example>', subject: 'PI', text: 'hello', draftId: draft.id, fromName: 'Kris' });
-  assert.equal(sent.status, 200); assert.deepEqual(sent.body.recipients, ['anna@nordic-lamps.example']);
+  const draft = (await post('/api/mail/drafts/save', { to: 'charlotte@londonlashpro.example', subject: 'd' })).body.draft;
+  const sent = await post('/api/mail/send', { to: 'Charlotte <charlotte@londonlashpro.example>', subject: 'PI', text: 'hello', draftId: draft.id, fromName: 'Kris' });
+  assert.equal(sent.status, 200); assert.deepEqual(sent.body.recipients, ['charlotte@londonlashpro.example']);
   assert.equal((await get('/api/mail/messages?folder=sent')).items[0].subject, 'PI'); assert.equal((await get('/api/mail/drafts')).items.length, 0);
-  assert.deepEqual((await get('/api/mail/correspondence?addresses=anna@nordic-lamps.example')).items.map(i => i.box), ['sent', 'inbox', 'sent', 'inbox']);
-  await post('/api/mail/trash', { box: 'inbox', uid: 5 }); assert.equal((await get('/api/mail/messages?folder=inbox')).total, 9);
+  assert.deepEqual((await get('/api/mail/correspondence?addresses=charlotte@londonlashpro.example')).items.map(i => i.box), ['sent', 'inbox', 'inbox', 'sent']);
+  await post('/api/mail/trash', { box: 'inbox', uid: 13 }); assert.equal((await get('/api/mail/messages?folder=inbox')).total, 7);
   assert.equal((await post('/api/mail/bulk/start', { subject: 's', text: 't', recipients: [] })).status, 400);
   const bulk = await post('/api/mail/bulk/start', { subject: 's', text: 't', recipients: [{ address: 'a@b.example', name: 'A', customer: 'Co' }, { address: 'c@d.example' }] });
   assert.deepEqual([bulk.body.batch.status, bulk.body.batch.total, bulk.body.batch.sent], ['done', 2, 2]); assert.equal((await get('/api/mail/bulk')).items.length, 1);
@@ -451,9 +451,9 @@ test('the sample mailbox script answers like the local mail service and sends no
   assert.equal((await post('/api/mail-account/settings', { senderName: 'K', signature: 'sig' })).body.account.signature, 'sig'); assert.equal((await get('/api/mail-account')).account.signature, 'sig');
   // 新接口：收件箱概况、批量标记与删除、带附件的草稿、模板、会话用的邮件头
   const state = await get('/api/mail/status'); assert.deepEqual([typeof state.unread, typeof state.pending, typeof state.uidNext], ['number', 'number', 'number']);
-  assert.equal((await post('/api/mail/flags', { box: 'inbox', uids: [3, 4], seen: false, pending: true })).body.count, 2); assert.equal((await get('/api/mail/status')).pending, state.pending + 1, 'uid 4 was already pending, uid 3 is new');
+  assert.equal((await post('/api/mail/flags', { box: 'inbox', uids: [8, 9], seen: false, pending: true })).body.count, 2); assert.equal((await get('/api/mail/status')).pending, state.pending + 1, 'uid 8 was already pending, uid 3 is new');
   const beforeTrash = (await get('/api/mail/messages?folder=inbox')).total; assert.equal((await post('/api/mail/trash', { box: 'inbox', uids: [9, 10] })).body.count, 2); assert.equal((await get('/api/mail/messages?folder=inbox')).total, beforeTrash - 2);
-  const threaded = (await get('/api/mail/messages?folder=inbox')).items; assert.equal(threaded.find(i => i.uid === 13).references, '<demo-12@casa-luce.example>'); assert.equal(threaded.find(i => i.uid === 12).inReplyTo, '');
+  const threaded = (await get('/api/mail/messages?folder=inbox')).items; assert.equal(threaded.find(i => i.uid === 6).references, '<demo-5@lai-trial.example>'); assert.equal(threaded.find(i => i.uid === 7).inReplyTo, '');
   const filed = (await post('/api/mail/drafts/save', { subject: 'f', attachments: [{ filename: 'a.txt', contentType: 'text/plain', contentBase64: 'aGk=' }] })).body.draft; assert.deepEqual(filed.attachments, [{ filename: 'a.txt', contentType: 'text/plain', size: 3 }]);
   assert.deepEqual((await get('/api/mail/draft?id=' + filed.id)).attachments, [{ filename: 'a.txt', contentType: 'text/plain', contentBase64: 'aGk=' }]); assert.equal((await sandbox.fetch('/api/mail/draft?id=nope')).status, 404);
   assert.equal((await post('/api/mail/templates/save', { name: '', text: 'x' })).status, 400); const made = (await post('/api/mail/templates/save', { name: 'T', subject: 's', text: 'x' })).body.template;

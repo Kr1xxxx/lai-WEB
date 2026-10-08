@@ -566,3 +566,22 @@ python3 scripts/native-drag-acceptance.py
 ## 2026-10-08 删除客户列表上的“AI 客群新特性”横幅（分支 claude/remove-segment-banner，基于 main）
 
 按用户要求删除客户列表顶部的“AI 客群新特性！更智能的客群监控”横幅（含关闭按钮、`previewBannerClosed` 的处理和样式）。客群面板上移补满原位置；左侧“AI 客群”标签页没有动。自动测试 597 项通过；用无头浏览器看过小满、粉色两个主题的客户列表。用户验收：待确认。
+
+## 2026-10-08 网页试用版：美国、欧洲睫毛公司的示例邮件和示例数据（分支 claude/trial-demo-mails，基于 main）
+
+- 示例邮件（`scripts/web-trial/mail-demo.js`）换成 12 封虚构的往来邮件：7 家美国、欧洲大型睫毛公司（London Lash Pro、Velvet Lash Co.、NordLash Studio GmbH、Maison des Cils、Lash Luxe Distribution、Bella Ciglia Srl、Lash Lab Amsterdam BV），包括 London Lash Pro 的 USD 50,000 订单（PO）、Lash Luxe 电汇尾款 USD 21,300、Velvet 旺季翻倍、NordLash 复购并求 DACH 独家、Maison des Cils 试单、Bella Ciglia 2027 年度协议 USD 180,000。主题仍带 [Sample] 标记，邮箱域名都是 `.example`，不会撞到真实公司。
+- 示例数据（`scripts/web-trial/demo-seed.js`，新文件）：第一次打开试用版、浏览器里还没有客户和订单时，放进这 7 家客户（邮箱和示例邮件一一对应，邮件页自动关联）、9 笔订单、10 个商机、7 条待办、跟进记录和本月目标。只放一次，不动访客自己的数据，已选的主题保留。
+- 发布方式：`demo-seed.js` 作为一个 `<script>` 放在所有业务模块之后、应用主脚本之前；`mail-demo.js` 仍放在数据替身脚本之后。
+- 自动测试：新增 `tests/web-trial-demo.test.cjs` 4 项；`mail-ui.test.cjs` 里的示例邮箱测试按新数据更新。全量 601 项通过。
+- 用户验收：待确认。
+
+### 网页试用版「试用数据」按钮和面板重做（2026-10-08，`claude/trial-demo-mails`）
+
+原来的按钮是一块深色方块，在新界面上看不清。现在重写成仓库里的 `scripts/web-trial/data-panel.js`：左栏底部一个小按钮（小满界面是深蓝底、粉色橙色界面是白色玻璃底），点开是浅色卡片，里面分块：当前客户数、订单数和提示；示例数据（载入 7 家美国、欧洲睫毛公司的客户、订单、商机、待办）；备份与恢复（可折叠，复制和粘贴）；清空。会替换数据的按钮都要点两次（第一次变红“再点一次确认”，5 秒内再点才执行）；按 Esc 或点 × 关闭。默认货币为美元（示例数据全部是 USD）。
+
+| 项目 | 说明 |
+|---|---|
+| 自动测试 | `tests/web-trial-demo.test.cjs` 新增 1 项（脚本语法、用到的元素都有、只调用数据替身的已有接口、三个会替换数据的按钮都要二次确认） |
+| 界面核对 | 无头浏览器分别在小满、粉色主题下打开：按钮不压住左栏项目；面板打开、Esc 关闭；载入示例数据（先确认再载入）；备份、清空、粘贴恢复后客户和订单数对得上；窗口缩到 1000 宽仍能完整显示；页面没有报错 |
+| 没改的 | 网页里不能下载文件，所以备份仍是复制和粘贴；“数据替身”脚本本身仍只在线上页面里 |
+| 用户验收 | 待确认 |
