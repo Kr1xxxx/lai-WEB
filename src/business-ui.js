@@ -862,7 +862,10 @@
       if (d.oppView && route === "opportunities") {
         oppView.mode = d.oppView === "list" ? "list" : "board";
         render();
-        return document.querySelector?.(`[data-opp-view="${oppView.mode}"]`)?.focus({ preventScroll: true });
+        const sel = `[data-opp-view="${oppView.mode}"]`,
+          all = document.querySelectorAll ? [...document.querySelectorAll(sel)] : [];
+        // 页头和筛选卡片各有一组（新界面只显示筛选卡片里的），聚焦看得见的那个
+        return (all.find((el) => el.offsetParent !== null) || document.querySelector?.(sel))?.focus({ preventScroll: true });
       }
       if (d.oppRange && route === "opp-analysis") {
         oppView.range = ["month", "quarter"].includes(d.oppRange) ? d.oppRange : "all";

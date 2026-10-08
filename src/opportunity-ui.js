@@ -31,7 +31,7 @@
     function toolbar(board,view,context){
       const f=board.filters;
       const owners=(context.owners||[]).map(name=>option(name,name,f.owner&&name.toLowerCase()===f.owner.toLowerCase()?name:'')).join('');
-      return `<div class="opp-toolbar">${flowSelect('opp-flow',board.flows,board.flow)}<span class="opp-count">共 <b>${board.count}</b> 个商机</span>`
+      return `<div class="opp-toolbar">${viewSwitch(view,' opp-view-in')}${flowSelect('opp-flow',board.flows,board.flow)}<span class="opp-count">共 <b>${board.count}</b> 个商机</span>`
         +`<input type="search" id="opp-search" value="${E(f.search)}" placeholder="搜索名称、客户、联系人、标签" aria-label="搜索商机">`
         +`<select id="opp-owner" aria-label="负责人"><option value="">全部负责人</option>${owners}</select>`
         +`<select id="opp-archived" aria-label="归档状态">${option('active','未归档',f.archived)}${option('archived','已归档',f.archived)}${option('all','全部',f.archived)}</select>`
@@ -61,7 +61,9 @@
       return `<section class="business-section opp-list"><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>商机名称</th><th>客户</th><th>销售金额</th><th>销售阶段</th><th>负责人</th><th>结束日期</th><th>创建日期</th><th>操作</th></tr></thead><tbody>${shown.map(card=>`<tr><td><button type="button" class="company-link" data-opp-action="edit" data-id="${E(card.id)}">${E(card.name)}</button></td><td><button type="button" class="company-link" data-biz-customer="${E(card.client)}">${E(card.client)}</button></td><td class="opp-num">${money(card.amount,card.currency)}</td><td><span class="opp-chip opp-stage-chip opp-kind-${kindOf(card)}">${E(stageLabel(card))}</span></td><td>${E(card.owner||'—')}</td><td>${card.overdue?`<span class="opp-due is-overdue">逾期 ${E(card.endDate)}</span>`:E(card.endDate||'—')}</td><td>${E(card.createdDay||'—')}</td><td><button type="button" class="text-button" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></td></tr>`).join('')||'<tr><td colspan="8">暂无商机</td></tr>'}</tbody></table></div>${rest>0?`<button type="button" class="opp-more" data-opp-action="more" data-stage="list">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</section>`;
     }
     const boardMarkup=(board,view={},context={})=>`<div class="business-scroll opp-page">${toolbar(board,view,context)}${totals(board)}${view.mode==='list'?table(board,view,context.today):columns(board,view,context.today)}</div>`;
-    const headerActions=(board,context={},view={})=>`<span class="team-segment opp-view" role="group" aria-label="视图"><button type="button" data-opp-view="board" aria-pressed="${view.mode!=='list'}">看板</button><button type="button" data-opp-view="list" aria-pressed="${view.mode==='list'}">列表</button></span><button type="button" class="primary" data-opp-action="new">新建商机</button>`;
+    // 看板／列表切换：旧版式放在页头；新界面（粉色、橙色）放进筛选卡片里，两处只显示一处（见 skin-glass.css）。
+    const viewSwitch=(view={},extra='')=>`<span class="team-segment opp-view${extra}" role="group" aria-label="视图"><button type="button" data-opp-view="board" aria-pressed="${view.mode!=='list'}">看板</button><button type="button" data-opp-view="list" aria-pressed="${view.mode==='list'}">列表</button></span>`;
+    const headerActions=(board,context={},view={})=>`${viewSwitch(view)}<button type="button" class="opp-analysis-link" data-lai-route="opp-analysis">商机分析</button><button type="button" class="primary" data-opp-action="new">新建商机</button>`;
 
     // 联系人下拉的选项。原来选的联系人如果已不在客户的联系人里，仍然保留为一个选项，避免编辑别的内容时被悄悄清掉。
     function contactOptions(contacts,value,client){
