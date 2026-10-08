@@ -452,3 +452,35 @@
 :root[data-skin="glass"] .lcd-left, :root[data-skin="glass"] .lcd-right { gap: 10px; }
 :root[data-skin="glass"] .lcd-card { border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-menu-summary b { color: #fff; }
+
+/* 客户详情的第三栏：资料、销售订单、文档、操作历史（设计稿 CustomerDetail） */
+:root[data-skin="glass"] .lcd-columns { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr) minmax(250px, 290px); }
+:root[data-skin="glass"] .lcd-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (max-width: 1360px) {
+  :root[data-skin="glass"] .lcd-columns { grid-template-columns: clamp(320px, 36%, 420px) minmax(0, 1fr); }
+  :root[data-skin="glass"] .lcd-side { display: none; }
+}
+:root[data-skin="glass"] .lcd-side-card { padding: 12px 14px; font-size: 12px; }
+:root[data-skin="glass"] .lcd-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+:root[data-skin="glass"] .lcd-side-head h3 { margin: 0; font-size: 14px; font-weight: 700; }
+:root[data-skin="glass"] .lcd-side-link { padding: 2px 8px; height: auto; border: 1px solid var(--ink-200); border-radius: 6px; background: #fff; color: rgb(var(--skin-ink-rgb)); font-size: 11px; cursor: pointer; }
+:root[data-skin="glass"] .lcd-side-link:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
+:root[data-skin="glass"] .lcd-side-card > .lcd-side-link { margin-top: 8px; border-color: transparent; background: transparent; color: var(--brand-700); padding-left: 0; }
+:root[data-skin="glass"] .lcd-side-card > .lcd-side-link:hover:not(:disabled) { background: transparent; border-color: transparent; text-decoration: underline; }
+:root[data-skin="glass"] .lcd-side-rows { display: flex; flex-direction: column; gap: 6px; }
+:root[data-skin="glass"] .lcd-side-row { display: flex; justify-content: space-between; gap: 10px; }
+:root[data-skin="glass"] .lcd-side-row span, :root[data-skin="glass"] .lcd-side-order > span, :root[data-skin="glass"] .lcd-side-doc small, :root[data-skin="glass"] .lcd-side-hist small, :root[data-skin="glass"] .lcd-side-empty { color: var(--text-muted); }
+:root[data-skin="glass"] .lcd-side-row b { font-weight: 500; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .lcd-side-order { display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; margin-bottom: 6px; border-radius: 9px; background: #f8f3f6; }
+:root[data-skin="glass"] .lcd-side-order > div { display: flex; justify-content: space-between; gap: 8px; }
+:root[data-skin="glass"] .lcd-side-order .lcd-blue { padding: 0; border: 0; background: transparent; font-weight: 700; color: rgb(var(--skin-ink-rgb)); cursor: pointer; }
+:root[data-skin="glass"] .lcd-side-doc, :root[data-skin="glass"] .lcd-side-hist { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; border-top: 1px solid var(--ink-100); }
+:root[data-skin="glass"] .lcd-side-doc:first-of-type, :root[data-skin="glass"] .lcd-side-hist:first-of-type { border-top: 0; }
+:root[data-skin="glass"] .lcd-side-doc span, :root[data-skin="glass"] .lcd-side-hist span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .lcd-side-empty { margin: 0; padding: 6px 0; }
+/* 中间栏比原来窄：商机那一行改成两行的网格，卡片高度跟着内容走 */
+:root[data-skin="glass"] .lcd-opportunity:not(.is-empty) { height: auto; padding-bottom: 12px; }
+:root[data-skin="glass"] .lcd-opportunity-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; height: auto; row-gap: 6px; font-size: 13px; }
+:root[data-skin="glass"] .lcd-opportunity-row > div { flex: none; padding: 0 10px; min-width: 0; border-right: 0; }
+:root[data-skin="glass"] .lcd-opportunity-row > div:first-child { padding: 0; }
+:root[data-skin="glass"] .lcd-opportunity-row > button { grid-column: 3; grid-row: 1; }

@@ -45,6 +45,7 @@
       activitySort = "newest",
       activityAdvanced = {},
       now = new Date(),
+      sideColumn: withSideColumn = false,
     } = options;
     const country =
       root.LaiCustomerFields?.countryLabel(c.country) || c.country;
@@ -375,6 +376,29 @@
       }).join("");
       return `<div class="lcd-doc-toolbar"><div class="lcd-doc-search" role="search"><input id="document-search-input" type="search" aria-label="搜索文件名称" placeholder="搜索文件名称" value="${E(documentQuery)}" autocomplete="off"><button type="button" class="lcd-feature lcd-icon" data-action="document-search" aria-label="搜索客户文档">${icon("search")}</button></div><div>${mini("筛选文档", "filter")}${mini("添加文档", "plus")}${mini("文档更多操作", "more")}</div></div><div class="lcd-doc-layout"><aside>${feature("全部文档", "全部文档", "selected")}</aside><section><div id="document-results" role="status" aria-live="polite"><div class="lcd-doc-grid"><table class="lcd-table"><thead><tr><th><input type="checkbox" data-document-select-all aria-label="选择当前页全部文档" ${allVisibleSelected ? "checked" : ""} ${visible.length ? "" : "disabled"}></th><th>文件名称</th><th>父级文件夹</th><th>关联类型</th><th>上传方式</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>${attachments.length ? "" : empty(query ? "未找到文档" : "暂无数据")}</div><div class="lcd-pagination">${selectedCount ? `<span class="lcd-doc-selected">已选 ${selectedCount} 条 <button type="button" data-action="document-clear-selection">取消选择</button></span>` : ""}<span>共 ${attachments.length} 条</span><button type="button" data-action="document-prev" aria-label="上一页" ${page === 1 ? "disabled" : ""}>‹</button><span aria-label="第 ${page} 页，共 ${pages} 页">${page}</span><button type="button" data-action="document-next" aria-label="下一页" ${page === pages ? "disabled" : ""}>›</button><button type="button" data-action="document-page-size" aria-label="文档每页条数" aria-haspopup="menu" aria-expanded="false">${size} 条/页 ⌄</button></div></div></section></div>`;
     }
+    // 右侧摘要栏（新界面的三栏版式，设计稿 CustomerDetail）：资料、销售订单、文档、操作历史各一张小卡；
+    // 小满主题下 CSS 隐藏它，页面还是原来的两栏。里面的按钮沿用已有的 data-tab / data-new-customer-order / data-lai-order 处理。
+    const sideCard = (title, actions, inner, extra = "") =>
+      `<section class="lcd-card lcd-side-card${extra}"><div class="lcd-side-head"><h3>${E(title)}</h3>${actions}</div>${inner}</section>`;
+    const sideLink = (tabId, text = "查看全部") => `<button type="button" class="lcd-side-link" data-tab="${tabId}">${text} ›</button>`;
+    const stageNames = { quote: "报价", deposit: "定金", production: "生产中", balance: "尾款", shipment: "已发货", done: "已完成" };
+    const sideInfo = [["客户阶段", summaryValues.stage], ["客户分组", summaryValues.group], ["客户来源", summaryValues.source], ["公司网址", summaryValues.website], ["主营产品", summaryValues.companyProducts]]
+      .map(([name, content]) => `<div class="lcd-side-row"><span>${E(name)}</span><b>${value(content)}</b></div>`).join("");
+    const sideOrders = list(c.orders).slice(0, 4).map((order) =>
+      `<div class="lcd-side-order"><div><button type="button" class="lcd-blue" data-lai-order="${E(order.id)}">${E(order.num || order.id)}</button><b>${E(order.currency || "USD")} ${E(money(Number(order.amount)))}</b></div><span>${E(date(order.createdAt))} · ${E(stageNames[order.stage] || order.stage || "—")} · ${E(order.productType || "—")}</span></div>`).join("")
+      || '<p class="lcd-side-empty">暂无销售订单</p>';
+    const sideDocs = list(state.orders).flatMap((order) => order.client === c.name ? list(order.attachments).map((file) => ({ file, order })) : []).slice(0, 4)
+      .map(({ file, order }) => `<div class="lcd-side-doc"><span>${E(file.name || file.fileName || file.type || "未命名")}</span><small>销售订单 ${E(order.num || "")}</small></div>`).join("")
+      || '<p class="lcd-side-empty">暂无文档</p>';
+    const sideHistory = operationHistory.slice(0, 3)
+      .map((item) => `<div class="lcd-side-hist"><span>${E(item.text || item.content || item.note || "—")}</span><small>${E(localDateTime(item.time || item.date) || "—")}</small></div>`).join("")
+      || '<p class="lcd-side-empty">暂无操作记录</p>';
+    const sideColumn = !withSideColumn ? "" : `<aside class="lcd-side" aria-label="客户摘要">`
+      + sideCard("资料", '<button type="button" class="lcd-side-link" data-action="edit">编辑</button>', `<div class="lcd-side-rows">${sideInfo}</div>${sideLink("info", "查看全部资料")}`)
+      + sideCard(`销售订单 （${list(c.orders).length}）`, `<button type="button" class="lcd-side-link" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`, sideOrders + (list(c.orders).length > 4 ? sideLink("trade") : ""))
+      + sideCard("文档", "", sideDocs + sideLink("documents"))
+      + sideCard("操作历史", "", sideHistory + sideLink("history"))
+      + `</aside>`;
     const tabs = [
       ["activity", "动态"],
       ["info", "资料"],
@@ -397,7 +421,7 @@
               : tab === "history"
                 ? timeline(operationHistory, false)
                 : `<div class="lcd-feature-view">${heading(tabs.find((item) => item[0] === tab)?.[1] || "详情")}${empty("暂无数据")}${feature(tabs.find((item) => item[0] === tab)?.[1] || "详情", "查看功能", "lcd-outline-blue")}</div>`;
-    return `<div class="lcd-root"><header class="lcd-pagebar"><h1>客户详情</h1><div>${feature("合并客户", "合并客户", "lcd-pill")}<button class="lcd-pill" data-action="edit">编辑</button>${feature("写邮件", "写邮件", "lcd-pill lcd-primary")}${miniAction("客户更多操作", "more", "customer-actions")}<button class="lcd-icon lcd-return" data-action="list" aria-label="返回客户列表" title="返回客户列表">${icon("back")}</button></div></header><div class="lcd-columns">${left}<div class="lcd-right">${opportunity}<section class="lcd-card lcd-tabs-card"><nav class="lcd-tabs" aria-label="客户详情页签">${tabs.map(([id, title]) => `<button type="button" data-tab="${id}" class="${id === tab ? "active" : ""}" aria-selected="${id === tab}">${E(title)}</button>`).join("")}<span class="lcd-active-indicator" aria-hidden="true"></span></nav><button type="button" class="lcd-tabs-more" data-action="detail-tabs-more" aria-label="更多详情页签" aria-haspopup="menu" aria-expanded="false" aria-controls="lcd-tabs-overflow-menu" hidden><svg viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M176 511a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0z"/></svg></button><div id="lcd-tabs-overflow-menu" class="lcd-tabs-overflow-menu" role="menu" aria-label="更多详情页签" hidden>${tabs.map(([id, title]) => `<button type="button" role="menuitem" data-overflow-tab="${id}" hidden>${E(title)}</button>`).join("")}</div><div class="lcd-body lcd-body-${E(tab)}">${body}</div></section><p class="lcd-ai-disclosure">AI 相关内容入口已保留，分析结果以实际生成内容为准</p></div></div></div>`;
+    return `<div class="lcd-root"><header class="lcd-pagebar"><h1>客户详情</h1><div>${feature("合并客户", "合并客户", "lcd-pill")}<button class="lcd-pill" data-action="edit">编辑</button>${feature("写邮件", "写邮件", "lcd-pill lcd-primary")}${miniAction("客户更多操作", "more", "customer-actions")}<button class="lcd-icon lcd-return" data-action="list" aria-label="返回客户列表" title="返回客户列表">${icon("back")}</button></div></header><div class="lcd-columns">${left}<div class="lcd-right">${opportunity}<section class="lcd-card lcd-tabs-card"><nav class="lcd-tabs" aria-label="客户详情页签">${tabs.map(([id, title]) => `<button type="button" data-tab="${id}" class="${id === tab ? "active" : ""}" aria-selected="${id === tab}">${E(title)}</button>`).join("")}<span class="lcd-active-indicator" aria-hidden="true"></span></nav><button type="button" class="lcd-tabs-more" data-action="detail-tabs-more" aria-label="更多详情页签" aria-haspopup="menu" aria-expanded="false" aria-controls="lcd-tabs-overflow-menu" hidden><svg viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M176 511a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0z"/></svg></button><div id="lcd-tabs-overflow-menu" class="lcd-tabs-overflow-menu" role="menu" aria-label="更多详情页签" hidden>${tabs.map(([id, title]) => `<button type="button" role="menuitem" data-overflow-tab="${id}" hidden>${E(title)}</button>`).join("")}</div><div class="lcd-body lcd-body-${E(tab)}">${body}</div></section><p class="lcd-ai-disclosure">AI 相关内容入口已保留，分析结果以实际生成内容为准</p></div>${sideColumn}</div></div>`;
   }
   const api = { render, summaryFieldOptions, defaultSummaryFields, normalizeSummaryFields };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

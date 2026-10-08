@@ -356,6 +356,7 @@
   function detailMarkup(c) {
     c = window.LaiOpportunityModel ? { ...c, ...customerOpportunities(c.name) } : c;
     return window.LaiCustomerDetail.render(c, {
+      sideColumn: true,
       tab,
       icon,
       escape: E,

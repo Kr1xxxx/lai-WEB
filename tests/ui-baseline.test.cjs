@@ -100,7 +100,7 @@ test('the chosen theme is stored in laiSettings.theme, applied to <html>, and sw
   assert.match(app, /const theme = THEME_IDS\.includes\(id\) \? id : "xiaoman";/);
   assert.match(app, /document\.documentElement\.dataset\.skin = theme === "xiaoman" \? "classic" : "glass";/, '粉色、橙色用新界面皮肤，小满保持原来的界面');
   const skin = read('src/skin-glass.css');
-  assert.doesNotMatch(skin.replace(/\/\*[\s\S]*?\*\//g, '').replace(/:root\[data-skin="glass"\][^{]*\{[^}]*\}/g, ''), /\S/, '新皮肤的每条规则都限定在 data-skin="glass" 下，不影响小满');
+  assert.doesNotMatch(skin.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{]*\{((?:[^{}]*\{[^}]*\})*)\s*\}/g, '$1').replace(/:root\[data-skin="glass"\][^{]*\{[^}]*\}/g, ''), /\S/, '新皮肤的每条规则都限定在 data-skin="glass" 下，不影响小满');
   assert.equal((app.match(/applyTheme\(state\.laiSettings\?\.theme\)/g) || []).length, 2, 'applied after loading and after every save');
   assert.match(ui, /data-biz-action="set-theme" data-theme-id="\$\{id\}"/);
   assert.match(ui, /action === "set-theme"/);
