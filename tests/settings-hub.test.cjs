@@ -8,9 +8,12 @@ const RM = require('../src/rail-menu.js');
 const E = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
-test('the settings center is a menu entry under 企业管理, after the existing 设置', () => {
-  assert.deepEqual(RM.menuFor('企业管理').map((r) => [r.label, r.kind, r.target]), [['设置', 'route', 'settings'], ['设置中心', 'route', 'settings-hub']]);
-  assert.equal(RM.sectionFor('settings-hub').label, '企业管理');
+test('the settings center is a menu entry under 设置, after the existing 设置 page; 企业管理 is its own entry', () => {
+  assert.deepEqual(RM.menuFor('设置').map((r) => [r.label, r.kind, r.target]), [['设置', 'route', 'settings'], ['设置中心', 'route', 'settings-hub']]);
+  assert.equal(RM.sectionFor('settings-hub').label, '设置');
+  assert.equal(RM.sectionFor('settings').label, '设置');
+  assert.deepEqual(RM.menuFor('企业管理').map((r) => [r.label, r.kind]), [['企业信息', 'feature']], '企业管理单独保留，先放一个保留入口');
+  assert.ok(!RM.menuFor('企业管理').some((r) => r.id), '保留入口不能设为常用');
 });
 
 test('every entry opens something that really exists: a business page, a customer page, or an action app.js handles', () => {

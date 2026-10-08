@@ -129,8 +129,8 @@ test('the rail highlights the menu that owns the current page', () => {
   const active = (route, favoritesMode = false) => {
     const sandbox = {RM, activeRoute: route, favoritesMode};
     vm.createContext(sandbox); vm.runInContext(body, sandbox);
-    const labels = ['常用', '工作台', '邮件', '沟通', '线索', '客户', '商机', '交易', '团队数据', '协同', '企业管理'];
-    const routeOf = {客户: 'customers', 工作台: 'dashboard', 交易: 'order-list', 团队数据: 'analysis', 协同: 'calendar', 企业管理: 'settings'};
+    const labels = ['常用', '工作台', '邮件', '沟通', '线索', '客户', '商机', '交易', '团队数据', '协同', '设置', '企业管理'];
+    const routeOf = {客户: 'customers', 工作台: 'dashboard', 交易: 'order-list', 团队数据: 'analysis', 协同: 'calendar', 设置: 'settings'};
     return labels.filter(label => vm.runInContext(`railActive(${JSON.stringify(label)}, ${JSON.stringify(routeOf[label] || null)})`, sandbox));
   };
   assert.deepEqual(active('customers'), ['客户']);
@@ -140,7 +140,8 @@ test('the rail highlights the menu that owns the current page', () => {
   for (const route of ['analysis', 'team-goals', 'team-targets', 'team-wall', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) assert.deepEqual(active(route), ['团队数据'], route);
   assert.deepEqual(active('dashboard'), ['工作台']);
   assert.deepEqual(active('calendar'), ['协同']);
-  assert.deepEqual(active('settings'), ['企业管理']);
+  assert.deepEqual(active('settings'), ['设置']);
+  assert.deepEqual(active('settings-hub'), ['设置']);
 });
 
 test('the team modules are loaded between the business model and the business UI', () => {
