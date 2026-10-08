@@ -849,8 +849,6 @@ td.team-reached {
   --opp-line: var(--ink-200);
   --opp-surface: var(--ink-50);
   --opp-open: var(--chart-2);
-  --opp-open-soft: #e0f3f9;
-  --opp-open-ink: #0b6682;
   --opp-won: var(--brand-500);
   --opp-won-soft: var(--brand-50);
   --opp-won-ink: var(--brand-700);
@@ -1173,8 +1171,8 @@ td.team-reached {
   color: var(--opp-won-ink);
 }
 .opp-stage-chip.opp-kind-open {
-  background: var(--opp-open-soft, #e0f3f9);
-  color: var(--opp-open-ink, #0b6682);
+  background: var(--opp-open-soft);
+  color: var(--opp-open-ink);
 }
 .opp-stage-chip.opp-kind-won {
   background: var(--brand-50);
@@ -1459,8 +1457,8 @@ td.team-reached {
   gap: 8px;
 }
 .opp-menu .opp-move.opp-kind-open {
-  border-color: #a9d9e8;
-  color: #0b6682;
+  border-color: var(--opp-open);
+  color: var(--opp-open-ink);
 }
 .opp-menu .opp-move.opp-kind-won {
   border-color: var(--brand-200);
