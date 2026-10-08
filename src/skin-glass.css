@@ -46,13 +46,21 @@
 :root[data-skin="glass"] .rail-refresh::before { display: none; }
 :root[data-skin="glass"] .rail-refresh .icon { stroke: var(--brand-500); }
 
-/* 悬停浮层：深色玻璃 */
+/* 悬停浮层：浅色玻璃（深色字，清晰易读；暂时不做暗夜模式） */
 :root[data-skin="glass"] .rail-flyout { left: 80px; top: auto; }
 :root[data-skin="glass"] .rail-flyout-panel {
-  background: rgba(var(--skin-ink-rgb), 0.88); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px;
-  box-shadow: 0 12px 28px rgba(var(--skin-ink-rgb), 0.25);
+  color: rgb(var(--skin-ink-rgb)); background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(var(--skin-ink-rgb), 0.1); border-radius: 12px;
+  -webkit-backdrop-filter: var(--skin-blur); backdrop-filter: var(--skin-blur);
+  box-shadow: 0 14px 32px rgba(var(--skin-ink-rgb), 0.18), 0 2px 6px rgba(var(--skin-ink-rgb), 0.08);
 }
-:root[data-skin="glass"] .rail-flyout-item { height: 30px; font-size: 13px; }
+:root[data-skin="glass"] .rail-flyout-item { height: 32px; font-size: 13px; color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .rail-flyout-item:hover,
+:root[data-skin="glass"] .rail-flyout-item:focus-visible { background: rgba(var(--skin-ink-rgb), 0.07); color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .rail-flyout .nav-heart { top: 4px; color: rgba(var(--skin-ink-rgb), 0.35); }
+:root[data-skin="glass"] .rail-flyout .nav-heart:hover { color: var(--brand-500); }
+:root[data-skin="glass"] .rail-flyout .nav-heart.is-favorite,
+:root[data-skin="glass"] .rail-flyout .nav-heart.is-favorite:hover { color: #e5456b; }
+:root[data-skin="glass"] .rail-flyout-note { color: rgba(var(--skin-ink-rgb), 0.6); }
 
 /* 二级导航：更淡的玻璃 */
 :root[data-skin="glass"] .subnav {
