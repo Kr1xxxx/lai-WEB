@@ -104,6 +104,10 @@
 /* 小满：来财原来的蓝色界面，是默认主题。 */
 :root,
 :root[data-theme="xiaoman"] {
+  --skin-page: #edf0f4;
+  --skin-ink-rgb: 29, 39, 62;
+  --skin-blob: #4d8fff;
+  --skin-gold: #f2c14e;
   --brand-900: #0c163d;
   --brand-900-rgb: 12, 22, 61;
   --brand-700: #004fd9;
@@ -144,6 +148,10 @@
 
 /* 粉色 */
 :root[data-theme="pink"] {
+  --skin-page: #f1e9ee;
+  --skin-ink-rgb: 35, 23, 32;
+  --skin-blob: #db4a82;
+  --skin-gold: #f2c14e;
   --brand-900: #3b0f27;
   --brand-900-rgb: 59, 15, 39;
   --brand-700: #a31450;
@@ -185,6 +193,10 @@
 }
 
 :root[data-theme="orange"] {
+  --skin-page: #f0eae4;
+  --skin-ink-rgb: 36, 26, 20;
+  --skin-blob: #e0702e;
+  --skin-gold: #f2c14e;
   --brand-900: #3a1608;
   --brand-900-rgb: 58, 22, 8;
   --brand-700: #9a3412;

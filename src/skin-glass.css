@@ -1,0 +1,109 @@
+/* 新界面皮肤（设计画布的“悬浮玻璃面板”风格）：只在粉色、橙色主题下生效，默认的小满主题保持原样。
+   applyTheme() 会给 <html> 设 data-skin="glass"（小满是 classic）。 */
+:root[data-skin="glass"] {
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-soft: rgba(255, 255, 255, 0.42);
+  --glass-line: rgba(255, 255, 255, 0.85);
+  --card-bg: rgba(255, 255, 255, 0.88);
+  --card-line: rgba(var(--skin-ink-rgb), 0.08);
+  --skin-radius: 14px;
+  --skin-blur: blur(22px) saturate(170%);
+  background: var(--skin-page);
+}
+:root[data-skin="glass"] body { background: var(--skin-page); }
+:root[data-skin="glass"] #app { position: relative; height: 100vh; overflow: hidden; background: var(--skin-page); }
+/* 底色上的两团光晕 */
+:root[data-skin="glass"] #app::before,
+:root[data-skin="glass"] #app::after {
+  content: ""; position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(90px);
+}
+:root[data-skin="glass"] #app::before { left: -140px; top: 420px; width: 380px; height: 380px; background: var(--skin-blob); opacity: 0.38; }
+:root[data-skin="glass"] #app::after { left: 40px; top: -150px; width: 320px; height: 320px; background: var(--skin-gold); opacity: 0.42; }
+
+/* 顶栏：悬浮的玻璃条 */
+:root[data-skin="glass"] .topbar {
+  position: absolute; z-index: 5; top: 10px; left: 12px; right: 12px; height: 48px; padding: 0 12px 0 14px;
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--skin-blur); backdrop-filter: var(--skin-blur);
+  border: 1px solid var(--glass-line); border-radius: var(--skin-radius); box-sizing: border-box;
+}
+:root[data-skin="glass"] .topbar-left-drag-region { width: 220px; }
+
+/* 左栏：浅色玻璃，当前模块用深色底 + 金色图标 */
+:root[data-skin="glass"] .rail {
+  z-index: 6; left: 12px; top: 68px; bottom: 12px; width: 68px; padding: 8px 6px; gap: 2px; box-sizing: border-box;
+  background: var(--glass-bg); -webkit-backdrop-filter: var(--skin-blur); backdrop-filter: var(--skin-blur);
+  border: 1px solid var(--glass-line); border-radius: var(--skin-radius); box-shadow: none; color: rgb(var(--skin-ink-rgb));
+}
+:root[data-skin="glass"] .rail-item { width: 100%; flex: 0 0 auto; min-height: 52px; border-radius: 11px; font-size: 11px; font-weight: 500; line-height: 16px; }
+:root[data-skin="glass"] .rail-item .icon { width: 18px; height: 18px; stroke-width: 1.9; }
+:root[data-skin="glass"] .rail-item:first-child .icon { fill: none; stroke: currentColor; }
+:root[data-skin="glass"] .rail-item:first-child:after { display: none; }
+:root[data-skin="glass"] .rail-item:hover { background: transparent; color: rgb(var(--skin-ink-rgb)); box-shadow: inset 0 0 0 1px rgba(var(--skin-ink-rgb), 0.2); }
+:root[data-skin="glass"] .rail-item.active,
+:root[data-skin="glass"] .rail-item.active:hover { background: rgb(var(--skin-ink-rgb)); color: #fff; box-shadow: none; }
+:root[data-skin="glass"] .rail-item.active .icon { stroke: var(--skin-gold); }
+:root[data-skin="glass"] .rail-refresh { position: absolute; left: 6px; right: 6px; bottom: 8px; background: transparent; box-shadow: none; color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .rail-refresh::before { display: none; }
+:root[data-skin="glass"] .rail-refresh .icon { stroke: var(--brand-500); }
+
+/* 悬停浮层：深色玻璃 */
+:root[data-skin="glass"] .rail-flyout { left: 80px; top: auto; }
+:root[data-skin="glass"] .rail-flyout-panel {
+  background: rgba(var(--skin-ink-rgb), 0.88); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(var(--skin-ink-rgb), 0.25);
+}
+:root[data-skin="glass"] .rail-flyout-item { height: 30px; font-size: 13px; }
+
+/* 二级导航：更淡的玻璃 */
+:root[data-skin="glass"] .subnav {
+  left: 90px; top: 68px; bottom: 12px; width: 160px; padding: 10px 8px; box-sizing: border-box;
+  background: var(--glass-soft); -webkit-backdrop-filter: var(--skin-blur); backdrop-filter: var(--skin-blur);
+  border: 1px solid rgba(255, 255, 255, 0.8); border-radius: var(--skin-radius);
+}
+:root[data-skin="glass"] .subnav h3 { height: 32px; font-size: 14px; font-weight: 700; padding: 2px 4px 6px 8px; }
+
+/* 主区域：透明，里面的面板各自是卡片 */
+:root[data-skin="glass"] .main { left: 260px; top: 68px; right: 12px; bottom: 12px; padding: 0; background: transparent; }
+:root[data-skin="glass"] .nav-collapsed .main,
+:root[data-skin="glass"] .subnav[hidden] ~ .main { left: 90px; }
+:root[data-skin="glass"] .panel { --customer-group-width: max(196px, calc((100vw - 284px) * 0.14)); }
+:root[data-skin="glass"] .nav-collapsed .panel { --customer-group-width: max(196px, calc((100vw - 114px) * 0.14)); }
+
+/* 卡片 */
+:root[data-skin="glass"] .panel,
+:root[data-skin="glass"] .business-section,
+:root[data-skin="glass"] .module-page,
+:root[data-skin="glass"] .duplicate-card {
+  background: var(--card-bg); border: 1px solid var(--card-line); border-radius: var(--skin-radius); box-shadow: none; overflow: hidden;
+}
+:root[data-skin="glass"] .replica-panel { border: 1px solid var(--card-line); }
+:root[data-skin="glass"] .groups { border-right: 1px solid var(--ink-100); }
+
+/* 按钮与输入 */
+:root[data-skin="glass"] button { border-radius: 8px; border-color: rgba(var(--skin-ink-rgb), 0.14); color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] button:hover:not(:disabled) { border-color: var(--brand-500); }
+:root[data-skin="glass"] button.primary,
+:root[data-skin="glass"] .primary {
+  background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700;
+}
+:root[data-skin="glass"] button.primary:hover:not(:disabled) { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; filter: brightness(1.15); }
+:root[data-skin="glass"] input,
+:root[data-skin="glass"] select,
+:root[data-skin="glass"] textarea { border-radius: 8px; border-color: rgba(var(--skin-ink-rgb), 0.14); }
+
+/* 表格 */
+:root[data-skin="glass"] th { background: var(--ink-50); color: var(--ink-600); font-size: 11px; font-weight: 500; }
+:root[data-skin="glass"] tbody tr:hover td { background: var(--ink-50); }
+:root[data-skin="glass"] td { border-color: var(--ink-100); }
+
+/* 客户列表：选中后出现的深色批量操作条 */
+:root[data-skin="glass"] .replica-batch {
+  height: 38px; min-height: 38px; padding: 0 12px; gap: 8px; background: rgb(var(--skin-ink-rgb)); color: #fff; border-radius: 0;
+}
+:root[data-skin="glass"] .replica-batch button { color: #fff; padding: 0 9px; min-height: 26px; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 7px; background: transparent; }
+:root[data-skin="glass"] .replica-batch button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.22); }
+:root[data-skin="glass"] .replica-batch button:first-child { color: #fff; }
+:root[data-skin="glass"] .replica-batch > span { color: #fff; }
+:root[data-skin="glass"] .replica-batch > span b { color: var(--skin-gold); }
+:root[data-skin="glass"] .replica-batch .text-button { border-color: transparent; }
+:root[data-skin="glass"] .batch-divider { background: rgba(255, 255, 255, 0.2); }
