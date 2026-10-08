@@ -1157,3 +1157,5 @@ a,
   flex: 1;
   color: var(--ink-500);
 }
+/* 菜单图标有两个版本：线条图标（小满主题）和线条＋淡色底图标（粉色、橙色），由 skin-glass.css 按皮肤显示其中一个 */
+.icon-duo { display: none; }

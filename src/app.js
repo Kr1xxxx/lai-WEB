@@ -56,6 +56,32 @@
   };
   const icon = (name) =>
     `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="${icons[name] || icons.grid}"/></svg>`;
+  // 新界面（粉色、橙色）的菜单图标：统一的线条 + 淡色底（tint 是填充层，line 是描边层）。
+  // 同一个位置两种图标都输出，由 CSS 按皮肤显示其中一种（skin-glass.css 的 .icon-duo）；小满主题仍是上面的线条图标。
+  const duoIcons = {
+    heart: { tint: "M12 20.5S3.5 15.5 3.5 9.5A4.5 4.5 0 0 1 12 7.5a4.5 4.5 0 0 1 8.5 2c0 6-8.5 11-8.5 11z", line: "M12 20.5S3.5 15.5 3.5 9.5A4.5 4.5 0 0 1 12 7.5a4.5 4.5 0 0 1 8.5 2c0 6-8.5 11-8.5 11z" },
+    grid: { tint: "M4 4h6.5v6.5H4z M13.5 13.5H20V20h-6.5z", line: "M4 5.5A1.5 1.5 0 0 1 5.5 4h3.5A1.5 1.5 0 0 1 10.5 5.5V9A1.5 1.5 0 0 1 9 10.5H5.5A1.5 1.5 0 0 1 4 9z M13.5 5.5A1.5 1.5 0 0 1 15 4h3.5A1.5 1.5 0 0 1 20 5.5V9a1.5 1.5 0 0 1-1.5 1.5H15A1.5 1.5 0 0 1 13.5 9z M4 15a1.5 1.5 0 0 1 1.5-1.5H9a1.5 1.5 0 0 1 1.5 1.5v3.5A1.5 1.5 0 0 1 9 20H5.5A1.5 1.5 0 0 1 4 18.5z M13.5 15a1.5 1.5 0 0 1 1.5-1.5h3.5A1.5 1.5 0 0 1 20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15a1.5 1.5 0 0 1-1.5-1.5z" },
+    mail: { tint: "M3.5 7a2.5 2.5 0 0 1 2.5-2.5h12A2.5 2.5 0 0 1 20.5 7v10a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 17z", line: "M3.5 7a2.5 2.5 0 0 1 2.5-2.5h12A2.5 2.5 0 0 1 20.5 7v10a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 17z M4.5 7.5l7.5 5.5 7.5-5.5" },
+    chat: { tint: "M5 4.5h14A1.5 1.5 0 0 1 20.5 6v9.5A1.5 1.5 0 0 1 19 17h-6.5L8 20.5V17H5A1.5 1.5 0 0 1 3.5 15.5V6A1.5 1.5 0 0 1 5 4.5z", line: "M5 4.5h14A1.5 1.5 0 0 1 20.5 6v9.5A1.5 1.5 0 0 1 19 17h-6.5L8 20.5V17H5A1.5 1.5 0 0 1 3.5 15.5V6A1.5 1.5 0 0 1 5 4.5z M8 9.5h8 M8 12.8h5" },
+    lead: { tint: "M4 5h16l-6 7.5V19l-4 1.5v-8z", line: "M4 5h16l-6 7.5V19l-4 1.5v-8z" },
+    people: { tint: "M9 4.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z", line: "M9 4.8a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z M3 20a6 6 0 0 1 12 0 M16 5.2a3.2 3.2 0 0 1 0 6.2 M17.5 14.4c2.1.6 3.5 2.4 3.5 5.1" },
+    globe: { tint: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z", line: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M12 7.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8z M12 11.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z" },
+    search: { tint: "M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z", line: "M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z M15.4 15.4L20.5 20.5 M8 10.5h5 M10.5 8v5" },
+    note: { tint: "M5.5 8h13l-.9 11.2a1.5 1.5 0 0 1-1.5 1.3H7.9a1.5 1.5 0 0 1-1.5-1.3z", line: "M5.5 8h13l-.9 11.2a1.5 1.5 0 0 1-1.5 1.3H7.9a1.5 1.5 0 0 1-1.5-1.3z M9 8V7a3 3 0 0 1 6 0v1" },
+    chart: { tint: "M4.5 12.5h3.5v7H4.5z M10.2 5.5h3.6v14h-3.6z M16 9.5h3.5v10H16z", line: "M5.5 12.5h1.5a1 1 0 0 1 1 1v6H4.5v-6a1 1 0 0 1 1-1z M11.2 5.5h1.6a1 1 0 0 1 1 1v13h-3.6v-13a1 1 0 0 1 1-1z M17 9.5h1.5a1 1 0 0 1 1 1v9H16v-9a1 1 0 0 1 1-1z" },
+    folder: { tint: "M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z", line: "M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" },
+    calendar: { tint: "M3.5 8.5a2.5 2.5 0 0 1 2.5-2.5h12a2.5 2.5 0 0 1 2.5 2.5V18a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18z", line: "M3.5 8.5a2.5 2.5 0 0 1 2.5-2.5h12a2.5 2.5 0 0 1 2.5 2.5V18a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18z M3.5 11h17 M8 3.5v4 M16 3.5v4" },
+    building: { tint: "M5 5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5V20.5H5z", line: "M5 20.5V5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5v15 M15 10h3.5a1.5 1.5 0 0 1 1.5 1.5v9 M3 20.5h18 M8.5 8h3 M8.5 11.5h3 M8.5 15h3" },
+  };
+  // 新界面里要换成淡色底图标的名字 -> 淡色底图标名（其余图标原样输出）
+  const duoNames = { grid: "grid", mail: "mail", chart: "chart", box: "note", folder: "folder", people: "people", chat: "chat", lead: "lead", globe: "globe", search: "search", heart: "heart", note: "note" };
+  const menuIcon = (name, duoName = duoNames[name]) => {
+    const d = duoIcons[duoName];
+    return d
+      ? icon(name).replace("class=\"icon\"", "class=\"icon icon-classic\"") +
+          `<svg class="icon icon-duo" aria-hidden="true" viewBox="0 0 24 24"><path class="tint" d="${d.tint}"/><path d="${d.line}"/></svg>`
+      : icon(name);
+  };
   const date = (v) => {
     if (!v) return "—";
     const raw = String(v);
@@ -1996,7 +2022,8 @@
     return E(Array.isArray(c[f.id]) ? c[f.id].length ? c[f.id].join("、") : "—" : c[f.id] || "—");
   }
   function tableMarkup(p) {
-    const selectionWidth = 84, actionsWidth = 52;
+    // 新界面（粉色、橙色）的选择列收窄：只放一个复选框，不需要 84px
+    const selectionWidth = document.documentElement.dataset.skin === "glass" ? 48 : 84, actionsWidth = 52;
     const prefs = tablePrefs(),
       fields = prefs.order.map((id) => ({
         ...fieldById.get(id),
@@ -3084,14 +3111,14 @@
       ["search", "Leads", null],
       ["note", "交易", "order-list"],
       ["chart", "团队数据", "team-goals"],
-      ["folder", "协同", "calendar"],
-      ["settings", "企业管理", "settings"],
+      ["folder", "协同", "calendar", "calendar"],
+      ["settings", "企业管理", "settings", "building"],
     ];
     return (
       items
       .map(
-        ([i, label, route]) =>
-          `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${icon(i)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`,
+        ([i, label, route, duo]) =>
+          `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`,
       )
       .join("") +
       `<button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
@@ -3330,7 +3357,7 @@
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
-        : navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${icon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
+        : navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${menuIcon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
     const groups = [...new Set(section.entries.map((entry) => entry.group).filter(Boolean))];
     if (!groups.length) return `<h3>${E(section.label)}</h3>${section.entries.map(entryButton).join("")}`;
     return `<h3>${E(section.label)}</h3>${groups

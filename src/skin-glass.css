@@ -312,3 +312,55 @@
 :root[data-skin="glass"] :is(.calendar-day, .agenda-item):hover:not(:disabled) { border-color: var(--ink-100); }
 :root[data-skin="glass"] .team-goal-new,
 :root[data-skin="glass"] .team-goal-new:hover:not(:disabled) { border-color: var(--ink-200); }
+
+/* ===== 复选框、单选框统一样式（用户反馈：客户列表未选是圆圈、选中变成方框）===== */
+/* 原因：全局的 input 圆角 8px 把 16px 的复选框画成圆，选中后换成系统自带的方框。
+   这里全站复选框统一成 16px 圆角方框，选中填主色加白色对勾，半选是一道横线；单选框保持圆形。 */
+:root[data-skin="glass"] input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; position: relative; flex: 0 0 16px; width: 16px; height: 16px; margin: 0; padding: 0;
+  border: 1.5px solid var(--ink-300); border-radius: 5px; background: #fff center / 11px no-repeat; box-shadow: none; cursor: pointer; vertical-align: middle;
+  transition: background-color 120ms, border-color 120ms;
+}
+:root[data-skin="glass"] input[type="checkbox"]:hover:not(:disabled) { border-color: var(--brand-500); }
+:root[data-skin="glass"] input[type="checkbox"]:checked {
+  border-color: var(--brand-500); background-color: var(--brand-500);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3l2.3 2.3 4.9-5.1' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+:root[data-skin="glass"] input[type="checkbox"]:indeterminate {
+  border-color: var(--brand-500); background-color: var(--brand-500);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.8 6h6.4' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+:root[data-skin="glass"] input[type="checkbox"]:disabled { opacity: .45; cursor: not-allowed; }
+:root[data-skin="glass"] input[type="checkbox"]:focus-visible { outline: 2px solid var(--brand-500); outline-offset: 2px; }
+/* 字段设置弹窗里原来自己画的对勾去掉，用上面统一的 */
+:root[data-skin="glass"] :is(.columns-dialog, .summary-dialog) .available-fields input[type="checkbox"]::after { content: none; }
+:root[data-skin="glass"] :is(.columns-dialog, .summary-dialog) .available-fields input[type="checkbox"]:checked { background-color: var(--brand-500); }
+/* 客户列表的选择列 */
+:root[data-skin="glass"] .customer-table .check-col { padding-left: 16px; padding-right: 8px; }
+:root[data-skin="glass"] .customer-table .check-col input[type="checkbox"] { display: block; }
+/* 单选框：同样的 16px，圆形，选中是主色圆点（“匹配条件”里自己画的那一组、隐藏起来用文字当按钮的几组除外） */
+:root[data-skin="glass"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input) {
+  appearance: none; -webkit-appearance: none; flex: 0 0 16px; width: 16px; height: 16px; margin: 0; padding: 0;
+  border: 1.5px solid var(--ink-300); border-radius: 50%; background: #fff; box-shadow: none; cursor: pointer; vertical-align: middle;
+  transition: border-color 120ms, background-color 120ms;
+}
+:root[data-skin="glass"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):hover:not(:disabled) { border-color: var(--brand-500); }
+:root[data-skin="glass"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):checked { border-color: var(--brand-500); background: radial-gradient(circle, var(--brand-500) 0 4px, #fff 4.5px); }
+:root[data-skin="glass"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):disabled { opacity: .45; cursor: not-allowed; }
+:root[data-skin="glass"] input[type="radio"]:focus-visible { outline: 2px solid var(--brand-500); outline-offset: 2px; }
+/* “新建客户”分裂按钮：和其他按钮一样 8px 圆角，不再是胶囊 */
+:root[data-skin="glass"] .split-new > button:first-child { border-radius: 8px 0 0 8px; }
+:root[data-skin="glass"] .split-new > button:last-child { border-radius: 0 8px 8px 0; }
+:root[data-skin="glass"] .pagebar .page-actions > button { height: 32px; min-height: 32px; }
+
+/* ===== 菜单图标：线条 + 淡色底（左栏和二级菜单），和新界面的圆角卡片风格一致 ===== */
+:root[data-skin="glass"] .icon-classic { display: none; }
+:root[data-skin="glass"] .icon-duo { display: block; stroke-width: 1.7; }
+:root[data-skin="glass"] .icon-duo .tint { fill: currentColor; fill-opacity: .16; stroke: none; }
+:root[data-skin="glass"] .rail-item .icon-duo { width: 22px; height: 22px; }
+:root[data-skin="glass"] .rail-item .icon-duo .tint { fill: var(--brand-500); fill-opacity: .2; }
+:root[data-skin="glass"] .rail-item.active .icon-duo .tint { fill: var(--skin-gold); fill-opacity: .35; }
+:root[data-skin="glass"] .rail-item:hover:not(.active) .icon-duo .tint { fill-opacity: .32; }
+:root[data-skin="glass"] .follow-options input { width: 16px !important; height: 16px !important; }
+/* 客户编辑表单（快速新建、编辑客户）的输入框原来是 4px 圆角、灰边，和其他输入框的 8px 不一致 */
+:root[data-skin="glass"] .ce-body :is(input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), select, textarea) { border-radius: 8px; border-color: rgba(var(--skin-ink-rgb), 0.14); }
