@@ -23,7 +23,7 @@
     '团队数据':menu('团队数据',['目标完成情况','route','team-goals','目标数据'],['目标管理','route','team-targets','目标数据'],['团队墙','route','team-wall','目标数据'],
       ['经营统计','route','analysis','统计报表'],['客户资产','route','team-assets','统计报表'],['跟进情况','route','team-followups','统计报表'],['任务完成','route','team-tasks','统计报表'],['订单业绩','route','team-orders','统计报表']),
     '协同':menu('协同',['日历与待办','route','calendar']),
-    '企业管理':menu('企业管理',['设置','route','settings'])
+    '企业管理':menu('企业管理',['设置','route','settings'],['设置中心','route','settings-hub'])
   };
   // 返回条目数组；null 表示该菜单目前只是保留入口（沟通、线索；Leads 有一个「设置」保留入口，不是 null）或不是真实菜单（常用有自己的清单，见 nav-favorites.js）。
   function menuFor(label){

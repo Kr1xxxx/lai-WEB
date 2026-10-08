@@ -3326,7 +3326,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
@@ -3497,6 +3497,8 @@
     if (d.navFavorite) return toggleFavoriteHeart(el, d.navFavorite);
     if (d.action === "favorite-nav") return openFavorites();
     if (d.action === "favorite-nav-manage") return favoriteNavPanel(e.detail > 0);
+    // 设置中心里的“邮箱设置”：先去邮件页，再打开原来的邮箱设置弹窗。
+    if (d.action === "open-mail-settings") return navigateApp("mail").then((ok) => ok !== false && mail.action("account", e.detail > 0));
     if (d.favoriteOpen) return openFavoriteNav(d.favoriteOpen);
     if (d.favoriteJump) return openFavoriteNav(d.favoriteJump);
     if (d.favoriteMove)

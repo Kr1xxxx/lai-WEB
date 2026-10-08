@@ -652,6 +652,15 @@
         )}</div></section><aside class="business-section calendar-agenda"><div class="section-head"><h3>${selectedDate || month} 日程</h3>${selectedDate ? button("all-days", "全部") : ""}</div>${shown.map((e) => `<button class="agenda-item" ${e.kind === "order" ? `data-biz-order="${E(e.id)}"` : e.kind === "followup" ? `data-biz-customer="${E(e.customer)}"` : `data-biz-edit-task="${E(e.id)}"`}><time>${e.date}</time><strong>${E(e.title)}</strong><span>${{ order: "订单", followup: "客户跟进", task: "待办任务" }[e.kind]}</span></button>`).join("") || '<div class="small-empty">暂无日程</div>'}</aside></div>`
       );
     }
+    function renderSettingsHub() {
+      const settings = state().laiSettings || {},
+        old = state().orderSettings || {},
+        theme = THEME_CHOICES.find(([id]) => id === settings.theme) || THEME_CHOICES[0];
+      return root.LaiSettingsHub.markup(
+        { orderPrefix: settings.orderPrefix || old.orderPrefix || "L", currency: settings.defaultCurrency || old.defaultCurrency || "USD", themeName: theme[1] },
+        E,
+      );
+    }
     function renderSettings() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
@@ -684,6 +693,7 @@
         "opp-flows": renderOppFlows,
         calendar: renderCalendar,
         settings: renderSettings,
+        "settings-hub": renderSettingsHub,
       };
       ctx.mount((views[route] || renderDashboard)());
       if (route === "dashboard" && glassSkin()) loadWorkbenchMail();

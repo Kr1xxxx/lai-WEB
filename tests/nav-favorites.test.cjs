@@ -20,7 +20,7 @@ const ALL = [
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
   'route:order-list', 'route:order-trash',
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
-  'route:calendar', 'route:settings'
+  'route:calendar', 'route:settings', 'route:settings-hub'
 ];
 const MENUS = ['客户', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '企业管理'];
 const RESERVED = ['沟通', '线索'];
@@ -156,10 +156,10 @@ test('rail menus list only existing destinations; callers cannot alter the menu 
 });
 
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings', 'settings-hub'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '企业管理']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '企业管理', '企业管理']);
   assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站']);
   const labels = ['工作台', '交易', '团队数据', '协同', '企业管理'];
   const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label)[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
