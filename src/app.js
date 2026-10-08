@@ -318,7 +318,6 @@
         groupsCollapsed,
         expanded,
         team,
-        bannerClosed: state.previewBannerClosed === true,
         ruleCounts: counts,
         lapsedCount: groupRows("lapsed").length,
         followupCount: groupRows("followup").length,
@@ -4201,16 +4200,6 @@
     }
     if (a === "table-options") return tableOptions(el);
     if (a === "customer-settings") return customerSettings();
-    if (a === "close-banner") {
-      if (state.previewBannerClosed === true) return list();
-      try {
-        await persist({ ...state, previewBannerClosed: true });
-        list();
-      } catch (error) {
-        toast(error.message);
-      }
-      return;
-    }
     if (a === "collapse-groups") {
       if (groupPointerPress === el) { groupPointerPress = null; return; }
       return toggleGroupPanel(el, e.detail > 0);

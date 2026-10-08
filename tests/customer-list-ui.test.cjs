@@ -12,7 +12,7 @@ test('future-only followup group displays zero rather than the number of planned
  const rows=[{...row,nextFollow:'9999-01-01'}];
  assert.match(render({rows,followupCount:0}),/data-group="followup"[^>]*><span>待跟进客户<\/span><small>0<\/small>/);
 });
-test('reference list retains global customer controls and live table without legacy navigation',()=>{const html=render();for(const label of ['客户列表','我的客户','团队客户','选择部门或业务员','AI 客群新特性','AI 客群','新建客户','国家地区'])assert.ok(html.includes(label),label);assert.ok(html.includes('data-live-customer-table'));assert.ok(!html.includes('orders.html'));assert.ok(!html.includes('6,862'));});
+test('reference list retains global customer controls and live table without legacy navigation',()=>{const html=render();for(const label of ['客户列表','我的客户','团队客户','选择部门或业务员','AI 客群','新建客户','国家地区'])assert.ok(html.includes(label),label);assert.doesNotMatch(html,/客群新特性|class="banner/,'AI 客群新特性横幅已删除');assert.ok(html.includes('data-live-customer-table'));assert.ok(!html.includes('orders.html'));assert.ok(!html.includes('6,862'));});
 test('top customer search has its captured onboarding empty state without changing quick-filter empty state',()=>{
  const p={items:[],total:0,page:1,pageCount:1};
  const global=render({p,globalSearch:{field:'customerCode',query:'NO_MATCH'}});
