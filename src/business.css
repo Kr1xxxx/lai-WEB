@@ -372,6 +372,16 @@
 .order-table .company-link {
   font-size: 12px;
 }
+/* 订单编号必须看全：这一列不加省略号，列宽跟着编号走（不像客户表格要给收藏图标留位置） */
+.unified-orders td:first-child {
+  min-width: 128px;
+}
+.unified-orders td:first-child .company-link {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
 .page-actions > button {
   white-space: nowrap;
 }
