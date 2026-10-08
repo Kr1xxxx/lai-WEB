@@ -299,3 +299,16 @@
 :root[data-skin="glass"] .calendar-event.task { color: #84560f; }
 :root[data-skin="glass"] .lcd-ai-empty p { color: #6b5d66; }
 :root[data-skin="glass"] .ce-required { color: #c42f2f; }
+
+/* ===== 只有底线或分隔线的控件：不要被全局按钮样式加上圆角和灰色边框 =====
+   标签页（结果目标/过程目标/商机目标）、日历格子、日程行、“新建目标”格子原来只有一两边的线、没有圆角，
+   全局的“按钮 8px 圆角 + 淡灰边框”会把它们变成带灰弧线的小圆片。这里还原。 */
+:root[data-skin="glass"] :is(.team-tabs button, .calendar-day, .agenda-item, .team-goal-new) { border-radius: 0; }
+:root[data-skin="glass"] .team-tabs button,
+:root[data-skin="glass"] .team-tabs button:hover:not(:disabled) { border-color: transparent; }
+:root[data-skin="glass"] .team-tabs button[aria-selected="true"],
+:root[data-skin="glass"] .team-tabs button[aria-selected="true"]:hover:not(:disabled) { border-color: transparent transparent var(--brand-700); }
+:root[data-skin="glass"] :is(.calendar-day, .agenda-item),
+:root[data-skin="glass"] :is(.calendar-day, .agenda-item):hover:not(:disabled) { border-color: var(--ink-100); }
+:root[data-skin="glass"] .team-goal-new,
+:root[data-skin="glass"] .team-goal-new:hover:not(:disabled) { border-color: var(--ink-200); }

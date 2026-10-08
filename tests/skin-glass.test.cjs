@@ -57,3 +57,8 @@ test('placeholder text is lighter than typed text but still at least 4.5:1', () 
   assert.match(skin, /button\.lai-select-trigger\[data-empty="true"\] \{ color: rgba\(var\(--skin-ink-rgb\), 0\.6\)/);
   assert.match(skin, /input::placeholder,[\s\S]*?textarea::placeholder \{ color: rgba\(var\(--skin-ink-rgb\), 0\.6\)/);
 });
+
+test('tab strips, calendar cells and agenda rows keep square corners and their own thin lines in the glass skin', () => {
+  assert.match(skin, /:is\(\.team-tabs button, \.calendar-day, \.agenda-item, \.team-goal-new\) \{ border-radius: 0; \}/);
+  assert.match(skin, /\.team-tabs button\[aria-selected="true"\]:hover:not\(:disabled\) \{ border-color: transparent transparent var\(--brand-700\); \}/);
+});
