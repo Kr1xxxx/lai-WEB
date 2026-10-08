@@ -21,6 +21,8 @@ python3 scripts/build.py --node-runtime "$(command -v node)"
 npm test
 ```
 
+**云端构建：** 每次推送，GitHub Actions（`.github/workflows/macos-ci.yml`）会在 macOS 上自动跑测试、构建并跑集成测试；构建出的 `.app` 压缩包在该次运行页面的 Artifacts 里下载（保留 14 天）。
+
 输出 `dist/来财Lai.app`，采用本地 ad-hoc 签名，不属于 Apple 公证发行。`--output` 可以指定其他本地构建路径，禁止直接构建到 `/Applications`。
 
 构建包没有 `trade-order-data.json`。新数据目录从空库开始；已存在的 Lai 数据库按既有逻辑保留，不因空数据构建而重置。正式导入仍禁用。测试使用临时隔离数据库，不需要客户数据。

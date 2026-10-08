@@ -1,0 +1,65 @@
+# 每次推送都在 macOS 云端：跑模型测试 → 构建 来财Lai.app → 跑集成测试。
+# 构建出的 .app（自签名，未公证）作为 artifact 上传，可在 Actions 页面下载。
+name: macOS build and test
+
+on:
+  push:
+  workflow_dispatch:
+
+# 同一分支连续推送时，只保留最新一次运行。
+concurrency:
+  group: macos-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # README 要求 Node 24+ 且含 node:sqlite；Python 用 runner 自带的 python3。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Toolchain versions
+        run: |
+          sw_vers
+          node --version
+          python3 --version
+          /usr/bin/swift --version
+
+      - name: Model tests
+        run: npm run test:model
+
+      - name: Release tool tests
+        run: python3 -m unittest discover -s tests -p 'test_release_tools.py' -v
+
+      # build.py 内部还会跑 Swift 的 LaiCoreTests / LaiInstanceTests，再打包并 ad-hoc 签名。
+      - name: Build app
+        run: python3 scripts/build.py --node-runtime "$(command -v node)"
+
+      - name: Integration test
+        run: node scripts/integration-test.mjs
+
+      - name: Package app
+        run: ditto -c -k --keepParent "dist/来财Lai.app" Lai-app.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lai-app-${{ github.sha }}
+          path: Lai-app.zip
+          retention-days: 14
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-report-${{ github.sha }}
+          path: evidence/integration-report.json
+          retention-days: 14
+          if-no-files-found: ignore
