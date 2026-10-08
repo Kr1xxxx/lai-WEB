@@ -307,13 +307,13 @@ test('the heart is drawn from one path shared with the icon set, filled or outli
   assert.match(rule('.nav-heart'), /opacity:\s*0;/, 'hidden by opacity, so the position stays and Tab still reaches it');
   assert.doesNotMatch(rule('.nav-heart'), /display:\s*none|visibility:\s*hidden/);
   assert.match(rule('.nav-heart'), /transition:\s*opacity 120ms[^;]*color 120ms/);
-  assert.match(rule('.nav-heart'), /color:\s*#a9b2c3/, 'light grey like the old star');
+  assert.match(rule('.nav-heart'), /color:\s*var\(--ink-400\)/, 'light grey like the old star (theme token, was #a9b2c3)');
   assert.match(rule('.nav-heart-icon'), /fill:\s*none;[^}]*stroke:\s*currentColor/s);
   assert.match(rule('.nav-heart.is-favorite .nav-heart-icon'), /fill:\s*currentColor/);
   assert.match(rule('.nav-heart.is-favorite'), /opacity:\s*1;[^}]*color:\s*#e5456b/s, 'warm rose red, always shown');
   assert.match(css, /\.nav-row:hover \.nav-heart,\s*\.nav-row:has\(:focus-visible\) \.nav-heart[^{]*\.nav-heart:focus-visible\s*\{\s*opacity:\s*1;/s, 'row hover or keyboard focus reveals it; the focused heart itself is always visible');
-  assert.match(css, /\.nav-heart:hover\s*\{[^}]*color:\s*#66748f/s, 'a little darker under the pointer');
-  assert.match(css, /\.nav-entry\.active ~ \.nav-heart\s*\{[^}]*color:\s*#7f8ca6/s, 'darker on the light-blue selected row');
+  assert.match(css, /\.nav-heart:hover\s*\{[^}]*color:\s*var\(--ink-600\)/s, 'a little darker under the pointer');
+  assert.match(css, /\.nav-entry\.active ~ \.nav-heart\s*\{[^}]*color:\s*var\(--ink-500\)/s, 'darker on the light-blue selected row');
   assert.match(css, /@media \(hover: none\)\s*\{\s*\.nav-heart:not\(\.is-favorite\)\s*\{\s*opacity:\s*0\.55;/s, 'touch devices: faint but always there');
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.nav-heart\s*\{\s*transition:\s*none;/s);
   assert.match(css, /\.rail-flyout \.nav-heart\.is-favorite\s*\{[^}]*color:\s*#ff7d9b/s, 'a brighter rose on the dark flyout');

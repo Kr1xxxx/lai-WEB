@@ -28,14 +28,14 @@
   --line-height-section: 24px;
   --line-height-page: 28px;
 
-  --color-primary-50: #f1f7ff;
-  --color-primary-100: #eaf3ff;
-  --color-primary-200: #cfe2ff;
-  --color-primary-300: #82a5f7;
-  --color-primary-500: #0a6aff;
-  --color-primary-600: #0865f5;
-  --color-primary-700: #004fd9;
-  --color-logo: #2475e8;
+  --color-primary-50: var(--brand-50);
+  --color-primary-100: var(--brand-100);
+  --color-primary-200: var(--brand-200);
+  --color-primary-300: var(--brand-300);
+  --color-primary-500: var(--brand-500);
+  --color-primary-600: var(--brand-600);
+  --color-primary-700: var(--brand-700);
+  --color-logo: var(--brand-500);
 
   --color-neutral-0: #fff;
   --color-neutral-25: #fafafa;
@@ -49,8 +49,8 @@
   --color-neutral-700: #595959;
   --color-neutral-800: #333;
   --color-neutral-900: #111;
-  --color-nav: #0c163d;
-  --color-nav-hover: #25305d;
+  --color-nav: var(--brand-900);
+  --color-nav-hover: var(--nav-hover);
 
   --color-success: #32916e;
   --color-success-soft: #ecf8f1;
@@ -66,15 +66,15 @@
   --radius-pill: 18px;
 
   --shadow-card:
-    0 12px 32px rgba(12, 22, 61, 0.08),
-    0 2px 8px rgba(12, 22, 61, 0.06);
+    0 12px 32px rgba(var(--brand-900-rgb), 0.08),
+    0 2px 8px rgba(var(--brand-900-rgb), 0.06);
   --shadow-popover:
-    0 8px 24px rgba(12, 22, 61, 0.12),
-    0 2px 6px rgba(12, 22, 61, 0.08);
+    0 8px 24px rgba(var(--brand-900-rgb), 0.12),
+    0 2px 6px rgba(var(--brand-900-rgb), 0.08);
   --shadow-drawer:
-    -20px 0 48px rgba(12, 22, 61, 0.10),
-    -4px 0 12px rgba(12, 22, 61, 0.06);
-  --shadow-focus: 0 0 0 2px rgba(10, 106, 255, 0.12);
+    -20px 0 48px rgba(var(--brand-900-rgb), 0.10),
+    -4px 0 12px rgba(var(--brand-900-rgb), 0.06);
+  --shadow-focus: 0 0 0 2px rgba(var(--brand-rgb), 0.12);
 
   --motion-fast: 120ms;
   --motion-normal: 160ms;
@@ -92,6 +92,89 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/*
+ * 界面配色：粉色（默认）和橙色。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
+ * nav（深色左侧栏）和 chart（图表色）这四组变量；设置里的「界面配色」把选择存进
+ * laiSettings.theme，并写到 <html data-theme="…">。新增颜色一律用这些变量，不要写死色值。
+ * 邮件正文里的颜色是用户内容，不在主题范围内。
+ */
+:root,
+:root[data-theme="pink"] {
+  --brand-900: #3b0f27;
+  --brand-900-rgb: 59, 15, 39;
+  --brand-700: #a31450;
+  --brand-600: #b01455;
+  --brand-500: #be185d;
+  --brand-rgb: 190, 24, 93;
+  --brand-300: #ef86b4;
+  --brand-200: #f9b9d3;
+  --brand-100: #fcdce9;
+  --brand-50: #fef2f7;
+  --nav-hover: #5c1b3d;
+  --nav-line: #7a3555;
+  --nav-top: #4d1233;
+  --nav-glow-rgb: 224, 64, 128;
+
+  --ink-900: #231720;
+  --ink-rgb: 35, 23, 32;
+  --ink-800: #4a3a44;
+  --ink-700: #685560;
+  --ink-600: #85737e;
+  --ink-500: #9a8a95;
+  --ink-400: #b9acb5;
+  --ink-300: #cdbfc8;
+  --ink-200: #e2d6de;
+  --ink-100: #f0e8ed;
+  --ink-50: #f9f6f8;
+
+  /* 图表色：chart-1/2/3 是分类色，三色一组已通过 dataviz 校验（明度、色度、色盲区分、对比度）；
+     chart-rank-* 是排名的单色明度梯度，数值写在条旁边，第三档在底色上约 2.8:1，靠数字标注补足。 */
+  --chart-1: #be185d;
+  --chart-2: #0a8bb0;
+  --chart-3: #b8780a;
+  --chart-rank-1: #8c1342;
+  --chart-rank-2: #be185d;
+  --chart-rank-3: #de5c94;
+  --chart-track: #f0e8ed;
+}
+
+:root[data-theme="orange"] {
+  --brand-900: #3a1608;
+  --brand-900-rgb: 58, 22, 8;
+  --brand-700: #9a3412;
+  --brand-600: #ad3a0b;
+  --brand-500: #c2410c;
+  --brand-rgb: 194, 65, 12;
+  --brand-300: #f5a572;
+  --brand-200: #fbc9a3;
+  --brand-100: #fde3cf;
+  --brand-50: #fff5ec;
+  --nav-hover: #5a2a14;
+  --nav-line: #7a4a30;
+  --nav-top: #4d1f0a;
+  --nav-glow-rgb: 240, 120, 50;
+
+  --ink-900: #241a14;
+  --ink-rgb: 36, 26, 20;
+  --ink-800: #4a3e35;
+  --ink-700: #6a5c52;
+  --ink-600: #877869;
+  --ink-500: #9b8f84;
+  --ink-400: #bcb1a6;
+  --ink-300: #cfc4ba;
+  --ink-200: #e3dad1;
+  --ink-100: #f1ebe5;
+  --ink-50: #faf7f4;
+
+  --chart-1: #c2410c;
+  --chart-2: #0a8bb0;
+  --chart-3: #6b46c1;
+  --chart-rank-1: #9a3412;
+  --chart-rank-2: #c2410c;
+  --chart-rank-3: #e2691f;
+  --chart-track: #f1ebe5;
 }
 
 @media (prefers-reduced-motion: reduce) {

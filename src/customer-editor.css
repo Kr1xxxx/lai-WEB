@@ -54,7 +54,7 @@
   border-radius: 12px;
 }
 .ce-body.drawer-body::-webkit-scrollbar-track {
-  background: #ebedf0;
+  background: var(--ink-100);
 }
 .ce-columns {
   display: grid;
@@ -114,14 +114,14 @@
   gap: 8px;
   margin: 0 0 24px;
   padding: 8px 15px;
-  border: 1px solid #1c76fd;
+  border: 1px solid var(--brand-500);
   border-radius: 4px;
-  background: #ebf3ff;
+  background: var(--brand-50);
   color: #333;
   font-size: 14px;
   line-height: 22px;
 }
-.company-display-note > svg { width: 14px; height: 14px; flex: 0 0 14px; color: #3978e8; }
+.company-display-note > svg { width: 14px; height: 14px; flex: 0 0 14px; color: var(--brand-500); }
 .company-display-body section + section { margin-top: 24px; }
 .company-display-body h3 {
   margin: 0 0 4px;
@@ -151,22 +151,22 @@
 }
 
 .company-display-row:hover,
-.company-display-row:focus-visible { background: #f8faff; }
-.company-display-row:focus-visible { outline: 2px solid #3978e8; outline-offset: -2px; }
+.company-display-row:focus-visible { background: var(--brand-50); }
+.company-display-row:focus-visible { outline: 2px solid var(--brand-500); outline-offset: -2px; }
 .company-display-row.is-dragging { opacity: .55; }
 .company-display-row.is-drop-target,
-.company-display-body ul.is-drop-target { box-shadow: inset 0 2px #3978e8; }
-.company-display-grip { color: #b8bec8; font-size: 18px; letter-spacing: -4px; margin-right: 0; flex: 0 0 24px; opacity: 0; }
+.company-display-body ul.is-drop-target { box-shadow: inset 0 2px var(--brand-500); }
+.company-display-grip { color: var(--ink-400); font-size: 18px; letter-spacing: -4px; margin-right: 0; flex: 0 0 24px; opacity: 0; }
 .company-display-row:hover .company-display-grip,
 .company-display-row:focus-within .company-display-grip { opacity: 1; }
-.company-display-row.is-required .company-display-grip { color: #d2d6dd; }
+.company-display-row.is-required .company-display-grip { color: var(--ink-300); }
 .company-display-lock { position: absolute; left: 16px; top: 3px; color: #e45656; }
 .company-display-row button {
   margin-left: auto;
   padding: 4px;
   border: 0;
   background: transparent;
-  color: #7f8da1;
+  color: var(--ink-500);
   opacity: 0;
 }
 .company-display-row:hover button,
@@ -280,12 +280,12 @@
 .ce-body input:hover,
 .ce-body select:hover,
 .ce-body textarea:hover {
-  border-color: #7ca9ff;
+  border-color: var(--brand-300);
 }
 .ce-body input:focus,
 .ce-body select:focus,
 .ce-body textarea:focus {
-  border-color: #3974f6;
+  border-color: var(--brand-500);
   box-shadow: 0 0 0 2px #3974f610;
 }
 .ce-body input[type="date"] {
@@ -382,7 +382,7 @@
   color: #f8c748;
 }
 .ce-rating label:has(input:focus-visible) {
-  outline: 2px solid #0a6aff;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 .ce-body .ce-number-field {
@@ -406,7 +406,7 @@
   min-width: 0;
   height: 32px;
   padding: 4px 12px;
-  border: 1px solid #dfe1e5;
+  border: 1px solid var(--ink-200);
   border-radius: 4px;
   color: #333;
   background: #fff;
@@ -416,7 +416,7 @@
   transition: border-color 300ms ease;
 }
 .ce-body .ce-customer-number input.ce-number-input[name="customerCode"]:focus {
-  border-color: #004fd9;
+  border-color: var(--brand-700);
 }
 .ce-number-edit {
   display: inline-flex;
@@ -428,7 +428,7 @@
   cursor: pointer;
 }
 .ce-number-edit:focus-visible {
-  outline: 2px solid #0a6aff;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 .ce-extra > summary {
@@ -453,7 +453,7 @@
 .ce-extra summary:focus-visible,
 .ce-collapse:focus-visible,
 .ce-add-contact:focus-visible {
-  outline: 2px solid #0a6aff;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 .ce-extra-content > h3 {
@@ -493,7 +493,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .ce-contact-card:focus-within {
-  background: #f0f7ff;
+  background: var(--brand-50);
 }
 .ce-contact-heading {
   display: flex;
@@ -512,8 +512,8 @@
 .ce-main-tag {
   padding: 0 5px;
   border-radius: 2px;
-  background: #edf3ff;
-  color: #3977f6;
+  background: var(--brand-50);
+  color: var(--brand-500);
   font-size: 13px;
   line-height: 22px;
 }
@@ -606,7 +606,7 @@
 }
 .ce-plus:focus-visible,
 .ce-method-remove:focus-visible {
-  outline: 2px solid #3977f6;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 .ce-add-contact {
@@ -619,12 +619,12 @@
   border: 0;
   border-radius: 4px;
   background: #fafafa;
-  color: #3977f6;
+  color: var(--brand-500);
   font-size: 14px;
   line-height: 20px;
 }
 .ce-add-contact:hover {
-  background: #f0f7ff;
+  background: var(--brand-50);
 }
 .ce-error {
   margin: 0 0 16px !important;
@@ -693,13 +693,13 @@
   transition: transform 0.12s;
 }
 .ce-footer-switches input:checked + .ce-switch {
-  background: #2b6cff;
+  background: var(--brand-500);
 }
 .ce-footer-switches input:checked + .ce-switch:after {
   transform: translateX(12px);
 }
 .ce-footer-switches input:focus-visible + .ce-switch {
-  outline: 2px solid #0a6aff;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 .ce-footer-actions {
@@ -720,15 +720,15 @@
   white-space: nowrap;
 }
 .ce-footer-actions button.primary {
-  border-color: #2b6cff;
-  background: #2b6cff;
+  border-color: var(--brand-500);
+  background: var(--brand-500);
   color: white;
 }
 .ce-footer-actions button:hover {
-  border-color: #5d93ff;
+  border-color: var(--brand-300);
 }
 .ce-footer-actions button.primary:hover {
-  background: #1c5deb;
+  background: var(--brand-500);
 }
 @media (max-width: 700px) {
   .ce-body.drawer-body {

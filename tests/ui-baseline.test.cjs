@@ -75,3 +75,38 @@ test('the customer sub-navigation no longer offers the removed profile-suggestio
   assert.deepEqual(labels, ['客户列表', '公海客户', '客户查重', '客户设置']);
 });
 
+
+test('the pink and orange themes define the same colour variables and nothing blue is left in app chrome', () => {
+  const themeBlock = id => new RegExp(`:root\\[data-theme="${id}"\\]\\s*\\{([^}]*)\\}`, 's').exec(tokens)?.[1] || '';
+  const names = block => [...block.matchAll(/(--[a-z0-9-]+):/g)].map(m => m[1]).sort();
+  const orange = themeBlock('orange');
+  assert.ok(orange.length > 0, 'orange theme block exists');
+  const pink = /:root,\s*:root\[data-theme="pink"\]\s*\{([^}]*)\}/s.exec(tokens)?.[1] || '';
+  assert.deepEqual(names(orange), names(pink), 'both themes set exactly the same variables');
+  for (const name of ['--brand-500', '--brand-900', '--ink-900', '--chart-1', '--chart-2', '--chart-3', '--chart-rank-1', '--nav-top', '--nav-glow-rgb']) {
+    assert.ok(names(pink).includes(name), `${name} is themed`);
+  }
+  const blue = /#(?:0a6aff|0c163d|1d273e|53617b|1a5cff|004fd9)\b/i;
+  for (const file of fs.readdirSync(path.join(root, 'src')).filter(f => /\.(css|js|html)$/.test(f) && !/^mail-(ui|editor)\.js$/.test(f))) {
+    assert.doesNotMatch(read(`src/${file}`), blue, `${file} must use theme variables, not the old blue literals`);
+  }
+});
+
+test('the chosen theme is stored in laiSettings.theme, applied to <html>, and switched from 设置', () => {
+  const app = read('src/app.js');
+  const ui = read('src/business-ui.js');
+  assert.match(app, /const THEME_IDS = \["pink", "orange"\];/);
+  assert.match(app, /document\.documentElement\.dataset\.theme = THEME_IDS\.includes\(id\) \? id : "pink";/);
+  assert.equal((app.match(/applyTheme\(state\.laiSettings\?\.theme\)/g) || []).length, 2, 'applied after loading and after every save');
+  assert.match(ui, /data-biz-action="set-theme" data-theme-id="\$\{id\}"/);
+  assert.match(ui, /action === "set-theme"/);
+  assert.match(ui, /laiSettings: \{ \.\.\.state\(\)\.laiSettings, theme: id \}/);
+});
+
+test('the workbench has no second-level navigation column, other pages keep theirs', () => {
+  const app = read('src/app.js');
+  assert.match(app, /id="app-subnav"\$\{activeRoute === "dashboard" && !favoritesMode \? " hidden" : ""\}/);
+  const css = read('src/customer-replica.css');
+  assert.match(css, /\.subnav\[hidden\] ~ \.main\s*\{\s*left:\s*72px;/s);
+  assert.match(css, /\.subnav\[hidden\]\s*\{\s*display:\s*none;/s);
+});

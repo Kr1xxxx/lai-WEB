@@ -31,7 +31,7 @@
 }
 .business-kpis span {
   font-size: 12px;
-  color: #7d8b9f;
+  color: var(--ink-600);
   display: block;
 }
 .business-kpis strong {
@@ -39,7 +39,7 @@
   font-size: 30px;
   font-weight: 500;
   margin-top: 13px;
-  color: #263b5c;
+  color: var(--ink-800);
 }
 .business-section,
 .money-summary {
@@ -61,21 +61,21 @@
   overflow: auto;
 }
 .pipeline > section {
-  background: #f5f7fb;
+  background: var(--ink-50);
   border-radius: 5px;
   min-width: 0;
 }
 .pipeline h4 {
   margin: 0;
   padding: 13px 12px;
-  border-top: 3px solid #bed2f8;
+  border-top: 3px solid var(--brand-200);
   display: flex;
   justify-content: space-between;
   font-size: 12px;
   font-weight: 500;
 }
 .pipeline h4 b {
-  color: #8797ae;
+  color: var(--ink-500);
   font-weight: 400;
 }
 .pipeline-cards {
@@ -93,7 +93,7 @@
   padding: 13px 10px;
   text-align: left;
   background: #fff;
-  border: 1px solid #e6ebf3;
+  border: 1px solid var(--ink-200);
   border-radius: 4px;
   font-size: 12px;
 }
@@ -105,16 +105,16 @@
   white-space: nowrap;
 }
 .pipeline-card span {
-  color: #8a96a8;
+  color: var(--ink-500);
   font-size: 11px;
 }
 .pipeline-card b {
   font-size: 12px;
   font-weight: 500;
-  color: #426499;
+  color: var(--ink-700);
 }
 .pipeline-card:hover {
-  border-color: #7eabf6;
+  border-color: var(--brand-300);
   box-shadow: 0 2px 8px #b6cced33;
 }
 .business-columns {
@@ -127,7 +127,7 @@
   align-items: center;
   gap: 12px;
   padding: 13px 0;
-  border-bottom: 1px solid #edf0f5;
+  border-bottom: 1px solid var(--ink-100);
   font-size: 12px;
 }
 .business-line > button,
@@ -137,7 +137,7 @@
 }
 .business-line time {
   font-size: 11px;
-  color: #8896a9;
+  color: var(--ink-500);
 }
 .task-line label {
   display: flex;
@@ -145,18 +145,18 @@
   gap: 8px;
 }
 .small-empty {
-  color: #8b97a9;
+  color: var(--ink-500);
   padding: 30px 10px;
   text-align: center;
   font-size: 12px;
 }
 .done-text {
   text-decoration: line-through;
-  color: #9aa6b8;
+  color: var(--ink-500);
 }
 .currency-badge {
-  color: #3770c5;
-  background: #eef4ff;
+  color: var(--brand-500);
+  background: var(--brand-50);
   padding: 5px 10px;
   border-radius: 3px;
   font-size: 11px;
@@ -176,10 +176,10 @@
 .page-actions input {
   height: 34px;
   background: #fff;
-  border: 1px solid #dfe5ef;
+  border: 1px solid var(--ink-200);
   border-radius: 4px;
   padding: 5px 10px;
-  color: #44546a;
+  color: var(--ink-700);
   font: inherit;
   font-size: 12px;
 }
@@ -202,7 +202,7 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #f5f7fb;
+  background: var(--ink-50);
 }
 .unified-orders td,
 .unified-orders th {
@@ -211,7 +211,7 @@
   padding: 12px 16px;
 }
 .unified-orders tbody tr:nth-child(even) {
-  background: #fbfcfe;
+  background: var(--brand-50);
 }
 .stage-done,
 .stage-shipment {
@@ -227,11 +227,11 @@
 }
 .stage-bars span {
   width: 58px;
-  color: #77869d;
+  color: var(--ink-600);
 }
 .stage-bars > div > div {
   flex: 1;
-  background: #edf3fe;
+  background: var(--chart-track);
   border-radius: 4px;
   height: 9px;
   overflow: hidden;
@@ -239,7 +239,7 @@
 .stage-bars i {
   display: block;
   height: 100%;
-  background: #6097f0;
+  background: var(--chart-1);
   border-radius: 4px;
 }
 .stage-bars b {
@@ -263,19 +263,19 @@
 }
 .calendar-week {
   font-size: 11px;
-  color: #8b98ab;
+  color: var(--ink-500);
   text-align: center;
   padding: 9px 0 16px;
 }
 .calendar-grid {
-  border-left: 1px solid #e8edf4;
-  border-top: 1px solid #e8edf4;
+  border-left: 1px solid var(--ink-100);
+  border-top: 1px solid var(--ink-100);
 }
 .calendar-blank,
 .calendar-day {
   border: 0;
-  border-right: 1px solid #e8edf4;
-  border-bottom: 1px solid #e8edf4;
+  border-right: 1px solid var(--ink-100);
+  border-bottom: 1px solid var(--ink-100);
   min-height: 105px;
   border-radius: 0;
 }
@@ -295,8 +295,8 @@
   margin-bottom: 3px;
 }
 .calendar-day.selected {
-  background: #eaf2ff;
-  box-shadow: inset 0 0 0 1px #7ca9ef;
+  background: var(--brand-50);
+  box-shadow: inset 0 0 0 1px var(--brand-300);
 }
 .calendar-event {
   font-size: 10px;
@@ -304,8 +304,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 3px 4px;
-  background: #eff4fc;
-  color: #5076ab;
+  background: var(--brand-50);
+  color: var(--ink-600);
   border-radius: 2px;
 }
 .calendar-event.followup {
@@ -319,7 +319,7 @@
 .agenda-item {
   width: 100%;
   border: 0;
-  border-bottom: 1px solid #eef1f5;
+  border-bottom: 1px solid var(--ink-100);
   border-radius: 0;
   padding: 15px 4px;
   display: flex;
@@ -332,7 +332,7 @@
 .agenda-item time,
 .agenda-item > span {
   font-size: 11px;
-  color: #8a99af;
+  color: var(--ink-500);
 }
 .agenda-item strong {
   font-weight: 500;
@@ -351,7 +351,7 @@
 .settings-copy {
   font-size: 12px;
   line-height: 1.9;
-  color: #7e8da2;
+  color: var(--ink-500);
 }
 .business-check {
   display: flex;
@@ -421,27 +421,27 @@
   flex-direction: column;
   gap: 6px;
   padding: 14px 16px;
-  border: 1px solid #e6e9ef;
+  border: 1px solid var(--ink-200);
   border-radius: 6px;
   background: #fff;
 }
 .team-tile > span {
   font-size: 13px;
-  color: #6b7a90;
+  color: var(--ink-600);
 }
 .team-tile > strong {
   font-size: 24px;
   font-weight: 600;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-number {
   border: 0;
   background: transparent;
   padding: 0;
   font: inherit;
-  color: #0b57d0;
+  color: var(--brand-700);
   text-decoration: underline;
-  text-decoration-color: rgba(11, 87, 208, 0.35);
+  text-decoration-color: rgba(var(--brand-rgb),0.35);
   text-underline-offset: 3px;
   cursor: pointer;
 }
@@ -450,7 +450,7 @@
 }
 .team-total td {
   font-weight: 600;
-  background: #f7f8fa;
+  background: var(--ink-50);
 }
 .team-note {
   margin: 10px 0 0;
@@ -459,7 +459,7 @@
   margin: 14px 0 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 .team-detail-list {
   list-style: none;
@@ -468,7 +468,7 @@
 }
 .team-detail-list li {
   padding: 10px 0;
-  border-bottom: 1px solid #edf0f5;
+  border-bottom: 1px solid var(--ink-100);
 }
 
 .team-scope {
@@ -476,17 +476,17 @@
   align-items: center;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid #d9dee7;
+  border: 1px solid var(--ink-300);
   border-radius: 4px;
   font-size: 13px;
-  color: #3b4a62;
+  color: var(--ink-800);
   background: #fff;
 }
 .team-tabs {
   display: flex;
   gap: 24px;
   margin-bottom: 14px;
-  border-bottom: 1px solid #e6e9ef;
+  border-bottom: 1px solid var(--ink-200);
 }
 .team-tabs button {
   border: 0;
@@ -495,18 +495,18 @@
   background: transparent;
   padding: 6px 2px 10px;
   font-size: 14px;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 .team-tabs button[aria-selected="true"] {
-  color: #0b57d0;
-  border-bottom-color: #0b57d0;
+  color: var(--brand-700);
+  border-bottom-color: var(--brand-700);
   font-weight: 600;
 }
 .team-goal-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  border-top: 1px solid #e6e9ef;
-  border-left: 1px solid #e6e9ef;
+  border-top: 1px solid var(--ink-200);
+  border-left: 1px solid var(--ink-200);
 }
 .team-goal {
   display: flex;
@@ -514,8 +514,8 @@
   gap: 8px;
   min-height: 118px;
   padding: 14px 16px;
-  border-right: 1px solid #e6e9ef;
-  border-bottom: 1px solid #e6e9ef;
+  border-right: 1px solid var(--ink-200);
+  border-bottom: 1px solid var(--ink-200);
   background: #fff;
 }
 .team-goal-head,
@@ -525,19 +525,19 @@
   justify-content: space-between;
   gap: 8px;
   font-size: 13px;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-goal > strong {
   font-size: 20px;
   font-weight: 600;
   line-height: 1.3;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-goal-bar,
 .team-progress {
   height: 4px;
   border-radius: 2px;
-  background: #e8eefb;
+  background: var(--brand-50);
   overflow: hidden;
 }
 .team-goal-bar i,
@@ -545,7 +545,7 @@
   display: block;
   height: 100%;
   width: 0;
-  background: #1a5cff;
+  background: var(--chart-1);
 }
 .team-goal-new {
   align-items: center;
@@ -553,7 +553,7 @@
   border-top: 0;
   border-left: 0;
   border-radius: 0;
-  color: #3b4a62;
+  color: var(--ink-800);
   font-size: 13px;
 }
 .team-goal-new span {
@@ -564,7 +564,7 @@
   background: transparent;
   padding: 0;
   font-size: 12px;
-  color: #0b57d0;
+  color: var(--brand-700);
 }
 .team-segment {
   display: inline-flex;
@@ -584,8 +584,8 @@
 }
 .team-segment button[aria-pressed="true"] {
   position: relative;
-  border-color: #1a5cff;
-  color: #0b57d0;
+  border-color: var(--brand-500);
+  color: var(--brand-700);
   font-weight: 600;
 }
 .team-tools {
@@ -598,7 +598,7 @@
   padding: 3px 10px;
 }
 .team-tools button[aria-pressed="false"] {
-  color: #8a94a6;
+  color: var(--ink-500);
   text-decoration: line-through;
 }
 .team-table-scroll {
@@ -611,8 +611,8 @@
   vertical-align: middle;
 }
 .team-board thead th {
-  border: 1px solid #e6e9ef;
-  background: #f7f8fa;
+  border: 1px solid var(--ink-200);
+  background: var(--ink-50);
 }
 .team-sort {
   border: 0;
@@ -629,7 +629,7 @@
   height: 22px;
   border-radius: 50%;
   font-size: 12px;
-  color: #6b7a90;
+  color: var(--ink-600);
 }
 .team-rank-1,
 .team-rank-2,
@@ -641,7 +641,7 @@
   background: #e3a008;
 }
 .team-rank-2 {
-  background: #8a97ab;
+  background: var(--ink-500);
 }
 .team-rank-3 {
   background: #c9713a;
@@ -659,13 +659,13 @@
   padding: 18px 20px;
   border-radius: 6px;
   background: #fff;
-  box-shadow: var(--shadow-card, 0 1px 2px rgba(20, 30, 50, 0.08));
+  box-shadow: var(--shadow-card, 0 1px 2px rgba(var(--ink-rgb),0.08));
 }
 .team-card h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-card-tall {
   grid-row: span 2;
@@ -680,7 +680,7 @@
   margin: auto;
   font-size: 34px;
   font-weight: 700;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-card-number > strong + span {
   text-align: center;
@@ -701,17 +701,17 @@
   font-size: 26px;
   font-weight: 700;
   line-height: 1.25;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-figures b {
   font-size: 14px;
   font-weight: 500;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-segbar {
   height: 16px;
   border-radius: 2px;
-  background: repeating-linear-gradient(90deg, #dbe6ff 0 6px, #fff 6px 8px);
+  background: repeating-linear-gradient(90deg, var(--brand-100) 0 6px, #fff 6px 8px);
 }
 .team-countdown {
   position: relative;
@@ -732,10 +732,10 @@
   stroke-width: 6;
 }
 .team-ring-track {
-  stroke: #eef1f6;
+  stroke: var(--chart-track);
 }
 .team-ring-value {
-  stroke: #1a5cff;
+  stroke: var(--chart-1);
   stroke-linecap: round;
 }
 .team-ring-text {
@@ -746,7 +746,7 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-ring-text strong {
   font-size: 36px;
@@ -759,7 +759,7 @@
 }
 .team-countdown-date {
   font-size: 13px;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-rank-list {
   list-style: none;
@@ -773,7 +773,7 @@
   gap: 10px;
   padding: 7px 0;
   font-size: 13px;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .team-rank-name {
   overflow: hidden;
@@ -783,23 +783,23 @@
 .team-bar {
   height: 6px;
   border-radius: 3px;
-  background: #eef1f6;
+  background: var(--chart-track);
   overflow: hidden;
 }
 .team-bar i {
   display: block;
   height: 100%;
   border-radius: 3px;
-  background: #8a97ab;
+  background: var(--ink-500);
 }
 .team-rank-list li:nth-child(1) .team-bar i {
-  background: #1f9d60;
+  background: var(--chart-rank-1);
 }
 .team-rank-list li:nth-child(2) .team-bar i {
-  background: #4fc48b;
+  background: var(--chart-rank-2);
 }
 .team-rank-list li:nth-child(3) .team-bar i {
-  background: #a3e0c2;
+  background: var(--chart-rank-3);
 }
 .team-first {
   font-size: 13px;
@@ -832,7 +832,7 @@ td.team-reached {
 .team-segbar i {
   display: block;
   height: 100%;
-  background: repeating-linear-gradient(90deg, #1a5cff 0 6px, #fff 6px 8px);
+  background: repeating-linear-gradient(90deg, var(--chart-1) 0 6px, #fff 6px 8px);
 }
 
 .team-danger {
@@ -844,18 +844,18 @@ td.team-reached {
    配色沿用应用的蓝色主色；阶段只用三种语义色：进行中＝绿，赢单＝蓝，输单＝灰。
    页面上唯一「重」的元素是阶段条，其余控件统一 32px 高、同一种边框和圆角。 */
 .opp-page {
-  --opp-ink: #1f2d45;
-  --opp-muted: #6b7a90;
-  --opp-line: #e3e7ee;
-  --opp-surface: #f4f6f9;
-  --opp-open: #1f9d60;
-  --opp-open-soft: #e6f5ec;
-  --opp-open-ink: #136c41;
-  --opp-won: #0a6aff;
-  --opp-won-soft: #e8f0ff;
-  --opp-won-ink: #0a4fc4;
-  --opp-lost-soft: #eef0f4;
-  --opp-lost-ink: #566176;
+  --opp-ink: var(--ink-900);
+  --opp-muted: var(--ink-600);
+  --opp-line: var(--ink-200);
+  --opp-surface: var(--ink-50);
+  --opp-open: var(--chart-2);
+  --opp-open-soft: #e0f3f9;
+  --opp-open-ink: #0b6682;
+  --opp-won: var(--brand-500);
+  --opp-won-soft: var(--brand-50);
+  --opp-won-ink: var(--brand-700);
+  --opp-lost-soft: var(--ink-100);
+  --opp-lost-ink: var(--ink-700);
   --opp-danger: #c9363f;
   color: var(--opp-ink);
 }
@@ -864,7 +864,7 @@ td.team-reached {
 .opp-page input[type="date"] {
   height: 32px;
   padding: 0 10px;
-  border: 1px solid #d5dbe5;
+  border: 1px solid var(--ink-300);
   border-radius: 6px;
   background-color: #fff;
   font-size: 13px;
@@ -880,7 +880,7 @@ td.team-reached {
 }
 .opp-page select:hover,
 .opp-page input:hover {
-  border-color: #b9c2d0;
+  border-color: var(--ink-400);
 }
 .opp-page select:focus-visible,
 .opp-page input:focus-visible,
@@ -1059,7 +1059,7 @@ td.team-reached {
 }
 .opp-kind-lost .opp-stage {
   background: var(--opp-lost-soft);
-  border-top-color: #aab3c2;
+  border-top-color: var(--ink-400);
   color: var(--opp-lost-ink);
 }
 .opp-cards {
@@ -1081,11 +1081,11 @@ td.team-reached {
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .opp-card:hover {
-  border-color: #c5cddb;
-  box-shadow: 0 2px 8px rgba(31, 45, 69, 0.08);
+  border-color: var(--ink-300);
+  box-shadow: 0 2px 8px rgba(var(--ink-rgb),0.08);
 }
 .opp-card.is-archived {
-  background: #fafbfc;
+  background: var(--ink-50);
 }
 .opp-card-head {
   display: flex;
@@ -1163,9 +1163,9 @@ td.team-reached {
   padding: 0 8px;
   border: 0;
   border-radius: 10px;
-  background: var(--opp-lost-soft, #eef0f4);
+  background: var(--opp-lost-soft, var(--ink-100));
   font-size: 11px;
-  color: var(--opp-lost-ink, #566176);
+  color: var(--opp-lost-ink, var(--ink-700));
   white-space: nowrap;
 }
 .opp-chip.is-link {
@@ -1173,12 +1173,12 @@ td.team-reached {
   color: var(--opp-won-ink);
 }
 .opp-stage-chip.opp-kind-open {
-  background: #e6f5ec;
-  color: #136c41;
+  background: var(--opp-open-soft, #e0f3f9);
+  color: var(--opp-open-ink, #0b6682);
 }
 .opp-stage-chip.opp-kind-won {
-  background: #e8f0ff;
-  color: #0a4fc4;
+  background: var(--brand-50);
+  color: var(--brand-700);
 }
 .opp-card-foot {
   display: flex;
@@ -1187,7 +1187,7 @@ td.team-reached {
   gap: 8px;
   margin-top: 2px;
   padding-top: 8px;
-  border-top: 1px solid #eef1f5;
+  border-top: 1px solid var(--ink-100);
   font-size: 12px;
   color: var(--opp-muted);
 }
@@ -1208,13 +1208,13 @@ td.team-reached {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #dfe5f0;
+  background: var(--ink-200);
   font-style: normal;
   font-size: 10px;
   font-weight: 600;
   line-height: 18px;
   text-align: center;
-  color: #46536a;
+  color: var(--ink-700);
 }
 .opp-due {
   white-space: nowrap;
@@ -1227,7 +1227,7 @@ td.team-reached {
 .opp-empty {
   margin: 0;
   padding: 26px 0;
-  border: 1px dashed #cfd6e2;
+  border: 1px dashed var(--ink-300);
   border-radius: 8px;
   text-align: center;
   font-size: 12px;
@@ -1236,7 +1236,7 @@ td.team-reached {
 .opp-more {
   width: 100%;
   height: 30px;
-  border: 1px dashed #cfd6e2;
+  border: 1px dashed var(--ink-300);
   border-radius: 8px;
   background: transparent;
   font-size: 12px;
@@ -1255,9 +1255,9 @@ td.team-reached {
 }
 /* 表单：两列等宽，标签在上、控件在下；所有控件同高同边框。 */
 .opp-form {
-  --opp-ink: #1f2d45;
-  --opp-muted: #6b7a90;
-  --opp-won: #0a6aff;
+  --opp-ink: var(--ink-900);
+  --opp-muted: var(--ink-600);
+  --opp-won: var(--brand-500);
   color: var(--opp-ink);
 }
 .opp-form .form-section {
@@ -1290,7 +1290,7 @@ td.team-reached {
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 .opp-req {
   margin-left: 3px;
@@ -1311,7 +1311,7 @@ td.team-reached {
   width: 100%;
   height: 36px;
   padding: 0 11px;
-  border: 1px solid #d5dbe5;
+  border: 1px solid var(--ink-300);
   border-radius: 6px;
   background-color: #fff;
   font: inherit;
@@ -1335,22 +1335,22 @@ td.team-reached {
 }
 .opp-form input::placeholder,
 .opp-form textarea::placeholder {
-  color: #a3adbd;
+  color: var(--ink-500);
 }
 .opp-form input:hover,
 .opp-form select:hover,
 .opp-form textarea:hover {
-  border-color: #b9c2d0;
+  border-color: var(--ink-400);
 }
 .opp-form input:focus,
 .opp-form select:focus,
 .opp-form textarea:focus {
   outline: 0;
   border-color: var(--opp-won);
-  box-shadow: 0 0 0 3px rgba(10, 106, 255, 0.14);
+  box-shadow: 0 0 0 3px rgba(var(--brand-rgb),0.14);
 }
 .opp-form input[readonly] {
-  background: #f4f6f9;
+  background: var(--ink-50);
   color: var(--opp-muted);
 }
 .opp-form [hidden] {
@@ -1372,7 +1372,7 @@ td.team-reached {
   display: inline-flex;
   padding: 3px;
   border-radius: 8px;
-  background: #eef1f5;
+  background: var(--ink-100);
 }
 .opp-seg label {
   position: relative;
@@ -1389,14 +1389,14 @@ td.team-reached {
   border-radius: 6px;
   font-size: 13px;
   line-height: 30px;
-  color: #56637a;
+  color: var(--ink-700);
   cursor: pointer;
 }
 .opp-seg input:checked + span {
   background: #fff;
   font-weight: 600;
   color: var(--opp-ink);
-  box-shadow: 0 1px 2px rgba(31, 45, 69, 0.16);
+  box-shadow: 0 1px 2px rgba(var(--ink-rgb),0.16);
 }
 .opp-seg input:focus-visible + span {
   outline: 2px solid var(--opp-won);
@@ -1410,7 +1410,7 @@ td.team-reached {
   flex: 0 0 74px;
   width: 74px;
   border-radius: 6px 0 0 6px;
-  background: #f4f6f9;
+  background: var(--ink-50);
   font-weight: 600;
   text-align: center;
   text-transform: uppercase;
@@ -1429,7 +1429,7 @@ td.team-reached {
   margin: 0 0 16px;
   font-size: 13px;
   line-height: 1.6;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 /* 操作菜单 */
 .opp-menu-summary {
@@ -1439,19 +1439,19 @@ td.team-reached {
   gap: 8px 12px;
   margin-bottom: 18px;
   font-size: 13px;
-  color: #56637a;
+  color: var(--ink-700);
 }
 .opp-menu-summary b {
   font-size: 20px;
   font-weight: 600;
-  color: #1f2d45;
+  color: var(--ink-900);
   font-variant-numeric: tabular-nums;
 }
 .opp-menu h3 {
   margin: 22px 0 10px;
   font-size: 13px;
   font-weight: 600;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 .opp-menu-group {
   display: flex;
@@ -1459,12 +1459,12 @@ td.team-reached {
   gap: 8px;
 }
 .opp-menu .opp-move.opp-kind-open {
-  border-color: #b9e2ca;
-  color: #136c41;
+  border-color: #a9d9e8;
+  color: #0b6682;
 }
 .opp-menu .opp-move.opp-kind-won {
-  border-color: #bcd3ff;
-  color: #0a4fc4;
+  border-color: var(--brand-200);
+  color: var(--brand-700);
 }
 @media (prefers-reduced-motion: reduce) {
   .opp-card {
@@ -1478,7 +1478,7 @@ td.team-reached {
   height: 36px !important;
   min-height: 36px !important;
   padding: 0 30px 0 11px;
-  border-color: #d5dbe5;
+  border-color: var(--ink-300);
   border-radius: 6px;
   font-size: 13px;
   line-height: 34px;
@@ -1490,7 +1490,7 @@ td.team-reached {
 .opp-form button.lai-select-trigger:focus-visible,
 .opp-form button.lai-select-trigger[aria-expanded="true"] {
   border-color: var(--opp-won);
-  box-shadow: 0 0 0 3px rgba(10, 106, 255, 0.14);
+  box-shadow: 0 0 0 3px rgba(var(--brand-rgb),0.14);
 }
 /* 商机分析：阶段分布一行说清——阶段、占比条、数量、金额。 */
 .opp-bars {
@@ -1503,7 +1503,7 @@ td.team-reached {
   align-items: center;
   gap: 14px;
   padding: 11px 0;
-  border-bottom: 1px solid #eef1f5;
+  border-bottom: 1px solid var(--ink-100);
   font-size: 13px;
 }
 .opp-bar:last-child {
@@ -1511,13 +1511,13 @@ td.team-reached {
 }
 .opp-bar-label {
   white-space: nowrap;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 .opp-bar-track {
   height: 8px;
   overflow: hidden;
   border-radius: 4px;
-  background: #eef1f5;
+  background: var(--ink-100);
 }
 .opp-bar-track i {
   display: block;
@@ -1527,23 +1527,23 @@ td.team-reached {
   background: #1f9d5c;
 }
 .opp-bar.opp-kind-won .opp-bar-track i {
-  background: #0a6aff;
+  background: var(--brand-500);
 }
 .opp-bar.opp-kind-lost .opp-bar-track i {
-  background: #9aa5b6;
+  background: var(--ink-500);
 }
 .opp-bar-count {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: #6b7a90;
+  color: var(--ink-600);
 }
 .opp-bar-amount {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .business-columns:has(.opp-bars) {
   align-items: start;
@@ -1631,11 +1631,11 @@ td.team-reached {
   align-items: flex-start;
   gap: 2px;
   padding: 9px 12px;
-  border: 1px solid #e3e8ef;
+  border: 1px solid var(--ink-200);
   border-radius: 8px;
   background: #fff;
   text-align: left;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .opp-flow-item span {
   font-size: 13px;
@@ -1643,27 +1643,27 @@ td.team-reached {
 }
 .opp-flow-item small {
   font-size: 12px;
-  color: #6b7a90;
+  color: var(--ink-600);
 }
 .opp-flow-item:hover {
-  border-color: #b9c9ea;
+  border-color: var(--brand-200);
 }
 .opp-flow-item.is-active {
-  border-color: #0a6aff;
-  background: #f1f6ff;
+  border-color: var(--brand-500);
+  background: var(--brand-50);
 }
 .opp-flow-add {
   display: grid;
   gap: 8px;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid #eef1f5;
+  border-top: 1px solid var(--ink-100);
 }
 .opp-flow-copy {
   display: grid;
   gap: 4px;
   font-size: 12px;
-  color: #6b7a90;
+  color: var(--ink-600);
 }
 .opp-flows input:not([type="hidden"]),
 .opp-flows select {
@@ -1671,26 +1671,26 @@ td.team-reached {
   width: 100%;
   height: 34px;
   padding: 0 10px;
-  border: 1px solid #d5dbe5;
+  border: 1px solid var(--ink-300);
   border-radius: 6px;
   background: #fff;
   font: inherit;
   font-size: 13px;
-  color: #1f2d45;
+  color: var(--ink-900);
 }
 .opp-flows button.lai-select-trigger {
   width: 100%;
   height: 34px !important;
   min-height: 34px !important;
-  border-color: #d5dbe5;
+  border-color: var(--ink-300);
   border-radius: 6px;
   font-size: 13px;
   line-height: 32px;
 }
 .opp-flows input:focus {
   outline: 0;
-  border-color: #0a6aff;
-  box-shadow: 0 0 0 3px rgba(10, 106, 255, 0.14);
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(var(--brand-rgb),0.14);
 }
 .opp-flow-head {
   display: flex;
@@ -1704,7 +1704,7 @@ td.team-reached {
   flex: 0 1 320px;
   font-size: 13px;
   font-weight: 500;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 .opp-flow-name input {
   font-size: 15px;
@@ -1722,7 +1722,7 @@ td.team-reached {
 .opp-stage-group {
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid #eef1f5;
+  border-top: 1px solid var(--ink-100);
 }
 .opp-stage-group-head {
   display: flex;
@@ -1755,15 +1755,15 @@ td.team-reached {
   background: #1f9d5c;
 }
 .opp-stage-dot.opp-kind-won {
-  background: #0a6aff;
+  background: var(--brand-500);
 }
 .opp-stage-dot.opp-kind-lost {
-  background: #9aa5b6;
+  background: var(--ink-500);
 }
 .opp-stage-usage {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: #6b7a90;
+  color: var(--ink-600);
   white-space: nowrap;
 }
 .opp-stage-tools {
@@ -1773,20 +1773,20 @@ td.team-reached {
 }
 .opp-stage-fixed {
   font-size: 12px;
-  color: #a3adbd;
+  color: var(--ink-500);
 }
 .opp-icon-button {
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid #d5dbe5;
+  border: 1px solid var(--ink-300);
   border-radius: 6px;
   background: #fff;
-  color: #3b4a62;
+  color: var(--ink-800);
 }
 .opp-icon-button:disabled {
-  color: #c5ccd8;
-  background: #f6f8fb;
+  color: var(--ink-300);
+  background: var(--ink-50);
 }
 .opp-stage-add {
   display: grid;

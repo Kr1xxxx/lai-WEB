@@ -5,7 +5,7 @@
     "Microsoft YaHei", sans-serif;
   font-size: 14px;
   line-height: 1.45;
-  background: #eff0f3;
+  background: var(--ink-100);
   min-width: 0;
   padding: 0 0 24px;
 }
@@ -87,12 +87,12 @@
   line-height: 1.4;
 }
 .lcd-root button:hover {
-  color: #286cf2;
+  color: var(--brand-500);
 }
 .lcd-root button:focus-visible,
 .lcd-root input:focus-visible,
 .lcd-root textarea:focus-visible {
-  outline: 2px solid #3a7dff;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 .lcd-root .icon {
@@ -109,7 +109,7 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  background: #eff0f3;
+  background: var(--ink-100);
 }
 .lcd-pagebar h1 {
   font-size: 20px;
@@ -124,19 +124,19 @@
 .lcd-root .lcd-pill {
   height: 32px;
   padding: 0 20px;
-  border: 1px solid #dcdfe4;
+  border: 1px solid var(--ink-300);
   background: #fff;
   border-radius: 18px;
   white-space: nowrap;
 }
 .lcd-root .lcd-primary {
   color: #fff;
-  background: #286df3;
-  border: 1px solid #286df3;
+  background: var(--brand-500);
+  border: 1px solid var(--brand-500);
 }
 .lcd-root .lcd-primary:hover {
   color: #fff;
-  background: #165edf;
+  background: var(--brand-500);
 }
 .lcd-root .lcd-icon {
   width: 28px;
@@ -182,7 +182,7 @@
   width: 56px;
   height: 56px;
   flex: 0 0 56px;
-  background: linear-gradient(135deg, #e4f4ff, #edf1ff);
+  background: linear-gradient(135deg, var(--brand-50), var(--brand-50));
   border-radius: 4px;
   overflow: hidden;
   text-align: center;
@@ -196,7 +196,7 @@
 .lcd-person span {
   display: block;
   color: #fff;
-  background: #aeb4be;
+  background: var(--ink-400);
   font-size: 12px;
   line-height: 20px;
 }
@@ -378,7 +378,7 @@
   top: -2px;
 }
 .lcd-blue {
-  color: #286df3 !important;
+  color: var(--brand-500) !important;
 }
 .lcd-analysis {
   border-top: 1px solid #eee;
@@ -391,8 +391,8 @@
   margin: 13px 0 8px;
 }
 .lcd-ai-report {
-  border-left: 2px solid #e5e7ec;
-  background: #fafbfc;
+  border-left: 2px solid var(--ink-200);
+  background: var(--ink-50);
   padding: 8px 12px;
   min-height: 106px;
   line-height: 20px;
@@ -413,8 +413,8 @@
   color: #a7aff0;
 }
 .lcd-root .lcd-outline-blue {
-  color: #286df3;
-  border: 1px solid #a9c4f5;
+  color: var(--brand-500);
+  border: 1px solid var(--brand-200);
   border-radius: 4px;
   padding: 5px 12px;
   background: #fff;
@@ -471,7 +471,7 @@
   transition: border-color 300ms;
 }
 .lcd-contact-search-input:focus-within {
-  border-color: #004fd9;
+  border-color: var(--brand-700);
 }
 .lcd-contact-search-row input {
   flex: 1;
@@ -550,8 +550,8 @@
   font-size: 12px;
   line-height: 19px;
   padding: 0 5px;
-  background: #e8f0ff;
-  color: #477ede;
+  background: var(--brand-50);
+  color: var(--brand-500);
   border-radius: 2px;
 }
 .lcd-contact-actions {
@@ -594,7 +594,7 @@
 .lcd-opportunity-row > div {
   flex: 1;
   padding: 0 16px;
-  border-right: 1px solid #dfe1e6;
+  border-right: 1px solid var(--ink-200);
   color: #72757a;
   display: flex;
   gap: 8px;
@@ -616,7 +616,7 @@
   overflow: hidden;
 }
 .lcd-root .lcd-phase {
-  background: #eeeff1;
+  background: var(--ink-100);
   position: relative;
   flex: 1;
   color: #777;
@@ -651,8 +651,8 @@
   padding-left: 0;
 }
 .lcd-root .lcd-phase:hover {
-  background: #e3edfd;
-  color: #286df3;
+  background: var(--brand-100);
+  color: var(--brand-500);
 }
 .lcd-schedule {
   padding: 0 16px;
@@ -847,7 +847,7 @@
 }
 .lcd-timeline {
   margin: 0 0 12px 4px;
-  border-left: 1px solid #dfe1e6;
+  border-left: 1px solid var(--ink-200);
 }
 .lcd-timeline article {
   position: relative;
@@ -860,7 +860,7 @@
   position: absolute;
   width: 10px;
   height: 10px;
-  border: 2px solid #3375eb;
+  border: 2px solid var(--brand-500);
   background: #fff;
   border-radius: 50%;
   left: -26px;
@@ -947,7 +947,7 @@
 .lcd-activity-detail dl {
   margin: 8px 0 0;
   padding: 12px 16px;
-  background: #f7f8fa;
+  background: var(--ink-50);
   border-radius: 4px;
 }
 .lcd-operation-detail dl {
@@ -999,13 +999,13 @@
 .lcd-timeline.is-activity article:before {
   width: 13px;
   height: 13px;
-  border: 4px solid #dcefff;
-  background: #7eb5f5;
+  border: 4px solid var(--brand-100);
+  background: var(--brand-300);
   left: -28px;
-  box-shadow: 0 0 0 3px #eff9ff;
+  box-shadow: 0 0 0 3px var(--brand-50);
 }
 .lcd-timeline.is-activity .lcd-event-body {
-  background: #f7f8fa;
+  background: var(--ink-50);
   border: 0;
   border-radius: 5px;
   padding: 14px 16px;
@@ -1013,7 +1013,7 @@
 }
 .lcd-timeline.is-activity .lcd-event-expand {
   position: static;
-  color: #2870e8;
+  color: var(--brand-500);
   margin-left: 12px;
 }
 .lcd-timeline.is-activity:has(.lcd-quick-record):not(:has(> article:not(.lcd-quick-record))) {
@@ -1079,7 +1079,7 @@
   padding: 0 4px;
 }
 .lcd-timeline.is-activity .lcd-quick-record .lcd-event-body {
-  background: #f6f8f9;
+  background: var(--ink-50);
   padding: 12px;
   border-radius: 8px;
   min-height: 0;
@@ -1122,7 +1122,7 @@
   height: 32px;
   min-height: 32px;
   resize: vertical;
-  border: 1px solid #d9dbe0;
+  border: 1px solid var(--ink-300);
   border-radius: 3px;
   font: inherit;
   line-height: 22px;
@@ -1220,9 +1220,9 @@
   border-radius: 0 4px 4px 0;
 }
 .lcd-button-group .selected {
-  color: #286df3;
-  border-color: #6398fb;
-  box-shadow: 1px 0 0 #6398fb;
+  color: var(--brand-500);
+  border-color: var(--brand-300);
+  box-shadow: 1px 0 0 var(--brand-300);
   z-index: 1;
 }
 .lcd-activity-filters {
@@ -1252,7 +1252,7 @@
   border-radius: 4px 0 0 4px;
   transition: border-color 300ms;
 }
-.lcd-activity-search-field:focus-within { border-color: #004fd9; }
+.lcd-activity-search-field:focus-within { border-color: var(--brand-700); }
 .lcd-root .lcd-activity-search-field input {
   width: 156px;
   min-width: 0;
@@ -1294,8 +1294,8 @@
   color: #bfbfbf;
 }
 .lcd-root .lcd-activity-search-row > button:hover {
-  color: #0a6aff;
-  border-color: #0a6aff;
+  color: var(--brand-500);
+  border-color: var(--brand-500);
 }
 .lcd-activity-search-row > button svg { width: 16px; height: 16px; }
 #activity-search-status {
@@ -1334,7 +1334,7 @@
   background: #e3e3e6;
 }
 .lcd-activity-filters .selected {
-  color: #286df3;
+  color: var(--brand-500);
   font-weight: 600;
 }
 .lcd-body-activity > .lcd-section-head {
@@ -1382,7 +1382,7 @@
 }
 .lcd-metrics > div {
   padding: 8px;
-  background: #f7f8fb;
+  background: var(--ink-50);
   border: 1px solid #ededf2;
   border-radius: 2px;
   min-height: 60px;
@@ -1409,14 +1409,14 @@
   font-size: 14px;
 }
 .lcd-table th {
-  background: #f7f8fa;
+  background: var(--ink-50);
   font-weight: 500;
   height: 44px;
   padding: 8px;
-  border-bottom: 1px solid #edeef1;
+  border-bottom: 1px solid var(--ink-100);
 }
 .lcd-table th + th {
-  border-left: 1px solid #edeef1;
+  border-left: 1px solid var(--ink-100);
 }
 .lcd-table td {
   padding: 9px 8px;
@@ -1467,7 +1467,7 @@
 .lcd-doc-search {
   height: 32px;
   width: 240px;
-  border: 1px solid #dedfe4;
+  border: 1px solid var(--ink-200);
   border-radius: 3px;
   display: flex;
 }
@@ -1483,7 +1483,7 @@
   color: #babcc1;
 }
 .lcd-doc-search button {
-  border-left: 1px solid #dedfe4;
+  border-left: 1px solid var(--ink-200);
   width: 39px !important;
   height: 30px !important;
 }
@@ -1501,8 +1501,8 @@
   text-align: left;
   border-radius: 4px;
   padding: 8px 5px;
-  background: #f1f8ff;
-  color: #286df3;
+  background: var(--brand-50);
+  color: var(--brand-500);
   font-weight: 600;
 }
 .lcd-doc-layout > section {
@@ -1542,17 +1542,17 @@
   line-height: 1;
 }
 #document-results .lcd-pagination button:disabled {
-  color: #c7cbd2;
+  color: var(--ink-300);
   cursor: default;
 }
 #document-results .lcd-doc-selected {
   margin-right: auto;
-  color: #286df3;
+  color: var(--brand-500);
 }
 #document-results .lcd-doc-selected button {
   margin-left: 8px;
   border: 0;
-  color: #286df3;
+  color: var(--brand-500);
   padding: 0;
 }
 .lcd-feature-view {
@@ -1591,7 +1591,7 @@
   border-radius: 12px;
 }
 .customer-main:has(.lcd-root)::-webkit-scrollbar-track {
-  background: #ebedf0;
+  background: var(--ink-100);
   border-radius: 3px;
 }
 .lcd-info-fields {

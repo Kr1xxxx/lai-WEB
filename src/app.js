@@ -148,6 +148,11 @@
       el.classList.toggle("save-failed", error);
     }
   }
+  // 界面配色：laiSettings.theme 存「pink」或「orange」，写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
+  const THEME_IDS = ["pink", "orange"];
+  function applyTheme(id) {
+    document.documentElement.dataset.theme = THEME_IDS.includes(id) ? id : "pink";
+  }
   async function persist(next, importLog = null) {
     if (pending) throw new Error("上一项修改正在保存，请稍候");
     status("正在保存…");
@@ -170,6 +175,7 @@
         );
       state = next;
       revision = result.revision;
+      applyTheme(state.laiSettings?.theme);
       rebuildRows();
       status("已保存到来财");
       return true;
@@ -227,10 +233,11 @@
       : "m12 12 12 12-12 12m12-24 12 12-12 12";
     return `<button type="button" class="subnav-toggle ${collapse ? "subnav-collapse" : "subnav-restore"}" data-action="${action}" aria-label="${label}" aria-expanded="${expanded}" aria-controls="app-subnav"><svg aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="${path}" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
   }
+  // 工作台只有它自己一个入口，二级导航没有内容可放，整栏不显示（常用模式下仍显示常用列表）。
   function shell(content) {
     const scope = C.globalSearchFields.find((field) => field.id === globalSearch.field)?.label || "客户";
     const searchScope = globalSearch.field === "all" ? "客户" : scope;
-    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><span class="brand-cn">来财</span><span class="brand-lai">Lai</span><sup>AI</sup><span class="app-version" aria-label="当前版本 ${APP_VERSION}">v${APP_VERSION}</span></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span> <span>⌄</span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions"><button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button><i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-feature="客服">${icon("headset")} 客服</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="用户与设置">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav">${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
+    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><span class="brand-cn">来财</span><span class="brand-lai">Lai</span><sup>AI</sup><span class="app-version" aria-label="当前版本 ${APP_VERSION}">v${APP_VERSION}</span></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span> <span>⌄</span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions"><button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button><i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-feature="客服">${icon("headset")} 客服</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="用户与设置">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
   }
   function closeDropdowns() {
     window.LaiCustomerSelect?.close();
@@ -1887,6 +1894,7 @@
       revision = payload.revision;
       if (!state || !Array.isArray(state.orders) || !state.customers)
         throw new Error("客户数据格式不完整");
+      applyTheme(state.laiSettings?.theme);
       rebuildRows();
       const initialCustomer = new URLSearchParams(location.search).get("customer");
       if (location.hash === "#favorites") await openFavorites();

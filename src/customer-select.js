@@ -245,7 +245,7 @@
       empty.className = "lai-select-empty";
       if (menu.record.sourceVariant === "product") {
         empty.setAttribute("role", "status");
-        empty.innerHTML = '<svg aria-hidden="true" width="80" height="80" viewBox="0 0 80 80" fill="none"><path d="M74 31.5908L68.245 67.3335H12.4216L6.66666 27.3335H36.5926L37.1681 31.5908H74Z" fill="#DDE2ED"/><path fill-rule="evenodd" d="M64.0771 12.6667L63.5582 30.2574H62.2168L62.5893 14.0001H17.4105L17.3151 26.0001H15.9738L15.9226 12.6667H64.0771Z" fill="#828EA9"/><path d="M50.6666 20.6667H55.3333V22.0001H50.6666V20.6667Z" fill="#828EA9"/><path d="M13.1579 49.3333L12 42H32.8421L34 49.3333H13.1579Z" fill="#0A6AFF"/></svg><span>暂无数据</span>';
+        empty.innerHTML = '<svg aria-hidden="true" width="80" height="80" viewBox="0 0 80 80" fill="none"><path d="M74 31.5908L68.245 67.3335H12.4216L6.66666 27.3335H36.5926L37.1681 31.5908H74Z" fill="var(--ink-200)"/><path fill-rule="evenodd" d="M64.0771 12.6667L63.5582 30.2574H62.2168L62.5893 14.0001H17.4105L17.3151 26.0001H15.9738L15.9226 12.6667H64.0771Z" fill="var(--ink-500)"/><path d="M50.6666 20.6667H55.3333V22.0001H50.6666V20.6667Z" fill="var(--ink-500)"/><path d="M13.1579 49.3333L12 42H32.8421L34 49.3333H13.1579Z" fill="var(--brand-500)"/></svg><span>暂无数据</span>';
       } else empty.textContent = "无匹配选项";
       menu.list.append(empty);
     }
