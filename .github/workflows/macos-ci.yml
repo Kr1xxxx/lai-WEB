@@ -44,7 +44,10 @@ jobs:
         run: python3 scripts/build.py --node-runtime "$(command -v node)"
 
       - name: Integration test
-        run: node scripts/integration-test.mjs
+        # evidence/ 被 .gitignore 排除，干净检出里没有，脚本最后写报告前需要它存在。
+        run: |
+          mkdir -p evidence
+          node scripts/integration-test.mjs
 
       - name: Package app
         run: ditto -c -k --keepParent "dist/来财Lai.app" Lai-app.zip
