@@ -652,51 +652,6 @@ input::placeholder {
   margin-left: -1px;
   padding: 0 12px;
 }
-.banner {
-  height: 90px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 24px;
-  background: linear-gradient(180deg, #d2d8fc, #e7edfd);
-  border-radius: 8px 8px 0 0;
-  position: relative;
-}
-.banner-art {
-  width: 68px;
-  height: 60px;
-  flex: 0 0 68px;
-}
-.banner-art svg {
-  width: 76px;
-  height: 58px;
-}
-.banner strong {
-  font-weight: 600;
-  font-size: 16px;
-  line-height: 24px;
-}
-.banner p {
-  margin: 4px 0 0;
-  font-size: 14px;
-  line-height: 22px;
-  color: #333;
-}
-.banner-close {
-  position: absolute;
-  right: 9px;
-  top: 9px;
-  min-height: 14px;
-  height: 14px;
-  width: 14px;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
-  background: #979ba8;
-  color: #e4e6f2;
-  line-height: 12px;
-  font-size: 12px;
-}
 .panel {
   height: calc(100% - 150px);
   display: flex;
@@ -2245,15 +2200,6 @@ button.subnav-restore {
   }
   .list-heading {
     font-size: 12px;
-  }
-  .banner p {
-    font-size: 12px;
-  }
-  .banner-art {
-    flex-basis: 52px;
-  }
-  .banner {
-    padding: 14px 16px;
   }
 }
 
