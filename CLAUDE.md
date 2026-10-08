@@ -21,5 +21,6 @@
 ## 其他
 
 - 工作方式、待办和各项口径决定：`NEXT_STEPS.md`、`VALIDATION.md`、`ARCHITECTURE.md`。
+- 改界面前后按 `UI_CHECKLIST.md` 的检查清单过一遍（重叠、同类控件一致、点击前后不跳、三套主题）。
 - 测试：`node --test tests/*.test.cjs`。Mac 应用的构建和 `scripts/integration-test.mjs` 需要 macOS，由用户在自己的 Mac 上做。
 - 每项工作做完给用户一份总结：做了什么、哪里没做好、需要他做什么、推荐的下一步。
