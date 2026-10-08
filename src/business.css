@@ -1470,20 +1470,9 @@ td.team-reached {
   }
 }
 
-/* 表单里的下拉框换成了统一的下拉组件，这里让它和输入框同高同边框。 */
+/* 表单里的下拉框用全应用统一的下拉组件（规格见 customer-select.css 的 --dd-*），这里只补和输入框一致的聚焦光圈。 */
 .opp-form button.lai-select-trigger {
   width: 100%;
-  height: 36px !important;
-  min-height: 36px !important;
-  padding: 0 30px 0 11px;
-  border-color: var(--ink-300);
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 34px;
-  color: var(--opp-ink);
-}
-.opp-form button.lai-select-trigger::after {
-  top: 13px;
 }
 .opp-form button.lai-select-trigger:focus-visible,
 .opp-form button.lai-select-trigger[aria-expanded="true"] {
@@ -1678,12 +1667,6 @@ td.team-reached {
 }
 .opp-flows button.lai-select-trigger {
   width: 100%;
-  height: 34px !important;
-  min-height: 34px !important;
-  border-color: var(--ink-300);
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 32px;
 }
 .opp-flows input:focus {
   outline: 0;

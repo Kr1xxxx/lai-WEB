@@ -258,6 +258,13 @@
     highlight(selected >= 0 ? selected : nextEnabled(menu.options, -1, "Home"));
     if (!menu.record.sourceVariant) place();
   }
+  // 选项多于 8 个时自动出现搜索框；data-searchable="false" 可以关掉。
+  const AUTO_SEARCH_MIN = 9;
+  function wantsSearch(select) {
+    if (select.hasAttribute("data-searchable"))
+      return select.getAttribute("data-searchable") !== "false";
+    return select.options.length >= AUTO_SEARCH_MIN;
+  }
   function open(record, pointer = false) {
     if (record.select.disabled || !record.select.isConnected) return;
     close();
@@ -292,10 +299,7 @@
       search: null,
       quickInline: inlineSearch,
     };
-    if (
-      record.select.hasAttribute("data-searchable") &&
-      record.select.getAttribute("data-searchable") !== "false"
-    ) {
+    if (wantsSearch(record.select)) {
       const search = doc.createElement("input");
       search.type = "search";
       search.className = "lai-select-search";
@@ -324,6 +328,11 @@
     box.append(list);
     if (host) box.style.position = "absolute";
     (host || doc.body).append(box);
+    // 浮层字体跟触发框一致：点开前后字号、字体不变。
+    try {
+      const triggerStyle = root.getComputedStyle(record.button);
+      if (triggerStyle.fontSize) box.style.fontSize = triggerStyle.fontSize;
+    } catch (_) {}
     record.button.setAttribute("aria-owns", list.id);
     record.button.setAttribute("aria-expanded", "true");
     renderOptions();
@@ -408,6 +417,60 @@
     records.delete(record);
     lookup.delete(record.select);
   }
+  // 原生下拉本来就撑满父容器时，换成的触发框也写 100%，窗口缩放时跟着变。
+  function fillsParent(select, rect) {
+    try {
+      const parent = select.parentElement;
+      if (!parent || !rect.width) return false;
+      const style = root.getComputedStyle(parent);
+      if (style.display.includes("flex") || style.display.includes("grid")) return false;
+      const inner = parent.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0);
+      return inner > 0 && Math.abs(inner - rect.width) <= 1;
+    } catch (_) {
+      return false;
+    }
+  }
+  // 触发框至少要放得下最长的选项，免得被挤成「全部负…」。
+  let measureContext = null;
+  function fitWidth(record) {
+    const { select, button } = record;
+    if (select.style.width || button.style.width === "100%" || !button.isConnected) return;
+    try {
+      measureContext = measureContext || doc.createElement("canvas").getContext("2d");
+      const style = root.getComputedStyle(button);
+      measureContext.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const longest = Math.max(0, ...Array.from(select.options).map((o) => measureContext.measureText(o.text).width));
+      const need = Math.min(320, Math.ceil(longest + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 4));
+      if (need > button.getBoundingClientRect().width) button.style.width = need + "px";
+    } catch (_) {}
+  }
+  function needsEnhance(node) {
+    const list = node.matches?.("select") ? [node] : [...(node.querySelectorAll?.("select") || [])];
+    return list.some((s) => !lookup.has(s) && !s.multiple && !(s.size > 1));
+  }
+  // 以后任何地方新出现的 <select> 都自动换成同一个下拉，不用每个页面各写一遍。
+  let watching = false;
+  function watch(target = doc?.body) {
+    if (watching || !target || typeof root.MutationObserver !== "function") return;
+    watching = true;
+    const pending = new Set();
+    let queued = false;
+    const flush = () => {
+      queued = false;
+      const nodes = [...pending].filter((n) => n.isConnected && needsEnhance(n));
+      pending.clear();
+      for (const node of nodes) enhance(node);
+    };
+    new root.MutationObserver((mutations) => {
+      for (const m of mutations)
+        for (const n of m.addedNodes)
+          if (n.nodeType === 1 && (n.matches?.("select") || n.querySelector?.("select"))) pending.add(n);
+      if (pending.size && !queued) {
+        queued = true;
+        (root.requestAnimationFrame || ((f) => setTimeout(f, 16)))(flush);
+      }
+    }).observe(target, { childList: true, subtree: true });
+  }
   function enhance(scope = doc) {
     if (!doc || !scope) return;
     close();
@@ -435,7 +498,7 @@
       button.style.cssText = select.style.cssText;
       button.style.width =
         select.style.width ||
-        (rect.width ? rect.width + "px" : root.getComputedStyle(select).width);
+        (fillsParent(select, rect) ? "100%" : rect.width ? rect.width + "px" : root.getComputedStyle(select).width);
       button.id = `lai-select-trigger-${++sequence}`;
       const label =
         select.getAttribute("aria-label") ||
@@ -525,6 +588,7 @@
           }, 0),
         );
       sync(record);
+      fitWidth(record);
     }
     if (!listening) {
       listening = true;
@@ -541,7 +605,12 @@
       root.addEventListener("resize", () => close());
     }
   }
-  const api = { enhance, close, positionMenu, nextEnabled };
+  const api = { enhance, watch, close, positionMenu, nextEnabled, wantsSearch };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
-  else root.LaiCustomerSelect = api;
+  else {
+    root.LaiCustomerSelect = api;
+    // 页面一加载就开始盯着：不管哪个页面渲染出 <select>，都会换成统一的下拉。
+    if (doc?.body) watch();
+    else doc?.addEventListener?.("DOMContentLoaded", () => watch());
+  }
 })(typeof window !== "undefined" ? window : globalThis);
