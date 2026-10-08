@@ -265,3 +265,37 @@
 :root[data-skin="glass"] .global-search-scope-menu button:focus-visible { background: rgba(var(--skin-ink-rgb), 0.06); outline: 0; }
 :root[data-skin="glass"] .global-search-categories button.active { background: var(--brand-50); color: var(--brand-700); font-weight: 700; }
 :root[data-skin="glass"] .global-search-categories .icon { top: 9px; right: 8px; width: 14px; height: 14px; }
+
+/* ===== 可读性：粉色、橙色界面里文字与底色的对比度 =====
+   原来的灰色文字（#8c8c8c、#999、#bfbfbf 和主题里偏淡的 ink-500）放在浅粉底上读起来费力；
+   带颜色底的按钮和标签又被上面“按钮文字一律用深色”的规则盖成了深色字。这里统一改到能看清（普通文字对比度 ≥ 4.5，占位文字 ≥ 3.5）。
+   tests/skin-glass.test.cjs 里有对应检查。 */
+:root[data-skin="glass"] {
+  --muted: #6b5d66;
+  --color-neutral-500: #6b5d66;
+  --color-neutral-600: #5f525a;
+  --ink-500: #75646f;
+  --ink-600: #685660;
+  --text-muted: #6b5d66; /* 原来写死的 #8c8c8c、#999 文字 */
+  --text-faint: rgba(var(--skin-ink-rgb), 0.6); /* 原来写死的 #bfbfbf 占位文字 */
+}
+/* 说明文字、空状态、占位文字 */
+:root[data-skin="glass"] .empty,
+:root[data-skin="glass"] .small-empty { color: #6b5d66; }
+:root[data-skin="glass"] button.lai-select-trigger[data-empty="true"] { color: rgba(var(--skin-ink-rgb), 0.6); }
+:root[data-skin="glass"] input::placeholder,
+:root[data-skin="glass"] textarea::placeholder { color: rgba(var(--skin-ink-rgb), 0.6); opacity: 1; }
+/* 带颜色底的按钮：文字保持白色（否则被全局的深色按钮文字盖住） */
+:root[data-skin="glass"] .owner-switch button.active,
+:root[data-skin="glass"] .lcd-root .lcd-primary,
+:root[data-skin="glass"] .lcd-root .lcd-primary:hover,
+:root[data-skin="glass"] .global-search-empty-actions button:last-child { color: #fff; }
+/* 标签和徽标 */
+:root[data-skin="glass"] .tag { color: #a3433b; }
+:root[data-skin="glass"] .tag.green { color: #1f6f52; }
+:root[data-skin="glass"] .new-badge { background: #25773f; }
+:root[data-skin="glass"] .team-rank-1 { background: #966300; }
+:root[data-skin="glass"] .lcd-person span { background: #7a6872; }
+:root[data-skin="glass"] .calendar-event.task { color: #84560f; }
+:root[data-skin="glass"] .lcd-ai-empty p { color: #6b5d66; }
+:root[data-skin="glass"] .ce-required { color: #c42f2f; }

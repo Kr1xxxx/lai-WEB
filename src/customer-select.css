@@ -127,7 +127,7 @@ button.lai-select-trigger[aria-invalid="true"] {
 }
 .lai-select-empty {
   padding: 8px 12px;
-  color: #8c8c8c;
+  color: var(--text-muted, #8c8c8c);
 }
 .lai-select-validation {
   display: block;
@@ -175,7 +175,7 @@ button.lai-select-trigger[aria-invalid="true"] {
 }
 
 button.lai-select-trigger[data-empty="true"] {
-  color: #bfbfbf;
+  color: var(--text-faint, #bfbfbf);
 }
 .lai-select-menu.is-inline-search .lai-select-option[aria-selected="true"] {
   background: #fff;
@@ -377,7 +377,7 @@ button.lai-select-trigger[data-empty="true"] {
   border: 0;
   border-radius: 50%;
   background: #fff;
-  color: #8c8c8c;
+  color: var(--text-muted, #8c8c8c);
   opacity: 0;
   cursor: pointer;
   line-height: 1;

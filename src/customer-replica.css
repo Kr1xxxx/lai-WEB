@@ -33,7 +33,7 @@ select {
   border-color: #d9d9d9;
 }
 input::placeholder {
-  color: #bfbfbf;
+  color: var(--text-faint, #bfbfbf);
 }
 .text-button {
   min-height: 26px;
@@ -394,7 +394,7 @@ input::placeholder {
 }
 .subnav h3 button {
   font-size: 14px;
-  color: #8c8c8c;
+  color: var(--text-muted, #8c8c8c);
   min-height: 20px;
 }
 .nav-row {
@@ -537,7 +537,7 @@ input::placeholder {
 .favorite-nav-jump small {
   margin-left: 8px;
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--text-muted, #8c8c8c);
 }
 .favorite-nav-actions {
   display: flex;
@@ -862,7 +862,7 @@ input::placeholder {
 }
 .group-row small {
   font-size: 12px;
-  color: #8c8c8c;
+  color: var(--text-muted, #8c8c8c);
   font-weight: 400;
 }
 .group-row.active {
@@ -1397,7 +1397,7 @@ input::placeholder {
   padding: 0;
   flex: none;
   margin-left: 4px;
-  color: #bfbfbf;
+  color: var(--text-faint, #bfbfbf);
 }
 .column-sort > span,
 .column-sort svg {
@@ -1591,7 +1591,7 @@ input::placeholder {
   justify-content: center;
   flex-direction: column;
   gap: 15px;
-  color: #999;
+  color: var(--text-muted, #999);
   font-size: 14px;
 }
 .table-wrap > .empty {
@@ -2307,7 +2307,7 @@ button.subnav-restore {
 .columns-layout h3,
 .columns-layout h4 {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted, #999);
 }
 .columns-layout h3 {
   margin: 0 0 12px;
@@ -3182,7 +3182,7 @@ button.subnav-restore {
   margin: 8px 8px 0;
   font-size: 13px;
   line-height: 1.6;
-  color: #8c8c8c;
+  color: var(--text-muted, #8c8c8c);
 }
 .rail-flyout {
   position: absolute;
@@ -3309,7 +3309,7 @@ button.subnav-restore {
 .subnav-group > summary::after {
   content: "⌄";
   font-weight: 400;
-  color: #8c8c8c;
+  color: var(--text-muted, #8c8c8c);
 }
 .subnav-group:not([open]) > summary::after {
   content: "›";

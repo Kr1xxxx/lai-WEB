@@ -499,7 +499,7 @@
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #bfbfbf;
+  color: var(--text-faint, #bfbfbf);
 }
 .lcd-contact-search-input > button svg { width: 14px; height: 14px; }
 .lcd-contact-search-row > button {
@@ -909,7 +909,7 @@
   line-height: 22px;
   font-weight: 400;
 }
-.lcd-operation-head time { color: #8c8c8c; }
+.lcd-operation-head time { color: var(--text-muted, #8c8c8c); }
 .lcd-operation-description {
   color: #333;
   white-space: pre-wrap;
@@ -1274,7 +1274,7 @@
   padding: 0 0 0 4px;
   border: 0;
   border-radius: 0;
-  color: #bfbfbf;
+  color: var(--text-faint, #bfbfbf);
   background: transparent;
 }
 .lcd-root .lcd-activity-search-field > button:hover { color: #aaa; }
@@ -1291,7 +1291,7 @@
   justify-content: center;
   border: 1px solid #d9d9d9;
   border-radius: 0 4px 4px 0;
-  color: #bfbfbf;
+  color: var(--text-faint, #bfbfbf);
 }
 .lcd-root .lcd-activity-search-row > button:hover {
   color: var(--brand-500);
@@ -1429,7 +1429,7 @@
 .lcd-table .lcd-no-data {
   text-align: center;
   height: 70px;
-  color: #999;
+  color: var(--text-muted, #999);
 }
 .lcd-pagination {
   height: 52px;
