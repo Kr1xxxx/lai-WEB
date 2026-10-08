@@ -484,3 +484,30 @@
 :root[data-skin="glass"] .lcd-opportunity-row > div { flex: none; padding: 0 10px; min-width: 0; border-right: 0; }
 :root[data-skin="glass"] .lcd-opportunity-row > div:first-child { padding: 0; }
 :root[data-skin="glass"] .lcd-opportunity-row > button { grid-column: 3; grid-row: 1; }
+
+/* ===== 深色强调色改浅（2026-10-08 用户确认）：只留主按钮一处深色 ===== */
+/* 左栏选中的模块：浅粉底 + 玫粉图标和文字 + 左边竖线 */
+:root[data-skin="glass"] .rail-item.active,
+:root[data-skin="glass"] .rail-item.active:hover { background: var(--brand-50); color: var(--brand-700); box-shadow: inset 3px 0 0 var(--brand-700); }
+:root[data-skin="glass"] .rail-item.active .icon { stroke: var(--brand-700); }
+/* 批量操作条：白底 + 玫粉描边 */
+:root[data-skin="glass"] .replica-batch { background: #fff; color: rgb(var(--skin-ink-rgb)); border: 1px solid var(--brand-500); }
+:root[data-skin="glass"] .replica-batch button { color: rgb(var(--skin-ink-rgb)); border-color: var(--ink-200); background: #fff; }
+:root[data-skin="glass"] .replica-batch button:hover:not(:disabled) { background: var(--brand-50); border-color: var(--brand-500); color: var(--brand-700); }
+:root[data-skin="glass"] .replica-batch button:first-child { color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .replica-batch > span { color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .replica-batch > span b { color: var(--brand-700); }
+:root[data-skin="glass"] .replica-batch .text-button { border-color: transparent; }
+:root[data-skin="glass"] .batch-divider { background: var(--ink-200); }
+/* 工作台“待跟进客户”卡：白色卡片，数字和链接用玫粉 */
+:root[data-skin="glass"] .wb-dark { background: var(--card-bg); color: rgb(var(--skin-ink-rgb)); border: 1px solid var(--card-line); }
+:root[data-skin="glass"] .wb-dark small, :root[data-skin="glass"] .wb-dark .wb-empty { color: var(--text-muted); }
+:root[data-skin="glass"] .wb-count { color: var(--brand-700); }
+:root[data-skin="glass"] .wb-follow { border-top-color: var(--ink-100); }
+:root[data-skin="glass"] .wb-follow .late { color: #b3341f; }
+:root[data-skin="glass"] .wb-follow .today { color: #8a5a00; }
+:root[data-skin="glass"] .wb-fwho button { color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .wb-write { background: var(--brand-50); color: var(--brand-700); }
+:root[data-skin="glass"] .wb-write:hover { background: var(--brand-100, var(--brand-50)); }
+:root[data-skin="glass"] .wb-more { border-top-color: var(--ink-100); color: var(--brand-700); }
+:root[data-skin="glass"] .banner-close { color: #fff; }
