@@ -107,3 +107,110 @@
 :root[data-skin="glass"] .replica-batch > span b { color: var(--skin-gold); }
 :root[data-skin="glass"] .replica-batch .text-button { border-color: transparent; }
 :root[data-skin="glass"] .batch-divider { background: rgba(255, 255, 255, 0.2); }
+
+/* ===== 工作台（设计画布 Main.dc.html）===== */
+:root[data-skin="glass"] .main:has(.wb) { overflow: auto; }
+:root[data-skin="glass"] .wb { --wb-line: #ede4ea; --wb-faint: #f5eff3; --wb-sub: #685560; display: flex; flex-direction: column; gap: 10px; padding: 0 2px 4px; font-size: 13px; line-height: 1.5; color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .wb button { font: inherit; color: inherit; }
+:root[data-skin="glass"] .wb small, :root[data-skin="glass"] .wb-foot { font-size: 11px; color: var(--wb-sub); }
+:root[data-skin="glass"] .wb .wb-num { font-family: "Bricolage Grotesque", "Noto Sans SC", sans-serif; font-weight: 700; }
+:root[data-skin="glass"] .wb-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 2px 4px; }
+:root[data-skin="glass"] .wb-top h1 { margin: 0; font-size: 18px; font-weight: 700; }
+:root[data-skin="glass"] .wb-top > span { font-size: 12px; color: var(--wb-sub); }
+:root[data-skin="glass"] .wb-top > div { margin-left: auto; display: flex; gap: 6px; }
+:root[data-skin="glass"] .wb-top button { height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(var(--skin-ink-rgb), 0.14); background: #fff; font-size: 12px; cursor: pointer; white-space: nowrap; }
+:root[data-skin="glass"] .wb-top button:hover { border-color: var(--brand-500); }
+:root[data-skin="glass"] .wb-top .wb-primary { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700; }
+:root[data-skin="glass"] .wb-top .wb-primary:hover { border-color: rgb(var(--skin-ink-rgb)); }
+
+/* 数字卡片 */
+:root[data-skin="glass"] .wb-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+:root[data-skin="glass"] .wb-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--card-line); background: rgba(255, 255, 255, 0.9); color: rgb(var(--skin-ink-rgb)); text-align: left; cursor: pointer; }
+:root[data-skin="glass"] .wb-stat > span { font-size: 12px; }
+:root[data-skin="glass"] .wb-stat > strong { font-size: 26px; letter-spacing: -0.02em; line-height: 1.05; }
+:root[data-skin="glass"] .wb .wb-stat > small { color: inherit; }
+:root[data-skin="glass"] .wb-stat.wb-gold { background: var(--skin-gold); }
+:root[data-skin="glass"] .wb-stat.wb-brand { background: var(--brand-500); border-color: var(--brand-500); color: #fff; }
+:root[data-skin="glass"] .wb-stat:hover { box-shadow: 0 4px 14px rgba(var(--skin-ink-rgb), 0.12); }
+
+/* 两列 */
+:root[data-skin="glass"] .wb-cols { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+:root[data-skin="glass"] .wb-left { flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+:root[data-skin="glass"] .wb-right { flex: 2 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+:root[data-skin="glass"] .wb-card { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--card-line); background: var(--card-bg); }
+:root[data-skin="glass"] .wb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+:root[data-skin="glass"] .wb-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
+:root[data-skin="glass"] .wb-head h2 small { font-weight: 400; margin-left: 4px; }
+:root[data-skin="glass"] .wb-link { border: 0; background: none; padding: 0; font-size: 12px; color: var(--brand-500); cursor: pointer; white-space: nowrap; }
+:root[data-skin="glass"] .wb-link:hover { color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .wb-foot { margin: 0; padding-top: 8px; border-top: 1px solid var(--wb-line); }
+:root[data-skin="glass"] .wb-empty { margin: 0; padding: 10px 0; font-size: 12px; color: var(--wb-sub); }
+:root[data-skin="glass"] .wb-scroll { overflow-x: auto; }
+
+/* 订单进度 */
+:root[data-skin="glass"] .wb-orders { min-width: 640px; display: flex; flex-direction: column; }
+:root[data-skin="glass"] .wb-order { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) 100px minmax(0, 1.1fr); gap: 12px; align-items: center; padding: 8px 4px; border: 0; border-top: 1px solid var(--wb-line); border-radius: 0; background: none; text-align: left; cursor: pointer; }
+:root[data-skin="glass"] .wb-order:hover { background: #faf7f9; }
+:root[data-skin="glass"] .wb-who { min-width: 0; display: flex; flex-direction: column; }
+:root[data-skin="glass"] .wb-who b, :root[data-skin="glass"] .wb-next { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .wb-next { font-size: 12px; }
+:root[data-skin="glass"] .wb-steps { display: flex; flex-direction: column; gap: 4px; }
+:root[data-skin="glass"] .wb-bar { display: flex; gap: 3px; }
+:root[data-skin="glass"] .wb-bar i { flex: 1; height: 6px; border-radius: 3px; background: var(--wb-line); }
+:root[data-skin="glass"] .wb-bar i.on { background: var(--brand-500); }
+:root[data-skin="glass"] .wb-amount { text-align: right; white-space: nowrap; }
+
+/* 金额概览 */
+:root[data-skin="glass"] .wb-moneys { min-width: 560px; display: flex; flex-direction: column; }
+:root[data-skin="glass"] .wb-money { display: grid; grid-template-columns: 60px 60px repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr); gap: 12px; align-items: center; padding: 7px 4px; border-top: 1px solid var(--wb-line); }
+:root[data-skin="glass"] .wb-money-head { border-top: 0; padding: 5px 4px; font-size: 11px; color: var(--wb-sub); }
+:root[data-skin="glass"] .wb-paid { color: var(--brand-700); }
+:root[data-skin="glass"] .wb-due { color: #8a5a00; }
+:root[data-skin="glass"] .wb-pct { display: flex; align-items: center; gap: 8px; }
+:root[data-skin="glass"] .wb-track { flex: 1; height: 8px; border-radius: 4px; background: var(--wb-line); overflow: hidden; }
+:root[data-skin="glass"] .wb-track i { display: block; height: 100%; border-radius: 4px; background: var(--brand-500); }
+:root[data-skin="glass"] .wb-pct small { min-width: 30px; text-align: right; }
+
+/* 商机阶段 */
+:root[data-skin="glass"] .wb-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+:root[data-skin="glass"] .wb-tile { display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; border-radius: 10px; background: var(--wb-faint); }
+:root[data-skin="glass"] .wb-tile b { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+:root[data-skin="glass"] .wb-tile b i { width: 8px; height: 8px; border-radius: 50%; }
+:root[data-skin="glass"] .wb-tile > span { font-size: 18px; }
+:root[data-skin="glass"] .wb-tile > span small { font-family: inherit; font-weight: 400; }
+
+/* 待跟进客户：深色卡 */
+:root[data-skin="glass"] .wb-dark { padding: 12px 14px; border-radius: 14px; background: rgb(var(--skin-ink-rgb)); color: #fff; }
+:root[data-skin="glass"] .wb-dark .wb-head { margin-bottom: 4px; }
+:root[data-skin="glass"] .wb-dark small { color: #cdbfc8; }
+:root[data-skin="glass"] .wb-count { font-size: 12px; font-weight: 700; color: var(--skin-gold); }
+:root[data-skin="glass"] .wb-dark .wb-empty { color: #cdbfc8; }
+:root[data-skin="glass"] .wb-follow { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+:root[data-skin="glass"] .wb-follow > .wb-num { flex: 0 0 56px; font-size: 12px; }
+:root[data-skin="glass"] .wb-follow .late { color: #ff9c86; }
+:root[data-skin="glass"] .wb-follow .today { color: var(--skin-gold); }
+:root[data-skin="glass"] .wb-fwho { min-width: 0; flex: 1; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.35; }
+:root[data-skin="glass"] .wb-fwho button { max-width: 100%; padding: 0; border: 0; background: none; color: #fff; font-weight: 500; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .wb-fwho small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .wb-write { flex: 0 0 auto; padding: 2px 8px; border: 0; border-radius: 6px; background: rgba(255, 255, 255, 0.14); color: #fff; font-size: 11px; cursor: pointer; }
+:root[data-skin="glass"] .wb-write:hover { background: rgba(255, 255, 255, 0.24); }
+:root[data-skin="glass"] .wb-more { margin-top: 4px; padding: 6px 0 0; border: 0; border-top: 1px solid rgba(255, 255, 255, 0.12); background: none; width: 100%; text-align: left; font-size: 12px; color: var(--skin-gold); cursor: pointer; }
+
+/* 待办 */
+:root[data-skin="glass"] .wb-task { display: flex; align-items: center; gap: 9px; padding: 6px 0; border-top: 1px solid var(--wb-faint); cursor: pointer; }
+:root[data-skin="glass"] .wb-task input { margin: 0; width: 14px; height: 14px; accent-color: var(--brand-500); }
+:root[data-skin="glass"] .wb-task span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .wb-task small.today { color: #8a5a00; }
+:root[data-skin="glass"] .wb-task small.late { color: #b3341f; }
+
+/* 本月目标 */
+:root[data-skin="glass"] .wb-goal { display: flex; flex-direction: column; gap: 3px; padding: 6px 0; }
+:root[data-skin="glass"] .wb-goal > div:first-child { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+:root[data-skin="glass"] .wb-goalbar { display: flex; align-items: center; gap: 8px; }
+:root[data-skin="glass"] .wb-goalbar small { min-width: 44px; text-align: right; }
+
+/* 未读邮件 */
+:root[data-skin="glass"] .wb-mail { display: flex; width: 100%; gap: 8px; align-items: baseline; padding: 6px 0; border: 0; border-top: 1px solid var(--wb-faint); background: none; text-align: left; cursor: pointer; }
+:root[data-skin="glass"] .wb-mail i { flex: 0 0 7px; height: 7px; border-radius: 50%; background: var(--skin-gold); }
+:root[data-skin="glass"] .wb-mail > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .wb-mail em { font-style: normal; font-size: 11px; color: var(--wb-sub); }

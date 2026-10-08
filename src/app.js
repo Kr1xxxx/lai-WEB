@@ -4388,6 +4388,15 @@
     openCustomer: (name) => navigateApp("customers", name),
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,
+    // 工作台的未读邮件卡片：邮件页打开过就用它已有的数字，邮件列表向本机邮件服务要。
+    mailCounts: () => mail?.counts?.() || null,
+    mailSummary: async () => {
+      const response = await fetch("/api/mail/messages?folder=unread&page=1", { cache: "no-store" });
+      const data = await response.json();
+      if (!data?.ok) return null;
+      const counts = data.counts || { unread: data.total || 0, pending: 0 };
+      return { items: data.items || [], unread: counts.unread, pending: counts.pending };
+    },
     toast,
     dialog: drawer,
     closeDialog: closeModal,

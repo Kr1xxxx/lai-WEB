@@ -64,7 +64,58 @@
       const m = B.orderMetrics(orders);
       return `<div class="money-summary"><div class="section-head"><h3>金额概览</h3><span class="muted tiny">按币种分别统计 · 不含草稿</span></div><table class="order-table"><thead><tr><th>币种</th><th>订单数</th><th>订单金额</th><th>已收款</th><th>待收款</th></tr></thead><tbody>${m.byCurrency.map((c) => `<tr><td><span class="currency-badge">${E(c.currency)}</span></td><td>${c.count}</td><td>${money(c.total, c.currency)}</td><td>${money(c.paid, c.currency)}</td><td>${money(c.due, c.currency)}</td></tr>`).join("") || '<tr><td colspan="5">暂无订单金额</td></tr>'}</tbody></table></div>`;
     }
+    // 新界面（粉色、橙色主题）的工作台：和设计画布 Main.dc.html 一致；小满主题仍是下面原来的版式。
+    let wbMail = null,
+      wbMailAt = 0;
+    const glassSkin = () =>
+      typeof document !== "undefined" &&
+      document.documentElement?.dataset?.skin === "glass" &&
+      !!root.LaiWorkbench;
+    function workbenchMarkup() {
+      const counts = ctx.mailCounts?.() || null;
+      return root.LaiWorkbench.markup(
+        {
+          state: state(),
+          today: B.localDate(),
+          B,
+          OM: root.LaiOpportunityModel,
+          TM: root.LaiTeamModel,
+          bucket: (c) => root.LaiModules.bucket(c),
+          mail: wbMail || (counts ? { unread: counts.unread, pending: counts.pending } : null),
+        },
+        E,
+      );
+    }
+    // 未读邮件要向本机邮件服务要；拿到后只更新页面上对应的几处，不重画整页。
+    async function loadWorkbenchMail() {
+      if (!ctx.mailSummary || Date.now() - wbMailAt < 30000) return;
+      wbMailAt = Date.now();
+      let data = null;
+      try {
+        data = await ctx.mailSummary();
+      } catch {
+        data = null;
+      }
+      if (route !== "dashboard") return;
+      const box = document.querySelector?.("[data-wb-mails]");
+      if (!box) return;
+      if (!data) {
+        wbMailAt = 0;
+        box.innerHTML = '<p class="wb-empty">暂时读不到邮件：请先在邮件页绑定邮箱。</p>';
+        return;
+      }
+      wbMail = data;
+      box.innerHTML = root.LaiWorkbench.mailRows(data.items, B.localDate(), E) || '<p class="wb-empty">没有未读邮件。</p>';
+      const set = (selector, text) => {
+        const node = document.querySelector(selector);
+        if (node) node.textContent = text;
+      };
+      set("strong[data-wb-mail-count]", String(data.unread));
+      set("small[data-wb-mail-note]", `待处理 ${data.pending} 封`);
+      set("[data-wb-mail-title]", `${data.unread} 封`);
+    }
     function renderDashboard() {
+      if (glassSkin()) return workbenchMarkup();
       const orders = activeOrders(),
         m = B.orderMetrics(orders),
         tasks = (state().laiTasks || []).filter((t) => !t.done),
@@ -635,6 +686,7 @@
         settings: renderSettings,
       };
       ctx.mount((views[route] || renderDashboard)());
+      if (route === "dashboard" && glassSkin()) loadWorkbenchMail();
       if (scroll) {
         const current = document.getElementById("biz-order-scroll");
         if (current) {
@@ -812,6 +864,12 @@
         return render();
       }
       if (d.bizEditTask) return taskEditor(d.bizEditTask);
+      if (d.bizGo) {
+        if (d.bizGo === "opp-new") return openOppForm(undefined, "");
+        // 「mail:unread」＝去邮件页的某个文件夹
+        if (d.bizGo.startsWith("mail:")) return ctx.navigate("mail", "", true, false, d.bizGo.slice(5));
+        return ctx.navigate(d.bizGo);
+      }
       const action = d.bizAction;
       if (!action) return;
       if (action === "new-order") return orderEditor();
