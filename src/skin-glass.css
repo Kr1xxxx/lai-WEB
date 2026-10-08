@@ -312,3 +312,77 @@
 :root[data-skin="glass"] :is(.calendar-day, .agenda-item):hover:not(:disabled) { border-color: var(--ink-100); }
 :root[data-skin="glass"] .team-goal-new,
 :root[data-skin="glass"] .team-goal-new:hover:not(:disabled) { border-color: var(--ink-200); }
+
+/* ===== 全部订单页（设计画布 Orders.dc.html；markup 在 src/orders-page.js）===== */
+:root[data-skin="glass"] .main:has(.op-page) { overflow: auto; }
+:root[data-skin="glass"] .op-page { display: flex; flex-direction: column; gap: 10px; min-height: 100%; font-size: 12px; color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .op-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 2px 4px 0; }
+:root[data-skin="glass"] .op-top h1 { margin: 0; font-size: 18px; font-weight: 700; }
+:root[data-skin="glass"] .op-sub { font-size: 12px; color: var(--text-muted); }
+:root[data-skin="glass"] .op-top-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+:root[data-skin="glass"] .op-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
+:root[data-skin="glass"] .op-btn:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
+:root[data-skin="glass"] .op-btn:disabled { opacity: .45; cursor: default; }
+:root[data-skin="glass"] .op-btn.op-primary { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700; }
+:root[data-skin="glass"] .op-btn.op-primary:hover:not(:disabled) { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; opacity: .88; }
+:root[data-skin="glass"] .op-btn.op-ghost { border-color: transparent; background: transparent; }
+:root[data-skin="glass"] .op-btn.op-ghost:hover:not(:disabled) { background: transparent; border-color: transparent; }
+:root[data-skin="glass"] .op-card { display: flex; flex-direction: column; border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); overflow: hidden; }
+:root[data-skin="glass"] .op-list { flex: 1 1 auto; min-height: 320px; }
+:root[data-skin="glass"] .op-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; }
+:root[data-skin="glass"] .op-input { height: 30px; padding: 0 9px; border-radius: 8px; border: 1px solid var(--ink-200); background: #fff; font: inherit; font-size: 12px; color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .op-search { flex: 1 1 200px; max-width: 220px; }
+:root[data-skin="glass"] .op-legend { margin-left: auto; }
+:root[data-skin="glass"] .op-scroll { flex: 1 1 auto; overflow-x: auto; overflow-y: auto; }
+:root[data-skin="glass"] .op-money { white-space: nowrap; }
+:root[data-skin="glass"] .op-table { min-width: 1120px; display: flex; flex-direction: column; }
+:root[data-skin="glass"] .op-grid, :root[data-skin="glass"] .op-row { display: grid; grid-template-columns: 104px minmax(0,1.4fr) 62px 112px 112px 112px 108px 62px 52px minmax(0,1.3fr) 82px; gap: 10px; align-items: center; padding: 7px 12px; }
+:root[data-skin="glass"] .op-head { background: #faf7f9; font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--ink-100); }
+:root[data-skin="glass"] .op-row { min-height: 44px; padding-top: 4px; padding-bottom: 4px; border-top: 1px solid var(--ink-100); }
+:root[data-skin="glass"] .op-row:hover { background: #fcf8fa; }
+:root[data-skin="glass"] .op-r, :root[data-skin="glass"] .op-money { text-align: right; }
+:root[data-skin="glass"] .op-bold { font-weight: 700; }
+:root[data-skin="glass"] .op-due { font-weight: 700; color: #a3433b; }
+:root[data-skin="glass"] .op-num { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+:root[data-skin="glass"] .op-num em { font-style: normal; padding: 0 5px; border-radius: 4px; background: #f5eff3; font-size: 10px; color: var(--text-muted); }
+:root[data-skin="glass"] .op-link { padding: 0; border: 0; background: transparent; color: rgb(var(--skin-ink-rgb)); font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
+:root[data-skin="glass"] .op-link:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--brand-700); text-decoration: underline; }
+:root[data-skin="glass"] .op-link.op-plain { font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .op-client, :root[data-skin="glass"] .op-ship { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+:root[data-skin="glass"] .op-client small, :root[data-skin="glass"] .op-ship small { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .op-ship > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .op-stage { display: flex; flex-direction: column; gap: 4px; }
+:root[data-skin="glass"] .op-stage b { font-size: 12px; font-weight: 700; }
+:root[data-skin="glass"] .op-bar { display: flex; gap: 2px; }
+:root[data-skin="glass"] .op-bar i { flex: 1; height: 4px; border-radius: 2px; background: var(--ink-200); }
+:root[data-skin="glass"] .op-bar i.on { background: var(--brand-700); }
+:root[data-skin="glass"] .op-acts { display: flex; gap: 4px; justify-content: flex-end; }
+:root[data-skin="glass"] .op-mini { height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font: inherit; font-size: 11px; cursor: pointer; }
+:root[data-skin="glass"] .op-mini:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
+:root[data-skin="glass"] .op-mini.op-restore { border-color: var(--brand-300, var(--ink-200)); color: var(--brand-700); background: var(--brand-50); }
+:root[data-skin="glass"] .op-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--ink-100); background: #faf7f9; }
+:root[data-skin="glass"] .op-pages { display: flex; align-items: center; gap: 6px; }
+:root[data-skin="glass"] .op-pages .op-btn { width: 28px; padding: 0; height: 28px; }
+:root[data-skin="glass"] .op-page-now { min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700; }
+:root[data-skin="glass"] .op-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 40px 12px; color: var(--text-muted); border-top: 1px solid var(--ink-100); }
+:root[data-skin="glass"] .op-empty strong { color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .op-empty-small { padding: 14px 12px; }
+:root[data-skin="glass"] .op-trash { flex: 0 0 auto; }
+:root[data-skin="glass"] .op-trash-head { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px; }
+:root[data-skin="glass"] .op-trash-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
+:root[data-skin="glass"] .op-trash-row { display: grid; grid-template-columns: 104px minmax(0,1.4fr) 96px 72px minmax(0,1fr) 76px; gap: 10px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--ink-100); font-size: 12px; }
+:root[data-skin="glass"] .op-trash-row small { color: var(--text-muted); font-size: 11px; }
+:root[data-skin="glass"] .op-trash-row .op-money { text-align: left; }
+
+/* 订单、商机表单：新界面下停靠在右侧，不挡住列表（设计稿里是右侧一张卡） */
+:root[data-skin="glass"] .overlay:has(#biz-order-form), :root[data-skin="glass"] .overlay:has(#opp-form) { background: transparent; pointer-events: none; }
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer {
+  pointer-events: auto; top: 68px; right: 12px; bottom: 12px; width: 340px; border-radius: 14px; border: 1px solid var(--card-line);
+  background: rgba(255,255,255,.98); box-shadow: 0 10px 30px rgba(var(--skin-ink-rgb), .12); overflow: hidden;
+}
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-head, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-head { height: 48px; padding: 0 14px; }
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-head h2, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-head h2 { font-size: 14px; font-weight: 700; }
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-body, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-body { padding: 12px 14px; }
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .form-grid, :root[data-skin="glass"] .overlay:has(#opp-form) .form-grid { grid-template-columns: 1fr; gap: 10px; }
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-footer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-footer { height: 54px; padding: 0 14px; gap: 8px; }
+:root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: 364px; }

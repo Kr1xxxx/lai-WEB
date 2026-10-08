@@ -11,6 +11,7 @@
       search = "",
       stage = "",
       currency = "",
+      period = "",
       page = 1,
       month = B.localDate().slice(0, 7),
       selectedDate = "",
@@ -40,6 +41,7 @@
           (o) =>
             (!stage || o.stage === stage) &&
             (!currency || (o.currency || "USD") === currency) &&
+            (!period || (root.LaiOrdersPage && root.LaiOrdersPage.inPeriod(o.createdAt || o.updated, period, B.localDate()))) &&
             (!search ||
               [
                 o.num,
@@ -181,6 +183,21 @@
         pages = Math.max(1, Math.ceil(filtered.length / size));
       page = Math.min(page, pages);
       const items = filtered.slice((page - 1) * size, page * size);
+      if (glassSkin() && root.LaiOrdersPage)
+        return root.LaiOrdersPage.markup(
+          {
+            items,
+            all: activeOrders(),
+            total: filtered.length,
+            filters: { search, stage, currency, period },
+            stages: B.stages,
+            currencies: [...new Set(activeOrders().map((o) => o.currency || "USD"))],
+            page,
+            pages,
+            trash: state().trashOrders || [],
+          },
+          E,
+        );
       return (
         header(
           "订单管理",
@@ -905,6 +922,7 @@
         search = "";
         stage = "";
         currency = "";
+        period = "";
         page = 1;
         return render();
       }
@@ -1025,6 +1043,11 @@
       }
       if (e.target.id === "biz-currency") {
         currency = e.target.value;
+        page = 1;
+        render();
+      }
+      if (e.target.id === "biz-period") {
+        period = e.target.value;
         page = 1;
         render();
       }
