@@ -268,7 +268,7 @@
   function shell(content) {
     const scope = C.globalSearchFields.find((field) => field.id === globalSearch.field)?.label || "客户";
     const searchScope = globalSearch.field === "all" ? "客户" : scope;
-    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><span class="brand-cn">来财</span><span class="brand-lai">Lai</span><sup>AI</sup><span class="app-version" aria-label="当前版本 ${APP_VERSION}">v${APP_VERSION}</span></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span> <span>⌄</span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions"><button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button><i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="用户与设置">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
+    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><span class="brand-cn">来财</span><span class="brand-lai">Lai</span><sup>AI</sup><span class="app-version" aria-label="当前版本 ${APP_VERSION}">v${APP_VERSION}</span></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions"><button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button><i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="用户与设置">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
   }
   function closeDropdowns() {
     window.LaiCustomerSelect?.close();
@@ -278,6 +278,7 @@
   }
   function enhanceDropdowns(root) {
     if (!root) return;
+    window.LaiCustomerSelect?.watch?.();
     window.LaiCustomerSelect?.enhance(root);
     window.LaiCustomerSuggestions?.enhance(root);
   }
@@ -4101,7 +4102,7 @@
       const trigger = $("[data-action='global-search-scope']");
       if (trigger) {
         const label = d.globalField === "all" ? "客户" : C.globalSearchFields.find((field) => field.id === d.globalField).label;
-        trigger.innerHTML = `<span class="global-search-label" title="${E(label)}">${E(label)}</span> <span>⌄</span>`;
+        trigger.innerHTML = `<span class="global-search-label" title="${E(label)}">${E(label)}</span><span class="dd-caret" aria-hidden="true"></span>`;
         trigger.setAttribute("aria-expanded", "false");
         trigger.focus();
       }

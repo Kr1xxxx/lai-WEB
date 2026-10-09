@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Dropdowns (`claude/unify-dropdowns`, D-010): every `<select>` on the page is now the same custom dropdown
+  (`LaiCustomerSelect.watch()` upgrades them as they appear; search box from 9 options; trigger as wide as the longest
+  option; one set of size/colour tokens). 0 native selects left in the audit. Layout change, labelled `major`. Owner said
+  合并. Not yet on the Mac app.
 - 2026-10-09 — Claude — Truncated text (`claude/truncation`): order numbers are never cut off any more (the column is wide
   enough and has no ellipsis); any other text cut with … or a line clamp shows its full text on hover
   (`src/truncation-title.js`, new file, wired in `scripts/build.py` and `src/template.html`). Owner said 合并. Not yet on the Mac app.
