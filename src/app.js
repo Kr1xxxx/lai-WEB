@@ -3634,7 +3634,7 @@
     };
     let body = "";
     if (screen === "duplicates") {
-      const groups = L.findDuplicates(state);
+      const groups = L.findDuplicates(state, CSM.get(state).dedupe);
       const dupChosen = CSM.get(state).duplicateFields;
       const dupFields = CSM.DUPLICATE_FIELDS.filter(([key]) => dupChosen.includes(key));
       body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span><button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button></h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button>${dupFields.map(([key, label]) => `<span>${E(label)}：${E(CSM.duplicateValue(state, name, key) ? (key === "country" ? C.countryLabel(state.customers[name]?.country) : CSM.duplicateValue(state, name, key)) : "—")}</span>`).join("")}<button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + Object.keys(state.customers).length + " 个客户档案</span></div>"}`;
@@ -4335,6 +4335,20 @@
       $(".cs-inline input")?.focus();
       return true;
     }
+    if (d.csSourceMove) {
+      csSave(() => CSM.moveSource(state, d.csSourceMove, Number(d.delta)));
+      return true;
+    }
+    if (d.csSourceHide) {
+      csSave(() => CSM.setSourceHidden(state, d.csSourceHide, d.hidden === "1"));
+      return true;
+    }
+    if (d.csSourceSub) {
+      csEditing = { kind: "sourcesub", key: d.csSourceSub };
+      customerSettings();
+      $(".cs-add input")?.focus();
+      return true;
+    }
     if (d.csMove) {
       csSave(() => CSM.moveItem(state, d.csMove, d.name, Number(d.delta)));
       return true;
@@ -4350,6 +4364,7 @@
         if (kind === "types") return CSM.deleteType(state, key);
         if (kind === "blacklist") return CSM.removeBlacklist(state, key);
         if (kind === "tplgroup") return CSM.deleteTemplateGroup(state, key);
+        if (kind === "source") return CSM.deleteSource(state, key);
         return CSM.deleteGroup(state, key);
       });
       return true;
@@ -4430,6 +4445,9 @@
       if (kind === "rename-stages") return CSM.renameStage(state, form.dataset.old, text("name"));
       if (kind === "rename-types") return CSM.renameType(state, form.dataset.old, text("name"));
       if (kind === "add-blacklist") return CSM.addBlacklist(state, text("email"));
+      if (kind === "add-source") return CSM.addSource(state, { name: text("name"), parentId: form.dataset.parent || "" });
+      if (kind === "rename-source") return CSM.renameSource(state, form.dataset.id, text("name"));
+      if (kind === "dedupe") return CSM.setDedupe(state, Object.fromEntries(CSM.DEDUPE_FIELDS.map(([key]) => [key, text(`dedupe:${key}`)])));
       if (kind === "duplicates") return CSM.setDuplicateFields(state, data.getAll("field").map(String));
       if (kind === "caps") {
         const perOwner = {};

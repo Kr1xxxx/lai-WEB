@@ -219,7 +219,8 @@
     return [...seen.values()].sort((a,b)=>a.localeCompare(b,'zh'));
   }
   const ownerNames=state=>distinct([defaultOwner(state),...list(state).map(item=>item.owner),...Object.values(profilesOf(state)).map(profile=>profile?.owner)]);
-  const sourceNames=state=>distinct([...list(state).map(item=>item.source),...Object.values(profilesOf(state)).map(profile=>profile?.source),...SOURCE_HINTS]);
+  const CSM=node?require('./customer-settings-model.js'):root.LaiCustomerSettings;
+  const sourceNames=state=>(CSM&&CSM.sourceChoices(state))||distinct([...list(state).map(item=>item.source),...Object.values(profilesOf(state)).map(profile=>profile?.source),...SOURCE_HINTS]);
 
   function row(state,item,today){
     const status=statusOf(item),history=historyOf(item);

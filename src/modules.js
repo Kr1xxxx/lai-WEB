@@ -68,7 +68,8 @@ function moveCustomers(state,names,target,time=new Date().toISOString(),opts={})
  }
  return {...state,customers};
 }
-function findDuplicates(state){
+function findDuplicates(state,dedupe){
+ const extras=[['customerCode','客户编号'],['landline','座机'],['socialAccount','社交账号'],['website','公司网址'],['shortName','简称'],['companyAddress','详细地址'],['alibabaId','Alibaba会员ID']].filter(([key])=>dedupe&&(dedupe[key]==='allow'||dedupe[key]==='block'));
  const index=new Map();
  const phoneKey=(phone,countryCode='')=>{
   const raw=String(phone??'').trim();
@@ -96,9 +97,10 @@ function findDuplicates(state){
    ...new Set(emails.map(value=>String(value??'').trim().toLowerCase()).filter(Boolean).map(value=>'email:'+value)),
    ...new Set(phones.map(([phone,code])=>phoneKey(phone,code)).filter(Boolean).map(value=>'phone:'+value)),
   ];
+  for(const [key] of extras){const v=String(c[key]??'').trim().toLowerCase();if(v)values.push(key+':'+v);}
   for(const value of values){if(value==='email:'||value==='phone:')continue;const members=index.get(value)||new Set();members.add(name);index.set(value,members);}
  }
- return [...index.entries()].filter(([,names])=>names.size>1).map(([key,names])=>({type:key.startsWith('email:')?'邮箱':'电话',value:key.slice(key.indexOf(':')+1),names:[...names]}));
+ return [...index.entries()].filter(([,names])=>names.size>1).map(([key,names])=>({type:key.startsWith('email:')?'邮箱':key.startsWith('phone:')?'电话':(extras.find(([k])=>key.startsWith(k+':'))||[0,'资料'])[1],value:key.slice(key.indexOf(':')+1),names:[...names]}));
 }
 const api={bucket,moveCustomers,findDuplicates};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiModules=api;
 })(typeof window!=='undefined'?window:globalThis);

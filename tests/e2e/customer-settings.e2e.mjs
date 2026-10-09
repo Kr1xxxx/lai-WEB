@@ -30,7 +30,7 @@ const setSelect = (name, value) => app.page.locator(`#customer-form [name="${nam
 test('the settings page has twelve real tabs and no placeholder entries', async () => {
   await openSettings();
   assert.deepEqual(await app.page.locator('.cs-nav button').allInnerTexts(),
-    ['客户分组', '客户阶段', '客户类型', '公海管理', '客户跟进规则', '客户成交规则', '建档黑名单', '客户上限', '客户查重', '动态设置', '写跟进设置', '布局设置']);
+    ['客户分组', '客户阶段', '客户类型', '公海管理', '客户跟进规则', '客户成交规则', '建档黑名单', '客户上限', '来源设置', '判重设置', '客户查重', '动态设置', '写跟进设置', '布局设置']);
   assert.equal(await app.page.locator(".cs-page [data-feature]").count(), 0, 'no “功能入口已保留” buttons');
   assert.deepEqual(app.errors, []);
 });
@@ -124,6 +124,50 @@ test('blacklist: a blocked domain cannot be added to a customer', async () => {
   await page.locator('#form-error.visible').waitFor();
   assert.match(await page.locator('#form-error').innerText(), /黑名单/);
   assert.notEqual((await app.readData()).customers['Lumen Lash Lab'].email, 'someone@blocked.example');
+});
+
+test('sources: a two-level list feeds the customer editor and hidden entries disappear', async () => {
+  const { page } = app;
+  await openSettings();
+  await tab('sources');
+  await page.locator('[data-cs-form="add-source"] input').fill('常规获客');
+  await page.locator('[data-cs-form="add-source"] button[type=submit]').click();
+  await page.locator('.cs-group', { hasText: '常规获客' }).waitFor();
+  await page.locator('[data-cs-source-sub]').first().click();
+  await page.locator('[data-cs-form="add-source"][data-parent] input').fill('展会');
+  await page.locator('[data-cs-form="add-source"][data-parent] button[type=submit]').click();
+  await page.locator('.cs-child', { hasText: '展会' }).waitFor();
+  assert.equal((await settings()).sources[0].children[0].name, '展会');
+  await openEditor('Lumen Lash Lab');
+  const options = async () => page.locator('#ce-options-source option').evaluateAll((list) => list.map((o) => o.value));
+  assert.ok((await options()).includes('常规获客 / 展会'));
+  assert.ok(!(await options()).includes('官网询盘'), 'only the configured list is offered');
+  await page.keyboard.press('Escape');
+  await openSettings();
+  await tab('sources');
+  await page.locator('.cs-child', { hasText: '展会' }).getByRole('button', { name: '隐藏' }).click();
+  await page.locator('.cs-child', { hasText: '已隐藏' }).waitFor();
+  assert.equal((await settings()).sources[0].children[0].hidden, true);
+  assert.deepEqual(app.errors, []);
+});
+
+test('dedupe: a blocked email cannot be reused by another customer', async () => {
+  const { page } = app;
+  const data = (await app.readData()).customers;
+  const other = Object.entries(data).find(([name, c]) => name !== 'Lumen Lash Lab' && c.email && !/blocked/.test(c.email));
+  assert.ok(other, 'sample data has another customer with an email');
+  await openSettings();
+  await tab('dedupe');
+  await page.locator('input[name="dedupe:email"][value="block"]').check();
+  await page.locator('[data-cs-form="dedupe"] button[type=submit]').click();
+  await page.locator('input[name="dedupe:email"][value="block"]:checked').waitFor();
+  assert.equal((await settings()).dedupe.email, 'block');
+  await openEditor('Lumen Lash Lab');
+  await page.locator('#customer-form [name="email"]').fill(other[1].email);
+  await save();
+  await page.locator('#form-error.visible').waitFor();
+  assert.match(await page.locator('#form-error').innerText(), new RegExp(`邮箱和已有客户「${other[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}」相同`));
+  assert.notEqual((await app.readData()).customers['Lumen Lash Lab'].email, other[1].email);
 });
 
 test('caps: a full owner cannot get another customer, and the message says why', async () => {
