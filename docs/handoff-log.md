@@ -4,6 +4,14 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — PR #14 (客户设置 A1) merged after the owner's 合并 (6941054); CI was green, including the Mac build
+  and integration test (the PR changed `scripts/build.py`). Mac cadence after the merge: 14 Claude PRs merged, not due.
+  Web trial republished as Version 45 from 6941054 and walked in Chromium at 1440×900: all seven tabs open, a new stage
+  survives a reload, no console errors. `rebuild.py` stops on the three new `src/` files, so the three blocks were
+  placed by hand in `template.html` order (settings CSS after customer-suggestions.css, settings model before model.js,
+  settings UI before customer-import.js), with a local-only base commit = 91906aa + those files as `--old-ref`; the
+  script then swapped the other nine files. Teaching `rebuild.py` to place new files itself would remove this step.
+  Noticed: the default stage "待付尾款." has a stray full stop (old, also in `customer-detail-ui.js`). Next: batch A2.
 - 2026-10-09 — Claude — Owner attached three 小满 settings collection docs and chose batch "A 客户设置". Built the first half
   on `claude/customer-settings`: the 客户设置 page now has seven working tabs (客户分组 two levels with per-owner
   availability, 客户阶段, 客户类型 — a new customer field, 建档黑名单, 客户上限, 客户查重 display fields, 布局设置 for the
