@@ -2,8 +2,8 @@
 
 当前源码：**1.4.126 / build356**；当前正式安装记录：**1.4.125 / build355**。本仓库是去除业务数据的完整源码交接，不代表全部模块或像素验收完成。2026-10-06用户要求暂停收尾，先上传并整理现状。
 
-- [完整进度：已完成、未完成与限制](PROGRESS.md)
-- [后续待办与工作方式](NEXT_STEPS.md)
+- [开发规则（给开发人员和 agent，先读这份）](AGENTS.md)
+- [现在做到哪、任务板](docs/HANDOFF.md)、[负责人的决定](docs/DECISIONS.md)、[功能验证清单](docs/features.json)
 - [源码结构、运行方式与字段规则](ARCHITECTURE.md)
 - [验证记录、复跑方法与未验范围](VALIDATION.md)
 
@@ -20,6 +20,8 @@ python3 -m unittest discover -s tests -p 'test_release_tools.py' -v
 python3 scripts/build.py --node-runtime "$(command -v node)"
 npm test
 ```
+
+每个 PR 都会在 GitHub Actions 的 macOS 上自动测试、构建并跑集成测试（`.github/workflows/ci.yml`），构建出的 `.app` 压缩包可在该次运行页面的 Artifacts 里下载（保留 14 天）。
 
 输出 `dist/来财Lai.app`，采用本地 ad-hoc 签名，不属于 Apple 公证发行。`--output` 可以指定其他本地构建路径，禁止直接构建到 `/Applications`。
 

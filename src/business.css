@@ -915,7 +915,8 @@ td.team-reached {
   font-size: 12px;
   color: var(--opp-muted);
 }
-.opp-range input[type="date"] {
+.opp-range input[type="date"],
+.opp-range input.lai-date-trigger {
   width: 132px;
 }
 .opp-toolbar .opp-sort {
