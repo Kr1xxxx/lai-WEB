@@ -19,3 +19,11 @@ test('the pill in the left rail eases in and out, and turns off for reduced moti
   assert.match(css, /\.rail-item \{ transition: background-color var\(--motion-normal\) var\(--ease-out\)/);
   assert.match(css, /prefers-reduced-motion: reduce\) \{\s*:root\[data-skin="glass"\] \.rail-item[^}]*transition: none/);
 });
+
+test('easing curves come from the Arc Library presets and menus use the shared exit curve', () => {
+  const tokens = read('ui-tokens.css');
+  assert.match(tokens, /--ease-out:\s*cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
+  assert.match(tokens, /--ease-exit:\s*cubic-bezier\(0\.7, 0, 0\.84, 0\)/);
+  assert.match(tokens, /Arc Library \(MIT/);
+  assert.doesNotMatch(read('styles.css'), /cubic-bezier\(\.755|cubic-bezier\(\.23, ?1/);
+});
