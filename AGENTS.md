@@ -56,6 +56,7 @@ use an existing Chromium binary. CI also builds the Mac app and runs the integra
 | `ARCHITECTURE.md`, `VALIDATION.md` | Code map and every business-rule decision made while building (Chinese, kept current) |
 | `docs/features.json` | Feature verification list (verified in browser / on the Mac app) |
 | `docs/samples/` | Mock data — the only data to test with |
+| `docs/xiaoman/` | The owner's read-only record of OKKI (小满) settings, and how 来财 compares; reference only, not a to-do list |
 | `docs/archive/` | Old plans and progress notes. **Out of date — do not follow them.** |
 
 ## Web trial
