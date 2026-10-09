@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner asked for a new way of working (D-017): Opus 5.5 at high effort coordinates; subagents
+  default to Sonnet 5.5 at medium effort (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`, `worker` and
+  `reviewer` agents in `.claude/agents/`). Opus writes the spec, plan and every subagent prompt, picks each subagent's
+  model/effort, runs slices in parallel worktrees (`worktree.baseRef: head`) and merges them itself. Checked in this
+  session: a Sonnet worktree agent committed on `worktree-agent-<id>` and the coordinator merged it cleanly
+  (throwaway, removed). The new settings load from the next session on. Touches `CLAUDE.md` → waits for 合并.
 - 2026-10-09 — Claude — Owner said 合并 on PR #12 (merge policy from `main`'s copy): merged (1308c75). PR #11 (test waits, handoff
   status, features.json) had merged itself. This log entry is a docs-only PR, the first one judged by the new
   `merge-policy.yml`, to check that it runs after CI and merges a small PR.
