@@ -87,7 +87,7 @@ class PortableBuild(unittest.TestCase):
 
 class SourceExport(unittest.TestCase):
     def fixture(self, directory):
-        for folder in ['src','backend','native/Sources','tests/fixtures','vendor/sheetjs-0.20.3','vendor/mail-libs/build','vendor/squire','vendor/dompurify','scripts','assets']:
+        for folder in ['src','backend','native/Sources','tests/fixtures','vendor/sheetjs-0.20.3','vendor/mail-libs/build','vendor/squire','vendor/dompurify','vendor/flatpickr','scripts','assets']:
             (directory / folder).mkdir(parents=True)
         for file, text in {
             'src/app.js':'// synthetic app', 'backend/server.js':'// synthetic server',
@@ -103,6 +103,7 @@ class SourceExport(unittest.TestCase):
             'vendor/mail-libs/build/pino-stub.js':'// synthetic stub', 'vendor/mail-libs/build/socks-stub.js':'// synthetic stub',
             'vendor/squire/squire-raw.js':'// synthetic editor', 'vendor/squire/LICENSE':'synthetic license',
             'vendor/dompurify/purify.min.js':'// synthetic sanitizer', 'vendor/dompurify/LICENSE':'synthetic license',
+            **{'vendor/flatpickr/' + name: '// synthetic date picker' for name in ['flatpickr.min.js','flatpickr.min.css','l10n-zh.js','monthSelect.js','monthSelect.css','LICENSE','README.md']},
         }.items():
             (directory / file).write_text(text)
         (directory / 'assets/AppIcon.icns').write_bytes(b'SYNTHETIC-ICON')
