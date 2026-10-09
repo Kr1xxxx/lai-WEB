@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Left rail (`claude/rail-layout`): the rail's scrolling entries and the refresh button are now separate, so
+  they can no longer overlap; the 13 entries fit the window height. Layout change, so labelled `major`. Owner said 合并.
+  Checked in a headless browser at 1440×900 and small heights; not yet on the Mac app.
 - 2026-10-09 — Claude — PR #2 (docs only) merged itself: auto-merge works. Owner raised the small-PR limit to
   500 lines of `src/` (D-014) and set the Mac build to every 10th merged Claude PR, Claude only (D-016,
   `scripts/mac-cadence.mjs`, instruction in `CLAUDE.md`). Waits for 合并.
