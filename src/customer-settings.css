@@ -1,4 +1,4 @@
-/* 客户设置页（客户设置 → 分组、阶段、类型、黑名单、上限、查重、布局） */
+/* 客户设置页（客户设置 → 分组、阶段、类型、公海管理、跟进规则、成交规则、黑名单、上限、查重、动态、写跟进、布局） */
 .cs-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 0; }
 .cs-shortcuts button { height: 30px; padding: 0 12px; }
 .cs-page { display: flex; align-items: flex-start; gap: 16px; padding: 12px 16px 24px; min-height: 0; }
@@ -21,7 +21,7 @@
 .cs-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; }
 .cs-row strong { font-size: 14px; font-weight: 600; }
 .cs-row .cs-use { flex: 1; min-width: 0; font-size: 12px; color: var(--ink-500, #8c8c8c); }
-.cs-row-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.cs-row-actions { display: flex; gap: 6px; flex: 0 0 auto; margin-left: auto; }
 .cs-row-actions button { height: 28px; min-width: 28px; padding: 0 10px; }
 .cs-children { margin: 0 0 8px 28px; border-radius: 6px; }
 .cs-child { background: var(--color-neutral-25, #fafafa); }
@@ -52,4 +52,24 @@
 .cs-layout-pic.large-left i:last-child { flex: 1; }
 .cs-layout-card.active .cs-layout-pic i { background: var(--color-primary-100); }
 .cs-group-form .cs-field input { max-width: 100%; }
+.cs-section { margin: 0 0 24px; padding-top: 16px; border-top: 1px solid var(--ink-100, #eff0f3); }
+.cs-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.cs-section h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.cs-section > .cs-hint:first-of-type { margin: 0 0 10px; }
+.cs-inline-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.cs-inline-form label { display: inline-flex; align-items: center; gap: 6px; }
+.cs-inline-form input { width: 76px; height: 30px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
+.cs-inline-form button { height: 32px; padding: 0 14px; }
+.cs-claim .cs-inline-form { margin-bottom: 12px; }
+.cs-add select { flex: 0 1 240px; height: 32px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
+.cs-table input[type="checkbox"] { width: auto; height: auto; }
+.cs-rules td .cs-row-actions { justify-content: flex-start; }
+.cs-page input[type="radio"], .cs-page input[type="checkbox"] { height: auto; min-height: 0; }
+.cs-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; padding: 10px 12px; font-size: 13px; background: var(--color-neutral-50, #f7f8fa); border-radius: 6px; }
+.cs-confirm button { height: 30px; padding: 0 14px; }
+.cs-flat { padding-left: 0; flex-direction: column; flex-wrap: nowrap; gap: 2px; max-height: 180px; overflow: auto; }
+.cs-tpl-text { flex: 1; min-width: 0; font-size: 13px; line-height: 20px; white-space: pre-wrap; word-break: break-word; }
+.cs-field textarea { padding: 8px 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); font: inherit; resize: vertical; }
+.cs-group-form .cs-field select { height: 32px; max-width: 280px; padding: 0 8px; }
+.cs-group-form .cs-field input[type="date"] { max-width: 280px; }
 @media (max-width: 900px) { .cs-page { flex-direction: column; } .cs-nav { flex-basis: auto; flex-direction: row; flex-wrap: wrap; position: static; width: 100%; } }

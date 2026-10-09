@@ -55,6 +55,48 @@
     const values = [profile?.email, ...(Array.isArray(profile?.emails) ? profile.emails : []), ...(Array.isArray(profile?.contacts) ? profile.contacts.map((item) => item?.email) : []), profile?.alternateEmail];
     return [...new Set(values.map((value) => String(value ?? "").trim().toLowerCase()).filter(validAddress))];
   }
+  // 自动记往来邮件：从一批邮件里挑出该记到客户动态的。
+  // 对方地址（收件箱看发件人，已发送看第一个收件人）只对上一位「在用」客户（不含公海、回收站）时才记；
+  // 早于开启时间（since）的不记；已经记过的不再记。邮件数据缺字段时跳过，不报错。
+  function autoRecordPlan({ customers, messages, since, isRecorded, isActive } = {}) {
+    const sinceMs = Date.parse(since);
+    if (!Number.isFinite(sinceMs) || !Array.isArray(messages)) return [];
+    const active = typeof isActive === "function" ? isActive : (profile) => !["pool", "trash"].includes(profile?.laiBucket);
+    const index = new Map();
+    for (const [name, profile] of Object.entries(customers && typeof customers === "object" ? customers : {})) {
+      // 公海、回收站客户也进索引：同一个地址对得上两位客户就不记，免得记错人。
+      if (!profile || typeof profile !== "object") continue;
+      const extra = Array.isArray(profile.extraContacts) ? profile.extraContacts.map((item) => String(item?.email ?? "").trim().toLowerCase()).filter(validAddress) : [];
+      for (const address of new Set([...customerAddresses(profile), ...extra])) {
+        if (!index.has(address)) index.set(address, new Set());
+        index.get(address).add(name);
+      }
+    }
+    const plan = [], seen = new Set();
+    for (const message of messages) {
+      try {
+        if (!message || typeof message !== "object" || (message.box !== "inbox" && message.box !== "sent")) continue;
+        const sent = message.box === "sent";
+        const counterpart = sent ? (Array.isArray(message.to) ? message.to[0] : null) : message.from;
+        const address = String(counterpart?.address ?? "").trim().toLowerCase();
+        const names = index.get(address);
+        if (!names || names.size !== 1) continue;
+        const sentAt = Date.parse(message.date);
+        if (!Number.isFinite(sentAt) || sentAt < sinceMs) continue;
+        const [name] = names;
+        if (!active(customers[name])) continue;
+        const mail = { box: message.box, uid: message.uid, messageId: message.messageId || "", subject: message.subject || "", snippet: message.snippet || "", date: message.date, from: message.from || null, to: Array.isArray(message.to) ? message.to : [] };
+        const key = String(mail.messageId).replace(/\s+/g, " ").trim() || (mail.uid ? `${mail.box}|${mail.uid}` : "");
+        if (!key || seen.has(name + "\u0001" + key)) continue;
+        if (typeof isRecorded === "function" && isRecorded(name, mail)) continue;
+        seen.add(name + "\u0001" + key);
+        plan.push({ name, mail });
+      } catch (_) {
+        /* 这封邮件的数据不对，跳过 */
+      }
+    }
+    return plan;
+  }
   const replySubject = (subject, prefix) => (new RegExp(`^\\s*${prefix === "Re" ? "(re|回复|答复)" : "(fwd?|转发)"}\\s*[:：]`, "i").test(subject || "") ? subject : `${prefix}: ${subject || ""}`);
   // 头像：名字或地址的第一个字，底色由地址算出来，同一个人总是同一种颜色。
   const initial = (item) => (Array.from(String((item && (item.name || item.address)) || "?").trim())[0] || "?").toUpperCase();
@@ -297,11 +339,20 @@
         if (token !== listToken) return;
         list = { key, scope, loading: false, error: "", items: data.items || [], total: data.total || 0, page: data.page || page, pageSize: data.pageSize || 50 };
         if (data.counts) setCounts(data.counts);
+        autoRecord(list.items);
       } catch (error) {
         if (token !== listToken) return;
         list = { ...list, loading: false, error: error.message, items: [], total: 0 };
       }
       rerender();
+    }
+    // 客户设置里开了「自动记往来邮件」时，读到的新邮件自动记到对应客户的动态里（记了就刷新一下列表上的“已记录”状态）。
+    function autoRecord(items) {
+      if (!ctx.autoRecordMails) return;
+      Promise.resolve()
+        .then(() => ctx.autoRecordMails(items))
+        .then((count) => { if (count) rerender(); })
+        .catch(() => {});
     }
     async function loadDrafts() {
       drafts = { ...drafts, loading: true, error: "" };
@@ -2031,5 +2082,5 @@
       composeFor,
     };
   }
-  root.LaiMailUI = { create, folders, views, DEFAULT_FOLDER, customerAddresses, groupThreads, BUILTIN_TEMPLATES };
+  root.LaiMailUI = { create, folders, views, DEFAULT_FOLDER, customerAddresses, autoRecordPlan, groupThreads, BUILTIN_TEMPLATES };
 })(typeof window === "undefined" ? globalThis : window);

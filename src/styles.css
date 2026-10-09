@@ -1116,6 +1116,16 @@ a,
 .batch-followup-form .field {
   margin-top: 16px;
 }
+.batch-followup-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+.claim-form .field {
+  margin-top: 16px;
+}
+.claim-form select {
+  width: 100%;
+}
 .batch-followup-form .field textarea,
 .batch-followup-form .field input {
   width: 100%;

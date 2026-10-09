@@ -1014,3 +1014,21 @@ test('review: ticks do not survive a page change; a delete that half fails remov
     failSent = false; await h.act('delete-confirm'); assert.deepEqual(h.calls('/api/mail/trash').at(-1).payload, { box: 'sent', uid: 5 }, 'the retry only sends what is left'); assert.equal(h.dialog, null);
   } finally { h.dispose(); }
 });
+
+test('a loaded list goes to the auto-record hook; a recording redraws the page and a failing hook is ignored', async () => {
+  const seen = [];
+  const h = harness({ ctx: { autoRecordMails: async (items) => { seen.push(items.map(item => item.uid)); return 2; } } });
+  try {
+    await h.mail.select();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(seen, [[4, 3]], 'the messages of the loaded list, once');
+  } finally { h.dispose(); }
+  const broken = harness({ ctx: { autoRecordMails: () => { throw new Error('boom'); } } });
+  try {
+    await broken.mail.select();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.match(broken.page, /样品寄送确认/, 'the list still shows');
+  } finally { broken.dispose(); }
+  const none = harness();
+  try { await none.mail.select(); assert.match(none.page, /样品寄送确认/); } finally { none.dispose(); }
+});

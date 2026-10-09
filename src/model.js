@@ -215,7 +215,9 @@
     if(!row)throw new Error('客户不存在');
     const previous=state.customers?.[name]||{};
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
-    return {...state,customers:{...state.customers,[name]:{...previous,client:name,updated:time,lastFollowup:time,lastWrittenFollowup:time,nextFollow:nextFollow===undefined?(previous.nextFollow||''):String(nextFollow||''),history:[{time,text:String(text).trim(),type:'followup',subtype:'quick'},...(previous.history||[])]}}};
+    // 补记过去的跟进时，不能把更新时间、最近跟进时间往回改。
+    const later=(old)=>Number.isFinite(Date.parse(old))&&Date.parse(old)>Date.parse(time)?old:time;
+    return {...state,customers:{...state.customers,[name]:{...previous,client:name,updated:later(previous.updated),lastFollowup:later(previous.lastFollowup),lastWrittenFollowup:later(previous.lastWrittenFollowup),nextFollow:nextFollow===undefined?(previous.nextFollow||''):String(nextFollow||''),history:[{time,text:String(text).trim(),type:'followup',subtype:'quick'},...(previous.history||[])]}}};
   }
   // 把一封邮件记到客户动态里（类型“往来邮件”）。同一封邮件只记一次；不改下次跟进，也不算写过跟进。
   const mailKey=mail=>String(mail?.messageId||'').replace(/\s+/g,' ').trim().slice(0,300)||(mail?.box&&mail?.uid?`${mail.box}|${mail.uid}`:'');
