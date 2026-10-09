@@ -13,6 +13,7 @@ docs/*
 !docs/features.json
 !docs/samples/
 !docs/archive/
+!docs/xiaoman/
 animation-plans/
 # README.github.md is the deliberately reviewed export README.
 *.sqlite

@@ -12,6 +12,10 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   rules start today, mail addresses shared with pool customers are not auto-recorded, back-dated follow-ups do not
   move times back. Tests 774 / 30, UI audit passes. Not verified: auto mail recording against a real mailbox, Mac
   app. Remaining slowness outside A2: `buildCustomers` is O(customers × orders) and `enrich` sorts history per row.
+- 2026-10-09 — Claude — Owner re-sent his three 小满 settings collection docs and asked to keep them in the repository as a
+  reference for later work: `docs/xiaoman/` (the three docs, links to the evidence files that were not sent turned into
+  plain codes, plus a README with usage rules and a 小满 → 来财 comparison table). `.gitignore` and `AGENTS.md` changed,
+  so it waits for 合并. A2 (客户设置 second half) starts next from these docs.
 - 2026-10-09 — Claude — Owner said 合并 on PR #15 (D-017: Opus coordinates, Sonnet subagents in worktrees): merged
   (2de28d3). Mac build not due (cadence check after the merge). From now on sessions on this repo start with Opus 5.5
   high and the `worker` / `reviewer` agents. Next: batch A2, once the owner re-sends the three 小满 settings docs.
