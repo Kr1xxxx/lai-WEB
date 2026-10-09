@@ -27,10 +27,10 @@ const openEditor = async (name) => {
 const save = () => app.page.locator('button[type=submit][form="customer-form"]').first().click();
 const setSelect = (name, value) => app.page.locator(`#customer-form [name="${name}"]`).selectOption(value, { force: true });
 
-test('the settings page has seven real tabs and no placeholder entries', async () => {
+test('the settings page has twelve real tabs and no placeholder entries', async () => {
   await openSettings();
   assert.deepEqual(await app.page.locator('.cs-nav button').allInnerTexts(),
-    ['客户分组', '客户阶段', '客户类型', '建档黑名单', '客户上限', '客户查重', '布局设置']);
+    ['客户分组', '客户阶段', '客户类型', '公海管理', '客户跟进规则', '客户成交规则', '建档黑名单', '客户上限', '客户查重', '动态设置', '写跟进设置', '布局设置']);
   assert.equal(await app.page.locator(".cs-page [data-feature]").count(), 0, 'no “功能入口已保留” buttons');
   assert.deepEqual(app.errors, []);
 });
