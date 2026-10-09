@@ -1,25 +1,12 @@
-# 来财Lai：给每个 Claude 会话的规则
+@AGENTS.md
 
-开工前先读这份，再读 `NEXT_STEPS.md` 开头的「工作方式」。
+## Claude only (Codex: ignore this section)
 
-## 分支规则（2026-10-07 用户确定）
-
-1. **从 `main` 开分支。** 每个会话开工前先取最新的 `main`，在它上面开自己的分支 `claude/<做的事>`。不要从别的会话的分支或 `claude/web-trial-combined` 开分支。
-2. **只推自己的分支。** 不往别的会话的分支推送。`claude/web-trial-combined` 不再作为多个会话共用的分支，不要再往里推。
-3. **做完、用户验收后，合回 `main`。** 合并前先取最新的 `main` 并入自己的分支，重跑测试，再合并。不强推 `main`。
-4. **分支不要长期挂着。** 一个分支只做一件事，验收完就合；没验收的不要越堆越多。
-5. 没有用户同意，不删除任何分支。
-
-## 网页试用版
-
-- 线上只有一个网页试用版页面，所有会话共用，后发布的会替换先发布的。
-- 发布前**必须先读线上最新版本**，再按 `scripts/web-trial/README.md` 重建。
-- 页面内容 = 最新的 `main` + 你自己的分支。发布前先把最新的 `main` 并入自己的分支。
-- 如果线上页面是另一个会话从它**尚未合进 `main` 的分支**构建的，你发布之后，那个分支的内容会从页面上消失，直到它合进 `main`。遇到这种情况，在回报里明确告诉用户。
-- 每次发布时，在发布标签或回报里写明页面是从哪个提交构建的。
-
-## 其他
-
-- 工作方式、待办和各项口径决定：`NEXT_STEPS.md`、`VALIDATION.md`、`ARCHITECTURE.md`。
-- 测试：`node --test tests/*.test.cjs`。Mac 应用的构建和 `scripts/integration-test.mjs` 需要 macOS，由用户在自己的 Mac 上做。
-- 每项工作做完给用户一份总结：做了什么、哪里没做好、需要他做什么、推荐的下一步。
+- Mac build every 10 updates (D-016). Your PRs (`claude/*`) skip the Mac build unless they change `native/` or
+  `scripts/build.py`; CI builds `main` after every 10th merged Claude PR (counted by `scripts/mac-cadence.mjs`).
+- After any merge into `main` (yours after the owner's 合并, or CI's automatic one), run
+  `MAIN_REF=origin/main node scripts/mac-cadence.mjs after-merge`. If it says due, make sure the Mac build on
+  `main` ran (automatic merges start it; for merges you made, start it yourself:
+  `gh api -X POST repos/Kr1xxxx/lai-app/actions/workflows/ci.yml/dispatches -f ref=main`), wait for it and report
+  the result. If it fails, fixing it comes before anything else.
+- When the owner asks for a Mac build or a downloadable app, start the same manual run and send him the artifact name.

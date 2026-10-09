@@ -5,7 +5,14 @@ evidence/
 baseline/
 dist/
 releases/
-docs/
+# docs/ stays ignored for local material (screenshots, evidence); only the handoff files below are tracked.
+docs/*
+!docs/DECISIONS.md
+!docs/HANDOFF.md
+!docs/handoff-log.md
+!docs/features.json
+!docs/samples/
+!docs/archive/
 animation-plans/
 # README.github.md is the deliberately reviewed export README.
 *.sqlite
