@@ -401,7 +401,14 @@ function evaluate(state,rules,now,times,only){
   const out=[];
   const openStages=new Set(['quote','deposit','production','balance']);
   const white=new Set(rules.whitelist);
-  for(const row of M.buildCustomers(state)){
+  let openClients=null;
+  const hasOpenOrder=name=>{
+    if(!openClients)openClients=new Set((state.orders||[]).filter(o=>o&&!o.isDraft&&openStages.has(o.stage)).map(o=>o.client));
+    return openClients.has(name);
+  };
+  // 只算一位客户时，只拿这一位的订单和资料来建行（行只取决于这两样），不用把所有客户都建一遍。
+  const source=only?{...state,orders:(state.orders||[]).filter(o=>o.client===only),customers:Object.hasOwn(state.customers||{},only)?{[only]:state.customers[only]}:{}}:state;
+  for(const row of M.buildCustomers(source)){
     if(only&&row.name!==only)continue;
     const p=profiles(state)[row.name]||{};
     if(bucketOf(p)!=='active')continue;
@@ -409,12 +416,15 @@ function evaluate(state,rules,now,times,only){
     if(!owner||white.has(owner))continue; // 没有跟进人的客户不算「被放着不管」
     if(rules.skipFollowed&&p.previewFollowed===true)continue;
     if(rules.skipTags.length&&M.tags(p.tags).some(t=>rules.skipTags.includes(t)))continue;
-    if(rules.skipOpenOrders&&(state.orders||[]).some(o=>o.client===row.name&&!o.isDraft&&openStages.has(o.stage)))continue;
+    if(rules.skipOpenOrders&&hasOpenOrder(row.name))continue;
     const groups=groupsOf(row,p);
     let best=null;
+    // 最近联系 / 最近成交每位客户最多算一次，而且只在有规则用到时才算。
+    const memo={};
+    const timeOf=kind=>kind in memo?memo[kind]:(memo[kind]=time(kind==='noDeal'?times.lastDeal(state,row.name):times.lastContact(state,row.name)));
     for(const rule of active){
       if(!groups.some(g=>groupMatches(rule,g)))continue;
-      let basis=time(rule.kind==='noDeal'?times.lastDeal(state,row.name):times.lastContact(state,row.name));
+      let basis=timeOf(rule.kind);
       if(!Number.isFinite(basis))basis=creationTime(p);
       if(!Number.isFinite(basis))continue;
       if(rule.startDate){
