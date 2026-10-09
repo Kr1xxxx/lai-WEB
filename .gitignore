@@ -36,3 +36,6 @@ native/.swiftpm/
 __pycache__/
 *.pyc
 .superpowers/
+# Claude Code: per-machine settings and subagent worktrees.
+.claude/settings.local.json
+.claude/worktrees/

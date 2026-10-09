@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner asked for a new way of working (D-017): Opus 5.5 at high effort coordinates; subagents
+  default to Sonnet 5.5 at medium effort (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`, `worker` and
+  `reviewer` agents in `.claude/agents/`). Opus writes the spec, plan and every subagent prompt, picks each subagent's
+  model/effort, runs slices in parallel worktrees (`worktree.baseRef: head`) and merges them itself. Checked in this
+  session: a Sonnet worktree agent committed on `worktree-agent-<id>` and the coordinator merged it cleanly
+  (throwaway, removed). The new settings load from the next session on. Touches `CLAUDE.md` → waits for 合并.
 - 2026-10-09 — Claude — After PR #14 (客户设置 A1, 6941054; CI green including the Mac build, since it changed
   `scripts/build.py`): web trial republished as Version 45 from 6941054 and walked in Chromium at 1440×900: all
   seven tabs open, a new stage survives a reload, no console errors. `rebuild.py` stops on the three new `src/` files, so the three blocks were

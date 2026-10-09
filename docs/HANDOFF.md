@@ -21,6 +21,8 @@
 - Last Mac build on `main`: ea0ebfd (10th Claude merge), green.
 - Web trial: Version 45, built from `main` 6941054 (客户设置 A1). `rebuild.py` stops on new `src/` files; how it
   was rebuilt anyway: `docs/handoff-log.md`, 2026-10-09 PR #14 entry.
+- How Claude works (D-017, waiting for 合并): Opus 5.5 high coordinates; subagents default to Sonnet 5.5 medium and
+  run in parallel git worktrees (`.claude/settings.json`, `.claude/agents/`, rules in `CLAUDE.md`).
 
 ## Work waiting on branches (not in `main`)
 
@@ -55,6 +57,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 7 | Translate `ARCHITECTURE.md` / `VALIDATION.md` to English | Todo | — | After the waiting branches merge; they edit these files |
 | 8 | Module reviews carried over: orders, workbench/calendar, stats (old A3–A5) | Todo | — | See `docs/archive/NEXT_STEPS.md` for the old acceptance criteria |
 | 9 | 沟通 (communication) module — which chat tool | Blocked | Owner | Needs his choice |
+| 11 | Opus coordinator + Sonnet subagents in worktrees (D-017) | Done | Claude | Waits for 合并 (touches `CLAUDE.md`) |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner

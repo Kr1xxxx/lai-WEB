@@ -26,6 +26,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-014 | One PR per change; small ones merge themselves, big ones wait for 合并 | Accepted |
 | D-015 | Moderate verification for small features | Accepted |
 | D-016 | Mac build cadence: Claude every 10th merge, others every PR | Accepted |
+| D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Accepted |
 
 ---
 
@@ -120,3 +121,14 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   build on every PR that changes the app. The instruction for Claude is in `CLAUDE.md` (Codex does not read it).
 - Consequences: up to nine Claude merges can reach `main` before a Mac build checks them. The owner can ask for a
   build at any time (manual CI run on `main`, which also produces a downloadable app).
+
+### D-017 Claude works as coordinator + subagents (2026-10-09)
+- Context: the owner wants Opus to plan and judge, and cheaper Sonnet subagents to do most of the work in parallel.
+- Decision: Opus 5.5 at high effort coordinates; subagents run on Sonnet 5.5 at medium effort by default. Opus
+  writes the final spec and plan in the conversation, writes each subagent's prompt in detail, picks each subagent's
+  model and effort (default Sonnet medium; Sonnet high or Opus medium where the work needs it), runs independent
+  slices in parallel git worktrees, then merges them, fixes what is wrong and makes the final commit. Details and
+  the selection rules: `CLAUDE.md`; settings: `.claude/settings.json`, `.claude/agents/`. Claude only; Codex is not
+  affected.
+- Consequences: the session model and effort come from the committed settings, so a session started with another
+  model in the app may still need `/model` or `/effort`. Worker branches stay local; the PR rule (D-014) is unchanged.
