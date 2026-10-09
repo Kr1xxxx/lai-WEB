@@ -4,6 +4,14 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — 客户设置 A2 on `claude/customer-settings-2`, first batch run with the D-017 workflow: Opus wrote the spec and
+  plan, Sonnet workers built it in parallel worktrees (W-A follow/deal/activity/followup model, W-B pool rules v2 —
+  then W-C settings tabs, W-D customer flows — then W-E speed-up), Opus merged, fixed and an Opus reviewer checked it.
+  Five new tabs (公海管理, 客户跟进规则, 客户成交规则, 动态设置, 写跟进设置); the old 公海规则 dialog is gone. Review fixes:
+  a saved old pool rule is read back switched off (it never ran by itself before; now enabled rules run daily), new
+  rules start today, mail addresses shared with pool customers are not auto-recorded, back-dated follow-ups do not
+  move times back. Tests 774 / 30, UI audit passes. Not verified: auto mail recording against a real mailbox, Mac
+  app. Remaining slowness outside A2: `buildCustomers` is O(customers × orders) and `enrich` sorts history per row.
 - 2026-10-09 — Claude — Owner said 合并 on PR #15 (D-017: Opus coordinates, Sonnet subagents in worktrees): merged
   (2de28d3). Mac build not due (cadence check after the merge). From now on sessions on this repo start with Opus 5.5
   high and the `worker` / `reviewer` agents. Next: batch A2, once the owner re-sends the three 小满 settings docs.
