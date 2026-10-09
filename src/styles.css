@@ -443,11 +443,11 @@ a,
   .popover.document-size-menu > button:hover { background: var(--brand-50); }
 }
 .document-size-motion {
-  animation: lai-document-size-in 200ms cubic-bezier(.23,1,.32,1) both;
+  animation: lai-document-size-in 200ms var(--ease-out) both;
 }
 .document-size-closing {
   pointer-events: none;
-  animation: lai-document-size-out 200ms cubic-bezier(.755,.05,.855,.06) both;
+  animation: lai-document-size-out 200ms var(--ease-exit) both;
 }
 @keyframes lai-document-size-in {
   from { opacity: 0; transform: scaleY(.8); }
@@ -470,7 +470,7 @@ a,
   padding: 8px;
 }
 .contact-menu-motion {
-  animation: lai-contact-menu-in 200ms cubic-bezier(.23, 1, .32, 1) both;
+  animation: lai-contact-menu-in 200ms var(--ease-out) both;
 }
 @keyframes lai-contact-menu-in {
   from { opacity: 0; transform: scaleY(.8); }
@@ -478,7 +478,7 @@ a,
 }
 .contact-menu-closing {
   pointer-events: none;
-  animation: lai-contact-menu-out 200ms cubic-bezier(.755, .05, .855, .06) both;
+  animation: lai-contact-menu-out 200ms var(--ease-exit) both;
 }
 @keyframes lai-contact-menu-out {
   from { opacity: var(--contact-exit-opacity, 1); transform: var(--contact-exit-transform, none); }
@@ -542,10 +542,10 @@ a,
   color: var(--color-primary-600);
 }
 .activity-sort-popover-motion {
-  animation: lai-activity-sort-in 200ms cubic-bezier(.23, 1, .32, 1) both;
+  animation: lai-activity-sort-in 200ms var(--ease-out) both;
 }
 .activity-sort-closing {
-  animation: lai-activity-sort-out 200ms cubic-bezier(.755, .05, .855, .06) both;
+  animation: lai-activity-sort-out 200ms var(--ease-exit) both;
   pointer-events: none;
 }
 @keyframes lai-activity-sort-in {
@@ -699,7 +699,7 @@ a,
   font-size: 11px;
 }
 .activity-filter-popover-motion {
-  animation: lai-activity-filter-in 200ms cubic-bezier(.08, .82, .17, 1) both;
+  animation: lai-activity-filter-in 200ms var(--ease-out) both;
 }
 .activity-filter-closing {
   pointer-events: none;
@@ -775,11 +775,11 @@ a,
   line-height: 22px;
 }
 .tag-popover-motion {
-  animation: lai-tag-popover-in 200ms cubic-bezier(.08, .82, .17, 1) both;
+  animation: lai-tag-popover-in 200ms var(--ease-out) both;
 }
 .tag-popover-closing {
   pointer-events: none;
-  animation: lai-tag-popover-out 200ms cubic-bezier(.6, .04, .98, .34) both;
+  animation: lai-tag-popover-out 200ms var(--ease-exit) both;
 }
 @keyframes lai-tag-popover-in {
   from { opacity: 0; transform: translateY(100%); }
