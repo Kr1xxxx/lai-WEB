@@ -60,6 +60,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 
 - Several sessions work at once; the web trial page is shared, so publishing from a branch hides other unmerged
   work until it merges.
-- macOS CI minutes cost 10× on a private repository (2,000 free minutes ≈ 200 macOS minutes a month).
+- macOS CI minutes cost 10× on a private repository (2,000 free minutes ≈ 200 macOS minutes a month); Claude's
+  Mac builds therefore run only every 10th merge (D-016), so a Mac-only break can sit on `main` for a while.
 - Many unit tests assert on source text and break on refactors; `tests/e2e/` is the reference for behaviour.
 - The Mac app is ad-hoc signed, not notarized: first launch needs right-click → 打开.

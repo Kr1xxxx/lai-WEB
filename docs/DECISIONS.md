@@ -25,6 +25,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-013 | Branch from `main`, merge back after acceptance | Superseded by D-014 |
 | D-014 | One PR per change; small ones merge themselves, big ones wait for 合并 | Accepted |
 | D-015 | Moderate verification for small features | Accepted |
+| D-016 | Mac build cadence: Claude every 10th merge, others every PR | Accepted |
 
 ---
 
@@ -101,9 +102,19 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   (`scripts/classify-pr.mjs`): small changes merge themselves when every check is green; big ones get the
   `needs-owner` label and wait until the owner writes 合并. Definitions: `AGENTS.md`, "Merging". Merge commits,
   not squash.
+- Limit: at most 500 changed lines in `src/` for a small PR (owner raised it from 350 on 2026-10-09).
 - Consequences: the only cost is GitHub Actions minutes. The Mac build runs on macOS runners, which a private
-  repository pays for at 10× the Linux rate; CI skips it when a PR touches only docs and tests.
+  repository pays for at 10× the Linux rate; how often it runs is D-016.
 
 ### D-015 Moderate verification for small features (2026-10-07)
 - Decision: small features should be done quickly, with moderate verification — the automated tests plus a short
   walk-through — not a heavy review. Bigger modules still get an independent review.
+
+### D-016 Mac build cadence (2026-10-09)
+- Context: macOS minutes cost 10× on a private repository.
+- Decision: for Claude, the Mac build runs once every 10 updates: Claude PRs (`claude/*`) skip it, and `main` is
+  built after every 10th merged Claude PR. Exception: a Claude PR that changes `native/` or `scripts/build.py`
+  still builds, because Swift only compiles on a Mac. This applies to Claude only; Codex and people keep the Mac
+  build on every PR that changes the app. The instruction for Claude is in `CLAUDE.md` (Codex does not read it).
+- Consequences: up to nine Claude merges can reach `main` before a Mac build checks them. The owner can ask for a
+  build at any time (manual CI run on `main`, which also produces a downloadable app).

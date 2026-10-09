@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — PR #2 (docs only) merged itself: auto-merge works. Owner raised the small-PR limit to
+  500 lines of `src/` (D-014) and set the Mac build to every 10th merged Claude PR, Claude only (D-016,
+  `scripts/mac-cadence.mjs`, instruction in `CLAUDE.md`). Waits for 合并.
 - 2026-10-09 — Claude — Owner said 合并: merged PR #1 (handoff rules, merge policy, e2e tests, CI) into `main`
   (545bcc8). This log entry is PR #2, a docs-only change, to check that small PRs merge by themselves.
 - 2026-10-08 — Claude — Handoff rules from the owner's multi-agent standard (reference: Kr1xxxx/Clipbox):

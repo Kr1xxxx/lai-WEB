@@ -23,7 +23,7 @@ For company developers and AI agents. Read `AGENTS.md` first.
 - Target `main` and fill in the template: what changed, how it was verified, what was not verified, what the
   owner needs to decide.
 - CI (`.github/workflows/ci.yml`) runs: `tests` (model and tool tests), `browser end-to-end`, `mac build +
-  integration` (skipped when only docs and tests change), and on PRs `handoff updated` (fails if the app changed
+  integration` (when it runs: `docs/DECISIONS.md` D-016), and on PRs `handoff updated` (fails if the app changed
   without `docs/HANDOFF.md`). All must be green.
 - CI then runs `merge policy` (`scripts/classify-pr.mjs`): small PRs merge themselves; big ones get the
   `needs-owner` label and wait. Label new/removed features and layout changes `major` yourself.
