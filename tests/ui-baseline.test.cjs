@@ -96,8 +96,8 @@ test('the pink and orange themes define the same colour variables and nothing bl
 test('the chosen theme is stored in laiSettings.theme, applied to <html>, and switched from 设置', () => {
   const app = read('src/app.js');
   const ui = read('src/business-ui.js');
-  assert.match(app, /const THEME_IDS = \["xiaoman", "pink", "orange"\];/);
-  assert.match(app, /const theme = THEME_IDS\.includes\(id\) \? id : "xiaoman";/);
+  assert.match(app, /const THEME_IDS = \["pink", "orange", "xiaoman"\];/);
+  assert.match(app, /const theme = THEME_IDS\.includes\(id\) \? id : "pink";/);
   assert.match(app, /document\.documentElement\.dataset\.skin = theme === "xiaoman" \? "classic" : "glass";/, '粉色、橙色用新界面皮肤，小满保持原来的界面');
   const skin = read('src/skin-glass.css');
   assert.doesNotMatch(skin.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{]*\{((?:[^{}]*\{[^}]*\})*)\s*\}/g, '$1').replace(/:root\[data-skin="glass"\][^{]*\{[^}]*\}/g, ''), /\S/, '新皮肤的每条规则都限定在 data-skin="glass" 下，不影响小满');
@@ -113,4 +113,17 @@ test('the workbench has no second-level navigation column, other pages keep thei
   const css = read('src/customer-replica.css');
   assert.match(css, /\.subnav\[hidden\] ~ \.main\s*\{\s*left:\s*72px;/s);
   assert.match(css, /\.subnav\[hidden\]\s*\{\s*display:\s*none;/s);
+});
+
+test('pink is the default colour, and every colour option in 设置 has its own preview picture', () => {
+  const ui = read('src/business-ui.js');
+  const css = read('src/business.css');
+  assert.match(ui, /THEME_CHOICES = \[\["pink", "粉色（默认）"\]/);
+  assert.match(ui, /settings\.theme\) \? settings\.theme : "pink"/, 'the picker highlights pink when nothing was chosen');
+  assert.match(tokens, /:root,\s*:root\[data-theme="pink"\]\s*\{/, 'pink also applies before data-theme is written');
+  assert.doesNotMatch(tokens, /:root,\s*:root\[data-theme="xiaoman"\]/);
+  for (const id of ['pink', 'orange', 'xiaoman']) {
+    assert.match(ui, /class="theme-preview" data-preview="\$\{id\}"/);
+    if (id !== 'pink') assert.match(css, new RegExp(`\\.theme-preview\\[data-preview="${id}"\\]\\s*\\{[^}]*--pv-nav`), `${id} preview has its own colours`);
+  }
 });
