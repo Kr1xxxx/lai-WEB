@@ -72,6 +72,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 15 | 顶栏去掉 "Lai" 文字，"来财" 字标改成更圆润的互联网风格 | Done | Claude | Inline SVG text with round-joined stroke; macOS 圆体 (Yuanti SC) first in the font list, so no font is bundled. "AI" tag and version kept |
 | 18 | 点顶栏版本号弹出版本更新历史（`src/changelog.js` 是维护的来源，有用户看得见的改动就往最新一版里加一条） | In progress | Claude | PR touches `scripts/build.py` + `src/template.html` (new script marker), so CI runs the Mac build; under 500 lines, merged under the owner's 2026-10-09 rule |
 | 19 | Applied transitions.dev (Jakub Antalik) where it fits: toast fades with blur and scale (open slower than close), switch thumb springs. Tokens in `ui-tokens.css` | In progress | Claude | Skill's reduced-motion guards left out (owner decision); other 30 transitions not adopted |
+| 20 | Click outside closes popups without data entry (version history, 关于, 客户操作, 管理常用, confirmations, 导入记录, 标签管理 none…); popups with forms/inputs and 新建/编辑客户, 导入, 客群, 显示设置 stay open | In progress | Claude | Press must also start outside (dragging text out of an input does not close) |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner
