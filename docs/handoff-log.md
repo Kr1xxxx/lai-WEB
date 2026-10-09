@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner asked for a version number at the top-left of the web trial, +0.01 for every update, starting at 1.01,
+  and for the version to be reported at the end of every update. `scripts/web-trial/version.json` + `build.py` (the top bar's version
+  chip next to the logo shows `v1.01` instead of the app's 1.4.x, which stays in the 关于来财 drawer and the chip's tooltip; `--bump`
+  adds 0.01); the rule is in `AGENTS.md` (Web trial). A first try with a separate fixed label collided with the logo and the search box
+  at narrow widths and was dropped. Checked at 1440×900 / 1280×720 / 1100×700 in all three skins. Published v1.01 (Artifact Version 3).
+  Tests: `test_release_tools.py` (9), model 780.
 - 2026-10-09 — Claude — Owner wrote 合并 for PR #22 (rail pill, `main` 2475597). UI audit on the trial page built from the branch
   (pink and orange, three window sizes, no click-font check): 0 page errors, 0 native selects, 0 left-rail overlaps, within
   baseline. Web trial republished to the same Artifact (Version 2) from `main` 2475597; browser check of the built page: 7

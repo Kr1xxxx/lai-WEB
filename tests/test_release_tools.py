@@ -190,3 +190,19 @@ class WebTrialBuild(unittest.TestCase):
         self.assertNotIn('</body>', html[-200:])
         self.assertIn('<div id="app">', html)
         self.assertTrue(html.rstrip().endswith('</script>'))
+
+    def test_trial_version_is_shown_and_bumped_by_one_hundredth(self):
+        spec = importlib.util.spec_from_file_location('lai_web_trial_build3', ROOT / 'scripts/web-trial/build.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        version = module.read_version()
+        self.assertRegex(version, r'^\d+\.\d\d$')
+        for before, after in [('1.01', '1.02'), ('1.09', '1.10'), ('1.99', '2.00'), ('2.10', '2.11')]:
+            self.assertEqual(module.next_version(before), after)
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'lai-web.html'
+            with patch.object(sys, 'argv', ['build.py', '--out', str(out)]), contextlib.redirect_stdout(io.StringIO()):
+                module.main()
+            html = out.read_text(encoding='utf8')
+        self.assertEqual(html.count('id="lai-trial-version"'), 1)
+        self.assertIn('>v' + version + '</span>', html)

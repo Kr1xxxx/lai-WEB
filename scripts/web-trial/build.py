@@ -13,6 +13,9 @@ Placement (same order the older published page used): vendored scripts where the
 them; data-shim.js, mail-demo.js, demo-seed.js, data-panel.js together right before the app's own
 script (the last <script>), so they run before the app reads its data.
 
+The page shows its own version (v1.01) in the top-left corner, in the version chip next to the logo (in place of the app's 1.4.x), read from scripts/web-trial/version.json. Every
+update adds 0.01: run with --bump to do that, then build, and say the version when you report.
+
 --publish writes the form the Artifact tool wants: the publisher adds its own <!doctype>, <html>, <head> and
 <body>, so those (and the charset/viewport metas it also adds) are removed and the title becomes 来财Lai.
 
@@ -22,6 +25,7 @@ The script stops instead of guessing when a template marker or vendored file is 
 """
 import argparse
 import importlib.util
+import json
 import os
 import re
 import sys
@@ -34,6 +38,7 @@ VENDOR = [
 ]
 SHELL_START = '<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>来财Lai · 客户管理</title>'
 SHELL_END = '</script></body></html>'
+VERSION_FILE = os.path.join(REPO, 'scripts/web-trial/version.json')
 EXTRA = ['data-shim.js', 'mail-demo.js', 'demo-seed.js', 'data-panel.js']
 
 
@@ -50,6 +55,31 @@ def script(text, name, escape_replacement_char=False):
     if '</script' in text.lower():
         sys.exit(f'STOP: {name} contains "</script", it cannot be inlined')
     return '<script>\n' + text.rstrip('\n') + '\n</script>'
+
+
+def read_version():
+    with open(VERSION_FILE, encoding='utf8') as handle:
+        version = json.load(handle)['version']
+    major, _, minor = version.partition('.')
+    if not (major.isdigit() and len(minor) == 2 and minor.isdigit()):
+        sys.exit(f'STOP: {VERSION_FILE} must hold a version like "1.01", got {version!r}')
+    return version
+
+
+def next_version(version):
+    hundredths = int(version.replace('.', '')) + 1
+    return f'{hundredths // 100}.{hundredths % 100:02d}'
+
+
+def add_version_chip(html, version):
+    # The top bar's version chip (next to the logo) shows the trial's own version here instead of the app's
+    # 1.4.x; the app version is still in the 关于来财 drawer and in the chip's tooltip.
+    old = '<span class="app-version" aria-label="当前版本 ${APP_VERSION}">v${APP_VERSION}</span>'
+    if html.count(old) != 1:
+        sys.exit('STOP: expected the top bar version chip exactly once in the page')
+    chip = (f'<span class="app-version" id="lai-trial-version" title="网页试用版 {version}（应用版本 ${{APP_VERSION}}）" '
+            f'aria-label="网页试用版版本 {version}">v{version}</span>')
+    return html.replace(old, chip, 1)
 
 
 def to_fragment(html):
@@ -74,9 +104,16 @@ def assemble():
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--out', required=True)
+    parser.add_argument('--bump', action='store_true', help='add 0.01 to scripts/web-trial/version.json first')
     parser.add_argument('--publish', action='store_true', help='write the fragment form the Artifact tool wraps itself')
     opts = parser.parse_args()
-    html = assemble()
+    version = read_version()
+    if opts.bump:
+        version = next_version(version)
+        with open(VERSION_FILE, 'w', encoding='utf8') as handle:
+            json.dump({'version': version}, handle)
+            handle.write('\n')
+    html = add_version_chip(assemble(), version)
     for tag, path in VENDOR:
         if html.count(tag) != 1:
             sys.exit(f'STOP: expected {tag} exactly once in the template')
@@ -94,6 +131,7 @@ def main():
         html = to_fragment(html)
     with open(opts.out, 'w', encoding='utf8') as handle:
         handle.write(html)
+    print('version', version)
     print('wrote', opts.out, len(html.encode('utf8')), 'bytes')
 
 

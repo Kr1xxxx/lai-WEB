@@ -33,7 +33,7 @@
 
 ## 文件
 
-- `build.py`：从仓库直接做出整页（不需要线上页面）。
+- `build.py`：从仓库直接做出整页（不需要线上页面）。页面左上角（标志旁边的版本标签）显示试用版自己的版本号，来自 `version.json`（从 1.01 起）；每次发布不管多小都加 0.01：`build.py --bump`，汇报时写上版本号。
 - `data-shim.js`：数据替身，用浏览器本地存储模拟本机数据服务（`/api/data`、`/api/save` 等），并提供 `window.LaiWebTrial`；
   存不了数据时留在页面内存里。测试：`tests/web-trial-shim.test.cjs`。
 - `rebuild.py`：以线上页面为底的重建脚本。
