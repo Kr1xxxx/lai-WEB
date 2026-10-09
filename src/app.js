@@ -3277,13 +3277,14 @@
       ["building", "企业管理", null, "building"],
     ];
     return (
+      `<div class="rail-scroll">` +
       items
       .map(
         ([i, label, route, duo]) =>
           `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`,
       )
       .join("") +
-      `<button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
+      `</div><button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
     );
   }
   // ---- 常用导航：心形标志 ----
@@ -3464,7 +3465,7 @@
     flyout.dataset.menu = label;
     flyout.innerHTML = flyoutPanel(label);
     rail.after(flyout);
-    const top = rail.offsetTop + item.offsetTop - rail.scrollTop;
+    const top = rail.offsetTop + item.offsetTop - (item.closest(".rail-scroll")?.scrollTop || 0);
     const bottomLimit = rail.offsetTop + rail.offsetHeight - 8;
     flyout.style.top = `${Math.max(rail.offsetTop, Math.min(top, bottomLimit - flyout.offsetHeight))}px`;
   }

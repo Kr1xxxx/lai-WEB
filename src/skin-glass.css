@@ -30,11 +30,12 @@
 
 /* 左栏：浅色玻璃，当前模块用深色底 + 金色图标 */
 :root[data-skin="glass"] .rail {
-  z-index: 6; left: 12px; top: 68px; bottom: 12px; width: 68px; padding: 8px 6px; gap: 2px; box-sizing: border-box;
+  --rail-pitch: calc((100vh - 160px) / 13); --rail-max-h: 52px; --rail-max-gap: 2px;
+  z-index: 6; left: 12px; top: 68px; bottom: 12px; width: 68px; padding: 8px 6px; box-sizing: border-box;
   background: var(--glass-bg); -webkit-backdrop-filter: var(--skin-blur); backdrop-filter: var(--skin-blur);
   border: 1px solid var(--glass-line); border-radius: var(--skin-radius); box-shadow: none; color: rgb(var(--skin-ink-rgb));
 }
-:root[data-skin="glass"] .rail-item { width: 100%; flex: 0 0 auto; min-height: 52px; border-radius: 11px; font-size: 11px; font-weight: 500; line-height: 16px; }
+:root[data-skin="glass"] .rail-item { width: 100%; flex: 0 0 var(--rail-item-h); height: var(--rail-item-h); min-height: 0; border-radius: 11px; font-size: 11px; font-weight: 500; line-height: 16px; }
 :root[data-skin="glass"] .rail-item .icon { width: 18px; height: 18px; stroke-width: 1.9; }
 :root[data-skin="glass"] .rail-item:first-child .icon { fill: none; stroke: currentColor; }
 :root[data-skin="glass"] .rail-item:first-child:after { display: none; }
@@ -42,7 +43,7 @@
 :root[data-skin="glass"] .rail-item.active,
 :root[data-skin="glass"] .rail-item.active:hover { background: rgb(var(--skin-ink-rgb)); color: #fff; box-shadow: none; }
 :root[data-skin="glass"] .rail-item.active .icon { stroke: var(--skin-gold); }
-:root[data-skin="glass"] .rail-refresh { position: sticky; left: auto; right: auto; bottom: 0; margin-top: auto; background: var(--glass-bg); box-shadow: none; color: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .rail-refresh { position: relative; width: 100%; height: 52px; margin: 4px 0 0; background: transparent; box-shadow: none; color: rgb(var(--skin-ink-rgb)); }
 :root[data-skin="glass"] .rail-refresh::before { display: none; }
 :root[data-skin="glass"] .rail-refresh .icon { stroke: var(--brand-500); }
 
@@ -563,3 +564,14 @@
 :root[data-skin="glass"] .follow-options input { width: 16px !important; height: 16px !important; }
 /* 客户编辑表单（快速新建、编辑客户）的输入框原来是 4px 圆角、灰边，和其他输入框的 8px 不一致 */
 :root[data-skin="glass"] .ce-body :is(input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), select, textarea) { border-radius: 8px; border-color: rgba(var(--skin-ink-rgb), 0.14); }
+
+/* 左栏：窗口矮时入口变紧凑（要放在 .icon-duo 的尺寸规则之后） */
+@media (max-height: 800px) {
+  :root[data-skin="glass"] .rail-item { gap: 1px; line-height: 14px; }
+  :root[data-skin="glass"] .rail-item .icon, :root[data-skin="glass"] .rail-item .icon-duo { width: 19px; height: 19px; }
+}
+@media (max-height: 700px) {
+  :root[data-skin="glass"] .rail-item { font-size: 10px; line-height: 12px; }
+  :root[data-skin="glass"] .rail-item .icon, :root[data-skin="glass"] .rail-item .icon-duo { width: 16px; height: 16px; }
+  :root[data-skin="glass"] .rail-refresh { height: 44px; }
+}

@@ -284,6 +284,13 @@ input::placeholder {
   display: none;
 }
 .rail {
+  /* 13 个入口平分左栏的高度：窗口矮了入口自动变紧凑，一屏放得下；再矮才在 .rail-scroll 里滚动。
+     「刷新」在滚动区外面，永远占着左栏底部自己的位置，不会盖住入口。 */
+  --rail-pitch: calc((100vh - 152px) / 13);
+  --rail-max-h: 56px;
+  --rail-max-gap: 12px;
+  --rail-gap: clamp(0px, calc(var(--rail-pitch) - 46px), var(--rail-max-gap));
+  --rail-item-h: clamp(36px, calc(var(--rail-pitch) - var(--rail-gap)), var(--rail-max-h));
   position: absolute;
   left: 0;
   top: 56px;
@@ -297,15 +304,29 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 16px 0;
+  padding: 16px 0 8px;
+  overflow: hidden;
+}
+.rail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rail-gap);
   overflow-y: auto;
   scrollbar-width: none;
 }
+.rail-scroll::-webkit-scrollbar {
+  display: none;
+}
 .rail-item {
   width: 56px;
-  min-height: 56px;
-  flex: 0 0 56px;
+  height: var(--rail-item-h);
+  min-height: 0;
+  flex: 0 0 var(--rail-item-h);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -323,6 +344,31 @@ input::placeholder {
   width: 22px;
   height: 22px;
   stroke-width: 1.4;
+}
+@media (max-height: 800px) {
+  .rail-item {
+    gap: 1px;
+    font-size: 11px;
+    line-height: 14px;
+  }
+  .rail-item .icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+@media (max-height: 700px) {
+  .rail-item {
+    gap: 0;
+    font-size: 10px;
+    line-height: 12px;
+  }
+  .rail-item .icon {
+    width: 17px;
+    height: 17px;
+  }
+  .rail-refresh {
+    height: 44px;
+  }
 }
 .rail-item:first-child .icon {
   fill: var(--ink-400);
@@ -352,15 +398,13 @@ input::placeholder {
 .rail-item.active:hover {
   background: var(--brand-700);
 }
-/* 「刷新」排在入口后面：窗口够高时贴在左栏底部，入口多了、窗口矮了时左栏滚动，刷新按钮始终停在底部，不会盖住最后一项 */
 .rail-refresh {
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
+  position: relative;
   flex: none;
+  height: 56px;
+  margin: 8px 0 0;
   z-index: 1;
   background: var(--brand-900);
-  box-shadow: 0 -13px 18px 8px var(--brand-900);
 }
 .rail-refresh::before {
   content: "";
