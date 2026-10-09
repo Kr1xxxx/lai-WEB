@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner said 合并 on PR #12 (merge policy from `main`'s copy): merged (1308c75). PR #11 (test waits, handoff
+  status, features.json) had merged itself. This log entry is a docs-only PR, the first one judged by the new
+  `merge-policy.yml`, to check that it runs after CI and merges a small PR.
 - 2026-10-09 — Claude — Merge policy hardened (owner asked to tidy the rules): the small/big decision moved out of
   `ci.yml` into `.github/workflows/merge-policy.yml`, which runs after CI via `workflow_run` and always uses
   `main`'s workflow and scripts, so a PR can no longer edit `classify-pr.mjs` to merge itself (simulated: the
