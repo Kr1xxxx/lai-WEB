@@ -7,6 +7,8 @@
   --blue: var(--color-primary-500);
   --line: var(--color-neutral-200);
   --muted: var(--color-neutral-500);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 * {
   box-sizing: border-box;
@@ -42,7 +44,19 @@ button:hover {
   background: var(--color-primary-50);
 }
 button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.96);
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+td,
+th {
+  font-variant-numeric: tabular-nums;
 }
 button:disabled {
   opacity: 0.45;

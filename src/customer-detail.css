@@ -749,7 +749,7 @@
   padding: 0 4px;
   flex-shrink: 0;
   font-size: 14px;
-  transition: all var(--motion-tab-indicator) ease;
+  transition: color var(--motion-tab-indicator) ease, background-color var(--motion-tab-indicator) ease, border-color var(--motion-tab-indicator) ease;
 }
 .lcd-tabs button.active {
   color: var(--color-primary-500);
