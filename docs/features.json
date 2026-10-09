@@ -544,6 +544,21 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "opportunity-attachments",
+   "area": "opportunities",
+   "description": "商机详情抽屉、附件（上传、列表、删除）、卡片拖动",
+   "steps": [
+    "Open 商机, 新建商机 (pick a customer and contact)",
+    "Click the card name to open the detail drawer",
+    "Attach a file, see it listed, reload, delete it"
+   ],
+   "e2e": "opportunity-attachments.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }
