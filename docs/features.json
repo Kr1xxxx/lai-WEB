@@ -454,6 +454,51 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "customer-settings-pool",
+   "area": "customers",
+   "description": "客户设置 → 公海管理: several auto-move rules (no contact / no deal, groups, start date), daily auto-run, reminders, whitelist, claim limits, hidden pool contacts, move reasons",
+   "steps": [
+    "客户设置 → 公海管理 → 新建规则: start date defaults to today",
+    "立即执行 moves a due customer into 公海客户 with a 公海规则 line in its 动态",
+    "公海客户 → 领回客户: pick the 跟进人; 原跟进人 block and 领取上限 refuse with a message",
+    "Move a customer to the pool with a required reason"
+   ],
+   "e2e": "tests/e2e/customer-settings-a2.e2e.mjs, tests/e2e/customer-flows-a2.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "customer-settings-follow-deal",
+   "area": "customers",
+   "description": "客户设置 → 客户跟进规则 / 客户成交规则: which actions count as 最近联系 / 最近跟进; deals by orders or won opportunities; detail page shows 最近成交时间",
+   "steps": [
+    "客户跟进规则: unchecking every box shows an error; saving changes 最近联系 in the list",
+    "客户成交规则: switch to 按商机 and back"
+   ],
+   "e2e": "tests/e2e/customer-settings-a2.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "customer-settings-followup",
+   "area": "customers",
+   "description": "客户设置 → 写跟进设置 and 动态设置: back-dated follow-ups, follow-up templates (选择模板 in 写跟进 and 批量写跟进), auto-recording mail with customer contacts",
+   "steps": [
+    "Add a template group and text, then 客户详情 → 写跟进 → 选择模板 inserts it",
+    "Allow past times: 写跟进 shows 跟进时间; a future time is refused",
+    "动态设置: switch on; mail after that moment is recorded once (needs a real mailbox: Mac only)"
+   ],
+   "e2e": "tests/e2e/customer-flows-a2.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

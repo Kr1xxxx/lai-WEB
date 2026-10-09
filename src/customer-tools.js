@@ -214,64 +214,286 @@ function batchCreate(state,text,defaults={},at=new Date().toISOString()){
 }
 
 // ============ 公海规则 ============
-const DEFAULT_POOL_RULES=Object.freeze({enabled:false,noFollowDays:90,skipOpenOrders:true,skipTags:[],skipFollowed:true});
-function poolRules(state){
-  const r=state?.laiSettings?.poolRules||{};
-  const days=Math.floor(Number(r.noFollowDays));
+// 存在 state.laiSettings.poolRules（v2）。旧版（一条「未跟进天数」规则）读取时自动变成一条名为「N 天未联系」的规则。
+// 规则：kind=noContact 按最近联系时间算，noDeal 按最近成交时间算；groups 为空表示所有客户；
+// 一位客户同时命中几条规则时，取离到期最近（dueInDays 最小）的那一条。
+const MAX_RULES=10,MAX_WHITELIST=200,MAX_REASONS=30;
+const DEFAULT_POOL_RULES=Object.freeze({
+  version:2,rules:Object.freeze([]),remindDays:7,whitelist:Object.freeze([]),skipOpenOrders:true,skipFollowed:true,skipTags:Object.freeze([]),
+  reclaimBlockDays:0,claimLimit:Object.freeze({periodDays:1,defaultLimit:0,perOwner:Object.freeze({})}),
+  showPoolContacts:true,requireReason:false,reasons:Object.freeze([])
+});
+const KINDS=['noContact','noDeal'];
+const isPlain=v=>v&&typeof v==='object'&&!Array.isArray(v);
+const intIn=(v,min,max)=>{
+  if(v===''||v===null||v===undefined||typeof v==='boolean')return NaN;
+  const n=Number(v);
+  return Number.isInteger(n)&&n>=min&&n<=max?n:NaN;
+};
+const validDate=v=>{
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if(!m)return false;
+  const d=new Date(+m[1],+m[2]-1,+m[3]);
+  return d.getFullYear()===+m[1]&&d.getMonth()===+m[2]-1&&d.getDate()===+m[3];
+};
+const uniqueList=v=>[...new Set((Array.isArray(v)?v:[]).map(trim).filter(Boolean))];
+const newRuleId=()=>`r${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`;
+// 把旧版（没有 rules 数组、有 noFollowDays）换成 v2 的写法。
+function fromV1(raw,strict,stored){
+  const hasV1=['enabled','noFollowDays','skipOpenOrders','skipTags','skipFollowed'].some(k=>raw[k]!==undefined);
+  if(!hasV1)return [];
+  const days=Math.floor(Number(raw.noFollowDays));
+  if(!Number.isFinite(days)||days<1||days>3650){
+    if(strict)throw new Error('未跟进天数请填 1–3650 之间的整数');
+    return [{id:'legacy',name:'90 天未联系',enabled:!stored&&raw.enabled===true,kind:'noContact',days:90,groups:[],startDate:''}];
+  }
+  // 存着的旧规则以前只在点「立即执行」时才动；现在开着就每天自动执行，所以读出来先关着，等老板看过预览再打开。
+  return [{id:'legacy',name:`${days} 天未联系`,enabled:!stored&&raw.enabled===true,kind:'noContact',days,groups:[],startDate:''}];
+}
+// strict=true：校验并报中文错误；strict=false：坏值回到默认值或丢掉，不报错。
+function buildRule(r,strict){
+  const fail=msg=>{if(strict)throw new Error(msg);return null;};
+  if(!isPlain(r))return fail('规则格式不对');
+  const name=trim(r.name);
+  if(!name||name.length>20)return fail('规则名称请填 1–20 个字');
+  const days=intIn(r.days,1,3650);
+  if(Number.isNaN(days))return fail('天数请填 1–3650 之间的整数');
+  let kind=r.kind;
+  if(kind===undefined||kind===null||kind==='')kind='noContact';
+  if(!KINDS.includes(kind)){if(strict)throw new Error('规则类型不对');kind='noContact';}
+  let groups=[];
+  if(Array.isArray(r.groups))groups=uniqueList(r.groups);
+  else if(r.groups!==undefined&&r.groups!==null&&strict)throw new Error('客户分组格式不对');
+  let startDate=trim(r.startDate);
+  if(startDate&&!validDate(startDate)){if(strict)throw new Error('开始日期请填 YYYY-MM-DD');startDate='';}
+  return {id:trim(r.id)||newRuleId(),name,enabled:r.enabled===true,kind,days,groups,startDate};
+}
+function buildRules(list,strict){
+  if(list.length>MAX_RULES&&strict)throw new Error('最多 10 条规则');
+  const out=[],names=new Set(),ids=new Set();
+  for(const item of list.slice(0,MAX_RULES)){
+    const rule=buildRule(item,strict);
+    if(!rule)continue;
+    const key=rule.name.toLowerCase();
+    if(names.has(key)){if(strict)throw new Error('规则名称不能重复');continue;}
+    names.add(key);
+    if(ids.has(rule.id)){if(strict)throw new Error('规则编号重复');rule.id=newRuleId();}
+    ids.add(rule.id);
+    out.push(rule);
+  }
+  return out;
+}
+function buildPool(raw,strict,stored=false){
+  raw=isPlain(raw)?raw:{};
+  const d=DEFAULT_POOL_RULES;
+  const num=(v,min,max,def,msg)=>{
+    if(v===undefined||v===null)return def;
+    const n=intIn(v,min,max);
+    if(Number.isNaN(n)){if(strict)throw new Error(msg);return def;}
+    return n;
+  };
+  let list;
+  if(Array.isArray(raw.rules))list=raw.rules;
+  else if(raw.rules!==undefined&&raw.rules!==null&&strict)throw new Error('规则格式不对');
+  else list=fromV1(raw,strict,stored);
+  const rules=buildRules(list,strict);
+  const remindDays=num(raw.remindDays,0,30,d.remindDays,'提前提醒天数请填 0–30');
+  const reclaimBlockDays=num(raw.reclaimBlockDays,0,365,d.reclaimBlockDays,'原跟进人限制天数请填 0–365');
+  const cl=isPlain(raw.claimLimit)?raw.claimLimit:{};
+  const periodDays=num(cl.periodDays,1,365,d.claimLimit.periodDays,'领取统计天数请填 1–365');
+  const defaultLimit=num(cl.defaultLimit,0,100000,0,'领取上限请填 0–100000，0 表示不限');
+  const perOwner={};
+  if(isPlain(cl.perOwner))for(const [k,v] of Object.entries(cl.perOwner)){
+    const owner=trim(k);
+    if(!owner||v===null||v===undefined||v==='')continue;
+    const n=intIn(v,0,100000);
+    if(Number.isNaN(n)){if(strict)throw new Error('领取上限请填 0–100000，0 表示不限');continue;}
+    perOwner[owner]=n;
+  }
+  let whitelist=uniqueList(raw.whitelist).map(n=>n.slice(0,120));
+  whitelist=[...new Set(whitelist)];
+  if(whitelist.length>MAX_WHITELIST){if(strict)throw new Error('白名单最多 200 人');whitelist=whitelist.slice(0,MAX_WHITELIST);}
+  const rawReasons=(Array.isArray(raw.reasons)?raw.reasons:[]).map(trim).filter(Boolean);
+  let reasons=[...new Set(rawReasons)];
+  if(strict&&rawReasons.some(r=>r.length>20))throw new Error('原因最多 20 个字');
+  if(strict&&reasons.length!==rawReasons.length)throw new Error('原因不能重复');
+  reasons=reasons.filter(r=>r.length<=20);
+  if(reasons.length>MAX_REASONS){if(strict)throw new Error('最多 30 个原因');reasons=reasons.slice(0,MAX_REASONS);}
   return {
-    enabled:r.enabled===true,
-    noFollowDays:Number.isFinite(days)&&days>=1&&days<=3650?days:DEFAULT_POOL_RULES.noFollowDays,
-    skipOpenOrders:r.skipOpenOrders!==false,
-    skipTags:M.tags(r.skipTags),
-    skipFollowed:r.skipFollowed!==false
+    version:2,rules,remindDays,whitelist,
+    skipOpenOrders:raw.skipOpenOrders!==false,skipFollowed:raw.skipFollowed!==false,skipTags:M.tags(raw.skipTags),
+    reclaimBlockDays,claimLimit:{periodDays,defaultLimit,perOwner},
+    showPoolContacts:raw.showPoolContacts!==false,requireReason:raw.requireReason===true,reasons
   };
 }
-function setPoolRules(state,input){
-  const days=Math.floor(Number(input.noFollowDays));
-  if(!Number.isFinite(days)||days<1||days>3650)throw new Error('未跟进天数请填 1–3650 之间的整数');
-  const rules={enabled:input.enabled===true,noFollowDays:days,skipOpenOrders:input.skipOpenOrders!==false,skipTags:M.tags(input.skipTags),skipFollowed:input.skipFollowed!==false};
-  return {...state,laiSettings:{...(state.laiSettings||{}),poolRules:rules}};
+function poolRules(state){return buildPool(state?.laiSettings?.poolRules,false,true);}
+function store(state,rules){
+  const kept=state?.laiSettings?.poolRules?.lastAutoRun;
+  const saved=kept?{...rules,lastAutoRun:kept}:rules;
+  return {...state,laiSettings:{...(state.laiSettings||{}),poolRules:saved}};
+}
+function setPoolRules(state,input){return store(state,buildPool(input,true));}
+function savePoolRule(state,rule){
+  const cur=poolRules(state);
+  const id=trim(rule&&rule.id);
+  const index=id?cur.rules.findIndex(r=>r.id===id):-1;
+  const rules=cur.rules.slice();
+  if(index>=0)rules[index]={...rule,id};
+  else{
+    if(rules.length>=MAX_RULES)throw new Error('最多 10 条规则');
+    rules.push({...rule,id:id||newRuleId()});
+  }
+  return setPoolRules(state,{...cur,rules});
+}
+function deletePoolRule(state,id){
+  const cur=poolRules(state);
+  if(!cur.rules.some(r=>r.id===id))throw new Error('规则不存在');
+  return setPoolRules(state,{...cur,rules:cur.rules.filter(r=>r.id!==id)});
+}
+
+// 建档时间：档案里最早的一个时间。
+function creationTime(profile){
+  const base=[profile.createdAt,...(Array.isArray(profile.history)?profile.history.map(h=>h?.time):[])].map(time).filter(Number.isFinite);
+  return base.length?Math.min(...base):NaN;
 }
 // 最近一次动静：写过的跟进、订单、邮件往来；都没有就用建档时间。
 function lastActivity(state,name,profile){
   const stamps=[profile.lastFollowup,profile.lastWrittenFollowup,profile.lastPrivatePoolEntry];
   for(const h of Array.isArray(profile.history)?profile.history:[])if(h&&['followup','mail'].includes(h.type))stamps.push(h.time);
   for(const o of state.orders||[])if(o.client===name)stamps.push(o.createdAt,o.updated);
-  let t=stamps.map(time).filter(Number.isFinite);
-  if(!t.length){
-    const base=[profile.createdAt,...(Array.isArray(profile.history)?profile.history.map(h=>h?.time):[])].map(time).filter(Number.isFinite);
-    if(base.length)t=[Math.min(...base)];
-  }
-  return t.length?Math.max(...t):NaN;
+  const t=stamps.map(time).filter(Number.isFinite);
+  if(t.length)return Math.max(...t);
+  return creationTime(profile);
 }
-function poolCandidates(state,rules=poolRules(state),now=new Date()){
+// customer-settings-model.js 的 contactTimes / lastDealDate 由别的任务加；用到才取，没有就退回旧算法。
+const settingsModel=()=>typeof module!=='undefined'&&module.exports?require('./customer-settings-model.js'):root.LaiCustomerSettings;
+function lastDealOf(state,name){
+  const stamps=(state.orders||[]).filter(o=>o.client===name&&!o.isDraft&&['shipment','done'].includes(o.stage)).map(o=>time(o.shippedAt||o.createdAt)).filter(Number.isFinite);
+  return stamps.length?new Date(Math.max(...stamps)).toISOString():'';
+}
+const defaultTimes=Object.freeze({
+  lastContact(state,name){
+    const CS=settingsModel();
+    if(CS&&typeof CS.contactTimes==='function')return trim(CS.contactTimes(state,name)?.lastContact);
+    const t=lastActivity(state,name,profiles(state)[name]||{});
+    return Number.isFinite(t)?new Date(t).toISOString():'';
+  },
+  lastDeal(state,name){
+    const CS=settingsModel();
+    if(CS&&typeof CS.lastDealDate==='function')return trim(CS.lastDealDate(state,name));
+    return lastDealOf(state,name);
+  }
+});
+// 规则里选了一级分组，它下面的子分组也算。
+const groupMatches=(rule,group)=>{
+  if(!rule.groups.length)return true;
+  const g=trim(group);
+  return !!g&&rule.groups.some(p=>g===p||g.startsWith(`${p} / `));
+};
+const groupsOf=(row,profile)=>{
+  const g=row.group??profile.previewGroup??profile.customerGroup;
+  return Array.isArray(g)?g.map(trim):[trim(g)];
+};
+// 每位在用中的客户，取离到期最近的一条规则。dueInDays<=0 就是已到期。
+function evaluate(state,rules,now,times,only){
+  rules=buildPool(rules,false);
+  const active=rules.rules.filter(r=>r.enabled);
+  if(!active.length)return [];
   const out=[];
   const openStages=new Set(['quote','deposit','production','balance']);
-  for(const row of M.buildCustomers(state)){
+  const white=new Set(rules.whitelist);
+  let openClients=null;
+  const hasOpenOrder=name=>{
+    if(!openClients)openClients=new Set((state.orders||[]).filter(o=>o&&!o.isDraft&&openStages.has(o.stage)).map(o=>o.client));
+    return openClients.has(name);
+  };
+  // 只算一位客户时，只拿这一位的订单和资料来建行（行只取决于这两样），不用把所有客户都建一遍。
+  const source=only?{...state,orders:(state.orders||[]).filter(o=>o.client===only),customers:Object.hasOwn(state.customers||{},only)?{[only]:state.customers[only]}:{}}:state;
+  for(const row of M.buildCustomers(source)){
+    if(only&&row.name!==only)continue;
     const p=profiles(state)[row.name]||{};
     if(bucketOf(p)!=='active')continue;
-    if(!trim(row.owner))continue; // 没有跟进人的客户不算「被放着不管」
+    const owner=trim(row.owner);
+    if(!owner||white.has(owner))continue; // 没有跟进人的客户不算「被放着不管」
     if(rules.skipFollowed&&p.previewFollowed===true)continue;
     if(rules.skipTags.length&&M.tags(p.tags).some(t=>rules.skipTags.includes(t)))continue;
-    if(rules.skipOpenOrders&&(state.orders||[]).some(o=>o.client===row.name&&!o.isDraft&&openStages.has(o.stage)))continue;
-    const last=lastActivity(state,row.name,p);
-    if(!Number.isFinite(last))continue;
-    const days=Math.floor((now.getTime()-last)/86400000);
-    if(days>=rules.noFollowDays)out.push({name:row.name,owner:row.owner,days,lastActivity:isoDay(new Date(last))});
+    if(rules.skipOpenOrders&&hasOpenOrder(row.name))continue;
+    const groups=groupsOf(row,p);
+    let best=null;
+    // 最近联系 / 最近成交每位客户最多算一次，而且只在有规则用到时才算。
+    const memo={};
+    const timeOf=kind=>kind in memo?memo[kind]:(memo[kind]=time(kind==='noDeal'?times.lastDeal(state,row.name):times.lastContact(state,row.name)));
+    for(const rule of active){
+      if(!groups.some(g=>groupMatches(rule,g)))continue;
+      let basis=timeOf(rule.kind);
+      if(!Number.isFinite(basis))basis=creationTime(p);
+      if(!Number.isFinite(basis))continue;
+      if(rule.startDate){
+        const [y,m,d]=rule.startDate.split('-').map(Number);
+        basis=Math.max(basis,new Date(y,m-1,d).getTime());
+      }
+      const days=Math.floor((now.getTime()-basis)/86400000);
+      const dueInDays=rule.days-days;
+      if(!best||dueInDays<best.dueInDays)best={name:row.name,owner,ruleId:rule.id,ruleName:rule.name,kind:rule.kind,days,dueInDays,basis:isoDay(new Date(basis))};
+    }
+    if(best)out.push(best);
   }
-  return out.sort((a,b)=>b.days-a.days||a.name.localeCompare(b.name,'zh'));
+  return out;
 }
-function applyPoolRules(state,now=new Date()){
+function poolCandidates(state,rules=poolRules(state),now=new Date(),times=defaultTimes){
+  return evaluate(state,rules,now,times).filter(c=>c.dueInDays<=0).sort((a,b)=>b.days-a.days||a.name.localeCompare(b.name,'zh'));
+}
+function poolReminders(state,now=new Date(),times=defaultTimes){
   const rules=poolRules(state);
-  const list=poolCandidates(state,rules,now);
-  if(!list.length)throw new Error('现在没有符合公海规则的客户');
+  if(!rules.remindDays)return [];
+  return evaluate(state,rules,now,times).filter(c=>c.dueInDays>0&&c.dueInDays<=rules.remindDays).sort((a,b)=>a.dueInDays-b.dueInDays||a.name.localeCompare(b.name,'zh'));
+}
+function poolForecast(state,name,now=new Date(),times=defaultTimes){
+  const rules=poolRules(state);
+  const hit=evaluate(state,rules,now,times,name)[0];
+  if(!hit||(hit.dueInDays>0&&hit.dueInDays>rules.remindDays))return null;
+  return {ruleName:hit.ruleName,dueInDays:hit.dueInDays};
+}
+function applyPoolRules(state,now=new Date(),times=defaultTimes){
+  const list=poolCandidates(state,poolRules(state),now,times);
+  if(!list.length)return {state,moved:[]};
   const at=now.toISOString();
-  let next=LM.moveCustomers(state,list.map(c=>c.name),'pool',at);
+  let next=state;
+  const byRule=new Map();
+  for(const c of list)byRule.set(c.ruleId,[...(byRule.get(c.ruleId)||[]),c]);
+  // 历史记录下面统一写（带天数），所以这里让 moveCustomers 不再写一条。
+  for(const group of byRule.values())next=LM.moveCustomers(next,group.map(c=>c.name),'pool',at,{reason:group[0].ruleName,history:false});
   const customers={...next.customers};
-  for(const c of list)customers[c.name]={...customers[c.name],history:[{time:at,text:`公海规则：${c.days} 天没有跟进，自动移入公海`,type:'operation'},...(customers[c.name].history||[])]};
+  for(const c of list)customers[c.name]={...customers[c.name],history:[{time:at,text:`公海规则「${c.ruleName}」：${c.days} 天没有${c.kind==='noContact'?'联系':'成交'}，自动移入公海`,type:'operation'},...(customers[c.name].history||[])]};
   return {state:{...next,customers},moved:list};
 }
+const localDay=now=>isoDay(now instanceof Date?now:new Date(now));
+// 一天自动执行一次：有开着的规则，且今天还没执行过。
+function autoRunDue(state,now=new Date()){
+  if(!poolRules(state).rules.some(r=>r.enabled))return false;
+  return trim(state?.laiSettings?.poolRules?.lastAutoRun)!==localDay(now);
+}
+function markAutoRun(state,now=new Date()){
+  const stored=isPlain(state?.laiSettings?.poolRules)?state.laiSettings.poolRules:poolRules(state);
+  return {...state,laiSettings:{...(state.laiSettings||{}),poolRules:{...stored,lastAutoRun:localDay(now)}}};
+}
+const poolContactsVisible=state=>poolRules(state).showPoolContacts;
+// 领回记录在客户资料的 poolClaims 里（moveCustomers 写入，每位客户留最近 20 条）。
+function claimCount(state,owner,now=new Date()){
+  const who=trim(owner),since=now.getTime()-poolRules(state).claimLimit.periodDays*86400000;
+  let n=0;
+  for(const p of Object.values(profiles(state)))
+    for(const c of Array.isArray(p&&p.poolClaims)?p.poolClaims:[]){
+      const t=time(c&&c.time);
+      if(c&&trim(c.owner)===who&&Number.isFinite(t)&&t>since&&t<=now.getTime())n++;
+    }
+  return n;
+}
+function claimLimitFor(state,owner){
+  const cl=poolRules(state).claimLimit,who=trim(owner);
+  return Object.hasOwn(cl.perOwner,who)?cl.perOwner[who]:cl.defaultLimit;
+}
 
-const api={mergePreview,mergeCustomers,tagStats,renameTag,deleteTag,parseBatch,batchCreate,DEFAULT_POOL_RULES,poolRules,setPoolRules,poolCandidates,applyPoolRules};
+const api={mergePreview,mergeCustomers,tagStats,renameTag,deleteTag,parseBatch,batchCreate,DEFAULT_POOL_RULES,poolRules,setPoolRules,savePoolRule,deletePoolRule,defaultTimes,poolCandidates,poolReminders,poolForecast,applyPoolRules,autoRunDue,markAutoRun,poolContactsVisible,claimCount,claimLimitFor};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiCustomerTools=api;
 })(typeof window!=='undefined'?window:globalThis);
