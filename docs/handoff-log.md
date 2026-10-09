@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — PR #2 (docs only) merged itself: auto-merge works. Owner raised the small-PR limit to
+  500 lines of `src/` (D-014) and set the Mac build to every 10th merged Claude PR, Claude only (D-016,
+  `scripts/mac-cadence.mjs`, instruction in `CLAUDE.md`). Waits for 合并.
 - 2026-10-09 — Claude — Owner said 合并 on PR #4 (date picker, Monday-first week): merged into `main` (3dca7b3), all checks
   green. Web trial republished as Version 44 from `main` plus the four still-unmerged UI branches (`claude/rail-layout`,
   `claude/unify-dropdowns`, `claude/truncation`, `claude/ui-audit-plan`); those four are not PRs yet (task 2).

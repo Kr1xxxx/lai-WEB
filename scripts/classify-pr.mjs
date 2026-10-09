@@ -5,8 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-// Measured on main (2026-10-08): merged fixes changed 5–93 lines of src/, merged features 460+.
-export const UI_LINE_LIMIT = 350;
+// Owner raised the limit from 350 to 500 on 2026-10-09 (D-014). Past merges: fixes 5–93 lines of src/, features 460+.
+export const UI_LINE_LIMIT = 500;
 
 // Changes to how the product or the process works — always the owner's call.
 //   native/  : the Mac app shell          backend/ : local server, data storage, mail
