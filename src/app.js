@@ -4972,6 +4972,13 @@
       $("#app").innerHTML = shell(html);
     },
     save: persist,
+    // 商机附件：读取文件、JSON 请求、上传文件（请求体就是文件内容）。
+    request: (path, payload) =>
+      fetch(path, payload === undefined
+        ? { cache: "no-store" }
+        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+    upload: (path, file) =>
+      fetch(path, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file }),
     openCustomer: (name) => navigateApp("customers", name),
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,
