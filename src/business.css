@@ -1873,7 +1873,7 @@ td.team-reached {
   color: #1f2d45;
 }
 .lead-tabs button[aria-selected="true"] {
-  border-bottom-color: #0a6aff;
+  border-bottom-color: var(--brand-500);
   font-weight: 600;
   color: #0a4fc4;
 }
@@ -1985,11 +1985,11 @@ td.team-reached {
   color: #1f2d45;
 }
 .lead-actions button:hover {
-  border-color: #0a6aff;
+  border-color: var(--brand-500);
   color: #0a4fc4;
 }
 .lead-actions .lead-convert {
-  border-color: #0a6aff;
+  border-color: var(--brand-500);
   color: #0a4fc4;
 }
 .lead-danger,
@@ -2092,8 +2092,8 @@ td.team-reached {
   font-size: 13px;
 }
 .lead-detail-actions button.primary {
-  border-color: #0a6aff;
-  background: #0a6aff;
+  border-color: var(--brand-500);
+  background: var(--brand-500);
   color: #fff;
 }
 .lead-detail-actions .lead-danger {

@@ -15,6 +15,7 @@ const app = read('src/app.js');
 // 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
+  'route:leads', 'route:lead-trash',
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
   'route:dashboard',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
