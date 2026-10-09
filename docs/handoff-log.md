@@ -7,6 +7,9 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
 - 2026-10-09 — Claude — Truncated text (`claude/truncation`): order numbers are never cut off any more (the column is wide
   enough and has no ellipsis); any other text cut with … or a line clamp shows its full text on hover
   (`src/truncation-title.js`, new file, wired in `scripts/build.py` and `src/template.html`). Owner said 合并. Not yet on the Mac app.
+- 2026-10-09 — Claude — Left rail (`claude/rail-layout`): the rail's scrolling entries and the refresh button are now separate, so
+  they can no longer overlap; the 13 entries fit the window height. Layout change, so labelled `major`. Owner said 合并.
+  Checked in a headless browser at 1440×900 and small heights; not yet on the Mac app.
 - 2026-10-09 — Claude — PR #2 (docs only) merged itself: auto-merge works. Owner raised the small-PR limit to
   500 lines of `src/` (D-014) and set the Mac build to every 10th merged Claude PR, Claude only (D-016,
   `scripts/mac-cadence.mjs`, instruction in `CLAUDE.md`). Waits for 合并.

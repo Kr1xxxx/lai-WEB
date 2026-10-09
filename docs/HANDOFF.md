@@ -26,7 +26,7 @@ rule 5).
 | `claude/leads` | 线索 module: list, follow-ups, convert to customer, trash | Was on the web trial; owner has not accepted yet |
 | `claude/opportunity-attachments` | Opportunity detail drawer, attachments, card drag | Touches `backend/` → big |
 | `claude/lai-reliability-numbering-1.4.127` | 1.4.127: mail reliability, backups, totals, order numbers | Conflicts with the two above in `backend/server.js`, `backend/storage.js`, `src/business-ui.js`, `src/business.css` |
-| `claude/rail-layout` | Left rail: entries scroll separately from the refresh button | From 2026-10-09 (Taipei) |
+| `claude/rail-layout` | Left rail: entries scroll separately from the refresh button | PR #6, owner said 合并 (2026-10-09) |
 | `claude/unify-dropdowns` | One custom dropdown for every select (D-010) | From 2026-10-09 (Taipei) |
 | `claude/truncation` | Order numbers never cut off; truncated text shows its full text on hover | PR #7, owner said 合并 (2026-10-09) |
 | `claude/ui-audit-plan` | `UI_CHECKLIST.md` + a CLAUDE.md line | Its CLAUDE.md line must move into AGENTS.md now |
