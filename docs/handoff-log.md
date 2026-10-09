@@ -4,6 +4,11 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner wrote 合并 for PR #22 (rail pill, `main` 2475597). UI audit on the trial page built from the branch
+  (pink and orange, three window sizes, no click-font check): 0 page errors, 0 native selects, 0 left-rail overlaps, within
+  baseline. Web trial republished to the same Artifact (Version 2) from `main` 2475597; browser check of the built page: 7
+  customers / 9 orders, save, stale save 409, reload keeps data, no errors. Not done: nothing open from this batch; owner still
+  decides the motion pass, 客户类型 as a list column, a Mac build to download. Next: the waiting branches (leads first).
 - 2026-10-09 — Claude — Owner merged #21 (web trial build tooling; `main` bb24626) and asked to change how the selected left-rail
   item looks. Showed four options as screenshots, owner picked the pill, then said the effect must include the text: the whole
   rail item (icon and label) is now a brand-colour pill with white icon and bold white label, no left bar (`src/skin-glass.css`,

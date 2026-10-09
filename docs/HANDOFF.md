@@ -18,11 +18,11 @@
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
 - Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016) since PR #3. From PR #12 on, the
   decision runs in `merge-policy.yml` from `main`'s copy and merged branches are kept.
-- Last Mac build on `main`: 302e6b2 (20th Claude merge, PR #19), green: build, integration test and package passed; artifact `Lai-app-302e6b2…` in that CI run.
+- Last Mac build on `main`: 302e6b2 (20th Claude merge, PR #19; the next one is due after the 30th), green: build, integration test and package passed; artifact `Lai-app-302e6b2…` in that CI run.
 - Web trial: the old page (Version 45, `main` 6941054, A1) could not be read from the current account, so the page was rebuilt
   from the repo alone: `python3 -I scripts/web-trial/build.py --publish --out lai-artifact.html` (data stand-in:
-  `scripts/web-trial/data-shim.js`). New private Artifact https://claude.ai/artifact/QkmN2BDTSYYnox6BhzDNwD, built from `main`
-  7e74221 (A2). It holds no data from the old page. `rebuild.py` still works for an existing live page.
+  `scripts/web-trial/data-shim.js`). New private Artifact https://claude.ai/artifact/QkmN2BDTSYYnox6BhzDNwD, Version 2 built from `main`
+  2475597 (A2 + rail pill). It holds no data from the old page. `rebuild.py` still works for an existing live page.
 - How Claude works (D-017, PR #15 merged 2026-10-09): Opus 5.5 high coordinates; subagents default to Sonnet 5.5 medium and
   run in parallel git worktrees (`.claude/settings.json`, `.claude/agents/`, rules in `CLAUDE.md`).
 
@@ -60,7 +60,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 8 | Module reviews carried over: orders, workbench/calendar, stats (old A3–A5) | Todo | — | See `docs/archive/NEXT_STEPS.md` for the old acceptance criteria |
 | 9 | 沟通 (communication) module — which chat tool | Blocked | Owner | Needs his choice |
 | 11 | Opus coordinator + Sonnet subagents in worktrees (D-017) | Done | Claude | PR #15 merged 2026-10-09 (owner said 合并) |
-| 12 | 左栏选中效果改成玫红药丸（图标加文字都在药丸里），粉色、橙色界面 | In progress | Claude | Branch `claude/vibrant-allen-dgr7be`; labelled `major`, waits for 合并; then republish the web trial (D-012) |
+| 12 | 左栏选中效果改成玫红药丸（图标加文字都在药丸里），粉色、橙色界面 | Done | Claude | PR #22 merged 2026-10-09 (owner said 合并), `main` 2475597; web trial republished (Version 2). Mac not walked through |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner
