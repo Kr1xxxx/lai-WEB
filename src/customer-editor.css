@@ -34,9 +34,6 @@
     transition: transform var(--motion-fast) var(--ease-out);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .drawer.customer-editor .drawer-head .editor-follow:active { transform: none; }
-}
 .ce-body.drawer-body {
   padding: 16px 24px;
   overflow: auto;
@@ -216,9 +213,6 @@
 .customer-editor-unsaved .company-display-unsaved-message strong, .segment-editor-unsaved .company-display-unsaved-message strong { font-size: 14px; line-height: 22px; }
 .customer-editor-unsaved::after, .segment-editor-unsaved::after { right: calc(50% - 7px); }
 .customer-editor-unsaved[data-placement="left"]::after, .segment-editor-unsaved[data-placement="left"]::after { right: -7px; top: 10px; bottom: auto; }
-@media (prefers-reduced-motion: reduce) {
-  .company-display-row { transition: none; }
-}
 .ce-icon {
   display: inline-block;
   width: 16px;
@@ -757,16 +751,6 @@
   }
   .ce-helper {
     white-space: normal;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ce-switch,
-  .ce-switch:after,
-  .ce-contact-card {
-    transition: none;
-  }
-  .ce-contact-card.ce-contact-enter {
-    animation: lai-contact-fade 80ms linear both !important;
   }
 }
 @keyframes lai-contact-fade {

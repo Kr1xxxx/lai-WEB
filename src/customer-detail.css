@@ -49,15 +49,6 @@
     transform: translateY(0);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .lcd-view-enter,
-  .lcd-filter-enter {
-    animation: lai-detail-fade-in 80ms linear both !important;
-  }
-  .lcd-view-exit {
-    animation: lai-detail-fade-out 60ms linear both !important;
-  }
-}
 @keyframes lai-detail-fade-in {
   from {
     opacity: 0;
@@ -997,9 +988,6 @@
   .lcd-operation-detail dl { grid-template-columns: minmax(0, 1fr); }
   .lcd-operation-detail dl > div:last-child:nth-child(odd) { grid-column: auto; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .lcd-activity-detail { transition: opacity 80ms linear !important; }
-}
 .lcd-timeline-owner {
   margin: 5px 0 10px;
 }
@@ -1270,9 +1258,6 @@
 @keyframes lai-activity-refresh-pulse {
   50% { opacity: .45; transform: rotate(-12deg); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .lcd-activity-refreshing svg { animation: none; }
-}
 .lcd-button-group {
   display: flex;
   white-space: nowrap;
@@ -1384,9 +1369,6 @@
   font-size: 12px;
   line-height: 16px;
   color: #666;
-}
-@media (prefers-reduced-motion: reduce) {
-  .lcd-activity-search-field { transition: none; }
 }
 .lcd-activity-list [data-activity-filter] {
   padding: 0 12px;
@@ -1689,7 +1671,6 @@
 .lcd-root .lcd-activity-arrow:hover { color: #333; background: transparent; }
 .lcd-root .lcd-activity-arrow[hidden] { display: none; }
 .lcd-activity-arrow .icon { width: 14px; height: 14px; }
-@media (prefers-reduced-motion: reduce) { .lcd-activity-list { transition: none; } }
 
 .lcd-phases .lcd-phase.is-current {
   font-weight: 700;

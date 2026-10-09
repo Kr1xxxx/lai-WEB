@@ -739,7 +739,7 @@
     tab = nextTab;
     replaceDetailBody(c);
     const nav = root.querySelector(".lcd-tabs");
-    const instantTabs = !pointerActivated || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const instantTabs = !pointerActivated;
     if (instantTabs) nav.classList.add("lcd-tabs-instant-commit");
     for (const button of root.querySelectorAll(".lcd-tabs button[data-tab]")) {
       const active = button.dataset.tab === tab;
@@ -2454,7 +2454,7 @@
       if (!row || !list || labels.get(id).required && targetGroup !== "common") return;
       const sameGroup = row.parentElement === list;
       if (sameGroup && beforeId === id) return;
-      const canAnimate = animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const canAnimate = animate;
       const beforeRects = canAnimate && sameGroup
         ? new Map([...list.children].map((item) => [item, item.getBoundingClientRect()]))
         : null;
@@ -3019,7 +3019,7 @@
     el.setAttribute("aria-expanded", String(open));
     $(`[data-toggle-branch="${id}"]`)?.setAttribute("aria-expanded", String(open));
     el.querySelector("i").textContent = open ? "▾" : "▸";
-    if (open && pointer && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (open && pointer) {
       const last = panel.firstElementChild?.lastElementChild;
       if (last) {
         panel.style.height = `${Math.max(0, last.getBoundingClientRect().bottom - panel.getBoundingClientRect().top)}px`;
@@ -3748,7 +3748,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function customerTagEditor(anchor, pointerActivated = false) {
     const name = currentName;
@@ -3878,7 +3878,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function closeActivityAdvancedFilterMenu(restoreFocus = false, animate = false) {
     const box = $(".activity-filter-popover");
@@ -3904,7 +3904,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function activityAdvancedFilterMenu(anchor, pointerActivated = false) {
     const customer = allCustomerRows().find((row) => row.name === currentName);
@@ -4072,7 +4072,7 @@
         box.remove();
       };
       box.addEventListener("animationend", finish, { once: true });
-      box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+      box._closeTimer = setTimeout(finish, 240);
     }
   }
   function closeDocumentSizeMenu(restoreFocus = false, animate = false) {
@@ -4099,7 +4099,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function removePopover() {
     const box = $(".popover");
@@ -4121,7 +4121,7 @@
     const trigger = box._trigger;
     trigger?.setAttribute("aria-expanded", "false");
     if (restoreFocus || box.contains(document.activeElement)) trigger?.focus();
-    if (!animate || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (!animate) {
       box.remove();
       return;
     }
