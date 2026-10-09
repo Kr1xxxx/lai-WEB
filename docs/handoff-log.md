@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner said 合并 (twice: PR #3, then the four UI branches). Merged PR #3 (small-PR limit 500, Mac build
+  cadence; I merged `main` into its branch first because of docs conflicts), then PR #6 left rail, #7 truncation, #8
+  dropdowns, #9 UI audit. `main` is now 91906aa. The web trial (Version 44) was built from the same code, so nothing
+  was republished. Mac build is not due yet (9 Claude PRs merged). Next: task 2 (leads → attachments → 1.4.127).
 - 2026-10-09 — Claude — UI audit (`claude/ui-audit-plan`): `UI_CHECKLIST.md` (what to look at after any UI change) and
   `scripts/ui-audit/` (finds covered elements, native selects, mixed dropdown styles and font/colour jumps on click;
   runs against the web trial; `baseline.json`). `AGENTS.md` now tells agents to run it after UI changes. The earlier
