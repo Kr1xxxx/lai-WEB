@@ -684,7 +684,7 @@
   height: 12px;
   border-radius: 50%;
   background: #fff;
-  transition: transform var(--motion-fast) var(--ease-out);
+  transition: transform var(--toggle-dur) var(--ease-bounce);
 }
 .ce-footer-switches input:checked + .ce-switch {
   background: var(--brand-500);
