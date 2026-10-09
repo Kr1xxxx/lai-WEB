@@ -6,7 +6,7 @@ try {
   Motion = require("../src/customer-motion.js");
 } catch {}
 
-function motionSurface(reducedMotion = false) {
+function motionSurface() {
   const targets = new Map();
   for (const selector of [".lcd-root", ".lcd-body", ".customer-main"]) {
     const target = new EventTarget();
@@ -15,9 +15,6 @@ function motionSurface(reducedMotion = false) {
       add: (...values) => values.forEach((value) => names.add(value)),
       remove: (...values) => values.forEach((value) => names.delete(value)),
       contains: (value) => names.has(value),
-    };
-    target.ownerDocument = {
-      defaultView: { matchMedia: () => ({ matches: reducedMotion }) },
     };
     targets.set(selector, target);
   }
@@ -74,9 +71,9 @@ test("entry motion also clears when WebKit does not deliver animationend", async
   assert.equal(detail.classList.contains("lcd-view-enter"), false);
 });
 
-test("return waits for detail exit, including the reduced-motion fade", async () => {
+test("return waits for detail exit", async () => {
   assert.equal(typeof Motion.exitDetail, "function");
-  const surface = motionSurface(false);
+  const surface = motionSurface();
   let finished = false;
   const leaving = Motion.exitDetail(surface.root, { fallbackMs: 1000 }).then(
     () => {
@@ -92,25 +89,11 @@ test("return waits for detail exit, including the reduced-motion fade", async ()
   surface.target(".lcd-root").dispatchEvent(new Event("animationend"));
   await leaving;
   assert.equal(finished, true);
-
-  const reduced = motionSurface(true);
-  let reducedFinished = false;
-  const reducedExit = Motion.exitDetail(reduced.root, { fallbackMs: 1000 }).then(
-    () => { reducedFinished = true; },
-  );
-  await Promise.resolve();
-  assert.equal(reducedFinished, false);
-  reduced.target(".lcd-root").dispatchEvent(new Event("animationend"));
-  await reducedExit;
-  assert.equal(
-    reduced.target(".lcd-root").classList.contains("lcd-view-exit"),
-    true,
-  );
 });
 
-test("opening a customer waits for list exit, including the reduced-motion fade", async () => {
+test("opening a customer waits for list exit", async () => {
   assert.equal(typeof Motion.exitList, "function");
-  const surface = motionSurface(false);
+  const surface = motionSurface();
   let finished = false;
   const leaving = Motion.exitList(surface.root, { fallbackMs: 1000 }).then(
     () => {
@@ -126,20 +109,6 @@ test("opening a customer waits for list exit, including the reduced-motion fade"
   surface.target(".customer-main").dispatchEvent(new Event("animationend"));
   await leaving;
   assert.equal(finished, true);
-
-  const reduced = motionSurface(true);
-  let reducedFinished = false;
-  const reducedExit = Motion.exitList(reduced.root, { fallbackMs: 1000 }).then(
-    () => { reducedFinished = true; },
-  );
-  await Promise.resolve();
-  assert.equal(reducedFinished, false);
-  reduced.target(".customer-main").dispatchEvent(new Event("animationend"));
-  await reducedExit;
-  assert.equal(
-    reduced.target(".customer-main").classList.contains("customer-list-exit"),
-    true,
-  );
 });
 
 

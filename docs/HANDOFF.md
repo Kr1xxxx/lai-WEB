@@ -66,7 +66,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 14 | Unified motion: rail pill eases (160 ms), hover timings use `--motion-*` tokens, guard test | Done | Claude | PR #27; drawer/tab 240–300 ms timings left as they are |
 | 14 | 顶栏左上角加上新图标（美金投币口），在 "来财Lai" 字样前面 | Done | Claude | PR #28 merged 2026-10-09 (`main` 183718f), owner rule: under 500 lines merges without asking. The .icns (#25) only reaches the Mac Dock; this adds the icon to the page top bar. Web trial republished (Version 5). Text colours not changed |
 | 15 | Motion curves ported from Arc Library (MIT): `--ease-out/-exit/-in-out/-drawer`; menus, popovers, drawers use them | Done | Claude | Real arc-library components need a dependency decision |
-| 16 | Removed reduced-motion handling everywhere (owner decision); animations always run | Done | Claude | One line in `VALIDATION.md`; revert by restoring the media blocks from git |
+| 16 | Removed reduced-motion handling everywhere (owner decision): CSS, scripts, helper, tests, docs; animations always run | Done | Claude | Old `scripts/*-acceptance.mjs` still emulate it; not run in CI |
 | 17 | 界面配色默认粉色；设置里每个配色选项加预览图（选项顺序：粉色、橙色、小满） | Done | Claude | PR #32；已选小满或橙色的人不变 |
 | 17 | UI detail polish from make-interfaces-feel-better (font smoothing, tabular digits in tables and order/opportunity lists, press scale 0.96, no `transition: all`) | Done | Claude | Owner wants these rules applied on every UI change |
 | 15 | 顶栏去掉 "Lai" 文字，"来财" 字标改成更圆润的互联网风格 | In progress | Claude | Inline SVG text with round-joined stroke; macOS 圆体 (Yuanti SC) first in the font list, so no font is bundled. "AI" tag and version kept |

@@ -9,7 +9,7 @@ const read = (f) => fs.readFileSync(path.join(src, f), 'utf8');
 test('hover and colour transitions use the shared motion tokens, not loose numbers', () => {
   for (const f of ['business.css', 'customer-editor.css', 'customer-replica.css', 'skin-glass.css']) {
     const bad = read(f).split('\n').filter((l) =>
-      /transition:[^;]*\b(0\.12s|120ms|150ms)\b/.test(l) && !/prefers-reduced-motion/.test(l));
+      /transition:[^;]*\b(0\.12s|120ms|150ms)\b/.test(l));
     assert.deepEqual(bad.map((l) => l.trim()), [], `${f} still has hard-coded fast timings`);
   }
 });
