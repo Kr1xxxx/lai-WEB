@@ -1,3 +1,6 @@
+> **Archived on 2026-10-08 — out of date, do not follow.** Current rules: `AGENTS.md`, `docs/DECISIONS.md`;
+> current status and tasks: `docs/HANDOFF.md`. 已归档，内容过时，不要照做。
+
 # 来财 Lai 项目进度说明
 
 记录日期：2026-10-06（Asia/Taipei）。这是当前源码快照的交接说明，不是全部功能上线或用户验收通过的声明。用户已要求暂停收尾开发，先上传私人 GitHub 仓库并整理进度；本次没有继续修改产品功能、安装程序或操作正式数据。

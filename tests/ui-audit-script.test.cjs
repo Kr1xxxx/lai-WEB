@@ -17,5 +17,5 @@ test("脚本覆盖清单里的几项自动检查，并有说明文档", () => {
   for (const word of ["covered", "nativeSelects", "triggerStyles", "fontDiffs", "baseline"]) assert.match(script, new RegExp(word));
   const readme = fs.readFileSync(path.join(dir, "README.md"), "utf8");
   for (const word of ["被遮挡", "原生下拉框", "点击前后字体", "基线"]) assert.match(readme, new RegExp(word));
-  assert.match(fs.readFileSync(path.join(__dirname, "../CLAUDE.md"), "utf8"), /scripts\/ui-audit\/ui-audit\.cjs/);
+  assert.match(fs.readFileSync(path.join(__dirname, "../AGENTS.md"), "utf8"), /scripts\/ui-audit\/ui-audit\.cjs/);
 });

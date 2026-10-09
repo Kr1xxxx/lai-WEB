@@ -1,0 +1,109 @@
+# Decision records
+
+Decisions the owner (Kris) has made. Ask the owner before changing one. When a decision changes, set the old
+entry's status to "Superseded by D-xxx" and add a new entry — do not delete history.
+Format follows lightweight architecture decision records (ADR): number, status, context, decision, consequences.
+Statuses: Accepted / Superseded / Deprecated.
+
+Business-rule details chosen while building a feature (field lists, defaults, how a number is counted) are not
+listed here; they are in `VALIDATION.md`, and the owner can change them afterwards (D-003).
+
+| # | Decision | Status |
+| --- | --- | --- |
+| D-001 | A local macOS app; data stays on the Mac | Accepted |
+| D-002 | OKKI CRM (小满) is the reference product | Accepted |
+| D-003 | Build each module deeply in one go; no placeholder entries | Accepted |
+| D-004 | Only irreversible real-world actions need the owner's go-ahead | Accepted |
+| D-005 | Synthetic data only; formal import stays disabled until complete | Accepted |
+| D-006 | No 回款 (payment collection) and no 海关数据 (customs data) | Accepted |
+| D-007 | Mail: Zoho Mail with an app-specific password | Accepted |
+| D-008 | Colour themes: 小满 blue by default, pink and orange as options | Accepted |
+| D-009 | Left rail and entries | Accepted |
+| D-010 | Look and feel | Accepted |
+| D-011 | Prefer mature open-source code over hand-written code | Accepted |
+| D-012 | Publish the web trial after every change; Claude tests it itself | Accepted |
+| D-013 | Branch from `main`, merge back after acceptance | Superseded by D-014 |
+| D-014 | One PR per change; small ones merge themselves, big ones wait for 合并 | Accepted |
+| D-015 | Moderate verification for small features | Accepted |
+
+---
+
+### D-001 A local macOS app (2026-09)
+- Decision: 来财Lai is a standalone macOS app (macOS 13.5+). A Swift shell runs a local Node server bound to
+  127.0.0.1 with SQLite in `~/Library/Application Support/LaiCRM`. The owner installs builds on his own Mac to
+  accept them.
+- Consequences: "我的客户／团队客户" and owner names are not real accounts or permissions yet. Company-wide sharing
+  (accounts, roles, central server) is a separate, undecided project — see the task board.
+
+### D-002 Reference product (2026-09)
+- Decision: follow OKKI CRM (小满) for features, layout and behaviour, including the mail module's 邮件／客户／下属
+  tabs and the left-rail flyouts with a 常用 (favorites) sub-nav.
+
+### D-003 Build each module deeply (2026-10-06, replaces "confirm first / defer")
+- Decision: each module is built far enough to do real work in one go. Do not stop at a skeleton, do not leave
+  "功能入口已保留" placeholder entries, do not cut a feature into small steps that are useless on their own, do not
+  default to the smallest option. Do not stop to ask about new business fields or rules: decide from the
+  reference product and common practice, write the choice in `VALIDATION.md`, tell the owner afterwards.
+  Common-sense calls (names differing only in case, spaces or full/half-width are the same person) are made, not asked.
+
+### D-004 Irreversible actions (2026-10-06)
+- Decision: only actions that cannot be taken back need the owner's go-ahead at the time: sending mail or messages
+  from a real account, paying, changing or deleting his real business data. Building these features does not.
+- Credentials (mail passwords and similar) live only on the owner's Mac — never in code, docs, tests or commits.
+
+### D-005 Data safety (2026-09, kept 2026-10-06)
+- Decision: test only with synthetic data (`docs/samples/`, test fixtures); never upload business data; never
+  install, replace or launch the owner's installed app; the formal import entry stays disabled until preview,
+  commit, rollback and logging are complete.
+
+### D-006 Modules ruled out (2026-10-07)
+- Context: on 2026-10-06 the earlier deferral of 回款, 海关数据 and external communication was lifted.
+- Decision: the owner then decided not to build 回款 (payment collection) or 海关数据 (customs data). Do not
+  recommend them as next steps. External communication (mail) stays in scope.
+
+### D-007 Mail (2026-10-06)
+- Decision: Zoho Mail on zoho.com.cn, bound with an app-specific password over IMAP/SMTP; the credential is stored
+  in the local database. The mail module follows the reference product (D-002).
+
+### D-008 Colour themes (2026-10-08)
+- Decision: the UI is a colour template switchable in 设置. Default is the 小满 style (the original blue look); rose
+  pink and warm orange are optional templates. No green.
+
+### D-009 Left rail and entries (2026-10-08)
+- Decision: removed the 客服 (customer service) button and AI批量质检 (AI batch quality check). The rail entry
+  "OKKI Leads" is called "Leads" and has a 设置 option. 设置 and 企业管理 are separate rail entries; 设置 holds 设置 and
+  设置中心 (one place that collects everything configurable). The workbench has no second-level nav column.
+- Favorites (常用): nothing is a favorite by default; a heart appears on hover and marks an entry as 常用; every real
+  menu entry can be a favorite.
+
+### D-010 Look and feel (2026-10-08)
+- Decision: clean but not stark (简洁，但不特别简约). All dropdowns share one look, and the text does not change font
+  when a dropdown opens.
+
+### D-011 Mature code first (2026-10)
+- Decision: before writing a feature by hand, check whether a well-maintained open-source library or existing
+  implementation already does it, and prefer it (e.g. mail uses imapflow, nodemailer, postal-mime, Squire,
+  DOMPurify). Adding one still needs the owner's OK (AGENTS.md, "Ask the owner first").
+
+### D-012 Web trial (2026-10)
+- Decision: after every change to the app, publish the web trial page. Claude tests the published page itself in
+  its own browser (clicks and checks), not in the owner's browser. Rules for rebuilding: `scripts/web-trial/README.md`.
+
+### D-013 Branch rule (2026-10-07) — Superseded by D-014
+- Decision: every session branches from the latest `main`; after the owner accepts the work it is merged back into
+  `main`; sessions no longer share `claude/web-trial-combined`.
+
+### D-014 Pull requests and merge policy (2026-10-08)
+- Context: several sessions worked in parallel and left work unmerged on long-lived branches. The repository is
+  private on a free plan, so GitHub branch protection and native auto-merge are not available; the policy lives
+  in CI instead. The owner does not use the GitHub website.
+- Decision: still branch from `main`, but every change goes through its own PR (no batching). CI classifies it
+  (`scripts/classify-pr.mjs`): small changes merge themselves when every check is green; big ones get the
+  `needs-owner` label and wait until the owner writes 合并. Definitions: `AGENTS.md`, "Merging". Merge commits,
+  not squash.
+- Consequences: the only cost is GitHub Actions minutes. The Mac build runs on macOS runners, which a private
+  repository pays for at 10× the Linux rate; CI skips it when a PR touches only docs and tests.
+
+### D-015 Moderate verification for small features (2026-10-07)
+- Decision: small features should be done quickly, with moderate verification — the automated tests plus a short
+  walk-through — not a heavy review. Bigger modules still get an independent review.
