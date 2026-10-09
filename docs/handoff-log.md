@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner said 合并 on PR #4 (date picker, Monday-first week): merged into `main` (3dca7b3), all checks
+  green. Web trial republished as Version 44 from `main` plus the four still-unmerged UI branches (`claude/rail-layout`,
+  `claude/unify-dropdowns`, `claude/truncation`, `claude/ui-audit-plan`); those four are not PRs yet (task 2).
 - 2026-10-09 — Claude — Date and month fields (`claude/date-picker`): every `input[type=date|month]` now shows a
   Chinese flatpickr 4.6.13 calendar (vendored in `vendor/flatpickr/`, inlined by `scripts/build.py`) instead of the
   system control with `mm/dd/yyyy`; the native input stays hidden as the data carrier, so values, validation and events

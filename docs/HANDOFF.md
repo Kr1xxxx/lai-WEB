@@ -42,7 +42,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | --- | --- | --- | --- | --- |
 | 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | Done | Claude | PR #1 merged 2026-10-09 |
 | 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads → attachments → 1.4.127 → UI branches |
-| 2a | Date and month fields: one Chinese calendar (flatpickr) instead of the system control | In progress | Claude | PR from `claude/date-picker`; owner approved the library on 2026-10-09 (D-011) |
+| 2a | Date and month fields: one Chinese calendar (flatpickr) instead of the system control | Done | Claude | PR #4 merged 2026-10-09 (owner said 合并); week starts on Monday; web trial republished (Version 44) |
 | 3 | Owner walks through the Mac build from CI and records results in `docs/features.json` | Todo | Owner | Download the `Lai-app-<sha>` artifact from the PR's CI run |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo | Owner | Needs his real account (D-004) |
 | 5 | Save the web trial's data shim (lives only in the published page) into `scripts/web-trial/` | Todo | — | Until then the trial cannot be rebuilt from the repo alone |
