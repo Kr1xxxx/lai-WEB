@@ -307,7 +307,7 @@ test('the heart is drawn from one path shared with the icon set, filled or outli
   assert.doesNotMatch(css, /\.nav-star/, 'the star styles are gone');
   assert.match(rule('.nav-heart'), /opacity:\s*0;/, 'hidden by opacity, so the position stays and Tab still reaches it');
   assert.doesNotMatch(rule('.nav-heart'), /display:\s*none|visibility:\s*hidden/);
-  assert.match(rule('.nav-heart'), /transition:\s*opacity 120ms[^;]*color 120ms/);
+  assert.match(rule(".nav-heart"), /transition:\s*opacity var\(--motion-fast\)[^;]*color var\(--motion-fast\)/);
   assert.match(rule('.nav-heart'), /color:\s*var\(--ink-400\)/, 'light grey like the old star (theme token, was #a9b2c3)');
   assert.match(rule('.nav-heart-icon'), /fill:\s*none;[^}]*stroke:\s*currentColor/s);
   assert.match(rule('.nav-heart.is-favorite .nav-heart-icon'), /fill:\s*currentColor/);

@@ -487,7 +487,7 @@ input::placeholder {
   color: var(--ink-400);
   opacity: 0;
   cursor: pointer;
-  transition: opacity 120ms ease, color 120ms ease;
+  transition: opacity var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
 }
 .nav-heart-icon {
   width: 16px;
