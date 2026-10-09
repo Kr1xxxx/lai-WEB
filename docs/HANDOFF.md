@@ -63,6 +63,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 12 | 左栏选中效果改成玫红药丸（图标加文字都在药丸里），粉色、橙色界面 | Done | Claude | PR #22 merged 2026-10-09 (owner said 合并), `main` 2475597; web trial republished (Version 2). Mac not walked through |
 | 13 | App icon: 美金投币口 design (定稿 · B1 细缝, dark base) replaces `assets/AppIcon.icns`; source `assets/AppIcon.svg` | In progress | Claude | Branch `claude/project-thread-vylsq4`; touches `assets/`, so it waits for the owner's 合并. Mac app not looked at yet |
 | 14 | Unified motion: rail pill eases (160 ms), hover timings use `--motion-*` tokens, guard test | Done | Claude | PR #27; drawer/tab 240–300 ms timings left as they are |
+| 14 | 顶栏左上角加上新图标（美金投币口），在 "来财Lai" 字样前面 | In progress | Claude | Follow-up to #25: the .icns only reaches the Mac Dock, the page itself had no icon. Inline SVG in `src/app.js` topbar, 28px |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner

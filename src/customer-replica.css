@@ -71,6 +71,12 @@ input::placeholder {
   white-space: nowrap;
   pointer-events: none;
 }
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  margin-right: 8px;
+}
 .brand-cn {
   color: var(--brand-500);
   font-size: 24px;
