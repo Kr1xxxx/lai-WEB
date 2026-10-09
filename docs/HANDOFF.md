@@ -67,6 +67,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 15 | Motion curves ported from Arc Library (MIT): `--ease-out/-exit/-in-out/-drawer`; menus, popovers, drawers use them | Done | Claude | Real arc-library components need a dependency decision |
 | 16 | Removed reduced-motion handling everywhere (owner decision); animations always run | Done | Claude | One line in `VALIDATION.md`; revert by restoring the media blocks from git |
 | 17 | 界面配色默认粉色；设置里每个配色选项加预览图（选项顺序：粉色、橙色、小满） | Done | Claude | PR #32；已选小满或橙色的人不变 |
+| 17 | UI detail polish from make-interfaces-feel-better (font smoothing, tabular digits, press scale 0.96, no `transition: all`) | Done | Claude | Owner wants these rules applied on every UI change |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner
