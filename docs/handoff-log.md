@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner merged #21 (web trial build tooling; `main` bb24626) and asked to change how the selected left-rail
+  item looks. Showed four options as screenshots, owner picked the pill, then said the effect must include the text: the whole
+  rail item (icon and label) is now a brand-colour pill with white icon and bold white label, no left bar (`src/skin-glass.css`,
+  pink and orange skins; the xiaoman skin is unchanged). Item positions and heights do not change; checked at 1440×900,
+  1280×720 and 1440×640. Overrides the 2026-10-08 "only main buttons stay dark" choice, recorded in `VALIDATION.md`.
+  Tests 780 / 30. Web trial still shows the old look until this merges and the page is republished (D-012).
 - 2026-10-09 — Claude — Owner wrote 合并 for PR #19 (小满 records) and #20 (A2); both merged (`main` 7e74221, then 302e6b2).
   #19 conflicted with `main` on this log; resolved by merging `main` into its branch. Its end-to-end job hung twice on
   `playwright install` (cancelled, rerun once, then green). The 20th Claude merge made the Mac build due; CI started it by

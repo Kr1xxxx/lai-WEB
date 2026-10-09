@@ -63,10 +63,12 @@ test('tab strips, calendar cells and agenda rows keep square corners and their o
   assert.match(skin, /\.team-tabs button\[aria-selected="true"\]:hover:not\(:disabled\) \{ border-color: transparent transparent var\(--brand-700\); \}/);
 });
 
-test('the active rail item, the batch bar and the follow-up card are light; only primary buttons stay dark', () => {
+test('the active rail item is a brand pill around icon and text; the batch bar and the follow-up card are light', () => {
   const light = skin.slice(skin.indexOf('深色强调色改浅'));
   assert.ok(light.length > 100, 'section exists after the earlier dark rules, so it wins the cascade');
-  assert.match(light, /\.rail-item\.active:hover \{ background: var\(--brand-50\); color: var\(--brand-700\);/);
+  assert.match(light, /\.rail-item\.active:hover \{ background: var\(--brand-700\); color: #fff; box-shadow: [^;]*; font-weight: 700; \}/, 'the whole item, text included, is the pill');
+  assert.match(light, /\.rail-item\.active :is\(\.icon, \.icon-duo\) \{ stroke: #fff; color: #fff; \}/);
+  assert.doesNotMatch(light, /\.rail-item\.active[^{]*\{[^}]*inset 3px 0 0/, 'no left bar any more');
   assert.match(light, /\.replica-batch \{ background: #fff;[^}]*border: 1px solid var\(--brand-500\)/);
   assert.match(light, /\.wb-dark \{ background: var\(--card-bg\); color: rgb\(var\(--skin-ink-rgb\)\)/);
   assert.doesNotMatch(light, /background: rgb\(var\(--skin-ink-rgb\)\)/, 'no dark fills in this section');
