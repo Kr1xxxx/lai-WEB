@@ -32,3 +32,13 @@ test('motion no longer switches off for reduced motion (owner decision 2026-10-0
     assert.doesNotMatch(read(f), /prefers-reduced-motion/, `${f} still reads the reduced-motion setting`);
   }
 });
+
+test('UI detail rules from make-interfaces-feel-better stay in place', () => {
+  const base = read('styles.css');
+  assert.match(base, /-webkit-font-smoothing:\s*antialiased/);
+  assert.match(base, /button:active:not\(:disabled\)\s*\{\s*transform:\s*scale\(0\.96\)/);
+  assert.match(base, /td,\s*th\s*\{\s*font-variant-numeric:\s*tabular-nums/);
+  for (const f of fs.readdirSync(src).filter((n) => n.endsWith('.css'))) {
+    assert.doesNotMatch(read(f), /transition:\s*all\b/, `${f} uses transition: all`);
+  }
+});
