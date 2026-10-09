@@ -2695,45 +2695,6 @@
       if (event.key === "Enter" && event.target.classList?.contains("tag-rename-input")) { event.preventDefault(); root().querySelector("[data-tag-save]")?.click(); }
     });
   }
-  function poolRulesDialog(pointerActivated = false) {
-    const r = CT.poolRules(state);
-    drawer(
-      "公海规则",
-      `<form id="pool-rules-form" class="drawer-body pool-rules-form"><label class="check-row"><input type="checkbox" name="enabled" ${r.enabled ? "checked" : ""}> 启用规则（关闭时只保存设置，下面的预览和“立即执行”仍可使用）</label><label class="field"><span>超过多少天没有任何跟进，移入公海</span><input name="noFollowDays" type="number" min="1" max="3650" value="${r.noFollowDays}" required></label><p class="muted tiny">“跟进”包括写过的跟进记录、邮件往来、新订单；从没有跟进过的客户从建档日起算。没有跟进人的客户不处理。</p><label class="check-row"><input type="checkbox" name="skipOpenOrders" ${r.skipOpenOrders ? "checked" : ""}> 有进行中订单（报价、定金、生产中、尾款）的客户不移</label><label class="check-row"><input type="checkbox" name="skipFollowed" ${r.skipFollowed ? "checked" : ""}> 已设为关注的客户不移</label><label class="field"><span>带这些标签的客户不移（逗号分隔）</span><input name="skipTags" value="${E(r.skipTags.join("，"))}" maxlength="200"></label><div id="pool-rules-preview" class="module-note"></div><div class="error" id="workspace-error" role="alert"></div></form>`,
-      `<button type="button" data-action="close-modal">取消</button><button type="button" id="pool-rules-run">立即执行</button><button type="submit" form="pool-rules-form" class="primary">保存规则</button>`,
-      "actions",
-      pointerActivated,
-    );
-    const form = $("#pool-rules-form");
-    const read = () => ({
-      enabled: form.elements.enabled.checked, noFollowDays: form.elements.noFollowDays.value,
-      skipOpenOrders: form.elements.skipOpenOrders.checked, skipFollowed: form.elements.skipFollowed.checked,
-      skipTags: form.elements.skipTags.value,
-    });
-    const preview = () => {
-      const box = $("#pool-rules-preview");
-      try {
-        const next = CT.setPoolRules(state, read());
-        const list = CT.poolCandidates(next);
-        box.innerHTML = list.length
-          ? `按当前设置，现在有 <strong>${list.length}</strong> 位客户会被移入公海：<ul class="batch-skipped">${list.slice(0, 8).map((c) => `<li>${E(c.name)}（${E(c.owner)}，${c.days} 天没动静）</li>`).join("")}${list.length > 8 ? `<li>还有 ${list.length - 8} 位…</li>` : ""}</ul>`
-          : "按当前设置，现在没有客户需要移入公海。";
-      } catch (error) { box.textContent = error.message; }
-    };
-    form.addEventListener("input", preview);
-    form.addEventListener("change", preview);
-    preview();
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      workspaceSave(() => CT.setPoolRules(state, read()));
-    });
-    $("#pool-rules-run").onclick = () =>
-      workspaceSave(() => {
-        const ruled = CT.setPoolRules(state, read());
-        const result = CT.applyPoolRules(ruled);
-        return result.state;
-      });
-  }
   function batchOwnerDialog(clearOwner = false, pointerActivated = false) {
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
@@ -4072,14 +4033,21 @@
     customerScreen = "customer-settings";
     currentName = "";
     selected.clear();
+    // 同一个页签里保存后重新画页面，保持原来的滚动位置（公海管理很长）。
+    const sameTab = document.querySelector(`.cs-panel[data-cs-panel="${csTab}"]`);
+    const scrolled = sameTab ? sameTab.closest("main")?.scrollTop || 0 : 0;
     $("#app").innerHTML = shell(
       window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing }, E, ownerChoices()),
     );
+    if (scrolled) {
+      const main = document.querySelector(".cs-panel")?.closest("main");
+      if (main) main.scrollTop = scrolled;
+    }
   }
   // ---- 客户设置页：页签、改名、删除、排序、分组抽屉 ----
   const CSM = window.LaiCustomerSettings;
   // 保存设置：成功后刷新页面；出错时把原因显示在页面（或抽屉）里，不关窗口。
-  async function csSave(makeNext, errorSelector, closeDrawer) {
+  async function csSave(makeNext, errorSelector, closeDrawer, doneMessage) {
     if (pending) return false;
     const box = $(errorSelector || "#cs-error");
     box?.classList.remove("visible");
@@ -4088,7 +4056,7 @@
       if (closeDrawer) closeModal();
       csEditing = null;
       refresh();
-      toast("已保存到来财");
+      toast(doneMessage || "已保存到来财");
       return true;
     } catch (error) {
       if (box) {
@@ -4109,8 +4077,104 @@
       pointerActivated,
     );
   }
+  // 公海管理里每一小节单独保存：在现有设置上改几项，整份交给 CT.setPoolRules 检查。
+  const csPoolSave = (patch, ...rest) => csSave(() => CT.setPoolRules(state, { ...CT.poolRules(state), ...patch(CT.poolRules(state)) }), ...rest);
+  // 点选框保存失败时，把它恢复成原样。
+  const csToggle = (el, makeNext) => csSave(makeNext).then((ok) => { if (!ok && el.isConnected) el.checked = !el.checked; });
+  function csRuleDrawer(id, pointerActivated) {
+    drawer(
+      id ? "编辑规则" : "新建规则",
+      window.LaiCustomerSettingsUI.ruleForm(state, id, E),
+      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="cs-rule-form" class="primary">保存</button>`,
+      "actions",
+      pointerActivated,
+    );
+  }
+  function csTplDrawer(spec, pointerActivated) {
+    drawer(
+      spec.itemId ? "编辑常用语" : "添加常用语",
+      window.LaiCustomerSettingsUI.tplForm(state, spec, E),
+      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="cs-tpl-form" class="primary">保存</button>`,
+      "actions",
+      pointerActivated,
+    );
+  }
   function csClick(el, e) {
     const d = el.dataset;
+    if (d.csRuleToggle) {
+      const id = d.csRuleToggle, enabled = el.checked;
+      const rule = CT.poolRules(state).rules.find((r) => r.id === id);
+      if (rule) csToggle(el, () => CT.savePoolRule(state, { ...rule, enabled }));
+      return true;
+    }
+    if (d.csRuleEdit !== undefined) {
+      csRuleDrawer(d.csRuleEdit, e.detail > 0);
+      return true;
+    }
+    if (d.csRuleDelete) {
+      csSave(() => CT.deletePoolRule(state, d.csRuleDelete));
+      return true;
+    }
+    if (d.csPoolRun !== undefined) {
+      if (!CT.poolCandidates(state).length) toast("现在没有符合规则的客户");
+      else {
+        csEditing = { kind: "poolrun" };
+        customerSettings();
+      }
+      return true;
+    }
+    if (d.csPoolRunOk !== undefined) {
+      const result = CT.applyPoolRules(state);
+      if (!result.moved.length) {
+        csEditing = null;
+        customerSettings();
+        toast("现在没有符合规则的客户");
+      } else csSave(() => result.state, null, false, `已移入公海 ${result.moved.length} 位客户`);
+      return true;
+    }
+    if (d.csPoolWhiteRemove) {
+      csPoolSave((r) => ({ whitelist: r.whitelist.filter((o) => o !== d.csPoolWhiteRemove) }));
+      return true;
+    }
+    if (d.csPoolReasonRemove) {
+      csPoolSave((r) => ({ reasons: r.reasons.filter((x) => x !== d.csPoolReasonRemove) }));
+      return true;
+    }
+    if (d.csPoolRequire !== undefined) {
+      const requireReason = el.checked;
+      csToggle(el, () => CT.setPoolRules(state, { ...CT.poolRules(state), requireReason }));
+      return true;
+    }
+    if (d.csDeal) {
+      csSave(() => CSM.setDealRule(state, d.csDeal));
+      return true;
+    }
+    if (d.csActivity !== undefined) {
+      const autoMail = el.checked;
+      csToggle(el, () => CSM.setActivity(state, { autoMail }));
+      return true;
+    }
+    if (d.csAllowPast !== undefined) {
+      const allowPastTime = el.checked;
+      csToggle(el, () => CSM.setFollowupOptions(state, { allowPastTime }));
+      return true;
+    }
+    if (d.csTplMove) {
+      csSave(() => CSM.moveTemplateGroup(state, d.csTplMove, Number(d.delta)));
+      return true;
+    }
+    if (d.csTplAdd) {
+      csTplDrawer({ groupId: d.csTplAdd }, e.detail > 0);
+      return true;
+    }
+    if (d.csTplEdit) {
+      csTplDrawer({ groupId: d.tplGroup, itemId: d.csTplEdit }, e.detail > 0);
+      return true;
+    }
+    if (d.csTplDelete) {
+      csSave(() => CSM.deleteTemplate(state, d.tplGroup, d.csTplDelete));
+      return true;
+    }
     if (d.csTab) {
       csTab = d.csTab;
       csEditing = null;
@@ -4142,6 +4206,7 @@
         if (kind === "stages") return CSM.deleteStage(state, key);
         if (kind === "types") return CSM.deleteType(state, key);
         if (kind === "blacklist") return CSM.removeBlacklist(state, key);
+        if (kind === "tplgroup") return CSM.deleteTemplateGroup(state, key);
         return CSM.deleteGroup(state, key);
       });
       return true;
@@ -4156,12 +4221,48 @@
     }
     return false;
   }
+  // 公海管理里各小节的表单：在现有设置上改这一节的几项。
+  function csPoolForm(kind, data, text) {
+    const cur = CT.poolRules(state);
+    const next = (patch) => CT.setPoolRules(state, { ...cur, ...patch });
+    if (kind === "pool-remind") return next({ remindDays: text("remindDays") });
+    if (kind === "pool-white-add") {
+      if (!text("owner")) throw new Error("请先选择跟进人");
+      return next({ whitelist: [...cur.whitelist, text("owner")] });
+    }
+    if (kind === "pool-skip") return next({ skipOpenOrders: data.has("skipOpenOrders"), skipFollowed: data.has("skipFollowed"), skipTags: text("skipTags") });
+    if (kind === "pool-reclaim") return next({ reclaimBlockDays: text("reclaimBlockDays") });
+    if (kind === "pool-claim") {
+      const perOwner = {};
+      for (const [key, value] of data.entries()) if (key.startsWith("claim:") && String(value).trim() !== "") perOwner[key.slice(6)] = value;
+      return next({ claimLimit: { periodDays: text("periodDays"), defaultLimit: text("defaultLimit"), perOwner } });
+    }
+    if (kind === "pool-contacts") return next({ showPoolContacts: text("showPoolContacts") !== "hide" });
+    if (kind === "pool-reason-add") {
+      if (!text("reason").trim()) throw new Error("请填写原因");
+      return next({ reasons: [...cur.reasons, text("reason")] });
+    }
+    throw new Error("无法保存");
+  }
   document.addEventListener("submit", (e) => {
     const form = e.target;
     const kind = form.dataset?.csForm;
-    if (!kind && form.id !== "cs-group-form") return;
+    if (!kind && !["cs-group-form", "cs-rule-form", "cs-tpl-form"].includes(form.id)) return;
     e.preventDefault();
     const data = new FormData(form);
+    if (form.id === "cs-rule-form") {
+      const rule = {
+        id: form.dataset.id, name: String(data.get("name") || ""), kind: String(data.get("kind") || ""), days: String(data.get("days") || ""),
+        groups: data.getAll("group").map(String), startDate: String(data.get("startDate") || ""), enabled: data.has("enabled"),
+      };
+      csSave(() => CT.savePoolRule(state, rule), "#workspace-error", true);
+      return;
+    }
+    if (form.id === "cs-tpl-form") {
+      const { tplGroup: group, item } = form.dataset, value = String(data.get("text") || "");
+      csSave(() => (item ? CSM.editTemplate(state, group, item, value) : CSM.addTemplate(state, group, value)), "#workspace-error", true);
+      return;
+    }
     if (form.id === "cs-group-form") {
       const id = form.dataset.id, parentId = form.dataset.parent;
       const members = data.get("membersMode") === "some" ? data.getAll("member").map(String) : "all";
@@ -4192,6 +4293,10 @@
         for (const [key, value] of data.entries()) if (key.startsWith("cap:")) perOwner[key.slice(4)] = String(value).trim() === "" ? null : value;
         return CSM.setCaps(state, { defaultLimit: text("defaultLimit"), perOwner });
       }
+      if (kind === "follow") return CSM.setFollowRules(state, { contact: data.getAll("contact").map(String), followup: data.getAll("followup").map(String) });
+      if (kind === "tpl-group-add") return CSM.addTemplateGroup(state, text("name"));
+      if (kind === "tpl-group-rename") return CSM.renameTemplateGroup(state, form.dataset.id, text("name"));
+      if (kind.startsWith("pool-")) return csPoolForm(kind, data, text);
       throw new Error("无法保存");
     });
   });
@@ -4356,7 +4461,6 @@
     if (a === "batch-merge") return mergeDialog([...selected], e.detail > 0);
     if (a === "batch-create") return batchCreateDialog(e.detail > 0);
     if (a === "tag-manager") return tagManagerDialog(e.detail > 0);
-    if (a === "pool-rules") return poolRulesDialog(e.detail > 0);
     if (a === "merge-group") return mergeDialog(el.dataset.names.split("\u0001"), e.detail > 0);
     if (a === "batch-edit-field") return batchFieldDialog(e.detail > 0);
     if (a === "batch-more")

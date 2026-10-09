@@ -9,9 +9,14 @@ const TABS = Object.freeze([
   { id: "groups", label: "客户分组", note: "最多两级。客户编辑里的“客户分组”下拉用这里的分组；可限定哪些跟进人能用。" },
   { id: "stages", label: "客户阶段", note: "客户编辑里的“客户阶段”下拉用这里的列表。改名会同步改到客户身上；还有客户在用的阶段不能删除。" },
   { id: "types", label: "客户类型", note: "客户编辑里的“客户类型”下拉用这里的列表。改名会同步改到客户身上；还有客户在用的类型不能删除。" },
+  { id: "pool", label: "公海管理", note: "客户久没联系或久没成交，就自动移入公海；这里也管领取、领回和移入原因。" },
+  { id: "follow", label: "客户跟进规则", note: "决定哪些动作算“最近联系”、哪些算“最近跟进”。" },
+  { id: "deal", label: "客户成交规则", note: "决定怎样算“成交”。" },
   { id: "blacklist", label: "建档黑名单", note: "黑名单里的邮箱不能用来新建客户、批量建档、导入，也不能加到客户的联系人上。" },
   { id: "caps", label: "客户上限", note: "限制每位跟进人名下最多有多少位客户（不含公海和回收站）。新建、重新分配、导入、从公海领回都会检查。" },
   { id: "duplicates", label: "客户查重", note: "选择“客户查重”页里，每位疑似重复的客户后面显示哪些资料，方便核对该留哪个。" },
+  { id: "activity", label: "动态设置", note: "往来邮件可以自动记到客户动态里，不用手动记。" },
+  { id: "followup", label: "写跟进设置", note: "写跟进时能不能填过去的时间，以及常用的跟进模板。" },
   { id: "layout", label: "布局设置", note: "客户详情页左右两栏哪边宽。" },
 ]);
 
@@ -100,11 +105,132 @@ function layoutTab(state) {
   return `<div class="cs-layouts">${card("left-small", "左小右大", true)}${card("left-large", "左大右小", false)}</div><p class="cs-hint">选中后马上生效，客户详情页下次打开就是这个布局。</p>`;
 }
 
+// ---- 公海管理 ----
+const poolTools = () => (typeof module !== "undefined" && module.exports ? require("./customer-tools.js") : root.LaiCustomerTools);
+const kindText = (kind) => (kind === "noDeal" ? "没有成交" : "没有联系");
+const section = (title, hint, inner) => `<section class="cs-section"><h3>${title}</h3>${hint ? `<p class="cs-hint">${hint}</p>` : ""}${inner}</section>`;
+const nums = (name, value, min, max, label) => `<input name="${name}" type="number" min="${min}" max="${max}" step="1" value="${value}" aria-label="${label}" required>`;
+const saveRow = () => `<div class="cs-actions"><button type="submit" class="primary">保存</button></div>`;
+
+function poolRulesSection(rules, E) {
+  const rows = rules.rules.map((r) => `<tr><td><input type="checkbox" data-cs-rule-toggle="${E(r.id)}"${r.enabled ? " checked" : ""} aria-label="启用“${E(r.name)}”"></td><td>${E(r.name)}</td><td>${r.days} 天${kindText(r.kind)}</td><td>${r.groups.length ? r.groups.map(E).join("、") : "全部客户"}</td><td>${r.startDate ? E(r.startDate) : "—"}</td><td><span class="cs-row-actions"><button type="button" data-cs-rule-edit="${E(r.id)}">编辑</button><button type="button" data-cs-rule-delete="${E(r.id)}">删除</button></span></td></tr>`).join("");
+  const table = rules.rules.length
+    ? `<table class="cs-table cs-rules"><thead><tr><th>启用</th><th>名称</th><th>条件</th><th>适用分组</th><th>开始日期</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`
+    : empty("还没有规则。点“新建规则”，比如“90 天没有联系就移入公海”。");
+  return section("自动移入公海规则", "每天打开来财时自动执行一次已启用的规则；也可以点“立即执行”。", `<div class="cs-toolbar"><button type="button" class="primary" data-cs-rule-edit="">新建规则</button></div>${table}`);
+}
+function poolPreviewSection(state, rules, ui, E) {
+  const CT = poolTools();
+  const list = CT.poolCandidates(state);
+  const soon = CT.poolReminders(state);
+  const anyOn = rules.rules.some((r) => r.enabled);
+  const confirming = ui.editing && ui.editing.kind === "poolrun";
+  const table = list.length
+    ? `<table class="cs-table"><thead><tr><th>客户</th><th>跟进人</th><th>规则</th><th>天数</th></tr></thead><tbody>${list.slice(0, 20).map((c) => `<tr><td>${E(c.name)}</td><td>${E(c.owner)}</td><td>${E(c.ruleName)}</td><td>${c.days} 天</td></tr>`).join("")}</tbody></table>${list.length > 20 ? `<p class="cs-hint">还有 ${list.length - 20} 位…</p>` : ""}`
+    : empty(anyOn ? "现在没有符合规则的客户" : "还没有启用的规则，所以不会有客户被移入公海");
+  const run = confirming
+    ? `<div class="cs-confirm" role="alert"><span>将把 <strong>${list.length}</strong> 位客户移入公海，确定吗？</span><button type="button" class="primary" data-cs-pool-run-ok>确定移入</button><button type="button" data-cs-cancel>取消</button></div>`
+    : `<div class="cs-actions"><button type="button" class="primary" data-cs-pool-run>立即执行</button></div>`;
+  let soonBox;
+  if (!rules.remindDays) soonBox = '<p class="cs-hint">提前提醒已关闭。</p>';
+  else if (!soon.length) soonBox = empty(`未来 ${rules.remindDays} 天内没有客户会被移入公海`);
+  else soonBox = `<table class="cs-table"><thead><tr><th>客户</th><th>规则</th><th>还有几天</th></tr></thead><tbody>${soon.slice(0, 20).map((c) => `<tr><td>${E(c.name)}</td><td>${E(c.ruleName)}</td><td>还有 ${c.dueInDays} 天</td></tr>`).join("")}</tbody></table>${soon.length > 20 ? `<p class="cs-hint">还有 ${soon.length - 20} 位…</p>` : ""}`;
+  return section("现在符合规则的客户", "按已启用的规则算出来的，点“立即执行”会把他们移入公海。", `${table}${run}`)
+    + section("即将移入公海", "", soonBox);
+}
+function claimTable(rules, owners, E) {
+  const names = [...new Set([...owners, ...Object.keys(rules.claimLimit.perOwner)])];
+  if (!names.length) return "";
+  return `<table class="cs-table"><thead><tr><th>跟进人</th><th>每人上限（留空＝跟随默认）</th></tr></thead><tbody>${names.map((o) => `<tr><td>${E(o)}</td><td><input name="claim:${E(o)}" type="number" min="0" max="100000" step="1" value="${Object.hasOwn(rules.claimLimit.perOwner, o) ? rules.claimLimit.perOwner[o] : ""}" placeholder="${rules.claimLimit.defaultLimit || "不限"}" aria-label="${E(o)}的领取上限"></td></tr>`).join("")}</tbody></table>`;
+}
+function poolTab(state, ui, owners, E) {
+  const rules = poolTools().poolRules(state);
+  const white = rules.whitelist;
+  const free = owners.filter((o) => !white.includes(o));
+  const whitelist = `<form class="cs-add" data-cs-form="pool-white-add"><select name="owner" aria-label="选择跟进人"${free.length ? "" : " disabled"}>${free.length ? free.map((o) => `<option value="${E(o)}">${E(o)}</option>`).join("") : '<option value="">没有可选的跟进人</option>'}</select><button type="submit" class="primary"${free.length ? "" : " disabled"}>加入白名单</button></form>${white.length ? `<ul class="cs-list">${white.map((o) => `<li class="cs-row"><strong>${E(o)}</strong><span class="cs-use">名下的客户不会被移入公海</span><span class="cs-row-actions"><button type="button" data-cs-pool-white-remove="${E(o)}">移除</button></span></li>`).join("")}</ul>` : '<p class="cs-hint">白名单是空的。</p>'}`;
+  const reasons = `<label class="check-row"><input type="checkbox" data-cs-pool-require${rules.requireReason ? " checked" : ""}> 移入公海时必须填写原因</label><form class="cs-add" data-cs-form="pool-reason-add"><input name="reason" placeholder="新原因（20 字以内）" maxlength="20" aria-label="新原因" autocomplete="off"><button type="submit" class="primary">添加</button></form>${rules.reasons.length ? `<ul class="cs-list">${rules.reasons.map((r) => `<li class="cs-row"><strong>${E(r)}</strong><span class="cs-row-actions"><button type="button" data-cs-pool-reason-remove="${E(r)}">删除</button></span></li>`).join("")}</ul>` : '<p class="cs-hint">还没有原因。添加后，移入公海时可以直接选。</p>'}`;
+  return [
+    poolRulesSection(rules, E),
+    poolPreviewSection(state, rules, ui, E),
+    section("提前提醒", "填 0 表示不提醒。客户详情页会提示还有几天移入公海。", `<form class="cs-inline-form" data-cs-form="pool-remind"><label>提前 ${nums("remindDays", rules.remindDays, 0, 30, "提前提醒天数")} 天提醒</label><button type="submit" class="primary">保存</button></form>`),
+    section("白名单", "白名单里的跟进人，名下的客户不会被自动移入公海。", whitelist),
+    section("这些客户不移", "", `<form class="cs-dup" data-cs-form="pool-skip"><label class="check-row"><input type="checkbox" name="skipOpenOrders"${rules.skipOpenOrders ? " checked" : ""}> 有进行中订单（报价、定金、生产中、尾款）的客户</label><label class="check-row"><input type="checkbox" name="skipFollowed"${rules.skipFollowed ? " checked" : ""}> 已设为关注的客户</label>${field("带这些标签的客户（用逗号隔开）", `<input name="skipTags" value="${E(rules.skipTags.join("，"))}" maxlength="200" autocomplete="off">`)}${saveRow()}</form>`),
+    section("领回限制", "填 0 表示不限。", `<form class="cs-inline-form" data-cs-form="pool-reclaim"><label>原跟进人 ${nums("reclaimBlockDays", rules.reclaimBlockDays, 0, 365, "领回限制天数")} 天内不能领回同一个客户</label><button type="submit" class="primary">保存</button></form>`),
+    section("领取上限", "填 0 表示不限。下面可以给每个人单独设置。", `<form class="cs-claim" data-cs-form="pool-claim"><div class="cs-inline-form"><label>每 ${nums("periodDays", rules.claimLimit.periodDays, 1, 365, "统计天数")} 天，每人最多领 ${nums("defaultLimit", rules.claimLimit.defaultLimit, 0, 100000, "默认领取上限")} 位</label></div>${claimTable(rules, owners, E)}${saveRow()}</form>`),
+    section("公海联系人", "隐藏后公海客户也不能编辑。", `<form class="cs-dup" data-cs-form="pool-contacts"><label class="check-row"><input type="radio" name="showPoolContacts" value="show"${rules.showPoolContacts ? " checked" : ""}> 显示</label><label class="check-row"><input type="radio" name="showPoolContacts" value="hide"${rules.showPoolContacts ? "" : " checked"}> 隐藏</label>${saveRow()}</form>`),
+    section("移入公海原因", "", reasons),
+  ].join("");
+}
+function ruleForm(state, id, E) {
+  const settings = CS.get(state);
+  const rule = poolTools().poolRules(state).rules.find((r) => r.id === id) || { name: "", kind: "noContact", days: 90, groups: [], startDate: "", enabled: true };
+  const paths = [];
+  for (const g of settings.groups) { paths.push([g.name, g.name]); for (const c of g.children) paths.push([`${g.name}${CS.SEP}${c.name}`, `　${c.name}`]); }
+  const known = new Set(paths.map(([p]) => p));
+  for (const g of rule.groups) if (!known.has(g)) paths.push([g, g]);
+  const picks = paths.length ? paths.map(([value, label]) => `<label class="check-row"><input type="checkbox" name="group" value="${E(value)}"${rule.groups.includes(value) ? " checked" : ""}> ${E(label)}</label>`).join("") : '<span class="cs-hint">还没有分组，规则会用在全部客户上。</span>';
+  return `<form id="cs-rule-form" class="drawer-body cs-group-form cs-rule-form" data-id="${E(id || "")}"><div class="error" id="workspace-error" role="alert"></div>`
+    + field("规则名称", `<input name="name" value="${E(rule.name)}" maxlength="20" required autocomplete="off">`)
+    + field("条件", `<select name="kind"><option value="noContact"${rule.kind === "noContact" ? " selected" : ""}>没有联系</option><option value="noDeal"${rule.kind === "noDeal" ? " selected" : ""}>没有成交</option></select>`)
+    + field("超过多少天", `<input name="days" type="number" min="1" max="3650" step="1" value="${rule.days}" required>`, "天数从最近一次联系（或成交）算起。")
+    + `<fieldset class="cs-field"><legend>适用分组</legend><div class="cs-members cs-flat">${picks}</div><em>不选＝全部客户。选了一级分组，它下面的子分组也算。</em></fieldset>`
+    + field("开始日期（可不填）", `<input name="startDate" type="date" value="${E(rule.startDate)}">`, "从这天起算，避免一开启就移走很多老客户。")
+    + `<label class="check-row"><input type="checkbox" name="enabled"${rule.enabled ? " checked" : ""}> 启用这条规则</label></form>`;
+}
+
+// ---- 客户跟进规则、成交规则、动态设置 ----
+function followTab(state, E) {
+  const rules = CS.get(state).followRules;
+  const group = (name, label, hint) => `<fieldset class="cs-field"><legend>${label}</legend><div class="cs-checks">${CS.FOLLOW_ACTIONS.map(([key, text]) => `<label class="check-row"><input type="checkbox" name="${name}" value="${key}"${rules[name].includes(key) ? " checked" : ""}> ${E(text)}</label>`).join("")}</div><em>${hint}</em></fieldset>`;
+  return `<form class="cs-dup" data-cs-form="follow">${group("contact", "算作“最近联系”", "最近联系时间决定公海规则里“多少天没有联系”。")}${group("followup", "算作“最近跟进”", "最近跟进时间显示在客户列表和详情里。")}${saveRow()}</form>`;
+}
+function dealTab(state) {
+  const by = CS.get(state).dealRule.by;
+  const radio = (value, text) => `<label class="check-row"><input type="radio" name="dealBy" data-cs-deal="${value}"${by === value ? " checked" : ""}> ${text}</label>`;
+  return `<div class="cs-dup">${radio("order", "按订单（发货或完成的订单）")}${radio("opportunity", "按商机（赢单的商机）")}</div><p class="cs-hint">决定公海规则里“多少天没有成交”和客户详情里的“最近成交时间”。选中后马上生效。</p>`;
+}
+const stamp = (iso) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+function activityTab(state, E) {
+  const a = CS.get(state).activity;
+  return `<label class="check-row"><input type="checkbox" data-cs-activity${a.autoMail ? " checked" : ""}> 自动把和客户联系人的往来邮件记到客户动态</label>${a.autoMail && a.since ? `<p class="cs-hint">从 ${E(stamp(a.since))} 起自动记录</p>` : ""}<p class="cs-hint">只记打开这个开关以后的邮件；同一封邮件只记一次。</p>`;
+}
+
+// ---- 写跟进设置 ----
+function followupTab(state, ui, E) {
+  const f = CS.get(state).followup;
+  const groups = f.templates.map((g, index) => {
+    const editing = ui.editing && ui.editing.kind === "tplgroup" && ui.editing.key === g.id;
+    const head = editing
+      ? `<form class="cs-inline" data-cs-form="tpl-group-rename" data-id="${E(g.id)}"><input name="name" value="${E(g.name)}" maxlength="20" aria-label="分组名称" autocomplete="off"><button type="submit" class="primary">保存</button><button type="button" data-cs-cancel>取消</button></form>`
+      : `<strong>${E(g.name)}</strong><span class="cs-use">${g.items.length} 条常用语</span><span class="cs-row-actions"><button type="button" data-cs-tpl-move="${E(g.id)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-cs-tpl-move="${E(g.id)}" data-delta="1" aria-label="下移"${index === f.templates.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-cs-tpl-add="${E(g.id)}">添加常用语</button><button type="button" data-cs-edit="tplgroup" data-key="${E(g.id)}">改名</button><button type="button" data-cs-delete="tplgroup" data-key="${E(g.id)}">删除</button></span>`;
+    const items = g.items.map((i) => `<li class="cs-row cs-child"><span class="cs-tpl-text">${E(i.text)}</span><span class="cs-row-actions"><button type="button" data-cs-tpl-edit="${E(i.id)}" data-tpl-group="${E(g.id)}">编辑</button><button type="button" data-cs-tpl-delete="${E(i.id)}" data-tpl-group="${E(g.id)}">删除</button></span></li>`).join("");
+    return `<li class="cs-group"><div class="cs-row">${head}</div>${items ? `<ul class="cs-list cs-children">${items}</ul>` : ""}</li>`;
+  }).join("");
+  const templates = `<form class="cs-add" data-cs-form="tpl-group-add"><input name="name" placeholder="新分组名称，如 开发信跟进" maxlength="20" aria-label="新模板分组名称" autocomplete="off"><button type="submit" class="primary">添加分组</button></form>${f.templates.length ? `<ul class="cs-list cs-tree">${groups}</ul>` : empty("还没有模板。建好后，写跟进时点“选择模板”就能插入。")}`;
+  return section("跟进时间", "", `<label class="check-row"><input type="checkbox" data-cs-allow-past${f.allowPastTime ? " checked" : ""}> 允许填写过去的跟进时间（不能晚于现在）</label>`)
+    + section("跟进模板", "按分组放常用的跟进话术。", templates);
+}
+function tplForm(state, spec, E) {
+  const group = CS.get(state).followup.templates.find((g) => g.id === spec.groupId);
+  const item = group && spec.itemId ? group.items.find((i) => i.id === spec.itemId) : null;
+  return `<form id="cs-tpl-form" class="drawer-body cs-group-form" data-tpl-group="${E(spec.groupId || "")}" data-item="${E(spec.itemId || "")}"><div class="error" id="workspace-error" role="alert"></div>${group ? `<p class="cs-hint">分组：<strong>${E(group.name)}</strong></p>` : ""}<label class="cs-field"><span>常用语</span><textarea name="text" rows="6" maxlength="500" required>${E(item ? item.text : "")}</textarea><em>最多 500 个字。</em></label></form>`;
+}
+
 function body(tab, state, ui, owners, E) {
   const settings = CS.get(state);
   if (tab === "groups") return groupsTab(state, ui, E);
   if (tab === "stages") return namedList("stages", settings.stages, (n) => CS.stageUse(state, n), ui, E);
   if (tab === "types") return namedList("types", settings.types, (n) => CS.typeUse(state, n), ui, E);
+  if (tab === "pool") return poolTab(state, ui, owners, E);
+  if (tab === "follow") return followTab(state, E);
+  if (tab === "deal") return dealTab(state);
+  if (tab === "activity") return activityTab(state, E);
+  if (tab === "followup") return followupTab(state, ui, E);
   if (tab === "blacklist") return blacklistTab(state, E);
   if (tab === "caps") return capsTab(state, owners, E);
   if (tab === "duplicates") return duplicatesTab(state, E);
@@ -118,13 +244,13 @@ function markup(state, ui = {}, escape = identity, owners = []) {
   const meta = TABS.find((t) => t.id === tab);
   const shortcuts = [
     ["列表字段设置", 'data-action="settings"'], ["客群管理", 'data-action="manage-segments"'], ["标签管理", 'data-action="tag-manager"'],
-    ["公海规则", 'data-action="pool-rules"'], ["客户回收站", 'data-lai-screen="trash"'], ["来财设置", 'data-lai-route="settings"'],
+    ["客户回收站", 'data-lai-screen="trash"'], ["来财设置", 'data-lai-route="settings"'],
     ["恢复默认字段", 'data-action="restore-table-defaults"'],
   ].map(([label, attr]) => `<button type="button" ${attr}>${E(label)}</button>`).join("");
   return `<div class="pagebar"><div class="page-tabs"><h1>客户设置</h1></div></div><section class="cs-shortcuts" aria-label="常用入口">${shortcuts}</section><section class="cs-page">${nav(tab, E)}<div class="cs-panel" data-cs-panel="${tab}"><h2>${E(meta.label)}</h2><p class="cs-note">${E(meta.note)}</p><div class="cs-error error" id="cs-error" role="alert"></div>${body(tab, state, ui, owners, E)}</div></section>`;
 }
 
-const api = { TABS, markup, groupForm };
+const api = { TABS, markup, groupForm, ruleForm, tplForm };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 else root.LaiCustomerSettingsUI = api;
 })(typeof window !== "undefined" ? window : globalThis);
