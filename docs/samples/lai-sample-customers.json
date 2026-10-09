@@ -1,0 +1,9 @@
+{
+  "_readme": "Mock customers for tests and manual trials. Every company, person, email and phone number is invented (.example domains, 555 numbers). Never put real customer data in docs/samples/.",
+  "customers": [
+    { "client": "Northwind Lash Studio", "country": "美国", "contact": "Avery Brooks", "email": "avery@northwindlash.example", "phone": "+1 212 555 0141", "owner": "Kris" },
+    { "client": "Bluebell Beauty Supply", "country": "英国", "contact": "Harriet Lane", "email": "harriet@bluebellbeauty.example", "phone": "+44 20 7946 0142", "owner": "Kris" },
+    { "client": "Maple & Moss Cosmetics", "country": "加拿大", "contact": "Owen Fraser", "email": "owen@maplemoss.example", "phone": "+1 604 555 0143", "owner": "Kris" },
+    { "client": "Lumen Lash Lab", "country": "德国", "contact": "Greta Vogel", "email": "greta@lumenlash.example", "phone": "+49 30 5550 0144", "owner": "Kris" }
+  ]
+}
