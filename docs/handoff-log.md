@@ -4,6 +4,19 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner wrote 合并 for PR #19 (小满 records) and #20 (A2); both merged (`main` 7e74221, then 302e6b2).
+  #19 conflicted with `main` on this log; resolved by merging `main` into its branch. Its end-to-end job hung twice on
+  `playwright install` (cancelled, rerun once, then green). The 20th Claude merge made the Mac build due; CI started it by
+  itself on `main` 302e6b2 and it passed (build, integration test, package). The published web trial could not be read from the
+  current account, so the owner asked for a new one: wrote `scripts/web-trial/data-shim.js` (browser-storage stand-in for
+  `/api/data`, `/api/save`, import log, backup stubs, `window.LaiWebTrial`) and `scripts/web-trial/build.py` (whole page from
+  the repo; `--publish` gives the fragment the Artifact tool wraps; the spreadsheet library's literal U+FFFD is written as
+  `\uFFFD` because the tool refuses it). Tests: `tests/web-trial-shim.test.cjs` (6), `WebTrialBuild` in `test_release_tools.py`.
+  Checked in a browser at 1440×900: opens with 7 customers / 9 orders, 12 customer-settings tabs, mail page, 测试数据 panel,
+  save → stale save 409 → reload keeps data, no page errors. Published as a new private Artifact (see HANDOFF). Not done:
+  `scripts/ui-audit` was started but had not finished when this was written; the page has no outer scroll container, so it is
+  built for desktop width; file downloads do nothing in a published page. Next: owner opens the new page; decide whether to
+  keep the old page's data (needs its HTML file).
 - 2026-10-09 — Claude — 客户设置 A2 on `claude/customer-settings-2`, first batch run with the D-017 workflow: Opus wrote the spec and
   plan, Sonnet workers built it in parallel worktrees (W-A follow/deal/activity/followup model, W-B pool rules v2 —
   then W-C settings tabs, W-D customer flows — then W-E speed-up), Opus merged, fixed and an Opus reviewer checked it.
