@@ -325,7 +325,7 @@ test('detail info mirrors captured followup and system fields without inventing 
  assert.equal(field('进入公海次数'),'0');
  assert.match(field('最近发件时间'),/^2026-09-22 \d{2}:00:00$/);
  assert.match(field('最近「写跟进」时间'),/^2026-09-23 \d{2}:00:00$/);
- assert.equal(field('最近成交日期'),'—');
+ assert.equal(field('最近成交时间'),'2026-09-20');  // the 完成 order's date, from the A2 成交 rule
  assert.equal(field('创建人'),'Cherry');
  assert.equal(field('最近修改人'),'Kris');
  assert.equal(field('来源详情'),'Trade fair');
