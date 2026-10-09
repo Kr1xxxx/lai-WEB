@@ -55,7 +55,9 @@ p {
   text-wrap: pretty;
 }
 td,
-th {
+th,
+.op-row,
+.op-grid {
   font-variant-numeric: tabular-nums;
 }
 button:disabled {
