@@ -78,19 +78,23 @@ input::placeholder {
   margin-right: 8px;
 }
 .brand-cn {
-  color: var(--brand-500);
-  font-size: 24px;
-  line-height: 32px;
-  font-weight: 750;
-  letter-spacing: -1.5px;
+  width: 54px;
+  height: 32px;
+  flex: none;
+  overflow: visible;
 }
-.brand-lai {
-  color: #5e6169;
-  font-size: 23px;
-  line-height: 32px;
-  font-weight: 400;
-  margin-left: 5px;
-  letter-spacing: -0.7px;
+/* 圆润字标：圆体（macOS 自带）优先，其余字体靠圆角描边变圆润。 */
+.brand-cn text {
+  font-family: "Yuanti SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  fill: var(--brand-500);
+  stroke: var(--brand-500);
+  stroke-width: 1.2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  paint-order: stroke;
 }
 .brand sup {
   align-self: flex-start;
