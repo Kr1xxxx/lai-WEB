@@ -20,6 +20,15 @@ const DUPLICATE_FIELDS = Object.freeze([
 ]);
 const LIMITS = Object.freeze({ stages: 30, types: 50, groups: 100, children: 30, blacklist: 500, name: 20, cap: 100000 });
 
+// 哪些动作算“最近联系 / 最近跟进”。
+const FOLLOW_ACTIONS = Object.freeze([
+  ["followup", "写跟进"], ["mailSent", "发出邮件"], ["mailReceived", "收到邮件"], ["chat", "聊天或电话记录"],
+  ["order", "新建或修改订单"], ["opportunity", "新建或修改商机"], ["claim", "从公海领回"],
+].map((item) => Object.freeze(item)));
+const FOLLOW_KEYS = FOLLOW_ACTIONS.map(([key]) => key);
+const DEFAULT_FOLLOW_RULES = Object.freeze({ contact: FOLLOW_KEYS, followup: Object.freeze(["followup", "mailSent", "chat"]) });
+const TEMPLATE_LIMITS = Object.freeze({ groups: 30, items: 100, name: 20, text: 500 });
+
 const DEFAULTS = Object.freeze({
   groups: [],
   stages: DEFAULT_STAGES,
@@ -28,6 +37,10 @@ const DEFAULTS = Object.freeze({
   caps: { defaultLimit: 0, perOwner: {} },
   duplicateFields: ["country"],
   layout: "left-small",
+  followRules: DEFAULT_FOLLOW_RULES,
+  dealRule: { by: "order" },
+  activity: { autoMail: false, since: "" },
+  followup: { allowPastTime: false, templates: [] },
 });
 
 const profiles = (state) => (state && state.customers && typeof state.customers === "object" ? state.customers : {});
@@ -112,6 +125,34 @@ function normalizeBlacklist(list) {
   return out;
 }
 
+function normalizeFollowList(list, fallback) {
+  const out = Array.isArray(list) ? FOLLOW_KEYS.filter((key) => list.includes(key)) : [];
+  return out.length ? out : fallback.slice();
+}
+function normalizeTemplates(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(list) ? list : []) {
+    const name = trim(raw && raw.name).replace(/\s+/g, " ");
+    if (!name || name.length > TEMPLATE_LIMITS.name || name.includes("/") || seen.has(norm(name)) || out.length >= TEMPLATE_LIMITS.groups) continue;
+    seen.add(norm(name));
+    const items = [];
+    for (const item of Array.isArray(raw.items) ? raw.items : []) {
+      const text = trim(item && item.text);
+      if (!text || text.length > TEMPLATE_LIMITS.text || items.length >= TEMPLATE_LIMITS.items) continue;
+      items.push({ id: trim(item.id) || newId(), text });
+    }
+    out.push({ id: trim(raw.id) || newId(), name, items });
+  }
+  return out;
+}
+const validTime = (v) => { const t = new Date(String(v ?? "").trim().replace(" ", "T")).getTime(); return Number.isFinite(t) && trim(v) ? t : NaN; };
+function normalizeActivity(raw) {
+  const autoMail = !!(raw && raw.autoMail === true);
+  const since = autoMail && Number.isFinite(validTime(raw.since)) ? trim(raw.since) : "";
+  return { autoMail, since };
+}
+
 // 读取：缺什么补什么，永远返回完整的设置。
 function get(state) {
   const raw = (state && state.laiSettings && state.laiSettings.customerSettings) || {};
@@ -129,6 +170,16 @@ function get(state) {
     caps: normalizeCaps(raw.caps),
     duplicateFields,
     layout: raw.layout === "left-large" ? "left-large" : "left-small",
+    followRules: {
+      contact: normalizeFollowList(raw.followRules && raw.followRules.contact, DEFAULT_FOLLOW_RULES.contact),
+      followup: normalizeFollowList(raw.followRules && raw.followRules.followup, DEFAULT_FOLLOW_RULES.followup),
+    },
+    dealRule: { by: raw.dealRule && raw.dealRule.by === "opportunity" ? "opportunity" : "order" },
+    activity: normalizeActivity(raw.activity),
+    followup: {
+      allowPastTime: !!(raw.followup && raw.followup.allowPastTime === true),
+      templates: normalizeTemplates(raw.followup && raw.followup.templates),
+    },
   };
 }
 function put(state, patch) {
@@ -412,6 +463,172 @@ function setLayout(state, layout) {
   return put(state, { layout });
 }
 
+// ============ 最近联系 / 最近跟进 怎么算 ============
+function setFollowRules(state, { contact, followup } = {}) {
+  const current = get(state).followRules;
+  const pick = (list, label) => {
+    if (list === undefined) return null;
+    const out = Array.isArray(list) ? FOLLOW_KEYS.filter((key) => list.includes(key)) : [];
+    if (!out.length) throw new Error(`请至少选一项“算作${label}”的动作`);
+    return out;
+  };
+  const c = pick(contact, "最近联系");
+  const f = pick(followup, "最近跟进");
+  return put(state, { followRules: { contact: c || current.contact, followup: f || current.followup } });
+}
+// 商机存在 state.laiOpportunities（opportunity-model.js），用 client 对应客户，取 createdAt 和 updatedAt。
+function opportunityTimes(state, name) {
+  const list = state && Array.isArray(state.laiOpportunities) ? state.laiOpportunities : [];
+  const out = [];
+  for (const item of list) {
+    if (!item || trim(item.client) !== name) continue;
+    out.push(item.createdAt, item.updatedAt);
+  }
+  return out;
+}
+function actionTimes(state, name, key) {
+  const profile = profiles(state)[name] || {};
+  const history = Array.isArray(profile.history) ? profile.history : [];
+  const pick = (test) => history.filter((h) => h && test(h)).map((h) => h.time || h.date);
+  if (key === "followup") return pick((h) => h.type === "followup");
+  if (key === "mailSent") return pick((h) => h.type === "email" && h.subtype === "sent");
+  if (key === "mailReceived") return pick((h) => h.type === "email" && h.subtype !== "sent");
+  if (key === "chat") return pick((h) => h.type === "chat" || h.type === "call");
+  if (key === "order") {
+    const orders = state && Array.isArray(state.orders) ? state.orders : [];
+    return orders.filter((o) => o && o.client === name && !o.isDraft).flatMap((o) => [o.createdAt, o.updated]);
+  }
+  if (key === "opportunity") return opportunityTimes(state, name);
+  if (key === "claim") return [profile.lastPrivatePoolEntry];
+  return [];
+}
+function latestOf(values) {
+  let best = "";
+  let bestTime = NaN;
+  for (const v of values) {
+    const t = validTime(v);
+    if (Number.isFinite(t) && (!Number.isFinite(bestTime) || t > bestTime)) { best = typeof v === "string" ? v : new Date(t).toISOString(); bestTime = t; }
+  }
+  return best;
+}
+function contactTimes(state, name) {
+  const rules = get(state).followRules;
+  const profile = profiles(state)[name] || {};
+  const calc = (keys, legacy) => latestOf([...keys.flatMap((key) => actionTimes(state, name, key)), legacy]);
+  return { lastContact: calc(rules.contact, profile.lastContact), lastFollowup: calc(rules.followup, profile.lastFollowup) };
+}
+
+// ============ 成交怎么算 ============
+function setDealRule(state, by) {
+  if (!["order", "opportunity"].includes(by)) throw new Error("请选择成交的算法");
+  return put(state, { dealRule: { by } });
+}
+function lastDealDate(state, name) {
+  const profile = profiles(state)[name] || {};
+  if (get(state).dealRule.by === "opportunity") return trim(profile.opportunityLastWonDate);
+  const orders = state && Array.isArray(state.orders) ? state.orders : [];
+  return latestOf(orders
+    .filter((o) => o && o.client === name && !o.isDraft && ["shipment", "done"].includes(o.stage))
+    .map((o) => o.shippedAt || o.createdAt));
+}
+
+// ============ 动态自动记录 ============
+function setActivity(state, { autoMail } = {}, at = new Date().toISOString()) {
+  const current = get(state).activity;
+  if (autoMail === undefined) return put(state, { activity: current });
+  const on = autoMail === true;
+  return put(state, { activity: { autoMail: on, since: on ? (current.autoMail && current.since ? current.since : at) : current.since } });
+}
+function autoMailSince(state) {
+  const a = get(state).activity;
+  return a.autoMail ? a.since : "";
+}
+
+// ============ 写跟进：历史时间、常用语 ============
+function setFollowupOptions(state, { allowPastTime } = {}) {
+  const current = get(state).followup;
+  return put(state, { followup: { ...current, allowPastTime: allowPastTime === undefined ? current.allowPastTime : allowPastTime === true } });
+}
+function putTemplates(state, templates) {
+  return put(state, { followup: { ...get(state).followup, templates } });
+}
+const copyTemplates = (state) => get(state).followup.templates.map((g) => ({ ...g, items: g.items.map((i) => ({ ...i })) }));
+function addTemplateGroup(state, name) {
+  const value = cleanName(name, "分组名称");
+  const list = copyTemplates(state);
+  if (list.some((g) => norm(g.name) === norm(value))) throw new Error("已有同名分组");
+  if (list.length >= TEMPLATE_LIMITS.groups) throw new Error(`分组最多 ${TEMPLATE_LIMITS.groups} 个`);
+  list.push({ id: newId(), name: value, items: [] });
+  return putTemplates(state, list);
+}
+function renameTemplateGroup(state, id, name) {
+  const list = copyTemplates(state);
+  const hit = list.find((g) => g.id === id);
+  if (!hit) throw new Error("找不到这个分组");
+  const value = cleanName(name, "分组名称");
+  if (list.some((g) => g.id !== id && norm(g.name) === norm(value))) throw new Error("已有同名分组");
+  hit.name = value;
+  return putTemplates(state, list);
+}
+function deleteTemplateGroup(state, id) {
+  const list = copyTemplates(state);
+  if (!list.some((g) => g.id === id)) throw new Error("找不到这个分组");
+  return putTemplates(state, list.filter((g) => g.id !== id));
+}
+function moveTemplateGroup(state, id, delta) {
+  const list = copyTemplates(state);
+  const at = list.findIndex((g) => g.id === id);
+  if (at < 0) throw new Error("找不到这个分组");
+  const to = at + delta;
+  if (to < 0 || to >= list.length) return state;
+  [list[at], list[to]] = [list[to], list[at]];
+  return putTemplates(state, list);
+}
+function cleanTemplateText(value) {
+  const text = trim(value);
+  if (!text) throw new Error("请填写常用语");
+  if (text.length > TEMPLATE_LIMITS.text) throw new Error(`常用语最长 ${TEMPLATE_LIMITS.text} 个字`);
+  return text;
+}
+function addTemplate(state, groupId, text) {
+  const list = copyTemplates(state);
+  const group = list.find((g) => g.id === groupId);
+  if (!group) throw new Error("找不到这个分组");
+  const value = cleanTemplateText(text);
+  if (group.items.length >= TEMPLATE_LIMITS.items) throw new Error(`一个分组最多 ${TEMPLATE_LIMITS.items} 条常用语`);
+  group.items.push({ id: newId(), text: value });
+  return putTemplates(state, list);
+}
+function findTemplate(list, groupId, itemId) {
+  const group = list.find((g) => g.id === groupId);
+  if (!group) throw new Error("找不到这个分组");
+  const item = group.items.find((i) => i.id === itemId);
+  if (!item) throw new Error("找不到这条模板");
+  return { group, item };
+}
+function editTemplate(state, groupId, itemId, text) {
+  const list = copyTemplates(state);
+  const { item } = findTemplate(list, groupId, itemId);
+  item.text = cleanTemplateText(text);
+  return putTemplates(state, list);
+}
+function deleteTemplate(state, groupId, itemId) {
+  const list = copyTemplates(state);
+  const { group } = findTemplate(list, groupId, itemId);
+  group.items = group.items.filter((i) => i.id !== itemId);
+  return putTemplates(state, list);
+}
+// 写跟进时填的时间：空 = 现在；填了就必须允许历史时间，且不能晚于现在。
+function checkFollowupTime(state, value, now = new Date()) {
+  const text = trim(value);
+  if (!text) return now.toISOString();
+  if (!get(state).followup.allowPastTime) throw new Error("现在不允许填写历史跟进时间");
+  const t = validTime(text);
+  if (!Number.isFinite(t)) throw new Error("跟进时间无效");
+  if (t > now.getTime() + 60000) throw new Error("跟进时间不能晚于现在");
+  return new Date(t).toISOString();
+}
+
 const api = {
   DEFAULTS, DEFAULT_STAGES, DEFAULT_TYPES, DUPLICATE_FIELDS, LIMITS, SEP,
   get, put,
@@ -421,6 +638,11 @@ const api = {
   addBlacklist, removeBlacklist, blacklistHit, assertEmailsAllowed,
   limitFor, ownerCount, assertCanTake, capRows, setCaps,
   setDuplicateFields, duplicateValue, setLayout,
+  FOLLOW_ACTIONS, setFollowRules, contactTimes,
+  setDealRule, lastDealDate,
+  setActivity, autoMailSince,
+  setFollowupOptions, addTemplateGroup, renameTemplateGroup, deleteTemplateGroup, moveTemplateGroup,
+  addTemplate, editTemplate, deleteTemplate, checkFollowupTime,
 };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 else root.LaiCustomerSettings = api;
