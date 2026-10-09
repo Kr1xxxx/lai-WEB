@@ -14,10 +14,9 @@ test('hover and colour transitions use the shared motion tokens, not loose numbe
   }
 });
 
-test('the pill in the left rail eases in and out, and turns off for reduced motion', () => {
+test('the pill in the left rail eases in and out', () => {
   const css = read('skin-glass.css');
   assert.match(css, /\.rail-item \{ transition: background-color var\(--motion-normal\) var\(--ease-out\)/);
-  assert.match(css, /prefers-reduced-motion: reduce\) \{\s*:root\[data-skin="glass"\] \.rail-item[^}]*transition: none/);
 });
 
 test('easing curves come from the Arc Library presets and menus use the shared exit curve', () => {
@@ -26,4 +25,10 @@ test('easing curves come from the Arc Library presets and menus use the shared e
   assert.match(tokens, /--ease-exit:\s*cubic-bezier\(0\.7, 0, 0\.84, 0\)/);
   assert.match(tokens, /Arc Library \(MIT/);
   assert.doesNotMatch(read('styles.css'), /cubic-bezier\(\.755|cubic-bezier\(\.23, ?1/);
+});
+
+test('motion no longer switches off for reduced motion (owner decision 2026-10-09)', () => {
+  for (const f of fs.readdirSync(src).filter((n) => /\.(css|js)$/.test(n))) {
+    assert.doesNotMatch(read(f), /prefers-reduced-motion/, `${f} still reads the reduced-motion setting`);
+  }
 });

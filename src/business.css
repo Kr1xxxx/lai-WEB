@@ -1475,11 +1475,6 @@ td.team-reached {
   border-color: var(--brand-200);
   color: var(--brand-700);
 }
-@media (prefers-reduced-motion: reduce) {
-  .opp-card {
-    transition: none;
-  }
-}
 
 /* 表单里的下拉框用全应用统一的下拉组件（规格见 customer-select.css 的 --dd-*），这里只补和输入框一致的聚焦光圈。 */
 .opp-form button.lai-select-trigger {

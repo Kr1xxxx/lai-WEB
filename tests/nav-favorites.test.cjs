@@ -316,7 +316,6 @@ test('the heart is drawn from one path shared with the icon set, filled or outli
   assert.match(css, /\.nav-heart:hover\s*\{[^}]*color:\s*var\(--ink-600\)/s, 'a little darker under the pointer');
   assert.match(css, /\.nav-entry\.active ~ \.nav-heart\s*\{[^}]*color:\s*var\(--ink-500\)/s, 'darker on the light-blue selected row');
   assert.match(css, /@media \(hover: none\)\s*\{\s*\.nav-heart:not\(\.is-favorite\)\s*\{\s*opacity:\s*0\.55;/s, 'touch devices: faint but always there');
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.nav-heart\s*\{\s*transition:\s*none;/s);
   assert.match(css, /\.rail-flyout \.nav-heart\.is-favorite\s*\{[^}]*color:\s*#ff7d9b/s, 'a brighter rose on the dark flyout');
   assert.match(css, /\.rail-flyout-panel\s*\{[^}]*max-height:\s*calc\(100dvh - 72px\);[^}]*overflow-y:\s*auto/s, 'a long 常用 list scrolls inside the flyout instead of running off the window');
   assert.match(css, /\.rail-flyout-item:hover,\s*\.rail-flyout-item:focus-visible\s*\{[^}]*color:\s*#fff/s, 'entry text stays white on hover (the global button:hover colour would turn it blue)');
