@@ -316,6 +316,49 @@ a,
   flex: none;
   background: white;
 }
+.changelog-release + .changelog-release {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-neutral-100);
+}
+.changelog-release header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.changelog-release h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.changelog-release time {
+  color: var(--color-neutral-500);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.changelog-current {
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+}
+.changelog-release h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+.changelog-release ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.changelog-note {
+  margin-top: 20px;
+}
 .drawer-note {
   font-size: 12px;
   line-height: 1.6;

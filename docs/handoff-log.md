@@ -4,6 +4,7 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner asked that the top-bar version number open the version update history. `v1.4.126` is now a button (`data-action="version-history"`, drag-region exclusion already covers buttons) that opens the drawer from `src/changelog.js` (new script, marker `<!--CHANGELOG-->` in `src/template.html` and `scripts/build.py`). The repo had no changelog and no version bumps (everything is 1.4.126; nothing before it is recorded), so the list starts at 1.4.126 with this day's user-visible changes written from the handoff log. Maintenance rule is a comment at the top of `src/changelog.js` (a test checks the newest release matches `package.json`). Tests 819 / 38. Not done: Mac app not looked at.
 - 2026-10-09 — Claude — Owner asked to drop "Lai" from the top bar and make 来财 rounder and more internet-style. The wordmark is now an inline
   SVG `<text>` (`.brand-cn` in `src/customer-replica.css`): Yuanti SC (built into macOS) first, other fonts fall back, and a round-joined
   stroke softens corners on any font. Not done: Yuanti SC could not be rendered here (no such font on this machine), so the real Mac

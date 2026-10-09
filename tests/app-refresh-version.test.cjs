@@ -14,7 +14,7 @@ test("top chrome shows the current Lai version beside the wordmark", () => {
   assert.ok(app.includes(`const APP_VERSION = "${version}";`));
   assert.match(
     app,
-    /class="app-version" aria-label="当前版本 \$\{APP_VERSION\}">v\$\{APP_VERSION\}<\/span>/,
+    /class="app-version" data-action="version-history"[^>]*>v\$\{APP_VERSION\}<\/button>/,
   );
   assert.match(app, /<h2>来财Lai \$\{APP_VERSION\}<\/h2>/);
   assert.doesNotMatch(app, /来财Lai 1\.2/);
