@@ -177,10 +177,10 @@
       el.classList.toggle("save-failed", error);
     }
   }
-  // 界面配色：laiSettings.theme 存「xiaoman」（默认，原来的蓝色）、「pink」或「orange」，写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
-  const THEME_IDS = ["xiaoman", "pink", "orange"];
+  // 界面配色：laiSettings.theme 存「pink」（默认）、「orange」或「xiaoman」（原来的蓝色），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
+  const THEME_IDS = ["pink", "orange", "xiaoman"];
   function applyTheme(id) {
-    const theme = THEME_IDS.includes(id) ? id : "xiaoman";
+    const theme = THEME_IDS.includes(id) ? id : "pink";
     document.documentElement.dataset.theme = theme;
     // 粉色、橙色用新界面（悬浮玻璃面板），小满保持原来的界面。
     document.documentElement.dataset.skin = theme === "xiaoman" ? "classic" : "glass";

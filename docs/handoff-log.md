@@ -4,6 +4,7 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — 界面配色默认改为粉色（没选过配色的人和新数据都是粉色；已经选了小满或橙色的人不变），设置里每个配色选项加了预览小图（左栏、顶栏、两张卡片）。选项顺序：粉色（默认）、橙色、小满。改动在 `src/app.js`、`business-ui.js`、`settings-hub.js`、`ui-tokens.css`（`:root` 默认值换成粉色）、`business.css`（预览图样式）。测试：`tests/ui-baseline.test.cjs`。
 - 2026-10-09 — Claude — Owner saw no new logo in the web trial: #25 only replaced `assets/AppIcon.icns` (Mac Dock/Finder); the page's top-left
   brand was text only. Added the same icon as an inline SVG (28px) before 来财Lai in the topbar (`src/app.js`, `.brand-mark` in
   `src/customer-replica.css`). Checked at 1440×900 on the built trial page; tests 803 / 35. PR #28 merged (`main` 183718f); web trial republished as Version 5 from that commit (live page differed from the build only by this change). Not done: Mac build not looked at.
