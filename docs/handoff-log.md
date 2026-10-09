@@ -10,6 +10,13 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   model/effort, runs slices in parallel worktrees (`worktree.baseRef: head`) and merges them itself. Checked in this
   session: a Sonnet worktree agent committed on `worktree-agent-<id>` and the coordinator merged it cleanly
   (throwaway, removed). The new settings load from the next session on. Touches `CLAUDE.md` → waits for 合并.
+- 2026-10-09 — Claude — After PR #14 (客户设置 A1, 6941054; CI green including the Mac build, since it changed
+  `scripts/build.py`): web trial republished as Version 45 from 6941054 and walked in Chromium at 1440×900: all
+  seven tabs open, a new stage survives a reload, no console errors. `rebuild.py` stops on the three new `src/` files, so the three blocks were
+  placed by hand in `template.html` order (settings CSS after customer-suggestions.css, settings model before model.js,
+  settings UI before customer-import.js), with a local-only base commit = 91906aa + those files as `--old-ref`; the
+  script then swapped the other nine files. Teaching `rebuild.py` to place new files itself would remove this step.
+  Noticed: the default stage "待付尾款." has a stray full stop (old, also in `customer-detail-ui.js`). Next: batch A2.
 - 2026-10-09 — Claude — Owner said 合并 on PR #14 (客户设置 A1): merged (`main` 6941054); Mac build not due (14 Claude PRs
   merged, due at 20). The web trial was not republished yet (see `HANDOFF.md` status for how). Next: A2.
 - 2026-10-09 — Claude — Owner attached three 小满 settings collection docs and chose batch "A 客户设置". Built the first half
