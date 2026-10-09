@@ -60,6 +60,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 8 | Module reviews carried over: orders, workbench/calendar, stats (old A3–A5) | Todo | — | See `docs/archive/NEXT_STEPS.md` for the old acceptance criteria |
 | 9 | 沟通 (communication) module — which chat tool | Blocked | Owner | Needs his choice |
 | 11 | Opus coordinator + Sonnet subagents in worktrees (D-017) | Done | Claude | PR #15 merged 2026-10-09 (owner said 合并) |
+| 12 | 左栏选中效果改成玫红药丸（图标加文字都在药丸里），粉色、橙色界面 | In progress | Claude | Branch `claude/vibrant-allen-dgr7be`; labelled `major`, waits for 合并; then republish the web trial (D-012) |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner
