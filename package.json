@@ -8,6 +8,7 @@
     "test:model": "node --test tests/*.test.cjs",
     "test:known-motion": "node scripts/known-motion-acceptance.mjs",
     "test:info-segments": "node scripts/info-segments-acceptance.mjs",
-    "test:company-fields": "node scripts/company-fields-acceptance.mjs"
+    "test:company-fields": "node scripts/company-fields-acceptance.mjs",
+    "test:e2e": "node --test tests/e2e/*.e2e.mjs"
   }
 }

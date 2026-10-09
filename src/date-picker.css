@@ -1,0 +1,157 @@
+/* 日期框、月份框：原生框留着当数据载体，看不见；页面上是紧挨着它的 lai-date-trigger 文本框 + flatpickr 日历。 */
+input.lai-date-native {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  pointer-events: none !important;
+}
+input.lai-date-trigger {
+  box-sizing: border-box;
+  height: var(--dd-h, 32px);
+  min-height: var(--dd-h, 32px);
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--dd-border, #d9d9d9);
+  border-radius: var(--dd-radius, 4px);
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none' stroke='%238c8c8c' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='1.6' y='2.6' width='10.8' height='9.8' rx='1.6'/%3E%3Cpath d='M1.6 5.6h10.8M4.4 1.4v2.4M9.6 1.4v2.4'/%3E%3C/svg%3E") no-repeat right 10px center / 14px 14px;
+  color: var(--dd-ink, #333);
+  font: inherit;
+  font-size: var(--dd-font, 13px);
+  font-weight: 400;
+  cursor: pointer;
+}
+input.lai-date-trigger::placeholder {
+  color: var(--text-faint, #bfbfbf);
+  opacity: 1;
+}
+input.lai-date-trigger:hover {
+  border-color: var(--ink-400);
+}
+input.lai-date-trigger:focus,
+input.lai-date-trigger.active {
+  border-color: var(--brand-500);
+  outline: none;
+}
+input.lai-date-trigger:disabled {
+  color: var(--ink-400);
+  background-color: var(--ink-50);
+  cursor: not-allowed;
+}
+input.lai-date-trigger[aria-invalid="true"] {
+  border-color: #f56c6c;
+}
+
+/* 日历浮层：配色取主题，字体、圆角、阴影和下拉浮层一致 */
+.flatpickr-calendar.lai-date-calendar {
+  z-index: 10030;
+  width: 308px;
+  padding-bottom: 4px;
+  border: 1px solid var(--ink-100);
+  border-radius: var(--dd-radius, 4px);
+  background: #fff;
+  box-shadow: var(--shadow-popover, 0 6px 16px rgba(0, 0, 0, 0.12));
+  color: var(--dd-ink, #333);
+  font-family: inherit;
+  font-size: var(--dd-font, 13px);
+}
+.flatpickr-calendar.lai-date-calendar::before,
+.flatpickr-calendar.lai-date-calendar::after {
+  display: none;
+}
+.lai-date-calendar .flatpickr-months {
+  padding: 6px 4px 0;
+}
+.lai-date-calendar .flatpickr-months .flatpickr-prev-month,
+.lai-date-calendar .flatpickr-months .flatpickr-next-month {
+  top: 6px;
+  color: var(--ink-600);
+  fill: var(--ink-600);
+}
+.lai-date-calendar .flatpickr-months .flatpickr-prev-month:hover svg,
+.lai-date-calendar .flatpickr-months .flatpickr-next-month:hover svg {
+  fill: var(--brand-500);
+}
+.lai-date-calendar .flatpickr-current-month {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dd-ink, #333);
+}
+.lai-date-calendar .flatpickr-current-month span.cur-month,
+.lai-date-calendar .flatpickr-current-month input.cur-year {
+  font-weight: 500;
+  color: inherit;
+}
+.lai-date-calendar span.flatpickr-weekday {
+  color: var(--ink-500);
+  font-size: 12px;
+  font-weight: 400;
+}
+.lai-date-calendar .flatpickr-day {
+  height: 34px;
+  line-height: 34px;
+  border-radius: calc(var(--dd-radius, 4px) + 2px);
+  color: var(--dd-ink, #333);
+}
+.lai-date-calendar .flatpickr-day.prevMonthDay,
+.lai-date-calendar .flatpickr-day.nextMonthDay,
+.lai-date-calendar .flatpickr-day.flatpickr-disabled {
+  color: var(--ink-300);
+}
+.lai-date-calendar .flatpickr-day:hover,
+.lai-date-calendar .flatpickr-day:focus {
+  border-color: var(--brand-50);
+  background: var(--brand-50);
+}
+.lai-date-calendar .flatpickr-day.today {
+  border-color: var(--brand-500);
+}
+.lai-date-calendar .flatpickr-day.selected,
+.lai-date-calendar .flatpickr-day.selected:hover {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+  color: #fff;
+}
+.lai-date-calendar .flatpickr-monthSelect-month {
+  height: 36px;
+  line-height: 36px;
+  border-radius: calc(var(--dd-radius, 4px) + 2px);
+  color: var(--dd-ink, #333);
+}
+.lai-date-calendar .flatpickr-monthSelect-month:hover,
+.lai-date-calendar .flatpickr-monthSelect-month.today {
+  background: var(--brand-50);
+}
+.lai-date-calendar .flatpickr-monthSelect-month.selected {
+  background: var(--brand-500);
+  color: #fff;
+}
+.lai-date-footer {
+  display: flex;
+  justify-content: space-between;
+  margin: 2px 8px 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--ink-100);
+}
+.lai-date-footer button {
+  min-height: 0;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--brand-500);
+  font: inherit;
+  font-size: 12px;
+}
+.lai-date-footer button:hover {
+  background: var(--brand-50);
+}
+.lai-date-footer button[hidden] {
+  display: none;
+}
+.lai-date-footer .lai-date-today {
+  margin-left: auto;
+}
