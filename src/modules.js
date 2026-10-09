@@ -1,6 +1,7 @@
 (function(root){
 'use strict';
 const customerModel=typeof module!=='undefined'&&module.exports?require('./model.js'):root.PreviewModel;
+const CS=typeof module!=='undefined'&&module.exports?require('./customer-settings-model.js'):root.LaiCustomerSettings;
 function bucket(profile){return ['pool','trash'].includes(profile?.laiBucket)?profile.laiBucket:'active';}
 function knownNames(state){return new Set([...Object.keys(state.customers||{}),...(state.orders||[]).map(o=>o.client).filter(Boolean)]);}
 function moveCustomers(state,names,target,time=new Date().toISOString()){
@@ -19,6 +20,7 @@ function moveCustomers(state,names,target,time=new Date().toISOString()){
    profile.poolEntryCount=Math.max(0,Math.floor(Number(old.poolEntryCount)||0))+1;
   }
   if(next==='active'&&previous==='pool'){
+   if(CS&&old.laiPreviousOwner)CS.assertCanTake({...state,customers},old.laiPreviousOwner,1,[name]);
    profile.owner=old.laiPreviousOwner||'';
    profile.lastPrivatePoolEntry=time;
   }

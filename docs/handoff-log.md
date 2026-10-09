@@ -10,6 +10,15 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   model/effort, runs slices in parallel worktrees (`worktree.baseRef: head`) and merges them itself. Checked in this
   session: a Sonnet worktree agent committed on `worktree-agent-<id>` and the coordinator merged it cleanly
   (throwaway, removed). The new settings load from the next session on. Touches `CLAUDE.md` → waits for 合并.
+- 2026-10-09 — Claude — Owner said 合并 on PR #14 (客户设置 A1): merged (`main` 6941054); Mac build not due (14 Claude PRs
+  merged, due at 20). The web trial was not republished yet (see `HANDOFF.md` status for how). Next: A2.
+- 2026-10-09 — Claude — Owner attached three 小满 settings collection docs and chose batch "A 客户设置". Built the first half
+  on `claude/customer-settings`: the 客户设置 page now has seven working tabs (客户分组 two levels with per-owner
+  availability, 客户阶段, 客户类型 — a new customer field, 建档黑名单, 客户上限, 客户查重 display fields, 布局设置 for the
+  detail page). They are wired into the customer editor, create / batch create / import / batch assign / pool claim, the
+  duplicates page and the detail layout. Settings live in `laiSettings.customerSettings` (no schema change). The placeholder
+  button 客户字段管理 was removed. Rules chosen are in `VALIDATION.md`. Labelled `major`; waits for 合并. Next: batch A2
+  (公海管理, 客户跟进规则, 客户成交规则, 动态设置, 写跟进设置). Not yet verified on the Mac app.
 - 2026-10-09 — Claude — Owner said 合并 on PR #12 (merge policy from `main`'s copy): merged (1308c75). PR #11 (test waits, handoff
   status, features.json) had merged itself. This log entry is a docs-only PR, the first one judged by the new
   `merge-policy.yml`, to check that it runs after CI and merges a small PR.
