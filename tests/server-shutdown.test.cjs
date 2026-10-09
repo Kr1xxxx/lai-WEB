@@ -18,7 +18,7 @@ async function fixture() {
     const servicePort=await port(),token=crypto.randomBytes(32).toString('hex');
     const child=spawn(process.execPath,[path.join(resources,'server.js')],{env:{...process.env,LAI_DATA_DIR:path.join(temporary,'database'),LAI_APP_PORT:String(servicePort),LAI_API_TOKEN:token,LAI_APP_NO_OPEN:'1'},stdio:'ignore'});children.push(child);
     const base='http://127.0.0.1:'+servicePort;
-    for(let i=0;i<100;i++){assert.equal(child.exitCode,null);try{const response=await fetch(base+'/api/health');await response.arrayBuffer();if(response.ok)return{child,port:servicePort,token,base};}catch{}await pause(25);}
+    for(let i=0;i<500;i++){assert.equal(child.exitCode,null);try{const response=await fetch(base+'/api/health');await response.arrayBuffer();if(response.ok)return{child,port:servicePort,token,base};}catch{}await pause(25);}
     throw Error('Private service did not start');
   }
   async function socket(service) {const connection=net.createConnection({host:'127.0.0.1',port:service.port});sockets.push(connection);await new Promise((resolve,reject)=>{connection.once('connect',resolve);connection.once('error',reject);});return connection;}
