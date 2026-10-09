@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Date and month fields (`claude/date-picker`): every `input[type=date|month]` now shows a
+  Chinese flatpickr 4.6.13 calendar (vendored in `vendor/flatpickr/`, inlined by `scripts/build.py`) instead of the
+  system control with `mm/dd/yyyy`; the native input stays hidden as the data carrier, so values, validation and events
+  are unchanged. The owner asked for a mature ready-made component and approved this one in the conversation (D-011).
+  Checked in a headless browser (order drawer, opportunity date range, calendar month); not yet on the Mac app.
+  Next: owner looks at the web trial and says 合并.
 - 2026-10-09 — Claude — Owner said 合并: merged PR #1 (handoff rules, merge policy, e2e tests, CI) into `main`
   (545bcc8). This log entry is PR #2, a docs-only change, to check that small PRs merge by themselves.
 - 2026-10-08 — Claude — Handoff rules from the owner's multi-agent standard (reference: Kr1xxxx/Clipbox):
