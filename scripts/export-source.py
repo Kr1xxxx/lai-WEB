@@ -14,6 +14,8 @@ SINGLE_FILES = ['package.json', '.gitignore', 'README.github.md', 'native/Packag
                 'vendor/mail-libs/mail-libs.cjs', 'vendor/mail-libs/LICENSES.txt', 'vendor/mail-libs/README.md',
                 'vendor/mail-libs/build/entry.js', 'vendor/mail-libs/build/pino-stub.js', 'vendor/mail-libs/build/socks-stub.js',
                 'vendor/squire/squire-raw.js', 'vendor/squire/LICENSE', 'vendor/dompurify/purify.min.js', 'vendor/dompurify/LICENSE',
+                'vendor/flatpickr/flatpickr.min.js', 'vendor/flatpickr/flatpickr.min.css', 'vendor/flatpickr/l10n-zh.js',
+                'vendor/flatpickr/monthSelect.js', 'vendor/flatpickr/monthSelect.css', 'vendor/flatpickr/LICENSE', 'vendor/flatpickr/README.md',
                 'tests/fixtures/cus-list-003-fields.txt', 'tests/fixtures/cus-list-003-fields-provenance.json']
 TREES = [('src', {'.js', '.css', '.html'}), ('backend', {'.js'}), ('native/Sources', {'.swift'})]
 SECRET_PATTERNS = [re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),

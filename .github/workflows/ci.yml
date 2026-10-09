@@ -1,5 +1,5 @@
 # CI for 来财Lai. Policy: docs/DECISIONS.md D-014, AGENTS.md "Merging".
-# tests → browser end-to-end → mac build + integration → handoff updated → merge policy.
+# tests → browser end-to-end → mac build + integration (cadence: D-016) → handoff updated → merge policy.
 name: CI
 
 on:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  # Decides whether the (expensive) macOS job is needed: not for PRs that only touch docs and tests.
+  # Decides whether the (expensive) macOS job runs: scripts/mac-cadence.mjs, docs/DECISIONS.md D-016.
   changes:
     name: changed files
     runs-on: ubuntu-latest
@@ -27,15 +27,11 @@ jobs:
         with:
           fetch-depth: 0
       - id: check
+        run: node scripts/mac-cadence.mjs
         env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
-        run: |
-          if [ -z "$BASE_REF" ]; then echo "mac=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if git diff --name-only "$BASE_REF...HEAD" | grep -qvE '^docs/|\.md$|^tests/[^/]+\.test\.cjs$|^tests/e2e/|^\.github/pull_request_template\.md$'; then
-            echo "mac=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "mac=false" >> "$GITHUB_OUTPUT"
-          fi
 
   tests:
     name: tests
@@ -126,6 +122,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
@@ -147,6 +144,16 @@ jobs:
           gh pr edit "$PR" --remove-label needs-owner || true
           gh pr edit "$PR" --add-label auto-merged
           gh pr merge "$PR" --merge --delete-branch
+      # Merges made with the workflow token do not start a CI run on main, so start the Mac build here
+      # when this merge is a 10th Claude PR (D-016).
+      - name: Mac build on main every 10th Claude PR
+        if: steps.size.outputs.size == 'small'
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          MAIN_REF=origin/main node scripts/mac-cadence.mjs after-merge
+          if MAIN_REF=origin/main node scripts/mac-cadence.mjs after-merge | grep -q 'due: true'; then
+            gh workflow run ci.yml --ref main
+          fi
       - name: Big change → wait for the owner
         if: steps.size.outputs.size == 'big'
         run: |

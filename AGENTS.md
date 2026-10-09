@@ -35,7 +35,7 @@ node scripts/integration-test.mjs                                   # macOS only
 
 Playwright is **not** in `package.json` (the repo has no npm dependencies). Install it outside the tracked files:
 `npm install --no-save --no-package-lock playwright@1.56.0 && npx playwright install chromium`. Set `CHROMIUM` to
-use an existing Chromium binary. The Mac build and the integration test also run in CI on every PR.
+use an existing Chromium binary. CI also builds the Mac app and runs the integration test (when: D-016).
 
 ## Structure
 
@@ -111,11 +111,11 @@ The owner does not use the GitHub website; all work goes through agents on his a
 merges (`scripts/classify-pr.mjs`):
 
 - **Small** — merges by itself once every check is green: wording, styling, bug fixes, tests and docs, with at most
-  350 changed lines in `src/` (tests and docs do not count).
+  500 changed lines in `src/` (tests and docs do not count).
 - **Big** — CI labels it `needs-owner` and stops: anything under `native/`, `backend/`, `vendor/`, `assets/`,
   `package.json`, CI and scripts (except browser checks and acceptance scripts), `.gitignore`, the rulebook
   (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `docs/DECISIONS.md`), data storage code in `src/`, deleted `src/`
-  files, weakened tests, more than 350 lines of `src/`.
+  files, weakened tests, more than 500 lines of `src/`.
 - New or removed features and layout changes cannot be detected from files: **add the `major` label yourself**
   (`gh pr edit <n> --add-label major`, or the REST labels API) right after opening the PR, before CI finishes.
 - A `needs-owner` PR merges only after the owner writes 合并 in the conversation about that PR. Then:
