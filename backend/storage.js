@@ -477,6 +477,155 @@ function openStorage({ seedFile }) {
     }
   }
 
+  // 只保存改动：客户端只发改过的客户/订单和其它整块设置，服务器在一个事务里按版本号套用，
+  // 最后核对各表条数和客户端的是否一致，不一致就整个撤销（客户端会改走整包保存）。
+  // changes = { customers:{set:{name:obj},remove:[name]}, orders:{set:{id:{bucket,order}},remove:[id],sequence:{bucket:[id]}},
+  //             trackingLookups:[...]|undefined, appState:{key:value}, removeAppState:[key], counts:{...} }
+  function applyChanges(changes, { baseRevision, importLog } = {}) {
+    if (!database) throw new Error('SQLite database is not available');
+    const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
+    if (!isObject(changes)) throw httpError(400, 'changes are required');
+    const customerSet = isObject(changes.customers?.set) ? changes.customers.set : {};
+    const customerRemove = Array.isArray(changes.customers?.remove) ? changes.customers.remove.map(String) : [];
+    const orderSet = isObject(changes.orders?.set) ? changes.orders.set : {};
+    const orderRemove = Array.isArray(changes.orders?.remove) ? changes.orders.remove.map(String) : [];
+    const sequence = isObject(changes.orders?.sequence) ? changes.orders.sequence : {};
+    const appSet = isObject(changes.appState) ? changes.appState : {};
+    const appRemove = Array.isArray(changes.removeAppState) ? changes.removeAppState.map(String) : [];
+    if (Object.keys(appSet).some(key => entityStateKeys.has(key))) throw httpError(400, 'appState cannot carry orders or customers');
+    if (Object.keys(sequence).some(bucket => !orderBuckets.includes(bucket))) throw httpError(400, 'unknown order bucket');
+    if (changes.trackingLookups !== undefined && !Array.isArray(changes.trackingLookups)) throw httpError(400, 'trackingLookups must be a list');
+    const validatedImportLog = normalizeImportLog(importLog, { laiImportHistory: appSet.laiImportHistory });
+    const orderUpsert = database.prepare(`
+      INSERT INTO orders(
+        id, bucket, position, num, client, country, order_month, stage,
+        amount, paid_amount, currency, tracking_number, carrier, updated_at, data_json
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        bucket = excluded.bucket, position = excluded.position, num = excluded.num, client = excluded.client,
+        country = excluded.country, order_month = excluded.order_month, stage = excluded.stage, amount = excluded.amount,
+        paid_amount = excluded.paid_amount, currency = excluded.currency, tracking_number = excluded.tracking_number,
+        carrier = excluded.carrier, updated_at = excluded.updated_at, data_json = excluded.data_json
+    `);
+    const attachmentInsert = database.prepare('INSERT INTO order_attachments(order_id, position, file_url, data_json) VALUES(?, ?, ?, ?)');
+    const logInsert = database.prepare('INSERT INTO order_logs(order_id, position, event_time, data_json) VALUES(?, ?, ?, ?)');
+    const customerUpsert = database.prepare(`
+      INSERT INTO customers(name, country, email, contact, updated_at, data_json) VALUES(?, ?, ?, ?, ?, ?)
+      ON CONFLICT(name) DO UPDATE SET country = excluded.country, email = excluded.email, contact = excluded.contact,
+        updated_at = excluded.updated_at, data_json = excluded.data_json
+    `);
+    const appStateInsert = database.prepare(`
+      INSERT INTO app_state(key, data_json) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET data_json = excluded.data_json
+    `);
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const currentRevision = Number(metadataValue('revision', '0'));
+      const requestedRevision = Number(baseRevision);
+      if (!Number.isSafeInteger(requestedRevision) || requestedRevision < 0) throw httpError(428, 'baseRevision is required', { currentRevision });
+      if (requestedRevision !== currentRevision) throw httpError(409, 'state revision conflict', { currentRevision });
+      const nextRevision = currentRevision + 1;
+
+      for (const id of orderRemove) {
+        database.prepare('DELETE FROM order_attachments WHERE order_id = ?').run(id);
+        database.prepare('DELETE FROM order_logs WHERE order_id = ?').run(id);
+        database.prepare('DELETE FROM orders WHERE id = ?').run(id);
+      }
+      // Positions: a bucket's full id list is only sent when its order changed, so rows keep their old position otherwise.
+      const positions = new Map();
+      for (const [bucket, ids] of Object.entries(sequence)) {
+        if (!Array.isArray(ids)) throw httpError(400, 'order sequence must be a list');
+        ids.forEach((rawId, position) => {
+          const id = String(rawId);
+          if (positions.has(id)) throw new Error(`duplicate order id: ${id}`);
+          positions.set(id, { bucket, position });
+        });
+      }
+      const existingPosition = database.prepare('SELECT bucket, position FROM orders WHERE id = ?');
+      const move = database.prepare('UPDATE orders SET bucket = ?, position = ? WHERE id = ?');
+      for (const [id, entry] of Object.entries(orderSet)) {
+        const order = entry?.order;
+        if (!isObject(order) || String(order.id || '').trim() !== id) throw new Error('order without matching id');
+        const where = positions.get(id) || existingPosition.get(id);
+        const bucket = String(entry.bucket || where?.bucket || '');
+        if (!orderBuckets.includes(bucket)) throw httpError(400, 'unknown order bucket');
+        const position = positions.get(id)?.position ?? (existingPosition.get(id)?.bucket === bucket ? existingPosition.get(id).position : Number(database.prepare('SELECT COUNT(*) AS count FROM orders WHERE bucket = ?').get(bucket).count));
+        if (positions.has(id) && positions.get(id).bucket !== bucket) throw new Error(`order ${id} bucket does not match its sequence`);
+        orderUpsert.run(
+          id, bucket, position, String(order.num || ''), String(order.client || ''), String(order.country || ''),
+          String(order.orderMonth || ''), String(order.stage || ''), Number(order.amount || 0), Number(order.paidAmount || 0),
+          String(order.currency || 'USD'), String(order.trackingNumber || ''), String(order.carrier || ''), String(order.updated || ''),
+          JSON.stringify(order)
+        );
+        database.prepare('DELETE FROM order_attachments WHERE order_id = ?').run(id);
+        database.prepare('DELETE FROM order_logs WHERE order_id = ?').run(id);
+        (Array.isArray(order.attachments) ? order.attachments : []).forEach((item, index) => {
+          attachmentInsert.run(id, index, String(item?.fileUrl || item?.link || ''), JSON.stringify(item));
+        });
+        (Array.isArray(order.logs) ? order.logs : []).forEach((item, index) => {
+          const eventTime = typeof item === 'object' && item ? item.time : '';
+          logInsert.run(id, index, String(eventTime || ''), JSON.stringify(item));
+        });
+      }
+      for (const [id, where] of positions) {
+        if (orderSet[id]) continue;
+        const row = existingPosition.get(id);
+        if (!row) throw new Error(`sequence names an unknown order: ${id}`);
+        if (row.bucket !== where.bucket || Number(row.position) !== where.position) move.run(where.bucket, where.position, id);
+      }
+
+      for (const name of customerRemove) database.prepare('DELETE FROM customers WHERE name = ?').run(name);
+      for (const [name, customer] of Object.entries(customerSet)) {
+        const record = isObject(customer) ? customer : {};
+        customerUpsert.run(String(name), String(record.country || ''), String(record.email || ''), String(record.contact || ''), String(record.updated || ''), JSON.stringify(record));
+      }
+
+      if (changes.trackingLookups !== undefined) {
+        const ids = new Set();
+        database.prepare('DELETE FROM tracking_lookups').run();
+        const lookupInsert = database.prepare(`
+          INSERT INTO tracking_lookups(id, position, tracking_number, carrier, updated_at, data_json) VALUES(?, ?, ?, ?, ?, ?)
+        `);
+        changes.trackingLookups.forEach((item, position) => {
+          const id = String(item?.id || `lookup-${position}-${item?.trackingNumber || ''}`);
+          if (ids.has(id)) throw new Error(`duplicate tracking lookup id: ${id}`);
+          ids.add(id);
+          lookupInsert.run(id, position, String(item?.trackingNumber || ''), String(item?.carrier || ''), String(item?.checkedAt || item?.updated || ''), JSON.stringify(item || {}));
+        });
+      }
+      for (const [key, value] of Object.entries(appSet)) appStateInsert.run(key, JSON.stringify(value));
+      for (const key of appRemove) database.prepare('DELETE FROM app_state WHERE key = ?').run(key);
+      if (validatedImportLog) database.prepare('INSERT INTO import_logs(id, data_json) VALUES(?, ?)')
+        .run(validatedImportLog.id, JSON.stringify(validatedImportLog.issues));
+      setMetadata('revision', String(nextRevision));
+      setMetadata('last_saved_at', new Date().toISOString());
+
+      const count = sql => Number(database.prepare(sql).get().count);
+      const actual = {
+        orders: count("SELECT COUNT(*) AS count FROM orders WHERE bucket = 'orders'"),
+        trashOrders: count("SELECT COUNT(*) AS count FROM orders WHERE bucket = 'trashOrders'"),
+        deletedOrders: count("SELECT COUNT(*) AS count FROM orders WHERE bucket = 'deletedOrders'"),
+        customers: count('SELECT COUNT(*) AS count FROM customers'),
+        trackingLookups: count('SELECT COUNT(*) AS count FROM tracking_lookups')
+      };
+      const expected = changes.counts;
+      if (!isObject(expected) || JSON.stringify(expected) !== JSON.stringify(actual)) {
+        throw httpError(422, `change verification failed: expected ${JSON.stringify(expected)}, actual ${JSON.stringify(actual)}`, { currentRevision });
+      }
+      // Positions inside each bucket must be exactly 0..n-1, otherwise the list would come back reordered.
+      for (const bucket of orderBuckets) {
+        const stats = database.prepare('SELECT COUNT(*) AS count, COUNT(DISTINCT position) AS distinctCount, COALESCE(MAX(position), -1) AS maxPosition FROM orders WHERE bucket = ?').get(bucket);
+        if (Number(stats.count) !== Number(stats.distinctCount) || Number(stats.maxPosition) !== Number(stats.count) - 1)
+          throw httpError(422, `change verification failed: ${bucket} positions are not 0..n-1`, { currentRevision });
+      }
+      database.exec('COMMIT');
+      storageRevision = nextRevision;
+      return { revision: nextRevision, counts: actual };
+    } catch (error) {
+      try { database.exec('ROLLBACK'); } catch (_) {}
+      throw error;
+    }
+  }
+
   function readStateFromDatabase() {
     if (!database) throw new Error('SQLite database is not available');
     const data = Object.create(null);
@@ -768,6 +917,12 @@ function openStorage({ seedFile }) {
     return writeStateToDatabase(payload, options);
   }
 
+  function saveChanges(changes, options) {
+    ensureStorage();
+    if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+    return applyChanges(changes, options);
+  }
+
   function readImportLog(id) {
     if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || '')))
@@ -892,6 +1047,6 @@ function openStorage({ seedFile }) {
   }
 
   initializeStorage();
-  return { readSnapshot, save, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, health, close, directory: supportDir };
+  return { readSnapshot, save, saveChanges, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

@@ -137,3 +137,14 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Context: while replicating the owner's 小满 settings, the remaining pages were reviewed.
 - Decision: the owner decided not to build 工作流 (workflows), 审批流 (approval flows) or 营销设置 (marketing settings).
   Do not recommend them as next steps. They are marked 排除 in `docs/xiaoman/README.md`.
+
+### D-019 Saves send only what changed (2026-10-09)
+- Context: with many customers every edit re-sent the whole dataset (11 MB at 10,000 customers). The owner chose
+  "只传改动 + 分页" as the first step toward moving customers to a server later.
+- Decision: the page keeps a snapshot of the saved data and sends only the changed customers, orders and settings to
+  `POST /api/save-changes`; the backend applies them in one transaction with the same `baseRevision` check, verifies
+  the table counts and the order positions, and rolls everything back if they do not match (the page then falls back
+  to the full `POST /api/save`). The SQLite schema and the data directory are unchanged. Reading is still the whole
+  dataset (`GET /api/data`); true server-side paging needs search, sort, segments and counts to move to the server and
+  belongs to the move to a server.
+

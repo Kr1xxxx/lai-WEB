@@ -104,3 +104,7 @@
 - 客户与邮件的对应只按邮箱地址匹配客户档案里的公司邮箱与联系人邮箱，不改动客户数据。
 - 网页试用版没有本机服务，无法连接邮箱；它的数据替身对 `/api/mail-account` 返回 `available:false`，绑定与写信随之禁用。
 - 测试用开关：数据目录被改到测试目录（`storage-path.js` 只允许系统临时目录下的 `lai-test-*`）时，`LAI_MAIL_TEST_ENDPOINTS` 可把连接指向本机回环地址上的假服务器，附件也改存到该测试目录；正式数据目录下不起作用。
+
+## 保存方式（只传改动，D-019）
+页面保存时，`persist()`（`src/app.js`）用 `src/model.js` 的 `snapshotState/diffState` 把新数据和上次保存的快照按文字比较，只把变了的客户、订单（含它们在各分栏里的先后顺序）和其它设置发给 `POST /api/save-changes`（`backend/storage.js` 的 `applyChanges`）。后端在同一个事务里先核对 `baseRevision`，套用后核对各表条数和订单顺序，对不上就整体撤销返回 422，页面随后改走整包的 `POST /api/save`（导入等整批改动也走它）。读取仍是整包 `GET /api/data`。
+
