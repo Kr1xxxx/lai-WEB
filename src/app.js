@@ -3676,7 +3676,7 @@
       const data = allCustomerRows().filter(
         (c) => L.bucket(state.customers[c.name]) === screen,
       );
-      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回后恢复原跟进人，可继续编辑和跟进。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td><button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button><button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>在客户列表选择客户后，可使用批量操作。</span></div>"}</div>`;
+      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回时选跟进人，默认是原跟进人。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td><button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button><button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>在客户列表选择客户后，可使用批量操作。</span></div>"}</div>`;
     }
     $("#app").innerHTML = shell(
       `<div class="pagebar"><div class="page-tabs"><h1>${names[screen]}</h1></div><button data-lai-screen="active">返回客户列表</button></div><section class="module-page">${body}</section>`,
@@ -3697,7 +3697,7 @@
         : `<label class="field" for="transition-reason"><span>原因</span><input id="transition-reason" name="reason" maxlength="50" autocomplete="off" placeholder="请填写移入公海的原因"></label>`;
     drawer(
       label,
-      `<div class="drawer-body"><p>将 ${names.length} 位客户${label}：</p><div class="transition-names">${names.map((n) => `<div>${E(n)}</div>`).join("")}</div>${reasonField}<p class="module-note">${target === "pool" ? "客户将从当前列表移到公海，领回时恢复原跟进人。" : "客户资料和关联订单都会保留，可从回收站恢复。"}</p><div class="error" id="workspace-error" role="alert"></div></div>`,
+      `<div class="drawer-body"><p>将 ${names.length} 位客户${label}：</p><div class="transition-names">${names.map((n) => `<div>${E(n)}</div>`).join("")}</div>${reasonField}<p class="module-note">${target === "pool" ? "客户将从当前列表移到公海，领回时可选跟进人，默认是原跟进人。" : "客户资料和关联订单都会保留，可从回收站恢复。"}</p><div class="error" id="workspace-error" role="alert"></div></div>`,
       `<button data-action="close-modal">取消</button><button class="primary" id="confirm-transition">确认${label}</button>`,
       "transition",
       pointerActivated,
