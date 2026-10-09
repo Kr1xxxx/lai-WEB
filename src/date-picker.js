@@ -96,7 +96,7 @@
       input.setAttribute("aria-hidden", "true");
 
       const options = {
-        locale: root.flatpickr.l10ns?.zh || "default",
+        locale: Object.assign({}, root.flatpickr.l10ns?.zh || {}, { firstDayOfWeek: 1 }),
         dateFormat: spec.format,
         allowInput: true,
         disableMobile: true,

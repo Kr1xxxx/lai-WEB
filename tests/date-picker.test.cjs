@@ -95,7 +95,7 @@ test("原生日期框留着当数据载体，页面上换成中文日历文本�
     assert.ok(input.classes.has("lai-date-native"));
     assert.equal(input.attrs["aria-hidden"], "true");
     assert.equal(picker.options.dateFormat, "Y-m-d");
-    assert.deepEqual(picker.options.locale, { name: "zh" });
+    assert.deepEqual(picker.options.locale, { name: "zh", firstDayOfWeek: 1 }, "中文，每周从周一开始");
     assert.equal(picker.options.defaultDate, "2026-10-01");
     assert.equal(mod.qualifies(input), false, "已经换过的不再重复处理");
   } finally { cleanup(); }

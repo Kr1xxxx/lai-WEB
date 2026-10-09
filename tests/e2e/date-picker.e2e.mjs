@@ -24,6 +24,7 @@ test('the new-order date field opens a Chinese calendar and writes YYYY-MM-DD ba
   const calendar = page.locator('.flatpickr-calendar.open');
   await calendar.waitFor();
   await calendar.getByText('周一', { exact: true }).waitFor();
+  assert.equal((await calendar.locator('.flatpickr-weekday').first().innerText()).trim(), '周一', 'the week starts on Monday');
   await calendar.getByRole('button', { name: '今天' }).click();
   assert.equal(await trigger.inputValue(), localToday());
   assert.equal(await page.locator('#overlay-root input.lai-date-native').first().inputValue(), localToday());
