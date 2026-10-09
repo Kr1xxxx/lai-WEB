@@ -490,7 +490,8 @@ function actionTimes(state, name, key) {
   const profile = profiles(state)[name] || {};
   const history = Array.isArray(profile.history) ? profile.history : [];
   const pick = (test) => history.filter((h) => h && test(h)).map((h) => h.time || h.date);
-  if (key === "followup") return pick((h) => h.type === "followup");
+  // 资料上存的跟进时间也算（导入的老客户可能只有它，没有跟进记录）。
+  if (key === "followup") return [...pick((h) => h.type === "followup"), profile.lastFollowup, profile.lastWrittenFollowup];
   if (key === "mailSent") return pick((h) => h.type === "email" && h.subtype === "sent");
   if (key === "mailReceived") return pick((h) => h.type === "email" && h.subtype !== "sent");
   if (key === "chat") return pick((h) => h.type === "chat" || h.type === "call");

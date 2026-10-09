@@ -229,3 +229,10 @@ test('enrich exposes lastContact, lastFollowup and lastDealDate by the rules', (
   const opp = CS.setDealRule(state, 'opportunity');
   assert.equal(S.enrich(M.buildCustomers(opp), opp).find((r) => r.name === 'Acme').lastDealDate, '2026-05-05');
 });
+
+test('a follow-up time saved on the profile (imported customers without history) counts as 写跟进', () => {
+  const state = { orders: [], customers: { Old: { client: 'Old', lastFollowup: '2026-10-01T00:00:00.000Z' } } };
+  assert.equal(CS.contactTimes(state, 'Old').lastContact, '2026-10-01T00:00:00.000Z');
+  const off = { ...state, laiSettings: { customerSettings: { followRules: { contact: ['mailSent'] } } } };
+  assert.equal(CS.contactTimes(off, 'Old').lastContact, '');
+});

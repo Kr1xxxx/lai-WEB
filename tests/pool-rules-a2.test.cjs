@@ -145,7 +145,7 @@ test('noContact uses the last contact, noDeal the last deal; empty falls back to
   assert.deepEqual(T.poolCandidates(noTime, undefined, NOW, stub()), []);
 });
 
-test('defaultTimes works without contactTimes: last activity and latest settled order', () => {
+test('defaultTimes uses the settings model: latest settled order for deals, non-draft orders for contact', () => {
   const s = withRules({
     orders: [
       { id: 'a', client: 'Idle', stage: 'done', createdAt: day(300), shippedAt: day(250), amount: 1 },
@@ -158,8 +158,8 @@ test('defaultTimes works without contactTimes: last activity and latest settled 
   assert.equal(d, day(250));
   const list = T.poolCandidates(s, undefined, NOW);
   assert.equal(list[0].days, 250);
-  // 联系时间退回「最近动静」，订单（草稿也算）最近一笔是 2 天前
-  assert.equal(Date.parse(T.defaultTimes.lastContact(s, 'Idle')), Date.parse(day(2)));
+  // 联系时间来自客户设置的跟进规则：草稿订单不算，最近一笔非草稿订单是 3 天前
+  assert.equal(Date.parse(T.defaultTimes.lastContact(s, 'Idle')), Date.parse(day(3)));
 });
 
 test('groups: a first-level group covers its children, unrelated groups do not match, empty means all', () => {
