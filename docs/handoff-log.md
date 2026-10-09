@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner asked to drop "Lai" from the top bar and make 来财 rounder and more internet-style. The wordmark is now an inline
+  SVG `<text>` (`.brand-cn` in `src/customer-replica.css`): Yuanti SC (built into macOS) first, other fonts fall back, and a round-joined
+  stroke softens corners on any font. Not done: Yuanti SC could not be rendered here (no such font on this machine), so the real Mac
+  look is unchecked; `AI` tag and version badge kept. Tests 815 / 35.
 - 2026-10-09 — Claude — Lock asked whether the 小满 settings replication was unfinished; it was (only 客户设置 A1/A2 were done) and he said to continue. Added two 客户设置 tabs: 判重设置 (allow/block/off per field, checked on save for new values only; extras listed on 客户查重) and 来源设置 (two-level list with hide/sort/rename; feeds customer editor and lead source dropdowns). Rules in `VALIDATION.md`; README comparison table updated (also fixed A2 rows that still said 进行中). model 812 / e2e 37 green; UI audit pink 1440×900 customers: 0 errors, 0 native selects, 0 rail overlaps. Not done: Mac walk-through; 商机来源 not wired; 新线索判重 page; the rest of the 未做 rows. Next: 自定义字段/必填 (may need a schema decision — ask first).
 - 2026-10-09 — Claude — 界面配色默认改为粉色（没选过配色的人和新数据都是粉色；已经选了小满或橙色的人不变），设置里每个配色选项加了预览小图（左栏、顶栏、两张卡片）。选项顺序：粉色（默认）、橙色、小满。改动在 `src/app.js`、`business-ui.js`、`settings-hub.js`、`ui-tokens.css`（`:root` 默认值换成粉色）、`business.css`（预览图样式）。测试：`tests/ui-baseline.test.cjs`。
 - 2026-10-09 — Claude — Owner saw no new logo in the web trial: #25 only replaced `assets/AppIcon.icns` (Mac Dock/Finder); the page's top-left
