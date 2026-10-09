@@ -18,7 +18,7 @@ test('mail account routes require the session, validate input before any network
   const token = crypto.randomBytes(32).toString('hex'), base = `http://127.0.0.1:${port}`, data = path.join(temporary, 'data');
   const start = () => spawn(process.execPath, [path.join(resources, 'server.js')], { env: { ...process.env, LAI_DATA_DIR: data, LAI_APP_PORT: String(port), LAI_API_TOKEN: token, LAI_APP_NO_OPEN: '1' }, stdio: ['ignore', 'ignore', 'pipe'] });
   const stop = child => child.exitCode !== null ? null : new Promise(resolve => { child.once('exit', resolve); child.kill('SIGTERM'); });
-  const ready = async () => { for (let i = 0; i < 200; i++) { try { if ((await fetch(base + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 20)); } throw new Error('server did not start'); };
+  const ready = async () => { for (let i = 0; i < 500; i++) { try { if ((await fetch(base + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 20)); } throw new Error('server did not start'); };
   const request = (route, options = {}) => fetch(base + route, { ...options, headers: { 'x-trade-token': token, ...options.headers } });
   const post = (route, body) => request(route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   let child = start();
@@ -75,7 +75,7 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
   const request = async (route, options = {}) => { const response = await fetch(base + route, { ...options, headers: { 'x-trade-token': token, ...options.headers } }); const text = await response.text(); seen.push(text); return { status: response.status, body: JSON.parse(text) }; };
   const post = (route, body) => request(route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   try {
-    for (let i = 0; i < 200; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 20)); }
+    for (let i = 0; i < 500; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 20)); }
     for (const route of ['/api/mail/messages?folder=inbox', '/api/mail/message?box=inbox&uid=1', '/api/mail/drafts', '/api/mail/correspondence?addresses=a@b.co', '/vendor/purify.min.js', '/vendor/squire-raw.js']) assert.equal((await fetch(base + route)).status, 401, route);
     for (const file of ['purify.min.js', 'squire-raw.js']) { const served = await fetch(base + '/vendor/' + file, { headers: { 'x-trade-token': token } }); assert.equal(served.status, 200, file); assert.match(served.headers.get('content-type'), /javascript/); }
     assert.equal((await fetch(base + '/vendor/mail-libs.cjs', { headers: { 'x-trade-token': token } })).status, 404, 'the server-side bundle is not served to the page');

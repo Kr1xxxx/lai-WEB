@@ -9,6 +9,10 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   `main`'s workflow and scripts, so a PR can no longer edit `classify-pr.mjs` to merge itself (simulated: the
   tampered copy says small, main's copy says big). It merges only the exact commit CI tested, keeps the branch
   (no more `--delete-branch`), and posts a `merge policy` status on the PR. Waits for 合并.
+- 2026-10-09 — Claude — Owner asked to check and tidy the rule files. Server-start waits in three tests raised to 10 s (one
+  failed once on a slow CI runner); `docs/HANDOFF.md` status brought up to date; four UI features added to
+  `docs/features.json` (browser-verified, Mac not yet). CI fixes (classify with `main`'s script, keep branches) are a
+  separate PR that waits for 合并.
 - 2026-10-09 — Claude — Owner said 合并 (twice: PR #3, then the four UI branches). Merged PR #3 (small-PR limit 500, Mac build
   cadence; I merged `main` into its branch first because of docs conflicts), then PR #6 left rail, #7 truncation, #8
   dropdowns, #9 UI audit. `main` is now 91906aa. The web trial (Version 44) was built from the same code, so nothing

@@ -3,18 +3,22 @@
 > The single "where are we now". Update it before you stop working; the session log lives in
 > `docs/handoff-log.md`. Keep this file under 100 lines.
 
-## Status (2026-10-08)
+## Status (2026-10-09)
 
 - Repository: https://github.com/Kr1xxxx/lai-app — `main` is version 1.4.126 (source); the owner's installed app
   is 1.4.125.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk
   create), orders, workbench, calendar/tasks, business stats, opportunities with custom sales flows, team data,
   Zoho mail, 常用 hearts, 设置/设置中心, three colour themes. Rules chosen while building: `VALIDATION.md`.
-- Tests on `main`: `npm run test:model` 657 pass; `npm run test:e2e` 5 pass (added with the handoff rules PR).
+- UI pass merged 2026-10-09: Chinese date/month calendar (flatpickr, week starts Monday), one custom dropdown for
+  every select, left rail without overlap, order numbers never cut off, `UI_CHECKLIST.md` + `scripts/ui-audit/`.
+- Tests on `main`: `npm run test:model` 687 pass; `npm run test:e2e` 7 pass.
 - Verification status per feature: `docs/features.json`. Most features were checked in a browser by earlier
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
-- Merge policy (D-014) and CI are live since PR #1 (2026-10-09); from the merge-policy PR on, the decision runs in
-  `merge-policy.yml` from `main`'s copy and merged branches are kept.
+- Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016) since PR #3. From PR #12 on, the
+  decision runs in `merge-policy.yml` from `main`'s copy and merged branches are kept.
+- Last Mac build on `main`: ea0ebfd (10th Claude merge), green.
+- Web trial: Version 44, same code as `main` 91906aa.
 
 ## Work waiting on branches (not in `main`)
 

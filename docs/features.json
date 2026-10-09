@@ -318,6 +318,66 @@
     "browser": false,
     "mac": false
    }
+  },
+  {
+   "id": "date-picker",
+   "area": "ui",
+   "description": "Every date and month field opens one Chinese calendar (week starts on Monday) instead of the system control",
+   "steps": [
+    "交易 → 新建订单: click the date field, a calendar with 周一…周日 opens",
+    "Click 今天: the field shows today as YYYY-MM-DD",
+    "商机 toolbar: pick a start date, the board filters without an error",
+    "协同 → 日历: the month field opens a month picker"
+   ],
+   "e2e": "date-picker.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "dropdowns",
+   "area": "ui",
+   "description": "Every dropdown is the same custom control (search box from 9 options, wide enough for the longest option)",
+   "steps": [
+    "Open 客户列表, 订单, 商机 and 设置: no system dropdown appears",
+    "Open a dropdown with 9 or more options: a search box is at the top",
+    "The chosen option shows in the brand colour with ✓",
+    "Switch theme to pink and orange: dropdowns follow the theme"
+   ],
+   "e2e": null,
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "left-rail",
+   "area": "ui",
+   "description": "Left rail entries never overlap the refresh button at any window height",
+   "steps": [
+    "Window 1440×900: all 13 entries and 刷新 are visible, nothing overlaps",
+    "Make the window short: the entries scroll, 刷新 stays at the bottom"
+   ],
+   "e2e": null,
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "truncation",
+   "area": "ui",
+   "description": "Order numbers are never cut off; other cut-off text shows its full text on hover",
+   "steps": [
+    "交易 → 全部订单: order numbers are shown in full",
+    "Hover a long company name that ends with …: the full name appears"
+   ],
+   "e2e": null,
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }
