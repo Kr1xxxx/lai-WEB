@@ -28,6 +28,7 @@ rule 5).
 | `claude/lai-reliability-numbering-1.4.127` | 1.4.127: mail reliability, backups, totals, order numbers | Conflicts with the two above in `backend/server.js`, `backend/storage.js`, `src/business-ui.js`, `src/business.css` |
 | `claude/rail-layout` | Left rail: entries scroll separately from the refresh button | From 2026-10-09 (Taipei) |
 | `claude/unify-dropdowns` | One custom dropdown for every select (D-010) | From 2026-10-09 (Taipei) |
+| `claude/truncation` | Order numbers never cut off; truncated text shows its full text on hover | From 2026-10-09; one new file `src/truncation-title.js` |
 | `claude/ui-audit-plan` | `UI_CHECKLIST.md` + a CLAUDE.md line | Its CLAUDE.md line must move into AGENTS.md now |
 | `claude/web-trial-combined`, `claude/mail-skeleton-trial` | Old shared trial branch (= leads + attachments) | Obsolete once those two merge |
 | `claude/mail-skeleton`, `claude/a-closeout-records` | Mail skeleton (superseded by real mail), A5 review notes | Probably obsolete; owner decides |
@@ -41,6 +42,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | --- | --- | --- | --- | --- |
 | 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | Done | Claude | PR #1 merged 2026-10-09 |
 | 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads → attachments → 1.4.127 → UI branches |
+| 2a | Date and month fields: one Chinese calendar (flatpickr) instead of the system control | In progress | Claude | PR from `claude/date-picker`; owner approved the library on 2026-10-09 (D-011) |
 | 3 | Owner walks through the Mac build from CI and records results in `docs/features.json` | Todo | Owner | Download the `Lai-app-<sha>` artifact from the PR's CI run |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo | Owner | Needs his real account (D-004) |
 | 5 | Save the web trial's data shim (lives only in the published page) into `scripts/web-trial/` | Todo | — | Until then the trial cannot be rebuilt from the repo alone |
