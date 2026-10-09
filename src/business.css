@@ -1834,3 +1834,327 @@ td.team-reached {
 /* 订单表单顶部的「由商机生成」提示条 */
 .opp-source-banner { display: flex; gap: 8px; align-items: baseline; margin: 0 0 12px; padding: 9px 12px; border-left: 3px solid var(--brand-500, #1f6bff); border-radius: 6px; background: var(--brand-50, #eef4ff); color: var(--ink-700, #333); font-size: 13px; line-height: 1.5; }
 .opp-source-banner strong { flex: none; color: var(--brand-700, #0b4fd1); }
+
+/* ---------- 线索：沿用商机页的输入框、标签和表单样式，这里只补线索自己的部分 ---------- */
+.lead-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e3e7ee;
+}
+.lead-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  margin-bottom: -1px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  color: #6b7a90;
+}
+.lead-tabs button b {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #eef0f4;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  color: #566176;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.lead-tabs button:hover {
+  color: #1f2d45;
+}
+.lead-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--brand-500);
+  font-weight: 600;
+  color: #0a4fc4;
+}
+.lead-tabs button[aria-selected="true"] b {
+  background: #e8f0ff;
+  color: #0a4fc4;
+}
+.lead-due-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d5dbe5;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  color: #1f2d45;
+}
+.lead-due-toggle b {
+  font-weight: 600;
+  color: #c9363f;
+  font-variant-numeric: tabular-nums;
+}
+.lead-due-toggle[aria-pressed="true"] {
+  border-color: #c9363f;
+  background: #fdf0f0;
+  color: #a12830;
+}
+.lead-table th,
+.lead-table .lead-nowrap {
+  white-space: nowrap;
+}
+.lead-table td {
+  vertical-align: top;
+}
+.lead-table {
+  width: 100%;
+  table-layout: auto;
+}
+.lead-table td:first-child {
+  min-width: 160px;
+}
+/* 名称可以折行，不用省略号截断：线索名称是这一页最主要的信息。 */
+.lead-table .company-link {
+  max-width: 100%;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.lead-table .lead-sub .company-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: #5236b0;
+}
+.lead-table td:nth-child(6) {
+  min-width: 150px;
+}
+.lead-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6b7a90;
+}
+.lead-clip {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lead-muted {
+  color: #9aa5b5;
+}
+.lead-dup {
+  margin-left: 6px;
+  background: #fff4dd;
+  color: #8a5a00;
+}
+.lead-status-new {
+  background: #e8f0ff;
+  color: #0a4fc4;
+}
+.lead-status-following {
+  background: #e6f5ec;
+  color: #136c41;
+}
+.lead-status-converted {
+  background: #ede9fb;
+  color: #5236b0;
+}
+.lead-today {
+  font-weight: 600;
+  color: #b26a00;
+}
+.lead-row-overdue td:first-child {
+  box-shadow: inset 2px 0 0 #c9363f;
+}
+.lead-actions {
+  white-space: nowrap;
+}
+.lead-actions button {
+  height: 26px;
+  margin-right: 6px;
+  padding: 0 10px;
+  border: 1px solid #d5dbe5;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  color: #1f2d45;
+}
+.lead-actions button:hover {
+  border-color: var(--brand-500);
+  color: #0a4fc4;
+}
+.lead-actions .lead-convert {
+  border-color: var(--brand-500);
+  color: #0a4fc4;
+}
+.lead-danger,
+.lead-actions .lead-danger {
+  color: #c9363f;
+}
+.lead-actions .lead-danger:hover {
+  border-color: #c9363f;
+  color: #a12830;
+}
+.lead-list .opp-more {
+  margin-top: 10px;
+}
+.lead-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: #6b7a90;
+}
+.lead-empty strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #1f2d45;
+}
+.lead-empty p {
+  max-width: 460px;
+  margin: 0 auto 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.lead-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.lead-banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f4f6f9;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #3b4a61;
+}
+.lead-banner.is-converted {
+  background: #ede9fb;
+  color: #3f2a8c;
+}
+.lead-banner.is-dup {
+  background: #fff4dd;
+  color: #6f4800;
+}
+.lead-infos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+  margin: 0 0 12px;
+}
+.lead-info {
+  min-width: 0;
+}
+.lead-info dt {
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: #6b7a90;
+}
+.lead-info dd {
+  margin: 0;
+  font-size: 13px;
+  color: #1f2d45;
+  overflow-wrap: anywhere;
+}
+.lead-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #d5dbe5;
+  background: #f8f9fb;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.lead-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e3e7ee;
+}
+.lead-detail-actions button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #d5dbe5;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+}
+.lead-detail-actions button.primary {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+  color: #fff;
+}
+.lead-detail-actions .lead-danger {
+  margin-left: auto;
+}
+.lead-follow {
+  margin-bottom: 16px;
+}
+.lead-follow textarea {
+  width: 100%;
+  resize: vertical;
+}
+.lead-follow-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+.lead-follow-row .opp-field {
+  flex: 0 0 180px;
+}
+.lead-follow-row button {
+  height: 32px;
+  margin-left: auto;
+  padding: 0 16px;
+}
+.lead-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lead-timeline li {
+  display: grid;
+  grid-template-columns: 92px 36px 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef0f4;
+  font-size: 13px;
+}
+.lead-timeline time {
+  white-space: nowrap;
+  color: #6b7a90;
+  font-variant-numeric: tabular-nums;
+}
+.lead-entry-kind {
+  font-size: 12px;
+  color: #9aa5b5;
+}
+.lead-timeline .is-followup .lead-entry-kind {
+  color: #136c41;
+}
+.lead-timeline p {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.lead-timeline .is-operation p {
+  color: #6b7a90;
+}
+.lead-no-history {
+  margin: 0;
+  font-size: 13px;
+}

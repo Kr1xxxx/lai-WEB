@@ -499,6 +499,22 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "leads",
+   "area": "leads",
+   "description": "线索: list with status tabs, new/edit, 写跟进, mark invalid, convert to a new customer or link an existing one, trash/restore/delete",
+   "steps": [
+    "Open 线索 in the left rail",
+    "Add a lead, write a follow-up (status becomes 跟进中)",
+    "Convert it to a customer (country required)",
+    "Trash and restore it, reload"
+   ],
+   "e2e": "leads.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

@@ -12,9 +12,10 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
+  'route:leads', 'route:lead-trash',
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
   'route:dashboard',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
@@ -22,8 +23,8 @@ const ALL = [
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
   'route:calendar', 'route:settings', 'route:settings-hub'
 ];
-const MENUS = ['客户', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '设置'];
-const RESERVED = ['沟通', '线索'];
+const MENUS = ['客户', '线索', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '设置'];
+const RESERVED = ['沟通'];
 
 // ---------------- 清单只有一份来源 ----------------
 test('every real entry of every menu is favoritable, in menu order; the reserved menus have nothing to favorite', () => {
