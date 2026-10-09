@@ -12,15 +12,17 @@
   Zoho mail, 常用 hearts, 设置/设置中心, three colour themes. Rules chosen while building: `VALIDATION.md`.
 - UI pass merged 2026-10-09: Chinese date/month calendar (flatpickr, week starts Monday), one custom dropdown for
   every select, left rail without overlap, order numbers never cut off, `UI_CHECKLIST.md` + `scripts/ui-audit/`.
-- Tests on `main`: `npm run test:model` 706 pass; `npm run test:e2e` 14 pass. On `claude/customer-settings-2` (A2): 774 and 30.
+- Tests on `main`: `npm run test:model` 774 pass; `npm run test:e2e` 30 pass (A2 merged). The web-trial branch adds 6 shim tests.
 - 客户设置 batch A1 merged 2026-10-09 (PR #14, `main` 6941054): seven tabs under 客户 → 客户设置; rules in `VALIDATION.md`.
 - Verification status per feature: `docs/features.json`. Most features were checked in a browser by earlier
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
 - Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016) since PR #3. From PR #12 on, the
   decision runs in `merge-policy.yml` from `main`'s copy and merged branches are kept.
-- Last Mac build on `main`: ea0ebfd (10th Claude merge), green.
-- Web trial: Version 45, built from `main` 6941054 (客户设置 A1). `rebuild.py` stops on new `src/` files; how it
-  was rebuilt anyway: `docs/handoff-log.md`, 2026-10-09 PR #14 entry.
+- Last Mac build on `main`: 302e6b2 (20th Claude merge, PR #19), green: build, integration test and package passed; artifact `Lai-app-302e6b2…` in that CI run.
+- Web trial: the old page (Version 45, `main` 6941054, A1) could not be read from the current account, so the page was rebuilt
+  from the repo alone: `python3 -I scripts/web-trial/build.py --publish --out lai-artifact.html` (data stand-in:
+  `scripts/web-trial/data-shim.js`). New private Artifact https://claude.ai/artifact/QkmN2BDTSYYnox6BhzDNwD, built from `main`
+  7e74221 (A2). It holds no data from the old page. `rebuild.py` still works for an existing live page.
 - How Claude works (D-017, PR #15 merged 2026-10-09): Opus 5.5 high coordinates; subagents default to Sonnet 5.5 medium and
   run in parallel git worktrees (`.claude/settings.json`, `.claude/agents/`, rules in `CLAUDE.md`).
 
@@ -48,11 +50,11 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | Done | Claude | PR #1 merged 2026-10-09 |
 | 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads → attachments → 1.4.127. The UI branches are done: PRs #6–#9 merged 2026-10-09 |
 | 2b | 客户设置 batch A1: 客户分组 / 阶段 / 类型 / 建档黑名单 / 客户上限 / 查重展示 / 布局, wired into the editor, import, pool claim and detail page | Done | Claude | PR #14 merged 2026-10-09 (owner said 合并). Mac not walked through yet. Web trial Version 45 (built from 6941054) |
-| 2c | 客户设置 batch A2: 公海管理 (extend `poolRules`: several rules, reminder days, whitelist, claim limits, reason required; replace the old 公海规则 dialog button), 客户跟进规则 ("最近联系" is not "最近跟进"), 客户成交规则, 动态设置, 写跟进设置 | Done | Claude | Branch `claude/customer-settings-2`, labelled `major`, waits for 合并. Rules: `VALIDATION.md` “客户设置第二批”. Source: the owner's 小满 settings docs (collection ≠ authorization: do not copy the company's whole config, do not treat orders as opportunities, no formal data). Excluded: 企业微信, 钉钉, 内贸, 商城/购买/订购/采购; 回款, 海关, 外部沟通 stay deferred (D-006). Sharing/permissions/accounts need separate confirmation |
+| 2c | 客户设置 batch A2: 公海管理 (extend `poolRules`: several rules, reminder days, whitelist, claim limits, reason required; replace the old 公海规则 dialog button), 客户跟进规则 ("最近联系" is not "最近跟进"), 客户成交规则, 动态设置, 写跟进设置 | Done | Claude | PR #20 merged 2026-10-09 (owner said 合并), `main` 7e74221; Mac app not walked through. Source was the owner's 小满 settings docs (collection ≠ authorization). Excluded: 企业微信, 钉钉, 内贸, 商城/购买/订购/采购; 回款, 海关, 外部沟通 stay deferred (D-006). Sharing/permissions/accounts need separate confirmation |
 | 2a | Date and month fields: one Chinese calendar (flatpickr) instead of the system control | Done | Claude | PR #4 merged 2026-10-09 (owner said 合并); week starts on Monday; web trial republished (Version 44) |
 | 3 | Owner walks through the Mac build from CI and records results in `docs/features.json` | Todo | Owner | Download the `Lai-app-<sha>` artifact from the PR's CI run |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo | Owner | Needs his real account (D-004) |
-| 5 | Save the web trial's data shim (lives only in the published page) into `scripts/web-trial/` | Todo | — | Until then the trial cannot be rebuilt from the repo alone |
+| 5 | Save the web trial's data shim into `scripts/web-trial/` | Done | Claude | `data-shim.js` + `build.py` (this branch); the trial can now be built from the repo alone. Data from the old page is not carried over |
 | 6 | More e2e coverage: orders, opportunities, mail page with the fake mail servers, settings | Todo | — | `tests/fixtures/fake-mail-servers.cjs` exists |
 | 7 | Translate `ARCHITECTURE.md` / `VALIDATION.md` to English | Todo | — | After the waiting branches merge; they edit these files |
 | 8 | Module reviews carried over: orders, workbench/calendar, stats (old A3–A5) | Todo | — | See `docs/archive/NEXT_STEPS.md` for the old acceptance criteria |

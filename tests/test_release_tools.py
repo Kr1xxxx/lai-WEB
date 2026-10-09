@@ -157,3 +157,36 @@ class SourceExport(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WebTrialBuild(unittest.TestCase):
+    def test_trial_page_is_built_from_the_repository_alone(self):
+        spec = importlib.util.spec_from_file_location('lai_web_trial_build', ROOT / 'scripts/web-trial/build.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'lai-web.html'
+            with patch.object(sys, 'argv', ['build.py', '--out', str(out)]), contextlib.redirect_stdout(io.StringIO()):
+                module.main()
+            html = out.read_text(encoding='utf8')
+        self.assertNotIn('/vendor/', html)
+        positions = [html.index(marker) for marker in ('XLSX', 'root.LaiWebTrial = {', 'LaiWebTrialMailDemo = {', 'LaiWebTrialDemoSeed = {', 'lai-web-panel')]
+        self.assertEqual(positions, sorted(positions))
+        app_script = html.rindex('<script>')
+        self.assertLess(html.index('root.LaiWebTrial = {'), app_script)
+        self.assertLess(html.index('lai-web-panel'), app_script)
+
+    def test_publish_form_has_no_page_shell(self):
+        spec = importlib.util.spec_from_file_location('lai_web_trial_build2', ROOT / 'scripts/web-trial/build.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'lai-artifact.html'
+            with patch.object(sys, 'argv', ['build.py', '--publish', '--out', str(out)]), contextlib.redirect_stdout(io.StringIO()):
+                module.main()
+            html = out.read_text(encoding='utf8')
+        self.assertTrue(html.startswith('<title>来财Lai</title><style>'))
+        self.assertFalse(html.lstrip().lower().startswith('<!doctype'))
+        self.assertNotIn('</body>', html[-200:])
+        self.assertIn('<div id="app">', html)
+        self.assertTrue(html.rstrip().endswith('</script>'))
