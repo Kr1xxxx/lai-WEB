@@ -2,6 +2,7 @@
   "use strict";
   const M = root.PreviewModel || (typeof require === "function" ? require("./model.js") : null);
   const F = root.LaiCustomerFields || (typeof require === "function" ? require("./customer-fields.js") : null);
+  const CS = root.LaiCustomerSettings || (typeof require === "function" ? require("./customer-settings-model.js") : null);
   const initialDateValues = new WeakMap();
   function dateInputType(value) {
     const text = String(value ?? "");
@@ -94,17 +95,10 @@
       c.owner,
     );
     const originalStage = c.customerStage || (!isNew ? c.stage : "") || "";
-    const stageOptions = values(
-      [
-        ...list("customerStage"),
-        "未成单",
-        "付款未到账",
-        "待付尾款.",
-        "已完成",
-        "输单",
-      ],
-      originalStage,
-    );
+    // 客户阶段、客户类型的选项来自“客户设置”；当前已选的值（哪怕设置里没有了）也保留。
+    const settings = CS.get(state);
+    const stageOptions = values(settings.stages, originalStage);
+    const typeOptions = values(settings.types, c.customerType || "");
     const manualGroups = (
       Array.isArray(state.previewSegments) ? state.previewSegments : []
     )
@@ -112,7 +106,10 @@
     const groupName = (typeof c.previewGroup === "string" && c.previewGroup.trim() ? c.previewGroup : "") ||
       manualGroups.find((group) => (group.members || []).includes(c.name))?.name ||
       (typeof c.group === "string" ? c.group : "");
-    const groups = manualGroups.map((group) => group.name);
+    const groups = [
+      ...manualGroups.map((group) => group.name),
+      ...CS.groupChoices(state, c.owner || "", groupName).map((item) => item.value),
+    ];
     const rating = Math.min(5, Math.max(0, Number(c.customerStars) || 0));
     const extrasCount = Math.max(
       (Array.isArray(c.extraContacts) ? c.extraContacts.length : 0),
@@ -202,6 +199,7 @@
       tags: field("tags", "客户标签", input("tags", Array.isArray(c.tags) ? c.tags.join("，") : c.tags, "选填")),
       previewGroup: field("previewGroup", "客户分组", select("previewGroup", groupName, "默认未分组", groups)),
       customerStage: field("customerStage", "客户阶段", select("customerStage", originalStage, "选填", stageOptions)),
+      customerType: field("customerType", "客户类型", select("customerType", c.customerType || "", "选填", typeOptions)),
       customerStars: `<div class="ce-field ce-rating-field"><span class="ce-label">客户星级</span><div class="ce-rating" role="radiogroup" aria-label="客户星级" data-rating="${rating}"><input type="hidden" name="customerStars" value="0">${[1, 2, 3, 4, 5].map((star) => `<label class="${star <= rating ? "is-active" : ""}"><input type="radio" name="customerStars" value="${star}" aria-label="${star}星"${rating === star ? " checked" : ""}>${glyph("star")}</label>`).join("")}</div></div>`,
       customerCode: `<div class="ce-field ce-number-field"><span class="ce-label">客户编号</span><div class="ce-customer-number"><span data-customer-code-display>${E(c.customerCode || "*****")}</span><button type="button" class="ce-number-edit" data-editor-action="edit-customer-code" aria-label="编辑客户编号">${glyph("edit")}</button><input id="ce-customerCode" class="ce-number-input" name="customerCode" type="text" value="${E(c.customerCode || "")}" aria-label="客户编号" hidden></div></div>`,
       timezone: field("timezone", "时区", select("timezone", c.timezone, "不用填写", list("timezone"))),

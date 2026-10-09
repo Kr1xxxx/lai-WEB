@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const CS = typeof module !== 'undefined' && module.exports ? require('./customer-settings-model.js') : root.LaiCustomerSettings;
   const fields = Object.freeze([
     ['name', '公司名称'], ['contact', '联系人昵称'], ['email', '联系人邮箱'],
     ['shortName', '公司简称'], ['country', '国家地区'], ['tags', '标签'],
@@ -186,10 +187,21 @@
       const old = customers[name] || {};
       const otherEmail = normalize(values.email) && [...(emails.get(normalize(values.email)) || [])].some(owner => owner !== name);
       const otherPhone = phoneKey(values.phone).length >= 7 && [...(phones.get(phoneKey(values.phone)) || [])].some(owner => owner !== name);
+      const blocked = (() => {
+        if (!CS) return '';
+        const hit = values.email && CS.blacklistHit(state, values.email);
+        const had = [old.email, ...(Array.isArray(old.emails) ? old.emails : [])].map(value => normalize(value));
+        if (hit && !had.includes(normalize(values.email))) return '邮箱在建档黑名单里';
+        const owner = String(values.owner || '').trim();
+        if (owner && destination === 'active' && owner !== String(old.owner || '').trim()) {
+          try { CS.assertCanTake({...state, customers}, owner, 1, [name]); } catch (error) { return `${owner}的客户数已达上限`; }
+        }
+        return '';
+      })();
       const reason = old.laiBucket === 'trash' ? '回收站客户不可更新'
         : originallyKnown.has(key) && duplicate === 'skip' ? '同名客户已存在'
         : otherEmail ? '邮箱与其他客户重复'
-        : otherPhone ? '电话与其他客户重复' : '';
+        : otherPhone ? '电话与其他客户重复' : blocked;
       if (reason) {
         result.skipped++;
         details.push({row:parsed.lineNumbers?.[index] || index + 2,name:values.name,status:'skipped',reason});

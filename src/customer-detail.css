@@ -157,6 +157,16 @@
   gap: 16px;
   align-items: start;
 }
+/* 客户设置 → 布局设置：左大右小 */
+.lcd-columns[data-layout="left-large"] {
+  grid-template-columns: minmax(420px, 1.3fr) minmax(360px, 1fr);
+}
+:root[data-skin="glass"] .lcd-columns[data-layout="left-large"] {
+  grid-template-columns: minmax(340px, 1.2fr) minmax(0, 1fr) minmax(250px, 290px);
+}
+@media (max-width: 1360px) {
+  :root[data-skin="glass"] .lcd-columns[data-layout="left-large"] { grid-template-columns: minmax(360px, 1.2fr) minmax(0, 1fr); }
+}
 .lcd-left,
 .lcd-right {
   min-width: 0;
