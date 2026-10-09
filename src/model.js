@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const CS = typeof module !== 'undefined' && module.exports ? require('./customer-settings-model.js') : root.LaiCustomerSettings;
   const norm = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   const tags = value => Array.isArray(value) ? value.filter(Boolean).map(String) : String(value || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
   const amount = value => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
@@ -150,8 +151,15 @@
       if(![true,false,'true','false'].includes(followed))throw new Error('关注状态格式无效');
       next.previewFollowed=followed===true||followed==='true';
     }
-    for(const key of ['country','owner','email','phone','contact','address','website','source','customerStage','nextFollow','note','permanentNote','contactNote','productType','paymentMethod','paymentEmail','currency','contactPaymentMethod','alibabaId','primaryContactMethod','level','customerStars','customerCode','timezone','defaultPaymentPlan','customerAccountPeriod','companyProducts','cardStock','customBox','socialPlatform','socialAccount','phoneCountryCode','alternateEmail','birthday','shortName','landline','companyAddress','companyRemark','poolGroup','contactTitle','contactGender']){
+    for(const key of ['country','owner','email','phone','contact','address','website','source','customerStage','nextFollow','note','permanentNote','contactNote','productType','paymentMethod','paymentEmail','currency','contactPaymentMethod','alibabaId','primaryContactMethod','level','customerStars','customerCode','timezone','defaultPaymentPlan','customerAccountPeriod','companyProducts','cardStock','customBox','socialPlatform','socialAccount','phoneCountryCode','alternateEmail','birthday','shortName','landline','companyAddress','companyRemark','poolGroup','contactTitle','contactGender','customerType']){
       if(Object.hasOwn(fields,key)) next[key]=String(fields[key]??'').trim();
+    }
+    if(CS){
+      const had=[previous.email,...(Array.isArray(previous.emails)?previous.emails:[]),...(Array.isArray(previous.extraContacts)?previous.extraContacts.map(c=>c&&c.email):[]),record.email];
+      const incoming=[next.email,...(Object.hasOwn(fields,'extraContacts')&&Array.isArray(fields.extraContacts)?fields.extraContacts.map(c=>c&&c.email):[])];
+      CS.assertEmailsAllowed(state,incoming,had);
+      const ownerNow=String(next.owner||'').trim();
+      if(ownerNow&&Object.hasOwn(fields,'owner')&&ownerNow!==String(record.owner||'').trim())CS.assertCanTake(state,ownerNow,1,[oldName]);
     }
     if(oldName&&Object.hasOwn(fields,'owner')&&next.owner!==record.owner){
       next.previousOwner=record.owner||'';
@@ -295,6 +303,7 @@
     if(selected.some(name=>['pool','trash'].includes(state.customers?.[name]?.laiBucket)))
       throw new Error('只能更改私海客户的跟进人');
     const owner=String(rawOwner??'').trim();
+    if(CS&&owner){const moving=selected.filter(name=>(rows.get(name).owner||'')!==owner);if(moving.length)CS.assertCanTake(state,owner,moving.length);}
     const customers={...state.customers};
     let changed=false;
     for(const name of selected){

@@ -1,0 +1,427 @@
+(function (root) {
+"use strict";
+// 客户设置：客户分组、客户阶段、客户类型、建档黑名单、客户上限、查重展示字段、详情布局。
+// 全是纯函数：输入 state，返回新的 state（或检查结果），不碰界面，也不自己保存。
+// 设置存在 state.laiSettings.customerSettings 里；公海规则仍在 state.laiSettings.poolRules（见 customer-tools.js）。
+
+const trim = (v) => String(v ?? "").trim();
+const norm = (v) => trim(v).toLowerCase();
+const SEP = " / ";
+
+const DEFAULT_STAGES = Object.freeze(["未成单", "付款未到账", "待付尾款.", "已完成", "输单"]);
+const DEFAULT_TYPES = Object.freeze([
+  "生产商", "原材料供应商", "渠道商", "加盟商", "贸易商", "代理商", "批发商",
+  "分销商", "代销商", "零售商", "采购办事处", "采购咨询公司", "出口商", "进口商",
+]);
+// 查重页每位客户后面可以多显示的资料。country 是原来就有的。
+const DUPLICATE_FIELDS = Object.freeze([
+  ["customerCode", "客户编号"], ["source", "来源"], ["country", "国家地区"], ["owner", "跟进人"],
+  ["createdAt", "创建时间"], ["contact", "联系人"], ["customerStage", "客户阶段"], ["customerType", "客户类型"],
+]);
+const LIMITS = Object.freeze({ stages: 30, types: 50, groups: 100, children: 30, blacklist: 500, name: 20, cap: 100000 });
+
+const DEFAULTS = Object.freeze({
+  groups: [],
+  stages: DEFAULT_STAGES,
+  types: DEFAULT_TYPES,
+  blacklist: [],
+  caps: { defaultLimit: 0, perOwner: {} },
+  duplicateFields: ["country"],
+  layout: "left-small",
+});
+
+const profiles = (state) => (state && state.customers && typeof state.customers === "object" ? state.customers : {});
+const bucketOf = (p) => (["pool", "trash"].includes(p && p.laiBucket) ? p.laiBucket : "active");
+
+function cleanName(value, label) {
+  const name = trim(value).replace(/\s+/g, " ");
+  if (!name) throw new Error(`请填写${label}`);
+  if (name.length > LIMITS.name) throw new Error(`${label}最长 ${LIMITS.name} 个字`);
+  if (name.includes("/")) throw new Error(`${label}里不能有“/”`);
+  return name;
+}
+const uniqueNames = (list) => {
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const name = trim(item);
+    const key = norm(name);
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+};
+let counter = 0;
+const newId = () => `g${Date.now().toString(36)}${(counter++).toString(36)}`;
+
+function normalizeGroups(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(list) ? list : []) {
+    const name = trim(raw && raw.name);
+    if (!name || name.includes("/") || seen.has(norm(name)) || out.length >= LIMITS.groups) continue;
+    seen.add(norm(name));
+    const childSeen = new Set();
+    const children = [];
+    for (const child of Array.isArray(raw.children) ? raw.children : []) {
+      const childName = trim(child && child.name);
+      if (!childName || childName.includes("/") || childSeen.has(norm(childName)) || children.length >= LIMITS.children) continue;
+      childSeen.add(norm(childName));
+      children.push({ id: trim(child.id) || newId(), name: childName });
+    }
+    out.push({
+      id: trim(raw.id) || newId(),
+      name,
+      children,
+      childRequired: children.length > 0 && raw.childRequired === true,
+      members: raw.members === "all" || !Array.isArray(raw.members) ? "all" : uniqueNames(raw.members),
+    });
+  }
+  return out;
+}
+const limitNumber = (value) => {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n >= 0 && n <= LIMITS.cap ? n : null;
+};
+function normalizeCaps(raw) {
+  const caps = raw && typeof raw === "object" ? raw : {};
+  const perOwner = {};
+  for (const [owner, value] of Object.entries(caps.perOwner && typeof caps.perOwner === "object" ? caps.perOwner : {})) {
+    const n = limitNumber(value);
+    if (trim(owner) && n !== null) perOwner[trim(owner)] = n;
+  }
+  return { defaultLimit: limitNumber(caps.defaultLimit) ?? 0, perOwner };
+}
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+const DOMAIN_RE = /^@[^\s@,;]+\.[^\s@,;]+$/;
+function blacklistEntry(value) {
+  const entry = norm(value);
+  if (!entry) throw new Error("请填写邮箱");
+  if (!EMAIL_RE.test(entry) && !DOMAIN_RE.test(entry)) throw new Error("请填写完整邮箱，或以 @ 开头的整个域名，如 @example.com");
+  return entry;
+}
+function normalizeBlacklist(list) {
+  const out = [];
+  for (const raw of Array.isArray(list) ? list : []) {
+    try {
+      const entry = blacklistEntry(raw);
+      if (!out.includes(entry) && out.length < LIMITS.blacklist) out.push(entry);
+    } catch (_) { /* 坏条目丢掉 */ }
+  }
+  return out;
+}
+
+// 读取：缺什么补什么，永远返回完整的设置。
+function get(state) {
+  const raw = (state && state.laiSettings && state.laiSettings.customerSettings) || {};
+  const stages = uniqueNames(Array.isArray(raw.stages) ? raw.stages : DEFAULT_STAGES).slice(0, LIMITS.stages);
+  const types = uniqueNames(Array.isArray(raw.types) ? raw.types : DEFAULT_TYPES).slice(0, LIMITS.types);
+  const allowed = new Set(DUPLICATE_FIELDS.map(([key]) => key));
+  const duplicateFields = Array.isArray(raw.duplicateFields)
+    ? DUPLICATE_FIELDS.map(([key]) => key).filter((key) => raw.duplicateFields.includes(key))
+    : DEFAULTS.duplicateFields.filter((key) => allowed.has(key));
+  return {
+    groups: normalizeGroups(raw.groups),
+    stages,
+    types,
+    blacklist: normalizeBlacklist(raw.blacklist),
+    caps: normalizeCaps(raw.caps),
+    duplicateFields,
+    layout: raw.layout === "left-large" ? "left-large" : "left-small",
+  };
+}
+function put(state, patch) {
+  const next = { ...get(state), ...patch };
+  return { ...state, laiSettings: { ...(state.laiSettings || {}), customerSettings: next } };
+}
+const mapCustomers = (state, fn) => {
+  const customers = {};
+  let changed = false;
+  for (const [name, profile] of Object.entries(profiles(state))) {
+    const after = fn(profile, name);
+    if (after !== profile) changed = true;
+    customers[name] = after;
+  }
+  return changed ? { ...state, customers } : state;
+};
+const countBy = (state, test) => Object.values(profiles(state)).filter((p) => bucketOf(p) !== "trash" && test(p)).length;
+const pushHistory = (profile, text, at) => ({ ...profile, history: [{ time: at, text, type: "operation" }, ...(Array.isArray(profile.history) ? profile.history : [])] });
+
+// ============ 客户阶段 ============
+function stageUse(state, stage) { return countBy(state, (p) => trim(p.customerStage) === stage); }
+function addStage(state, name) {
+  const value = cleanName(name, "阶段名称");
+  const list = get(state).stages;
+  if (list.some((s) => norm(s) === norm(value))) throw new Error("已有同名阶段");
+  if (list.length >= LIMITS.stages) throw new Error(`阶段最多 ${LIMITS.stages} 个`);
+  return put(state, { stages: [...list, value] });
+}
+function renameStage(state, oldName, newName, at = new Date().toISOString()) {
+  const value = cleanName(newName, "阶段名称");
+  const list = get(state).stages;
+  if (!list.includes(oldName)) throw new Error("没有找到这个阶段");
+  if (value !== oldName && list.some((s) => norm(s) === norm(value))) throw new Error("已有同名阶段");
+  const next = put(state, { stages: list.map((s) => (s === oldName ? value : s)) });
+  if (value === oldName) return next;
+  return mapCustomers(next, (p) => (trim(p.customerStage) === oldName ? pushHistory({ ...p, customerStage: value }, `客户阶段改名：${oldName} → ${value}`, at) : p));
+}
+function deleteStage(state, name) {
+  const list = get(state).stages;
+  if (!list.includes(name)) throw new Error("没有找到这个阶段");
+  const used = stageUse(state, name);
+  if (used) throw new Error(`还有 ${used} 位客户在用“${name}”，先把他们改到别的阶段，或把这个阶段改名`);
+  return put(state, { stages: list.filter((s) => s !== name) });
+}
+function moveItem(state, key, name, delta) {
+  if (!["stages", "types"].includes(key)) throw new Error("无法排序");
+  const list = get(state)[key].slice();
+  const at = list.indexOf(name);
+  const to = at + delta;
+  if (at < 0 || to < 0 || to >= list.length) return state;
+  [list[at], list[to]] = [list[to], list[at]];
+  return put(state, { [key]: list });
+}
+
+// ============ 客户类型 ============
+function typeUse(state, type) { return countBy(state, (p) => trim(p.customerType) === type); }
+function addType(state, name) {
+  const value = cleanName(name, "类型名称");
+  const list = get(state).types;
+  if (list.some((s) => norm(s) === norm(value))) throw new Error("已有同名类型");
+  if (list.length >= LIMITS.types) throw new Error(`类型最多 ${LIMITS.types} 个`);
+  return put(state, { types: [...list, value] });
+}
+function renameType(state, oldName, newName, at = new Date().toISOString()) {
+  const value = cleanName(newName, "类型名称");
+  const list = get(state).types;
+  if (!list.includes(oldName)) throw new Error("没有找到这个类型");
+  if (value !== oldName && list.some((s) => norm(s) === norm(value))) throw new Error("已有同名类型");
+  const next = put(state, { types: list.map((s) => (s === oldName ? value : s)) });
+  if (value === oldName) return next;
+  return mapCustomers(next, (p) => (trim(p.customerType) === oldName ? pushHistory({ ...p, customerType: value }, `客户类型改名：${oldName} → ${value}`, at) : p));
+}
+function deleteType(state, name) {
+  const list = get(state).types;
+  if (!list.includes(name)) throw new Error("没有找到这个类型");
+  const used = typeUse(state, name);
+  if (used) throw new Error(`还有 ${used} 位客户在用“${name}”，先改客户，或把这个类型改名`);
+  return put(state, { types: list.filter((s) => s !== name) });
+}
+
+// ============ 客户分组（最多两级） ============
+const pathOf = (parent, child) => (child ? `${parent}${SEP}${child}` : parent);
+const groupPaths = (groups) => groups.flatMap((g) => [g.name, ...g.children.map((c) => pathOf(g.name, c.name))]);
+function groupUse(state, path) {
+  return countBy(state, (p) => {
+    const value = trim(p.previewGroup);
+    return value === path || value.startsWith(path + SEP);
+  });
+}
+function addGroup(state, { name, parentId = "", members = "all" } = {}) {
+  const value = cleanName(name, "分组名称");
+  const groups = get(state).groups.map((g) => ({ ...g, children: g.children.slice() }));
+  if (parentId) {
+    const parent = groups.find((g) => g.id === parentId);
+    if (!parent) throw new Error("没有找到上级分组");
+    if (parent.children.some((c) => norm(c.name) === norm(value))) throw new Error("同一个上级下已有同名分组");
+    if (parent.children.length >= LIMITS.children) throw new Error(`一个分组下最多 ${LIMITS.children} 个子分组`);
+    parent.children.push({ id: newId(), name: value });
+  } else {
+    if (groups.some((g) => norm(g.name) === norm(value))) throw new Error("已有同名分组");
+    if (groups.length >= LIMITS.groups) throw new Error(`一级分组最多 ${LIMITS.groups} 个`);
+    groups.push({ id: newId(), name: value, children: [], childRequired: false, members: members === "all" || !Array.isArray(members) ? "all" : uniqueNames(members) });
+  }
+  return put(state, { groups });
+}
+function findGroup(groups, id) {
+  for (const g of groups) {
+    if (g.id === id) return { top: g, child: null };
+    const child = g.children.find((c) => c.id === id);
+    if (child) return { top: g, child };
+  }
+  return null;
+}
+function editGroup(state, id, { name, members, childRequired } = {}, at = new Date().toISOString()) {
+  const groups = get(state).groups.map((g) => ({ ...g, children: g.children.map((c) => ({ ...c })) }));
+  const hit = findGroup(groups, id);
+  if (!hit) throw new Error("没有找到这个分组");
+  let next = state;
+  if (hit.child) {
+    const value = name === undefined ? hit.child.name : cleanName(name, "分组名称");
+    if (value !== hit.child.name && hit.top.children.some((c) => c.id !== id && norm(c.name) === norm(value))) throw new Error("同一个上级下已有同名分组");
+    const from = pathOf(hit.top.name, hit.child.name);
+    hit.child.name = value;
+    next = put(state, { groups });
+    const to = pathOf(hit.top.name, value);
+    if (from !== to) {
+      next = mapCustomers(next, (p) => (trim(p.previewGroup) === from ? pushHistory({ ...p, previewGroup: to }, `客户分组改名：${from} → ${to}`, at) : p));
+    }
+    return next;
+  }
+  const oldName = hit.top.name;
+  const value = name === undefined ? oldName : cleanName(name, "分组名称");
+  if (value !== oldName && groups.some((g) => g.id !== id && norm(g.name) === norm(value))) throw new Error("已有同名分组");
+  hit.top.name = value;
+  if (members !== undefined) hit.top.members = members === "all" || !Array.isArray(members) ? "all" : uniqueNames(members);
+  if (childRequired !== undefined) hit.top.childRequired = hit.top.children.length > 0 && childRequired === true;
+  next = put(state, { groups });
+  if (value !== oldName) {
+    next = mapCustomers(next, (p) => {
+      const current = trim(p.previewGroup);
+      if (current === oldName) return pushHistory({ ...p, previewGroup: value }, `客户分组改名：${oldName} → ${value}`, at);
+      if (current.startsWith(oldName + SEP)) return pushHistory({ ...p, previewGroup: value + current.slice(oldName.length) }, `客户分组改名：${oldName} → ${value}`, at);
+      return p;
+    });
+  }
+  return next;
+}
+function deleteGroup(state, id) {
+  const groups = get(state).groups.map((g) => ({ ...g, children: g.children.slice() }));
+  const hit = findGroup(groups, id);
+  if (!hit) throw new Error("没有找到这个分组");
+  const path = hit.child ? pathOf(hit.top.name, hit.child.name) : hit.top.name;
+  const used = groupUse(state, path);
+  if (used) throw new Error(`还有 ${used} 位客户在“${path}”里，先把他们移到别的分组`);
+  if (hit.child) {
+    hit.top.children = hit.top.children.filter((c) => c.id !== id);
+    if (!hit.top.children.length) hit.top.childRequired = false;
+    return put(state, { groups });
+  }
+  return put(state, { groups: groups.filter((g) => g.id !== id) });
+}
+// 编辑客户时可选的分组：一级、二级；限定成员的分组只给这些跟进人用。已选的值总是保留。
+function groupChoices(state, owner = "", current = "") {
+  const out = [];
+  for (const g of get(state).groups) {
+    if (g.members !== "all" && owner && !g.members.includes(owner) && trim(current) !== g.name && !trim(current).startsWith(g.name + SEP)) continue;
+    out.push({ value: g.name, label: g.name, depth: 0 });
+    for (const c of g.children) out.push({ value: pathOf(g.name, c.name), label: c.name, depth: 1 });
+  }
+  const now = trim(current);
+  if (now && !out.some((item) => item.value === now)) out.push({ value: now, label: now, depth: 0, legacy: true });
+  return out;
+}
+// 保存前检查：值必须是设置里有的分组；有子分组且要求必选时，不能只选一级。
+function checkGroup(state, value, owner = "", previous = "") {
+  const path = trim(value);
+  if (!path || path === trim(previous)) return;
+  const groups = get(state).groups;
+  const [top, child] = path.split(SEP);
+  const g = groups.find((item) => item.name === top);
+  if (!g) return; // 手动客群的名字由客群管理那边检查
+  if (child !== undefined && !g.children.some((c) => c.name === child)) throw new Error(`“${path}”不是现有的分组`);
+  if (g.members !== "all" && owner && !g.members.includes(owner)) throw new Error(`分组“${g.name}”只对指定的跟进人开放`);
+  if (child === undefined && g.children.length && g.childRequired) throw new Error(`分组“${g.name}”要求选到子分组`);
+}
+const isConfiguredGroup = (state, value) => {
+  const path = trim(value);
+  return !!path && groupPaths(get(state).groups).includes(path);
+};
+
+// ============ 建档黑名单 ============
+function addBlacklist(state, value) {
+  const entry = blacklistEntry(value);
+  const list = get(state).blacklist;
+  if (list.includes(entry)) throw new Error("已在黑名单里");
+  if (list.length >= LIMITS.blacklist) throw new Error(`黑名单最多 ${LIMITS.blacklist} 条`);
+  return put(state, { blacklist: [...list, entry] });
+}
+function removeBlacklist(state, value) {
+  return put(state, { blacklist: get(state).blacklist.filter((entry) => entry !== norm(value)) });
+}
+function blacklistHit(state, email) {
+  const value = norm(email);
+  if (!EMAIL_RE.test(value)) return "";
+  const list = get(state).blacklist;
+  if (!list.length) return "";
+  const domain = value.slice(value.indexOf("@"));
+  return list.find((entry) => entry === value || entry === domain) || "";
+}
+// 只拦“新增的”邮箱：已有客户本来就有的邮箱，后来才进黑名单，不影响他继续编辑。
+function assertEmailsAllowed(state, emails, existing = []) {
+  const had = new Set((existing || []).map(norm));
+  for (const email of emails || []) {
+    const value = norm(email);
+    if (!value || had.has(value)) continue;
+    const hit = blacklistHit(state, value);
+    if (hit) throw new Error(`邮箱“${trim(email)}”在建档黑名单里（${hit}），不能新建或加到客户上`);
+  }
+}
+
+// ============ 客户上限 ============
+const ownerOf = (p) => trim(p && p.owner);
+function limitFor(state, owner) {
+  const who = trim(owner);
+  if (!who) return 0;
+  const caps = get(state).caps;
+  return Object.hasOwn(caps.perOwner, who) ? caps.perOwner[who] : caps.defaultLimit;
+}
+function ownerCount(state, owner, exclude = []) {
+  const who = trim(owner);
+  const skip = new Set(exclude);
+  return Object.entries(profiles(state)).filter(([name, p]) => !skip.has(name) && bucketOf(p) === "active" && ownerOf(p) === who).length;
+}
+// adding：要新增给这位跟进人的客户数。0 表示不限。
+function assertCanTake(state, owner, adding = 1, exclude = []) {
+  const who = trim(owner);
+  const limit = limitFor(state, who);
+  if (!who || !limit || adding <= 0) return;
+  const count = ownerCount(state, who, exclude);
+  if (count + adding > limit) throw new Error(`“${who}”名下已有 ${count} 位客户，上限是 ${limit}，不能再增加 ${adding} 位`);
+}
+function capRows(state, owners) {
+  const caps = get(state).caps;
+  return uniqueNames(owners).map((owner) => ({ owner, count: ownerCount(state, owner), limit: Object.hasOwn(caps.perOwner, owner) ? caps.perOwner[owner] : null, effective: limitFor(state, owner) }));
+}
+function setCaps(state, { defaultLimit, perOwner } = {}) {
+  const current = get(state).caps;
+  const next = { defaultLimit: current.defaultLimit, perOwner: { ...current.perOwner } };
+  if (defaultLimit !== undefined) {
+    const n = limitNumber(defaultLimit);
+    if (n === null) throw new Error(`默认上限请填 0–${LIMITS.cap} 之间的整数（0 表示不限）`);
+    next.defaultLimit = n;
+  }
+  for (const [owner, value] of Object.entries(perOwner || {})) {
+    const who = trim(owner);
+    if (!who) continue;
+    if (value === null || value === "" || value === undefined) { delete next.perOwner[who]; continue; }
+    const n = limitNumber(value);
+    if (n === null) throw new Error(`“${who}”的上限请填 0–${LIMITS.cap} 之间的整数（0 表示不限）`);
+    next.perOwner[who] = n;
+  }
+  return put(state, { caps: next });
+}
+
+// ============ 查重展示、详情布局 ============
+function setDuplicateFields(state, keys) {
+  const valid = DUPLICATE_FIELDS.map(([key]) => key);
+  const list = valid.filter((key) => (keys || []).includes(key));
+  return put(state, { duplicateFields: list });
+}
+function duplicateValue(state, name, key) {
+  const p = profiles(state)[name] || {};
+  const text = (v) => trim(v);
+  if (key === "contact") return text(p.contact || (Array.isArray(p.contacts) ? p.contacts[0] : ""));
+  if (key === "createdAt") return text(p.createdAt).slice(0, 10);
+  if (key === "owner") return text(p.owner);
+  return text(p[key]);
+}
+function setLayout(state, layout) {
+  if (!["left-small", "left-large"].includes(layout)) throw new Error("布局只能是左小右大或左大右小");
+  return put(state, { layout });
+}
+
+const api = {
+  DEFAULTS, DEFAULT_STAGES, DEFAULT_TYPES, DUPLICATE_FIELDS, LIMITS, SEP,
+  get, put,
+  addStage, renameStage, deleteStage, stageUse, moveItem,
+  addType, renameType, deleteType, typeUse,
+  addGroup, editGroup, deleteGroup, groupUse, groupChoices, checkGroup, isConfiguredGroup, groupPaths,
+  addBlacklist, removeBlacklist, blacklistHit, assertEmailsAllowed,
+  limitFor, ownerCount, assertCanTake, capRows, setCaps,
+  setDuplicateFields, duplicateValue, setLayout,
+};
+if (typeof module !== "undefined" && module.exports) module.exports = api;
+else root.LaiCustomerSettings = api;
+})(typeof window !== "undefined" ? window : globalThis);

@@ -12,7 +12,8 @@
   Zoho mail, 常用 hearts, 设置/设置中心, three colour themes. Rules chosen while building: `VALIDATION.md`.
 - UI pass merged 2026-10-09: Chinese date/month calendar (flatpickr, week starts Monday), one custom dropdown for
   every select, left rail without overlap, order numbers never cut off, `UI_CHECKLIST.md` + `scripts/ui-audit/`.
-- Tests on `main`: `npm run test:model` 687 pass; `npm run test:e2e` 7 pass.
+- Tests on `main`: `npm run test:model` 687 pass; `npm run test:e2e` 7 pass. On `claude/customer-settings`: 706 and 14
+  (the 客户设置 model, hooks and page; see the task board, row 2b).
 - Verification status per feature: `docs/features.json`. Most features were checked in a browser by earlier
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
 - Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016) since PR #3. From PR #12 on, the
@@ -43,6 +44,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | --- | --- | --- | --- | --- |
 | 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | Done | Claude | PR #1 merged 2026-10-09 |
 | 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads → attachments → 1.4.127. The UI branches are done: PRs #6–#9 merged 2026-10-09 |
+| 2b | 客户设置 batch A1 (from the owner's 小满 settings docs): 客户分组 / 阶段 / 类型 / 建档黑名单 / 客户上限 / 查重展示 / 布局 tabs, wired into the editor, import, pool claim and detail page | In progress | Claude | Branch `claude/customer-settings`, labelled `major`, waits for 合并. Rules chosen: `VALIDATION.md` "客户设置". Batch A2 (公海管理, 客户跟进规则, 客户成交规则, 动态设置, 写跟进设置) is next; excluded by the owner: 企业微信, 钉钉, 内贸, 商城/购买/订购/采购; 回款, 海关, 外部沟通 stay deferred (D-006) |
 | 2a | Date and month fields: one Chinese calendar (flatpickr) instead of the system control | Done | Claude | PR #4 merged 2026-10-09 (owner said 合并); week starts on Monday; web trial republished (Version 44) |
 | 3 | Owner walks through the Mac build from CI and records results in `docs/features.json` | Todo | Owner | Download the `Lai-app-<sha>` artifact from the PR's CI run |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo | Owner | Needs his real account (D-004) |

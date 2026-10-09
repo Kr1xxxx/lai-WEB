@@ -336,6 +336,82 @@
    }
   },
   {
+   "id": "customer-settings-stages-types",
+   "area": "customers",
+   "description": "客户设置: add, rename and delete 客户阶段 / 客户类型; they feed the customer editor and a name in use cannot be deleted",
+   "steps": [
+    "客户 → 客户设置 → 客户阶段: add 试样中",
+    "编辑 a customer: 客户阶段 offers 试样中; save",
+    "Delete 试样中: refused, '1 位客户在用'",
+    "Rename it: the customer's stage changes and a history line is added",
+    "客户类型: pick one in the editor; it shows on 客户详情"
+   ],
+   "e2e": "customer-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "customer-settings-groups",
+   "area": "customers",
+   "description": "客户设置: two-level 客户分组 usable in the customer editor, renamed along with customers, protected from deletion while in use",
+   "steps": [
+    "客户设置 → 客户分组 → 新建分组 重点客户, 添加子分组 A类",
+    "编辑 a customer: 客户分组 offers '重点客户 / A类'",
+    "Rename 重点客户: the customer shows 核心客户 / A类",
+    "Delete A类: refused while the customer is in it"
+   ],
+   "e2e": "customer-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "customer-settings-blacklist",
+   "area": "customers",
+   "description": "客户设置: 建档黑名单 blocks new emails on a customer (whole address or @domain) and rejects bad entries",
+   "steps": [
+    "客户设置 → 建档黑名单: add @blocked.example; 'not an email' is refused",
+    "编辑 a customer, set email to someone@blocked.example: the form says it is in the blacklist"
+   ],
+   "e2e": "customer-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "customer-settings-caps",
+   "area": "customers",
+   "description": "客户设置: 客户上限 stops adding customers to a full owner (batch create shows the reason)",
+   "steps": [
+    "客户设置 → 客户上限: default limit = the owner's current count; the owner row shows 已满",
+    "批量建档 a customer for that owner: skipped with '上限是 …'"
+   ],
+   "e2e": "customer-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "customer-settings-duplicates-layout",
+   "area": "customers",
+   "description": "客户设置: 客户查重 display fields and 布局设置 are saved; the layout reaches 客户详情",
+   "steps": [
+    "客户设置 → 客户查重: tick 跟进人, save",
+    "客户设置 → 布局设置: 左大右小",
+    "打开 a customer: the detail columns use the left-large layout"
+   ],
+   "e2e": "customer-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
    "id": "dropdowns",
    "area": "ui",
    "description": "Every dropdown is the same custom control (search box from 9 options, wide enough for the longest option)",

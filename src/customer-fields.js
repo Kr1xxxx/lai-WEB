@@ -166,7 +166,7 @@
     ["customerStars", "客户星级"], ["customerCode", "客户编号"],
     ["timezone", "时区"], ["defaultPaymentPlan", "默认付款计划"],
     ["customerAccountPeriod", "客户账期"], ["companyProducts", "主营产品"],
-    ["cardStock", "卡纸"], ["customBox", "定制盒"],
+    ["cardStock", "卡纸"], ["customBox", "定制盒"], ["customerType", "客户类型"],
   ].map(([id, label]) => Object.freeze({ id, label, required: ["name", "country", "source"].includes(id) })));
   const defaultCompanyCommon = Object.freeze(companyDisplayFields.slice(0, 10).map((field) => field.id));
   const defaultCompanyOther = Object.freeze(companyDisplayFields.slice(10).map((field) => field.id));

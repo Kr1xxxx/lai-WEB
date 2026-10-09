@@ -1,5 +1,6 @@
 (function(root) {
   'use strict';
+  const CS=root.LaiCustomerSettings||(typeof require==='function'?require('./customer-settings-model.js'):null);
   const definitions = [
     ['name','公司名称','text',230,'基本信息'],['contact','主要联系人','text',160,'基本信息'],['country','国家地区','text',120,'基本信息'],['tags','客户标签','text',160,'基本信息'],['owner','跟进人','text',110,'基本信息'],
     ['lastWonDate','最近赢单日期','date',140,'商机信息'],['lastFollowup','最近跟进时间','date',150,'跟进信息'],['latestActivity','最近动态','text',220,'跟进信息'],['total','成交订单金额 (USD)','number',170,'订单信息'],['average','成交订单均价 (USD)','number',170,'订单信息'],['orderCount','成交订单数','number',110,'订单信息'],
@@ -183,7 +184,9 @@
     const selected=String(rawSelected||'').trim(),previous=String(rawPrevious||'').trim();
     const manual=(state.previewSegments||[]).filter(item=>item.kind==='manual'&&!item.archived);
     const target=manual.find(item=>item.name===selected);
-    if(selected&&!target&&selected!==previous)throw new Error('请选择现有的手动分组');
+    const configured=!!selected&&!target&&CS.isConfiguredGroup(state,selected);
+    if(selected&&!target&&!configured&&selected!==previous)throw new Error('请选择现有的手动分组或设置里的分组');
+    if(configured)CS.checkGroup(state,selected,state.customers[name].owner||'',previous);
     const changed=selected!==previous;
     const previewSegments=(state.previewSegments||[]).map(item=>{
       if(item.kind!=='manual'||item.archived)return item;
