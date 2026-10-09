@@ -61,6 +61,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 9 | 沟通 (communication) module — which chat tool | Blocked | Owner | Needs his choice |
 | 11 | Opus coordinator + Sonnet subagents in worktrees (D-017) | Done | Claude | PR #15 merged 2026-10-09 (owner said 合并) |
 | 12 | 左栏选中效果改成玫红药丸（图标加文字都在药丸里），粉色、橙色界面 | Done | Claude | PR #22 merged 2026-10-09 (owner said 合并), `main` 2475597; web trial republished (Version 2). Mac not walked through |
+| 13 | App icon: 美金投币口 design (定稿 · B1 细缝, dark base) replaces `assets/AppIcon.icns`; source `assets/AppIcon.svg` | In progress | Claude | Branch `claude/project-thread-vylsq4`; touches `assets/`, so it waits for the owner's 合并. Mac app not looked at yet |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner

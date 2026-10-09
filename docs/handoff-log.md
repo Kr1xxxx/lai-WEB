@@ -5,6 +5,10 @@ When this file passes 200 lines, move older entries to `docs/handoff-log-archive
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
 - 2026-10-09 — Claude — Leads (task 2, first branch): merged `claude/leads` into latest `main` on `claude/project-thread-z9rz5t` (8 conflicts in docs, `build.py`, `template.html`, `app.js`, `rail-menu.js`, `business.css`, favorites test; leads entry re-wired into the current rail menu). Fixes: favorites test lists the 2 new entries, old blue literal in leads CSS replaced by `--brand-500`. Added `tests/e2e/leads.e2e.mjs` (5 tests). model 801 / e2e 35 green. Not done: Mac walk-through; opening `#leads` directly as a URL hash hangs the e2e load (rail click works). Next: opportunity attachments, then 1.4.127.
+- 2026-10-09 — Claude — Owner asked to put the icon from his design canvas on the app. Used the board marked 定稿 (B1 细缝, near-black base;
+  the pink-base 反色版 beside it was not used). Redrew it from the canvas SVG into `assets/AppIcon.icns` (16–1024 px PNG entries,
+  transparent corners) and kept the vector as `assets/AppIcon.svg`. `scripts/build.py` needs no change. Not done: Mac app not built
+  or looked at (icon is under `assets/`, so the PR waits for 合并). Next: owner checks the Dock icon on the Mac build.
 - 2026-10-09 — Claude — Owner wrote 合并 for PR #22 (rail pill, `main` 2475597). UI audit on the trial page built from the branch
   (pink and orange, three window sizes, no click-font check): 0 page errors, 0 native selects, 0 left-rail overlaps, within
   baseline. Web trial republished to the same Artifact (Version 2) from `main` 2475597; browser check of the built page: 7
