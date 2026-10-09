@@ -25,8 +25,9 @@ For company developers and AI agents. Read `AGENTS.md` first.
 - CI (`.github/workflows/ci.yml`) runs: `tests` (model and tool tests), `browser end-to-end`, `mac build +
   integration` (when it runs: `docs/DECISIONS.md` D-016), and on PRs `handoff updated` (fails if the app changed
   without `docs/HANDOFF.md`). All must be green.
-- CI then runs `merge policy` (`scripts/classify-pr.mjs`): small PRs merge themselves; big ones get the
-  `needs-owner` label and wait. Label new/removed features and layout changes `major` yourself.
+- When CI passes, `.github/workflows/merge-policy.yml` runs `scripts/classify-pr.mjs` — always `main`'s copies, so a
+  PR cannot change the rules that judge it — and posts the `merge policy` status: small PRs merge themselves (the
+  branch is kept); big ones get the `needs-owner` label and wait. Label new/removed features and layout changes `major` yourself.
 - A `needs-owner` PR is merged only after the owner says 合并 in the conversation. Never push to `main`.
 
 ## Finishing a task

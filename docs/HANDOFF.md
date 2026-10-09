@@ -15,7 +15,9 @@
 - Tests on `main`: `npm run test:model` 687 pass; `npm run test:e2e` 7 pass.
 - Verification status per feature: `docs/features.json`. Most features were checked in a browser by earlier
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
-- Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016) since PR #3.
+- Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016) since PR #3. From PR #12 on, the
+  decision runs in `merge-policy.yml` from `main`'s copy and merged branches are kept.
+- Last Mac build on `main`: ea0ebfd (10th Claude merge), green.
 - Web trial: Version 44, same code as `main` 91906aa.
 
 ## Work waiting on branches (not in `main`)

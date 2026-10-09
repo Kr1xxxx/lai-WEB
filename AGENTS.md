@@ -108,7 +108,8 @@ runs on browser storage, cannot reach real mail and cannot download files.
 ## Merging (D-014)
 
 The owner does not use the GitHub website; all work goes through agents on his account. CI decides how each PR
-merges (`scripts/classify-pr.mjs`):
+merges (`scripts/classify-pr.mjs`, run by `merge-policy.yml` from `main`'s copy after CI passes; branches are
+kept):
 
 - **Small** — merges by itself once every check is green: wording, styling, bug fixes, tests and docs, with at most
   500 changed lines in `src/` (tests and docs do not count).

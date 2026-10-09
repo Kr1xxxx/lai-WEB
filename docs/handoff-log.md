@@ -4,6 +4,11 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Merge policy hardened (owner asked to tidy the rules): the small/big decision moved out of
+  `ci.yml` into `.github/workflows/merge-policy.yml`, which runs after CI via `workflow_run` and always uses
+  `main`'s workflow and scripts, so a PR can no longer edit `classify-pr.mjs` to merge itself (simulated: the
+  tampered copy says small, main's copy says big). It merges only the exact commit CI tested, keeps the branch
+  (no more `--delete-branch`), and posts a `merge policy` status on the PR. Waits for 合并.
 - 2026-10-09 — Claude — Owner asked to check and tidy the rule files. Server-start waits in three tests raised to 10 s (one
   failed once on a slow CI runner); `docs/HANDOFF.md` status brought up to date; four UI features added to
   `docs/features.json` (browser-verified, Mac not yet). CI fixes (classify with `main`'s script, keep branches) are a
