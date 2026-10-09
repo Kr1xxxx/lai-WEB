@@ -111,10 +111,11 @@ test('批量建档：没有默认国家且行里也没写时跳过；空内容�
 });
 
 test('公海规则：默认关闭，设置前后校验',()=>{
-  assert.equal(T.poolRules(base()).enabled,false);
-  assert.equal(T.poolRules(base()).noFollowDays,90);
+  assert.deepEqual(T.poolRules(base()).rules,[],'没有设置时没有规则（v2）');
   const s=T.setPoolRules(base(),{enabled:true,noFollowDays:'30',skipTags:'VIP，大客户'});
-  assert.deepEqual(T.poolRules(s),{enabled:true,noFollowDays:30,skipOpenOrders:true,skipTags:['VIP','大客户'],skipFollowed:true});
+  const r=T.poolRules(s);
+  assert.deepEqual(r.rules,[{id:'legacy',name:'30 天未联系',enabled:true,kind:'noContact',days:30,groups:[],startDate:''}],'旧版设置读成一条 v2 规则');
+  assert.deepEqual([r.skipOpenOrders,r.skipTags,r.skipFollowed],[true,['VIP','大客户'],true]);
   assert.throws(()=>T.setPoolRules(base(),{noFollowDays:0}),/1–3650/);
   assert.throws(()=>T.setPoolRules(base(),{noFollowDays:'abc'}),/1–3650/);
 });
@@ -146,8 +147,8 @@ test('公海规则：执行后客户进公海并记一条动态，跟进人记�
   const o=r.state.customers.Other;
   assert.equal(L.bucket(o),'pool');
   assert.equal(o.laiPreviousOwner,'Kris');
-  assert.match(o.history[0].text,/公海规则/);
-  assert.throws(()=>T.applyPoolRules(r.state,now),/没有符合/);
+  assert.match(o.history[0].text,/公海规则「90 天未联系」/);
+  assert.deepEqual(T.applyPoolRules(r.state,now).moved,[],'没有到期的客户时不再报错，返回空');
   const back=L.moveCustomers(r.state,['Other'],'active');
   assert.equal(back.customers.Other.owner,'Kris');
 });
