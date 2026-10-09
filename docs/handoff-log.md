@@ -4,6 +4,8 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner said 合并 on PR #14 (客户设置 A1): merged (`main` 6941054); Mac build not due (14 Claude PRs
+  merged, due at 20). The web trial was not republished yet (see `HANDOFF.md` status for how). Next: A2.
 - 2026-10-09 — Claude — Owner attached three 小满 settings collection docs and chose batch "A 客户设置". Built the first half
   on `claude/customer-settings`: the 客户设置 page now has seven working tabs (客户分组 two levels with per-owner
   availability, 客户阶段, 客户类型 — a new customer field, 建档黑名单, 客户上限, 客户查重 display fields, 布局设置 for the
