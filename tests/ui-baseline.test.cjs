@@ -43,7 +43,7 @@ test('customer surfaces consume shared tokens for core hierarchy and floating la
   assert.match(suggestions, /box-shadow:\s*var\(--shadow-popover\)/);
 });
 
-test('interaction polish has bounded motion and respects reduced motion', () => {
+test('interaction polish has bounded motion', () => {
   const tokensAndShared = `${tokens}\n${read('src/styles.css')}`;
   const detail = read('src/customer-detail.css');
   const customer = read('src/customer-replica.css');
@@ -60,8 +60,7 @@ test('interaction polish has bounded motion and respects reduced motion', () => 
   assert.doesNotMatch(detail, /lai-detail-tab-enter/);
   assert.match(customer, /\.customer-list-exit\s*\{/);
   assert.match(customer, /translateX\(-20px\)/);
-  assert.match(tokensAndShared, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
-  assert.match(tokensAndShared, /transition-duration:\s*0\.01ms/);
+  assert.doesNotMatch(tokensAndShared, /prefers-reduced-motion/);
 });
 
 test('the customer sub-navigation no longer offers the removed profile-suggestion entry', () => {

@@ -214,9 +214,6 @@ input::placeholder {
   opacity: 0;
   pointer-events: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .global-search-scope-menu.global-search-scope-motion { transition: none !important; }
-}
 .global-search > input {
   flex: 1;
   min-width: 0;
@@ -541,11 +538,6 @@ input::placeholder {
 @media (hover: none) {
   .nav-heart:not(.is-favorite) {
     opacity: 0.55;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .nav-heart {
-    transition: none;
   }
 }
 /* 右侧留出心形的位置，名称过长时省略而不是换行或压住心形。 */
@@ -1318,14 +1310,6 @@ input::placeholder {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .customer-list-exit {
-    animation: lai-list-fade-out 60ms linear both !important;
-  }
-  .customer-list-enter {
-    animation: lai-list-fade 80ms linear both !important;
-  }
-}
 @keyframes lai-list-fade-out {
   from {
     opacity: 1;
@@ -2124,9 +2108,6 @@ button.subnav-restore {
   right: -49px;
   width: 96px;
 }
-@media (prefers-reduced-motion: reduce) {
-  .groups-motion .groups { transition-duration: 0ms !important; }
-}
 .country-menu {
   width: 360px;
   padding: 14px;
@@ -2751,31 +2732,6 @@ button.subnav-restore {
   transition-duration: var(--motion-captured-drawer);
   transition-timing-function: var(--ease-out);
 }
-@media (prefers-reduced-motion: reduce) {
-  .overlay.modal-motion,
-  .overlay.modal-motion::before {
-    transition-duration: 80ms !important;
-  }
-  .overlay.modal-motion .drawer {
-    opacity: 0;
-    transition: opacity 80ms linear !important;
-  }
-  .overlay.modal-motion.modal-open .drawer {
-    opacity: 1;
-  }
-  .overlay.modal-motion .drawer:not(.center-dialog):not(.feature-dialog),
-  .overlay.modal-motion.modal-open .drawer:not(.center-dialog):not(.feature-dialog) {
-    transform: none;
-  }
-  .overlay.modal-motion .drawer.center-dialog,
-  .overlay.modal-motion.modal-open .drawer.center-dialog {
-    transform: translateX(-50%);
-  }
-  .overlay.modal-motion .drawer.feature-dialog,
-  .overlay.modal-motion.modal-open .drawer.feature-dialog {
-    transform: translate(-50%, -50%);
-  }
-}
 .popover {
   max-width: calc(100vw - 16px);
   overscroll-behavior: contain;
@@ -2893,7 +2849,6 @@ button.subnav-restore {
 .import-step-motion { animation: lai-import-step-in var(--motion-normal) var(--ease-out) both; }
 @keyframes lai-import-step-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes lai-import-step-fade { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .import-step-motion { animation: lai-import-step-fade 80ms linear both !important; } }
 .import-steps { display: flex; align-items: center; gap: 8px; margin: 0 -24px 24px; padding: 16px 24px; border-bottom: 1px solid #f0f0f0; }
 .import-step { flex: 1; display: flex; align-items: center; gap: 8px; color: var(--ink-500); white-space: nowrap; font-size: 13px; }
 .import-step:not(:last-child)::after { content: ''; flex: 1; height: 1px; margin-right: 8px; background: var(--ink-100); }
@@ -3086,15 +3041,6 @@ button.subnav-restore {
   transition-duration: 200ms;
   transition-timing-function: var(--ease-exit);
 }
-@media (prefers-reduced-motion: reduce) {
-  .overlay.modal-motion .drawer:is(.columns-dialog, .summary-dialog),
-  .overlay.modal-motion.modal-open .drawer:is(.columns-dialog, .summary-dialog),
-  .overlay.modal-motion.modal-closing .drawer:is(.columns-dialog, .summary-dialog) {
-    transform: translateX(-50%);
-    transition: opacity 80ms linear;
-  }
-  .overlay.modal-motion:has(:is(.columns-dialog, .summary-dialog))::before { transition-duration: 80ms; }
-}
 
 /* Independently captured company display drawer; preserve existing field rules. */
 .popover.contact-menu {
@@ -3141,12 +3087,6 @@ button.subnav-restore {
 .overlay.modal-motion.modal-closing .drawer.company-display:not(.center-dialog):not(.feature-dialog) {
   transition-duration: 300ms;
   transition-timing-function: var(--ease-out);
-}
-@media (prefers-reduced-motion: reduce) {
-  .overlay.modal-motion:has(.drawer.company-display)::before { transition: opacity 80ms linear; }
-  .overlay.modal-motion .drawer.company-display,
-  .overlay.modal-motion.modal-open .drawer.company-display,
-  .overlay.modal-motion.modal-closing .drawer.company-display { transition: opacity 80ms linear !important; }
 }
 
 /* Summary fields use the independently captured centered modal container. */
@@ -3280,9 +3220,6 @@ button.subnav-restore {
 @keyframes rail-flyout-in {
   from { opacity: 0; transform: translateX(-4px); }
   to { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rail-flyout { animation: none; }
 }
 
 .subnav-group {

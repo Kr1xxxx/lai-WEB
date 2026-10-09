@@ -43,9 +43,6 @@
 /* 左栏药丸：选中和悬停时底色、文字色、阴影一起平滑变化（2026-10-09 统一动效） */
 :root[data-skin="glass"] .rail-item { transition: background-color var(--motion-normal) var(--ease-out), color var(--motion-normal) var(--ease-out), box-shadow var(--motion-normal) var(--ease-out); }
 :root[data-skin="glass"] .rail-item :is(.icon, .icon-duo), :root[data-skin="glass"] .rail-item .icon-duo .tint { transition: stroke var(--motion-normal) var(--ease-out), fill var(--motion-normal) var(--ease-out), fill-opacity var(--motion-normal) var(--ease-out); }
-@media (prefers-reduced-motion: reduce) {
-  :root[data-skin="glass"] .rail-item, :root[data-skin="glass"] .rail-item :is(.icon, .icon-duo), :root[data-skin="glass"] .rail-item .icon-duo .tint { transition: none; }
-}
 :root[data-skin="glass"] .rail-item.active,
 :root[data-skin="glass"] .rail-item.active:hover { background: rgb(var(--skin-ink-rgb)); color: #fff; box-shadow: none; }
 :root[data-skin="glass"] .rail-item.active .icon { stroke: var(--skin-gold); }

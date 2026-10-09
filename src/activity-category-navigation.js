@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
   let nav = null, viewport = null, list = null, observer = null, offset = 0;
-  const reduced = () => root.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduced = () => false;
   const selected = () => nav?.querySelector('[data-activity-filter][aria-pressed="true"]');
   function measure() {
     const width = list.getBoundingClientRect().width;

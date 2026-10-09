@@ -329,20 +329,6 @@ button.lai-select-trigger[data-empty="true"] {
   from { opacity: var(--stage-exit-opacity, 1); transform: var(--stage-exit-transform, scaleY(1)); }
   to { opacity: 0; transform: scaleY(.8); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .lai-select-menu.is-customer-stage.is-entering,
-  .lai-select-menu.is-customer-product.is-entering,
-  .lai-select-menu.is-customer-group.is-entering,
-  .lai-select-menu.is-inline-search.is-entering {
-    animation: lai-stage-select-fade-in 80ms linear both !important;
-  }
-  .lai-select-menu.is-customer-stage.is-closing,
-  .lai-select-menu.is-customer-product.is-closing,
-  .lai-select-menu.is-customer-group.is-closing,
-  .lai-select-menu.is-inline-search.is-closing {
-    animation: lai-stage-select-fade-out 80ms linear both !important;
-  }
-}
 @keyframes lai-stage-select-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -416,6 +402,3 @@ button.lai-select-trigger[data-empty="true"] {
   outline-offset: 2px;
 }
 #customer-form .ce-select > button.lai-select-clear svg { flex: none; }
-@media (prefers-reduced-motion: reduce) {
-  #customer-form .ce-select > button.lai-select-clear { transition: none; }
-}
