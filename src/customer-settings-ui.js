@@ -10,8 +10,8 @@ const TABS = Object.freeze([
   { id: "stages", label: "客户阶段", note: "客户编辑里的“客户阶段”下拉用这里的列表。改名会同步改到客户身上；还有客户在用的阶段不能删除。" },
   { id: "types", label: "客户类型", note: "客户编辑里的“客户类型”下拉用这里的列表。改名会同步改到客户身上；还有客户在用的类型不能删除。" },
   { id: "pool", label: "公海管理", note: "客户久没联系或久没成交，就自动移入公海；这里也管领取、领回和移入原因。" },
-  { id: "follow", label: "客户跟进规则", note: "决定哪些动作算“最近联系”、哪些算“最近跟进”。" },
-  { id: "deal", label: "客户成交规则", note: "决定怎样算“成交”。" },
+  { id: "follow", label: "客户跟进规则", note: "决定哪些动作算“最近联系”、哪些算“最近跟进”。改了以后，公海规则按新算法算天数，改前可先到「公海管理」看哪些客户会被移走。" },
+  { id: "deal", label: "客户成交规则", note: "决定怎样算“成交”。改了以后，公海规则按新算法算天数，改前可先到「公海管理」看哪些客户会被移走。" },
   { id: "blacklist", label: "建档黑名单", note: "黑名单里的邮箱不能用来新建客户、批量建档、导入，也不能加到客户的联系人上。" },
   { id: "caps", label: "客户上限", note: "限制每位跟进人名下最多有多少位客户（不含公海和回收站）。新建、重新分配、导入、从公海领回都会检查。" },
   { id: "duplicates", label: "客户查重", note: "选择“客户查重”页里，每位疑似重复的客户后面显示哪些资料，方便核对该留哪个。" },
@@ -23,6 +23,8 @@ const TABS = Object.freeze([
 function nav(tab, E) {
   return `<nav class="cs-nav" aria-label="客户设置">${TABS.map((t) => `<button type="button" data-cs-tab="${t.id}" class="${t.id === tab ? "active" : ""}"${t.id === tab ? ' aria-current="page"' : ""}>${E(t.label)}</button>`).join("")}</nav>`;
 }
+// 新规则默认从今天起算，免得一打开就把老客户整批移走。
+const todayLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const field = (label, content, hint) => `<label class="cs-field"><span>${label}</span>${content}${hint ? `<em>${hint}</em>` : ""}</label>`;
 const empty = (text) => `<div class="cs-empty">${text}</div>`;
 
@@ -163,7 +165,7 @@ function poolTab(state, ui, owners, E) {
 }
 function ruleForm(state, id, E) {
   const settings = CS.get(state);
-  const rule = poolTools().poolRules(state).rules.find((r) => r.id === id) || { name: "", kind: "noContact", days: 90, groups: [], startDate: "", enabled: true };
+  const rule = poolTools().poolRules(state).rules.find((r) => r.id === id) || { name: "", kind: "noContact", days: 90, groups: [], startDate: todayLocal(), enabled: true };
   const paths = [];
   for (const g of settings.groups) { paths.push([g.name, g.name]); for (const c of g.children) paths.push([`${g.name}${CS.SEP}${c.name}`, `　${c.name}`]); }
   const known = new Set(paths.map(([p]) => p));

@@ -260,7 +260,7 @@ test('claim: the dialog picks the owner, shows the quota, and the reclaim block 
     const owner = page.locator('#claim-owner');
     await owner.waitFor();
     assert.equal(await owner.inputValue(), 'Kris', 'defaults to the previous owner');
-    assert.equal(await page.locator('#claim-quota').innerText(), '本期已领 0 / 上限 1');
+    assert.equal(await page.locator('#claim-quota').innerText(), '近 1 天已领 0 / 上限 1');
     await shot(app, 'claim-dialog');
     await page.locator('button[type=submit][form="claim-form"]').click();
     await page.locator('#workspace-error.visible').waitFor();
@@ -277,7 +277,7 @@ test('claim: the dialog picks the owner, shows the quota, and the reclaim block 
     await openPool(app);
     await claim('Bluebell Beauty Supply');
     await page.locator('#claim-owner').selectOption('Amy', { force: true });
-    assert.equal(await page.locator('#claim-quota').innerText(), '本期已领 1 / 上限 1');
+    assert.equal(await page.locator('#claim-quota').innerText(), '近 1 天已领 1 / 上限 1');
     await page.locator('button[type=submit][form="claim-form"]').click();
     await page.locator('#workspace-error.visible').waitFor();
     assert.match(await page.locator('#workspace-error').innerText(), /Amy 1 天内最多领取 1 位客户，已领 1 位/);

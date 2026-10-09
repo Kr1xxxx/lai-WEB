@@ -239,15 +239,16 @@ const validDate=v=>{
 const uniqueList=v=>[...new Set((Array.isArray(v)?v:[]).map(trim).filter(Boolean))];
 const newRuleId=()=>`r${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`;
 // 把旧版（没有 rules 数组、有 noFollowDays）换成 v2 的写法。
-function fromV1(raw,strict){
+function fromV1(raw,strict,stored){
   const hasV1=['enabled','noFollowDays','skipOpenOrders','skipTags','skipFollowed'].some(k=>raw[k]!==undefined);
   if(!hasV1)return [];
   const days=Math.floor(Number(raw.noFollowDays));
   if(!Number.isFinite(days)||days<1||days>3650){
     if(strict)throw new Error('未跟进天数请填 1–3650 之间的整数');
-    return [{id:'legacy',name:'90 天未联系',enabled:raw.enabled===true,kind:'noContact',days:90,groups:[],startDate:''}];
+    return [{id:'legacy',name:'90 天未联系',enabled:!stored&&raw.enabled===true,kind:'noContact',days:90,groups:[],startDate:''}];
   }
-  return [{id:'legacy',name:`${days} 天未联系`,enabled:raw.enabled===true,kind:'noContact',days,groups:[],startDate:''}];
+  // 存着的旧规则以前只在点「立即执行」时才动；现在开着就每天自动执行，所以读出来先关着，等老板看过预览再打开。
+  return [{id:'legacy',name:`${days} 天未联系`,enabled:!stored&&raw.enabled===true,kind:'noContact',days,groups:[],startDate:''}];
 }
 // strict=true：校验并报中文错误；strict=false：坏值回到默认值或丢掉，不报错。
 function buildRule(r,strict){
@@ -282,7 +283,7 @@ function buildRules(list,strict){
   }
   return out;
 }
-function buildPool(raw,strict){
+function buildPool(raw,strict,stored=false){
   raw=isPlain(raw)?raw:{};
   const d=DEFAULT_POOL_RULES;
   const num=(v,min,max,def,msg)=>{
@@ -294,7 +295,7 @@ function buildPool(raw,strict){
   let list;
   if(Array.isArray(raw.rules))list=raw.rules;
   else if(raw.rules!==undefined&&raw.rules!==null&&strict)throw new Error('规则格式不对');
-  else list=fromV1(raw,strict);
+  else list=fromV1(raw,strict,stored);
   const rules=buildRules(list,strict);
   const remindDays=num(raw.remindDays,0,30,d.remindDays,'提前提醒天数请填 0–30');
   const reclaimBlockDays=num(raw.reclaimBlockDays,0,365,d.reclaimBlockDays,'原跟进人限制天数请填 0–365');
@@ -325,7 +326,7 @@ function buildPool(raw,strict){
     showPoolContacts:raw.showPoolContacts!==false,requireReason:raw.requireReason===true,reasons
   };
 }
-function poolRules(state){return buildPool(state?.laiSettings?.poolRules,false);}
+function poolRules(state){return buildPool(state?.laiSettings?.poolRules,false,true);}
 function store(state,rules){
   const kept=state?.laiSettings?.poolRules?.lastAutoRun;
   const saved=kept?{...rules,lastAutoRun:kept}:rules;

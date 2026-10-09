@@ -64,7 +64,8 @@
     const active = typeof isActive === "function" ? isActive : (profile) => !["pool", "trash"].includes(profile?.laiBucket);
     const index = new Map();
     for (const [name, profile] of Object.entries(customers && typeof customers === "object" ? customers : {})) {
-      if (!profile || typeof profile !== "object" || !active(profile)) continue;
+      // 公海、回收站客户也进索引：同一个地址对得上两位客户就不记，免得记错人。
+      if (!profile || typeof profile !== "object") continue;
       const extra = Array.isArray(profile.extraContacts) ? profile.extraContacts.map((item) => String(item?.email ?? "").trim().toLowerCase()).filter(validAddress) : [];
       for (const address of new Set([...customerAddresses(profile), ...extra])) {
         if (!index.has(address)) index.set(address, new Set());
@@ -83,6 +84,7 @@
         const sentAt = Date.parse(message.date);
         if (!Number.isFinite(sentAt) || sentAt < sinceMs) continue;
         const [name] = names;
+        if (!active(customers[name])) continue;
         const mail = { box: message.box, uid: message.uid, messageId: message.messageId || "", subject: message.subject || "", snippet: message.snippet || "", date: message.date, from: message.from || null, to: Array.isArray(message.to) ? message.to : [] };
         const key = String(mail.messageId).replace(/\s+/g, " ").trim() || (mail.uid ? `${mail.box}|${mail.uid}` : "");
         if (!key || seen.has(name + "\u0001" + key)) continue;

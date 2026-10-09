@@ -1949,7 +1949,7 @@
   // 每天自动按公海规则移一次客户；没有要移的也记下今天已执行，一天只跑一次。
   async function autoRunPoolRules() {
     try {
-      if (hasUnsavedWork() || !CT.autoRunDue(state)) return;
+      if (separateCustomerWindow || hasUnsavedWork() || !CT.autoRunDue(state)) return;
       const result = CT.applyPoolRules(state);
       await persist(CT.markAutoRun(result.state));
       if (result.moved.length) {
@@ -1957,9 +1957,14 @@
         toast(`按公海规则移入 ${result.moved.length} 位客户`);
       }
     } catch (_) {
-      // 这次没成功就算了，下次打开再试。
+      // 这次没成功就算了，下次打开再试；不留“保存失败”的提示。
+      status("");
     }
   }
+  // 跟进时间不能晚于“现在”：页面开久了，“现在”也要跟着往后走。
+  document.addEventListener("focusin", (event) => {
+    if (event.target?.matches?.('input[name="followupTime"]')) event.target.max = window.LaiCustomerDetail.localInputTime(new Date());
+  });
   // 客户设置里开了「自动记往来邮件」：把新读到的邮件一次记到对应客户的动态里，返回记了几封。
   let autoRecordingMail = false;
   async function autoRecordMails(items) {
@@ -3690,7 +3695,7 @@
     const quota = () => {
       const owner = form.elements.owner.value.trim();
       const limit = owner ? CT.claimLimitFor(state, owner) : 0;
-      $("#claim-quota").textContent = limit > 0 ? `本期已领 ${CT.claimCount(state, owner)} / 上限 ${limit}` : "";
+      $("#claim-quota").textContent = limit > 0 ? `近 ${CT.poolRules(state).claimLimit.periodDays} 天已领 ${CT.claimCount(state, owner)} / 上限 ${limit}` : "";
       $("#claim-quota").hidden = !(limit > 0);
     };
     form.elements.owner.addEventListener("change", quota);

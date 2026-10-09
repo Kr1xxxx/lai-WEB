@@ -182,3 +182,23 @@ test('the customer save path refuses edits of a pool customer whose contacts are
   assert.match(source, /if \(!isNew && poolEditBlocked\(customerName\)\) return toast\(POOL_EDIT_BLOCKED\)/);
   assert.match(source, /const poolEditBlocked = \(name\) =>\s*L\.bucket\(state\.customers\?\.\[name\] \|\| \{\}\) === "pool" && !CT\.poolContactsVisible\(state\)/);
 });
+
+test('auto-record: an address shared with a pool or trash customer is ambiguous, so nothing is recorded', () => {
+  const shared = { Active: { email: 'shared@x.example' }, Pooled: { email: 'shared@x.example', laiBucket: 'pool' } };
+  const mail = mailOf({ from: { address: 'shared@x.example' } });
+  assert.deepEqual(Mail.autoRecordPlan({ customers: shared, messages: [mail], since: SINCE }), []);
+  const onlyActive = { Active: { email: 'shared@x.example' } };
+  assert.deepEqual(Mail.autoRecordPlan({ customers: onlyActive, messages: [mail], since: SINCE }).map((p) => p.name), ['Active']);
+});
+
+test('a back-dated follow-up does not move the latest follow-up or update time backwards', () => {
+  const state = { orders: [], customers: { Acme: { client: 'Acme', owner: 'Kris', updated: '2026-10-08T09:00:00.000Z', lastFollowup: '2026-10-08T09:00:00.000Z', lastWrittenFollowup: '2026-10-08T09:00:00.000Z', history: [] } } };
+  const next = M.addFollowup(state, 'Acme', '补记上个月的电话', undefined, '2026-09-08T09:00:00.000Z').customers.Acme;
+  assert.equal(next.updated, '2026-10-08T09:00:00.000Z');
+  assert.equal(next.lastFollowup, '2026-10-08T09:00:00.000Z');
+  assert.equal(next.lastWrittenFollowup, '2026-10-08T09:00:00.000Z');
+  assert.equal(next.history[0].time, '2026-09-08T09:00:00.000Z');
+  const newer = M.addFollowup(state, 'Acme', '今天的跟进', undefined, '2026-10-09T09:00:00.000Z').customers.Acme;
+  assert.equal(newer.lastFollowup, '2026-10-09T09:00:00.000Z');
+  assert.equal(newer.updated, '2026-10-09T09:00:00.000Z');
+});

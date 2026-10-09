@@ -44,7 +44,12 @@ test('defaults: nothing stored gives an empty v2 object and never throws', () =>
 test('v1 settings read as one v2 rule and keep the skip flags', () => {
   const s = { laiSettings: { poolRules: { enabled: true, noFollowDays: 45, skipOpenOrders: false, skipTags: ['VIP'], skipFollowed: false } } };
   const r = T.poolRules(s);
-  assert.deepEqual(r.rules, [{ id: 'legacy', name: '45 天未联系', enabled: true, kind: 'noContact', days: 45, groups: [], startDate: '' }]);
+  // 存着的旧规则以前只在点「立即执行」时才动，现在开着会每天自动执行，所以读出来先关着，也不会自动执行。
+  assert.deepEqual(r.rules, [{ id: 'legacy', name: '45 天未联系', enabled: false, kind: 'noContact', days: 45, groups: [], startDate: '' }]);
+  assert.equal(T.autoRunDue(s, new Date('2026-10-09T08:00:00Z')), false);
+  // 直接传进来的旧格式（老板当场设置）照旧按开关算
+  assert.equal(T.poolCandidates({ ...s, customers: {}, orders: [] }, s.laiSettings.poolRules).length, 0);
+  assert.equal(T.setPoolRules({}, s.laiSettings.poolRules).laiSettings.poolRules.rules[0].enabled, true);
   assert.equal(r.skipOpenOrders, false);
   assert.equal(r.skipFollowed, false);
   assert.deepEqual(r.skipTags, ['VIP']);

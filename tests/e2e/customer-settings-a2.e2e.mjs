@@ -32,6 +32,7 @@ const makeOld = (name, days) => app.page.evaluate(async ({ name, days }) => {
   if (!res.ok) throw new Error('seed failed ' + res.status);
 }, { name, days });
 
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 test('the old 公海规则 button is gone and the pool tab replaces it', async () => {
   await openSettings();
   assert.equal(await app.page.locator('[data-action="pool-rules"]').count(), 0);
@@ -60,7 +61,7 @@ test('pool rules: create, reject a duplicate name, edit, switch off and delete',
   await page.locator('.cs-rules tr', { hasText: '半年没联系' }).waitFor();
   let rules = (await pool()).rules;
   assert.equal(rules.length, 1);
-  assert.deepEqual([rules[0].name, rules[0].kind, rules[0].days, rules[0].enabled, rules[0].groups, rules[0].startDate], ['半年没联系', 'noContact', 180, true, [], '']);
+  assert.deepEqual([rules[0].name, rules[0].kind, rules[0].days, rules[0].enabled, rules[0].groups, rules[0].startDate], ['半年没联系', 'noContact', 180, true, [], localToday()]); // 新规则默认从今天起算
   const row = page.locator('.cs-rules tr', { hasText: '半年没联系' });
   assert.match(await row.innerText(), /180 天没有联系.*全部客户/s);
 
@@ -109,6 +110,8 @@ test('立即执行 moves a customer who is due into the pool and says how many',
   await page.locator('[data-cs-rule-edit=""]').click();
   await page.locator('#cs-rule-form [name=name]').fill('90 天没联系');
   await page.locator('#cs-rule-form [name=days]').fill('90');
+  // 新规则默认从今天起算；清掉开始日期，按客户原来的联系时间算
+  await page.locator('#cs-rule-form [name=startDate]').evaluate((el) => { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });
   await ruleDrawerSave();
   const preview = section('现在符合规则的客户');
   await preview.locator('tbody tr', { hasText: 'Northwind Lash Studio' }).waitFor();
