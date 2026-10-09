@@ -3329,7 +3329,7 @@
       ["grid", "工作台", "dashboard"],
       ["mail", "邮件", "mail"],
       ["chat", "沟通", null],
-      ["lead", "线索", null],
+      ["lead", "线索", "leads"],
       ["people", "客户", "customers"],
       ["globe", "商机", "opportunities"],
       ["search", "Leads", null],
@@ -3579,7 +3579,7 @@
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings" };
+    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`

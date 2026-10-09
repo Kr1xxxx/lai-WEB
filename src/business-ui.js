@@ -633,6 +633,122 @@
       }
     }
     const OPP_FILTERS = { "opp-flow": "flow", "opp-sort": "sort", "opp-currency": "currency", "opp-date-field": "dateField", "opp-from": "from", "opp-to": "to", "opp-archived": "archived", "opp-owner": "owner", "opp-search": "search" };
+    // ---------- 线索：列表、新建／编辑、写跟进、转为客户、标记无效、回收站 ----------
+    const LD = () => root.LaiLeadModel;
+    let leadUI = null;
+    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD()));
+    const leadView = { filters: {}, limit: 0 };
+    // leadDraft：正在新建或编辑的线索；leadArmed：回收站里等待再次确认彻底删除的那一条。
+    let leadDraft = null,
+      leadArmed = "";
+    const onLeadPage = () => route === "leads" || route === "lead-trash";
+    function renderLeads() {
+      const today = B.localDate();
+      const page = LD().page(state(), leadView.filters, today);
+      return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
+    }
+    function renderLeadTrash() {
+      const today = B.localDate();
+      return header("线索回收站", "移入回收站的线索可以恢复，也可以彻底删除", '<button type="button" data-lead-action="list-page">返回线索列表</button>') + LU().trashMarkup(LD().trash(state(), today), leadArmed, today);
+    }
+    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(state()) });
+    function openLeadForm(id) {
+      let next;
+      if (id === undefined) next = { id: crypto.randomUUID(), isNew: true, values: LD().defaults(state()) };
+      else {
+        const item = LD().list(state()).find((entry) => entry.id === id);
+        if (!item) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
+        next = { id, isNew: false, values: { ...item } };
+      }
+      try {
+        ctx.dialog(
+          next.isNew ? "新建线索" : "编辑线索",
+          LU().formMarkup(next.values, leadContext()),
+          '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-form">保存线索</button>',
+          "business-lead",
+        );
+      } catch (error) {
+        return ctx.toast(`无法打开线索表单：${error.message}`);
+      }
+      leadDraft = { id: next.id, isNew: next.isNew };
+    }
+    // 打开线索详情；focusFollow 为真时光标直接落在「写跟进」里。
+    function showLead(id, focusFollow = false) {
+      const row = LD().detail(state(), id, B.localDate());
+      if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
+      ctx.dialog(E(row.name), LU().detailMarkup(row, B.localDate()), '<button type="button" data-action="close-modal">关闭</button>', "business-lead-detail");
+      if (focusFollow) document.querySelector?.('#lead-follow-form textarea[name="text"]')?.focus?.({ preventScroll: true });
+    }
+    function openLeadConvert(id) {
+      const row = LD().detail(state(), id, B.localDate());
+      if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
+      let values;
+      try {
+        values = LD().convertDefaults(state(), id);
+      } catch (error) {
+        return ctx.toast(error.message);
+      }
+      ctx.dialog("转为客户", LU().convertMarkup(row, values, leadContext()), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-convert-form">转为客户</button>', "business-lead-convert");
+    }
+    // 转入方式切换：只显示并启用当前方式要填的那几项。
+    function syncLeadConvert(form) {
+      const existing = form.elements.mode.value === "existing";
+      for (const [id, on] of [["lead-convert-new", !existing], ["lead-convert-existing", existing]]) {
+        const box = document.getElementById(id);
+        if (!box) continue;
+        box.hidden = !on;
+        box.querySelectorAll("input").forEach((input) => {
+          input.disabled = !on;
+          input.required = on && input.name !== "owner";
+        });
+      }
+    }
+    const leadSaved = (id) => () => {
+      ctx.closeDialog();
+      render();
+      if (id) showLead(id);
+      return false;
+    };
+    function leadAction(d) {
+      const action = d.leadAction;
+      if (action !== "delete") leadArmed = "";
+      if (action === "new") return openLeadForm();
+      if (action === "edit") return openLeadForm(d.id);
+      if (action === "open") return showLead(d.id);
+      if (action === "follow") return showLead(d.id, true);
+      if (action === "convert") return openLeadConvert(d.id);
+      if (action === "trash-page") return ctx.navigate("lead-trash");
+      if (action === "list-page") return ctx.navigate("leads");
+      if (action === "more") {
+        leadView.limit = Math.max(root.LaiLeadUI.PAGE, Number(leadView.limit) || 0) + root.LaiLeadUI.PAGE;
+        return render();
+      }
+      if (action === "due") {
+        leadView.filters = { ...leadView.filters, due: !(leadView.filters.due === true) };
+        leadView.limit = 0;
+        render();
+        return document.querySelector?.('[data-lead-action="due"]')?.focus?.({ preventScroll: true });
+      }
+      if (action === "invalid") {
+        const row = LD().detail(state(), d.id, B.localDate());
+        if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
+        return ctx.dialog("标记无效", LU().invalidMarkup(row), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-invalid-form">标记无效</button>', "business-lead-invalid");
+      }
+      const errorId = route === "lead-trash" ? "lead-trash-error" : "lead-detail-error";
+      if (action === "reopen") return saveNext(() => LD().reopen(state(), d.id), errorId, leadSaved(d.id));
+      if (action === "trash") return saveNext(() => LD().setTrashed(state(), d.id, true), errorId, leadSaved(""));
+      if (action === "restore") return saveNext(() => LD().setTrashed(state(), d.id, false), errorId, leadSaved(""));
+      if (action === "delete") {
+        if (leadArmed !== d.id) {
+          leadArmed = d.id;
+          render();
+          return document.querySelector?.(`[data-lead-action="delete"][data-id="${cssEscape(d.id)}"]`)?.focus?.({ preventScroll: true });
+        }
+        leadArmed = "";
+        return saveNext(() => LD().remove(state(), d.id), errorId, leadSaved(""));
+      }
+    }
+    const LEAD_FILTERS = { "lead-search": "search", "lead-owner": "owner", "lead-source": "source", "lead-sort": "sort" };
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
       if (!found) return;
@@ -719,6 +835,8 @@
         opportunities: renderOpportunities,
         "opp-analysis": renderOppAnalysis,
         "opp-flows": renderOppFlows,
+        leads: renderLeads,
+        "lead-trash": renderLeadTrash,
         calendar: renderCalendar,
         settings: renderSettings,
         "settings-hub": renderSettingsHub,
@@ -864,6 +982,13 @@
       if (!el || el.disabled) return;
       const d = el.dataset;
       if (d.oppAction && onOppPage()) return oppAction(d);
+      if (d.leadAction && onLeadPage()) return leadAction(d);
+      if (d.leadStatus && route === "leads") {
+        leadView.filters = { ...leadView.filters, status: d.leadStatus };
+        leadView.limit = 0;
+        render();
+        return document.querySelector?.(`[data-lead-status="${cssEscape(d.leadStatus)}"]`)?.focus?.({ preventScroll: true });
+      }
       if (route === "opp-flows" && d.flowAction) return flowAction(d);
       if (route === "opp-flows" && d.flowSelect) {
         flowView.flow = d.flowSelect;
@@ -1037,6 +1162,13 @@
           if (!ok) input.value = OM().flowOf(state(), flowId).stages.find((stage) => stage.id === id)?.label ?? input.value;
         });
       }
+      if (onLeadPage() && e.target.closest?.("#lead-convert-form") && e.target.name === "mode") return syncLeadConvert(e.target.closest("#lead-convert-form"));
+      if (route === "leads" && Object.hasOwn(LEAD_FILTERS, e.target.id)) {
+        leadView.filters = { ...leadView.filters, [LEAD_FILTERS[e.target.id]]: e.target.value };
+        leadView.limit = 0;
+        render();
+        return document.getElementById(e.target.id)?.focus?.({ preventScroll: true });
+      }
       if (route === "opportunities" && Object.hasOwn(OPP_FILTERS, e.target.id)) {
         oppView.filters = { ...oppView.filters, [OPP_FILTERS[e.target.id]]: e.target.value };
         oppView.limits = {};
@@ -1089,7 +1221,7 @@
     document.addEventListener("submit", (e) => {
       const form = e.target;
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "opp-form", "opp-lost-form", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
           form.id,
         )
       )
@@ -1112,6 +1244,22 @@
           "opp-stage-remove-error",
           () => ctx.closeDialog(),
         );
+      if (form.id === "lead-form") {
+        if (!leadDraft) return;
+        const { id, isNew } = leadDraft;
+        return saveNext(
+          () => LD().upsert(state(), id, data, { mustExist: !isNew }),
+          "lead-error",
+          () => {
+            leadDraft = null;
+            // 编辑完回到详情；新建完回到列表。
+            return leadSaved(isNew ? "" : id)();
+          },
+        );
+      }
+      if (form.id === "lead-follow-form") return saveNext(() => LD().addFollowup(state(), form.dataset.id, data), "lead-follow-error", leadSaved(form.dataset.id));
+      if (form.id === "lead-convert-form") return saveNext(() => LD().convert(state(), form.dataset.id, data), "lead-convert-error", leadSaved(form.dataset.id));
+      if (form.id === "lead-invalid-form") return saveNext(() => LD().markInvalid(state(), form.dataset.id, data), "lead-invalid-error", leadSaved(form.dataset.id));
       if (form.id === "opp-form") {
         if (!oppDraft) return;
         return saveNext(
@@ -1210,14 +1358,16 @@
         oppReturn = "";
         armedTarget = "";
         flowView.armed = "";
+        leadArmed = "";
         route = next;
         render();
       },
       refresh: render,
-      hasDraft: () => !!draft || !!oppDraft || settingsDirty,
+      hasDraft: () => !!draft || !!oppDraft || !!leadDraft || settingsDirty,
       discardDraft() {
         draft = null;
         oppDraft = null;
+        leadDraft = null;
       },
       route: () => route,
     };

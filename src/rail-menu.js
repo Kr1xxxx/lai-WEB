@@ -13,6 +13,7 @@
   });
   const fixed={
     '客户':menu('客户',['客户列表','screen','active'],['公海客户','screen','pool'],['客户查重','screen','duplicates'],['客户设置','screen','customer-settings']),
+    '线索':menu('线索',['线索列表','route','leads'],['线索回收站','route','lead-trash']),
     '商机':menu('商机',['商机看板','route','opportunities'],['商机分析','route','opp-analysis'],['销售流程设置','route','opp-flows']),
     '工作台':menu('工作台',['工作台','route','dashboard']),
     // Leads：入口已保留；菜单里先放一个「设置」，点开提示待后续实现（kind 为 feature，不能设为常用）。
@@ -27,7 +28,7 @@
     '设置':menu('设置',['设置','route','settings'],['设置中心','route','settings-hub']),
     '企业管理':menu('企业管理',['企业信息','feature','企业管理 企业信息'])
   };
-  // 返回条目数组；null 表示该菜单目前只是保留入口（沟通、线索；Leads、企业管理各有一个保留入口，不是 null）或不是真实菜单（常用有自己的清单，见 nav-favorites.js）。
+  // 返回条目数组；null 表示该菜单目前只是保留入口（沟通；Leads、企业管理各有一个保留入口，不是 null）或不是真实菜单（常用有自己的清单，见 nav-favorites.js）。
   function menuFor(label){
     return Object.hasOwn(fixed,label)?fixed[label].map(row=>({...row})):null;
   }

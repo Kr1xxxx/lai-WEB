@@ -35,7 +35,7 @@ rule 5).
 
 | Branch | What it is | Notes |
 | --- | --- | --- |
-| `claude/leads` | 线索 module: list, follow-ups, convert to customer, trash | Was on the web trial; owner has not accepted yet |
+| `claude/leads` | 线索 module: list, follow-ups, convert to customer, trash | Now in PR from `claude/project-thread-z9rz5t`; keep branch until merged |
 | `claude/opportunity-attachments` | Opportunity detail drawer, attachments, card drag | Touches `backend/` → big |
 | `claude/lai-reliability-numbering-1.4.127` | 1.4.127: mail reliability, backups, totals, order numbers | Conflicts with the two above in `backend/server.js`, `backend/storage.js`, `src/business-ui.js`, `src/business.css` |
 | `claude/web-trial-combined`, `claude/mail-skeleton-trial` | Old shared trial branch (= leads + attachments) | Obsolete once those two merge |
@@ -49,7 +49,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | # | Task | State | Owner | Notes |
 | --- | --- | --- | --- | --- |
 | 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | Done | Claude | PR #1 merged 2026-10-09 |
-| 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads → attachments → 1.4.127. The UI branches are done: PRs #6–#9 merged 2026-10-09 |
+| 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads (PR open) → attachments → 1.4.127. The UI branches are done: PRs #6–#9 merged 2026-10-09 |
 | 2b | 客户设置 batch A1: 客户分组 / 阶段 / 类型 / 建档黑名单 / 客户上限 / 查重展示 / 布局, wired into the editor, import, pool claim and detail page | Done | Claude | PR #14 merged 2026-10-09 (owner said 合并). Mac not walked through yet. Web trial Version 45 (built from 6941054) |
 | 2c | 客户设置 batch A2: 公海管理 (extend `poolRules`: several rules, reminder days, whitelist, claim limits, reason required; replace the old 公海规则 dialog button), 客户跟进规则 ("最近联系" is not "最近跟进"), 客户成交规则, 动态设置, 写跟进设置 | Done | Claude | PR #20 merged 2026-10-09 (owner said 合并), `main` 7e74221; Mac app not walked through. Source was the owner's 小满 settings docs (collection ≠ authorization). Excluded: 企业微信, 钉钉, 内贸, 商城/购买/订购/采购; 回款, 海关, 外部沟通 stay deferred (D-006). Sharing/permissions/accounts need separate confirmation |
 | 2a | Date and month fields: one Chinese calendar (flatpickr) instead of the system control | Done | Claude | PR #4 merged 2026-10-09 (owner said 合并); week starts on Monday; web trial republished (Version 44) |
@@ -62,6 +62,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 9 | 沟通 (communication) module — which chat tool | Blocked | Owner | Needs his choice |
 | 11 | Opus coordinator + Sonnet subagents in worktrees (D-017) | Done | Claude | PR #15 merged 2026-10-09 (owner said 合并) |
 | 12 | 左栏选中效果改成玫红药丸（图标加文字都在药丸里），粉色、橙色界面 | Done | Claude | PR #22 merged 2026-10-09 (owner said 合并), `main` 2475597; web trial republished (Version 2). Mac not walked through |
+| 13 | App icon: 美金投币口 design (定稿 · B1 细缝, dark base) replaces `assets/AppIcon.icns`; source `assets/AppIcon.svg` | In progress | Claude | Branch `claude/project-thread-vylsq4`; touches `assets/`, so it waits for the owner's 合并. Mac app not looked at yet |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner
