@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Owner said 合并 on PR #15 (D-017: Opus coordinates, Sonnet subagents in worktrees): merged
+  (2de28d3). Mac build not due (cadence check after the merge). From now on sessions on this repo start with Opus 5.5
+  high and the `worker` / `reviewer` agents. Next: batch A2, once the owner re-sends the three 小满 settings docs.
 - 2026-10-09 — Claude — Owner asked for a new way of working (D-017): Opus 5.5 at high effort coordinates; subagents
   default to Sonnet 5.5 at medium effort (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`, `worker` and
   `reviewer` agents in `.claude/agents/`). Opus writes the spec, plan and every subagent prompt, picks each subagent's
