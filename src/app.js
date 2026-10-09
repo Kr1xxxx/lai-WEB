@@ -1205,16 +1205,18 @@
   });
   document.addEventListener("pointercancel", () => { groupPointerPress = null; });
   // 点弹窗外面自动关闭，但正在填写的弹窗（表单、商机、客户信息等）不关，免得填到一半丢了。
-  // 按下时也要在外面：从输入框里拖选文字、在外面松手，不算点外面。
+  // 按下和松手都要在外面：从里面拖到外面、或从外面拖进里面，都不算点外面。
   let overlayPressTarget = null;
-  document.addEventListener("pointerdown", (e) => { overlayPressTarget = e.target; }, true);
+  let overlayReleaseTarget = null;
+  document.addEventListener("pointerdown", (e) => { overlayPressTarget = e.target; overlayReleaseTarget = null; }, true);
+  document.addEventListener("pointerup", (e) => { overlayReleaseTarget = e.target; }, true);
   const closesOnOutsideClick = (overlay) =>
     modal === "columns" || modal === "feature" ||
     !["edit", "import", "segment", "company-display"].includes(modal) &&
     !overlay.querySelector('.drawer form, .drawer textarea, .drawer select, .drawer input:not([type="hidden"])');
   document.addEventListener("click", async (e) => {
     const overlay = $("#overlay-root .overlay");
-    if (modal && e.target === overlay && overlayPressTarget === overlay && closesOnOutsideClick(overlay))
+    if (modal && e.target === overlay && overlayPressTarget === overlay && overlayReleaseTarget === overlay && closesOnOutsideClick(overlay))
       return closeModal(e.detail > 0);
     if (!e.target.closest?.(".lcd-tabs-more,.lcd-tabs-overflow-menu"))
       closeDetailTabOverflow();

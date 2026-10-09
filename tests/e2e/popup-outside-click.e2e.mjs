@@ -44,3 +44,17 @@ test('pressing inside a popup and releasing outside does not close it', async ()
   await page.waitForTimeout(400);
   assert.equal(await drawer(page).count(), 1);
 });
+
+test('pressing outside and releasing inside a popup does not close it', async () => {
+  const { page } = app;
+  await app.open('customers');
+  await page.locator('.topbar button.app-version').click();
+  await drawer(page).waitFor();
+  const box = await drawer(page).boundingBox();
+  await page.mouse.move(5, 450);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + 40);
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  assert.equal(await drawer(page).count(), 1);
+});
