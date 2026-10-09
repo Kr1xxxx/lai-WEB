@@ -154,8 +154,18 @@ function normalizeActivity(raw) {
 }
 
 // 读取：缺什么补什么，永远返回完整的设置。
+// 结果按“设置对象”缓存：状态都是不可变的（每次修改都会产生新对象），所以同一个对象永远得到同一个结果。
+// 调用方不要改返回值；要改就复制后再 put。
+const settingsCache = new WeakMap();
+const MISSING_SETTINGS = {};
 function get(state) {
-  const raw = (state && state.laiSettings && state.laiSettings.customerSettings) || {};
+  const stored = state && state.laiSettings && state.laiSettings.customerSettings;
+  const key = stored && typeof stored === "object" ? stored : MISSING_SETTINGS;
+  let hit = settingsCache.get(key);
+  if (!hit) { hit = readSettings(key === MISSING_SETTINGS ? {} : key); settingsCache.set(key, hit); }
+  return hit;
+}
+function readSettings(raw) {
   const stages = uniqueNames(Array.isArray(raw.stages) ? raw.stages : DEFAULT_STAGES).slice(0, LIMITS.stages);
   const types = uniqueNames(Array.isArray(raw.types) ? raw.types : DEFAULT_TYPES).slice(0, LIMITS.types);
   const allowed = new Set(DUPLICATE_FIELDS.map(([key]) => key));
@@ -476,32 +486,34 @@ function setFollowRules(state, { contact, followup } = {}) {
   const f = pick(followup, "最近跟进");
   return put(state, { followRules: { contact: c || current.contact, followup: f || current.followup } });
 }
-// 商机存在 state.laiOpportunities（opportunity-model.js），用 client 对应客户，取 createdAt 和 updatedAt。
-function opportunityTimes(state, name) {
-  const list = state && Array.isArray(state.laiOpportunities) ? state.laiOpportunities : [];
-  const out = [];
+// 按客户名分好组再查：状态不可变，所以按数组对象缓存，不用每位客户都扫一遍全部订单 / 商机。
+const orderGroups = new WeakMap();
+const opportunityGroups = new WeakMap();
+const NO_ITEMS = [];
+function groupByClient(list, clientOf) {
+  const groups = new Map();
   for (const item of list) {
-    if (!item || trim(item.client) !== name) continue;
-    out.push(item.createdAt, item.updatedAt);
+    if (!item) continue;
+    const client = clientOf(item);
+    const bucket = groups.get(client);
+    if (bucket) bucket.push(item); else groups.set(client, [item]);
   }
-  return out;
+  return groups;
 }
-function actionTimes(state, name, key) {
-  const profile = profiles(state)[name] || {};
-  const history = Array.isArray(profile.history) ? profile.history : [];
-  const pick = (test) => history.filter((h) => h && test(h)).map((h) => h.time || h.date);
-  // 资料上存的跟进时间也算（导入的老客户可能只有它，没有跟进记录）。
-  if (key === "followup") return [...pick((h) => h.type === "followup"), profile.lastFollowup, profile.lastWrittenFollowup];
-  if (key === "mailSent") return pick((h) => h.type === "email" && h.subtype === "sent");
-  if (key === "mailReceived") return pick((h) => h.type === "email" && h.subtype !== "sent");
-  if (key === "chat") return pick((h) => h.type === "chat" || h.type === "call");
-  if (key === "order") {
-    const orders = state && Array.isArray(state.orders) ? state.orders : [];
-    return orders.filter((o) => o && o.client === name && !o.isDraft).flatMap((o) => [o.createdAt, o.updated]);
-  }
-  if (key === "opportunity") return opportunityTimes(state, name);
-  if (key === "claim") return [profile.lastPrivatePoolEntry];
-  return [];
+function ordersOf(state, name) {
+  const list = state && Array.isArray(state.orders) ? state.orders : null;
+  if (!list) return NO_ITEMS;
+  let groups = orderGroups.get(list);
+  if (!groups) { groups = groupByClient(list, (o) => o.client); orderGroups.set(list, groups); }
+  return groups.get(name) || NO_ITEMS;
+}
+// 商机存在 state.laiOpportunities（opportunity-model.js），用 client 对应客户，取 createdAt 和 updatedAt。
+function opportunitiesOf(state, name) {
+  const list = state && Array.isArray(state.laiOpportunities) ? state.laiOpportunities : null;
+  if (!list) return NO_ITEMS;
+  let groups = opportunityGroups.get(list);
+  if (!groups) { groups = groupByClient(list, (o) => trim(o.client)); opportunityGroups.set(list, groups); }
+  return groups.get(name) || NO_ITEMS;
 }
 function latestOf(values) {
   let best = "";
@@ -512,10 +524,39 @@ function latestOf(values) {
   }
   return best;
 }
+// 每个动作的最近时间（和 latestOf 对该动作所有时间的结果完全一样），历史只走一遍。
+function latestByAction(state, name) {
+  const profile = profiles(state)[name] || {};
+  const history = Array.isArray(profile.history) ? profile.history : [];
+  const lists = { followup: [], mailSent: [], mailReceived: [], chat: [] };
+  for (const h of history) {
+    if (!h) continue;
+    const at = h.time || h.date;
+    if (h.type === "followup") lists.followup.push(at);
+    else if (h.type === "email") (h.subtype === "sent" ? lists.mailSent : lists.mailReceived).push(at);
+    else if (h.type === "chat" || h.type === "call") lists.chat.push(at);
+  }
+  // 资料上存的跟进时间也算（导入的老客户可能只有它，没有跟进记录）。
+  lists.followup.push(profile.lastFollowup, profile.lastWrittenFollowup);
+  const order = [];
+  for (const o of ordersOf(state, name)) if (!o.isDraft) order.push(o.createdAt, o.updated);
+  const opportunity = [];
+  for (const item of opportunitiesOf(state, name)) opportunity.push(item.createdAt, item.updatedAt);
+  return {
+    followup: latestOf(lists.followup),
+    mailSent: latestOf(lists.mailSent),
+    mailReceived: latestOf(lists.mailReceived),
+    chat: latestOf(lists.chat),
+    order: latestOf(order),
+    opportunity: latestOf(opportunity),
+    claim: latestOf([profile.lastPrivatePoolEntry]),
+  };
+}
 function contactTimes(state, name) {
   const rules = get(state).followRules;
   const profile = profiles(state)[name] || {};
-  const calc = (keys, legacy) => latestOf([...keys.flatMap((key) => actionTimes(state, name, key)), legacy]);
+  const latest = latestByAction(state, name);
+  const calc = (keys, legacy) => latestOf([...keys.map((key) => latest[key] || ""), legacy]);
   return { lastContact: calc(rules.contact, profile.lastContact), lastFollowup: calc(rules.followup, profile.lastFollowup) };
 }
 
@@ -527,9 +568,8 @@ function setDealRule(state, by) {
 function lastDealDate(state, name) {
   const profile = profiles(state)[name] || {};
   if (get(state).dealRule.by === "opportunity") return trim(profile.opportunityLastWonDate);
-  const orders = state && Array.isArray(state.orders) ? state.orders : [];
-  return latestOf(orders
-    .filter((o) => o && o.client === name && !o.isDraft && ["shipment", "done"].includes(o.stage))
+  return latestOf(ordersOf(state, name)
+    .filter((o) => !o.isDraft && ["shipment", "done"].includes(o.stage))
     .map((o) => o.shippedAt || o.createdAt));
 }
 
