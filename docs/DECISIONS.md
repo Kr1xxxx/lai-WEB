@@ -132,3 +132,8 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   affected.
 - Consequences: the session model and effort come from the committed settings, so a session started with another
   model in the app may still need `/model` or `/effort`. Worker branches stay local; the PR rule (D-014) is unchanged.
+
+### D-018 小满 settings ruled out: 工作流, 审批流, 营销设置 (2026-10-09)
+- Context: while replicating the owner's 小满 settings, the remaining pages were reviewed.
+- Decision: the owner decided not to build 工作流 (workflows), 审批流 (approval flows) or 营销设置 (marketing settings).
+  Do not recommend them as next steps. They are marked 排除 in `docs/xiaoman/README.md`.
