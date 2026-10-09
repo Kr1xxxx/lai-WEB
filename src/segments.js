@@ -36,7 +36,8 @@
       const contact=dated.find(item=>['email','chat','call'].includes(item.type));
       const contactTime=contact?.time||contact?.date||'';
       const savedContact=profile.lastContact||row.lastContact||'';
-      const lastContact=contactTime&&(!Number.isFinite(timestamp(savedContact))||timestamp(contactTime)>timestamp(savedContact))
+      const times=CS&&CS.contactTimes?CS.contactTimes(state,row.name):null;
+      const lastContact=times?(times.lastContact||row.lastContact||''):contactTime&&(!Number.isFinite(timestamp(savedContact))||timestamp(contactTime)>timestamp(savedContact))
         ? contactTime : savedContact;
       const settled=(row.orders||[])
         .filter(order=>['shipment','done'].includes(order.stage))
@@ -49,7 +50,7 @@
         : profile.firstOrderTotal??row.firstOrderTotal??null;
       const legacyGroups=Array.isArray(row.group)?row.group:row.group?[row.group]:[];
       const manualGroups=(state.previewSegments||[]).filter(segment=>!segment.archived&&segment.kind==='manual'&&(segment.members||[]).includes(row.name)).map(segment=>segment.name);
-      return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
+      return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
     });
     const memberships=(Array.isArray(state.previewSegments)?state.previewSegments:[])
       .filter(segment=>segment&&!segment.archived&&String(segment.name||'').trim())

@@ -24,7 +24,7 @@ const rows = () => S.enrich(M.buildCustomers(state),state);
 test('enrichment preserves honest order metrics and unknown dates',()=>{
  const [a,b,f] = ['Alpha','Beta','Foreign'].map(n=>rows().find(r=>r.name===n));
  assert.equal(a.lastWonDate,'2026-08-10');assert.equal(a.latestOrderDate,'2026-08-04');assert.equal(a.total,300);assert.equal(a.average,150);assert.equal(a.orderCount,2);
- assert.equal(a.latestActivity,'edit');assert.equal(a.lastFollowup,'2026-09-05');assert.equal(a.createdAt,'');assert.equal(a.lastContact,'');
+ assert.equal(a.latestActivity,'edit');assert.equal(a.lastFollowup,'2026-09-05');assert.equal(a.createdAt,'');assert.equal(a.lastContact,'2026-09-05');
  assert.equal(b.createdAt,'2026-08-01');assert.equal(b.customerCode,'B-001');assert.equal(b.average,null);assert.equal(f.average,null);assert.equal(f.total,null);
 });
 test('opportunity date and completed-order date remain separate in segment rules',()=>{
@@ -254,7 +254,7 @@ test('recent activity ignores typed profile operations while preserving the late
  assert.equal(output.lastFollowup,'2026-09-22T10:00:00Z');
 });
 test('last contact follows explicit email or chat history without counting quick followup notes',()=>{
- const source={orders:[],customers:{
+ const source={orders:[],laiSettings:{customerSettings:{followRules:{contact:['mailSent','mailReceived','chat']}}},customers:{
   Email:{history:[
    {time:'2026-09-22T10:00:00Z',type:'followup',text:'Internal note'},
    {time:'2026-09-20T09:00:00Z',type:'email',text:'Customer replied'},
