@@ -102,6 +102,8 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   (`scripts/classify-pr.mjs`): small changes merge themselves when every check is green; big ones get the
   `needs-owner` label and wait until the owner writes 合并. Definitions: `AGENTS.md`, "Merging". Merge commits,
   not squash.
+- The classification runs from `main`'s copy of the workflow and scripts (`merge-policy.yml`, `workflow_run`), so
+  a PR cannot judge itself with edited rules; merged branches are kept (D-013 rule 5) (2026-10-09).
 - Limit: at most 500 changed lines in `src/` for a small PR (owner raised it from 350 on 2026-10-09).
 - Consequences: the only cost is GitHub Actions minutes. The Mac build runs on macOS runners, which a private
   repository pays for at 10× the Linux rate; how often it runs is D-016.

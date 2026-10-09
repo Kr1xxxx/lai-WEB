@@ -13,7 +13,8 @@
 - Tests on `main`: `npm run test:model` 657 pass; `npm run test:e2e` 5 pass (added with the handoff rules PR).
 - Verification status per feature: `docs/features.json`. Most features were checked in a browser by earlier
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
-- Merge policy (D-014) and CI are live since PR #1 (2026-10-09).
+- Merge policy (D-014) and CI are live since PR #1 (2026-10-09); from the merge-policy PR on, the decision runs in
+  `merge-policy.yml` from `main`'s copy and merged branches are kept.
 
 ## Work waiting on branches (not in `main`)
 

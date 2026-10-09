@@ -1,0 +1,94 @@
+# Merge policy for pull requests (docs/DECISIONS.md D-014, AGENTS.md "Merging").
+# Runs when the CI workflow finishes. A workflow_run job always uses this file and the scripts from `main`,
+# never the pull request's own copies, so a pull request cannot change the rules that judge it.
+#   CI green + small → merge (merge commit, branch kept); big → label needs-owner and wait for the owner's 合并.
+name: Merge policy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: merge-policy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  statuses: write
+
+jobs:
+  merge-policy:
+    name: merge policy
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      BASE: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      # Keep main's rules before the pull request's commit is checked out.
+      - name: Take the rules from main
+        run: cp scripts/classify-pr.mjs scripts/mac-cadence.mjs "$RUNNER_TEMP/"
+      # Only the pull request whose head is exactly the commit CI tested; a newer push gets its own CI run.
+      - id: pr
+        name: Find the pull request
+        run: |
+          gh pr list --repo "$REPO" --state open --head "$HEAD_BRANCH" --json number,headRefOid,isDraft,baseRefName \
+            --jq ".[] | select(.headRefOid == \"$HEAD_SHA\" and .isDraft == false and .baseRefName == \"$BASE\") | .number" > pr.txt
+          number=$(head -n1 pr.txt)
+          if [ -z "$number" ]; then echo "No open, non-draft PR at $HEAD_SHA; nothing to do."; fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+      - id: labels
+        if: steps.pr.outputs.number != ''
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        run: echo "json=$(gh pr view "$PR" --repo "$REPO" --json labels --jq '[.labels[].name]')" >> "$GITHUB_OUTPUT"
+      - id: size
+        if: steps.pr.outputs.number != ''
+        env:
+          BASE_REF: origin/${{ github.event.repository.default_branch }}
+          LABELS: ${{ steps.labels.outputs.json }}
+        run: |
+          git fetch origin "$HEAD_SHA"
+          git checkout --detach "$HEAD_SHA"
+          node "$RUNNER_TEMP/classify-pr.mjs"
+      - name: Small change → merge
+        if: steps.size.outputs.size == 'small'
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          gh pr edit "$PR" --repo "$REPO" --remove-label needs-owner || true
+          gh pr edit "$PR" --repo "$REPO" --add-label auto-merged
+          gh pr merge "$PR" --repo "$REPO" --merge --match-head-commit "$HEAD_SHA"
+          gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state=success -f context="merge policy" \
+            -f description="Small change: merged automatically"
+      # Merges made with the workflow token do not start a CI run on main, so start the Mac build here
+      # when this merge is a 10th Claude PR (D-016).
+      - name: Mac build on main every 10th Claude PR
+        if: steps.size.outputs.size == 'small'
+        run: |
+          git fetch origin "$BASE:refs/remotes/origin/$BASE"
+          if MAIN_REF="origin/$BASE" node "$RUNNER_TEMP/mac-cadence.mjs" after-merge | tee /dev/stderr | grep -q 'due: true'; then
+            gh workflow run ci.yml --repo "$REPO" --ref "$BASE"
+          fi
+      - name: Big change → wait for the owner
+        if: steps.size.outputs.size == 'big'
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          gh pr edit "$PR" --repo "$REPO" --add-label needs-owner
+          gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state=success -f context="merge policy" \
+            -f description="Big change: waits for the owner's 合并"
+          echo "::notice::Waiting for the owner to say 合并 (merge)."

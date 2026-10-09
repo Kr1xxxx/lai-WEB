@@ -1,5 +1,6 @@
 # CI for 来财Lai. Policy: docs/DECISIONS.md D-014, AGENTS.md "Merging".
-# tests → browser end-to-end → mac build + integration (cadence: D-016) → handoff updated → merge policy.
+# tests → browser end-to-end → mac build + integration (cadence: D-016) → handoff updated.
+# When this workflow finishes on a pull request, merge-policy.yml (always main's copy) decides small/big.
 name: CI
 
 on:
@@ -108,54 +109,3 @@ jobs:
       - run: node scripts/check-handoff.mjs
         env:
           BASE_REF: origin/${{ github.base_ref }}
-
-  # D-014: small changes merge themselves once every check is green; big ones wait for the owner's 合并.
-  merge-policy:
-    name: merge policy
-    needs: [changes, tests, e2e, mac, handoff]
-    if: >-
-      always() && github.event_name == 'pull_request' && !github.event.pull_request.draft &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      needs.changes.result == 'success' && needs.tests.result == 'success' && needs.e2e.result == 'success' &&
-      needs.handoff.result == 'success' && (needs.mac.result == 'success' || needs.mac.result == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      PR: ${{ github.event.pull_request.number }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # Read labels now (not from the event) so a "major" label added after opening still counts.
-      - id: labels
-        run: echo "json=$(gh pr view "$PR" --json labels --jq '[.labels[].name]')" >> "$GITHUB_OUTPUT"
-      - id: size
-        run: node scripts/classify-pr.mjs
-        env:
-          BASE_REF: origin/${{ github.base_ref }}
-          LABELS: ${{ steps.labels.outputs.json }}
-      - name: Small change → merge
-        if: steps.size.outputs.size == 'small'
-        run: |
-          gh pr edit "$PR" --remove-label needs-owner || true
-          gh pr edit "$PR" --add-label auto-merged
-          gh pr merge "$PR" --merge --delete-branch
-      # Merges made with the workflow token do not start a CI run on main, so start the Mac build here
-      # when this merge is a 10th Claude PR (D-016).
-      - name: Mac build on main every 10th Claude PR
-        if: steps.size.outputs.size == 'small'
-        run: |
-          git fetch origin main:refs/remotes/origin/main
-          MAIN_REF=origin/main node scripts/mac-cadence.mjs after-merge
-          if MAIN_REF=origin/main node scripts/mac-cadence.mjs after-merge | grep -q 'due: true'; then
-            gh workflow run ci.yml --ref main
-          fi
-      - name: Big change → wait for the owner
-        if: steps.size.outputs.size == 'big'
-        run: |
-          gh pr edit "$PR" --add-label needs-owner
-          echo "::notice::Waiting for the owner to say 合并 (merge)."
