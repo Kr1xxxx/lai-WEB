@@ -5,6 +5,7 @@
   const nativeWindowBridge = () => !!window.webkit?.messageHandlers?.windowDragRegions;
   const separateCustomerWindow = nativeWindowBridge() && new URLSearchParams(location.search).has("customer");
   const CT = window.LaiCustomerTools;
+  const CS = window.LaiCustomerSettings;
   const M = window.PreviewModel,
     S = window.PreviewSegments,
     C = window.LaiCustomerFields,
@@ -990,9 +991,14 @@
       if (dialog?.isConnected && !dialog.contains?.(document.activeElement)) dialog.focus();
     }, 30);
   }
+  const POOL_EDIT_BLOCKED = "公海客户不能编辑（客户设置 → 公海管理）";
+  // 公海规则里关掉了「显示公海联系人」时，公海客户不能编辑（编辑页会露出联系人）。
+  const poolEditBlocked = (name) =>
+    L.bucket(state.customers?.[name] || {}) === "pool" && !CT.poolContactsVisible(state);
   function editForm(isNew = false, pointerActivated = false, customerName = currentName) {
     if (!isNew && L.bucket(state.customers?.[customerName] || {}) === "trash")
       return toast("请先恢复回收站客户");
+    if (!isNew && poolEditBlocked(customerName)) return toast(POOL_EDIT_BLOCKED);
     const c = isNew
       ? {}
       : allCustomerRows().find((c) => c.name === customerName) || {};
@@ -1268,8 +1274,16 @@
       const c = allCustomerRows().find((c) => c.name === el.dataset.follow);
       return follow([c.name], !c.followed);
     }
+    if (el.dataset.templateItem !== undefined) return insertFollowupTemplate(el.dataset.templateItem);
     const a = el.dataset.action;
     if (!a) return;
+    if (a === "followup-templates") return followupTemplatePicker(el);
+    if (a === "followup-templates-settings") {
+      removePopover();
+      csTab = "followup";
+      csEditing = null;
+      return customerSettings();
+    }
     if (a === "toggle-info-section") {
       const id = el.dataset.infoId;
       const section = el.closest("[data-info-section]");
@@ -1618,6 +1632,7 @@
       followupDrafts.set(currentName, {
         text: form.elements.text.value,
         nextFollow: form.elements.nextFollow.value,
+        time: form.elements.followupTime?.value || "",
       });
     }
   });
@@ -1760,6 +1775,8 @@
       b.disabled = true;
     });
     try {
+      if (form.id === "customer-form" && form.dataset.oldName && poolEditBlocked(form.dataset.oldName))
+        throw new Error(POOL_EDIT_BLOCKED);
       const next =
         form.id === "customer-form"
           ? S.setEditorGroup(
@@ -1772,7 +1789,7 @@
               data.previewGroup,
               form.dataset.originalGroup,
             )
-          : M.addFollowup(state, currentName, data.text, data.nextFollow);
+          : M.addFollowup(state, currentName, data.text, data.nextFollow, CS.checkFollowupTime(state, data.followupTime));
       await persist(next);
       buttons.forEach((b) => (b.disabled = b.dataset.wasDisabled === "true"));
       if (form.id === "customer-form") {
@@ -1870,6 +1887,14 @@
       }
     }
     if (e.key === "Escape") {
+      const picker = $(".followup-template-popover");
+      if (picker) {
+        e.preventDefault();
+        const trigger = picker._trigger;
+        removePopover();
+        if (trigger?.isConnected) trigger.focus();
+        return;
+      }
       if (closeDetailTabOverflow(true)) {
         e.preventDefault();
         return;
@@ -1917,6 +1942,53 @@
       }
     }
   });
+  // 有没保存的修改、正在保存或写了一半的内容时，后台自动做的事（公海规则、自动记邮件）先不动，下次再做。
+  const hasUnsavedWork = () =>
+    !!(pending || modal || business?.hasDraft() || mail?.composeDirty() ||
+      [...followupDrafts.values()].some((draft) => draft.text.trim()));
+  // 每天自动按公海规则移一次客户；没有要移的也记下今天已执行，一天只跑一次。
+  async function autoRunPoolRules() {
+    try {
+      if (hasUnsavedWork() || !CT.autoRunDue(state)) return;
+      const result = CT.applyPoolRules(state);
+      await persist(CT.markAutoRun(result.state));
+      if (result.moved.length) {
+        if (activeRoute === "customers") refresh();
+        toast(`按公海规则移入 ${result.moved.length} 位客户`);
+      }
+    } catch (_) {
+      // 这次没成功就算了，下次打开再试。
+    }
+  }
+  // 客户设置里开了「自动记往来邮件」：把新读到的邮件一次记到对应客户的动态里，返回记了几封。
+  let autoRecordingMail = false;
+  async function autoRecordMails(items) {
+    const since = CS.autoMailSince(state);
+    if (!since || autoRecordingMail || hasUnsavedWork()) return 0;
+    const plan = window.LaiMailUI.autoRecordPlan({
+      customers: state.customers,
+      messages: items,
+      since,
+      isRecorded: (name, mail) => M.mailRecorded(state, name, mail),
+      isActive: (profile) => L.bucket(profile) === "active",
+    });
+    if (!plan.length) return 0;
+    autoRecordingMail = true;
+    try {
+      let next = state, count = 0;
+      for (const { name, mail } of plan) {
+        try { next = M.addMailActivity(next, name, mail); count++; } catch (_) { /* 记不了的跳过 */ }
+      }
+      if (!count) return 0;
+      await persist(next);
+      toast(`已自动记录 ${count} 封邮件到客户动态`);
+      return count;
+    } catch (_) {
+      return 0;
+    } finally {
+      autoRecordingMail = false;
+    }
+  }
   async function boot() {
     try {
       const response = await fetch("/api/data", { cache: "no-store" });
@@ -1931,6 +2003,7 @@
       const initialCustomer = new URLSearchParams(location.search).get("customer");
       if (location.hash === "#favorites") await openFavorites();
       else await navigateApp(location.hash.slice(1) || "customers", initialCustomer, false);
+      await autoRunPoolRules();
       // 绑定了邮箱就开始定时检查新邮件（没绑定或关掉了自动检查时什么也不做）。
       mail?.start().catch(() => {});
     } catch (err) {
@@ -2552,13 +2625,33 @@
       );
     });
   }
+  // 选择跟进模板：列出客户设置里的常用语，点一条放进跟进内容（已有内容就另起一行）。
+  function followupTemplatePicker(anchor) {
+    if ($(".followup-template-popover")) return removePopover();
+    const box = popover(anchor, window.LaiCustomerDetail.followupTemplateList(state, E), "followup-template-popover");
+    box._target = modal ? $("#batch-followup-text") : $("#followup-text");
+    anchor.setAttribute("aria-expanded", "true");
+    box.querySelector("button")?.focus();
+  }
+  function insertFollowupTemplate(id) {
+    const target = $(".followup-template-popover")?._target;
+    removePopover();
+    const item = CS.get(state).followup.templates.flatMap((group) => group.items).find((entry) => entry.id === id);
+    if (!item || !target?.isConnected) return;
+    const current = target.value.replace(/\s+$/, "");
+    target.value = current ? `${current}\n${item.text}` : item.text;
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.focus();
+    target.setSelectionRange(target.value.length, target.value.length);
+  }
   function batchFollowupDialog(pointerActivated = false) {
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
     const single = names.length === 1;
+    const timeInput = window.LaiCustomerDetail.followupTimeInput(state, { id: "batch-followup-time", escape: E });
     drawer(
       single ? "写跟进" : "批量写跟进",
-      `<form id="batch-followup-form" class="drawer-body batch-tags-form batch-followup-form"><label class="field" for="batch-followup-text"><span>跟进内容</span><textarea id="batch-followup-text" name="text" rows="5" maxlength="5000" required placeholder="${single ? "记录这次跟进" : "记录这次共同的跟进进展"}"></textarea></label><label class="field" for="batch-followup-date"><span>下次跟进日期（选填）</span><input id="batch-followup-date" type="date" name="nextFollow"></label><p class="muted tiny">${single ? "日期留空时清除原有的下次跟进日期。" : "日期留空时保留每位客户原有的下次跟进日期。"}</p><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<form id="batch-followup-form" class="drawer-body batch-tags-form batch-followup-form"><div class="batch-followup-tools"><button type="button" class="text-button" data-action="followup-templates" aria-haspopup="true" aria-expanded="false">${icon("note")} 选择模板</button></div><label class="field" for="batch-followup-text"><span>跟进内容</span><textarea id="batch-followup-text" name="text" rows="5" maxlength="5000" required placeholder="${single ? "记录这次跟进" : "记录这次共同的跟进进展"}"></textarea></label><label class="field" for="batch-followup-date"><span>下次跟进日期（选填）</span><input id="batch-followup-date" type="date" name="nextFollow"></label>${timeInput ? `<label class="field" for="batch-followup-time"><span>跟进时间（选填，留空为现在）</span>${timeInput}</label>` : ""}<p class="muted tiny">${single ? "日期留空时清除原有的下次跟进日期。" : "日期留空时保留每位客户原有的下次跟进日期。"}</p><div class="error" id="workspace-error" role="alert"></div></form>`,
       `<button type="button" data-action="close-modal">取消</button><button type="submit" form="batch-followup-form" class="primary">确定</button>`,
       "actions",
       pointerActivated,
@@ -2569,9 +2662,12 @@
       event.preventDefault();
       const form = event.currentTarget;
       workspaceSave(
-        () => single
-          ? M.addFollowup(state, names[0], form.elements.text.value, form.elements.nextFollow.value)
-          : M.batchAddFollowup(state, names, form.elements.text.value, form.elements.nextFollow.value),
+        () => {
+          const time = CS.checkFollowupTime(state, form.elements.followupTime?.value);
+          return single
+            ? M.addFollowup(state, names[0], form.elements.text.value, form.elements.nextFollow.value, time)
+            : M.batchAddFollowup(state, names, form.elements.text.value, form.elements.nextFollow.value, time);
+        },
         () => selected.clear(),
       );
     });
@@ -3580,7 +3676,7 @@
       const data = allCustomerRows().filter(
         (c) => L.bucket(state.customers[c.name]) === screen,
       );
-      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回后恢复原跟进人，可继续编辑和跟进。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(c.contact || "—")}</td><td>${c.orderCount}</td><td><button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button><button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>在客户列表选择客户后，可使用批量操作。</span></div>"}</div>`;
+      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回后恢复原跟进人，可继续编辑和跟进。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td><button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button><button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>在客户列表选择客户后，可使用批量操作。</span></div>"}</div>`;
     }
     $("#app").innerHTML = shell(
       `<div class="pagebar"><div class="page-tabs"><h1>${names[screen]}</h1></div><button data-lai-screen="active">返回客户列表</button></div><section class="module-page">${body}</section>`,
@@ -3593,22 +3689,63 @@
   }
   function transitionDialog(names, target, pointerActivated = false) {
     const label = target === "pool" ? "移入公海" : "移入回收站";
+    const pool = target === "pool" ? CT.poolRules(state) : null;
+    // 公海规则里设了原因（或要求必填）时，移入公海要选原因；没设原因却要求必填时让他自己写。
+    const reasonField = !pool || !(pool.reasons.length || pool.requireReason) ? ""
+      : pool.reasons.length
+        ? `<label class="field" for="transition-reason"><span>原因${pool.requireReason ? "" : "（选填）"}</span><select id="transition-reason" name="reason">${pool.requireReason ? '<option value="">请选择原因</option>' : '<option value="">不填</option>'}${pool.reasons.map((reason) => `<option value="${E(reason)}">${E(reason)}</option>`).join("")}</select></label>`
+        : `<label class="field" for="transition-reason"><span>原因</span><input id="transition-reason" name="reason" maxlength="50" autocomplete="off" placeholder="请填写移入公海的原因"></label>`;
     drawer(
       label,
-      `<div class="drawer-body"><p>将 ${names.length} 位客户${label}：</p><div class="transition-names">${names.map((n) => `<div>${E(n)}</div>`).join("")}</div><p class="module-note">${target === "pool" ? "客户将从当前列表移到公海，领回时恢复原跟进人。" : "客户资料和关联订单都会保留，可从回收站恢复。"}</p><div class="error" id="workspace-error" role="alert"></div></div>`,
+      `<div class="drawer-body"><p>将 ${names.length} 位客户${label}：</p><div class="transition-names">${names.map((n) => `<div>${E(n)}</div>`).join("")}</div>${reasonField}<p class="module-note">${target === "pool" ? "客户将从当前列表移到公海，领回时恢复原跟进人。" : "客户资料和关联订单都会保留，可从回收站恢复。"}</p><div class="error" id="workspace-error" role="alert"></div></div>`,
       `<button data-action="close-modal">取消</button><button class="primary" id="confirm-transition">确认${label}</button>`,
       "transition",
       pointerActivated,
     );
     $("#confirm-transition").onclick = () =>
       workspaceSave(
-        () => L.moveCustomers(state, names, target),
+        () => L.moveCustomers(state, names, target, undefined, reasonField ? { reason: $("#transition-reason")?.value || "" } : undefined),
         () => {
           currentName = "";
           selected.clear();
           customerScreen = "active";
         },
       );
+  }
+  // 领回客户：选谁来跟进（默认原跟进人），公海规则里的领回限制、领取上限、客户上限由 moveCustomers 检查。
+  function claimDialog(name, pointerActivated = false) {
+    const profile = state.customers?.[name] || {};
+    const previous = String(profile.laiPreviousOwner || "").trim();
+    const owners = [...new Set([previous, ...ownerChoices()].filter(Boolean))];
+    const first = previous || owners[0] || "";
+    drawer(
+      "领回客户",
+      `<form id="claim-form" class="drawer-body claim-form"><p>领回客户：<strong>${E(name)}</strong></p>${owners.length ? `<label class="field" for="claim-owner"><span>跟进人</span><select id="claim-owner" name="owner">${owners.map((owner) => `<option value="${E(owner)}" ${owner === first ? "selected" : ""}>${E(owner)}${owner === previous ? "（原跟进人）" : ""}</option>`).join("")}</select></label>` : `<label class="field" for="claim-owner"><span>跟进人</span><input id="claim-owner" name="owner" maxlength="120" autocomplete="off" placeholder="填写跟进人"></label>`}<p class="module-note" id="claim-quota"></p><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="claim-form" class="primary">确认领回</button>`,
+      "actions",
+      pointerActivated,
+    );
+    const form = $("#claim-form");
+    const quota = () => {
+      const owner = form.elements.owner.value.trim();
+      const limit = owner ? CT.claimLimitFor(state, owner) : 0;
+      $("#claim-quota").textContent = limit > 0 ? `本期已领 ${CT.claimCount(state, owner)} / 上限 ${limit}` : "";
+      $("#claim-quota").hidden = !(limit > 0);
+    };
+    form.elements.owner.addEventListener("change", quota);
+    form.elements.owner.addEventListener("input", quota);
+    quota();
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const owner = form.elements.owner.value.trim();
+      workspaceSave(
+        () => L.moveCustomers(state, [name], "active", undefined, { owner }),
+        () => {
+          currentName = "";
+          selected.clear();
+        },
+      );
+    });
   }
   function customerActions(pointerActivated = false) {
     const c = state.customers[currentName] || {},
@@ -3712,6 +3849,7 @@
       });
     if (d.laiScreen === "customer-settings") return customerSettings();
     if (d.laiScreen) return showCustomerScreen(d.laiScreen);
+    if (d.customerTransition === "active") return claimDialog(d.customerName, e.detail > 0);
     if (d.customerTransition)
       return workspaceSave(
         () => L.moveCustomers(state, [d.customerName], d.customerTransition),
@@ -4501,6 +4639,7 @@
       $(".popover") &&
       !e.target.closest(".popover") &&
       !e.target.closest('[data-action="table-options"]') &&
+      !e.target.closest('[data-action="followup-templates"]') &&
       !e.target.closest('[data-action="activity-sort"]') &&
       !e.target.closest('[data-action="activity-advanced-filter"]') &&
       !e.target.closest('[data-action="document-page-size"]') &&
@@ -4741,6 +4880,7 @@
       }
     },
     isMailRecorded: (name, item) => M.mailRecorded(state, name, item),
+    autoRecordMails,
     refreshCustomerPanel: (name) => {
       if (activeRoute === "customers" && currentName === name && tab === "activity" && activityFilter === "email" && $("#activity-results")) replaceActivityResults(true);
     },
