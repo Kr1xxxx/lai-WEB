@@ -35,10 +35,7 @@
   }
 
   function prefersReducedMotion(target) {
-    return Boolean(
-      target?.ownerDocument?.defaultView
-        ?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
-    );
+    return false;
   }
 
   function exit(container, kind, options = {}) {

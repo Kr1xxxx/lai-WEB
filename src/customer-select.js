@@ -89,8 +89,7 @@
     };
     closing.add(entry);
     box.addEventListener("animationend", entry.onEnd);
-    entry.timer = setTimeout(entry.cleanup,
-      root.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    entry.timer = setTimeout(entry.cleanup, 240);
   }
   function syncClear(record) {
     if (record.clear)

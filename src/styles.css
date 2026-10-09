@@ -461,10 +461,6 @@ a,
   from { opacity: var(--document-size-exit-opacity, 1); }
   to { opacity: 0; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .document-size-motion { animation: lai-tag-popover-fade 80ms linear both !important; }
-  .document-size-closing { animation: lai-document-size-fade-out 80ms linear both !important; transform: none; }
-}
 .contact-menu {
   width: 188px;
   padding: 8px;
@@ -487,10 +483,6 @@ a,
 @keyframes lai-contact-menu-fade-out {
   from { opacity: var(--contact-exit-opacity, 1); }
   to { opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .contact-menu-motion { animation: lai-tag-popover-fade 80ms linear both !important; }
-  .contact-menu-closing { animation: lai-contact-menu-fade-out 80ms linear both !important; transform: none; }
 }
 .contact-menu > button {
   display: block;
@@ -559,9 +551,6 @@ a,
 @keyframes lai-activity-sort-fade-out {
   from { opacity: var(--sort-exit-from-opacity, 1); }
   to { opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .activity-sort-closing { animation: lai-activity-sort-fade-out 80ms linear both !important; transform: none; }
 }
 .popover.activity-filter-popover {
   width: min(344px, calc(100vw - 24px));
@@ -721,18 +710,6 @@ a,
   from { opacity: 0; transform: translateY(-4px) scale(.98); }
   to { opacity: 1; transform: none; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .activity-sort-popover-motion {
-    animation: lai-tag-popover-fade 80ms linear both !important;
-  }
-  .activity-filter-popover-motion {
-    animation: lai-tag-popover-fade 80ms linear both !important;
-  }
-  .activity-filter-closing {
-    animation: lai-activity-filter-fade-out 80ms linear both !important;
-    transform: none;
-  }
-}
 .popover.tag-popover {
   width: min(300px, calc(100vw - 24px));
   padding: 16px;
@@ -792,15 +769,6 @@ a,
 @keyframes lai-tag-popover-fade-out {
   from { opacity: var(--tag-exit-opacity, 1); }
   to { opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tag-popover-motion {
-    animation: lai-tag-popover-fade 80ms linear both !important;
-  }
-  .tag-popover-closing {
-    animation: lai-tag-popover-fade-out 80ms linear both !important;
-    transform: none;
-  }
 }
 @keyframes lai-tag-popover-fade {
   from { opacity: 0; }

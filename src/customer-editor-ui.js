@@ -365,7 +365,7 @@
         added.querySelector("input")?.focus();
         added.scrollIntoView({
           block: "nearest",
-          behavior: event.detail > 0 && !root.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+          behavior: event.detail > 0
             ? "smooth" : "instant",
         });
       }
