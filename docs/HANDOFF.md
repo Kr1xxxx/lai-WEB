@@ -13,7 +13,7 @@
 - Tests on `main`: `npm run test:model` 657 pass; `npm run test:e2e` 5 pass (added with the handoff rules PR).
 - Verification status per feature: `docs/features.json`. Most features were checked in a browser by earlier
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
-- Merge policy (D-014) and CI arrive with the handoff rules PR; until it is merged, nothing auto-merges.
+- Merge policy (D-014) and CI are live since PR #1 (2026-10-09).
 
 ## Work waiting on branches (not in `main`)
 
@@ -39,7 +39,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 
 | # | Task | State | Owner | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | In progress | Claude | PR open; big → waits for 合并 |
+| 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | Done | Claude | PR #1 merged 2026-10-09 |
 | 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads → attachments → 1.4.127 → UI branches |
 | 3 | Owner walks through the Mac build from CI and records results in `docs/features.json` | Todo | Owner | Download the `Lai-app-<sha>` artifact from the PR's CI run |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo | Owner | Needs his real account (D-004) |
@@ -52,7 +52,6 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 
 ## Waiting on the owner
 
-- 合并 for the handoff rules PR (rule files and CI are always big).
 - Which of the waiting branches he still wants; whether obsolete branches may be deleted.
 - 沟通 module: which chat tool (WhatsApp, WeChat, other).
 - Company sharing: where it runs, accounts and permissions.
