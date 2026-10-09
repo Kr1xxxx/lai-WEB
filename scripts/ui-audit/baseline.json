@@ -1,0 +1,31 @@
+{
+ "coveredCounts": {
+  "pink|1440x900|customers": 19,
+  "pink|1440x900|弹窗 新建订单": 2,
+  "pink|1440x900|弹窗 新建商机": 1,
+  "pink|1440x900|弹窗 新建客户": 4,
+  "pink|1280x720|customers": 7,
+  "pink|1280x720|mail": 2,
+  "pink|1440x640|customers": 15,
+  "pink|1440x640|mail": 3,
+  "orange|1440x900|customers": 19,
+  "orange|1440x900|弹窗 新建订单": 2,
+  "orange|1440x900|弹窗 新建商机": 1,
+  "orange|1440x900|弹窗 新建客户": 4,
+  "orange|1280x720|customers": 7,
+  "orange|1280x720|mail": 2,
+  "orange|1440x640|customers": 15,
+  "orange|1440x640|mail": 3,
+  "xiaoman|1440x900|customers": 18,
+  "xiaoman|1440x900|弹窗 新建订单": 2,
+  "xiaoman|1440x900|弹窗 新建商机": 2,
+  "xiaoman|1440x900|弹窗 新建客户": 4,
+  "xiaoman|1280x720|customers": 7,
+  "xiaoman|1280x720|mail": 1,
+  "xiaoman|1280x720|order-list": 10,
+  "xiaoman|1440x640|customers": 14,
+  "xiaoman|1440x640|mail": 2,
+  "xiaoman|1440x640|order-list": 13
+ },
+ "note": "已知、可接受的被遮挡项数量（客户表格冻结的操作列、折叠的客群分组等）；扫描结果比它多就算新增问题。"
+}

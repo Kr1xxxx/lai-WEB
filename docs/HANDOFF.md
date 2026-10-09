@@ -27,7 +27,7 @@ rule 5).
 | `claude/opportunity-attachments` | Opportunity detail drawer, attachments, card drag | Touches `backend/` → big |
 | `claude/lai-reliability-numbering-1.4.127` | 1.4.127: mail reliability, backups, totals, order numbers | Conflicts with the two above in `backend/server.js`, `backend/storage.js`, `src/business-ui.js`, `src/business.css` |
 | `claude/unify-dropdowns` | One custom dropdown for every select (D-010) | PR #8, owner said 合并 (2026-10-09) |
-| `claude/ui-audit-plan` | `UI_CHECKLIST.md` + a CLAUDE.md line | Its CLAUDE.md line must move into AGENTS.md now |
+| `claude/ui-audit-plan` | `UI_CHECKLIST.md` + `scripts/ui-audit/` | PR (owner said 合并, 2026-10-09) |
 | `claude/web-trial-combined`, `claude/mail-skeleton-trial` | Old shared trial branch (= leads + attachments) | Obsolete once those two merge |
 | `claude/mail-skeleton`, `claude/a-closeout-records` | Mail skeleton (superseded by real mail), A5 review notes | Probably obsolete; owner decides |
 | `claude/macos-ci` | First macOS CI workflow | Folded into `.github/workflows/ci.yml`; obsolete |

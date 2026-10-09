@@ -70,6 +70,7 @@ runs on browser storage, cannot reach real mail and cannot download files.
 **Always**
 - Pass `npm run test:model` before committing; after UI changes also run `npm run test:e2e` and look at the page
   yourself (screenshots at 1440×900).
+- After UI changes, run `scripts/ui-audit/ui-audit.cjs` against the rebuilt web trial (usage in its README) and keep the problem count at or below `scripts/ui-audit/baseline.json`; also walk through `UI_CHECKLIST.md`.
 - Add tests with every feature; put user-visible flows in `tests/e2e/`.
 - Write user-visible text in short, plain Chinese without technical terms. Developer docs are in English.
 - Record each business-rule choice you make in `VALIDATION.md` (D-003); the owner can change it later.

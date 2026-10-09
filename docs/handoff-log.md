@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — UI audit (`claude/ui-audit-plan`): `UI_CHECKLIST.md` (what to look at after any UI change) and
+  `scripts/ui-audit/` (finds covered elements, native selects, mixed dropdown styles and font/colour jumps on click;
+  runs against the web trial; `baseline.json`). `AGENTS.md` now tells agents to run it after UI changes. The earlier
+  phases (rail, dropdowns, truncation, date picker) are already merged. Owner said 合并.
 - 2026-10-09 — Claude — Dropdowns (`claude/unify-dropdowns`, D-010): every `<select>` on the page is now the same custom dropdown
   (`LaiCustomerSelect.watch()` upgrades them as they appear; search box from 9 options; trigger as wide as the longest
   option; one set of size/colour tokens). 0 native selects left in the audit. Layout change, labelled `major`. Owner said
