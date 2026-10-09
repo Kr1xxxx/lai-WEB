@@ -1,3 +1,6 @@
+> **Archived on 2026-10-08 — out of date, do not follow.** Current rules: `AGENTS.md`, `docs/DECISIONS.md`;
+> current status and tasks: `docs/HANDOFF.md`. 已归档，内容过时，不要照做。
+
 # 来财后续待办与验收条件
 
 截至2026-10-06。本文件是待办清单。按下面的「工作方式」，清单里的事项可以直接实施，不需要逐项等用户批准。
