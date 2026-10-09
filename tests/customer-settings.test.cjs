@@ -192,7 +192,7 @@ test('saved settings that were damaged read back as clean settings', () => {
   assert.deepEqual(s.caps, { defaultLimit: 0, perOwner: { Mia: 7 } });
 });
 
-test('the settings page markup has twelve tabs, escapes names and has no placeholder buttons', () => {
+test('the settings page markup has fourteen tabs, escapes names and has no placeholder buttons', () => {
   const E = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   let s = CS.addStage(base(), '<b>x');
   for (const tab of UI.TABS.map((t) => t.id)) {
@@ -201,7 +201,7 @@ test('the settings page markup has twelve tabs, escapes names and has no placeho
     assert.ok(!html.includes('data-feature'), 'no placeholder buttons');
     assert.ok(!html.includes('<b>x'), 'names are escaped');
   }
-  assert.equal(UI.TABS.length, 12);
+  assert.equal(UI.TABS.length, 14);
   const caps = UI.markup(s, { tab: 'caps' }, E, ['Kris', 'Mia']);
   assert.ok(caps.includes('name="cap:Kris"') && caps.includes('name="cap:Mia"'));
 });

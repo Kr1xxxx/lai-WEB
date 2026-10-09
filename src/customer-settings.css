@@ -73,3 +73,7 @@
 .cs-group-form .cs-field select { height: 32px; max-width: 280px; padding: 0 8px; }
 .cs-group-form .cs-field input[type="date"] { max-width: 280px; }
 @media (max-width: 900px) { .cs-page { flex-direction: column; } .cs-nav { flex-basis: auto; flex-direction: row; flex-wrap: wrap; position: static; width: 100%; } }
+
+.cs-dedupe .check-row { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; }
+.cs-dedupe td { padding-right: 16px; }
+.cs-dedupe input[type="radio"] { width: auto; flex: none; margin: 0; }

@@ -14,6 +14,8 @@ const TABS = Object.freeze([
   { id: "deal", label: "客户成交规则", note: "决定怎样算“成交”。改了以后，公海规则按新算法算天数，改前可先到「公海管理」看哪些客户会被移走。" },
   { id: "blacklist", label: "建档黑名单", note: "黑名单里的邮箱不能用来新建客户、批量建档、导入，也不能加到客户的联系人上。" },
   { id: "caps", label: "客户上限", note: "限制每位跟进人名下最多有多少位客户（不含公海和回收站）。新建、重新分配、导入、从公海领回都会检查。" },
+  { id: "sources", label: "来源设置", note: "线索、客户、商机共用的来源名单：最多两级，可以隐藏、排序。填来源时下拉里只出现没隐藏的。" },
+  { id: "dedupe", label: "判重设置", note: "新建或修改客户时，哪些资料不能和别的客户相同。公司名称固定不能重复。" },
   { id: "duplicates", label: "客户查重", note: "选择“客户查重”页里，每位疑似重复的客户后面显示哪些资料，方便核对该留哪个。" },
   { id: "activity", label: "动态设置", note: "往来邮件可以自动记到客户动态里，不用手动记。" },
   { id: "followup", label: "写跟进设置", note: "写跟进时能不能填过去的时间，以及常用的跟进模板。" },
@@ -99,6 +101,31 @@ function capsTab(state, owners, E) {
 function duplicatesTab(state, E) {
   const chosen = new Set(CS.get(state).duplicateFields);
   return `<form class="cs-dup" data-cs-form="duplicates"><fieldset class="cs-field"><legend>每位疑似重复的客户后面显示</legend><div class="cs-checks">${CS.DUPLICATE_FIELDS.map(([key, label]) => `<label class="check-row"><input type="checkbox" name="field" value="${key}"${chosen.has(key) ? " checked" : ""}> ${E(label)}</label>`).join("")}</div></fieldset><p class="cs-hint">这里只决定显示什么，不改变“按相同邮箱或电话判重”的规则。</p><div class="cs-actions"><button type="submit" class="primary">保存</button></div></form>`;
+}
+
+function sourcesTab(state, ui, E) {
+  const list = CS.get(state).sources;
+  const row = (item, path, top, index, count) => {
+    const editing = ui.editing && ui.editing.kind === "source" && ui.editing.key === item.id;
+    const used = CS.sourceUse(state, path);
+    const head = editing
+      ? `<form class="cs-inline" data-cs-form="rename-source" data-id="${E(item.id)}"><input name="name" value="${E(item.name)}" maxlength="20" aria-label="来源名称" autocomplete="off"><button type="submit" class="primary">保存</button><button type="button" data-cs-cancel>取消</button></form>`
+      : `<strong>${E(item.name)}</strong><span class="cs-use">${item.hidden ? "已隐藏 · " : ""}${used ? `${used} 位客户在用` : "没有客户在用"}</span><span class="cs-row-actions"><button type="button" data-cs-source-move="${E(item.id)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-cs-source-move="${E(item.id)}" data-delta="1" aria-label="下移"${index === count - 1 ? " disabled" : ""}>↓</button>${top ? `<button type="button" data-cs-source-sub="${E(item.id)}">添加子来源</button>` : ""}<button type="button" data-cs-source-hide="${E(item.id)}" data-hidden="${item.hidden ? "0" : "1"}">${item.hidden ? "显示" : "隐藏"}</button><button type="button" data-cs-edit="source" data-key="${E(item.id)}">改名</button><button type="button" data-cs-delete="source" data-key="${E(item.id)}">删除</button></span>`;
+    return head;
+  };
+  const rows = list.map((t, i) => {
+    const kids = t.children.map((c, j) => `<li class="cs-row cs-child">${row(c, CS.sourcePath(t, c), false, j, t.children.length)}</li>`).join("");
+    return `<li class="cs-group"><div class="cs-row">${row(t, t.name, true, i, list.length)}</div>${kids ? `<ul class="cs-list cs-children">${kids}</ul>` : ""}</li>`;
+  }).join("");
+  const adding = ui.editing && ui.editing.kind === "sourcesub" ? list.find((t) => t.id === ui.editing.key) : null;
+  const subForm = adding ? `<form class="cs-add" data-cs-form="add-source" data-parent="${E(adding.id)}"><input name="name" placeholder="“${E(adding.name)}”下的新子来源" maxlength="20" aria-label="新子来源名称" autocomplete="off"><button type="submit" class="primary">添加</button><button type="button" data-cs-cancel>取消</button></form>` : "";
+  return `<form class="cs-add" data-cs-form="add-source"><input name="name" placeholder="新一级来源名称" maxlength="20" aria-label="新来源名称" autocomplete="off"><button type="submit" class="primary">添加</button></form>${subForm}${list.length ? `<ul class="cs-list cs-tree">${rows}</ul><p class="cs-hint">隐藏后，新建时选不到，但已经在用的客户不受影响。名单里没有的来源仍可以手填。</p>` : empty("还没有来源名单。现在下拉里列的是已经用过的来源；添加后只列这里的。")}`;
+}
+function dedupeTab(state, E) {
+  const modes = CS.get(state).dedupe;
+  const radio = (key, value, text) => `<label class="check-row"><input type="radio" name="dedupe:${key}" value="${value}"${modes[key] === value ? " checked" : ""}> ${text}</label>`;
+  const rows = CS.DEDUPE_FIELDS.map(([key, label]) => `<tr><td>${E(label)}</td><td>${radio(key, "allow", "判重，允许保存")}</td><td>${radio(key, "block", "判重，不允许保存")}</td><td>${radio(key, "off", "不判重")}</td></tr>`).join("");
+  return `<form class="cs-dup" data-cs-form="dedupe"><table class="cs-table cs-dedupe"><thead><tr><th>资料</th><th colspan="3">重复时</th></tr></thead><tbody><tr><td>公司名称</td><td colspan="3">固定：不允许保存</td></tr>${rows}</tbody></table><p class="cs-hint">“判重，允许保存”：保存不受影响，重复的客户会出现在“客户查重”页。“判重，不允许保存”：保存时提示和哪位客户相同。只检查这次新增或改过的值，已有的重复不会挡住修改。</p>${saveRow()}</form>`;
 }
 
 function layoutTab(state) {
@@ -235,6 +262,8 @@ function body(tab, state, ui, owners, E) {
   if (tab === "followup") return followupTab(state, ui, E);
   if (tab === "blacklist") return blacklistTab(state, E);
   if (tab === "caps") return capsTab(state, owners, E);
+  if (tab === "sources") return sourcesTab(state, ui, E);
+  if (tab === "dedupe") return dedupeTab(state, E);
   if (tab === "duplicates") return duplicatesTab(state, E);
   return layoutTab(state);
 }

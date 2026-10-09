@@ -515,6 +515,35 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "customer-settings-dedupe",
+   "area": "customers",
+   "description": "客户设置: 判重设置 chooses per field whether a repeat is allowed, blocked or ignored; blocked repeats stop the save and name the other customer",
+   "steps": [
+    "客户设置 → 判重设置: set 邮箱 to 判重，不允许保存 and save",
+    "编辑 a customer and enter another customer's email: save is refused naming that customer"
+   ],
+   "e2e": "customer-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "customer-settings-sources",
+   "area": "customers",
+   "description": "客户设置: 来源设置 keeps a two-level 来源 list that feeds the customer editor and lead forms; hidden entries disappear from the dropdown",
+   "steps": [
+    "客户设置 → 来源设置: add 常规获客, add 子来源 展会",
+    "编辑 a customer: 客户来源 offers '常规获客 / 展会' only",
+    "隐藏 展会: it leaves the dropdown"
+   ],
+   "e2e": "customer-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

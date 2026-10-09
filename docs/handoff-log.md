@@ -4,6 +4,7 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Lock asked whether the 小满 settings replication was unfinished; it was (only 客户设置 A1/A2 were done) and he said to continue. Added two 客户设置 tabs: 判重设置 (allow/block/off per field, checked on save for new values only; extras listed on 客户查重) and 来源设置 (two-level list with hide/sort/rename; feeds customer editor and lead source dropdowns). Rules in `VALIDATION.md`; README comparison table updated (also fixed A2 rows that still said 进行中). model 812 / e2e 37 green; UI audit pink 1440×900 customers: 0 errors, 0 native selects, 0 rail overlaps. Not done: Mac walk-through; 商机来源 not wired; 新线索判重 page; the rest of the 未做 rows. Next: 自定义字段/必填 (may need a schema decision — ask first).
 - 2026-10-09 — Claude — Owner saw no new logo in the web trial: #25 only replaced `assets/AppIcon.icns` (Mac Dock/Finder); the page's top-left
   brand was text only. Added the same icon as an inline SVG (28px) before 来财Lai in the topbar (`src/app.js`, `.brand-mark` in
   `src/customer-replica.css`). Checked at 1440×900 on the built trial page; tests 803 / 35. PR #28 merged (`main` 183718f); web trial republished as Version 5 from that commit (live page differed from the build only by this change). Not done: Mac build not looked at.
