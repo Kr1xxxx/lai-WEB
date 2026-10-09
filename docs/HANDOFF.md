@@ -72,6 +72,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | 15 | 顶栏去掉 "Lai" 文字，"来财" 字标改成更圆润的互联网风格 | Done | Claude | Inline SVG text with round-joined stroke; macOS 圆体 (Yuanti SC) first in the font list, so no font is bundled. "AI" tag and version kept |
 | 18 | 点顶栏版本号弹出版本更新历史（`src/changelog.js` 是维护的来源，有用户看得见的改动就往最新一版里加一条） | In progress | Claude | PR touches `scripts/build.py` + `src/template.html` (new script marker), so CI runs the Mac build; under 500 lines, merged under the owner's 2026-10-09 rule |
 | 19 | Customer list speed with many customers: orders grouped once in `buildCustomers`, save body limit 16→64 MB, speed checks (`tests/e2e/perf-customers.mjs`, `perf-customers.e2e.mjs`, `tests/perf-model.test.cjs`) | In progress | Claude | PR #40; touches `backend/server.js` (one constant). 10,000 customers: open a customer 4.9→0.4 s, save a follow-up 14.4→2.0 s |
+| 20 | Saves send only what changed (`POST /api/save-changes`, D-019); fallback to the full save; paging on read left for the move to a server | In progress | Claude | PR #43; touches `backend/storage.js`/`server.js`; 10,000 customers: save request 11 MB→1 KB, 464→18 ms |
 | 10 | Company-wide sharing (accounts, roles, central server) | Blocked | Owner | Large; needs decisions on where it runs and who sees what |
 
 ## Waiting on the owner
