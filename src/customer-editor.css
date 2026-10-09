@@ -147,7 +147,7 @@
   border: 0;
   background: #fff;
   cursor: move;
-  transition: background-color 150ms ease, box-shadow 150ms ease;
+  transition: background-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 .company-display-row:hover,
@@ -483,7 +483,7 @@
   margin-bottom: 16px;
   border-radius: 5px;
   background: #fafafa;
-  transition: background-color 0.12s;
+  transition: background-color var(--motion-fast) var(--ease-out);
 }
 .ce-contact-card.ce-contact-enter {
   animation: lai-contact-enter 180ms var(--ease-out) both;
@@ -679,7 +679,7 @@
   height: 16px;
   border-radius: 10px;
   background: #bfbfbf;
-  transition: background-color 0.12s;
+  transition: background-color var(--motion-fast) var(--ease-out);
 }
 .ce-switch:after {
   content: "";
@@ -690,7 +690,7 @@
   height: 12px;
   border-radius: 50%;
   background: #fff;
-  transition: transform 0.12s;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 .ce-footer-switches input:checked + .ce-switch {
   background: var(--brand-500);

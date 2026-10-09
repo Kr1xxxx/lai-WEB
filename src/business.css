@@ -1087,7 +1087,7 @@ td.team-reached {
   border-radius: 8px;
   background: #fff;
   cursor: grab;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 .opp-card:hover {
   border-color: var(--ink-300);
