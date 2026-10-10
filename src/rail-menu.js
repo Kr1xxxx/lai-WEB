@@ -20,7 +20,7 @@
     'Leads':menu('Leads',['设置','feature','Leads 设置']),
     // 邮件文件夹：与 mail-ui.js 的 folders 一一对应（测试里核对）。邮箱没有绑定时六个文件夹都显示「未绑定邮箱」。
     '邮件':menu('邮件',['收件箱','mail','inbox'],['待处理邮件','mail','pending'],['未读邮件','mail','unread'],['草稿箱','mail','drafts'],['发件箱','mail','sent'],['群发箱','mail','bulk']),
-    '交易':menu('交易',['全部订单','route','order-list'],['订单回收站','route','order-trash']),
+    '交易':menu('交易',['全部订单','route','order-list'],['订单回收站','route','order-trash'],['产品','route','products']),
     '团队数据':menu('团队数据',['目标完成情况','route','team-goals','目标数据'],['目标管理','route','team-targets','目标数据'],['团队墙','route','team-wall','目标数据'],
       ['经营统计','route','analysis','统计报表'],['客户资产','route','team-assets','统计报表'],['跟进情况','route','team-followups','统计报表'],['任务完成','route','team-tasks','统计报表'],['订单业绩','route','team-orders','统计报表']),
     '协同':menu('协同',['日历与待办','route','calendar']),

@@ -544,6 +544,23 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "products",
+   "area": "trade",
+   "description": "产品: a product list under 交易 with 产品分组 (two levels), 产品字段 (show / required per field) and 规格管理 (types and values); products use them and in-use groups or specs cannot be deleted",
+   "steps": [
+    "交易 → 产品 → 产品分组: add 睫毛, add 子分组 单根",
+    "规格管理: add 颜色, add 规格值 黑色",
+    "产品字段: tick 产品型号 必填, untick 产品备注 显示",
+    "产品列表 → 新建产品: name, group, spec; saving without 型号 is refused; 备注 is not in the form",
+    "删除 a group or spec value that a product uses: refused"
+   ],
+   "e2e": "products.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

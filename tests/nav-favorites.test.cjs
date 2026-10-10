@@ -19,7 +19,7 @@ const ALL = [
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
   'route:dashboard',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
-  'route:order-list', 'route:order-trash',
+  'route:order-list', 'route:order-trash', 'route:products',
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
   'route:calendar', 'route:settings', 'route:settings-hub'
 ];
@@ -146,7 +146,7 @@ test('rail-menu.js loads before nav-favorites.js and both before the app, in the
 test('rail menus list only existing destinations; callers cannot alter the menu definition', () => {
   const rows = label => RM.menuFor(label).map(r => [r.label, r.kind, r.target]);
   assert.deepEqual(rows('客户'), [['客户列表', 'screen', 'active'], ['公海客户', 'screen', 'pool'], ['客户查重', 'screen', 'duplicates'], ['客户设置', 'screen', 'customer-settings']]);
-  assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash']]);
+  assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash'], ['产品', 'route', 'products']]);
   assert.deepEqual(rows('商机'), [['商机看板', 'route', 'opportunities'], ['商机分析', 'route', 'opp-analysis'], ['销售流程设置', 'route', 'opp-flows']]);
   assert.deepEqual(rows('邮件').map(r => r[2]), Mail.folders.map(f => f.id), 'the same six folders as the mail page');
   assert.deepEqual(rows('邮件').map(r => r[0]), Mail.folders.map(f => f.label));
@@ -157,11 +157,11 @@ test('rail menus list only existing destinations; callers cannot alter the menu 
 });
 
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings', 'settings-hub'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings', 'settings-hub'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '设置', '设置']);
-  assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '设置', '设置']);
+  assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站', '产品']);
   const labels = ['工作台', '交易', '团队数据', '协同', '设置'];
   const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label)[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
   assert.deepEqual([...all].sort(), [...routes].sort(), 'together they cover every page once, with no duplicates');
@@ -414,7 +414,7 @@ test('hovering a rail menu shows its entries beside the rail, with a heart on ea
   assert.equal(h.flyout, first, 'same menu is not rebuilt');
   hover(h, railItem('交易'));
   assert.equal(first.removed, true); assert.equal(h.flyout.dataset.menu, '交易');
-  assert.deepEqual(h.hearts('flyout').map(b => b.dataset.navFavorite), ['route:order-list', 'route:order-trash']);
+  assert.deepEqual(h.hearts('flyout').map(b => b.dataset.navFavorite), ['route:order-list', 'route:order-trash', 'route:products']);
 });
 
 test('every menu\'s flyout carries hearts for exactly its real entries (mail folders and team pages included)', () => {

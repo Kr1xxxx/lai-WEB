@@ -77,3 +77,10 @@
 .cs-dedupe .check-row { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; }
 .cs-dedupe td { padding-right: 16px; }
 .cs-dedupe input[type="radio"] { width: auto; flex: none; margin: 0; }
+
+.cs-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 8px; }
+.cs-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border: 1px solid var(--line, #e5e7eb); border-radius: 999px; font-size: 13px; }
+.cs-chip button { border: 0; background: transparent; cursor: pointer; padding: 0 6px; font-size: 14px; line-height: 1; color: inherit; }
+.cs-table .cs-subhead th { background: transparent; text-align: left; font-size: 13px; padding-top: 14px; }
+.cs-prod td:first-child { min-width: 180px; white-space: normal; overflow: visible; text-overflow: clip; }
+.cs-prod td:first-child .company-link { max-width: none; white-space: normal; text-align: left; }
