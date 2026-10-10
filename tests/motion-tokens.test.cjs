@@ -42,3 +42,14 @@ test('UI detail rules from make-interfaces-feel-better stay in place', () => {
     assert.doesNotMatch(read(f), /transition:\s*all\b/, `${f} uses transition: all`);
   }
 });
+
+test('toast and switch use the transitions.dev clocks (owner asked to use the repo, 2026-10-09)', () => {
+  const tokens = read('ui-tokens.css');
+  assert.match(tokens, /transitions\.dev/);
+  assert.match(tokens, /--toast-open:\s*350ms/);
+  assert.match(tokens, /--toast-close:\s*250ms/);
+  assert.match(tokens, /--ease-bounce:\s*cubic-bezier\(0\.34, 1\.36, 0\.64, 1\)/);
+  const base = read('styles.css');
+  assert.match(base, /#toast\.show \{[^}]*filter:\s*blur\(0\)[^}]*transition-duration:\s*var\(--toast-open\)/);
+  assert.match(read('customer-editor.css'), /\.ce-switch:after \{[^}]*transition:\s*transform var\(--toggle-dur\) var\(--ease-bounce\)/);
+});
