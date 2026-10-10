@@ -561,6 +561,22 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "doc-templates",
+   "area": "trade",
+   "description": "单据模板: 交易 → 单据模板 has 报价单, 形式发票, 销售订单, 发货通知 tabs (title, columns, terms, footer, bank and signature switches, live preview, print) and a shared 公司信息 tab",
+   "steps": [
+    "交易 → 单据模板 → 公司信息: fill 公司名称 and 开户银行, save",
+    "形式发票: change title to PI 单, untick 单价 and 金额, save: preview follows, reload keeps it",
+    "报价单: preview shows the company name; with products in 产品, the table shows them",
+    "恢复默认 needs two clicks and brings the default title back"
+   ],
+   "e2e": "doc-templates.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

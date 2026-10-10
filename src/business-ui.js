@@ -838,6 +838,57 @@
         },
       );
     }
+    // ---------- 单据模板：报价单、形式发票、销售订单、发货通知 ----------
+    const DM = () => root.LaiDocTemplateModel;
+    let docUI = null;
+    const DU = () => docUI || (docUI = root.LaiDocTemplateUI.create(E, DM()));
+    const docView = { tab: "quote", armed: "" };
+    function renderDocTemplates() {
+      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: B.localDate ? B.localDate() : "" })}</div>`;
+    }
+    function docPrint(type) {
+      const html = DU().printHtml(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
+      const frame = document.createElement("iframe");
+      frame.setAttribute("aria-hidden", "true");
+      frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+      document.body.appendChild(frame);
+      frame.srcdoc = html;
+      frame.onload = () => {
+        try {
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
+        } catch (error) {
+          ctx.toast("这里打不开打印，请换个浏览器试试");
+        }
+        setTimeout(() => frame.remove(), 60000);
+      };
+    }
+    function docClick(d) {
+      if (d.docTab) {
+        docView.tab = d.docTab;
+        docView.armed = "";
+        return render();
+      }
+      if (d.docAction === "print") return docPrint(d.type);
+      if (d.docAction === "reset") {
+        if (docView.armed !== "reset") {
+          docView.armed = "reset";
+          return render();
+        }
+        docView.armed = "";
+        return saveNext(() => DM().resetTemplate(state(), d.type), "doc-error");
+      }
+    }
+    function docSubmit(form) {
+      const data = Object.fromEntries(new FormData(form));
+      docView.armed = "";
+      if (form.dataset.docForm === "company") {
+        const pick = (kind, fields) => Object.fromEntries(fields.map(([key]) => [key, data[`${kind}:${key}`] || ""]));
+        return saveNext(() => DM().setBank(DM().setCompany(state(), pick("company", DM().COMPANY_FIELDS)), pick("bank", DM().BANK_FIELDS)), "doc-error");
+      }
+      const columns = Object.fromEntries(DM().COLUMNS.map(([key]) => [key, `col:${key}` in data]));
+      return saveNext(() => DM().setTemplate(state(), form.dataset.type, { title: data.title, terms: data.terms, footer: data.footer, columns, showBank: "showBank" in data, showSignature: "showSignature" in data }), "doc-error");
+    }
     const LEAD_FILTERS = { "lead-search": "search", "lead-owner": "owner", "lead-source": "source", "lead-sort": "sort" };
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
@@ -928,6 +979,7 @@
         leads: renderLeads,
         "lead-trash": renderLeadTrash,
         products: renderProducts,
+        "doc-templates": renderDocTemplates,
         calendar: renderCalendar,
         settings: renderSettings,
         "settings-hub": renderSettingsHub,
@@ -1073,6 +1125,7 @@
       if (!el || el.disabled) return;
       const d = el.dataset;
       if (d.oppAction && onOppPage()) return oppAction(d);
+      if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
       if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove)) return productClick(d);
       if (d.leadAction && onLeadPage()) return leadAction(d);
       if (d.leadStatus && route === "leads") {
@@ -1323,6 +1376,10 @@
     });
     document.addEventListener("submit", (e) => {
       const form = e.target;
+      if (route === "doc-templates" && form.dataset?.docForm) {
+        e.preventDefault();
+        return docSubmit(form);
+      }
       if (route === "products" && form.dataset?.prodForm) {
         e.preventDefault();
         return productSubmit(form);
