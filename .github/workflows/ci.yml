@@ -1,5 +1,7 @@
 # CI for 来财Lai. Policy: docs/DECISIONS.md D-014, AGENTS.md "Merging".
 # tests → browser end-to-end → mac build + integration (cadence: D-016) → handoff updated.
+# Desktop builds are PAUSED (D-019, 2026-10-10): scripts/mac-cadence.mjs makes the `mac` job skip everything except a
+# manual run. To resume, set PAUSED to false there.
 # When this workflow finishes on a pull request, merge-policy.yml (always main's copy) decides small/big.
 name: CI
 

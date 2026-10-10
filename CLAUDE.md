@@ -2,14 +2,11 @@
 
 ## Claude only (Codex: ignore this section)
 
-- Mac build every 10 updates (D-016). Your PRs (`claude/*`) skip the Mac build unless they change `native/` or
-  `scripts/build.py`; CI builds `main` after every 10th merged Claude PR (counted by `scripts/mac-cadence.mjs`).
-- After any merge into `main` (yours after the owner's 合并, or CI's automatic one), run
-  `MAIN_REF=origin/main node scripts/mac-cadence.mjs after-merge`. If it says due, make sure the Mac build on
-  `main` ran (automatic merges start it; for merges you made, start it yourself:
-  `gh api -X POST repos/Kr1xxxx/lai-app/actions/workflows/ci.yml/dispatches -f ref=main`), wait for it and report
-  the result. If it fails, fixing it comes before anything else.
-- When the owner asks for a Mac build or a downloadable app, start the same manual run and send him the artifact name.
+- Desktop builds (Mac and Windows) are PAUSED (D-019, 2026-10-10): only the web version is built for now. Do not
+  start Mac builds, do not run `mac-cadence.mjs after-merge` for a build, and do not wait for one. CI skips the Mac job
+  by itself (`PAUSED` in `scripts/mac-cadence.mjs`). The owner can still ask for a Mac build: start a manual run
+  (`gh api -X POST repos/Kr1xxxx/lai-app/actions/workflows/ci.yml/dispatches -f ref=main`). `native/` and the build
+  scripts stay in the repo untouched. To resume, set `PAUSED` to false (D-016's every-10th-merge rule then applies again).
 
 ## How Claude works: coordinator + subagents (D-017)
 
