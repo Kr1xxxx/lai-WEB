@@ -19,7 +19,7 @@
   const DEFAULT_FLOW=Object.freeze({id:'default',label:'默认销售流程',stages:STAGES});
   const MAX_FLOWS=10,MAX_STAGES=12,MAX_LABEL=20;
   const LOST_REASONS=Object.freeze(['价格原因','交期原因','选择了竞争对手','需求变化或取消','客户无回复','其他']);
-  const SORTS=Object.freeze([['createdAt-desc','创建时间 / 降序'],['createdAt-asc','创建时间 / 升序'],['endDate-asc','结束日期 / 升序'],['endDate-desc','结束日期 / 降序'],['amount-desc','销售金额 / 降序'],['amount-asc','销售金额 / 升序']]);
+  const SORTS=Object.freeze([['createdAt-desc','创建时间 / 降序'],['createdAt-asc','创建时间 / 升序'],['endDate-asc','结束日期 / 升序'],['endDate-desc','结束日期 / 降序'],['amount-desc','销售金额 / 降序'],['amount-asc','销售金额 / 升序'],['manual','手动排序（可拖动调整）']]);
   const cleanName=name=>trim(name).normalize('NFKC').replace(/\s+/g,' ').trim();
   const sameName=(a,b)=>cleanName(a).toLowerCase()===cleanName(b).toLowerCase();
 
@@ -187,6 +187,7 @@
       else if(!previous||knownStage(state,previous)?.kind!==stage.kind||!previous.closedAt)next.closedAt=now;
     }
     next.stage=stageId;
+    if(previous&&(previous.stage!==stageId||!sameFlow))delete next.sortRank;
   }
 
   function upsert(state,id,input,options={}){
@@ -290,7 +291,7 @@
     flow:flowOfItem(state,item).id,stageLabel:stage.label,kind:stage.kind,
     id:item.id,name:trim(item.name)||'（未命名商机）',amount:amountOf(item),currency:currencyOf(item),client:trim(item.client),contact:trim(item.contact),
     owner:cleanName(item.owner),endDate:trim(item.endDate),createdDay:localDay(item.createdAt),stage:stage.id,archived:item.archived===true,
-    overdue:stage.kind==='open'&&validDate(item.endDate)&&item.endDate<today,lostReason:trim(item.lostReason),orderId:trim(item.orderId)&&(!orderIds||orderIds.has(trim(item.orderId)))?trim(item.orderId):'',tags:Array.isArray(item.tags)?item.tags:[]
+    overdue:stage.kind==='open'&&validDate(item.endDate)&&item.endDate<today,lostReason:trim(item.lostReason),orderId:trim(item.orderId)&&(!orderIds||orderIds.has(trim(item.orderId)))?trim(item.orderId):'',tags:Array.isArray(item.tags)?item.tags:[],attachmentCount:attachmentsOf(item).length,sortRank:rankOf(item)
   });
   const activeOrderIds=state=>new Set((Array.isArray(state?.orders)?state.orders:[]).map(order=>order?.id).filter(Boolean));
   // 单个商机的卡片内容（操作菜单用），不受看板当前币种和筛选影响。
@@ -310,7 +311,15 @@
     if(from||to)items=items.filter(item=>{const day=field==='endDate'?trim(item.endDate):localDay(item.createdAt);return day&&(!from||day>=from)&&(!to||day<=to);});
     return {items,archived,field,from,to};
   }
+  // 手动排序：没排过的（新建的、刚移进来的）在最上面，按创建时间新的在前；排过的按 rank 从小到大。
+  const rankOf=item=>Number.isFinite(item.sortRank)?item.sortRank:null;
+  function manualOrder(cards){
+    const unranked=cards.filter(item=>rankOf(item)===null).sort((a,b)=>(a.createdAt<b.createdAt?1:a.createdAt>b.createdAt?-1:0)||a.name.localeCompare(b.name,'zh'));
+    const ranked=cards.filter(item=>rankOf(item)!==null).sort((a,b)=>a.sortRank-b.sortRank||a.name.localeCompare(b.name,'zh'));
+    return [...unranked,...ranked];
+  }
   function sortCards(cards,sort){
+    if(sort==='manual')return manualOrder(cards);
     const [key,direction]=(SORTS.some(entry=>entry[0]===sort)?sort:'createdAt-desc').split('-');
     const value=item=>key==='amount'?item.amount:key==='endDate'?item.endDate:item.createdAt;
     const factor=direction==='asc'?1:-1;
@@ -515,6 +524,7 @@
       next={...state,laiOpportunities:raw(state).map(item=>{
         if(!affected.has(item))return item;
         const moved={...item,stage:target.id,updatedAt:now,stageHistory:[...(Array.isArray(item.stageHistory)?item.stageHistory:[]),{stage:target.id,at:now}]};
+        delete moved.sortRank;
         if(target.kind==='open')delete moved.closedAt;
         else if(stage.kind!==target.kind||!item.closedAt)moved.closedAt=now;
         return moved;
@@ -529,6 +539,121 @@
       return {...flow,count:items.length,stages:flow.stages.map(stage=>({...stage,count:items.filter(item=>stageOf(state,item).id===stage.id).length}))};
     });
   }
-  const api={KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
+
+  // ---------- 附件 ----------
+  // 文件本身存在应用的附件目录（备份会一并复制）；商机里只记名称、大小、类型和文件地址。
+  const ATTACHMENT_LIMITS=Object.freeze({maxBytes:20*1024*1024,maxCount:30,maxName:120,urlPrefix:'/attachments/opportunities/'});
+  // 能直接运行或安装的文件类型不收；后端有同一份清单（tests 里核对两边一致）。
+  const BLOCKED_EXTENSIONS=Object.freeze(['app','bat','bin','cmd','com','command','csh','deb','dll','dmg','exe','jar','ksh','lnk','msi','pif','pkg','ps1','rpm','run','scr','sh','terminal','tool','vbs','workflow','zsh']);
+  function attachmentName(value){
+    const name=String(value??'').normalize('NFC').replace(/[\u0000-\u001f\u007f​-‏‪-‮⁦-⁩﻿]/g,'').replace(/[\\/]+/g,'_').replace(/\s+/g,' ').trim().replace(/^\.+/,'').trim();
+    if(!name)return '';
+    const dot=name.lastIndexOf('.'),extension=dot>0&&name.length-dot<=12?name.slice(dot):'';
+    const chars=[...name];
+    return chars.length<=ATTACHMENT_LIMITS.maxName?name:[...name.slice(0,name.length-extension.length)].slice(0,ATTACHMENT_LIMITS.maxName-[...extension].length).join('')+extension;
+  }
+  const extensionOf=name=>{const match=/\.([A-Za-z0-9]{1,12})\s*$/.exec(String(name||''));return match?match[1].toLowerCase():'';};
+  const mb=bytes=>`${Math.round(bytes/1024/1024)} MB`;
+  // 上传前后都用它检查一个文件；通过时返回整理后的名称。
+  function checkFile(file){
+    const name=attachmentName(file?.name);
+    if(!name)throw new Error('文件名不能为空');
+    if(BLOCKED_EXTENSIONS.includes(extensionOf(name)))throw new Error(`「${name}」是可执行或安装类文件，出于安全不能作为附件`);
+    const size=Number(file?.size);
+    if(!Number.isFinite(size)||size<0||!Number.isInteger(size))throw new Error(`「${name}」的大小无效`);
+    if(size===0)throw new Error(`「${name}」是空文件`);
+    if(size>ATTACHMENT_LIMITS.maxBytes)throw new Error(`「${name}」超过 ${mb(ATTACHMENT_LIMITS.maxBytes)}，请压缩后再传`);
+    return name;
+  }
+  // 地址必须是 /attachments/opportunities/<文件夹>/<文件>：恰好两段，每段解码后不是空、「.」或「..」，也不含斜杠和空字节（文件名里的「..」如 a..b.pdf 是允许的）。
+  function validFileUrl(url){
+    if(!url.startsWith(ATTACHMENT_LIMITS.urlPrefix)||/[?#]/.test(url))return false;
+    let parts;
+    try{parts=url.slice(ATTACHMENT_LIMITS.urlPrefix.length).split('/').map(decodeURIComponent);}catch{return false;}
+    return parts.length===2&&parts.every(part=>part&&part!=='.'&&part!=='..'&&!/[\\/\u0000]/.test(part));
+  }
+  const rawAttachments=item=>Array.isArray(item?.attachments)?item.attachments:[];
+  const validAttachment=entry=>entry&&typeof entry==='object'&&typeof entry.id==='string'&&entry.id&&typeof entry.fileUrl==='string'&&entry.fileUrl;
+  // 读得懂的附件（界面用）；读不懂的条目在写入时原样保留。
+  function attachmentsOf(item){
+    return rawAttachments(item).filter(validAttachment).map(entry=>({...entry,name:trim(entry.name)||'（未命名文件）',size:Number.isFinite(Number(entry.size))&&Number(entry.size)>=0?Number(entry.size):0,type:trim(entry.type),uploadedAt:trim(entry.uploadedAt)}));
+  }
+  const replaceAttachments=(state,id,previous,attachments,now)=>({...state,laiOpportunities:replaceFirst(state,id,{...previous,attachments,updatedAt:now})});
+  const newAttachmentId=()=>`att-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  // files：[{name,size,type,fileUrl,id?}]，文件已经传到本机存好之后才调用。
+  function addAttachments(state,id,files,options={}){
+    requireList(state);
+    const previous=requireItem(state,id),now=options.now||new Date().toISOString();
+    if(!Array.isArray(files)||!files.length)throw new Error('没有要添加的文件');
+    const current=rawAttachments(previous);
+    if(current.length+files.length>ATTACHMENT_LIMITS.maxCount)throw new Error(`一个商机最多 ${ATTACHMENT_LIMITS.maxCount} 个附件，现在已有 ${current.length} 个`);
+    const added=files.map(file=>{
+      const name=checkFile(file),fileUrl=trim(file.fileUrl);
+      if(!validFileUrl(fileUrl))throw new Error(`「${name}」的存放位置无效`);
+      return {id:trim(file.id)||newAttachmentId(),name,size:Number(file.size),type:trim(file.type),fileUrl,uploadedAt:now};
+    });
+    const taken=new Set(current.map(entry=>entry?.id));
+    if(added.some(entry=>taken.has(entry.id))||new Set(added.map(entry=>entry.id)).size!==added.length)throw new Error('附件编号重复');
+    return replaceAttachments(state,id,previous,[...current,...added],now);
+  }
+  function requireAttachment(item,attachmentId){
+    const entry=rawAttachments(item).find(candidate=>validAttachment(candidate)&&candidate.id===attachmentId);
+    if(!entry)throw new Error('附件不存在，可能已被删除');
+    return entry;
+  }
+  function renameAttachment(state,id,attachmentId,value,options={}){
+    requireList(state);
+    const previous=requireItem(state,id);
+    const entry=requireAttachment(previous,attachmentId),name=checkFile({name:value,size:Math.max(1,Number(entry.size)||1)});
+    // 文件本身不会变，所以不能改扩展名（否则「预览」「类型」会和实际内容对不上）。
+    if(extensionOf(name)!==extensionOf(entry.name))throw new Error('改名时不能修改文件的扩展名');
+    return replaceAttachments(state,id,previous,rawAttachments(previous).map(candidate=>candidate===entry?{...candidate,name}:candidate),options.now||new Date().toISOString());
+  }
+  function removeAttachment(state,id,attachmentId,options={}){
+    requireList(state);
+    const previous=requireItem(state,id),entry=requireAttachment(previous,attachmentId);
+    return replaceAttachments(state,id,previous,rawAttachments(previous).filter(candidate=>candidate!==entry),options.now||new Date().toISOString());
+  }
+  // 删除商机之前取出它所有附件的文件地址，保存成功后再让本机服务删文件。
+  function filesOf(state,id){
+    const item=list(state).find(entry=>entry.id===id);
+    return rawAttachments(item).map(entry=>trim(entry?.fileUrl)).filter(url=>url.startsWith(ATTACHMENT_LIMITS.urlPrefix));
+  }
+  const PREVIEW_TYPES=Object.freeze({png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',bmp:'image/bmp'});
+  const previewKind=name=>PREVIEW_TYPES[extensionOf(name)]?'image':'';
+
+  // ---------- 详情与手动排序 ----------
+  function detailOf(state,id,today=isoDay(new Date())){
+    const item=list(state).find(entry=>entry.id===id);
+    if(!item)return null;
+    const base=cardOf(state,id,today),flow=flowOfItem(state,item);
+    const label=stageId=>flow.stages.find(stage=>stage.id===stageId);
+    return {...base,flowLabel:flow.label,contact:trim(item.contact),note:trim(item.note),collaborators:Array.isArray(item.collaborators)?item.collaborators:[],
+      products:Array.isArray(item.products)?item.products.filter(row=>row&&typeof row==='object'&&trim(row.name)):[],exchangeRate:item.exchangeRate,
+      createdAt:trim(item.createdAt),updatedAt:trim(item.updatedAt),closedAt:trim(item.closedAt),lostNote:trim(item.lostNote),
+      history:(Array.isArray(item.stageHistory)?item.stageHistory:[]).filter(entry=>entry&&typeof entry==='object').map(entry=>({stage:trim(entry.stage),label:label(trim(entry.stage))?.label||trim(entry.stage),kind:label(trim(entry.stage))?.kind||'open',at:trim(entry.at)})),
+      attachments:attachmentsOf(item)};
+  }
+  // 把商机放到某个阶段的某张卡片之前（before 为空表示放到最后）；阶段不同时同时换阶段。
+  // 只改动这一列里 sortRank 需要变的商机；其他商机的更新时间不变。
+  function reorder(state,id,options={}){
+    requireList(state);
+    if(trim(options.before)===id)return state;
+    const previous=requireItem(state,id),flow=flowOfItem(state,previous),stageId=trim(options.stage)||stageOf(state,previous).id;
+    if(!flow.stages.some(stage=>stage.id===stageId))throw new Error('所选销售流程里没有这个阶段');
+    let next=state;
+    if(stageOf(state,previous).id!==stageId)next=moveStage(next,id,stageId,options);
+    const column=list(next).filter(item=>flowOfItem(next,item).id===flow.id&&stageOf(next,item).id===stageId&&item.id!==id).map(item=>({id:item.id,sortRank:rankOf(item),createdAt:trim(item.createdAt),name:trim(item.name)}));
+    const ordered=manualOrder(column).map(item=>item.id),at=options.before?ordered.indexOf(trim(options.before)):-1;
+    ordered.splice(at<0?ordered.length:at,0,id);
+    const rank=new Map(ordered.map((itemId,index)=>[itemId,index+1]));
+    let done=new Set();
+    return {...next,laiOpportunities:raw(next).map(item=>{
+      if(!item||done.has(item.id)||!rank.has(item.id))return item;
+      done.add(item.id);
+      return item.sortRank===rank.get(item.id)?item:{...item,sortRank:rank.get(item.id)};
+    })};
+  }
+  const api={ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
   if(node)module.exports=api;else root.LaiOpportunityModel=api;
 })(typeof window!=='undefined'?window:globalThis);

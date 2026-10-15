@@ -9,6 +9,7 @@ const { httpError } = require('./errors.js');
 const { createMailAccounts } = require('./mail-account.js');
 const { createMailService } = require('./mail-service.js');
 const mailImap = require('./mail-imap.js');
+const { createOpportunityFiles, MAX_BYTES: MAX_OPPORTUNITY_FILE } = require('./opportunity-files.js');
 const os = require('node:os');
 
 const port = Number(process.env.LAI_APP_PORT || (49152 + crypto.randomInt(16383)));
@@ -22,6 +23,11 @@ const auth = createAuth({ port, token: apiToken });
 const mailTest = process.env.LAI_DATA_DIR && /^\d{1,5},\d{1,5}$/.test(process.env.LAI_MAIL_TEST_ENDPOINTS || '') ? process.env.LAI_MAIL_TEST_ENDPOINTS.split(',').map(Number) : null;
 const mailEndpoints = mailTest ? { imap: { host: '127.0.0.1', port: mailTest[0] }, smtp: { host: '127.0.0.1', port: mailTest[1] } } : {};
 const mailAccounts = createMailAccounts({ store, verify: input => mailImap.verifyLogin(input, mailEndpoints.imap ? { endpoint: mailEndpoints.imap } : {}) });
+const downloadsDir = process.env.LAI_DATA_DIR ? path.join(store.directory, 'downloads') : path.join(os.homedir(), 'Downloads');
+const opportunityFiles = createOpportunityFiles({
+  attachmentsDir: path.join(store.directory, 'attachments'), downloadsDir,
+  reveal: file => { if (process.env.LAI_APP_NO_OPEN !== '1') spawn('/usr/bin/open', ['-R', file], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref(); }
+});
 const mailService = createMailService({
   store, endpoints: mailEndpoints,
   // 登录邮箱后连接保留 3 分钟，期间的操作不用重新登录。
@@ -51,7 +57,7 @@ const mailRoutes = {
   'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
   'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 
 function securityHeaders(type = '') {
   return {
@@ -89,6 +95,23 @@ function readJsonBody(req) {
       try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
       catch (_) { reject(httpError(400, 'invalid JSON body')); }
     });
+    req.on('error', reject);
+  });
+}
+
+// 商机附件：整个请求体就是文件内容（不转成 JSON/base64，20 MB 的文件也不会占两倍以上内存）。
+function readRawBody(req, limit) {
+  return new Promise((resolve, reject) => {
+    const declared = Number(req.headers['content-length']);
+    if (Number.isFinite(declared) && declared > limit) { req.resume(); return reject(httpError(413, '文件超过 20 MB，请压缩后再传', { code: 'too_large' })); }
+    let bytes = 0, rejected = false;
+    const chunks = [];
+    req.on('data', chunk => {
+      bytes += chunk.length;
+      if (bytes > limit) { if (!rejected) reject(httpError(413, '文件超过 20 MB，请压缩后再传', { code: 'too_large' })); rejected = true; chunks.length = 0; return; }
+      if (!rejected) chunks.push(chunk);
+    });
+    req.on('end', () => { if (!rejected) resolve(Buffer.concat(chunks)); });
     req.on('error', reject);
   });
 }
@@ -138,6 +161,20 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/mail-account/verify') return send(res, 200, JSON.stringify(await mailAccounts.reverify()));
     if (url.pathname === '/api/mail-account/unbind') { const result = mailAccounts.unbind(); mailService.forget(); return send(res, 200, JSON.stringify(result)); }
+    if (url.pathname === '/api/opportunity-file' && req.method === 'GET') {
+      const file = opportunityFiles.read(url.searchParams.get('url'));
+      return send(res, 200, file.body, file.type, file.headers);
+    }
+    if (url.pathname === '/api/opportunity-file/upload') {
+      if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/octet-stream') throw httpError(415, 'Content-Type must be application/octet-stream');
+      const body = await readRawBody(req, MAX_OPPORTUNITY_FILE);
+      return send(res, 200, JSON.stringify(opportunityFiles.upload({ id: url.searchParams.get('id'), name: url.searchParams.get('name'), type: url.searchParams.get('type'), body })));
+    }
+    if (url.pathname === '/api/opportunity-file/save' || url.pathname === '/api/opportunity-file/delete') {
+      if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
+      const body = await readJsonBody(req);
+      return send(res, 200, JSON.stringify(url.pathname.endsWith('/save') ? opportunityFiles.saveCopy(body || {}) : opportunityFiles.remove((body || {}).fileUrls)));
+    }
     const mailRoute = mailRoutes[`${req.method} ${url.pathname}`];
     if (mailRoute) {
       let body;

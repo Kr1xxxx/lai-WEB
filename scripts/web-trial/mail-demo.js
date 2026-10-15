@@ -186,3 +186,48 @@
     return Promise.resolve(json(404, {ok: false, message: 'not found'}));
   };
 })(typeof window !== 'undefined' ? window : globalThis);
+
+/* 示例商机附件：网页里没有本机服务，这里把文件存在浏览器本地存储里，只为试用上传、预览、改名、删除的流程。
+   每个文件不超过 1 MB；刷新后还在，清除浏览器数据后消失；「保存到下载」不会真的保存文件。接口形状对照 backend/opportunity-files.js。 */
+(function (root) {
+  'use strict';
+  var KEY = 'lai-web-trial-oppfiles-v1', MAX = 1024 * 1024, inner = root.fetch, memory = {};
+  function load() { try { return JSON.parse(root.localStorage.getItem(KEY) || '{}') || {}; } catch (error) { return memory; } }
+  function store(files) { memory = files; try { root.localStorage.setItem(KEY, JSON.stringify(files)); return true; } catch (error) { return false; } }
+  function json(status, body) { return new Response(JSON.stringify(body), {status: status, headers: {'Content-Type': 'application/json'}}); }
+  function toDataUrl(blob) { return new Promise(function (resolve, reject) { var reader = new FileReader(); reader.onload = function () { resolve(String(reader.result)); }; reader.onerror = function () { reject(reader.error); }; reader.readAsDataURL(blob); }); }
+  function fromDataUrl(url) { var comma = url.indexOf(','), bytes = atob(url.slice(comma + 1)), out = new Uint8Array(bytes.length); for (var i = 0; i < bytes.length; i++) out[i] = bytes.charCodeAt(i); return out; }
+  root.fetch = function (input, init) {
+    var url = String(typeof input === 'string' ? input : (input && input.url) || '');
+    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/opportunity-file(?:\/[a-z]+)?)(?:\?([^#]*))?$/.exec(url);
+    if (!match) return inner.apply(root, arguments);
+    var path = match[1], query = new URLSearchParams(match[2] || ''), method = String(init && init.method || 'GET').toUpperCase(), files = load();
+    if (path === '/api/opportunity-file' && method === 'GET') {
+      var entry = files[query.get('url')];
+      if (!entry) return Promise.resolve(json(404, {ok: false, code: 'not_found', message: '找不到这个文件，可能已被移动或删除'}));
+      return Promise.resolve(new Response(fromDataUrl(entry.data), {status: 200, headers: {'Content-Type': entry.type}}));
+    }
+    if (path === '/api/opportunity-file/upload' && method === 'POST') {
+      var blob = init && init.body, name = query.get('name') || 'file';
+      if (!blob || !blob.size) return Promise.resolve(json(400, {ok: false, code: 'invalid_input', message: '「' + name + '」是空文件'}));
+      if (blob.size > MAX) return Promise.resolve(json(413, {ok: false, code: 'too_large', message: '「' + name + '」超过 1 MB。网页试用版把文件存在浏览器里，所以限制得更小；Mac 应用里每个文件可以到 20 MB'}));
+      return toDataUrl(blob).then(function (data) {
+        var id = String(query.get('id') || 'x').replace(/[^A-Za-z0-9_-]+/g, '_'), rand = Math.random().toString(16).slice(2, 12).padEnd(10, '0');
+        var fileUrl = '/attachments/opportunities/' + id + '/' + rand + '-' + encodeURIComponent(name), next = load();
+        next[fileUrl] = {type: /^image\/(png|jpe?g|gif|webp|bmp)$/.test(blob.type) ? blob.type : 'application/octet-stream', data: data};
+        if (!store(next)) return json(507, {ok: false, code: 'save_failed', message: '浏览器的本地存储已满，请先删除一些附件'});
+        return json(200, {ok: true, file: {name: name, size: blob.size, type: blob.type || 'application/octet-stream', fileUrl: fileUrl}});
+      });
+    }
+    var body = {};
+    try { body = init && init.body ? JSON.parse(init.body) : {}; } catch (error) { return Promise.resolve(json(400, {ok: false, message: '请求内容无效'})); }
+    if (path === '/api/opportunity-file/save') return Promise.resolve(json(200, {ok: true, filename: String(body.name || '文件') + '（网页试用版不会真的保存文件）'}));
+    if (path === '/api/opportunity-file/delete') {
+      var list = Array.isArray(body.fileUrls) ? body.fileUrls : [], remaining = load(), removed = 0;
+      list.forEach(function (fileUrl) { if (remaining[fileUrl]) { delete remaining[fileUrl]; removed++; } });
+      store(remaining);
+      return Promise.resolve(json(200, {ok: true, removed: removed}));
+    }
+    return Promise.resolve(json(404, {ok: false, message: 'not found'}));
+  };
+})(typeof window !== 'undefined' ? window : globalThis);

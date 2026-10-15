@@ -4,6 +4,7 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-09 — Claude — Opportunity attachments (task 2, second branch): merged `claude/opportunity-attachments` into latest `main` (5 conflicts: docs, `business-ui.js`, `business.css`, `opportunity-ui.js`; undo bar + detail drawer joined with the new view switch and source banner). New CSS brought in line with the motion tokens, no reduced-motion block, no blue literals. Backend change is one new file `backend/opportunity-files.js` plus 3 routes and a missing-file-tolerant backup; no schema change. Added `tests/e2e/opportunity-attachments.e2e.mjs` and 3 changelog lines. Not done: Mac walk-through (file preview, 另存为 to Downloads). Next: 1.4.127 (conflicts with this PR; version bump needs the owner).
 - 2026-10-09 — Claude — Owner asked for a version number at the top-left of the web trial, +0.01 for every update, starting at 1.01,
   and for the version to be reported at the end of every update. `scripts/web-trial/version.json` + `build.py` (the top bar's version
   chip next to the logo shows `v1.01` instead of the app's 1.4.x, which stays in the 关于来财 drawer and the chip's tooltip; `--bump`
