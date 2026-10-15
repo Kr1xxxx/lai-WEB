@@ -63,7 +63,9 @@ use an existing Chromium binary. CI no longer builds the Mac app while desktop b
 
 One published web trial page (a claude.ai Artifact) is shared by every session; the last publish wins. After a
 change to the app is merged, publish it (D-012): read the live page first, rebuild with
-`scripts/web-trial/rebuild.py`, test it yourself in a browser, and say which commit it was built from. The page
+`scripts/web-trial/rebuild.py` (or build it from the repo alone with `scripts/web-trial/build.py`), test it yourself in a browser, and say which commit it was built from.
+The page shows its own version in the top-left (`scripts/web-trial/version.json`, started at 1.01). Every publish, however small, adds 0.01
+(`build.py --bump`); end your report with the version you published. The page
 runs on browser storage, cannot reach real mail and cannot download files.
 
 ## Boundaries

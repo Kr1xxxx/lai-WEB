@@ -20,10 +20,11 @@
 - Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016, paused) since PR #3. From PR #12 on, the
   decision runs in `merge-policy.yml` from `main`'s copy and merged branches are kept.
 - Last Mac build on `main`: 302e6b2 (20th Claude merge, PR #19; the next one is due after the 30th), green: build, integration test and package passed; artifact `Lai-app-302e6b2…` in that CI run.
-- Web trial: the old page (Version 45, `main` 6941054, A1) could not be read from the current account, so the page was rebuilt
-  from the repo alone: `python3 -I scripts/web-trial/build.py --publish --out lai-artifact.html` (data stand-in:
-  `scripts/web-trial/data-shim.js`). New private Artifact https://claude.ai/artifact/QkmN2BDTSYYnox6BhzDNwD, Version 2 built from `main`
-  2475597 (A2 + rail pill). It holds no data from the old page. `rebuild.py` still works for an existing live page.
+- Web trial: built from the repo alone (`python3 -I scripts/web-trial/build.py --publish --out lai-artifact.html`; data stand-in
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/QkmN2BDTSYYnox6BhzDNwD, **v1.01** (Artifact Version 3), built
+  from `main` 813971d (A2 + rail pill) plus the version label. The page shows its own version in the top-left; every publish adds 0.01
+  (`build.py --bump`; `scripts/web-trial/version.json`) and the report ends with the version. No data from the old page (Version 45)
+  was carried over. `rebuild.py` still works for an existing live page.
 - How Claude works (D-017, PR #15 merged 2026-10-09): Opus 5.5 high coordinates; subagents default to Sonnet 5.5 medium and
   run in parallel git worktrees (`.claude/settings.json`, `.claude/agents/`, rules in `CLAUDE.md`).
 
@@ -36,7 +37,7 @@ rule 5).
 | Branch | What it is | Notes |
 | --- | --- | --- |
 | `claude/leads` | 线索 module: list, follow-ups, convert to customer, trash | Now in PR from `claude/project-thread-z9rz5t`; keep branch until merged |
-| `claude/opportunity-attachments` | Opportunity detail drawer, attachments, card drag | Touches `backend/` → big |
+| `claude/opportunity-attachments` | Opportunity detail drawer, attachments, card drag | In PR from `claude/project-thread-z9rz5t` (touches `backend/`, waits for 合并) |
 | `claude/lai-reliability-numbering-1.4.127` | 1.4.127: mail reliability, backups, totals, order numbers | Conflicts with the two above in `backend/server.js`, `backend/storage.js`, `src/business-ui.js`, `src/business.css` |
 | `claude/web-trial-combined`, `claude/mail-skeleton-trial` | Old shared trial branch (= leads + attachments) | Obsolete once those two merge |
 | `claude/mail-skeleton`, `claude/a-closeout-records` | Mail skeleton (superseded by real mail), A5 review notes | Probably obsolete; owner decides |
@@ -49,7 +50,7 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 | # | Task | State | Owner | Notes |
 | --- | --- | --- | --- | --- |
 | 1 | Handoff rules, merge policy, e2e tests, CI with Mac build | Done | Claude | PR #1 merged 2026-10-09 |
-| 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads (PR open) → attachments → 1.4.127. The UI branches are done: PRs #6–#9 merged 2026-10-09 |
+| 2 | Turn the waiting branches above into PRs, one at a time; resolve the 1.4.127 conflicts | Todo | — | Order: leads (merged #26) → attachments (PR open) → 1.4.127. The UI branches are done: PRs #6–#9 merged 2026-10-09 |
 | 2b | 客户设置 batch A1: 客户分组 / 阶段 / 类型 / 建档黑名单 / 客户上限 / 查重展示 / 布局, wired into the editor, import, pool claim and detail page | Done | Claude | PR #14 merged 2026-10-09 (owner said 合并). Mac not walked through yet. Web trial Version 45 (built from 6941054) |
 | 2c | 客户设置 batch A2: 公海管理 (extend `poolRules`: several rules, reminder days, whitelist, claim limits, reason required; replace the old 公海规则 dialog button), 客户跟进规则 ("最近联系" is not "最近跟进"), 客户成交规则, 动态设置, 写跟进设置 | Done | Claude | PR #20 merged 2026-10-09 (owner said 合并), `main` 7e74221; Mac app not walked through. Source was the owner's 小满 settings docs (collection ≠ authorization). Excluded: 企业微信, 钉钉, 内贸, 商城/购买/订购/采购; 回款, 海关, 外部沟通 stay deferred (D-006). Sharing/permissions/accounts need separate confirmation |
 | 2d | 客户设置 batch B1: 判重设置 (9 fields, allow/block/off) and 来源设置 (two-level list, hide, sort) as new 客户设置 tabs | Done | Claude | PR #33 merged 2026-10-09 (owner said 合并), web trial Version 9. 商机来源 not wired to the list yet; Mac not walked through. Owner excluded 工作流, 审批流, 营销设置 (2026-10-09). Still open in `docs/xiaoman/README.md`: 自定义字段/必填, 功能开关, 线索设置, 商机设置, 产品设置, 单据模板, 费用设置, 汇率 etc.; suggested next: 产品设置 and 单据模板 (报价单/PI) |

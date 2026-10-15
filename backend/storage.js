@@ -823,13 +823,17 @@ function openStorage({ seedFile }) {
       return refs;
     } finally { backup.close(); }
   }
+  let backupMissing = 0;
   function copyBackupAttachments(backupFile) {
+    backupMissing = 0;
     const dir = backupFile + '.attachments';
     fs.mkdirSync(dir, { recursive:true, mode:0o700 });
     let count = 0;
     for (const source of backupAttachmentRefs(backupFile)) {
       const relative = path.relative(attachmentsDir, source);
       if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid backup attachment path');
+      // 商机附件的文件如果已经不在（被手动移走、删除时没删成功的反例等），不让整个备份失败：跳过并计数。
+      if (relative.split(path.sep)[0] === 'opportunities' && !(fs.existsSync(source) && fs.statSync(source).isFile())) { backupMissing += 1; continue; }
       const target = path.join(dir, relative);
       fs.mkdirSync(path.dirname(target), { recursive:true, mode:0o700 });
       // Independent copy (APFS may share immutable blocks), never a hard link.
@@ -878,7 +882,7 @@ function openStorage({ seedFile }) {
       fs.rmSync(path.join(backupDir, name) + '.attachments', { recursive:true, force:true });
     });
     atomicWrite(backupMetaFile, JSON.stringify({ lastBackupAt: now, lastBackupFile: backupFile }, null, 2));
-    return { ok:true, file:backupFile, attachmentsDir:backupFile + '.attachments', attachmentCount };
+    return { ok:true, file:backupFile, attachmentsDir:backupFile + '.attachments', attachmentCount, missingAttachments:backupMissing };
   }
 
   function backupSummary() {
