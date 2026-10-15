@@ -744,7 +744,8 @@
     function detailBody(id) {
       const detail = OM().detailOf(state(), id, B.localDate());
       if (!detail) return "";
-      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1 }, attachView);
+      const documents = DM() ? DM().docsFor(state(), { kind: "opportunity", id }).map((doc) => ({ id: doc.id, number: doc.number, typeName: doc.snapshot?.typeName || "", date: doc.date, voided: doc.status === "已作废" })) : [];
+      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents }, attachView);
     }
     function showOppDetail(id) {
       const detail = OM().detailOf(state(), id, B.localDate());
@@ -1313,9 +1314,10 @@
     const DM = () => root.LaiDocTemplateModel;
     let docUI = null;
     const DU = () => docUI || (docUI = root.LaiDocTemplateUI.create(E, DM()));
-    const docView = { tab: "quote", armed: "" };
+    const docView = { tab: "quote", armed: "", armedVoid: "", rec: { type: "", query: "" } };
+    const docToday = () => (B.localDate ? B.localDate() : "");
     function renderDocTemplates() {
-      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: B.localDate ? B.localDate() : "" })}</div>`;
+      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: docToday() })}</div>`;
     }
     function docPrint(type) {
       return printDocument(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
@@ -1338,11 +1340,78 @@
         setTimeout(() => frame.remove(), 60000);
       };
     }
+    // 保存过的单据：在抽屉里看（用保存时那一份内容，改了模板也不变），可以重新打印。
+    function viewDoc(id) {
+      const doc = DM().getDocument(state(), id);
+      if (!doc) return ctx.toast("找不到这张单据");
+      const voided = doc.status === "已作废";
+      ctx.dialog(
+        E(`${doc.snapshot.typeName} ${doc.number}`),
+        `<div class="drawer-body doc-view">${DU().paperMarkup(doc)}</div>`,
+        `<button type="button" data-action="close-modal">关闭</button>${voided ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, true)}`,
+        "doc-view",
+      );
+    }
+    function docRecAction(action, d) {
+      if (action === "docrec-print") {
+        const doc = DM().getDocument(state(), d.id);
+        if (!doc) return ctx.toast("找不到这张单据");
+        if (doc.status === "已作废") return ctx.toast("这张单据已作废，不能打印");
+        return printDocument(doc.snapshot);
+      }
+      // 订单表单里直接在下面看，不关掉正在填的表单。
+      if (action === "docrec-view") return orderForm() && draft?.items ? showOrderSaved(d.id) : viewDoc(d.id);
+    }
+    // 编号规则表单：边改边显示“下一张”的编号；填得不对就在那里说明原因。
+    function docNumberingExample(form) {
+      const data = Object.fromEntries(new FormData(form)), box = form.querySelector("[data-doc-example]");
+      if (!box) return;
+      try {
+        box.innerHTML = DU().exampleMarkup(DM().nextNumber(state(), form.dataset.type, docToday(), { prefix: data.prefix, dateMode: data.dateMode, digits: data.digits, reset: data.reset }).number);
+      } catch (error) {
+        box.innerHTML = DU().exampleMarkup("", error.message);
+      }
+    }
+    // 返回 true 表示这个输入事件是单据页的，别处不用再处理。
+    function docInput(e, kind) {
+      if (route !== "doc-templates") return false;
+      const name = e.target.dataset?.docFilter;
+      if (name && (kind === "change") === (e.target.tagName === "SELECT")) {
+        if (e.isComposing) return true;
+        docView.rec = { ...docView.rec, [name]: e.target.value };
+        docView.armedVoid = "";
+        const pos = e.target.selectionStart;
+        render();
+        const again = document.querySelector?.(`[data-doc-filter="${name}"]`);
+        again?.focus?.({ preventScroll: true });
+        if (name === "query" && again?.setSelectionRange) again.setSelectionRange(pos, pos);
+        return true;
+      }
+      const form = e.target.closest?.('[data-doc-form="numbering"]');
+      if (form) {
+        // 换了日期部分：重置方式回到“跟日期部分一致”，免得选出互相矛盾的组合。
+        if (kind === "change" && e.target.name === "dateMode" && form.elements.reset) form.elements.reset.value = "";
+        docNumberingExample(form);
+        return true;
+      }
+      return false;
+    }
     function docClick(d) {
+      if (d.docAction !== "void") docView.armedVoid = "";
       if (d.docTab) {
         docView.tab = d.docTab;
         docView.armed = "";
         return render();
+      }
+      if (d.docAction === "view") return viewDoc(d.id);
+      if (d.docAction === "source") return d.kind === "opportunity" ? showOppDetail(d.id) : orderEditor(d.id);
+      if (d.docAction === "void") {
+        if (docView.armedVoid !== d.id) {
+          docView.armedVoid = d.id;
+          return render();
+        }
+        docView.armedVoid = "";
+        return saveNext(() => DM().voidDocument(state(), d.id), "doc-error");
       }
       if (d.docAction === "print") return docPrint(d.type);
       if (d.docAction === "reset") {
@@ -1361,6 +1430,7 @@
         const pick = (kind, fields) => Object.fromEntries(fields.map(([key]) => [key, data[`${kind}:${key}`] || ""]));
         return saveNext(() => DM().setBank(DM().setCompany(state(), pick("company", DM().COMPANY_FIELDS)), pick("bank", DM().BANK_FIELDS)), "doc-error");
       }
+      if (form.dataset.docForm === "numbering") return saveNext(() => DM().setNumbering(state(), form.dataset.type, { prefix: data.prefix, dateMode: data.dateMode, digits: data.digits, reset: data.reset }), "doc-error");
       const columns = Object.fromEntries(DM().COLUMNS.map(([key]) => [key, `col:${key}` in data]));
       return saveNext(() => DM().setTemplate(state(), form.dataset.type, { title: data.title, terms: data.terms, footer: data.footer, columns, showBank: "showBank" in data, showSignature: "showSignature" in data }), "doc-error");
     }
@@ -1507,7 +1577,7 @@
         `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(shown[name] || "").slice(0, 10) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
       ctx.dialog(
         old ? "编辑订单" : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div><div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
+        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div><div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div><div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
           state().customers || {},
         )
           .filter(
@@ -1568,23 +1638,116 @@
       if (total) total.textContent = plain(B.itemsTotal(draft.items));
       if (draft.doc) showOrderDoc(draft.doc);
     }
-    function orderDocData(type) {
+    // 订单表单里现在填的内容，整理成生成单据要用的样子（单据编号要等保存单据时才有，订单号只作参考）。
+    function orderDocInput() {
       const form = orderForm();
       const f = form ? Object.fromEntries(new FormData(form)) : {};
-      return DM().preview(state(), type, {
+      return {
         lines: B.docLines({ items: draft?.items || [], productType: f.productType, amount: f.amount }),
         currency: f.currency || "USD",
         client: f.client || "",
-        number: f.num || "",
         date: String(f.createdAt || "").slice(0, 10),
-      });
+        reference: { label: "订单号", value: f.num || "" },
+        source: { kind: "order", id: draft?.id || "", label: f.num || "" },
+      };
     }
+    function orderDocData(type) {
+      return DM().preview(state(), type, { ...orderDocInput(), number: "", numberNote: "保存后生成编号" });
+    }
+    const orderSavedMarkup = () => (draft?.id && DM() ? DU().savedListMarkup(DM().docsFor(state(), { kind: "order", id: draft.id })) : "");
     function showOrderDoc(type) {
       const box = document.getElementById("biz-order-doc");
       if (!box || !DM()) return;
       draft.doc = type;
+      draft.docView = "";
       const doc = orderDocData(type);
-      box.innerHTML = `<div class="order-doc-preview" data-order-doc="${E(type)}"><div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("order-doc-print", "打印 / 存为 PDF", `data-type="${E(type)}"`, true)}${button("order-doc-close", "收起")}</span></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这张表里现在填的内容，不用先保存订单。公司信息、银行和条款在 交易 → 单据模板 里改。</p></div>`;
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc="${E(type)}"><div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("order-doc-save", "保存单据", `data-type="${E(type)}"`, true)}${button("order-doc-print", "打印 / 存为 PDF", `data-type="${E(type)}"`)}${button("order-doc-close", "收起")}</span></div><div class="error" id="biz-order-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这张表里现在填的内容，不用先保存订单。点“保存单据”才会生成单据编号并记下来；公司信息、银行和条款在 交易 → 单据模板 里改。</p></div>`;
+    }
+    // 保存过的单据显示在订单表单下面（用保存时的内容，订单后来改了也不变）。
+    function showOrderSaved(id) {
+      const box = document.getElementById("biz-order-doc"), doc = DM().getDocument(state(), id);
+      if (!box || !doc || !draft) return;
+      draft.doc = "";
+      draft.docView = id;
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc-saved="${E(id)}"><div class="dt-side-head"><strong>${E(doc.snapshot.typeName)} ${E(doc.number)}</strong><span class="order-doc-buttons">${doc.status === "已作废" ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(id)}"`, true)}${button("order-doc-close", "收起")}</span></div>${DU().paperMarkup(doc)}</div>`;
+    }
+    function saveOrderDoc(type) {
+      // 先取表单里的内容：保存时整个页面的输入框会暂时停用，那时读不到。
+      const input = orderDocInput();
+      let saved = null;
+      return saveNext(
+        () => {
+          const result = DM().saveDocument(state(), { ...input, type, today: docToday() });
+          saved = result.doc;
+          return result.state;
+        },
+        "biz-order-doc-error",
+        () => {
+          showOrderSaved(saved.id);
+          const list = document.getElementById("biz-order-saved");
+          if (list) list.innerHTML = orderSavedMarkup();
+          return false;
+        },
+      );
+    }
+    // ---------- 由商机生成报价单、形式发票 ----------
+    let oppDoc = null;
+    function oppDocInput() {
+      const detail = OM().detailOf(state(), oppDoc.id, docToday());
+      if (!detail) return null;
+      return {
+        type: oppDoc.type,
+        lines: DM().linesFromOpportunity(state(), detail),
+        currency: detail.currency,
+        client: detail.client,
+        date: docToday(),
+        reference: { label: "商机", value: detail.name },
+        source: { kind: "opportunity", id: detail.id, label: detail.name },
+      };
+    }
+    const oppDocPreview = (input) => DM().preview(state(), oppDoc.type, { ...input, number: "", numberNote: "保存后生成编号" });
+    function oppDocMarkup() {
+      const saved = oppDoc.saved && DM().getDocument(state(), oppDoc.saved);
+      if (saved) {
+        return `<div class="dt-side-head"><strong>${E(saved.snapshot.typeName)} ${E(saved.number)}</strong><span class="order-doc-buttons">${button("oppdoc-print", "打印 / 存为 PDF", "", true)}</span></div>${DU().paperMarkup(saved)}<p class="muted tiny">已保存。以后可以在 交易 → 单据模板 → 单据记录 里找到它，也能在这个商机的详情里看到。</p>`;
+      }
+      const input = oppDocInput();
+      if (!input) return '<p class="muted">商机不存在，可能已被删除。</p>';
+      const doc = oppDocPreview(input);
+      return `<div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("oppdoc-save", "保存单据", "", true)}${button("oppdoc-print", "打印 / 存为 PDF")}</span></div><div class="error" id="opp-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这个商机的客户、币种和关联产品（没有关联产品就用商机金额）。点“保存单据”才会生成单据编号并记下来。</p>`;
+    }
+    function showOppDoc(id, type) {
+      if (!DM() || !DM().TYPES.some(([t]) => t === type)) return;
+      oppDoc = { id, type, saved: "" };
+      if (!oppDocInput()) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      ctx.dialog(E(`生成${DU().typeLabel(type)}`), `<div class="drawer-body opp-doc" id="opp-doc-box">${oppDocMarkup()}</div>`, '<button type="button" data-action="close-modal">关闭</button>', "opp-doc");
+    }
+    function oppDocAction(action) {
+      if (!oppDoc) return;
+      if (action === "oppdoc-print") {
+        const saved = oppDoc.saved && DM().getDocument(state(), oppDoc.saved);
+        const input = saved ? null : oppDocInput();
+        if (!saved && !input) return;
+        return printDocument(saved ? saved.snapshot : oppDocPreview(input));
+      }
+      if (action === "oppdoc-save") {
+        let result = null;
+        return saveNext(
+          () => {
+            const input = oppDocInput();
+            if (!input) throw new Error("商机不存在，可能已被删除");
+            result = DM().saveDocument(state(), { ...input, today: docToday() });
+            return result.state;
+          },
+          "opp-doc-error",
+          () => {
+            oppDoc.saved = result.doc.id;
+            const box = document.getElementById("opp-doc-box");
+            if (box) box.innerHTML = oppDocMarkup();
+            return false;
+          },
+        );
+      }
     }
     function orderItemAction(action, d) {
       if (!draft?.items) return;
@@ -1603,8 +1766,10 @@
         showOrderDoc(d.type);
         return document.querySelector("#biz-order-doc .order-doc-preview")?.scrollIntoView({ block: "start", behavior: "smooth" });
       }
+      if (action === "order-doc-save") return saveOrderDoc(d.type);
       if (action === "order-doc-close") {
         draft.doc = "";
+        draft.docView = "";
         const box = document.getElementById("biz-order-doc");
         if (box) box.innerHTML = "";
         return;
@@ -1711,6 +1876,7 @@
       if (d.attachAction && onOppPage() && attachView.id) return attachAction(d);
       if (d.oppAction && onOppPage()) return oppAction(d);
       if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
+      if (d.oppDoc) return showOppDoc(d.id, d.oppDoc);
       if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove || d.prodLay)) return productClick(d);
       if (d.leadAction && onLeadPage()) return leadAction(d);
       if (d.leadStatus && route === "leads") {
@@ -1782,6 +1948,8 @@
       if (action === "new-task") return taskEditor();
       if (action === "close-editor") return finishEditor();
       if (action === "archive-order") return archiveOrder(d.id);
+      if (action.startsWith("oppdoc-")) return oppDocAction(action);
+      if (action.startsWith("docrec-")) return docRecAction(action, d);
       if (action.startsWith("order-item-") || action.startsWith("order-doc")) return orderItemAction(action, d);
       if (action === "cancel-archive") return orderEditor(d.id, archiveDraft);
       if (action === "confirm-archive")
@@ -1844,6 +2012,7 @@
         return localAction(action);
     });
     document.addEventListener("input", (e) => {
+      if (docInput(e, "input")) return;
       if (e.target.id === "biz-search") {
         search = e.target.value;
         if (e.isComposing) return;
@@ -1863,6 +2032,7 @@
       else if (draft?.doc && e.target.closest?.("#biz-order-form")) showOrderDoc(draft.doc);
     });
     document.addEventListener("compositionend", (e) => {
+      if (e.target.dataset?.docFilter === "query" && route === "doc-templates") return docInput({ target: e.target }, "input");
       if (e.target.id === "biz-search") {
         search = e.target.value;
         page = 1;
@@ -1922,6 +2092,7 @@
     });
     document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
+      if (docInput(e, "change")) return;
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
         const i = Number(e.target.dataset.itemProduct), old = draft.items[i], value = e.target.value;
         if (value === "__keep") return;

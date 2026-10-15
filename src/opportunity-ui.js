@@ -101,7 +101,12 @@
         +(previewing?`<figure class="opp-preview"><img data-opp-fetch="${E(previewing.fileUrl)}" alt="${E(previewing.name)}"><figcaption>${E(previewing.name)}</figcaption></figure>`:'')
         +(rows?`<ul class="opp-files">${rows}</ul>`:'<p class="opp-empty">还没有附件。报价单、合同、样品图都可以放在这里。</p>');
     }
-    // 商机详情：基本信息、阶段记录、附件。context：{today, multiFlow}；view：附件区状态。
+    // 商机详情里的“单据”：这个商机已经保存的报价单、形式发票（context.documents：[{id, number, typeName, date, voided}]）。
+    function documentsBlock(documents){
+      if(!Array.isArray(documents)||!documents.length)return '';
+      return `<div class="form-section">单据</div><ul class="opp-docs">${documents.map(doc=>`<li${doc.voided?' class="is-void"':''}><b>${E(doc.number)}</b><span>${E(doc.typeName)}</span><span>${E(doc.date||'')}</span>${doc.voided?'<span class="opp-chip">已作废</span>':''}<button type="button" class="text-button" data-biz-action="docrec-view" data-id="${E(doc.id)}">查看</button></li>`).join('')}</ul>`;
+    }
+    // 商机详情：基本信息、阶段记录、附件。context：{today, multiFlow, documents}；view：附件区状态。
     function detailMarkup(detail,context={},view={}){
       const fact=(label,value,wide=false)=>label&&(value||value===0)?`<div${wide?' class="is-wide"':''}><dt>${label}</dt><dd>${value}</dd></div>`:'';
       const rate=detail.currency!=='USD'&&Number(detail.exchangeRate)?`每 100 ${E(detail.currency)} ＝ ${E(number(detail.exchangeRate))} USD`:'';
@@ -124,7 +129,7 @@
         +fact('标签',detail.tags.length?detail.tags.map(tag=>`<span class="opp-chip">${E(tag)}</span>`).join(' '):'')
         +fact('关联订单',detail.orderId?`<button type="button" class="company-link" data-biz-order="${E(detail.orderId)}">查看关联订单</button>`:'')
         +fact('备注',E(detail.note).replace(/\n/g,'<br>'),true)
-        +`</dl>${products}${history}<section class="opp-attach" id="opp-attach" data-id="${E(detail.id)}">${attachmentsInner(detail.attachments,view)}</section></div>`;
+        +`</dl>${products}${documentsBlock(context.documents)}${history}<section class="opp-attach" id="opp-attach" data-id="${E(detail.id)}">${attachmentsInner(detail.attachments,view)}</section></div>`;
     }
 
 
@@ -226,6 +231,7 @@
       const moves=stages.filter(item=>item.id!==card.stage).map(item=>`<button type="button" class="opp-move opp-kind-${item.kind}" data-opp-action="move" data-id="${E(card.id)}" data-stage="${E(item.id)}">移到「${E(item.label)}」</button>`).join('');
       return `<div class="drawer-body opp-menu"><div class="opp-menu-summary"><b>${money(card.amount,card.currency)}</b><span>${E(card.client)}</span><span class="opp-chip opp-stage-chip opp-kind-${stage?.kind||'open'}">${E(stage?.label||card.stage)}</span></div>`
         +`<div class="opp-menu-group"><button type="button" class="primary" data-opp-action="edit" data-id="${E(card.id)}">编辑商机</button>${stage?.kind==='won'&&!card.orderId?`<button type="button" data-opp-action="order" data-id="${E(card.id)}">生成订单</button>`:''}${card.orderId?`<button type="button" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}</div>`
+        +`<h3>生成单据</h3><div class="opp-menu-group"><button type="button" data-opp-doc="quote" data-id="${E(card.id)}">报价单</button><button type="button" data-opp-doc="pi" data-id="${E(card.id)}">形式发票</button></div>`
         +`<h3>调整销售阶段</h3><div class="opp-menu-group">${moves}</div><h3>其他</h3><div class="opp-menu-group"><button type="button" data-opp-action="archive" data-id="${E(card.id)}" data-archived="${card.archived?'0':'1'}">${card.archived?'取消归档':'归档'}</button><button type="button" class="${armed?'team-danger':''}" data-opp-action="delete" data-id="${E(card.id)}">${armed?'再点一次确认删除（不可恢复）':'删除商机'}</button></div><div class="error" id="opp-menu-error" role="alert"></div></div>`;
     }
     const lostMarkup=(card,reasons=model.LOST_REASONS)=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" required><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
