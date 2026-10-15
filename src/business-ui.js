@@ -405,8 +405,8 @@
     let oppUI = null;
     const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM()));
     const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "", analysisFlow: "" };
-    // 销售流程设置页：当前看的流程，以及等待再次确认删除的那一项（"flow:ID" 或 "stage:ID"）。
-    const flowView = { flow: "default", armed: "" };
+    // 商机设置页：当前页签、销售流程页当前看的流程，以及等待再次确认删除的那一项（"flow:ID"、"stage:ID"、"reasons:名称"、"types:名称" 或 "cf:ID"）。
+    const flowView = { tab: "flows", flow: "default", armed: "" };
     const cssEscape = (value) => (root.CSS?.escape ? root.CSS.escape(String(value)) : String(value).replace(/["\\]/g, "\\$&"));
     let oppDraft = null,
       oppArmed = "",
@@ -447,7 +447,89 @@
     function renderOppFlows() {
       const summary = OM().flowSummary(state());
       if (!summary.some((flow) => flow.id === flowView.flow)) flowView.flow = summary[0].id;
-      return header("销售流程设置", "每个流程有自己的一组阶段；看板的列、表单里的阶段都跟着这里走") + OU().flowsMarkup(summary, flowView);
+      const now = state(), named = (kind, names) => names.map((name) => ({ name, count: OM().choiceUse(now, kind, name) }));
+      const data = {
+        summary,
+        reasons: named("reasons", OM().lostReasons(now)),
+        types: named("types", OM().typeChoices(now)),
+        fields: OM().fieldRows(now),
+        customFields: OM().customFields(now).map((field) => ({ ...field, count: OM().customUse(now, field.id) })),
+      };
+      return header("商机设置", "销售流程、输单原因和商机字段") + OU().settingsMarkup(data, flowView);
+    }
+    // 输单原因、商机类型、字段、自定义字段的每个动作各自保存；保存后停在原页面，出错时提示写在页面上方。
+    const saveSet = (makeNext, focus) =>
+      saveNext(makeNext, "opp-set-error", () => {
+        flowView.armed = "";
+        render();
+        if (focus) document.querySelector?.(focus)?.focus?.({ preventScroll: true });
+        return false;
+      });
+    function setAction(d) {
+      const action = d.setAction, key = d.key, kind = d.list;
+      const here = `[data-set-action="${action}"][data-key="${cssEscape(key)}"]`;
+      if (action === "up" || action === "down") {
+        flowView.armed = "";
+        return saveSet(() => OM().moveChoice(state(), kind, key, action === "up" ? -1 : 1), here);
+      }
+      if (action === "cf-up" || action === "cf-down") {
+        flowView.armed = "";
+        return saveSet(() => OM().moveCustomField(state(), key, action === "cf-up" ? -1 : 1), here);
+      }
+      if (action === "remove") {
+        // 还有商机在用的直接试删，让提示说明原因；没人用的要再点一次确认。
+        const armKey = `${kind}:${key}`;
+        if (flowView.armed !== armKey && !OM().choiceUse(state(), kind, key)) {
+          flowView.armed = armKey;
+          render();
+          return document.querySelector?.(here)?.focus?.({ preventScroll: true });
+        }
+        return saveSet(() => OM().removeChoice(state(), kind, key));
+      }
+      if (action === "cf-remove") {
+        const armKey = `cf:${key}`;
+        if (flowView.armed !== armKey && OM().customUse(state(), key)) {
+          flowView.armed = armKey;
+          render();
+          return document.querySelector?.(here)?.focus?.({ preventScroll: true });
+        }
+        return saveSet(() => OM().removeCustomField(state(), key));
+      }
+    }
+    // 设置页里输入框、勾选框、选项框的修改：改完马上保存；没保存成功就把控件恢复成已保存的样子。
+    function setChange(input) {
+      const d = input.dataset;
+      if (d.setRename) {
+        const kind = d.setRename, key = d.key;
+        return saveSet(() => OM().renameChoice(state(), kind, key, input.value), `[data-set-rename="${kind}"]`).then((ok) => {
+          if (!ok) input.value = key;
+        });
+      }
+      if (d.setField) {
+        const id = d.setField, prop = d.prop;
+        return saveSet(() => OM().setField(state(), id, { [prop]: input.checked }), `[data-set-field="${id}"][data-prop="${prop}"]`).then((ok) => {
+          if (!ok) input.checked = !input.checked;
+        });
+      }
+      const field = (id) => OM().customFields(state()).find((item) => item.id === id);
+      if (d.cfRename !== undefined) {
+        const id = d.cfRename, before = field(id)?.name ?? input.value;
+        return saveSet(() => OM().updateCustomField(state(), id, { name: input.value }), `[data-cf-rename="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.value = before;
+        });
+      }
+      if (d.cfRequired !== undefined) {
+        const id = d.cfRequired;
+        return saveSet(() => OM().updateCustomField(state(), id, { required: input.checked }), `[data-cf-required="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.checked = !input.checked;
+        });
+      }
+      if (d.cfOptions !== undefined) {
+        const id = d.cfOptions, before = (field(id)?.options || []).join("\n");
+        return saveSet(() => OM().updateCustomField(state(), id, { options: input.value }), `[data-cf-options="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.value = before;
+        });
+      }
     }
     // 流程设置页的每个动作各自保存；保存后停在原页面，出错时提示写在页面上方。
     const saveFlow = (makeNext, focus) =>
@@ -494,7 +576,8 @@
       if (id === undefined) {
         // 新建时默认放进看板当前正在看的那个流程的第一个阶段。
         const flow = OM().flowOf(state(), oppView.filters.flow);
-        next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client, flow: flow.id, stage: flow.stages[0].id } };
+        // 从客户那里新建时，客户的来源在来源名单里就带过来。
+        next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client, flow: flow.id, stage: flow.stages[0].id, sources: client ? OM().sourcesFromCustomer(state(), client) : [] } };
       }
       else {
         const item = oppItem(id);
@@ -512,6 +595,7 @@
             owners: OM().ownerNames(state()),
             flows: OM().flowsOf(state()),
             stages: OM().flowOf(state(), values.flow).stages,
+            setup: OM().formSetup(state()),
             isNew: next.isNew,
           }),
           '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>',
@@ -532,8 +616,16 @@
       if (name === "client") {
         const client = String(el.client.value || "").trim();
         const contacts = OM().contactsOf(state(), client);
-        el.contact.innerHTML = OU().contactOptions(contacts, client === oppDraft.client ? oppDraft.contact : "", client);
-        el.contact.required = contacts.length > 0;
+        // 关联联系人可以在商机设置里隐藏；显示时，客户有联系人且设为必填才算必填。
+        if (el.contact) {
+          el.contact.innerHTML = OU().contactOptions(contacts, client === oppDraft.client ? oppDraft.contact : "", client);
+          const must = contacts.length > 0 && OM().fieldMap(state()).contact.required;
+          el.contact.required = must;
+          const head = el.contact.closest?.("label")?.querySelector?.(".opp-field-label");
+          const star = head?.querySelector?.(".opp-req");
+          if (head && must && !star) head.insertAdjacentHTML?.("beforeend", '<i class="opp-req" aria-hidden="true">*</i>');
+          else if (star && !must) star.remove?.();
+        }
       } else if (name === "flow") {
         // 换流程：阶段选项换成新流程的；换回原流程时恢复原来的阶段，否则落在第一个阶段。
         const flow = OM().flowOf(state(), el.flow.value);
@@ -588,7 +680,7 @@
     function showOppLost(id) {
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-      ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
+      ctx.dialog("移到输单", OU().lostMarkup(card, OM().lostReasons(state())), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
     }
     const nextOrderNumber = () => {
       const defaults = state().laiSettings || state().orderSettings || {};
@@ -1489,6 +1581,13 @@
         render();
         return document.querySelector?.(`[data-lead-status="${cssEscape(d.leadStatus)}"]`)?.focus?.({ preventScroll: true });
       }
+      if (route === "opp-flows" && d.oppSetTab) {
+        flowView.tab = d.oppSetTab;
+        flowView.armed = "";
+        render();
+        return document.querySelector?.(`[data-opp-set-tab="${cssEscape(flowView.tab)}"]`)?.focus?.({ preventScroll: true });
+      }
+      if (route === "opp-flows" && d.setAction) return setAction(d);
       if (route === "opp-flows" && d.flowAction) return flowAction(d);
       if (route === "opp-flows" && d.flowSelect) {
         flowView.flow = d.flowSelect;
@@ -1704,6 +1803,7 @@
       }
       if (e.target.closest?.("#biz-target-form") && ["metric", "scope"].includes(e.target.name)) return syncTargetForm(e.target.closest("#biz-target-form"));
       if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "flow", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
+      if (route === "opp-flows" && ["setRename", "setField", "cfRename", "cfRequired", "cfOptions"].some((key) => e.target.dataset?.[key] !== undefined)) return setChange(e.target);
       // 改名没保存成功（空名、重名）时，输入框恢复成已保存的名称，提示留在页面上方。
       if (route === "opp-flows" && e.target.dataset?.flowRename) {
         const input = e.target, id = input.dataset.flowRename;
@@ -1795,7 +1895,7 @@
         return productSubmit(form);
       }
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form", "opp-reasons-add", "opp-types-add", "opp-cf-add"].includes(
           form.id,
         )
       )
@@ -1808,6 +1908,8 @@
           "opp-attach-error",
           () => { attachView.renaming = ""; refreshAttach(); },
         );
+      if (form.id === "opp-reasons-add" || form.id === "opp-types-add") return saveSet(() => OM().addChoice(state(), form.dataset.list, data.text), `#${form.id} input`);
+      if (form.id === "opp-cf-add") return saveSet(() => OM().addCustomField(state(), data, { id: "c" + crypto.randomUUID().slice(0, 8) }), "#opp-cf-add input");
       if (form.id === "opp-flow-add") {
         const id = "f" + crypto.randomUUID().slice(0, 8);
         return saveFlow(() => {
@@ -1843,6 +1945,15 @@
       if (form.id === "lead-invalid-form") return saveNext(() => LD().markInvalid(state(), form.dataset.id, data), "lead-invalid-error", leadSaved(form.dataset.id));
       if (form.id === "opp-form") {
         if (!oppDraft) return;
+        // 多选（商机来源、多选的自定义字段）和自定义字段的值：表单里的名字是 custom:字段ID，这里收成 data.custom。
+        const custom = { ...(data.custom || {}) };
+        for (const key of Object.keys(data)) if (key.startsWith("custom:")) { custom[key.slice(7)] = data[key]; delete data[key]; }
+        for (const group of form.querySelectorAll?.("[data-multi]") || []) {
+          const picked = [...group.querySelectorAll('input[type="checkbox"]')].filter((box) => box.checked).map((box) => box.value);
+          if (group.dataset.multi.startsWith("custom:")) custom[group.dataset.multi.slice(7)] = picked;
+          else data[group.dataset.multi] = picked;
+        }
+        if (Object.keys(custom).length) data.custom = custom;
         return saveNext(
           () => OM().upsert(state(), oppDraft.id, data, { mustExist: !oppDraft.isNew }),
           "opp-error",

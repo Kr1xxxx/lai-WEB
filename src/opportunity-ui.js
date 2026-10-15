@@ -60,7 +60,7 @@
     function table(board,view,today){
       const limit=Math.max(PAGE,Number(view.limits?.list)||PAGE);
       const shown=board.cards.slice(0,limit),rest=board.cards.length-shown.length;
-      return `<section class="business-section opp-list"><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>商机名称</th><th>客户</th><th>销售金额</th><th>销售阶段</th><th>负责人</th><th>结束日期</th><th>创建日期</th><th>操作</th></tr></thead><tbody>${shown.map(card=>`<tr><td><button type="button" class="company-link" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button></td><td><button type="button" class="company-link" data-biz-customer="${E(card.client)}">${E(card.client)}</button></td><td class="opp-num">${money(card.amount,card.currency)}</td><td><span class="opp-chip opp-stage-chip opp-kind-${kindOf(card)}">${E(stageLabel(card))}</span></td><td>${E(card.owner||'—')}</td><td>${card.overdue?`<span class="opp-due is-overdue">逾期 ${E(card.endDate)}</span>`:E(card.endDate||'—')}</td><td>${E(card.createdDay||'—')}</td><td><button type="button" class="text-button" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></td></tr>`).join('')||'<tr><td colspan="8">暂无商机</td></tr>'}</tbody></table></div>${rest>0?`<button type="button" class="opp-more" data-opp-action="more" data-stage="list">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</section>`;
+      return `<section class="business-section opp-list"><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>商机编号</th><th>商机名称</th><th>客户</th><th>销售金额</th><th>销售阶段</th><th>负责人</th><th>结束日期</th><th>创建日期</th><th>操作</th></tr></thead><tbody>${shown.map(card=>`<tr><td class="opp-num">${E(card.number||'—')}</td><td><button type="button" class="company-link" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button></td><td><button type="button" class="company-link" data-biz-customer="${E(card.client)}">${E(card.client)}</button></td><td class="opp-num">${money(card.amount,card.currency)}</td><td><span class="opp-chip opp-stage-chip opp-kind-${kindOf(card)}">${E(stageLabel(card))}</span></td><td>${E(card.owner||'—')}</td><td>${card.overdue?`<span class="opp-due is-overdue">逾期 ${E(card.endDate)}</span>`:E(card.endDate||'—')}</td><td>${E(card.createdDay||'—')}</td><td><button type="button" class="text-button" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></td></tr>`).join('')||'<tr><td colspan="9">暂无商机</td></tr>'}</tbody></table></div>${rest>0?`<button type="button" class="opp-more" data-opp-action="more" data-stage="list">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</section>`;
     }
     const undoMarkup=undo=>undo?`<div class="opp-undo" id="opp-undo" role="status"><span>${E(undo.label)}</span><button type="button" data-opp-action="undo">撤销</button></div>`:'';
     const boardMarkup=(board,view={},context={})=>`<div class="business-scroll opp-page">${toolbar(board,view,context)}${totals(board)}${view.mode==='list'?table(board,view,context.today):columns(board,view,context.today)}${undoMarkup(view.undo)}</div>`;
@@ -118,6 +118,9 @@
         +fact('汇率',E(rate))+fact('创建时间',E(stamp(detail.createdAt)))
         +fact(detail.kind==='won'?'赢单时间':detail.kind==='lost'?'输单时间':'',detail.kind!=='open'&&detail.closedAt?E(stamp(detail.closedAt)):'')
         +fact('输单原因',detail.lostReason?E(detail.lostReason+(detail.lostNote?`（${detail.lostNote}）`:'')):'')
+        +fact('商机编号',E(detail.number||'—'))+fact('商机类型',E(detail.type))
+        +fact('商机来源',(detail.sources||[]).length?detail.sources.map(source=>`<span class="opp-chip">${E(source)}</span>`).join(' '):'')+fact('来源线索',E(detail.leadName))
+        +(detail.custom||[]).map(row=>fact(E(row.name),E(row.value).replace(/\n/g,'<br>'),row.type==='textarea')).join('')
         +fact('标签',detail.tags.length?detail.tags.map(tag=>`<span class="opp-chip">${E(tag)}</span>`).join(' '):'')
         +fact('关联订单',detail.orderId?`<button type="button" class="company-link" data-biz-order="${E(detail.orderId)}">查看关联订单</button>`:'')
         +fact('备注',E(detail.note).replace(/\n/g,'<br>'),true)
@@ -149,9 +152,10 @@
     }
     // 阶段下拉的选项；原来的阶段如果已不在流程里，仍保留为一个选项。
     const stageOptions=(stages,value)=>stages.map(stage=>option(stage.id,stage.label,value||stages[0]?.id)).join('')+(value&&!stages.some(stage=>stage.id===value)?`<option value="${E(value)}" selected>原阶段：${E(value)}</option>`:'');
-    // 表单：values 是要显示的内容，context 提供可选的客户、联系人、负责人。会随填写变化的部分（名称输入、联系人、汇率、输单原因）都带 id，由页面就地更新，不重画整个表单。
+    // 表单：values 是要显示的内容，context 提供可选的客户、联系人、负责人，以及 setup（商机设置：字段显示与必填、名单、自定义字段）。会随填写变化的部分（名称输入、联系人、汇率、输单原因）都带 id，由页面就地更新，不重画整个表单。
     function formMarkup(values,context={}){
       const v=values||{},isLost=v.stage==='lost',custom=v.nameMode==='custom',usd=String(v.currency||'USD').toUpperCase()==='USD';
+      const setup=context.setup||model.formSetup({}),cfg=setup.fields;
       const contacts=context.contacts||[];
       const list=value=>Array.isArray(value)?value.join('，'):String(value??'');
       const products=Array.isArray(v.products)?model.productsText(v.products):String(v.products??'');
@@ -160,30 +164,61 @@
       const req='<i class="opp-req" aria-hidden="true">*</i>';
       // 每个字段：标签一行（必填星号紧跟文字），控件一行，可选的说明一行。
       const field=(label,control,{required=false,wide=false,hidden=false,hint=''}={})=>`<label class="opp-field${wide?' is-wide':''}"${hidden?' hidden':''}><span class="opp-field-label">${label}${required?req:''}</span>${control}${hint?`<span class="opp-field-hint">${hint}</span>`:''}</label>`;
+      // 多选：一排勾选框，不带 name（提交时由页面按 data-multi 收集成列表）。名单里已经没有的旧选项仍显示出来，免得保存时被悄悄去掉。
+      const multi=(key,label,options,chosen,{required=false,hint=''}={})=>{
+        const stale=chosen.filter(item=>!options.includes(item));
+        const boxes=[...options.map(item=>[item,item]),...stale.map(item=>[item,`${item}（已不在名单里）`])].map(([value,text])=>`<label class="opp-check"><input type="checkbox" value="${E(value)}"${chosen.includes(value)?' checked':''}><span>${E(text)}</span></label>`).join('');
+        return `<fieldset class="opp-field is-wide opp-multi" data-multi="${E(key)}"><legend class="opp-field-label">${label}${required?req:''}</legend>${boxes?`<div class="opp-multi-list">${boxes}</div>`:''}${hint?`<span class="opp-field-hint">${hint}</span>`:''}</fieldset>`;
+      };
+      // 单选下拉：当前值已不在名单里时仍保留为一个选项。
+      const choose=(name,options,current,blank)=>`<select name="${name}"><option value="">${blank}</option>${options.map(item=>option(item,item,current)).join('')}${current&&!options.includes(current)?`<option value="${E(current)}" selected>${E(current)}（已不在名单里）</option>`:''}</select>`;
       // 阶段跟着销售流程走；只有一个流程时不显示流程选择。
       const flows=context.flows||[],stages=context.stages||model.STAGES;
       const flow=flows.length>1?field('销售流程',`<select name="flow" id="opp-form-flow">${flows.map(item=>option(item.id,item.label,v.flow||'default')).join('')}</select>`,{required:true}):`<input type="hidden" name="flow" value="${E(v.flow||'default')}">`;
+      const chosenSources=Array.isArray(v.sources)?v.sources.map(String):[];
+      const leadOptions=(setup.leads||[]).map(lead=>option(lead.id,lead.name,v.leadId)).join('')+(v.leadId&&!(setup.leads||[]).some(lead=>lead.id===v.leadId)?`<option value="${E(v.leadId)}" selected>（已删除的线索）</option>`:'');
+      const sourceChoices=Array.isArray(setup.sources)?setup.sources:[];
+      const customValue=def=>v.custom&&typeof v.custom==='object'?v.custom[def.id]:undefined;
+      const customControl=def=>{
+        const name=`custom:${def.id}`,value=customValue(def),text=Array.isArray(value)?'':String(value??''),label=E(def.name),must=def.required?' required':'';
+        if(def.type==='multi')return multi(name,label,def.options,Array.isArray(value)?value.map(String):[],{required:def.required});
+        if(def.type==='textarea')return field(label,`<textarea name="${E(name)}" rows="3" maxlength="${model.SET_LIMITS.textarea}"${must}>${E(text)}</textarea>`,{required:def.required,wide:true});
+        if(def.type==='select')return field(label,`<select name="${E(name)}"${must}><option value="">请选择</option>${def.options.map(item=>option(item,item,text)).join('')}${text&&!def.options.includes(text)?`<option value="${E(text)}" selected>${E(text)}（已不在选项里）</option>`:''}</select>`,{required:def.required});
+        if(def.type==='date')return field(label,`<input name="${E(name)}" type="date" value="${E(text)}"${must}>`,{required:def.required});
+        if(def.type==='number')return field(label,`<input name="${E(name)}" value="${E(text)}" inputmode="decimal" autocomplete="off"${must}>`,{required:def.required});
+        return field(label,`<input name="${E(name)}" value="${E(text)}" maxlength="${model.SET_LIMITS.text}"${must}>`,{required:def.required});
+      };
+      const section=(title,html)=>html?`<div class="form-section">${title}</div><div class="opp-grid">${html}</div>`:'';
+      const classify=[
+        `<div class="opp-field"><span class="opp-field-label">商机编号</span><span class="opp-static" id="opp-number">${E(v.number||(context.isNew?'保存后自动生成':'—'))}</span>${context.isNew?'<span class="opp-field-hint">格式：OPP-日期-当天序号</span>':''}</div>`,
+        cfg.type.show?field('商机类型',choose('type',setup.types||[],String(v.type||''),'请选择'),{required:cfg.type.required}):'',
+        cfg.leadId.show?field('来源线索',`<select name="leadId"><option value="">不选</option>${leadOptions}</select>`,{required:cfg.leadId.required}):'',
+        cfg.sources.show?multi('sources','商机来源',sourceChoices,chosenSources,{required:cfg.sources.required,hint:sourceChoices.length?'':'先在 客户设置 → 来源设置 里添加来源'}):''
+      ].join('');
+      const extra=[
+        cfg.tags.show?field('商机标签',`<input name="tags" value="${E(list(v.tags))}" placeholder="多个标签用逗号分隔">`,{wide:true,required:cfg.tags.required}):'',
+        cfg.note.show?field('备注',`<textarea name="note" rows="3">${E(v.note||'')}</textarea>`,{wide:true,required:cfg.note.required}):'',
+        cfg.products.show?field('关联产品',`<textarea name="products" rows="4" placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal,required:cfg.products.required}):''
+      ].join('');
+      const reasons=setup.reasons||model.LOST_REASONS;
       return `<form class="drawer-body opp-form" id="opp-form"><div class="error" id="opp-error" role="alert"></div>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
         +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
         +field('客户',`<input name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
-        +field('关联联系人',`<select name="contact"${contacts.length?' required':''}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`)
+        +(cfg.contact.show?field('关联联系人',`<select name="contact"${contacts.length&&cfg.contact.required?' required':''}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
         +field('负责人',`<input name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" required><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
-        +field('协同跟进人',`<input name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔">`)
+        +(cfg.collaborators.show?field('协同跟进人',`<input name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔">`,{required:cfg.collaborators.required}):'')
         +`</div><div class="form-section">金额与进度</div><div class="opp-grid">`
         +`<div class="opp-field"><span class="opp-field-label" id="opp-amount-label">销售金额${req}</span><span class="opp-group"><input name="currency" id="opp-form-currency" class="opp-group-currency" value="${E(v.currency||'USD')}" list="opp-currency-list" maxlength="3" autocomplete="off" aria-label="币种" required><datalist id="opp-currency-list">${CURRENCIES.map(code=>`<option value="${code}"></option>`).join('')}</datalist><input name="amount" value="${E(v.amount??'')}" inputmode="decimal" autocomplete="off" aria-labelledby="opp-amount-label" placeholder="0.00" required></span></div>`
         +(flows.length>1?flow:'')
         +field('销售阶段',`<select name="stage" id="opp-form-stage">${stageOptions(stages,v.stage)}</select>`,{required:true})
         +field('结束日期',`<input name="endDate" type="date" value="${E(v.endDate||'')}" required>`,{required:true})
-        +field('汇率',`<input name="exchangeRate" value="${E(usd?100:v.exchangeRate??100)}" data-rate="${E(v.exchangeRate??100)}" inputmode="decimal"${usd?' readonly':''} aria-describedby="opp-rate-note">`,{required:true,hidden:usd,hint:'<span id="opp-rate-note">每 100 外币折合多少美元，仅作记录</span>'})
-        +field('输单原因',`<select name="lostReason"${isLost?' required':' disabled'}><option value="">请选择</option>${model.LOST_REASONS.map(reason=>option(reason,reason,v.lostReason)).join('')}${v.lostReason&&!model.LOST_REASONS.includes(v.lostReason)?`<option value="${E(v.lostReason)}" selected>${E(v.lostReason)}</option>`:''}</select>`,{required:true,hidden:!isLost})
+        +field('汇率',`<input name="exchangeRate" value="${E(usd?100:v.exchangeRate??100)}" data-rate="${E(v.exchangeRate??100)}" inputmode="decimal"${usd?' readonly':''} aria-describedby="opp-rate-note">`,{required:cfg.exchangeRate.required,hidden:usd,hint:'<span id="opp-rate-note">每 100 外币折合多少美元，仅作记录</span>'})
+        +field('输单原因',`<select name="lostReason"${isLost?' required':' disabled'}><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,v.lostReason)).join('')}${v.lostReason&&!reasons.includes(v.lostReason)?`<option value="${E(v.lostReason)}" selected>${E(v.lostReason)}</option>`:''}</select>`,{required:true,hidden:!isLost})
         +field('输单说明',`<input name="lostNote" value="${E(v.lostNote||'')}"${isLost?'':' disabled'}>`,{hidden:!isLost})
         +(flows.length>1?'':flow)
-        +`</div><div class="form-section">补充信息</div><div class="opp-grid">`
-        +field('商机标签',`<input name="tags" value="${E(list(v.tags))}" placeholder="多个标签用逗号分隔">`,{wide:true})
-        +field('备注',`<textarea name="note" rows="3">${E(v.note||'')}</textarea>`,{wide:true})
-        +field('关联产品',`<textarea name="products" rows="4" placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal})
-        +`</div></form>`;
+        +`</div>`+section('来源与分类',classify)+section('补充信息',extra)+section('自定义字段',(setup.customFields||[]).map(customControl).join(''))
+        +`</form>`;
     }
     function menuMarkup(card,armed=false){
       const stages=card.stages||model.STAGES;
@@ -193,7 +228,7 @@
         +`<div class="opp-menu-group"><button type="button" class="primary" data-opp-action="edit" data-id="${E(card.id)}">编辑商机</button>${stage?.kind==='won'&&!card.orderId?`<button type="button" data-opp-action="order" data-id="${E(card.id)}">生成订单</button>`:''}${card.orderId?`<button type="button" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}</div>`
         +`<h3>调整销售阶段</h3><div class="opp-menu-group">${moves}</div><h3>其他</h3><div class="opp-menu-group"><button type="button" data-opp-action="archive" data-id="${E(card.id)}" data-archived="${card.archived?'0':'1'}">${card.archived?'取消归档':'归档'}</button><button type="button" class="${armed?'team-danger':''}" data-opp-action="delete" data-id="${E(card.id)}">${armed?'再点一次确认删除（不可恢复）':'删除商机'}</button></div><div class="error" id="opp-menu-error" role="alert"></div></div>`;
     }
-    const lostMarkup=card=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" required><option value="">请选择</option>${model.LOST_REASONS.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
+    const lostMarkup=(card,reasons=model.LOST_REASONS)=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" required><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
 
     function analysisMarkup(report,view={}){
       const s=report.summary,c=report.currency;
@@ -203,14 +238,15 @@
       return `<div class="business-scroll opp-page"><div class="opp-summary is-compact"><label class="opp-currency"><span>币种</span><select id="opp-analysis-currency" aria-label="币种">${(report.currencies.length?report.currencies:[c]).map(code=>option(code,code,c)).join('')}</select></label>${report.flows&&report.flows.length>1?`<label class="opp-currency"><span>销售流程</span>${flowSelect('opp-analysis-flow',report.flows,report.flow)}</label>`:''}${report.otherCurrencyCount?`<p class="opp-summary-note">另有 ${report.otherCurrencyCount} 个其他币种的商机未计入本页；不同币种不折算。</p>`:''}</div>`
         +`<div class="team-tiles">${tile('新建商机数',s.created)}${tile('进行中',s.open,money(s.openAmount,c))}${tile('赢单',s.won,money(s.wonAmount,c))}${tile('输单',s.lost,money(s.lostAmount,c))}${tile('赢单率',percent(s.winRate),'赢单 ÷（赢单＋输单）')}${tile('平均成交周期',s.averageDays===null?'—':`${s.averageDays} 天`,'创建到首次赢单')}</div>`
         +`<div class="business-columns"><section class="business-section"><div class="section-head"><h3>销售阶段分布</h3><span class="muted tiny">按商机数量</span></div><div class="opp-bars">${report.stages.map(stage=>`<div class="opp-bar opp-kind-${stage.kind||'open'}"><span class="opp-bar-label">${E(stage.label)}</span><span class="opp-bar-track"><i style="width:${Math.round(stage.count/max*100)}%"></i></span><b class="opp-bar-count">${stage.count} 个 · ${stage.percent}%</b><span class="opp-bar-amount">${money(stage.amount,c)}</span></div>`).join('')}</div></section>`
-        +`<section class="business-section"><div class="section-head"><h3>输单原因</h3></div><table class="order-table team-table"><thead><tr><th>原因</th><th>数量</th><th>金额</th></tr></thead><tbody>${report.lostReasons.map(row=>`<tr><td>${E(row.reason)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有输单</td></tr>'}</tbody></table></section></div>`
+        +`<section class="business-section"><div class="section-head"><h3>输单原因</h3></div><table class="order-table team-table"><thead><tr><th>原因</th><th>数量</th><th>金额</th></tr></thead><tbody>${report.lostReasons.map(row=>`<tr><td>${E(row.reason)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有输单</td></tr>'}</tbody></table></section>`
+        +`<section class="business-section"><div class="section-head"><h3>商机来源</h3><span class="muted tiny">选了几个来源的商机，在每个来源下各算一次</span></div><table class="order-table team-table"><thead><tr><th>来源</th><th>数量</th><th>金额</th></tr></thead><tbody>${(report.sources||[]).map(row=>`<tr><td>${E(row.source)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有商机</td></tr>'}</tbody></table></section></div>`
         +`<section class="business-section"><div class="section-head"><h3>按负责人</h3><span class="muted tiny">按商机上填写的负责人名称汇总，只差大小写的算同一个人；已归档的商机也计入本页</span></div><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>负责人</th><th>新建</th><th>进行中</th><th>赢单</th><th>输单</th><th>赢单金额</th><th>赢单率</th><th>平均成交周期</th></tr></thead><tbody>${report.owners.map(row=>`<tr><td>${E(row.owner)}</td><td>${row.created}</td><td>${row.open}</td><td>${row.won}</td><td>${row.lost}</td><td>${money(row.wonAmount,c)}</td><td>${percent(row.winRate)}</td><td>${row.averageDays===null?'—':row.averageDays+' 天'}</td></tr>`).join('')||'<tr><td colspan="8">所选范围内没有商机</td></tr>'}</tbody></table></div></section></div>`;
     }
 
     // ---------- 销售流程设置 ----------
     // summary：model.flowSummary 的结果；view：{flow 当前流程, armed 等待再次确认删除的那一项}。
     const KIND_NOTES={open:'金额计入「进行中」；过了结束日期会提示逾期。',won:'金额计入「赢单」；可以生成订单；进入时记下赢单时间。',lost:'金额计入「输单」；移入时必须填写输单原因。每个流程固定一个，不能删除。'};
-    function flowsMarkup(summary,view={}){
+    function flowsLayout(summary,view={}){
       const flow=summary.find(item=>item.id===view.flow)||summary[0];
       const kinds=model.KIND_LABELS||{open:'进行中',won:'赢单',lost:'输单'};
       const list=summary.map(item=>`<button type="button" class="opp-flow-item${item.id===flow.id?' is-active':''}" data-flow-select="${E(item.id)}" aria-pressed="${item.id===flow.id}"><span>${E(item.label)}</span><small>${item.stages.length} 个阶段 · ${item.count} 个商机</small></button>`).join('');
@@ -230,13 +266,81 @@
       const armedFlow=view.armed==='flow:'+flow.id;
       const remove=flow.id==='default'?'<span class="muted tiny">默认流程不能删除</span>'
         :`<button type="button" class="${armedFlow?'team-danger':''}" data-flow-action="flow-remove" data-flow="${E(flow.id)}"${flow.count?` disabled title="还有 ${flow.count} 个商机在用这个流程"`:''}>${armedFlow?'再点一次确认删除':'删除这个流程'}</button>${flow.count?`<span class="muted tiny">还有 ${flow.count} 个商机在用，不能删除</span>`:''}`;
-      return `<div class="business-scroll opp-page opp-flows"><div class="opp-flow-layout">`
+      return `<div class="opp-flow-layout">`
         +`<aside class="business-section opp-flow-side"><h3>销售流程</h3><div class="opp-flow-items">${list}</div>`
         +`<form class="opp-flow-add" id="opp-flow-add"><h4>新建流程</h4><input name="label" maxlength="20" placeholder="流程名称，例如：样品单流程" aria-label="新流程名称" required><label class="opp-flow-copy"><span>阶段复制自</span><select name="copyFrom" aria-label="阶段复制自">${summary.map(item=>option(item.id,item.label,flow.id)).join('')}</select></label><button type="submit" class="primary">新建流程</button></form></aside>`
         +`<section class="business-section opp-flow-detail"><div class="error" id="opp-flow-error" role="alert"></div>`
         +`<div class="opp-flow-head"><label class="opp-flow-name"><span>流程名称</span><input data-flow-rename="${E(flow.id)}" value="${E(flow.label)}" maxlength="20" aria-label="流程名称"></label><div class="opp-flow-remove">${remove}</div></div>`
         +`<p class="muted tiny opp-flow-note">阶段从左到右就是看板上的列。名称改完按回车或点别处即保存；阶段的类型（进行中／赢单）建好后不能改，需要时新建一个再把商机移过去。</p>`
-        +group('open')+group('won')+group('lost')+`</section></div></div>`;
+        +group('open')+group('won')+group('lost')+`</section></div>`;
+    }
+    const flowsMarkup=(summary,view={})=>`<div class="business-scroll opp-page opp-flows">${flowsLayout(summary,view)}</div>`;
+
+    // ---------- 商机设置页：销售流程 | 输单原因 | 商机字段 ----------
+    const SET_TABS=[['flows','销售流程'],['reasons','输单原因'],['fields','商机字段']];
+    const SET_NOTES={
+      flows:'每个流程有自己的一组阶段；看板的列、表单里的阶段都跟着这里走。',
+      reasons:'商机移到输单时，要从这里选一个原因。',
+      fields:'决定新建和编辑商机时有哪些字段、哪些必填，也可以加自己的字段。'
+    };
+    const useText=(count,done='个商机在用',none='没有商机在用')=>count?`${count} ${done}`:none;
+    // 一份可增删改排的名单（输单原因、商机类型）。items：[{name,count}]；kind：reasons | types。
+    function choiceBlock(kind,items,view,{label,limit,placeholder}){
+      const rows=items.map((item,index)=>{
+        const armed=view.armed===`${kind}:${item.name}`;
+        return `<li><div class="cs-row"><input class="opp-set-name" data-set-rename="${kind}" data-key="${E(item.name)}" value="${E(item.name)}" maxlength="${model.SET_LIMITS.choiceLen}" aria-label="${label}：${E(item.name)}" autocomplete="off">`
+          +`<span class="cs-use">${useText(item.count)}</span><span class="cs-row-actions">`
+          +`<button type="button" data-set-action="up" data-list="${kind}" data-key="${E(item.name)}" aria-label="上移：${E(item.name)}"${index===0?' disabled':''}>↑</button>`
+          +`<button type="button" data-set-action="down" data-list="${kind}" data-key="${E(item.name)}" aria-label="下移：${E(item.name)}"${index===items.length-1?' disabled':''}>↓</button>`
+          +`<button type="button" class="${armed?'team-danger':''}" data-set-action="remove" data-list="${kind}" data-key="${E(item.name)}" aria-label="${armed?'再点一次确认删除':'删除'}：${E(item.name)}">${armed?'再点一次确认删除':'删除'}</button></span></div></li>`;
+      }).join('');
+      return `<form class="cs-add" id="opp-${kind}-add" data-list="${kind}"><input name="text" maxlength="${model.SET_LIMITS.choiceLen}" placeholder="${placeholder}" aria-label="${placeholder}" autocomplete="off" required><button type="submit" class="primary">添加</button></form>`
+        +(items.length?`<ul class="cs-list">${rows}</ul>`:`<p class="cs-empty">还没有${label}。</p>`)
+        +`<p class="cs-hint">最多 ${limit} 个，每个不超过 ${model.SET_LIMITS.choiceLen} 个字，不能重名。名称改完按回车或点别处即保存。</p>`;
+    }
+    function reasonsTab(data,view){
+      return `<h2>输单原因</h2><p class="cs-note">${SET_NOTES.reasons}已有商机在用的原因不能删除，可以先改名。</p><div class="cs-error error" id="opp-set-error" role="alert"></div>`
+        +choiceBlock('reasons',data.reasons,view,{label:'输单原因',limit:model.SET_LIMITS.reasons,placeholder:'新的输单原因'})
+        +`<p class="cs-hint">至少保留一个原因。改名后，用了它的商机会跟着改。</p>`;
+    }
+    function fieldsTab(data,view){
+      const fixedNote={lostReason:'输单时必填',number:'自动生成，只读',exchangeRate:'美元以外才出现',contact:'客户有联系人时才必填',flow:'有多个销售流程时才出现'};
+      const sysRows=data.fields.map(row=>{
+        const note=fixedNote[row.id]?`<small class="opp-set-note">${E(fixedNote[row.id])}</small>`:'';
+        return `<tr><td>${E(row.label)}${note}</td><td>${E(row.type)}</td>`
+          +`<td><label class="check-row"><input type="checkbox" data-set-field="${row.id}" data-prop="show"${row.show?' checked':''}${row.showLocked?' disabled':''} aria-label="${E(row.label)}显示"> 显示</label></td>`
+          +`<td><label class="check-row"><input type="checkbox" data-set-field="${row.id}" data-prop="required"${row.required?' checked':''}${row.requiredLocked?' disabled':''} aria-label="${E(row.label)}必填"> 必填</label></td></tr>`;
+      }).join('');
+      const cfRows=data.customFields.map((field,index)=>{
+        const armed=view.armed===`cf:${field.id}`,hasOptions=field.type==='select'||field.type==='multi';
+        return `<li class="opp-cf"><div class="cs-row"><input class="opp-set-name" data-cf-rename="${E(field.id)}" value="${E(field.name)}" maxlength="${model.SET_LIMITS.choiceLen}" aria-label="字段名称：${E(field.name)}" autocomplete="off">`
+          +`<span class="opp-cf-type">${E(model.customTypeLabel(field.type))}</span>`
+          +`<label class="check-row"><input type="checkbox" data-cf-required="${E(field.id)}"${field.required?' checked':''} aria-label="${E(field.name)}必填"> 必填</label>`
+          +`<span class="cs-use">${useText(field.count,'个商机已填','还没有商机填过')}</span><span class="cs-row-actions">`
+          +`<button type="button" data-set-action="cf-up" data-key="${E(field.id)}" aria-label="上移：${E(field.name)}"${index===0?' disabled':''}>↑</button>`
+          +`<button type="button" data-set-action="cf-down" data-key="${E(field.id)}" aria-label="下移：${E(field.name)}"${index===data.customFields.length-1?' disabled':''}>↓</button>`
+          +`<button type="button" class="${armed?'team-danger':''}" data-set-action="cf-remove" data-key="${E(field.id)}" aria-label="${armed?'再点一次确认删除':'删除'}：${E(field.name)}">${armed?'再点一次确认删除':'删除'}</button></span></div>`
+          +(hasOptions?`<label class="opp-cf-options"><span>选项（每行一个）</span><textarea data-cf-options="${E(field.id)}" rows="3" aria-label="${E(field.name)}的选项">${E(field.options.join('\n'))}</textarea></label>`:'')
+          +(armed&&field.count?`<p class="opp-cf-warn">有 ${field.count} 个商机填过这个字段。删除后它们的内容不再显示，但数据还留着。</p>`:'')
+          +`</li>`;
+      }).join('');
+      const full=data.customFields.length>=model.SET_LIMITS.customFields;
+      return `<h2>商机字段</h2><p class="cs-note">${SET_NOTES.fields}</p><div class="cs-error error" id="opp-set-error" role="alert"></div>`
+        +`<section class="cs-section"><h3>系统字段</h3><table class="cs-table"><thead><tr><th>字段</th><th>类型</th><th>显示</th><th>必填</th></tr></thead><tbody>${sysRows}</tbody></table><p class="cs-hint">勾选后马上生效。隐藏的字段不在新建和编辑表单里出现，已填的内容保留。</p></section>`
+        +`<section class="cs-section"><h3>商机类型</h3><p class="cs-hint">表单里的「商机类型」从这里选。</p>${choiceBlock('types',data.types,view,{label:'商机类型',limit:model.SET_LIMITS.types,placeholder:'新的商机类型'})}</section>`
+        +`<section class="cs-section"><h3>自定义字段</h3><p class="cs-hint">在表单的「自定义字段」里出现，也显示在商机详情里。最多 ${model.SET_LIMITS.customFields} 个。</p>`
+        +(full?`<p class="cs-full">已经有 ${model.SET_LIMITS.customFields} 个自定义字段，删掉一些再添加。</p>`
+          :`<form class="opp-cf-add" id="opp-cf-add"><input name="name" maxlength="${model.SET_LIMITS.choiceLen}" placeholder="字段名称，例如：付款方式" aria-label="新字段名称" autocomplete="off" required><select name="type" aria-label="字段类型">${model.CUSTOM_TYPES.map(([id,text])=>option(id,text,'text')).join('')}</select><label class="check-row"><input type="checkbox" name="required"> 必填</label><textarea name="options" rows="2" maxlength="2000" placeholder="单选、多选的选项，每行一个（最多 ${model.SET_LIMITS.options} 个）" aria-label="新字段的选项"></textarea><button type="submit" class="primary">添加字段</button></form>`)
+        +(data.customFields.length?`<ul class="cs-list">${cfRows}</ul>`:'<p class="cs-empty">还没有自定义字段。</p>')
+        +`<p class="cs-hint">类型建好后不能改，需要时新建一个。删除只是从表单里拿掉，已填的内容不会丢。</p></section>`;
+    }
+    // data：{summary 销售流程, reasons [{name,count}], types [{name,count}], fields 系统字段, customFields [{...字段,count}]}；view：{tab, flow, armed}。
+    function settingsMarkup(data,view={}){
+      const tab=SET_TABS.some(item=>item[0]===view.tab)?view.tab:'flows';
+      const nav=`<nav class="cs-nav opp-set-tabs" aria-label="商机设置">${SET_TABS.map(([id,text])=>`<button type="button" data-opp-set-tab="${id}" class="${id===tab?'active':''}"${id===tab?' aria-current="page"':''}>${E(text)}</button>`).join('')}</nav>`;
+      const body=tab==='flows'?`<div class="opp-flows opp-set-flows">${flowsLayout(data.summary,view)}</div>`
+        :`<div class="cs-panel opp-set-panel" data-opp-set-panel="${tab}">${tab==='reasons'?reasonsTab(data,view):fieldsTab(data,view)}</div>`;
+      return `<div class="business-scroll opp-page opp-set">${nav}${body}</div>`;
     }
     // 删除一个还有商机的阶段：先选把商机移到哪里。
     function stageRemoveMarkup(flow,stage){
@@ -259,7 +363,7 @@
       if(!card) return '';
       return `<div class="opp-source-banner" role="note"><strong>由商机生成</strong><span>「${E(card.name)}」· ${E(card.client)} · ${money(card.amount,card.currency)}。客户、金额等已按商机预填，保存订单后会自动关联到这个商机。</span></div>`;
     }
-    return {dropBefore,scrollStep,detailMarkup,attachmentsInner,fileSize,stamp,sourceBannerMarkup,menuPosition,flowsMarkup,stageRemoveMarkup,stageOptions,boardMarkup,headerActions,cardMarkup,contactOptions,formMarkup,menuMarkup,lostMarkup,analysisMarkup,shortDate};
+    return {dropBefore,scrollStep,detailMarkup,attachmentsInner,fileSize,stamp,sourceBannerMarkup,menuPosition,flowsMarkup,settingsMarkup,stageRemoveMarkup,stageOptions,boardMarkup,headerActions,cardMarkup,contactOptions,formMarkup,menuMarkup,lostMarkup,analysisMarkup,shortDate};
   }
   const api={create,PAGE};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiOpportunityUI=api;
