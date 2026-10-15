@@ -147,3 +147,14 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   (`native/`, `scripts/build.py`, the integration test stay). Features are verified in the browser and on the web trial.
 - Resuming: set `PAUSED` to `false`; D-016 then applies again. Mac-only risks (Swift code, packaging) go unchecked
   while paused, so run one Mac build before the first desktop release.
+
+### D-020 Saves send only what changed (2026-10-09)
+- Context: with many customers every edit re-sent the whole dataset (11 MB at 10,000 customers). The owner chose
+  "只传改动 + 分页" as the first step toward moving customers to a server later.
+- Decision: the page keeps a snapshot of the saved data and sends only the changed customers, orders and settings to
+  `POST /api/save-changes`; the backend applies them in one transaction with the same `baseRevision` check, verifies
+  the table counts and the order positions, and rolls everything back if they do not match (the page then falls back
+  to the full `POST /api/save`). The SQLite schema and the data directory are unchanged. Reading is still the whole
+  dataset (`GET /api/data`); true server-side paging needs search, sort, segments and counts to move to the server and
+  belongs to the move to a server.
+

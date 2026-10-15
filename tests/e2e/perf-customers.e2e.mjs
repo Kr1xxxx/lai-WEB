@@ -13,7 +13,9 @@ test('5,000 customers: first load, open a customer and save a follow-up stay wit
   assert.ok(r.sortMs < 1500, `sort ${r.sortMs} ms`);
   assert.ok(r.detailMs < 3000, `open a customer ${r.detailMs} ms`);
   assert.ok(r.pageSaveMs < 5000, `save a follow-up ${r.pageSaveMs} ms`);
-  assert.ok(r.apiSaveMs < 3000, `save request ${r.apiSaveMs} ms`);
+  assert.ok(r.apiSaveMs < 3000, `full save request ${r.apiSaveMs} ms`);
+  assert.ok(r.apiDeltaMs < 1500, `changes-only save request ${r.apiDeltaMs} ms`);
+  assert.ok(r.deltaKB < 50, `changes-only save size ${r.deltaKB} KB`);
 });
 
 test('a 25 MB save (about 20,000 customers) is accepted', async () => {

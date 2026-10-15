@@ -23,7 +23,7 @@ function harness({dirty = false, wait = false} = {}) {
     async fetch() { reads++; return wait ? new Promise(resolve => {release = resolve;}) : response; },
     rebuildRows() {rebuilds++;}, refresh() {refreshes++;},
   };
-  vm.createContext(boundary); vm.runInContext(source, boundary);
+  vm.createContext(boundary); vm.runInContext('function adoptServerState(data, serverRevision) { state = data; revision = serverRevision; }', boundary); vm.runInContext(source, boundary);
   return {boundary, original, updated, focus: () => focus(), setDirty(value) {dirty = value;}, release: () => release(response),
     get reads() {return reads;}, get refreshes() {return refreshes;}, get rebuilds() {return rebuilds;}};
 }
@@ -95,6 +95,7 @@ function activityHarness() {
     replaceDetailBody() {rendered++;}, list() {},
   };
   vm.createContext(boundary);
+  vm.runInContext('function adoptServerState(data, serverRevision) { state = data; revision = serverRevision; }', boundary);
   vm.runInContext(`${activitySource}\nthis.runRefresh = refreshActivity;`, boundary);
   return {boundary, original, updated, run: () => boundary.runRefresh(), release: () => release(), fail: () => release(false),
     get visibleButton() {return visibleButton;},

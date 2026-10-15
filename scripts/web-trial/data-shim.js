@@ -103,7 +103,7 @@
   var inner = root.fetch;
   root.fetch = function (input, init) {
     var url = String(typeof input === 'string' ? input : (input && input.url) || '');
-    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/(?:data|save|import-log|manual-backup|open-data-folder|health))(?:\?([^#]*))?$/.exec(url);
+    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/(?:data|save|save-changes|import-log|manual-backup|open-data-folder|health))(?:\?([^#]*))?$/.exec(url);
     if (!match) return inner.apply(root, arguments);
     var method = String(init && init.method || (input && input.method) || 'GET').toUpperCase(), path = match[1];
     try {

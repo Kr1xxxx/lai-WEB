@@ -57,7 +57,7 @@ const mailRoutes = {
   'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
   'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/save-changes', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 
 function securityHeaders(type = '') {
   return {
@@ -183,6 +183,14 @@ const server = http.createServer(async (req, res) => {
         body = await readJsonBody(req);
       }
       return send(res, 200, JSON.stringify(await mailRoute(url.searchParams, body)));
+    }
+    if (url.pathname === '/api/save-changes') {
+      if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
+      const request = await readJsonBody(req);
+      const result = store.saveChanges(request?.changes, { baseRevision: request?.baseRevision, importLog: request?.importLog });
+      let backup;
+      try { backup = store.backup(false); } catch (error) { backup = { ok: false, message: error.message || 'automatic backup failed' }; }
+      return send(res, 200, JSON.stringify({ ok: true, storageMode: 'sqlite', ...result, backup }));
     }
     if (url.pathname === '/api/manual-backup') {
       const backup = store.backup(true);

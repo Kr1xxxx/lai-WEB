@@ -2,7 +2,9 @@
 // the real page. Not part of `npm run test:e2e` (slow); run: node tests/e2e/perf-customers.mjs [sizes] (default 1000,5000,10000,20000).
 // Set PERF_JSON=<file> to also write the numbers. Uses the harness (needs Playwright, see AGENTS.md).
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import { startApp } from './harness.mjs';
+const M = createRequire(import.meta.url)('../../src/model.js');
 import { syntheticData } from './perf-data.mjs';
 
 export async function measure(count, { pageChecks = true } = {}) {
@@ -30,6 +32,16 @@ export async function measure(count, { pageChecks = true } = {}) {
     out.apiSaveMs = await time(async () => {
       const res = await request.post(base + '/api/save', { data: { state: saved, baseRevision: saved.revision } });
       if (res.status() !== 200) throw new Error('save failed ' + res.status());
+    });
+    // Changes only: the same one-customer edit through the route the page uses.
+    const delta = JSON.parse(payload);
+    const before = JSON.parse(payload);
+    delta.data.customers['Synthetic Trading 00002'].note = 'edited again';
+    const diff = M.diffState(M.snapshotState(before.data), delta.data);
+    out.deltaKB = Math.round(JSON.stringify(diff.changes).length / 1024);
+    out.apiDeltaMs = await time(async () => {
+      const res = await request.post(base + '/api/save-changes', { data: { changes: diff.changes, baseRevision: saved.revision + 1 } });
+      if (res.status() !== 200) throw new Error('delta save failed ' + res.status() + ' ' + (await res.text()).slice(0, 200));
     });
     if (!pageChecks) return out;
     // Page
