@@ -138,7 +138,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Decision: the owner decided not to build 工作流 (workflows), 审批流 (approval flows) or 营销设置 (marketing settings).
   Do not recommend them as next steps. They are marked 排除 in `docs/xiaoman/README.md`.
 
-### D-019 Saves send only what changed (2026-10-09)
+### D-020 Saves send only what changed (2026-10-09)
 - Context: with many customers every edit re-sent the whole dataset (11 MB at 10,000 customers). The owner chose
   "只传改动 + 分页" as the first step toward moving customers to a server later.
 - Decision: the page keeps a snapshot of the saved data and sends only the changed customers, orders and settings to

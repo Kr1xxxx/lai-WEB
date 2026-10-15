@@ -1,4 +1,4 @@
-// Saving sends only the changes (D-019), and falls back to the full save when the changes route is unavailable.
+// Saving sends only the changes (D-020), and falls back to the full save when the changes route is unavailable.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { startApp } from './harness.mjs';
