@@ -16,7 +16,8 @@
 - 客户设置 batch A1 merged 2026-10-09 (PR #14, `main` 6941054): seven tabs under 客户 → 客户设置; rules in `VALIDATION.md`.
 - Verification status per feature: `docs/features.json`. Most features were checked in a browser by earlier
   sessions; almost nothing has a recorded walk-through on the Mac app by the owner.
-- Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016) since PR #3. From PR #12 on, the
+- Desktop builds (Mac, Windows) are PAUSED since 2026-10-10 (D-019): web version only. CI skips the Mac job; manual run still possible.
+- Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016, paused) since PR #3. From PR #12 on, the
   decision runs in `merge-policy.yml` from `main`'s copy and merged branches are kept.
 - Last Mac build on `main`: 302e6b2 (20th Claude merge, PR #19; the next one is due after the 30th), green: build, integration test and package passed; artifact `Lai-app-302e6b2…` in that CI run.
 - Web trial: the old page (Version 45, `main` 6941054, A1) could not be read from the current account, so the page was rebuilt
@@ -88,6 +89,6 @@ States: Todo / In progress / Done / Blocked / Cancelled. Only one task "In progr
 - Several sessions work at once; the web trial page is shared, so publishing from a branch hides other unmerged
   work until it merges.
 - macOS CI minutes cost 10× on a private repository (2,000 free minutes ≈ 200 macOS minutes a month); Claude's
-  Mac builds therefore run only every 10th merge (D-016), so a Mac-only break can sit on `main` for a while.
+  Mac builds therefore ran only every 10th merge (D-016); now they are paused altogether (D-019), so a Mac-only break can sit on `main` unnoticed until builds resume.
 - Many unit tests assert on source text and break on refactors; `tests/e2e/` is the reference for behaviour.
 - The Mac app is ad-hoc signed, not notarized: first launch needs right-click → 打开.
