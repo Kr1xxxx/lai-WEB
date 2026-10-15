@@ -4,6 +4,13 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-15 — Claude — Owner asked for four 小满 gaps; built in parallel worktrees and merged on `claude/project-thread-5ob5ux`:
+  商机设置 (route `opp-flows` renamed 商机设置: tabs 销售流程/输单原因/商机字段; `laiSettings.opportunitySettings`; new opportunity fields
+  sources/type/leadId/number/custom), 判重 新线索与已有客户 (`customerSettings.leadDedupe`, default all block), 产品 同步 from xls/xlsx/csv
+  (`laiProductSyncTasks`, undo newest) and 布局 (per form/detail, roles wait for accounts), 单据 编号规则 + `laiDocuments` + 单据记录 +
+  报价单/PI from an opportunity. Fixed the unclosed `.lead-timeline {` in `src/business.css` (everything after it was nested and
+  ignored, incl. opportunity detail/attachment styles) and removed two green colours that this exposed. model 952 / e2e 76 green;
+  ui-audit pink 1440×900 passes. Not done: 商机自动化设置, 归属部门, 销售订单/发货通知 from 商机, layout by role.
 - 2026-10-15 — Claude — Owner said 合并: merged lai-WEB #1, #3, #4, #6, #8 in that order (each branch carried the previous one so
   conflicts were solved once; two decisions were both D-019, the changes-only save is now D-020). Earlier the same day: #9
   (date test), #5 (desktop pause), #2 (customer list speed). Web trial v1.02 published from `main` a34ddbf (Artifact Version 47)
