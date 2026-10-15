@@ -2576,3 +2576,32 @@ td.team-reached {
   background: var(--opp-won);
   color: #fff;
 }
+
+/* ---- 产品：同步、布局、产品详情 ---- */
+.cs-sync .num, .ps-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cs-sync td:first-child { max-width: 220px; overflow-wrap: anywhere; }
+.pl-assign { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.pl-assign .cs-field { margin: 0; }
+.pl-assign select { height: 32px; min-width: 200px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
+.pl-open { background: var(--color-primary-50); }
+.pl-editor h4 { margin: 16px 0 8px; font-size: 13px; font-weight: 600; }
+.pl-section { margin: 0 0 14px; }
+.pl-head { padding-left: 0; font-size: 14px; }
+.pl-field .cs-row-actions select { height: 28px; padding: 0 6px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
+.pl-field .cs-row-actions button:disabled { opacity: 0.4; }
+.prod-sync-dialog { width: min(720px, 100vw); }
+.prod-sync .check-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; font-weight: 400; }
+.prod-sync input[type="radio"] { width: auto; height: auto; }
+.ps-summary { margin: 14px 0 6px; font-size: 14px; }
+.ps-table { max-height: 320px; overflow: auto; border: 1px solid var(--ink-100, #eff0f3); border-radius: 6px; }
+.ps-table .cs-table { margin: 0; }
+.ps-table td, .ps-table th { white-space: normal; }
+.ps-skip td { color: var(--ink-500, #8c8c8c); }
+.pd-body { padding: 8px 24px 20px; }
+.pd-section { margin: 0 0 18px; }
+.pd-section h3 { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--ink-100, #eff0f3); font-size: 14px; font-weight: 600; }
+.pd-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin: 0; }
+.pd-item { min-width: 0; }
+.pd-item.pd-wide { grid-column: 1 / -1; }
+.pd-item dt { font-size: 12px; color: var(--ink-500, #8c8c8c); }
+.pd-item dd { margin: 2px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
