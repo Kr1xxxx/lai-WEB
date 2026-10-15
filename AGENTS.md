@@ -123,7 +123,7 @@ kept):
 - New or removed features and layout changes cannot be detected from files: **add the `major` label yourself**
   (`gh pr edit <n> --add-label major`, or the REST labels API) right after opening the PR, before CI finishes.
 - A `needs-owner` PR merges only after the owner writes 合并 in the conversation about that PR. Then:
-  `gh api -X PUT repos/Kr1xxxx/lai-app/pulls/<n>/merge -f merge_method=merge`, and log it. Merge commits only, no
+  `gh api -X PUT repos/Kr1xxxx/lai-WEB/pulls/<n>/merge -f merge_method=merge`, and log it. Merge commits only, no
   squash.
 - `git fetch origin <branch>` sometimes leaves the remote ref stale; use
   `git fetch origin <branch>:refs/remotes/origin/<branch>`.
