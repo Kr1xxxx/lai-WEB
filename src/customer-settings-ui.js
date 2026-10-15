@@ -121,11 +121,18 @@ function sourcesTab(state, ui, E) {
   const subForm = adding ? `<form class="cs-add" data-cs-form="add-source" data-parent="${E(adding.id)}"><input name="name" placeholder="“${E(adding.name)}”下的新子来源" maxlength="20" aria-label="新子来源名称" autocomplete="off"><button type="submit" class="primary">添加</button><button type="button" data-cs-cancel>取消</button></form>` : "";
   return `<form class="cs-add" data-cs-form="add-source"><input name="name" placeholder="新一级来源名称" maxlength="20" aria-label="新来源名称" autocomplete="off"><button type="submit" class="primary">添加</button></form>${subForm}${list.length ? `<ul class="cs-list cs-tree">${rows}</ul><p class="cs-hint">隐藏后，新建时选不到，但已经在用的客户不受影响。名单里没有的来源仍可以手填。</p>` : empty("还没有来源名单。现在下拉里列的是已经用过的来源；添加后只列这里的。")}`;
 }
-function dedupeTab(state, E) {
-  const modes = CS.get(state).dedupe;
+function dedupeTab(state, ui, E) {
+  const sub = ui && ui.dedupeSub === "lead" ? "lead" : "customer";
+  const modes = CS.get(state)[sub === "lead" ? "leadDedupe" : "dedupe"];
   const radio = (key, value, text) => `<label class="check-row"><input type="radio" name="dedupe:${key}" value="${value}"${modes[key] === value ? " checked" : ""}> ${text}</label>`;
-  const rows = CS.DEDUPE_FIELDS.map(([key, label]) => `<tr><td>${E(label)}</td><td>${radio(key, "allow", "判重，允许保存")}</td><td>${radio(key, "block", "判重，不允许保存")}</td><td>${radio(key, "off", "不判重")}</td></tr>`).join("");
-  return `<form class="cs-dup" data-cs-form="dedupe"><table class="cs-table cs-dedupe"><thead><tr><th>资料</th><th colspan="3">重复时</th></tr></thead><tbody><tr><td>公司名称</td><td colspan="3">固定：不允许保存</td></tr>${rows}</tbody></table><p class="cs-hint">“判重，允许保存”：保存不受影响，重复的客户会出现在“客户查重”页。“判重，不允许保存”：保存时提示和哪位客户相同。只检查这次新增或改过的值，已有的重复不会挡住修改。</p>${saveRow()}</form>`;
+  const rowsOf = (fields) => fields.map(([key, label]) => `<tr><td>${E(label)}</td><td>${radio(key, "allow", "判重，允许保存")}</td><td>${radio(key, "block", "判重，不允许保存")}</td><td>${radio(key, "off", "不判重")}</td></tr>`).join("");
+  const subTab = (id, text) => `<button type="button" role="tab" data-cs-dedupe-sub="${id}" aria-selected="${sub === id}" class="${sub === id ? "active" : ""}">${text}</button>`;
+  const tabs = `<div class="cs-subtabs" role="tablist" aria-label="判重对象">${subTab("customer", "新客户与已有客户")}${subTab("lead", "新线索与已有客户")}</div>`;
+  const head = '<thead><tr><th>资料</th><th colspan="3">重复时</th></tr></thead>';
+  if (sub === "lead") {
+    return `${tabs}<form class="cs-dup" data-cs-form="lead-dedupe"><table class="cs-table cs-dedupe">${head}<tbody>${rowsOf(CS.LEAD_DEDUPE_FIELDS)}</tbody></table><p class="cs-hint">新建或修改线索时，按这里的规则和已有客户比对。</p>${saveRow()}</form>`;
+  }
+  return `${tabs}<form class="cs-dup" data-cs-form="dedupe"><table class="cs-table cs-dedupe">${head}<tbody><tr><td>公司名称</td><td colspan="3">固定：不允许保存</td></tr>${rowsOf(CS.DEDUPE_FIELDS)}</tbody></table><p class="cs-hint">“判重，允许保存”：保存不受影响，重复的客户会出现在“客户查重”页。“判重，不允许保存”：保存时提示和哪位客户相同。只检查这次新增或改过的值，已有的重复不会挡住修改。</p>${saveRow()}</form>`;
 }
 
 function layoutTab(state) {
@@ -263,7 +270,7 @@ function body(tab, state, ui, owners, E) {
   if (tab === "blacklist") return blacklistTab(state, E);
   if (tab === "caps") return capsTab(state, owners, E);
   if (tab === "sources") return sourcesTab(state, ui, E);
-  if (tab === "dedupe") return dedupeTab(state, E);
+  if (tab === "dedupe") return dedupeTab(state, ui, E);
   if (tab === "duplicates") return duplicatesTab(state, E);
   return layoutTab(state);
 }

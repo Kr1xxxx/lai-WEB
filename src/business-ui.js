@@ -1828,6 +1828,16 @@
       if (form.id === "lead-form") {
         if (!leadDraft) return;
         const { id, isNew } = leadDraft;
+        // 和客户相同但设为「允许保存」：第一次点保存先提醒，内容没变再点一次才保存。
+        const warn = LD().saveWarnings(state(), id, data, { mustExist: !isNew });
+        if (warn.message && leadDraft.warned !== warn.message) {
+          leadDraft.warned = warn.message;
+          const box = document.getElementById("lead-warn");
+          if (box) { box.textContent = warn.message; box.hidden = false; }
+          const submit = document.querySelector('button[form="lead-form"]');
+          if (submit) submit.textContent = "仍然保存";
+          return;
+        }
         return saveNext(
           () => LD().upsert(state(), id, data, { mustExist: !isNew }),
           "lead-error",

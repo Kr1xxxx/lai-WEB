@@ -81,6 +81,9 @@
     next.owner=owner==='未分配'?'':limited(owner,MAX.owner,'跟进人');
     next.nextFollow=trim(value('nextFollow'));
     if(next.nextFollow&&!validDate(next.nextFollow))throw new Error('请选择有效的下次跟进日期');
+    const checked=checkedFields(previous,next);
+    const blocked=customerConflicts(state,next).filter(item=>item.mode==='block'&&checked.includes(item.field));
+    if(blocked.length)throw new Error(conflictMessage(blocked));
     if(!previous){
       next.status='new';
       next.createdAt=now;
@@ -167,9 +170,71 @@
     // 已转客户的线索不再提示；别的线索已转客户的，由「与客户相同」这一条覆盖。
     if(statusOf(item)==='converted')return {customer:'',leads:[]};
     const index=customerIndex(state);
-    const byName=index.names.get(key(item.name)),byEmail=trim(item.email)?index.emails.get(key(item.email)):'';
+    const modes=leadModes(state);
+    const byName=modes.name==='off'?null:index.names.get(key(item.name)),byEmail=modes.email!=='off'&&trim(item.email)?index.emails.get(key(item.email)):'';
     const leads=list(state).filter(other=>other.id!==item.id&&!other.trashed&&statusOf(other)!=='converted'&&(key(other.name)===key(item.name)||(trim(item.email)&&key(other.email)===key(item.email)))).map(other=>other.name);
     return {customer:byName?.name||byEmail||'',leads};
+  }
+
+
+  // ---- 新线索与已有客户的判重（客户设置 → 判重设置 → 新线索与已有客户）----
+  const DEDUPE_LABELS={name:'公司名称',website:'公司网址',email:'邮箱',phone:'联系电话'};
+  const DEDUPE_KEYS=Object.keys(DEDUPE_LABELS);
+  const leadModes=state=>{
+    const set=CSM?CSM.get(state).leadDedupe:null;
+    return Object.fromEntries(DEDUPE_KEYS.map(field=>[field,set?.[field]||'block']));
+  };
+  // 网址只比主机名：小写，去掉协议、www.、路径和末尾斜杠。
+  function websiteHost(value){
+    return trim(value).toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//,'').replace(/[/?#].*$/,'').replace(/^www\./,'').replace(/\.+$/,'');
+  }
+  const digitsOf=value=>{const digits=trim(value).replace(/\D/g,'');return digits.length>=6?digits:'';};
+  // 客户资料里这一项的全部取值（已整理成可比对的形式）。
+  function customerValues(field,name,profile){
+    if(field==='name')return [key(name)];
+    if(field==='website')return [websiteHost(profile?.website)].filter(Boolean);
+    if(field==='email')return CSM.dedupeValues(profile,'email');
+    return [...CSM.dedupeValues(profile,'phone'),...CSM.dedupeValues(profile,'landline')];
+  }
+  function leadValue(field,lead){
+    if(field==='name')return key(lead?.name);
+    if(field==='website')return websiteHost(lead?.website);
+    if(field==='email')return trim(lead?.email).toLowerCase();
+    return digitsOf(lead?.phone);
+  }
+  // 线索和已有客户（不含回收站）有哪些资料相同。mode 为不判重的项不返回。
+  function customerConflicts(state,lead){
+    if(!CSM)return [];
+    const modes=leadModes(state),profiles=profilesOf(state),out=[];
+    for(const field of DEDUPE_KEYS){
+      if(modes[field]==='off')continue;
+      const mine=leadValue(field,lead);
+      if(!mine)continue;
+      const hit=Object.keys(profiles).find(name=>LM.bucket(profiles[name])!=='trash'&&customerValues(field,name,profiles[name]).includes(mine));
+      if(hit)out.push({field,label:DEDUPE_LABELS[field],customer:hit,mode:modes[field]});
+    }
+    return out;
+  }
+  // 新建时四项都查；编辑时只查这次改过的。
+  function checkedFields(previous,next){
+    return previous?DEDUPE_KEYS.filter(field=>leadValue(field,previous)!==leadValue(field,next)):DEDUPE_KEYS;
+  }
+  function conflictMessage(conflicts,tail){
+    const byCustomer=new Map();
+    for(const item of conflicts){if(!byCustomer.has(item.customer))byCustomer.set(item.customer,[]);byCustomer.get(item.customer).push(item.label);}
+    const text=[...byCustomer].map(([customer,labels])=>`和已有客户「${customer}」的${labels.join('、')}相同`).join('；');
+    return tail?`${text}，${tail}`:`${text}，不能保存。可以直接给这个客户写跟进。`;
+  }
+  // 保存前的提醒：设为「判重但允许保存」的项里有哪些和客户相同。表单据此先提示一次，再让人确认。
+  function saveWarnings(state,id,input,options={}){
+    const previous=list(state).find(item=>item.id===id);
+    const has=name=>Object.hasOwn(input||{},name);
+    const next={...(previous||{}),id};
+    for(const field of ['name','website','email','phone'])next[field]=has(field)?input[field]:previous?.[field]??'';
+    next.name=cleanName(next.name);
+    const checked=checkedFields(options.mustExist?previous:null,next);
+    const found=customerConflicts(state,next).filter(item=>item.mode==='allow'&&checked.includes(item.field));
+    return {conflicts:found,message:found.length?conflictMessage(found,'确定还要保存吗？'):''};
   }
 
   // 转为客户。mode='new'：用线索资料新建客户档案（名称、国家地区、客户来源必填）；mode='existing'：关联到已有客户，不改客户资料。
@@ -259,7 +324,7 @@
   }
   const trash=(state,today=isoDay(new Date()))=>list(state).filter(item=>item.trashed).map(item=>row(state,item,today)).sort((a,b)=>String(b.trashedDay).localeCompare(String(a.trashedDay))||a.name.localeCompare(b.name,'zh'));
 
-  const api={STATUSES,INVALID_REASONS,SORTS,list,statusOf,statusLabel,upsert,addFollowup,markInvalid,reopen,setTrashed,remove,convert,convertDefaults,duplicatesOf,defaults,ownerNames,sourceNames,customerNames,
+  const api={STATUSES,INVALID_REASONS,SORTS,list,statusOf,statusLabel,upsert,addFollowup,markInvalid,reopen,setTrashed,remove,convert,convertDefaults,duplicatesOf,customerConflicts,saveWarnings,websiteHost,defaults,ownerNames,sourceNames,customerNames,
     detail,page,trash,localDay,validDate};
   if(node)module.exports=api;else root.LaiLeadModel=api;
 })(typeof window!=='undefined'?window:globalThis);

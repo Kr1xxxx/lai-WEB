@@ -25,6 +25,9 @@ const DEDUPE_FIELDS = Object.freeze([
 ]);
 const DEDUPE_MODES = Object.freeze(["allow", "block", "off"]);
 const DEFAULT_DEDUPE = Object.freeze({ customerCode: "block", email: "allow", phone: "allow", landline: "off", socialAccount: "off", website: "off", shortName: "off", companyAddress: "off", alibabaId: "off" });
+// 新线索与已有客户的判重：线索的这四项和客户资料比对（小满第二个判重页签）。
+const LEAD_DEDUPE_FIELDS = Object.freeze([["name", "公司名称"], ["website", "公司网址"], ["email", "邮箱"], ["phone", "联系电话"]]);
+const DEFAULT_LEAD_DEDUPE = Object.freeze({ name: "block", website: "block", email: "block", phone: "block" });
 const LIMITS = Object.freeze({ sources: 100, sourceChildren: 30, stages: 30, types: 50, groups: 100, children: 30, blacklist: 500, name: 20, cap: 100000 });
 
 // 哪些动作算“最近联系 / 最近跟进”。
@@ -44,6 +47,7 @@ const DEFAULTS = Object.freeze({
   caps: { defaultLimit: 0, perOwner: {} },
   duplicateFields: ["country"],
   dedupe: DEFAULT_DEDUPE,
+  leadDedupe: DEFAULT_LEAD_DEDUPE,
   sources: [],
   layout: "left-small",
   followRules: DEFAULT_FOLLOW_RULES,
@@ -209,6 +213,7 @@ function readSettings(raw) {
     duplicateFields,
     sources: normalizeSources(raw.sources),
     dedupe: Object.fromEntries(DEDUPE_FIELDS.map(([key]) => [key, raw.dedupe && DEDUPE_MODES.includes(raw.dedupe[key]) ? raw.dedupe[key] : DEFAULT_DEDUPE[key]])),
+    leadDedupe: Object.fromEntries(LEAD_DEDUPE_FIELDS.map(([key]) => [key, raw.leadDedupe && DEDUPE_MODES.includes(raw.leadDedupe[key]) ? raw.leadDedupe[key] : DEFAULT_LEAD_DEDUPE[key]])),
     layout: raw.layout === "left-large" ? "left-large" : "left-small",
     followRules: {
       contact: normalizeFollowList(raw.followRules && raw.followRules.contact, DEFAULT_FOLLOW_RULES.contact),
@@ -589,6 +594,15 @@ function setDedupe(state, modes) {
   }
   return put(state, { dedupe: next });
 }
+function setLeadDedupe(state, modes) {
+  const next = {};
+  for (const [key, label] of LEAD_DEDUPE_FIELDS) {
+    const mode = modes && modes[key];
+    if (!DEDUPE_MODES.includes(mode)) throw new Error(`请选择“${label}”的判重方式`);
+    next[key] = mode;
+  }
+  return put(state, { leadDedupe: next });
+}
 const dedupeKey = (key, value) => {
   const text = trim(value);
   if (key === "phone" || key === "landline") { const digits = text.replace(/\D/g, ""); return digits.length >= 6 ? digits : ""; }
@@ -839,7 +853,7 @@ const api = {
   addBlacklist, removeBlacklist, blacklistHit, assertEmailsAllowed,
   limitFor, ownerCount, assertCanTake, capRows, setCaps,
   sourceChoices, sourcePath, sourceUse, addSource, renameSource, setSourceHidden, moveSource, deleteSource,
-  setDuplicateFields, duplicateValue, setLayout, setDedupe, assertNotDuplicate, dedupeValues,
+  setDuplicateFields, duplicateValue, setLayout, setDedupe, setLeadDedupe, LEAD_DEDUPE_FIELDS, assertNotDuplicate, dedupeValues,
   FOLLOW_ACTIONS, setFollowRules, contactTimes,
   setDealRule, lastDealDate,
   setActivity, autoMailSince,
