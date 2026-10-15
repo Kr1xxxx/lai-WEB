@@ -1442,10 +1442,12 @@
       box.innerHTML = `<div class="order-doc-preview" data-order-doc-saved="${E(id)}"><div class="dt-side-head"><strong>${E(doc.snapshot.typeName)} ${E(doc.number)}</strong><span class="order-doc-buttons">${doc.status === "已作废" ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(id)}"`, true)}${button("order-doc-close", "收起")}</span></div>${DU().paperMarkup(doc)}</div>`;
     }
     function saveOrderDoc(type) {
+      // 先取表单里的内容：保存时整个页面的输入框会暂时停用，那时读不到。
+      const input = orderDocInput();
       let saved = null;
       return saveNext(
         () => {
-          const result = DM().saveDocument(state(), { ...orderDocInput(), type, today: docToday() });
+          const result = DM().saveDocument(state(), { ...input, type, today: docToday() });
           saved = result.doc;
           return result.state;
         },
