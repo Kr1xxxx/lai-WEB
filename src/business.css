@@ -2592,6 +2592,7 @@ td.team-reached {
 .dt-records-bar select, .dt-records-bar input { height: 32px; padding: 0 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); background: #fff; font: inherit; }
 .dt-records-bar input { width: 240px; }
 .dt-records td.num, .dt-records th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dt-records td:nth-child(2), .dt-records td:nth-child(5) { white-space: nowrap; }
 .dt-records .dt-row-actions { white-space: nowrap; display: flex; gap: 6px; }
 .dt-records .dt-row-actions button { height: 28px; padding: 0 10px; }
 .dt-records tr.is-void td { color: var(--ink-400, #a6a6a6); }
