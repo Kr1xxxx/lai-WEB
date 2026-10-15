@@ -550,7 +550,7 @@
         if(config[key].required&&!trim(merged[key])){skip(key==='name'?'缺产品名称':`缺少“${label}”`);break;}
       }
       if(!reason&&target){
-        changes=changes.filter(key=>values[key]!==trim(target[key]));
+        changes=changes.filter(key=>key!=='code'&&values[key]!==trim(target[key]));
         if(!changes.length)skip('内容没变');
       }
       if(!reason&&!target&&room<=0)skip(`产品最多 ${LIMITS.products} 个`);
