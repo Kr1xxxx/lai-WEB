@@ -62,11 +62,18 @@
   function buildCustomers(state = {}) {
     const orders = state.orders || [];
     const names = [...new Set([...Object.keys(state.customers || {}), ...orders.map(o => o.client).filter(Boolean)])];
+    // Group the orders by customer once: filtering the whole order list per customer made this O(customers × orders).
+    const ordersByClient = new Map();
+    for (const order of orders) {
+      if (!ordersByClient.has(order.client)) ordersByClient.set(order.client, []);
+      ordersByClient.get(order.client).push(order);
+    }
     return names.map(name => {
-      const related = orders.filter(o => o.client === name && !o.isDraft && amount(o.amount)>0).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
+      const own = ordersByClient.get(name) || [];
+      const related = own.filter(o => !o.isDraft && amount(o.amount)>0).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
       const profile = state.customers?.[name] || {};
       const history = Array.isArray(profile.history) ? profile.history : [];
-      const recent = related[0] || orders.find(o=>o.client===name) || {};
+      const recent = related[0] || own[0] || {};
       const values = {...recent,...profile};
       let total=0,paid=0,missingRates=0;
       for (const order of related) {
@@ -372,7 +379,53 @@
     if(!changed)throw new Error('所选客户的字段无需更新');
     return {...state,customers};
   }
-  const api={contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,tags};
+  // 只保存改动：snapshotState 把已保存的数据按客户/订单/设置各存成一段文字，diffState 拿它和要保存的新数据比，
+  // 只挑出变了的部分。按文字比较（不是比引用），所以就算某处直接改了旧对象也不会漏。
+  const ORDER_BUCKETS=['orders','trashOrders','deletedOrders'];
+  const ENTITY_KEYS=new Set([...ORDER_BUCKETS,'customers','trackingLookups']);
+  function snapshotState(data={}) {
+    const customers=new Map(),orders=new Map(),sequence={},app=new Map();
+    for(const [name,customer] of Object.entries(data.customers||{}))customers.set(name,JSON.stringify(customer));
+    for(const bucket of ORDER_BUCKETS){
+      const ids=[];
+      for(const order of Array.isArray(data[bucket])?data[bucket]:[]){orders.set(String(order?.id||''),{bucket,json:JSON.stringify(order)});ids.push(String(order?.id||''));}
+      sequence[bucket]=ids.join('\u0001');
+    }
+    for(const [key,value] of Object.entries(data))if(!ENTITY_KEYS.has(key))app.set(key,JSON.stringify(value));
+    return {customers,orders,sequence,app,lookups:JSON.stringify(data.trackingLookups||[])};
+  }
+  function diffState(saved, data={}) {
+    const next=snapshotState(data);
+    const changes={counts:{
+      orders:(data.orders||[]).length,trashOrders:(data.trashOrders||[]).length,deletedOrders:(data.deletedOrders||[]).length,
+      customers:next.customers.size,trackingLookups:(data.trackingLookups||[]).length}};
+    let empty=true;
+    const customerSet={},customerRemove=[];
+    for(const [name,json] of next.customers)if(saved.customers.get(name)!==json){customerSet[name]=data.customers[name];empty=false;}
+    for(const name of saved.customers.keys())if(!next.customers.has(name)){customerRemove.push(name);empty=false;}
+    changes.customers={set:customerSet,remove:customerRemove};
+    const orderSet={},orderRemove=[],sequence={};
+    let byId=null;
+    for(const [id,entry] of next.orders){
+      const before=saved.orders.get(id);
+      if(!before||before.json!==entry.json||before.bucket!==entry.bucket){
+        byId??=new Map(ORDER_BUCKETS.flatMap(bucket=>(data[bucket]||[]).map(order=>[String(order?.id||''),order])));
+        orderSet[id]={bucket:entry.bucket,order:byId.get(id)};empty=false;
+      }
+    }
+    for(const id of saved.orders.keys())if(!next.orders.has(id)){orderRemove.push(id);empty=false;}
+    for(const bucket of ORDER_BUCKETS)if(next.sequence[bucket]!==saved.sequence[bucket]){
+      sequence[bucket]=(data[bucket]||[]).map(order=>String(order?.id||''));empty=false;
+    }
+    changes.orders={set:orderSet,remove:orderRemove,sequence};
+    if(next.lookups!==saved.lookups){changes.trackingLookups=data.trackingLookups||[];empty=false;}
+    const appState={},removeAppState=[];
+    for(const [key,json] of next.app)if(saved.app.get(key)!==json){appState[key]=data[key];empty=false;}
+    for(const key of saved.app.keys())if(!next.app.has(key)){removeAppState.push(key);empty=false;}
+    changes.appState=appState;changes.removeAppState=removeAppState;
+    return {changes,snapshot:next,empty};
+  }
+  const api={snapshotState,diffState,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,tags};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.PreviewModel=api;
 })(typeof window!=='undefined'?window:globalThis);

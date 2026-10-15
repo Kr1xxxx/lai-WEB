@@ -103,7 +103,7 @@
   var inner = root.fetch;
   root.fetch = function (input, init) {
     var url = String(typeof input === 'string' ? input : (input && input.url) || '');
-    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/(?:data|save|import-log|manual-backup|open-data-folder|health))(?:\?([^#]*))?$/.exec(url);
+    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/(?:data|save|save-changes|import-log|manual-backup|open-data-folder|health))(?:\?([^#]*))?$/.exec(url);
     if (!match) return inner.apply(root, arguments);
     var method = String(init && init.method || (input && input.method) || 'GET').toUpperCase(), path = match[1];
     try {
@@ -119,6 +119,7 @@
         return Promise.resolve(save(body));
       }
       if (path === '/api/manual-backup' && method === 'POST') return Promise.resolve(json(501, {ok: false, message: '网页试用版不能保存文件。请到设置中心的「测试数据」里复制备份。'}));
+      if (path.startsWith('/api/opportunity-file')) return Promise.resolve(json(501, {ok: false, message: '网页试用版不能上传附件，请在 Mac 应用里使用。'}));
       if (path === '/api/open-data-folder' && method === 'POST') return Promise.resolve(json(501, {ok: false, message: '网页试用版没有数据文件夹，数据保存在这个浏览器里。'}));
     } catch (error) {
       return Promise.resolve(json(500, {ok: false, message: '试用版数据出错：' + error.message}));

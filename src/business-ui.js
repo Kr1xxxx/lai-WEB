@@ -411,6 +411,8 @@
     let oppDraft = null,
       oppArmed = "",
       oppDrag = "",
+      oppHover = null,
+      oppUndoTimer = 0,
       // 从客户详情页发起的商机操作：记下客户名，保存后回到该客户，而不是画商机页面。
       oppReturn = "";
     const onOppPage = () => route === "opportunities" || route === "opp-analysis" || !!oppReturn;
@@ -588,13 +590,6 @@
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
     }
-    function moveOpp(id, stage, errorId) {
-      const item = oppItem(id);
-      if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-      if (item.stage === stage) return;
-      if (stage === "lost") return showOppLost(id);
-      return saveNext(() => OM().moveStage(state(), id, stage), errorId, oppDone);
-    }
     const nextOrderNumber = () => {
       const defaults = state().laiSettings || state().orderSettings || {};
       return (defaults.orderPrefix || "L") + B.localDate().replaceAll("-", "") + "-" + String(activeOrders().length + 1).padStart(3, "0");
@@ -614,6 +609,8 @@
       const action = d.oppAction;
       if (action !== "delete") oppArmed = "";
       if (action === "new") return openOppForm();
+      if (action === "detail") return showOppDetail(d.id);
+      if (action === "undo") return undoMove();
       if (action === "edit") return openOppForm(d.id);
       if (action === "menu") return showOppMenu(d.id);
       if (action === "more") {
@@ -629,8 +626,252 @@
           return showOppMenu(d.id);
         }
         oppArmed = "";
-        return saveNext(() => OM().remove(state(), d.id), "opp-menu-error", oppDone);
+        // 删除商机时一并删掉它的附件文件（先记下文件地址，保存成功之后再删）。
+        const files = OM().filesOf(state(), d.id);
+        return saveNext(() => OM().remove(state(), d.id), "opp-menu-error", oppDone).then((saved) => saved && discardFiles(files));
       }
+    }
+    // ---------- 商机详情与附件 ----------
+    const attachView = { id: "", renaming: "", armed: "", preview: "", busy: false };
+    let previewUrls = [];
+    async function oppCall(path, payload) {
+      if (!ctx.request) throw new Error("当前环境不能使用附件功能");
+      const response = await ctx.request(path, payload);
+      let data = null;
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok || !data || data.ok === false) throw new Error((data && data.message) || `请求失败（${response.status}）`);
+      return data;
+    }
+    const setText = (id, text, error = false) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      el.classList?.[error && text ? "add" : "remove"]?.("visible");
+    };
+    const attachError = (text) => setText("opp-attach-error", text, true);
+    function detailBody(id) {
+      const detail = OM().detailOf(state(), id, B.localDate());
+      if (!detail) return "";
+      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1 }, attachView);
+    }
+    function showOppDetail(id) {
+      const detail = OM().detailOf(state(), id, B.localDate());
+      if (!detail) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      Object.assign(attachView, { id, renaming: "", armed: "", preview: "", busy: false });
+      releasePreviews();
+      ctx.dialog(
+        E(detail.name),
+        detailBody(id),
+        `<button type="button" data-action="close-modal">关闭</button><button type="button" data-opp-action="menu" data-id="${E(id)}">更多操作</button><button class="primary" type="button" data-opp-action="edit" data-id="${E(id)}">编辑商机</button>`,
+        "opp-detail",
+      );
+      hydratePreview();
+    }
+    function releasePreviews() {
+      previewUrls.forEach((url) => root.URL?.revokeObjectURL?.(url));
+      previewUrls = [];
+    }
+    // 图片预览：通过本机服务取回文件，转成页面内的临时地址显示。
+    async function hydratePreview() {
+      const img = document.querySelector?.("img[data-opp-fetch]");
+      if (!img) return;
+      const wanted = attachView.preview;
+      try {
+        const response = await ctx.request(`/api/opportunity-file?url=${encodeURIComponent(img.dataset.oppFetch)}`);
+        if (!response.ok) throw new Error(`读取失败（${response.status}）`);
+        const url = root.URL.createObjectURL(await response.blob());
+        if (attachView.preview !== wanted || !img.isConnected) return root.URL.revokeObjectURL(url);
+        previewUrls.push(url);
+        img.src = url;
+      } catch (error) {
+        attachError(`预览失败：${error.message}`);
+      }
+    }
+    function refreshAttach() {
+      const box = document.getElementById("opp-attach");
+      const detail = OM().detailOf(state(), attachView.id, B.localDate());
+      if (!box || !detail) return;
+      releasePreviews();
+      // 刷新列表不能把刚显示的错误提示冲掉。
+      const shown = document.getElementById("opp-attach-error")?.textContent || "";
+      box.innerHTML = OU().attachmentsInner(detail.attachments, attachView);
+      if (shown) attachError(shown);
+      hydratePreview();
+    }
+    // 文件已经传到本机但没能记进商机时，把这些文件删掉，不留孤儿文件。
+    async function discardFiles(urls) {
+      const fileUrls = urls.filter(Boolean);
+      if (fileUrls.length) try { await oppCall("/api/opportunity-file/delete", { fileUrls }); } catch (_) {}
+    }
+    async function uploadFiles(fileList) {
+      const id = attachView.id;
+      if (!id || attachView.busy) return;
+      const files = [...(fileList || [])];
+      if (!files.length) return;
+      attachError("");
+      const item = oppItem(id);
+      if (!item) return attachError("商机不存在，可能已被删除");
+      if (!ctx.upload) return attachError("当前环境不能上传附件");
+      const limits = OM().ATTACHMENT_LIMITS, notes = [], accepted = [];
+      for (const file of files) {
+        try { OM().checkFile(file); accepted.push(file); } catch (error) { notes.push(error.message); }
+      }
+      const room = Math.max(0, limits.maxCount - (Array.isArray(item.attachments) ? item.attachments.length : 0));
+      if (accepted.length > room) {
+        notes.push(`一个商机最多 ${limits.maxCount} 个附件，还能再添加 ${room} 个，其余 ${accepted.length - room} 个没有上传`);
+        accepted.length = room;
+      }
+      if (!accepted.length) return attachError(notes.join("\n"));
+      attachView.busy = true;
+      refreshAttach();
+      const uploaded = [];
+      try {
+        for (const [index, file] of accepted.entries()) {
+          setText("opp-attach-status", `正在上传 ${index + 1} / ${accepted.length}：${file.name}`);
+          try {
+            const response = await ctx.upload(`/api/opportunity-file/upload?id=${encodeURIComponent(id)}&name=${encodeURIComponent(file.name)}&type=${encodeURIComponent(file.type || "")}`, file);
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data || data.ok === false) throw new Error((data && data.message) || `上传失败（${response.status}）`);
+            uploaded.push(data.file);
+          } catch (error) {
+            notes.push(error.message.startsWith("「") ? error.message : `「${file.name}」上传失败：${error.message}`);
+          }
+        }
+        if (uploaded.length) {
+          setText("opp-attach-status", "正在保存…");
+          const saved = await saveNext(() => OM().addAttachments(state(), id, uploaded), "opp-attach-error", () => { attachView.busy = false; refreshAttach(); });
+          if (!saved) await discardFiles(uploaded.map((file) => file.fileUrl));
+        }
+      } finally {
+        attachView.busy = false;
+        setText("opp-attach-status", "");
+        refreshAttach();
+      }
+      if (notes.length) attachError(notes.join("\n"));
+    }
+    function attachAction(d, form) {
+      const id = attachView.id, action = d.attachAction;
+      if (action !== "delete") attachView.armed = "";
+      const entry = OM().attachmentsOf(oppItem(id)).find((item) => item.id === d.att);
+      attachError("");
+      if (action === "preview-close") { attachView.preview = ""; return refreshAttach(); }
+      if (action === "rename-cancel") { attachView.renaming = ""; return refreshAttach(); }
+      if (!entry) { attachError("附件不存在，可能已被删除"); return refreshAttach(); }
+      if (action === "preview") { attachView.preview = entry.id; return refreshAttach(); }
+      if (action === "rename") { attachView.renaming = entry.id; refreshAttach(); return document.querySelector?.("#opp-attach-rename input")?.select?.(); }
+      if (action === "save") {
+        return oppCall("/api/opportunity-file/save", { fileUrl: entry.fileUrl, name: entry.name })
+          .then((data) => ctx.toast(`已保存到「下载」：${data.filename}`))
+          .catch((error) => attachError(error.message));
+      }
+      if (action === "delete") {
+        if (attachView.armed !== entry.id) { attachView.armed = entry.id; return refreshAttach(); }
+        attachView.armed = "";
+        return saveNext(() => OM().removeAttachment(state(), id, entry.id), "opp-attach-error", () => { if (attachView.preview === entry.id) attachView.preview = ""; refreshAttach(); })
+          .then((saved) => saved && discardFiles([entry.fileUrl]));
+      }
+    }
+    // ---------- 拖动、撤销、键盘 ----------
+    const stageName = (id) => OM().flowOf(state(), oppView.filters.flow).stages.find((stage) => stage.id === id)?.label || id;
+    const manualSort = () => oppView.filters.sort === "manual";
+    function clearUndo() {
+      oppView.undo = null;
+      if (oppUndoTimer) root.clearTimeout?.(oppUndoTimer);
+      oppUndoTimer = 0;
+    }
+    function offerUndo(label, before, after) {
+      clearUndo();
+      oppView.undo = { label, before, after };
+      oppUndoTimer = root.setTimeout?.(() => { oppUndoTimer = 0; oppView.undo = null; document.getElementById("opp-undo")?.remove?.(); }, 8000) || 0;
+    }
+    // 保存一次移动，成功后在页面底部给 8 秒的「撤销」。
+    function moveWithUndo(label, makeNext, errorId) {
+      const before = state();
+      let after = null;
+      return saveNext(() => (after = makeNext()), errorId, () => { offerUndo(label, before, after); return oppDone(); });
+    }
+    function undoMove() {
+      const undo = oppView.undo;
+      clearUndo();
+      if (!undo) return;
+      if (state() !== undo.after) { ctx.toast("数据已有新的修改，不能撤销了"); return render(true); }
+      return saveNext(() => undo.before, "", () => {}).then((saved) => { if (saved) ctx.toast("已撤销"); });
+    }
+    // drop：拖放才有，{before}；没有 drop 参数就是菜单／键盘的普通移动。
+    function moveOpp(id, stage, errorId, drop) {
+      const item = oppItem(id);
+      if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      const current = OM().stageOf(state(), item).id;
+      if (drop && current === stage && !manualSort()) return ctx.toast("当前不是「手动排序」，不能调整卡片的先后。想自己排顺序，请先把右上角的排序改成「手动排序」");
+      if (current === stage && !drop) return;
+      if (stage === "lost" && current !== "lost") return showOppLost(id);
+      const label = current === stage ? `已调整「${item.name || "商机"}」的位置` : `已移到「${stageName(stage)}」`;
+      if (drop && manualSort()) return moveWithUndo(label, () => OM().reorder(state(), id, { stage, before: drop.before }), errorId);
+      return moveWithUndo(label, () => OM().moveStage(state(), id, stage), errorId);
+    }
+    function dragTarget(e) {
+      const column = e.target.closest?.("[data-opp-drop]");
+      if (!column) return null;
+      let before = "";
+      if (manualSort()) {
+        const cards = [...(column.querySelectorAll?.(".opp-card") || [])].filter((card) => card.dataset.oppId !== oppDrag);
+        before = OU().dropBefore(cards.map((card) => { const box = card.getBoundingClientRect(); return { id: card.dataset.oppId, top: box.top, bottom: box.bottom }; }), e.clientY);
+      }
+      return { column, stage: column.dataset.oppDrop, before };
+    }
+    function clearDragMarks() {
+      oppHover = null;
+      document.querySelectorAll?.(".opp-drop-line").forEach((node) => node.remove());
+      document.querySelectorAll?.(".is-drop-target,.is-dragging,.is-dragging-board").forEach((node) => node.classList.remove("is-drop-target", "is-dragging", "is-dragging-board"));
+    }
+    function markDrop(target) {
+      if (oppHover && oppHover.column === target.column && oppHover.before === target.before) return;
+      document.querySelectorAll?.(".opp-drop-line").forEach((node) => node.remove());
+      document.querySelectorAll?.(".is-drop-target").forEach((node) => node.classList.remove("is-drop-target"));
+      oppHover = target;
+      target.column.classList?.add("is-drop-target");
+      if (!manualSort() || !document.createElement) return;
+      const line = document.createElement("div");
+      line.className = "opp-drop-line";
+      const holder = target.column.querySelector(".opp-cards"), next = target.before && holder?.querySelector(`[data-opp-id="${cssEscape(target.before)}"]`);
+      if (next) holder.insertBefore(line, next);
+      else holder?.insertBefore(line, holder.querySelector(".opp-more"));
+    }
+    // 拖到看板左右边缘横向滚动，拖到页面上下边缘纵向滚动。
+    function autoScroll(e) {
+      const board = e.target.closest?.(".opp-board"), page = e.target.closest?.(".opp-page");
+      if (board?.getBoundingClientRect) {
+        const box = board.getBoundingClientRect();
+        board.scrollLeft += OU().scrollStep(e.clientX, box.left, box.right);
+      }
+      if (page?.getBoundingClientRect) {
+        const box = page.getBoundingClientRect();
+        page.scrollTop += OU().scrollStep(e.clientY, box.top, box.bottom);
+      }
+    }
+    const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+    function cardKey(e) {
+      if (route !== "opportunities" || oppView.mode === "list" || e.defaultPrevented || e.isComposing || e.repeat) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key) || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      if (e.target.closest?.("input,select,textarea,[contenteditable]")) return;
+      const card = e.target.closest?.(".opp-card");
+      if (!card) return;
+      const id = card.dataset.oppId, vertical = e.key.startsWith("ArrowU") || e.key.startsWith("ArrowD");
+      if (vertical !== Boolean(e.altKey)) return;
+      e.preventDefault();
+      const refocus = () => document.querySelector?.(`[data-opp-id="${cssEscape(id)}"] .opp-card-name`)?.focus?.({ preventScroll: false });
+      if (!vertical) {
+        const columns = OM().board(state(), oppView.filters, B.localDate()).columns.map((column) => column.id);
+        const at = columns.indexOf(OM().stageOf(state(), oppItem(id) || {}).id), to = columns[at + (e.key === "ArrowLeft" ? -1 : 1)];
+        if (at < 0 || !to) return;
+        return Promise.resolve(moveOpp(id, to, "")).then(refocus);
+      }
+      if (!manualSort()) return ctx.toast("要用键盘调整先后，请先把排序改成「手动排序」");
+      const cards = [...(card.parentElement?.querySelectorAll?.(".opp-card") || [])], at = cards.indexOf(card);
+      const stage = card.closest("[data-opp-drop]")?.dataset.oppDrop;
+      const before = e.key === "ArrowUp" ? cards[at - 1]?.dataset.oppId : cards[at + 2]?.dataset.oppId || "";
+      if (at < 0 || (e.key === "ArrowUp" && at === 0) || (e.key === "ArrowDown" && at === cards.length - 1)) return;
+      return Promise.resolve(moveOpp(id, stage, "", { before })).then(refocus);
     }
     const OPP_FILTERS = { "opp-flow": "flow", "opp-sort": "sort", "opp-currency": "currency", "opp-date-field": "dateField", "opp-from": "from", "opp-to": "to", "opp-archived": "archived", "opp-owner": "owner", "opp-search": "search" };
     // ---------- 线索：列表、新建／编辑、写跟进、转为客户、标记无效、回收站 ----------
@@ -964,6 +1205,10 @@
         ? document.getElementById("biz-order-scroll") : null;
       const scroll = previous
         ? { top: previous.scrollTop, left: previous.scrollLeft } : null;
+      // 商机看板：保存／拖动后页面和看板的滚动位置不回到开头。
+      const oppScroll = preserveOrderScroll && route === "opportunities"
+        ? { page: document.querySelector?.(".opp-page"), board: document.querySelector?.(".opp-board") } : null;
+      const oppPosition = oppScroll?.page ? { top: oppScroll.page.scrollTop, left: oppScroll.board?.scrollLeft || 0 } : null;
       settingsDirty = false;
       const views = {
         dashboard: renderDashboard,
@@ -990,6 +1235,11 @@
       };
       ctx.mount((views[route] || renderDashboard)());
       if (route === "dashboard" && glassSkin()) loadWorkbenchMail();
+      if (oppPosition) {
+        const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
+        if (page) page.scrollTop = oppPosition.top;
+        if (board) board.scrollLeft = oppPosition.left;
+      }
       if (scroll) {
         const current = document.getElementById("biz-order-scroll");
         if (current) {
@@ -1220,9 +1470,15 @@
       }
     }
     document.addEventListener("click", (e) => {
+      // 点卡片的空白处也打开详情（按钮、链接、输入框照常工作）。
+      if (route === "opportunities" && !e.target.closest("button,a,input,select,textarea,label")) {
+        const cardEl = e.target.closest(".opp-card");
+        if (cardEl?.dataset.oppId) return showOppDetail(cardEl.dataset.oppId);
+      }
       const el = e.target.closest("button");
       if (!el || el.disabled) return;
       const d = el.dataset;
+      if (d.attachAction && onOppPage() && attachView.id) return attachAction(d);
       if (d.oppAction && onOppPage()) return oppAction(d);
       if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
       if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove)) return productClick(d);
@@ -1377,26 +1633,57 @@
         document.getElementById("biz-search").focus();
       }
     });
-    // 看板拖动：把卡片拖到另一列即调整阶段；拖到输单会先问原因。
+    // 看板拖动：拖到另一列调整阶段，「手动排序」下还能在列内调整先后；拖到输单会先问原因。拖进来的文件放进详情里的附件区。
     document.addEventListener("dragstart", (e) => {
       const card = route === "opportunities" ? e.target.closest?.("[data-opp-id]") : null;
       oppDrag = card ? card.dataset.oppId : "";
-      if (card) e.dataTransfer?.setData("text/plain", oppDrag);
+      if (!card) return;
+      e.dataTransfer?.setData("text/plain", oppDrag);
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+      // 稍后再变淡，否则拖动时跟着鼠标的影像也是淡的。
+      root.setTimeout?.(() => { if (oppDrag === card.dataset.oppId) { card.classList.add("is-dragging"); card.closest?.(".opp-board")?.classList.add("is-dragging-board"); } }, 0);
     });
     document.addEventListener("dragover", (e) => {
-      if (oppDrag && e.target.closest?.("[data-opp-drop]")) e.preventDefault();
+      if (hasFiles(e) && onOppPage() && document.getElementById("opp-attach")) {
+        // 文件只能放在附件区；放在别处什么也不做（也不让浏览器把文件当网页打开）。
+        e.preventDefault();
+        const zone = e.target.closest?.("[data-opp-dropzone]");
+        document.querySelectorAll?.(".opp-dropzone.is-over").forEach((node) => { if (node !== zone) node.classList.remove("is-over"); });
+        zone?.classList?.add("is-over");
+        if (e.dataTransfer) e.dataTransfer.dropEffect = zone ? "copy" : "none";
+        return;
+      }
+      if (!oppDrag) return;
+      const target = dragTarget(e);
+      if (!target) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      markDrop(target);
+      autoScroll(e);
+    });
+    document.addEventListener("dragleave", (e) => {
+      if (e.target.closest?.("[data-opp-dropzone]") && !e.relatedTarget?.closest?.("[data-opp-dropzone]")) e.target.closest("[data-opp-dropzone]").classList?.remove("is-over");
     });
     document.addEventListener("dragend", () => {
       oppDrag = "";
+      clearDragMarks();
     });
     document.addEventListener("drop", (e) => {
-      const column = oppDrag ? e.target.closest?.("[data-opp-drop]") : null;
-      if (!column) return;
+      if (hasFiles(e) && onOppPage() && document.getElementById("opp-attach")) {
+        e.preventDefault();
+        document.querySelectorAll?.(".opp-dropzone.is-over").forEach((node) => node.classList.remove("is-over"));
+        if (e.target.closest?.("[data-opp-dropzone]")) uploadFiles(e.dataTransfer.files);
+        return;
+      }
+      const target = oppDrag ? dragTarget(e) : null;
+      if (!target) return;
       e.preventDefault();
       const id = oppDrag;
       oppDrag = "";
-      return moveOpp(id, column.dataset.oppDrop, "");
+      clearDragMarks();
+      return moveOpp(id, target.stage, "", { before: target.before });
     });
+    document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
         const i = Number(e.target.dataset.itemProduct), old = draft.items[i], value = e.target.value;
@@ -1410,6 +1697,11 @@
         return renderOrderItems();
       }
       if (e.target.closest?.("#biz-order-form") && e.target.name === "currency") return syncOrderAmount();
+      if (e.target.id === "opp-attach-input" && onOppPage()) {
+        const files = [...(e.target.files || [])];
+        e.target.value = "";
+        return uploadFiles(files);
+      }
       if (e.target.closest?.("#biz-target-form") && ["metric", "scope"].includes(e.target.name)) return syncTargetForm(e.target.closest("#biz-target-form"));
       if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "flow", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
       // 改名没保存成功（空名、重名）时，输入框恢复成已保存的名称，提示留在页面上方。
@@ -1503,13 +1795,19 @@
         return productSubmit(form);
       }
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
           form.id,
         )
       )
         return;
       e.preventDefault();
       const data = Object.fromEntries(new FormData(form));
+      if (form.id === "opp-attach-rename")
+        return saveNext(
+          () => OM().renameAttachment(state(), attachView.id, form.dataset.att, data.name),
+          "opp-attach-error",
+          () => { attachView.renaming = ""; refreshAttach(); },
+        );
       if (form.id === "opp-flow-add") {
         const id = "f" + crypto.randomUUID().slice(0, 8);
         return saveFlow(() => {
@@ -1643,6 +1941,7 @@
         armedTarget = "";
         flowView.armed = "";
         leadArmed = "";
+        clearUndo();
         route = next;
         render();
       },

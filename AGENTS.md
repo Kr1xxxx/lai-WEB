@@ -6,7 +6,7 @@ Details live in `docs/`; this file only holds what you need every time.
 ## Project
 
 来财Lai is a local CRM for a small export business (customers, contacts, follow-ups, segments, orders,
-opportunities, team data, Zoho mail). Reference product: OKKI CRM (小满). **macOS only**, data stays on the Mac:
+opportunities, team data, Zoho mail). Reference product: OKKI CRM (小满). **macOS only** (desktop builds are paused for now, D-019: only the web version is built), data stays on the Mac:
 no server, no accounts yet. The UI is entirely in Chinese.
 
 Stack: Swift AppKit shell + WKWebView (`native/`) → local Node HTTP server on 127.0.0.1 (`backend/`, Node 24+,
@@ -35,7 +35,7 @@ node scripts/integration-test.mjs                                   # macOS only
 
 Playwright is **not** in `package.json` (the repo has no npm dependencies). Install it outside the tracked files:
 `npm install --no-save --no-package-lock playwright@1.56.0 && npx playwright install chromium`. Set `CHROMIUM` to
-use an existing Chromium binary. CI also builds the Mac app and runs the integration test (when: D-016).
+use an existing Chromium binary. CI no longer builds the Mac app while desktop builds are paused (D-019); `scripts/mac-cadence.mjs` holds the switch.
 
 ## Structure
 
@@ -63,7 +63,9 @@ use an existing Chromium binary. CI also builds the Mac app and runs the integra
 
 One published web trial page (a claude.ai Artifact) is shared by every session; the last publish wins. After a
 change to the app is merged, publish it (D-012): read the live page first, rebuild with
-`scripts/web-trial/rebuild.py`, test it yourself in a browser, and say which commit it was built from. The page
+`scripts/web-trial/rebuild.py` (or build it from the repo alone with `scripts/web-trial/build.py`), test it yourself in a browser, and say which commit it was built from.
+The page shows its own version in the top-left (`scripts/web-trial/version.json`, started at 1.01). Every publish, however small, adds 0.01
+(`build.py --bump`); end your report with the version you published. The page
 runs on browser storage, cannot reach real mail and cannot download files.
 
 ## Boundaries

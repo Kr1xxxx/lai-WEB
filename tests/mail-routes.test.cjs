@@ -12,7 +12,7 @@ const { DatabaseSync } = require('node:sqlite');
 test('mail account routes require the session, validate input before any network use, and never return the password', async () => {
   const temporary = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-mailhttp-'));
   const resources = path.join(temporary, 'resources'); fs.mkdirSync(resources);
-  for (const file of ['server.js', 'storage.js', 'storage-path.js', 'auth.js', 'errors.js', 'mail-account.js', 'mail-imap.js', 'mail-client.js', 'mail-smtp.js', 'mail-mime.js', 'mail-service.js', 'mail-libs.js']) fs.copyFileSync(path.join(__dirname, '../backend', file), path.join(resources, file));
+  for (const file of ['server.js', 'storage.js', 'storage-path.js', 'auth.js', 'errors.js', 'mail-account.js', 'mail-imap.js', 'mail-client.js', 'mail-smtp.js', 'mail-mime.js', 'mail-service.js', 'mail-libs.js', 'opportunity-files.js']) fs.copyFileSync(path.join(__dirname, '../backend', file), path.join(resources, file));
   fs.writeFileSync(path.join(resources, 'trade-order-system.html'), '<!doctype html><title>fixture</title>');
   const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
   const token = crypto.randomBytes(32).toString('hex'), base = `http://127.0.0.1:${port}`, data = path.join(temporary, 'data');

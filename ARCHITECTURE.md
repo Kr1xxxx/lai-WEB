@@ -28,7 +28,7 @@
 | `src/settings-hub.js` | 设置中心页面（设置 → 设置中心）：纯函数 `markup(info, escape)` 生成整页 HTML；`GROUPS` 列出每一项设置和它打开的真实页面或弹窗，不重复实现任何设置 |
 | `src/orders-page.js` | 全部订单页面（新界面）：纯函数 `markup(input, escape)` 生成设计稿 Orders 的整页 HTML，`inPeriod` 按本月／上月／本季度／今年筛选；按钮和输入框沿用 `data-biz-*` 和 id，处理代码仍在 `business-ui.js`；小满主题仍用原来的订单表格 |
 | `src/lead-model.js`、`lead-ui.js` | 线索：数据保存在`laiLeads`；model 负责校验、跟进记录、状态流转、查重提示、转为客户（新建客户档案走`model.js`的`upsertCustomer`，或关联已有客户）、列表筛选与计数，ui 只生成标记；页面事件和保存接在`business-ui.js`里 |
-| `src/opportunity-model.js`、`opportunity-ui.js` | 商机：数据保存在`laiOpportunities`；model 负责校验、命名、阶段流转、看板汇总、分析和客户维度统计，ui 只生成看板、表单、菜单、分析页的标记；控制逻辑在`business-ui.js`。销售流程（每个流程一组阶段）保存在`laiOpportunityFlows`，没保存过时用内置默认流程；阶段的类别（进行中／赢单／输单）一律通过`stageOf(state, item)`按商机所在流程取，其他模块不要直接用`STAGES` |
+| `src/opportunity-model.js`、`opportunity-ui.js` | 商机：数据保存在`laiOpportunities`；model 负责校验、命名、阶段流转、看板汇总、分析和客户维度统计，ui 只生成看板、表单、菜单、分析页的标记；控制逻辑在`business-ui.js`。销售流程（每个流程一组阶段）保存在`laiOpportunityFlows`，没保存过时用内置默认流程；阶段的类别（进行中／赢单／输单）一律通过`stageOf(state, item)`按商机所在流程取，其他模块不要直接用`STAGES`。附件：商机里只存元数据（`attachments`），文件由本机服务存到 `attachments/opportunities/<商机>/`（`backend/opportunity-files.js`，上传请求体就是文件字节；读取只放行两层路径，图片内联、其余下载），备份靠 `fileUrl` 被现有的附件备份逻辑扫到；手动排序存在商机的 `sortRank`，`reorder` 只改这一列里需要变的商机；上传和删除的先后顺序（先存文件再存数据／先存数据再删文件）见 VALIDATION.md |
 | `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表、阅读、独立的写信页（回复／转发／群发共用）、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；收到的邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |
 | `src/mail-editor.js` | 写信用的富文本编辑器：开源编辑器 Squire 加一条工具栏；放进编辑器的 HTML（含引用的原邮件）先经 DOMPurify 净化，两个库缺失时退回纯文本 |
 | `backend/mail-libs.js` | 加载 `vendor/mail-libs` 里打包好的第三方邮件库（imapflow、nodemailer、postal-mime） |
@@ -104,3 +104,7 @@
 - 客户与邮件的对应只按邮箱地址匹配客户档案里的公司邮箱与联系人邮箱，不改动客户数据。
 - 网页试用版没有本机服务，无法连接邮箱；它的数据替身对 `/api/mail-account` 返回 `available:false`，绑定与写信随之禁用。
 - 测试用开关：数据目录被改到测试目录（`storage-path.js` 只允许系统临时目录下的 `lai-test-*`）时，`LAI_MAIL_TEST_ENDPOINTS` 可把连接指向本机回环地址上的假服务器，附件也改存到该测试目录；正式数据目录下不起作用。
+
+## 保存方式（只传改动，D-020）
+页面保存时，`persist()`（`src/app.js`）用 `src/model.js` 的 `snapshotState/diffState` 把新数据和上次保存的快照按文字比较，只把变了的客户、订单（含它们在各分栏里的先后顺序）和其它设置发给 `POST /api/save-changes`（`backend/storage.js` 的 `applyChanges`）。后端在同一个事务里先核对 `baseRevision`，套用后核对各表条数和订单顺序，对不上就整体撤销返回 422，页面随后改走整包的 `POST /api/save`（导入等整批改动也走它）。读取仍是整包 `GET /api/data`。
+

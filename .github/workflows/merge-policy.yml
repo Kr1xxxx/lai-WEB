@@ -75,7 +75,7 @@ jobs:
           gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state=success -f context="merge policy" \
             -f description="Small change: merged automatically"
       # Merges made with the workflow token do not start a CI run on main, so start the Mac build here
-      # when this merge is a 10th Claude PR (D-016).
+      # when this merge is a 10th Claude PR (D-016). Paused by D-019: mac-cadence.mjs then never says due.
       - name: Mac build on main every 10th Claude PR
         if: steps.size.outputs.size == 'small'
         run: |
