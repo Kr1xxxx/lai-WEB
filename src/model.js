@@ -197,6 +197,7 @@
     }
     if(Object.hasOwn(fields,'tags')) next.tags=tags(fields.tags);
     if(Object.hasOwn(fields,'previewGroup'))next.previewGroup=String(fields.previewGroup);
+    if(CS&&CS.assertNotDuplicate)CS.assertNotDuplicate(state,next,[previous,record],oldName);
     next.history=[{time,text:oldName?'更新客户资料':'新建客户档案',type:'operation'},...(previous.history||[])];
     const customers={...state.customers};
     if(oldName&&oldName!==name)delete customers[oldName];

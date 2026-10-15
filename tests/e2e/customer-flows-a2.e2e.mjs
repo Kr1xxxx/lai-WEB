@@ -184,12 +184,14 @@ test('templates: the picker inserts a text (appending on a new line), and an emp
 test('detail: 最近成交时间 and the pool forecast notice', async () => {
   await run(async (app) => {
     const { page } = app;
+    // The deal must be recent: a fixed date drifts toward the 30-day rule as the calendar moves on.
+    const d = new Date(Date.now() - 2 * DAY), dealDay = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     await seed(app, (data) => {
       let next = CT.markAutoRun(CT.setPoolRules(data, poolRulesInput()));
       next = withCustomer(next, 'Bluebell Beauty Supply', { createdAt: ago(25) });
       next = withCustomer(next, 'Maple & Moss Cosmetics', { createdAt: ago(45) });
       next = withCustomer(next, 'Northwind Lash Studio', { createdAt: ago(1) });
-      return { ...next, orders: [...(next.orders || []), { id: 'o-deal', num: 'SO-DEAL', client: 'Northwind Lash Studio', amount: 100, currency: 'USD', stage: 'done', createdAt: '2026-09-20', isDraft: false }] };
+      return { ...next, orders: [...(next.orders || []), { id: 'o-deal', num: 'SO-DEAL', client: 'Northwind Lash Studio', amount: 100, currency: 'USD', stage: 'done', createdAt: dealDay, isDraft: false }] };
     });
     await reload(app);
     await openDetail(app, 'Bluebell Beauty Supply');
@@ -200,7 +202,7 @@ test('detail: 最近成交时间 and the pool forecast notice', async () => {
     assert.match(await page.locator('[data-pool-forecast]').innerText(), /已符合公海规则「30天未联系」，下次执行时会移入公海/);
     await openDetail(app, 'Northwind Lash Studio');
     assert.equal(await page.locator('[data-pool-forecast]').count(), 0, 'not close to the rule: no notice');
-    assert.equal(await page.locator('.lcd-field:has(dt:text-is("最近成交时间")) dd').innerText(), '2026-09-20');
+    assert.equal(await page.locator('.lcd-field:has(dt:text-is("最近成交时间")) dd').innerText(), dealDay);
     await openDetail(app, 'Lumen Lash Lab');
     assert.equal(await page.locator('.lcd-field:has(dt:text-is("最近成交时间")) dd').innerText(), '—');
   });

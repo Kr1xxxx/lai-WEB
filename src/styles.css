@@ -7,6 +7,8 @@
   --blue: var(--color-primary-500);
   --line: var(--color-neutral-200);
   --muted: var(--color-neutral-500);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 * {
   box-sizing: border-box;
@@ -42,7 +44,21 @@ button:hover {
   background: var(--color-primary-50);
 }
 button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.96);
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
+}
+td,
+th,
+.op-row,
+.op-grid {
+  font-variant-numeric: tabular-nums;
 }
 button:disabled {
   opacity: 0.45;
@@ -300,6 +316,49 @@ a,
   flex: none;
   background: white;
 }
+.changelog-release + .changelog-release {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-neutral-100);
+}
+.changelog-release header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.changelog-release h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.changelog-release time {
+  color: var(--color-neutral-500);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.changelog-current {
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-500);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+}
+.changelog-release h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+.changelog-release ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.changelog-note {
+  margin-top: 20px;
+}
 .drawer-note {
   font-size: 12px;
   line-height: 1.6;
@@ -443,11 +502,11 @@ a,
   .popover.document-size-menu > button:hover { background: var(--brand-50); }
 }
 .document-size-motion {
-  animation: lai-document-size-in 200ms cubic-bezier(.23,1,.32,1) both;
+  animation: lai-document-size-in 200ms var(--ease-out) both;
 }
 .document-size-closing {
   pointer-events: none;
-  animation: lai-document-size-out 200ms cubic-bezier(.755,.05,.855,.06) both;
+  animation: lai-document-size-out 200ms var(--ease-exit) both;
 }
 @keyframes lai-document-size-in {
   from { opacity: 0; transform: scaleY(.8); }
@@ -461,16 +520,12 @@ a,
   from { opacity: var(--document-size-exit-opacity, 1); }
   to { opacity: 0; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .document-size-motion { animation: lai-tag-popover-fade 80ms linear both !important; }
-  .document-size-closing { animation: lai-document-size-fade-out 80ms linear both !important; transform: none; }
-}
 .contact-menu {
   width: 188px;
   padding: 8px;
 }
 .contact-menu-motion {
-  animation: lai-contact-menu-in 200ms cubic-bezier(.23, 1, .32, 1) both;
+  animation: lai-contact-menu-in 200ms var(--ease-out) both;
 }
 @keyframes lai-contact-menu-in {
   from { opacity: 0; transform: scaleY(.8); }
@@ -478,7 +533,7 @@ a,
 }
 .contact-menu-closing {
   pointer-events: none;
-  animation: lai-contact-menu-out 200ms cubic-bezier(.755, .05, .855, .06) both;
+  animation: lai-contact-menu-out 200ms var(--ease-exit) both;
 }
 @keyframes lai-contact-menu-out {
   from { opacity: var(--contact-exit-opacity, 1); transform: var(--contact-exit-transform, none); }
@@ -487,10 +542,6 @@ a,
 @keyframes lai-contact-menu-fade-out {
   from { opacity: var(--contact-exit-opacity, 1); }
   to { opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .contact-menu-motion { animation: lai-tag-popover-fade 80ms linear both !important; }
-  .contact-menu-closing { animation: lai-contact-menu-fade-out 80ms linear both !important; transform: none; }
 }
 .contact-menu > button {
   display: block;
@@ -542,10 +593,10 @@ a,
   color: var(--color-primary-600);
 }
 .activity-sort-popover-motion {
-  animation: lai-activity-sort-in 200ms cubic-bezier(.23, 1, .32, 1) both;
+  animation: lai-activity-sort-in 200ms var(--ease-out) both;
 }
 .activity-sort-closing {
-  animation: lai-activity-sort-out 200ms cubic-bezier(.755, .05, .855, .06) both;
+  animation: lai-activity-sort-out 200ms var(--ease-exit) both;
   pointer-events: none;
 }
 @keyframes lai-activity-sort-in {
@@ -559,9 +610,6 @@ a,
 @keyframes lai-activity-sort-fade-out {
   from { opacity: var(--sort-exit-from-opacity, 1); }
   to { opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .activity-sort-closing { animation: lai-activity-sort-fade-out 80ms linear both !important; transform: none; }
 }
 .popover.activity-filter-popover {
   width: min(344px, calc(100vw - 24px));
@@ -699,7 +747,7 @@ a,
   font-size: 11px;
 }
 .activity-filter-popover-motion {
-  animation: lai-activity-filter-in 200ms cubic-bezier(.08, .82, .17, 1) both;
+  animation: lai-activity-filter-in 200ms var(--ease-out) both;
 }
 .activity-filter-closing {
   pointer-events: none;
@@ -720,18 +768,6 @@ a,
 @keyframes lai-activity-sort-menu-in {
   from { opacity: 0; transform: translateY(-4px) scale(.98); }
   to { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .activity-sort-popover-motion {
-    animation: lai-tag-popover-fade 80ms linear both !important;
-  }
-  .activity-filter-popover-motion {
-    animation: lai-tag-popover-fade 80ms linear both !important;
-  }
-  .activity-filter-closing {
-    animation: lai-activity-filter-fade-out 80ms linear both !important;
-    transform: none;
-  }
 }
 .popover.tag-popover {
   width: min(300px, calc(100vw - 24px));
@@ -775,11 +811,11 @@ a,
   line-height: 22px;
 }
 .tag-popover-motion {
-  animation: lai-tag-popover-in 200ms cubic-bezier(.08, .82, .17, 1) both;
+  animation: lai-tag-popover-in 200ms var(--ease-out) both;
 }
 .tag-popover-closing {
   pointer-events: none;
-  animation: lai-tag-popover-out 200ms cubic-bezier(.6, .04, .98, .34) both;
+  animation: lai-tag-popover-out 200ms var(--ease-exit) both;
 }
 @keyframes lai-tag-popover-in {
   from { opacity: 0; transform: translateY(100%); }
@@ -792,15 +828,6 @@ a,
 @keyframes lai-tag-popover-fade-out {
   from { opacity: var(--tag-exit-opacity, 1); }
   to { opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tag-popover-motion {
-    animation: lai-tag-popover-fade 80ms linear both !important;
-  }
-  .tag-popover-closing {
-    animation: lai-tag-popover-fade-out 80ms linear both !important;
-    transform: none;
-  }
 }
 @keyframes lai-tag-popover-fade {
   from { opacity: 0; }
@@ -816,7 +843,8 @@ a,
   position: fixed;
   top: 70px;
   left: 50%;
-  transform: translateX(-50%) translateY(-15px);
+  transform: translateX(-50%) translateY(calc(var(--toast-distance) * -1)) scale(var(--toast-scale));
+  filter: blur(var(--toast-blur));
   opacity: 0;
   pointer-events: none;
   background: var(--color-neutral-0);
@@ -828,12 +856,15 @@ a,
   color: var(--ink-700);
   font-size: var(--font-size-body);
   transition:
-    opacity var(--motion-normal) var(--ease-standard),
-    transform var(--motion-normal) var(--ease-standard);
+    opacity var(--toast-close) var(--ease-drawer),
+    transform var(--toast-close) var(--ease-drawer),
+    filter var(--toast-close) var(--ease-drawer);
 }
 #toast.show {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(-50%) translateY(0) scale(1);
+  filter: blur(0);
+  transition-duration: var(--toast-open);
 }
 .alert-bar {
   font-size: 12px;

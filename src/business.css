@@ -1087,7 +1087,7 @@ td.team-reached {
   border-radius: 8px;
   background: #fff;
   cursor: grab;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 .opp-card:hover {
   border-color: var(--ink-300);
@@ -1474,11 +1474,6 @@ td.team-reached {
 .opp-menu .opp-move.opp-kind-won {
   border-color: var(--brand-200);
   color: var(--brand-700);
-}
-@media (prefers-reduced-motion: reduce) {
-  .opp-card {
-    transition: none;
-  }
 }
 
 /* 表单里的下拉框用全应用统一的下拉组件（规格见 customer-select.css 的 --dd-*），这里只补和输入框一致的聚焦光圈。 */
@@ -2158,3 +2153,42 @@ td.team-reached {
   margin: 0;
   font-size: 13px;
 }
+/* 界面配色：每个选项带一张小预览图（左侧栏 + 顶栏 + 两张卡片）。预览图的颜色按选项自己写死，
+   不跟当前主题变，这样三种配色并排时一眼能分清。 */
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 2px solid var(--ink-200);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink-900);
+  text-align: left;
+  cursor: pointer;
+}
+.theme-option:hover { border-color: var(--brand-300); }
+.theme-option.selected { border-color: var(--brand-500); box-shadow: 0 0 0 3px var(--brand-100); }
+.theme-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.theme-preview {
+  --pv-page: #f1e9ee; --pv-nav: #4d1233; --pv-brand: #be185d; --pv-tint: #fcdce9;
+  display: flex;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--pv-page);
+}
+.theme-preview[data-preview="orange"] { --pv-page: #f0eae4; --pv-nav: #4d1f0a; --pv-brand: #c2410c; --pv-tint: #fde3cf; }
+.theme-preview[data-preview="xiaoman"] { --pv-page: #edf0f4; --pv-nav: #14214d; --pv-brand: #1569f2; --pv-tint: #dfeaff; }
+.theme-preview .pv-nav { flex: 0 0 22%; background: var(--pv-nav); }
+.theme-preview .pv-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+.theme-preview .pv-bar { display: block; height: 10px; width: 60%; border-radius: 5px; background: var(--pv-brand); }
+.theme-preview .pv-cards { flex: 1; display: flex; gap: 8px; }
+.theme-preview .pv-cards i { flex: 1; border-radius: 6px; background: #fff; }
+.theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }

@@ -34,19 +34,10 @@
     return target;
   }
 
-  function prefersReducedMotion(target) {
-    return Boolean(
-      target?.ownerDocument?.defaultView
-        ?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
-    );
-  }
-
   function exit(container, kind, options = {}) {
     const target = enter(container, kind);
     if (!target) return Promise.resolve(null);
-    const fallbackMs = prefersReducedMotion(target)
-      ? 80
-      : Math.max(0, Number(options.fallbackMs) || 180);
+    const fallbackMs = Math.max(0, Number(options.fallbackMs) || 180);
     return new Promise((resolve) => {
       let timer;
       const finish = (event) => {

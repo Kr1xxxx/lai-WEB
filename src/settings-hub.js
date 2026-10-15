@@ -11,7 +11,7 @@
   const GROUPS = Object.freeze([
     { id: "general", title: "通用", items: [
       { id: "defaults", title: "默认录入", note: "公司名称、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults" },
-      { id: "theme", title: "界面配色", note: "小满、粉色、橙色，选中后立即生效，只影响这台电脑", open: ["route", "settings"], current: "theme" },
+      { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，只影响这台电脑", open: ["route", "settings"], current: "theme" },
       { id: "favorites", title: "常用导航", note: "管理左侧栏“常用”里的快捷入口：添加、排序、移除", open: ["action", "favorite-nav-manage"] },
     ] },
     { id: "customer", title: "客户", items: [
@@ -42,7 +42,7 @@
   }
   function markup(info, escape) {
     const E = escape || identity;
-    const data = { orderPrefix: "L", currency: "USD", themeName: "小满", ...(info || {}) };
+    const data = { orderPrefix: "L", currency: "USD", themeName: "粉色", ...(info || {}) };
     const groups = (data.testData ? GROUPS.concat([TEST_DATA_GROUP]) : GROUPS).map((group) => `<section class="business-section sh-group" data-sh-group="${group.id}"><div class="section-head"><h3>${E(group.title)}</h3></div><div class="sh-list">${
       group.items.map((item) => {
         const now = current(item, data, E);

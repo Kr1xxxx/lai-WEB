@@ -34,9 +34,6 @@
     transition: transform var(--motion-fast) var(--ease-out);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .drawer.customer-editor .drawer-head .editor-follow:active { transform: none; }
-}
 .ce-body.drawer-body {
   padding: 16px 24px;
   overflow: auto;
@@ -147,7 +144,7 @@
   border: 0;
   background: #fff;
   cursor: move;
-  transition: background-color 150ms ease, box-shadow 150ms ease;
+  transition: background-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 .company-display-row:hover,
@@ -216,9 +213,6 @@
 .customer-editor-unsaved .company-display-unsaved-message strong, .segment-editor-unsaved .company-display-unsaved-message strong { font-size: 14px; line-height: 22px; }
 .customer-editor-unsaved::after, .segment-editor-unsaved::after { right: calc(50% - 7px); }
 .customer-editor-unsaved[data-placement="left"]::after, .segment-editor-unsaved[data-placement="left"]::after { right: -7px; top: 10px; bottom: auto; }
-@media (prefers-reduced-motion: reduce) {
-  .company-display-row { transition: none; }
-}
 .ce-icon {
   display: inline-block;
   width: 16px;
@@ -483,7 +477,7 @@
   margin-bottom: 16px;
   border-radius: 5px;
   background: #fafafa;
-  transition: background-color 0.12s;
+  transition: background-color var(--motion-fast) var(--ease-out);
 }
 .ce-contact-card.ce-contact-enter {
   animation: lai-contact-enter 180ms var(--ease-out) both;
@@ -679,7 +673,7 @@
   height: 16px;
   border-radius: 10px;
   background: #bfbfbf;
-  transition: background-color 0.12s;
+  transition: background-color var(--motion-fast) var(--ease-out);
 }
 .ce-switch:after {
   content: "";
@@ -690,7 +684,7 @@
   height: 12px;
   border-radius: 50%;
   background: #fff;
-  transition: transform 0.12s;
+  transition: transform var(--toggle-dur) var(--ease-bounce);
 }
 .ce-footer-switches input:checked + .ce-switch {
   background: var(--brand-500);
@@ -757,16 +751,6 @@
   }
   .ce-helper {
     white-space: normal;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ce-switch,
-  .ce-switch:after,
-  .ce-contact-card {
-    transition: none;
-  }
-  .ce-contact-card.ce-contact-enter {
-    animation: lai-contact-fade 80ms linear both !important;
   }
 }
 @keyframes lai-contact-fade {

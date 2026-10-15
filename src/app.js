@@ -177,10 +177,10 @@
       el.classList.toggle("save-failed", error);
     }
   }
-  // 界面配色：laiSettings.theme 存「xiaoman」（默认，原来的蓝色）、「pink」或「orange」，写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
-  const THEME_IDS = ["xiaoman", "pink", "orange"];
+  // 界面配色：laiSettings.theme 存「pink」（默认）、「orange」或「xiaoman」（原来的蓝色），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
+  const THEME_IDS = ["pink", "orange", "xiaoman"];
   function applyTheme(id) {
-    const theme = THEME_IDS.includes(id) ? id : "xiaoman";
+    const theme = THEME_IDS.includes(id) ? id : "pink";
     document.documentElement.dataset.theme = theme;
     // 粉色、橙色用新界面（悬浮玻璃面板），小满保持原来的界面。
     document.documentElement.dataset.skin = theme === "xiaoman" ? "classic" : "glass";
@@ -269,7 +269,7 @@
   function shell(content) {
     const scope = C.globalSearchFields.find((field) => field.id === globalSearch.field)?.label || "客户";
     const searchScope = globalSearch.field === "all" ? "客户" : scope;
-    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><span class="brand-cn">来财</span><span class="brand-lai">Lai</span><sup>AI</sup><span class="app-version" aria-label="当前版本 ${APP_VERSION}">v${APP_VERSION}</span></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions"><button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button><i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="用户与设置">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
+    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><svg class="brand-mark" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="#16121A" d="M46.00,0.00 H154.00 A46,46 0 0 1 200.00,46.00 V154.00 A46,46 0 0 1 154.00,200.00 H46.00 A46,46 0 0 1 0.00,154.00 V46.00 A46,46 0 0 1 46.00,0.00 Z"/><path fill="#FF4F9A" fill-rule="evenodd" d="M51.00,108.00 H149.00 A25,25 0 0 1 174.00,133.00 V133.00 A25,25 0 0 1 149.00,158.00 H51.00 A25,25 0 0 1 26.00,133.00 V133.00 A25,25 0 0 1 51.00,108.00 Z M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#16121A" d="M129.00,29.00 L130.57,29.09 L132.12,29.35 L133.62,29.79 L135.07,30.39 L136.45,31.15 L137.73,32.05 L138.90,33.10 L139.95,34.27 L140.85,35.55 L141.61,36.93 L142.21,38.38 L142.65,39.88 L142.91,41.43 L143.00,43.00 L143.00,127.00 L57.00,127.00 L57.00,43.00 L57.09,41.43 L57.35,39.88 L57.79,38.38 L58.39,36.93 L59.15,35.55 L60.05,34.27 L61.10,33.10 L62.27,32.05 L63.55,31.15 L64.93,30.39 L66.38,29.79 L67.88,29.35 L69.43,29.09 L71.00,29.00 Z"/><path fill="#0B080D" d="M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#FFC23D" d="M129.00,34.00 L130.01,34.06 L131.00,34.23 L131.97,34.51 L132.90,34.89 L133.79,35.38 L134.61,35.96 L135.36,36.64 L136.04,37.39 L136.62,38.21 L137.11,39.10 L137.49,40.03 L137.77,41.00 L137.94,41.99 L138.00,43.00 L138.00,133.00 L62.00,133.00 L62.00,43.00 L62.06,41.99 L62.23,41.00 L62.51,40.03 L62.89,39.10 L63.38,38.21 L63.96,37.39 L64.64,36.64 L65.39,35.96 L66.21,35.38 L67.10,34.89 L68.03,34.51 L69.00,34.23 L69.99,34.06 L71.00,34.00 Z"/><path fill="#16121A" fill-rule="evenodd" d="M125.00,42.00 L125.56,42.03 L126.11,42.13 L126.65,42.28 L127.17,42.50 L127.66,42.77 L128.12,43.09 L128.54,43.46 L128.91,43.88 L129.23,44.34 L129.50,44.83 L129.72,45.35 L129.87,45.89 L129.97,46.44 L130.00,47.00 L130.00,133.00 L70.00,133.00 L70.00,47.00 L70.03,46.44 L70.13,45.89 L70.28,45.35 L70.50,44.83 L70.77,44.34 L71.09,43.88 L71.46,43.46 L71.88,43.09 L72.34,42.77 L72.83,42.50 L73.35,42.28 L73.89,42.13 L74.44,42.03 L75.00,42.00 Z M123.50,46.00 L123.78,46.02 L124.06,46.06 L124.33,46.14 L124.58,46.25 L124.83,46.38 L125.06,46.55 L125.27,46.73 L125.45,46.94 L125.62,47.17 L125.75,47.42 L125.86,47.67 L125.94,47.94 L125.98,48.22 L126.00,48.50 L126.00,133.00 L74.00,133.00 L74.00,48.50 L74.02,48.22 L74.06,47.94 L74.14,47.67 L74.25,47.42 L74.38,47.17 L74.55,46.94 L74.73,46.73 L74.94,46.55 L75.17,46.38 L75.42,46.25 L75.67,46.14 L75.94,46.06 L76.22,46.02 L76.50,46.00 Z"/><path fill="#16121A" d="M101.67 102.58V107.00H98.17V102.52Q92.38 102.03 88.83 99.05Q85.28 96.08 85.06 90.95H95.00Q95.33 94.22 98.17 95.15V86.52Q93.91 85.43 91.37 84.39Q88.83 83.35 86.92 81.06Q85.01 78.77 85.01 74.78Q85.01 69.81 88.70 66.81Q92.38 63.81 98.17 63.42V59.00H101.67V63.42Q107.40 63.86 110.73 66.75Q114.06 69.65 114.44 74.78H104.45Q104.12 71.83 101.67 70.96V79.42Q106.20 80.68 108.66 81.66Q111.11 82.65 113.05 84.91Q114.99 87.18 114.99 91.11Q114.99 94.11 113.43 96.65Q111.88 99.19 108.85 100.80Q105.82 102.41 101.67 102.58ZM98.17 78.28V70.69Q96.64 70.96 95.77 71.86Q94.89 72.76 94.89 74.34Q94.89 75.71 95.74 76.64Q96.59 77.57 98.17 78.28ZM105.22 91.44Q105.22 90.02 104.31 89.12Q103.41 88.22 101.67 87.56V95.31Q103.30 95.04 104.26 94.00Q105.22 92.97 105.22 91.44Z"/></svg><svg class="brand-cn" viewBox="0 0 54 32" aria-hidden="true" focusable="false"><text x="27" y="24" text-anchor="middle">来财</text></svg><sup>AI</sup><button type="button" class="app-version" data-action="version-history" aria-haspopup="dialog" aria-label="当前版本 ${APP_VERSION}，查看版本更新历史">v${APP_VERSION}</button></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions"><button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button><i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="用户与设置">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
   }
   function closeDropdowns() {
     window.LaiCustomerSelect?.close();
@@ -739,7 +739,7 @@
     tab = nextTab;
     replaceDetailBody(c);
     const nav = root.querySelector(".lcd-tabs");
-    const instantTabs = !pointerActivated || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const instantTabs = !pointerActivated;
     if (instantTabs) nav.classList.add("lcd-tabs-instant-commit");
     for (const button of root.querySelectorAll(".lcd-tabs button[data-tab]")) {
       const active = button.dataset.tab === tab;
@@ -1204,8 +1204,19 @@
     if (groupPointerPress) setTimeout(() => { groupPointerPress = null; }, 0);
   });
   document.addEventListener("pointercancel", () => { groupPointerPress = null; });
+  // 点弹窗外面自动关闭，但正在填写的弹窗（表单、商机、客户信息等）不关，免得填到一半丢了。
+  // 按下和松手都要在外面：从里面拖到外面、或从外面拖进里面，都不算点外面。
+  let overlayPressTarget = null;
+  let overlayReleaseTarget = null;
+  document.addEventListener("pointerdown", (e) => { overlayPressTarget = e.target; overlayReleaseTarget = null; }, true);
+  document.addEventListener("pointerup", (e) => { overlayReleaseTarget = e.target; }, true);
+  const closesOnOutsideClick = (overlay) =>
+    modal === "columns" || modal === "feature" ||
+    !["edit", "import", "segment", "company-display"].includes(modal) &&
+    !overlay.querySelector('.drawer form, .drawer textarea, .drawer select, .drawer input:not([type="hidden"])');
   document.addEventListener("click", async (e) => {
-    if ((modal === "columns" || modal === "feature") && e.target === $("#overlay-root .overlay"))
+    const overlay = $("#overlay-root .overlay");
+    if (modal && e.target === overlay && overlayPressTarget === overlay && overlayReleaseTarget === overlay && closesOnOutsideClick(overlay))
       return closeModal(e.detail > 0);
     if (!e.target.closest?.(".lcd-tabs-more,.lcd-tabs-overflow-menu"))
       closeDetailTabOverflow();
@@ -1600,6 +1611,14 @@
     }
     if (a === "batch-follow" || a === "batch-unfollow")
       return follow([...selected], a === "batch-follow");
+    if (a === "version-history")
+      return drawer(
+        "版本更新历史",
+        window.LaiChangelog.render(),
+        `<button class="primary" data-action="close-modal">知道了</button>`,
+        "about",
+        e.detail > 0,
+      );
     if (a === "about")
       drawer(
         "关于来财Lai",
@@ -2454,7 +2473,7 @@
       if (!row || !list || labels.get(id).required && targetGroup !== "common") return;
       const sameGroup = row.parentElement === list;
       if (sameGroup && beforeId === id) return;
-      const canAnimate = animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const canAnimate = animate;
       const beforeRects = canAnimate && sameGroup
         ? new Map([...list.children].map((item) => [item, item.getBoundingClientRect()]))
         : null;
@@ -3019,7 +3038,7 @@
     el.setAttribute("aria-expanded", String(open));
     $(`[data-toggle-branch="${id}"]`)?.setAttribute("aria-expanded", String(open));
     el.querySelector("i").textContent = open ? "▾" : "▸";
-    if (open && pointer && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (open && pointer) {
       const last = panel.firstElementChild?.lastElementChild;
       if (last) {
         panel.style.height = `${Math.max(0, last.getBoundingClientRect().bottom - panel.getBoundingClientRect().top)}px`;
@@ -3634,7 +3653,7 @@
     };
     let body = "";
     if (screen === "duplicates") {
-      const groups = L.findDuplicates(state);
+      const groups = L.findDuplicates(state, CSM.get(state).dedupe);
       const dupChosen = CSM.get(state).duplicateFields;
       const dupFields = CSM.DUPLICATE_FIELDS.filter(([key]) => dupChosen.includes(key));
       body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span><button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button></h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button>${dupFields.map(([key, label]) => `<span>${E(label)}：${E(CSM.duplicateValue(state, name, key) ? (key === "country" ? C.countryLabel(state.customers[name]?.country) : CSM.duplicateValue(state, name, key)) : "—")}</span>`).join("")}<button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + Object.keys(state.customers).length + " 个客户档案</span></div>"}`;
@@ -3748,7 +3767,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function customerTagEditor(anchor, pointerActivated = false) {
     const name = currentName;
@@ -3878,7 +3897,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function closeActivityAdvancedFilterMenu(restoreFocus = false, animate = false) {
     const box = $(".activity-filter-popover");
@@ -3904,7 +3923,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function activityAdvancedFilterMenu(anchor, pointerActivated = false) {
     const customer = allCustomerRows().find((row) => row.name === currentName);
@@ -4072,7 +4091,7 @@
         box.remove();
       };
       box.addEventListener("animationend", finish, { once: true });
-      box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+      box._closeTimer = setTimeout(finish, 240);
     }
   }
   function closeDocumentSizeMenu(restoreFocus = false, animate = false) {
@@ -4099,7 +4118,7 @@
       box.remove();
     };
     box.addEventListener("animationend", finish, { once: true });
-    box._closeTimer = setTimeout(finish, matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 240);
+    box._closeTimer = setTimeout(finish, 240);
   }
   function removePopover() {
     const box = $(".popover");
@@ -4121,7 +4140,7 @@
     const trigger = box._trigger;
     trigger?.setAttribute("aria-expanded", "false");
     if (restoreFocus || box.contains(document.activeElement)) trigger?.focus();
-    if (!animate || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (!animate) {
       box.remove();
       return;
     }
@@ -4335,6 +4354,20 @@
       $(".cs-inline input")?.focus();
       return true;
     }
+    if (d.csSourceMove) {
+      csSave(() => CSM.moveSource(state, d.csSourceMove, Number(d.delta)));
+      return true;
+    }
+    if (d.csSourceHide) {
+      csSave(() => CSM.setSourceHidden(state, d.csSourceHide, d.hidden === "1"));
+      return true;
+    }
+    if (d.csSourceSub) {
+      csEditing = { kind: "sourcesub", key: d.csSourceSub };
+      customerSettings();
+      $(".cs-add input")?.focus();
+      return true;
+    }
     if (d.csMove) {
       csSave(() => CSM.moveItem(state, d.csMove, d.name, Number(d.delta)));
       return true;
@@ -4350,6 +4383,7 @@
         if (kind === "types") return CSM.deleteType(state, key);
         if (kind === "blacklist") return CSM.removeBlacklist(state, key);
         if (kind === "tplgroup") return CSM.deleteTemplateGroup(state, key);
+        if (kind === "source") return CSM.deleteSource(state, key);
         return CSM.deleteGroup(state, key);
       });
       return true;
@@ -4430,6 +4464,9 @@
       if (kind === "rename-stages") return CSM.renameStage(state, form.dataset.old, text("name"));
       if (kind === "rename-types") return CSM.renameType(state, form.dataset.old, text("name"));
       if (kind === "add-blacklist") return CSM.addBlacklist(state, text("email"));
+      if (kind === "add-source") return CSM.addSource(state, { name: text("name"), parentId: form.dataset.parent || "" });
+      if (kind === "rename-source") return CSM.renameSource(state, form.dataset.id, text("name"));
+      if (kind === "dedupe") return CSM.setDedupe(state, Object.fromEntries(CSM.DEDUPE_FIELDS.map(([key]) => [key, text(`dedupe:${key}`)])));
       if (kind === "duplicates") return CSM.setDuplicateFields(state, data.getAll("field").map(String));
       if (kind === "caps") {
         const perOwner = {};

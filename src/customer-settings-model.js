@@ -18,7 +18,14 @@ const DUPLICATE_FIELDS = Object.freeze([
   ["customerCode", "客户编号"], ["source", "来源"], ["country", "国家地区"], ["owner", "跟进人"],
   ["createdAt", "创建时间"], ["contact", "联系人"], ["customerStage", "客户阶段"], ["customerType", "客户类型"],
 ]);
-const LIMITS = Object.freeze({ stages: 30, types: 50, groups: 100, children: 30, blacklist: 500, name: 20, cap: 100000 });
+// 判重设置：新建或修改客户时，哪些资料不能和别的客户相同。三种选择：allow 判重但允许保存，block 判重且不允许保存，off 不判重。
+const DEDUPE_FIELDS = Object.freeze([
+  ["customerCode", "客户编号"], ["email", "邮箱"], ["phone", "联系电话"], ["landline", "座机"],
+  ["socialAccount", "社交账号"], ["website", "公司网址"], ["shortName", "简称"], ["companyAddress", "详细地址"], ["alibabaId", "Alibaba会员ID"],
+]);
+const DEDUPE_MODES = Object.freeze(["allow", "block", "off"]);
+const DEFAULT_DEDUPE = Object.freeze({ customerCode: "block", email: "allow", phone: "allow", landline: "off", socialAccount: "off", website: "off", shortName: "off", companyAddress: "off", alibabaId: "off" });
+const LIMITS = Object.freeze({ sources: 100, sourceChildren: 30, stages: 30, types: 50, groups: 100, children: 30, blacklist: 500, name: 20, cap: 100000 });
 
 // 哪些动作算“最近联系 / 最近跟进”。
 const FOLLOW_ACTIONS = Object.freeze([
@@ -36,6 +43,8 @@ const DEFAULTS = Object.freeze({
   blacklist: [],
   caps: { defaultLimit: 0, perOwner: {} },
   duplicateFields: ["country"],
+  dedupe: DEFAULT_DEDUPE,
+  sources: [],
   layout: "left-small",
   followRules: DEFAULT_FOLLOW_RULES,
   dealRule: { by: "order" },
@@ -90,6 +99,25 @@ function normalizeGroups(list) {
       childRequired: children.length > 0 && raw.childRequired === true,
       members: raw.members === "all" || !Array.isArray(raw.members) ? "all" : uniqueNames(raw.members),
     });
+  }
+  return out;
+}
+function normalizeSources(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(list) ? list : []) {
+    const name = trim(raw && raw.name);
+    if (!name || name.includes("/") || seen.has(norm(name)) || out.length >= LIMITS.sources) continue;
+    seen.add(norm(name));
+    const childSeen = new Set();
+    const children = [];
+    for (const child of Array.isArray(raw.children) ? raw.children : []) {
+      const childName = trim(child && child.name);
+      if (!childName || childName.includes("/") || childSeen.has(norm(childName)) || children.length >= LIMITS.sourceChildren) continue;
+      childSeen.add(norm(childName));
+      children.push({ id: trim(child.id) || newId(), name: childName, hidden: child.hidden === true });
+    }
+    out.push({ id: trim(raw.id) || newId(), name, hidden: raw.hidden === true, children });
   }
   return out;
 }
@@ -179,6 +207,8 @@ function readSettings(raw) {
     blacklist: normalizeBlacklist(raw.blacklist),
     caps: normalizeCaps(raw.caps),
     duplicateFields,
+    sources: normalizeSources(raw.sources),
+    dedupe: Object.fromEntries(DEDUPE_FIELDS.map(([key]) => [key, raw.dedupe && DEDUPE_MODES.includes(raw.dedupe[key]) ? raw.dedupe[key] : DEFAULT_DEDUPE[key]])),
     layout: raw.layout === "left-large" ? "left-large" : "left-small",
     followRules: {
       contact: normalizeFollowList(raw.followRules && raw.followRules.contact, DEFAULT_FOLLOW_RULES.contact),
@@ -454,11 +484,141 @@ function setCaps(state, { defaultLimit, perOwner } = {}) {
   return put(state, { caps: next });
 }
 
+// ============ 来源设置 ============
+// 线索来源、客户来源、商机来源共用一份名单：最多两级，可以隐藏、排序。子来源写成“上级 / 子级”。
+function sourcePath(parent, child) { return child ? `${parent.name}${SEP}${child.name}` : parent.name; }
+function sourceChoices(state) {
+  const list = get(state).sources;
+  if (!list.length) return null;
+  const out = [];
+  for (const top of list) {
+    if (top.hidden) continue;
+    const kids = top.children.filter((c) => !c.hidden);
+    if (!kids.length) out.push(top.name);
+    for (const c of kids) out.push(sourcePath(top, c));
+  }
+  return out;
+}
+const copySources = (state) => get(state).sources.map((t) => ({ ...t, children: t.children.map((c) => ({ ...c })) }));
+function findSource(list, id) {
+  for (const top of list) {
+    if (top.id === id) return { top, child: null };
+    const child = top.children.find((c) => c.id === id);
+    if (child) return { top, child };
+  }
+  return null;
+}
+function sourceUse(state, path) {
+  return countBy(state, (p) => { const v = trim(p.source); return v === path || v.startsWith(path + SEP); });
+}
+function addSource(state, { name, parentId = "" } = {}) {
+  const value = cleanName(name, "来源名称");
+  const list = copySources(state);
+  if (parentId) {
+    const parent = list.find((t) => t.id === parentId);
+    if (!parent) throw new Error("没有找到上级来源");
+    if (parent.children.some((c) => norm(c.name) === norm(value))) throw new Error("同一个上级下已有同名来源");
+    if (parent.children.length >= LIMITS.sourceChildren) throw new Error(`一个来源下最多 ${LIMITS.sourceChildren} 个子来源`);
+    parent.children.push({ id: newId(), name: value, hidden: false });
+  } else {
+    if (list.some((t) => norm(t.name) === norm(value))) throw new Error("已有同名来源");
+    if (list.length >= LIMITS.sources) throw new Error(`一级来源最多 ${LIMITS.sources} 个`);
+    list.push({ id: newId(), name: value, hidden: false, children: [] });
+  }
+  return put(state, { sources: list });
+}
+function renameSource(state, id, name, at = new Date().toISOString()) {
+  const value = cleanName(name, "来源名称");
+  const list = copySources(state);
+  const hit = findSource(list, id);
+  if (!hit) throw new Error("没有找到这个来源");
+  const siblings = hit.child ? hit.top.children.filter((c) => c.id !== id) : list.filter((t) => t.id !== id);
+  if (siblings.some((x) => norm(x.name) === norm(value))) throw new Error(hit.child ? "同一个上级下已有同名来源" : "已有同名来源");
+  const from = hit.child ? sourcePath(hit.top, hit.child) : hit.top.name;
+  (hit.child || hit.top).name = value;
+  const to = hit.child ? sourcePath(hit.top, hit.child) : hit.top.name;
+  let next = put(state, { sources: list });
+  if (from !== to) {
+    const swap = (v) => (trim(v) === from ? to : trim(v).startsWith(from + SEP) ? to + trim(v).slice(from.length) : null);
+    next = mapCustomers(next, (p) => { const v = swap(p.source); return v === null ? p : pushHistory({ ...p, source: v }, `客户来源改名：${from} → ${to}`, at); });
+  }
+  return next;
+}
+function setSourceHidden(state, id, hidden) {
+  const list = copySources(state);
+  const hit = findSource(list, id);
+  if (!hit) throw new Error("没有找到这个来源");
+  (hit.child || hit.top).hidden = !!hidden;
+  return put(state, { sources: list });
+}
+function moveSource(state, id, delta) {
+  const list = copySources(state);
+  const hit = findSource(list, id);
+  if (!hit) throw new Error("没有找到这个来源");
+  const arr = hit.child ? hit.top.children : list;
+  const from = arr.findIndex((x) => x.id === id);
+  const to = from + (delta < 0 ? -1 : 1);
+  if (to < 0 || to >= arr.length) return state;
+  [arr[from], arr[to]] = [arr[to], arr[from]];
+  return put(state, { sources: list });
+}
+function deleteSource(state, id) {
+  const list = copySources(state);
+  const hit = findSource(list, id);
+  if (!hit) throw new Error("没有找到这个来源");
+  const path = hit.child ? sourcePath(hit.top, hit.child) : hit.top.name;
+  const used = sourceUse(state, path);
+  if (used) throw new Error(`还有 ${used} 位客户的来源是“${path}”，先改掉他们的来源，或者把它隐藏`);
+  if (hit.child) hit.top.children = hit.top.children.filter((c) => c.id !== id);
+  return put(state, { sources: hit.child ? list : list.filter((t) => t.id !== id) });
+}
+
 // ============ 查重展示、详情布局 ============
 function setDuplicateFields(state, keys) {
   const valid = DUPLICATE_FIELDS.map(([key]) => key);
   const list = valid.filter((key) => (keys || []).includes(key));
   return put(state, { duplicateFields: list });
+}
+// 判重设置
+function setDedupe(state, modes) {
+  const next = {};
+  for (const [key, label] of DEDUPE_FIELDS) {
+    const mode = modes && modes[key];
+    if (!DEDUPE_MODES.includes(mode)) throw new Error(`请选择“${label}”的判重方式`);
+    next[key] = mode;
+  }
+  return put(state, { dedupe: next });
+}
+const dedupeKey = (key, value) => {
+  const text = trim(value);
+  if (key === "phone" || key === "landline") { const digits = text.replace(/\D/g, ""); return digits.length >= 6 ? digits : ""; }
+  return text.toLowerCase();
+};
+// 一位客户资料里某个判重字段的全部取值（主联系人 + 其他联系人）。
+function dedupeValues(profile, key) {
+  const p = profile || {};
+  const extras = Array.isArray(p.extraContacts) ? p.extraContacts : [];
+  const lists = { email: [p.email, ...(Array.isArray(p.emails) ? p.emails : [])], phone: [p.phone, ...(Array.isArray(p.phones) ? p.phones : [])], socialAccount: [p.socialAccount] };
+  const own = key in lists ? lists[key] : [p[key]];
+  const more = ["email", "phone", "socialAccount"].includes(key) ? extras.map((c) => c && c[key]) : [];
+  return [...new Set([...own, ...more].map((v) => dedupeKey(key, v)).filter(Boolean))];
+}
+// 保存前检查：只看这次新增或改动的值，老数据里已有的重复不挡住修改。
+function assertNotDuplicate(state, nextProfile, previousProfiles, selfName) {
+  const modes = get(state).dedupe;
+  const had = Array.isArray(previousProfiles) ? previousProfiles : [previousProfiles];
+  for (const [key, label] of DEDUPE_FIELDS) {
+    if (modes[key] !== "block") continue;
+    const old = new Set(had.flatMap((p) => dedupeValues(p, key)));
+    const fresh = dedupeValues(nextProfile, key).filter((v) => !old.has(v));
+    if (!fresh.length) continue;
+    for (const [name, other] of Object.entries(profiles(state))) {
+      if (name === selfName || bucketOf(other) === "trash") continue;
+      const mine = new Set(dedupeValues(other, key));
+      const hit = fresh.find((v) => mine.has(v));
+      if (hit) throw new Error(`${label}和已有客户「${name}」相同，不能保存`);
+    }
+  }
 }
 function duplicateValue(state, name, key) {
   const p = profiles(state)[name] || {};
@@ -671,14 +831,15 @@ function checkFollowupTime(state, value, now = new Date()) {
 }
 
 const api = {
-  DEFAULTS, DEFAULT_STAGES, DEFAULT_TYPES, DUPLICATE_FIELDS, LIMITS, SEP,
+  DEFAULTS, DEDUPE_FIELDS, DEFAULT_STAGES, DEFAULT_TYPES, DUPLICATE_FIELDS, LIMITS, SEP,
   get, put,
   addStage, renameStage, deleteStage, stageUse, moveItem,
   addType, renameType, deleteType, typeUse,
   addGroup, editGroup, deleteGroup, groupUse, groupChoices, checkGroup, isConfiguredGroup, groupPaths,
   addBlacklist, removeBlacklist, blacklistHit, assertEmailsAllowed,
   limitFor, ownerCount, assertCanTake, capRows, setCaps,
-  setDuplicateFields, duplicateValue, setLayout,
+  sourceChoices, sourcePath, sourceUse, addSource, renameSource, setSourceHidden, moveSource, deleteSource,
+  setDuplicateFields, duplicateValue, setLayout, setDedupe, assertNotDuplicate, dedupeValues,
   FOLLOW_ACTIONS, setFollowRules, contactTimes,
   setDealRule, lastDealDate,
   setActivity, autoMailSince,

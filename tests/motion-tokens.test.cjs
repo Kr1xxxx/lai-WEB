@@ -1,0 +1,55 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const src = path.join(__dirname, '..', 'src');
+const read = (f) => fs.readFileSync(path.join(src, f), 'utf8');
+
+test('hover and colour transitions use the shared motion tokens, not loose numbers', () => {
+  for (const f of ['business.css', 'customer-editor.css', 'customer-replica.css', 'skin-glass.css']) {
+    const bad = read(f).split('\n').filter((l) =>
+      /transition:[^;]*\b(0\.12s|120ms|150ms)\b/.test(l));
+    assert.deepEqual(bad.map((l) => l.trim()), [], `${f} still has hard-coded fast timings`);
+  }
+});
+
+test('the pill in the left rail eases in and out', () => {
+  const css = read('skin-glass.css');
+  assert.match(css, /\.rail-item \{ transition: background-color var\(--motion-normal\) var\(--ease-out\)/);
+});
+
+test('easing curves come from the Arc Library presets and menus use the shared exit curve', () => {
+  const tokens = read('ui-tokens.css');
+  assert.match(tokens, /--ease-out:\s*cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
+  assert.match(tokens, /--ease-exit:\s*cubic-bezier\(0\.7, 0, 0\.84, 0\)/);
+  assert.match(tokens, /Arc Library \(MIT/);
+  assert.doesNotMatch(read('styles.css'), /cubic-bezier\(\.755|cubic-bezier\(\.23, ?1/);
+});
+
+test('motion no longer switches off for reduced motion (owner decision 2026-10-09)', () => {
+  for (const f of fs.readdirSync(src).filter((n) => /\.(css|js)$/.test(n))) {
+    assert.doesNotMatch(read(f), /prefers-reduced-motion/, `${f} still reads the reduced-motion setting`);
+  }
+});
+
+test('UI detail rules from make-interfaces-feel-better stay in place', () => {
+  const base = read('styles.css');
+  assert.match(base, /-webkit-font-smoothing:\s*antialiased/);
+  assert.match(base, /button:active:not\(:disabled\)\s*\{\s*transform:\s*scale\(0\.96\)/);
+  assert.match(base, /td,\s*th,\s*\.op-row,\s*\.op-grid\s*\{\s*font-variant-numeric:\s*tabular-nums/);
+  for (const f of fs.readdirSync(src).filter((n) => n.endsWith('.css'))) {
+    assert.doesNotMatch(read(f), /transition:\s*all\b/, `${f} uses transition: all`);
+  }
+});
+
+test('toast and switch use the transitions.dev clocks (owner asked to use the repo, 2026-10-09)', () => {
+  const tokens = read('ui-tokens.css');
+  assert.match(tokens, /transitions\.dev/);
+  assert.match(tokens, /--toast-open:\s*350ms/);
+  assert.match(tokens, /--toast-close:\s*250ms/);
+  assert.match(tokens, /--ease-bounce:\s*cubic-bezier\(0\.34, 1\.36, 0\.64, 1\)/);
+  const base = read('styles.css');
+  assert.match(base, /#toast\.show \{[^}]*filter:\s*blur\(0\)[^}]*transition-duration:\s*var\(--toast-open\)/);
+  assert.match(read('customer-editor.css'), /\.ce-switch:after \{[^}]*transition:\s*transform var\(--toggle-dur\) var\(--ease-bounce\)/);
+});

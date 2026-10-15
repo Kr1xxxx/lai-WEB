@@ -89,20 +89,30 @@
   --motion-filter-drawer: 300ms;
   --motion-captured-drawer: 300ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Curves follow the motion presets of Arc Library (MIT, © 2026 Elia Kuratli,
+     github.com/kuratlielia/arc-library, registry/motion-tokens.ts): enter, exit, standard, inOut. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-drawer: cubic-bezier(0.22, 1, 0.36, 1);
+  /* transitions.dev (Jakub Antalik): toast and switch clocks. Open is slower than close. */
+  --toast-open: 350ms;
+  --toast-close: 250ms;
+  --toast-distance: 16px;
+  --toast-blur: 2px;
+  --toast-scale: 0.97;
+  --toggle-dur: 350ms;
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
 }
 
 /*
- * 界面配色：小满（默认，原来的蓝色）、粉色和橙色。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
+ * 界面配色：粉色（默认）、橙色和小满（原来的蓝色）。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
  * nav（深色左侧栏）和 chart（图表色）这四组变量；设置里的「界面配色」把选择存进
  * laiSettings.theme，并写到 <html data-theme="…">。新增颜色一律用这些变量，不要写死色值。
  * 邮件正文里的颜色是用户内容，不在主题范围内。
  */
 
-/* 小满：来财原来的蓝色界面，是默认主题。 */
-:root,
+/* 小满：来财原来的蓝色界面。 */
 :root[data-theme="xiaoman"] {
   --skin-page: #edf0f4;
   --skin-ink-rgb: 29, 39, 62;
@@ -146,7 +156,8 @@
   --opp-open-ink: #136c41;
 }
 
-/* 粉色 */
+/* 粉色：默认主题（没选过配色、或页面还没写上 data-theme 时用它）。 */
+:root,
 :root[data-theme="pink"] {
   --skin-page: #f1e9ee;
   --skin-ink-rgb: 35, 23, 32;
@@ -235,13 +246,3 @@
   --opp-open-ink: #0b6682;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
