@@ -2576,3 +2576,36 @@ td.team-reached {
   background: var(--opp-won);
   color: #fff;
 }
+
+/* ---------- 单据：编号规则、单据记录、保存过的单据 ---------- */
+.cs-panel.dt-wide { max-width: none; }
+.dt-num-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.dt-num-card { padding: 14px 16px; border: 1px solid var(--line, #e5e5e5); border-radius: 8px; display: grid; gap: 8px; align-content: start; }
+.dt-num-card h3 { margin: 0; font-size: 14px; }
+.dt-num-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.dt-num-fields .cs-field { margin: 0 0 10px; }
+.dt-num-fields .cs-field input, .dt-num-fields .cs-field select { width: 100%; max-width: none; height: 32px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); background: #fff; font: inherit; box-sizing: border-box; }
+.dt-example { margin: 0; font-size: 13px; color: var(--ink-500, #8c8c8c); font-variant-numeric: tabular-nums; }
+.dt-example strong { color: var(--ink-900, #1f1f1f); }
+.dt-example-error { color: #d4380d; }
+.dt-records-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.dt-records-bar select, .dt-records-bar input { height: 32px; padding: 0 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); background: #fff; font: inherit; }
+.dt-records-bar input { width: 240px; }
+.dt-records td.num, .dt-records th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dt-records .dt-row-actions { white-space: nowrap; display: flex; gap: 6px; }
+.dt-records .dt-row-actions button { height: 28px; padding: 0 10px; }
+.dt-records tr.is-void td { color: var(--ink-400, #a6a6a6); }
+.dt-records tr.is-void td b { text-decoration: line-through; }
+.dt-void-chip { display: inline-block; padding: 0 6px; border-radius: 10px; background: #f0f0f0; color: #8c8c8c; font-size: 11px; line-height: 18px; vertical-align: middle; }
+.dt-empty { margin: 24px 0; color: var(--ink-500, #8c8c8c); font-size: 13px; }
+.dt-void-note { margin: 0 0 8px; color: #d4380d; font-size: 13px; }
+.dt-paper.is-void { opacity: 0.55; filter: grayscale(1); }
+.dt-saved { margin-top: 10px; }
+.dt-saved ul, .opp-docs { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.dt-saved li, .opp-docs li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.dt-saved li.is-void, .opp-docs li.is-void { color: var(--ink-400, #a6a6a6); }
+.dt-saved li.is-void b, .opp-docs li.is-void b { text-decoration: line-through; }
+#biz-order-form .order-doc-preview .error { margin-top: 8px; }
+.opp-doc .order-doc-buttons, .doc-view .order-doc-buttons { display: flex; gap: 8px; }
+.overlay:has(.opp-doc, .doc-view) .drawer { width: min(760px, calc(100vw - 24px)) !important; }
+@media (max-width: 700px) { .dt-num-fields { grid-template-columns: 1fr; } }
