@@ -78,7 +78,7 @@ function readJsonBody(req) {
     const chunks = [];
     req.on('data', chunk => {
       bytes += chunk.length;
-      if (bytes > 16 * 1024 * 1024) {
+      if (bytes > 64 * 1024 * 1024) {
         if (!rejected) reject(httpError(413, 'request body too large'));
         rejected = true; chunks.length = 0; return;
       }

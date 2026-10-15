@@ -25,8 +25,9 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-013 | Branch from `main`, merge back after acceptance | Superseded by D-014 |
 | D-014 | One PR per change; small ones merge themselves, big ones wait for 合并 | Accepted |
 | D-015 | Moderate verification for small features | Accepted |
-| D-016 | Mac build cadence: Claude every 10th merge, others every PR | Accepted |
+| D-016 | Mac build cadence: Claude every 10th merge, others every PR | Paused by D-019 |
 | D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Accepted |
+| D-019 | Desktop builds (Mac, Windows) paused; web version only for now | Accepted |
 
 ---
 
@@ -137,3 +138,12 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Context: while replicating the owner's 小满 settings, the remaining pages were reviewed.
 - Decision: the owner decided not to build 工作流 (workflows), 审批流 (approval flows) or 营销设置 (marketing settings).
   Do not recommend them as next steps. They are marked 排除 in `docs/xiaoman/README.md`.
+
+### D-019 Desktop builds paused, web version only (2026-10-10)
+- Context: the owner wants to focus on the web version first. Only a Mac build existed in CI; there is no Windows build.
+- Decision: all automatic desktop builds are stopped. CI's `mac build + integration` job and the every-10th-merge
+  build on `main` do not run (`PAUSED = true` in `scripts/mac-cadence.mjs`); `CLAUDE.md` tells Claude not to start or
+  wait for Mac builds. A manual CI run still builds the Mac app if the owner asks. No desktop code is deleted
+  (`native/`, `scripts/build.py`, the integration test stay). Features are verified in the browser and on the web trial.
+- Resuming: set `PAUSED` to `false`; D-016 then applies again. Mac-only risks (Swift code, packaging) go unchecked
+  while paused, so run one Mac build before the first desktop release.

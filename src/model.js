@@ -62,11 +62,18 @@
   function buildCustomers(state = {}) {
     const orders = state.orders || [];
     const names = [...new Set([...Object.keys(state.customers || {}), ...orders.map(o => o.client).filter(Boolean)])];
+    // Group the orders by customer once: filtering the whole order list per customer made this O(customers × orders).
+    const ordersByClient = new Map();
+    for (const order of orders) {
+      if (!ordersByClient.has(order.client)) ordersByClient.set(order.client, []);
+      ordersByClient.get(order.client).push(order);
+    }
     return names.map(name => {
-      const related = orders.filter(o => o.client === name && !o.isDraft && amount(o.amount)>0).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
+      const own = ordersByClient.get(name) || [];
+      const related = own.filter(o => !o.isDraft && amount(o.amount)>0).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
       const profile = state.customers?.[name] || {};
       const history = Array.isArray(profile.history) ? profile.history : [];
-      const recent = related[0] || orders.find(o=>o.client===name) || {};
+      const recent = related[0] || own[0] || {};
       const values = {...recent,...profile};
       let total=0,paid=0,missingRates=0;
       for (const order of related) {
