@@ -5,7 +5,7 @@
 - Desktop builds (Mac and Windows) are PAUSED (D-019, 2026-10-10): only the web version is built for now. Do not
   start Mac builds, do not run `mac-cadence.mjs after-merge` for a build, and do not wait for one. CI skips the Mac job
   by itself (`PAUSED` in `scripts/mac-cadence.mjs`). The owner can still ask for a Mac build: start a manual run
-  (`gh api -X POST repos/Kr1xxxx/lai-app/actions/workflows/ci.yml/dispatches -f ref=main`). `native/` and the build
+  (`gh api -X POST repos/Kr1xxxx/lai-WEB/actions/workflows/ci.yml/dispatches -f ref=main`). `native/` and the build
   scripts stay in the repo untouched. To resume, set `PAUSED` to false (D-016's every-10th-merge rule then applies again).
 
 ## How Claude works: coordinator + subagents (D-017)

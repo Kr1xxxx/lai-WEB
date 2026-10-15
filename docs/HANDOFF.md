@@ -5,7 +5,7 @@
 
 ## Status (2026-10-09)
 
-- Repository: https://github.com/Kr1xxxx/lai-app — `main` is version 1.4.126 (source); the owner's installed app
+- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is version 1.4.126 (source); the owner's installed app
   is 1.4.125.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk
   create), orders, workbench, calendar/tasks, business stats, opportunities with custom sales flows, team data,
