@@ -2609,3 +2609,170 @@ td.team-reached {
   background: var(--opp-won);
   color: #fff;
 }
+
+/* ---------- 商机设置（页签：销售流程｜输单原因｜商机字段）和商机表单里新增的字段 ---------- */
+.opp-set-tabs.cs-nav {
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 14px;
+  position: static;
+}
+.opp-set-tabs.cs-nav button {
+  height: 34px;
+  padding: 0 18px;
+  text-align: center;
+}
+.opp-set-panel.cs-panel {
+  max-width: 960px;
+}
+.opp-set .check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+}
+.opp-set .check-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.opp-set .cs-row {
+  flex-wrap: wrap;
+}
+.opp-set-name {
+  box-sizing: border-box;
+  flex: 0 1 240px;
+  min-width: 140px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.opp-set-name:hover {
+  border-color: var(--ink-300);
+}
+.opp-set-name:focus {
+  outline: 0;
+  border-color: var(--brand-500);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.14);
+}
+.opp-set-note {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+.opp-set .cs-add {
+  align-items: center;
+}
+.opp-cf-type {
+  min-width: 56px;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+.opp-cf-options {
+  display: grid;
+  gap: 4px;
+  padding: 0 12px 10px;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+.opp-cf-options textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  padding: 6px 10px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.opp-cf-warn {
+  margin: 0;
+  padding: 0 12px 10px;
+  font-size: 12px;
+  color: #c9363f;
+}
+.opp-cf-add {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 120px auto;
+  gap: 8px 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.opp-cf-add input[name="name"],
+.opp-cf-add select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+}
+.opp-cf-add textarea {
+  box-sizing: border-box;
+  grid-column: 1 / -2;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.opp-cf-add button[type="submit"] {
+  grid-column: -2 / -1;
+  height: 32px;
+  padding: 0 14px;
+}
+/* 表单：商机编号（只读文字）和多选勾选框。 */
+.opp-static {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-800);
+}
+.opp-multi-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  max-height: 148px;
+  overflow: auto;
+  padding: 8px 11px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  background: #fff;
+}
+.opp-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-800);
+}
+.opp-form .opp-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.opp-num {
+  font-variant-numeric: tabular-nums;
+}

@@ -22,7 +22,7 @@ const get = (state, id) => O.list(state).find(item => item.id === id);
 
 test('defaults for a new opportunity follow the reference form', () => {
   assert.deepEqual(O.defaults(base, TODAY), {nameMode: 'auto', name: '', client: '', contact: '', amount: '', endDate: '2026-11-05', flow: 'default', exchangeRate: 100, currency: 'USD',
-    stage: 'open', note: '', owner: 'Amy', collaborators: [], tags: [], products: [], lostReason: '', lostNote: ''});
+    stage: 'open', note: '', owner: 'Amy', collaborators: [], tags: [], products: [], lostReason: '', lostNote: '', sources: [], type: '', leadId: '', custom: {}});
   assert.equal(O.addDays('2026-12-15', 30), '2027-01-14');
   assert.equal(O.addDays('2028-02-01', 30), '2028-03-02');
   assert.deepEqual(O.STAGES.map(s => [s.label, s.kind]), [['未成单', 'open'], ['付款未到账', 'open'], ['待付尾款', 'won'], ['已完成', 'won'], ['输单', 'lost']]);
