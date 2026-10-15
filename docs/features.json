@@ -603,6 +603,21 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "ui-fonts",
+   "area": "ui",
+   "description": "One interface font: Inter for English and digits, MiSans for Chinese, embedded in the page (no network)",
+   "steps": [
+    "Open the customer list and the workbench: Chinese text in MiSans, English names and amounts in Inter",
+    "Check document.fonts: Inter and MiSans VF loaded from the page",
+    "帮助 → 关于来财Lai names MiSans and Inter"
+   ],
+   "e2e": "fonts.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

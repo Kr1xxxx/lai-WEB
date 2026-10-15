@@ -1,19 +1,6 @@
 /* Measured OKKI customer surfaces. Base reference: 1756 x 1022 CSS px. */
 :root {
-  font-family:
-    "Monospaced Number",
-    "Chinese Quote",
-    -apple-system,
-    system-ui,
-    "Segoe UI",
-    Roboto,
-    "PingFang SC",
-    "Hiragino Sans GB",
-    "Microsoft YaHei",
-    "Helvetica Neue",
-    Helvetica,
-    Arial,
-    sans-serif;
+  font-family: var(--font-ui);
   color: var(--color-neutral-800);
   background: var(--color-neutral-100);
   --line: var(--color-neutral-200);

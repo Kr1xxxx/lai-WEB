@@ -2,9 +2,7 @@
 .drawer:has(.ce-body) {
   width: min(840px, 100vw);
   color: #333;
-  font-family:
-    -apple-system, system-ui, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
-    "Microsoft YaHei", sans-serif;
+  font-family: var(--font-ui);
 }
 .drawer:has(.ce-body) .drawer-head {
   height: 56px;
@@ -89,7 +87,7 @@
 .drawer.company-display {
   width: min(400px, 100vw);
   color: #333;
-  font-family: -apple-system, system-ui, "Segoe UI", "PingFang SC", sans-serif;
+  font-family: var(--font-ui);
 }
 .company-display .drawer-head {
   height: 60px;
