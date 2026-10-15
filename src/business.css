@@ -1953,7 +1953,7 @@ td.team-reached {
 }
 .lead-status-following {
   background: #e6f5ec;
-  color: #136c41;
+  color: var(--brand-700);
 }
 .lead-status-converted {
   background: #ede9fb;
@@ -2229,7 +2229,7 @@ td.team-reached {
   --opp-muted: #6b7a90;
   --opp-line: #e3e7ee;
   --opp-won: var(--brand-500);
-  --opp-won-soft: #e8f0ff;
+  --opp-won-soft: var(--brand-50);
   --opp-danger: #c9363f;
 }
 .opp-detail {
@@ -2333,7 +2333,7 @@ td.team-reached {
   color: #9aa5b5;
 }
 .lead-timeline .is-followup .lead-entry-kind {
-  color: #136c41;
+  color: var(--brand-700);
 }
 .lead-timeline p {
   margin: 0;
@@ -2417,7 +2417,7 @@ td.team-reached {
   background: #c5ccd8;
 }
 .opp-history .opp-kind-open i {
-  background: #1f9d60;
+  background: var(--opp-open);
 }
 .opp-history .opp-kind-won i {
   background: var(--brand-500);
