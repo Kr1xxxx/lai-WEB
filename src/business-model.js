@@ -57,6 +57,30 @@
       }
     }
   }
+  // 订单的产品明细：每行 {productId, code, name, model, unit, qty, price}。名称、数量、单价都要有；全空的行直接忽略。
+  const LINE_LIMIT=200,money2=value=>Math.round(value*100)/100;
+  function normalizeLines(list){
+    if(!Array.isArray(list))throw new Error('产品明细格式不对');
+    const out=[];
+    list.forEach((raw,index)=>{
+      const row=raw&&typeof raw==='object'?raw:{};
+      const name=trim(row.name),qtyText=trim(row.qty),priceText=trim(row.price);
+      if(!name&&!qtyText&&!priceText)return;
+      const where=`第 ${index+1} 行`;
+      if(!name)throw new Error(`${where}请填写产品名称`);
+      const qty=qtyText===''?1:Number(qtyText),price=priceText===''?0:Number(priceText);
+      if(!Number.isFinite(qty)||qty<=0)throw new Error(`${where}数量必须大于 0`);
+      if(!Number.isFinite(price)||price<0)throw new Error(`${where}单价必须为不小于 0 的有效数字`);
+      out.push({productId:trim(row.productId),code:trim(row.code),name,model:trim(row.model),unit:trim(row.unit),qty,price});
+    });
+    if(out.length>LINE_LIMIT)throw new Error(`产品明细最多 ${LINE_LIMIT} 行`);
+    return out;
+  }
+  const linesTotal=lines=>money2((lines||[]).reduce((sum,line)=>sum+amount(line.qty)*amount(line.price),0));
+  const linesSummary=lines=>{
+    const names=lines.map(line=>line.name);
+    return names.length<=2?names.join('、'):`${names.slice(0,2).join('、')} 等 ${names.length} 项`;
+  };
   function upsertOrder(state,id,input){
     requireId(id);
     const orders=state.orders||[],previous=orders.find(order=>order.id===id);
@@ -66,7 +90,15 @@
     if(!next.num)throw new Error('请输入订单号');
     if(!next.client)throw new Error('请输入客户名称');
     if(next.client==='__proto__')throw new Error('该客户名称为系统保留名称');
-    next.amount=numericInput(Object.hasOwn(input,'amount')?input.amount:next.amount,'订单金额');
+    if(Object.hasOwn(input,'lines'))next.lines=normalizeLines(input.lines);
+    if(Array.isArray(next.lines)&&next.lines.length){
+      // 有产品明细时，订单金额和产品文字由明细算出，不再手填。
+      next.amount=linesTotal(next.lines);
+      next.productType=linesSummary(next.lines);
+    }else{
+      delete next.lines;
+      next.amount=numericInput(Object.hasOwn(input,'amount')?input.amount:next.amount,'订单金额');
+    }
     next.paidAmount=numericInput(Object.hasOwn(input,'paidAmount')?input.paidAmount:(next.paidAmount??0),'已收款');
     if(next.paidAmount>next.amount)throw new Error('已收款不能超过订单金额');
     next.currency=trim(next.currency||'USD').toUpperCase();
@@ -132,6 +164,6 @@
     if(typeof next.done!=='boolean')throw new Error('任务完成状态无效');
     return {...state,laiTasks:previous?state.laiTasks.map(task=>task.id===id?next:task):[next,...(state.laiTasks||[])]};
   }
-  const api={stages,localDate,orderMetrics,monthlyAnalysis,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
+  const api={stages,localDate,normalizeLines,linesTotal,linesSummary,orderMetrics,monthlyAnalysis,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiBusinessModel=api;
 })(typeof window!=='undefined'?window:globalThis);

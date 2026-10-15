@@ -847,7 +847,10 @@
       return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: B.localDate ? B.localDate() : "" })}</div>`;
     }
     function docPrint(type) {
-      const html = DU().printHtml(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
+      printDoc(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
+    }
+    function printDoc(doc) {
+      const html = DU().printHtml(doc);
       const frame = document.createElement("iframe");
       frame.setAttribute("aria-hidden", "true");
       frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
@@ -994,6 +997,61 @@
         }
       }
     }
+    // ---------- 订单产品明细：从产品库选，或手填一行；报价单 / PI 从明细生成 ----------
+    const lineRow = (line = {}) =>
+      `<tr class="ol-row" data-product-id="${E(line.productId || "")}" data-model="${E(line.model || "")}"><td><input class="ol-name" value="${E(line.name || "")}" placeholder="产品名称" aria-label="产品名称" autocomplete="off"></td><td><input class="ol-code" placeholder="编号" value="${E(line.code || "")}" aria-label="产品编号" autocomplete="off"></td><td><input class="ol-unit" placeholder="单位" value="${E(line.unit || "")}" aria-label="单位" autocomplete="off"></td><td><input class="ol-qty ol-num" placeholder="数量" type="number" min="0" step="any" value="${E(line.qty ?? 1)}" aria-label="数量"></td><td><input class="ol-price ol-num" placeholder="单价" type="number" min="0" step="0.01" value="${E(line.price ?? 0)}" aria-label="单价"></td><td class="ol-amount num">${E(B.linesTotal([line]).toFixed(2))}</td><td><button type="button" data-biz-line="remove" aria-label="删除这一行">×</button></td></tr>`;
+    function linesSection(o) {
+      const products = root.LaiProductModel ? PM().list(state()) : [];
+      const pick = products.length
+        ? `<select id="ol-pick" aria-label="从产品库选择"><option value="">从产品库选一个…</option>${products.map((p) => `<option value="${E(p.id)}">${E(p.name)}${p.code ? ` (${E(p.code)})` : ""}</option>`).join("")}</select>`
+        : '<span class="muted tiny">产品库还是空的，可以直接手填；也可以先去“交易 → 产品”添加。</span>';
+      return `<div class="form-section">产品明细</div><div class="ol-box"><div class="ol-pick">${pick}<button type="button" data-biz-line="add">${products.length ? "添加" : "添加一行"}</button></div><table class="ol-table"><tbody id="ol-body">${(o.lines || []).map(lineRow).join("")}</tbody></table><p class="muted tiny">有明细时，订单金额按“数量 × 单价”自动算，不能手改；明细清空后可以再手填金额。保存后，订单列表这一行会出现“报价单”“PI”按钮。</p></div>`;
+    }
+    function collectLines(form) {
+      if (typeof form.querySelectorAll !== "function") return undefined;
+      return [...form.querySelectorAll(".ol-row")].map((row) => ({
+        productId: row.dataset.productId || "",
+        model: row.dataset.model || "",
+        name: row.querySelector(".ol-name").value,
+        code: row.querySelector(".ol-code").value,
+        unit: row.querySelector(".ol-unit").value,
+        qty: row.querySelector(".ol-qty").value,
+        price: row.querySelector(".ol-price").value,
+      }));
+    }
+    function syncLines(form) {
+      if (!form) return;
+      let total = 0;
+      form.querySelectorAll(".ol-row").forEach((row) => {
+        const amount = (Number(row.querySelector(".ol-qty").value) || 0) * (Number(row.querySelector(".ol-price").value) || 0);
+        total += amount;
+        row.querySelector(".ol-amount").textContent = amount.toFixed(2);
+      });
+      const input = form.elements.amount, has = !!form.querySelector(".ol-row");
+      if (!input) return;
+      input.readOnly = has;
+      if (has) input.value = (Math.round(total * 100) / 100).toFixed(2);
+    }
+    function lineClick(d) {
+      const form = document.getElementById("biz-order-form");
+      if (!form) return;
+      const body = form.querySelector("#ol-body");
+      if (d.bizLine === "add") {
+        const id = form.querySelector("#ol-pick")?.value || "";
+        const product = id ? PM().find(state(), id) : null;
+        body.insertAdjacentHTML("beforeend", lineRow(product ? { productId: product.id, code: product.code, name: product.name, model: product.model, unit: product.unit, qty: 1, price: product.fob || 0 } : {}));
+        body.lastElementChild.querySelector(".ol-name").focus({ preventScroll: true });
+      } else if (d.bizLine === "remove") d.row?.remove();
+      syncLines(form);
+    }
+    let docShown = null;
+    function showOrderDoc(id, type) {
+      const order = activeOrders().find((o) => o.id === id);
+      if (!order) return ctx.toast("订单不存在，请刷新列表后重试");
+      if (!order.lines?.length) return ctx.toast("这笔订单还没有产品明细，请先在订单里添加产品");
+      docShown = DM().preview(state(), type, { lines: order.lines, currency: order.currency || "USD", client: order.client, number: order.num, date: String(order.createdAt || "").slice(0, 10) });
+      ctx.dialog(`${docShown.typeName}：${order.num}`, `<div class="drawer-body"><div class="dt-paper">${DU().documentMarkup(docShown)}</div><p class="muted tiny">公司名称、银行、条款在“交易 → 单据模板”里改。</p></div>`, `<button type="button" data-action="close-modal">关闭</button><button class="primary" type="button" data-biz-doc-print>打印 / 存为 PDF</button>`, "business-order-doc");
+    }
     function orderEditor(id, unsaved, returnCustomer = "", fromOpportunity = "") {
       const old = activeOrders().find((o) => o.id === id);
       if (id !== undefined && !old) {
@@ -1016,10 +1074,10 @@
           paidAmount: 0,
         };
       const field = (name, title, type = "text", wide = false) =>
-        `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(o[name] || "").slice(0, 10) : (o[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}></label>`;
+        `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(o[name] || "").slice(0, 10) : (o[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "amount" && o.lines?.length ? "readonly" : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}></label>`;
       ctx.dialog(
         old ? "编辑订单" : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><datalist id="biz-customer-names">${Object.keys(
+        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div>${linesSection(o)}<datalist id="biz-customer-names">${Object.keys(
           state().customers || {},
         )
           .filter(
@@ -1090,6 +1148,7 @@
         ? {
             ...Object.fromEntries(new FormData(form)),
             isDraft: form.elements.isDraft.checked,
+            lines: collectLines(form),
           }
         : null;
       ctx.dialog(
@@ -1125,6 +1184,9 @@
       if (!el || el.disabled) return;
       const d = el.dataset;
       if (d.oppAction && onOppPage()) return oppAction(d);
+      if (d.bizLine) return lineClick({ ...d, row: el.closest(".ol-row") });
+      if (d.bizDoc) return showOrderDoc(d.id, d.bizDoc);
+      if (d.bizDocPrint !== undefined) return docShown && printDoc(docShown);
       if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
       if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove)) return productClick(d);
       if (d.leadAction && onLeadPage()) return leadAction(d);
@@ -1251,6 +1313,7 @@
         return localAction(action);
     });
     document.addEventListener("input", (e) => {
+      if (e.target.classList?.contains("ol-num")) return syncLines(e.target.closest("form"));
       if (e.target.id === "biz-search") {
         search = e.target.value;
         if (e.isComposing) return;
@@ -1450,6 +1513,8 @@
         );
       if (form.id === "biz-order-form") {
         data.isDraft = form.elements.isDraft.checked;
+        const lines = collectLines(form);
+        if (lines) data.lines = lines;
         return saveNext(
           () => {
             const next = B.upsertOrder(state(), draft.id, data);

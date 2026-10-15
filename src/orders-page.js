@@ -54,7 +54,7 @@
       + `<span>${E(day(o.createdAt || o.updated).slice(5) || "—")}</span>`
       + `<span>${E(o.owner || "—")}</span>`
       + `<span class="op-ship"><span>${E(ship)}</span><small>${E(o.next || "—")}</small></span>`
-      + `<span class="op-acts"><button type="button" class="op-mini" data-biz-order="${E(o.id)}">编辑</button><button type="button" class="op-mini" data-biz-action="archive-order" data-id="${E(o.id)}">归档</button></span>`
+      + `<span class="op-acts"><button type="button" class="op-mini" data-biz-order="${E(o.id)}">编辑</button>${o.lines && o.lines.length ? `<button type="button" class="op-mini" data-biz-doc="quote" data-id="${E(o.id)}">报价单</button><button type="button" class="op-mini" data-biz-doc="pi" data-id="${E(o.id)}">PI</button>` : ""}<button type="button" class="op-mini" data-biz-action="archive-order" data-id="${E(o.id)}">归档</button></span>`
       + `</div>`;
   }
 

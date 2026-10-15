@@ -577,6 +577,23 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "order-lines",
+   "area": "trade",
+   "description": "订单产品明细: order form has 产品明细 (pick from 产品 or type), amount follows qty x price; orders with lines get 报价单 / PI buttons in the order list that open the 单据模板 preview",
+   "steps": [
+    "交易 → 产品: add 云朵睫毛 离岸价 2.5",
+    "全部订单 → 新建订单: client, pick 云朵睫毛 → 添加, qty 100: amount shows 250.00 and is read-only",
+    "save: the row shows 报价单 and PI buttons",
+    "点 PI: preview shows client, order number, the line and total 250.00",
+    "an order without lines has no such buttons"
+   ],
+   "e2e": "order-lines.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

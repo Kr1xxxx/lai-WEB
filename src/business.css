@@ -2192,3 +2192,16 @@ td.team-reached {
 .theme-preview .pv-cards { flex: 1; display: flex; gap: 8px; }
 .theme-preview .pv-cards i { flex: 1; border-radius: 6px; background: #fff; }
 .theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }
+
+/* ---- 订单产品明细 ---- */
+.ol-box { margin: 0 0 12px; }
+.ol-pick { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ol-pick select { min-width: 220px; }
+.ol-table, .ol-table tbody { display: block; width: 100%; font-size: 13px; }
+.ol-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 10px 0; border-top: 1px solid var(--ink-100, #eee); }
+.ol-row td { display: block; padding: 0; min-width: 0; }
+.ol-row td:nth-child(1) { grid-column: 1 / -1; }
+.ol-row input { width: 100%; min-width: 0; height: 30px; padding: 0 8px; box-sizing: border-box; }
+.ol-row .ol-amount { text-align: right; font-variant-numeric: tabular-nums; align-self: center; }
+.ol-row td:last-child { text-align: right; }
+.ol-row td:last-child button { width: 28px; height: 28px; padding: 0; }

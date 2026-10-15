@@ -85,3 +85,21 @@ test('monthly analysis gives empty results for months without orders, draft-only
  }
  assert.deepEqual(B.monthlyAnalysis(undefined,'2026-10').orders,[]);
 });
+test('order lines: amount and product text come from the lines, bad lines are refused, clearing them frees the amount',()=>{
+ const state=base();
+ const lines=[{name:'睫毛 A',code:'A1',qty:'100',price:'2.5'},{name:'胶水',qty:'2',price:'10.10'},{name:'',qty:'',price:''}];
+ const next=B.upsertOrder(state,'a',{num:'SO1',client:'Alpha',amount:1,lines});
+ const order=next.orders[0];
+ assert.equal(order.lines.length,2,'blank rows are ignored');
+ assert.equal(order.amount,270.2,'amount = sum of qty x price, typed amount ignored');
+ assert.equal(order.productType,'睫毛 A、胶水');
+ assert.deepEqual(order.lines[0],{productId:'',code:'A1',name:'睫毛 A',model:'',unit:'',qty:100,price:2.5});
+ assert.equal(B.upsertOrder(next,'a',{num:'SO1',client:'Alpha',lines:[...order.lines,{name:'C'},{name:'D'}]}).orders[0].productType,'睫毛 A、胶水 等 4 项');
+ for(const bad of [[{qty:3}],[{name:'x',qty:0}],[{name:'x',qty:'a'}],[{name:'x',price:-1}],'no'])assert.throws(()=>B.upsertOrder(state,'a',{num:'SO1',client:'Alpha',lines:bad}));
+ const cleared=B.upsertOrder(next,'a',{num:'SO1',client:'Alpha',amount:55,paidAmount:0,lines:[]}).orders[0];
+ assert.equal(cleared.lines,undefined);assert.equal(cleared.amount,55);
+ const untouched=B.upsertOrder(next,'a',{num:'SO1',client:'Alpha',stage:'balance'}).orders[0];
+ assert.equal(untouched.lines.length,2,'saving without lines in the input keeps them');
+ assert.throws(()=>B.upsertOrder(next,'a',{num:'SO1',client:'Alpha',paidAmount:999}),/已收款不能超过/);
+ assert.equal(state.orders[0].lines,undefined,'input state unchanged');
+});
