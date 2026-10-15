@@ -95,6 +95,14 @@
   --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-drawer: cubic-bezier(0.22, 1, 0.36, 1);
+  /* transitions.dev (Jakub Antalik): toast and switch clocks. Open is slower than close. */
+  --toast-open: 350ms;
+  --toast-close: 250ms;
+  --toast-distance: 16px;
+  --toast-blur: 2px;
+  --toast-scale: 0.97;
+  --toggle-dur: 350ms;
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
 }
 
 /*

@@ -843,7 +843,8 @@ a,
   position: fixed;
   top: 70px;
   left: 50%;
-  transform: translateX(-50%) translateY(-15px);
+  transform: translateX(-50%) translateY(calc(var(--toast-distance) * -1)) scale(var(--toast-scale));
+  filter: blur(var(--toast-blur));
   opacity: 0;
   pointer-events: none;
   background: var(--color-neutral-0);
@@ -855,12 +856,15 @@ a,
   color: var(--ink-700);
   font-size: var(--font-size-body);
   transition:
-    opacity var(--motion-normal) var(--ease-standard),
-    transform var(--motion-normal) var(--ease-standard);
+    opacity var(--toast-close) var(--ease-drawer),
+    transform var(--toast-close) var(--ease-drawer),
+    filter var(--toast-close) var(--ease-drawer);
 }
 #toast.show {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(-50%) translateY(0) scale(1);
+  filter: blur(0);
+  transition-duration: var(--toast-open);
 }
 .alert-bar {
   font-size: 12px;
