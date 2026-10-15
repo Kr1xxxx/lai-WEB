@@ -74,11 +74,13 @@ def next_version(version):
 def add_version_chip(html, version):
     # The top bar's version chip (next to the logo) shows the trial's own version here instead of the app's
     # 1.4.x; the app version is still in the 关于来财 drawer and in the chip's tooltip.
-    old = '<span class="app-version" aria-label="当前版本 ${APP_VERSION}">v${APP_VERSION}</span>'
+    old = ('<button type="button" class="app-version" data-action="version-history" aria-haspopup="dialog" '
+           'aria-label="当前版本 ${APP_VERSION}，查看版本更新历史">v${APP_VERSION}</button>')
     if html.count(old) != 1:
         sys.exit('STOP: expected the top bar version chip exactly once in the page')
-    chip = (f'<span class="app-version" id="lai-trial-version" title="网页试用版 {version}（应用版本 ${{APP_VERSION}}）" '
-            f'aria-label="网页试用版版本 {version}">v{version}</span>')
+    chip = (f'<button type="button" class="app-version" id="lai-trial-version" data-action="version-history" '
+            f'aria-haspopup="dialog" title="网页试用版 {version}（应用版本 ${{APP_VERSION}}）" '
+            f'aria-label="网页试用版版本 {version}，查看版本更新历史">v{version}</button>')
     return html.replace(old, chip, 1)
 
 

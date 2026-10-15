@@ -205,4 +205,4 @@ class WebTrialBuild(unittest.TestCase):
                 module.main()
             html = out.read_text(encoding='utf8')
         self.assertEqual(html.count('id="lai-trial-version"'), 1)
-        self.assertIn('>v' + version + '</span>', html)
+        self.assertIn('>v' + version + '</button>', html)
