@@ -20,10 +20,11 @@
 - Merge policy (D-014) and CI are live since PR #1; Mac build cadence (D-016, paused) since PR #3. From PR #12 on, the
   decision runs in `merge-policy.yml` from `main`'s copy and merged branches are kept.
 - Last Mac build on `main`: 302e6b2 (20th Claude merge, PR #19; the next one is due after the 30th), green: build, integration test and package passed; artifact `Lai-app-302e6b2…` in that CI run.
-- Web trial: the old page (Version 45, `main` 6941054, A1) could not be read from the current account, so the page was rebuilt
-  from the repo alone: `python3 -I scripts/web-trial/build.py --publish --out lai-artifact.html` (data stand-in:
-  `scripts/web-trial/data-shim.js`). New private Artifact https://claude.ai/artifact/QkmN2BDTSYYnox6BhzDNwD, Version 2 built from `main`
-  2475597 (A2 + rail pill). It holds no data from the old page. `rebuild.py` still works for an existing live page.
+- Web trial: built from the repo alone (`python3 -I scripts/web-trial/build.py --publish --out lai-artifact.html`; data stand-in
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/QkmN2BDTSYYnox6BhzDNwD, **v1.01** (Artifact Version 3), built
+  from `main` 813971d (A2 + rail pill) plus the version label. The page shows its own version in the top-left; every publish adds 0.01
+  (`build.py --bump`; `scripts/web-trial/version.json`) and the report ends with the version. No data from the old page (Version 45)
+  was carried over. `rebuild.py` still works for an existing live page.
 - How Claude works (D-017, PR #15 merged 2026-10-09): Opus 5.5 high coordinates; subagents default to Sonnet 5.5 medium and
   run in parallel git worktrees (`.claude/settings.json`, `.claude/agents/`, rules in `CLAUDE.md`).
 
