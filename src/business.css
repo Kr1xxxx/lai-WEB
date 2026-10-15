@@ -2145,8 +2145,6 @@ td.team-reached {
 .pd-item.pd-wide { grid-column: 1 / -1; }
 .pd-item dt { font-size: 12px; color: var(--ink-500, #8c8c8c); }
 .pd-item dd { margin: 2px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.lead-timeline {
-
 /* ---------- 商机详情、附件、拖动 ---------- */
 .opp-card-amount:has(.opp-clip) {
   display: flex;
@@ -2308,6 +2306,11 @@ td.team-reached {
   position: relative;
   display: grid;
   gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lead-timeline {
   margin: 0;
   padding: 0;
   list-style: none;
