@@ -185,20 +185,46 @@
     // 粉色、橙色用新界面（悬浮玻璃面板），小满保持原来的界面。
     document.documentElement.dataset.skin = theme === "xiaoman" ? "classic" : "glass";
   }
+  // 已保存数据的快照（见 model.js 的 snapshotState）：保存时只把和它不同的部分发给本机服务。
+  let savedSnapshot = null;
+  function adoptServerState(data, serverRevision) {
+    state = data;
+    revision = serverRevision;
+    savedSnapshot = M.snapshotState(data);
+  }
+  async function postJson(url, body) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return { res, result: await res.json().catch(() => ({})) };
+  }
   async function persist(next, importLog = null) {
     if (pending) throw new Error("上一项修改正在保存，请稍候");
     status("正在保存…");
     pending = (async () => {
-      const res = await fetch("/api/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const diff = savedSnapshot ? M.diffState(savedSnapshot, next) : null;
+      let sent = null;
+      if (diff && diff.empty && !importLog) {
+        sent = { res: { ok: true, status: 200 }, result: { ok: true, revision } };
+      } else if (diff) {
+        sent = await postJson("/api/save-changes", {
+          changes: diff.changes,
+          baseRevision: revision,
+          ...(importLog ? {importLog} : {}),
+        });
+        // 只传改动没走通（旧版服务、核对没过）时，退回整包保存；版本冲突不退回。
+        if ([400, 404, 422, 500].includes(sent.res.status)) sent = null;
+      }
+      if (!sent) {
+        sent = await postJson("/api/save", {
           state: { app: "laicai-lai", version: APP_VERSION, data: next },
           baseRevision: revision,
           ...(importLog ? {importLog} : {}),
-        }),
-      });
-      const result = await res.json();
+        });
+      }
+      const { res, result } = sent;
       if (!res.ok || !result.ok)
         throw new Error(
           res.status === 409
@@ -207,6 +233,7 @@
         );
       state = next;
       revision = result.revision;
+      savedSnapshot = diff ? diff.snapshot : M.snapshotState(next);
       applyTheme(state.laiSettings?.theme);
       rebuildRows();
       status("已保存到来财");
@@ -669,8 +696,7 @@
         return;
       }
       if (payload.revision !== revision) {
-        state = payload.data;
-        revision = payload.revision;
+        adoptServerState(payload.data, payload.revision);
         rebuildRows();
         message = "动态已更新";
         if (tab === "activity" && currentName === name) {
@@ -2018,10 +2044,9 @@
       const response = await fetch("/api/data", { cache: "no-store" });
       if (!response.ok) throw new Error("本地数据服务连接失败");
       const payload = await response.json();
-      state = payload.data;
-      revision = payload.revision;
-      if (!state || !Array.isArray(state.orders) || !state.customers)
+      if (!payload.data || !Array.isArray(payload.data.orders) || !payload.data.customers)
         throw new Error("客户数据格式不完整");
+      adoptServerState(payload.data, payload.revision);
       applyTheme(state.laiSettings?.theme);
       rebuildRows();
       const initialCustomer = new URLSearchParams(location.search).get("customer");
@@ -4962,8 +4987,7 @@
           !Array.isArray(snapshot.data?.orders) || !snapshot.data?.customers ||
           typeof snapshot.data.customers !== "object" ||
           Array.isArray(snapshot.data.customers)) return;
-      state = snapshot.data;
-      revision = snapshot.revision;
+      adoptServerState(snapshot.data, snapshot.revision);
       rebuildRows();
       refresh();
     } catch {
@@ -4983,6 +5007,13 @@
       $("#app").innerHTML = shell(html);
     },
     save: persist,
+    // 商机附件：读取文件、JSON 请求、上传文件（请求体就是文件内容）。
+    request: (path, payload) =>
+      fetch(path, payload === undefined
+        ? { cache: "no-store" }
+        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+    upload: (path, file) =>
+      fetch(path, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file }),
     openCustomer: (name) => navigateApp("customers", name),
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,

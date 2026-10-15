@@ -6,7 +6,7 @@
 
 - [ ] `npm run test:model` passes
 - [ ] UI changed: `npm run test:e2e` passes, and I looked at the page (1440×900); flows walked through:
-- [ ] Mac app: CI `mac build + integration` is green (if it ran, D-016) / tested on a real Mac:
+- [ ] Mac app: not built while desktop builds are paused (D-019); otherwise CI `mac build + integration` is green / tested on a real Mac:
 - [ ] Web trial republished after merge (built from commit: )
 
 ## Not verified / not done well

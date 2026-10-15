@@ -474,3 +474,173 @@ test('review fixes: an unreadable flow link is kept on edit; labels are counted 
   two = add(two, 'm3', {flow: 'fs', client: 'Beta Ltd', contact: ''});
   assert.deepEqual([O.board(two, {}, TODAY).otherFlowCount, O.board(two, {flow: 'fs'}, TODAY).otherFlowCount, O.board(two, {search: 'Beta'}, TODAY).otherFlowCount, O.board(two, {search: 'Beta'}, TODAY).count], [2, 1, 1, 0]);
 });
+
+// ---------------- 附件 ----------------
+const FILE = extra => ({name: '报价单.pdf', size: 1024, type: 'application/pdf', fileUrl: '/attachments/opportunities/m1/ab12cd34ef-q.pdf', ...extra});
+
+test('attachments: add, rename, remove keep unknown fields and only touch this opportunity', () => {
+  let state = {...add(add(base, 'm1'), 'm2'), keepMe: {a: 1}};
+  state.laiOpportunities = state.laiOpportunities.map(item => item.id === 'm1' ? {...item, futureField: {x: 1}, attachments: [{id: 'old', name: '旧', fileUrl: '/attachments/opportunities/m1/x.txt', size: 5, label: '保留'}, 'junk', {id: '', fileUrl: ''}]} : item);
+  const before2 = JSON.stringify(get(state, 'm2'));
+  state = O.addAttachments(state, 'm1', [FILE({id: 'a1'}), FILE({id: 'a2', name: ' 图 1.PNG ', size: 5, type: 'image/png', fileUrl: '/attachments/opportunities/m1/ab12cd34ee-x.png'})], {now: '2026-10-07T01:00:00.000Z'});
+  const item = get(state, 'm1');
+  assert.equal(item.attachments.length, 5);                       // 读不懂的条目原样保留
+  assert.deepEqual(item.attachments[4], {id: 'a2', name: '图 1.PNG', size: 5, type: 'image/png', fileUrl: '/attachments/opportunities/m1/ab12cd34ee-x.png', uploadedAt: '2026-10-07T01:00:00.000Z'});
+  assert.equal(item.attachments[0].label, '保留');
+  assert.equal(item.futureField.x, 1);
+  assert.equal(item.updatedAt, '2026-10-07T01:00:00.000Z');
+  assert.equal(JSON.stringify(get(state, 'm2')), before2);
+  assert.deepEqual(state.keepMe, {a: 1});
+  assert.deepEqual(O.attachmentsOf(item).map(entry => entry.id), ['old', 'a1', 'a2']);
+
+  const renamed = O.renameAttachment(state, 'm1', 'a1', '  合同 v2.pdf ', {now: '2026-10-07T02:00:00.000Z'});
+  assert.equal(O.attachmentsOf(get(renamed, 'm1')).find(entry => entry.id === 'a1').name, '合同 v2.pdf');
+  assert.equal(O.attachmentsOf(get(renamed, 'm1')).find(entry => entry.id === 'a1').fileUrl, FILE().fileUrl);
+  assert.equal(O.attachmentsOf(get(renamed, 'm1')).find(entry => entry.id === 'old').label, '保留');
+  assert.throws(() => O.renameAttachment(state, 'm1', 'a1', '   '), /文件名不能为空/);
+  assert.throws(() => O.renameAttachment(state, 'm1', 'a1', 'x.exe'), /可执行/);
+  assert.throws(() => O.renameAttachment(state, 'm1', 'zzz', 'x.pdf'), /附件不存在/);
+
+  const removed = O.removeAttachment(renamed, 'm1', 'a1');
+  assert.deepEqual(O.attachmentsOf(get(removed, 'm1')).map(entry => entry.id), ['old', 'a2']);
+  assert.equal(get(removed, 'm1').attachments.length, 4);
+  assert.throws(() => O.removeAttachment(removed, 'm1', 'a1'), /附件不存在/);
+  assert.throws(() => O.addAttachments(state, 'nope', [FILE()]), /商机不存在/);
+});
+
+test('attachments: limits, blocked types, bad locations and duplicate ids are refused', () => {
+  const state = add(base, 'm1');
+  const bad = (file, pattern) => assert.throws(() => O.addAttachments(state, 'm1', [file]), pattern);
+  bad(FILE({name: '安装.exe'}), /可执行或安装类文件/);
+  bad(FILE({name: 'a.pdf.SH'}), /可执行或安装类文件/);
+  bad(FILE({name: 'tool.app'}), /可执行或安装类文件/);
+  bad(FILE({name: ''}), /文件名不能为空/);
+  bad(FILE({size: 0}), /空文件/);
+  bad(FILE({size: 20 * 1024 * 1024 + 1}), /超过 20 MB/);
+  bad(FILE({size: -1}), /大小无效/);
+  bad(FILE({size: 1.5}), /大小无效/);
+  bad(FILE({size: 'x'}), /大小无效/);
+  bad(FILE({fileUrl: '/attachments/orders/x.pdf'}), /存放位置无效/);
+  bad(FILE({fileUrl: '/attachments/opportunities/../orders/x.pdf'}), /存放位置无效/);
+  bad(FILE({fileUrl: ''}), /存放位置无效/);
+  assert.doesNotThrow(() => O.addAttachments(state, 'm1', [FILE({size: 20 * 1024 * 1024})]));
+  assert.throws(() => O.addAttachments(state, 'm1', []), /没有要添加的文件/);
+  assert.throws(() => O.addAttachments(state, 'm1', [FILE({id: 'd'}), FILE({id: 'd'})]), /编号重复/);
+  const one = O.addAttachments(state, 'm1', [FILE({id: 'd'})]);
+  assert.throws(() => O.addAttachments(one, 'm1', [FILE({id: 'd'})]), /编号重复/);
+  // 最多 30 个
+  const thirty = O.addAttachments(state, 'm1', Array.from({length: 30}, (_, index) => FILE({id: 'n' + index})));
+  assert.equal(O.attachmentsOf(get(thirty, 'm1')).length, 30);
+  assert.throws(() => O.addAttachments(thirty, 'm1', [FILE({id: 'extra'})]), /最多 30 个附件，现在已有 30 个/);
+  assert.throws(() => O.addAttachments(one, 'm1', Array.from({length: 30}, (_, index) => FILE({id: 'z' + index}))), /最多 30 个附件，现在已有 1 个/);
+  assert.equal(O.removeAttachment(thirty, 'm1', 'n0') && O.attachmentsOf(get(O.addAttachments(O.removeAttachment(thirty, 'm1', 'n0'), 'm1', [FILE({id: 'again'})]), 'm1')).length, 30);
+  // 检查函数本身
+  assert.equal(O.checkFile({name: '  a/b.png ', size: 3}), 'a_b.png');
+  assert.equal(O.attachmentName('x'.repeat(200) + '.pdf').length, 120);
+  assert.ok(O.attachmentName('x'.repeat(200) + '.pdf').endsWith('.pdf'));
+  assert.equal(O.previewKind('A.JPG'), 'image');
+  assert.equal(O.previewKind('a.svg'), '');
+  assert.equal(O.previewKind('a.pdf'), '');
+});
+
+test('attachments: cards count them, details list them, filesOf returns the stored files, removing an opportunity leaves no stray state', () => {
+  let state = add(add(base, 'm1'), 'm2');
+  assert.equal(O.board(state, {}, TODAY).cards.find(card => card.id === 'm1').attachmentCount, 0);
+  state = O.addAttachments(state, 'm1', [FILE({id: 'a1'}), FILE({id: 'a2', fileUrl: '/attachments/opportunities/m1/ee-b.pdf'})]);
+  state.laiOpportunities = state.laiOpportunities.map(item => item.id === 'm1' ? {...item, attachments: [...item.attachments, 'junk']} : item);
+  assert.equal(O.board(state, {}, TODAY).cards.find(card => card.id === 'm1').attachmentCount, 2);
+  assert.equal(O.cardOf(state, 'm1', TODAY).attachmentCount, 2);
+  assert.deepEqual(O.filesOf(state, 'm1'), [FILE().fileUrl, '/attachments/opportunities/m1/ee-b.pdf']);
+  assert.deepEqual(O.filesOf(state, 'm2'), []);
+  assert.deepEqual(O.filesOf(state, 'nope'), []);
+  const detail = O.detailOf(state, 'm1', TODAY);
+  assert.equal(detail.attachments.length, 2);
+  assert.equal(detail.flowLabel, '默认销售流程');
+  assert.equal(detail.history[0].label, '未成单');
+  assert.equal(O.detailOf(state, 'nope', TODAY), null);
+  // 归档不动附件；删除商机后文件地址已被调用方取走
+  assert.equal(O.attachmentsOf(get(O.setArchived(state, 'm1', true), 'm1')).length, 2);
+  assert.equal(get(O.remove(state, 'm1'), 'm1'), undefined);
+});
+
+test('detail: stage history, lost reason, products and notes come from the stored opportunity', () => {
+  let state = add(base, 'm1', {note: '重点客户', products: 'Lash A, 10, 2.5', tags: 'VIP', collaborators: 'Bob'}, '2026-10-01T02:00:00.000Z');
+  state = O.moveStage(state, 'm1', 'balance', {now: '2026-10-02T02:00:00.000Z'});
+  state = O.moveStage(state, 'm1', 'lost', {lostReason: '价格原因', lostNote: '太贵', now: '2026-10-03T02:00:00.000Z'});
+  const detail = O.detailOf(state, 'm1', TODAY);
+  assert.deepEqual(detail.history.map(entry => [entry.label, entry.kind, entry.at]), [['未成单', 'open', '2026-10-01T02:00:00.000Z'], ['待付尾款', 'won', '2026-10-02T02:00:00.000Z'], ['输单', 'lost', '2026-10-03T02:00:00.000Z']]);
+  assert.equal(detail.lostReason, '价格原因'); assert.equal(detail.lostNote, '太贵');
+  assert.equal(detail.note, '重点客户'); assert.deepEqual(detail.collaborators, ['Bob']); assert.deepEqual(detail.products.map(row => row.name), ['Lash A']);
+  assert.equal(detail.closedAt, '2026-10-03T02:00:00.000Z');
+});
+
+// ---------------- 手动排序 ----------------
+test('manual sort: unranked first (newest first), ranked by sortRank; reorder moves one card without touching others', () => {
+  let state = base;
+  ['m1', 'm2', 'm3', 'm4'].forEach((id, index) => { state = add(state, id, {}, `2026-10-0${index + 1}T02:00:00.000Z`); });
+  const ids = (s, stage = 'open', sort = 'manual', extra = {}) => O.board(s, {sort, ...extra}, TODAY).columns.find(column => column.id === stage).cards.map(card => card.id);
+  assert.deepEqual(ids(state), ['m4', 'm3', 'm2', 'm1']);                 // 没排过：新的在前
+  const stamp = '2026-10-07T00:00:00.000Z';
+  const second = O.reorder(state, 'm1', {before: 'm4', now: stamp});      // m1 放到 m4 前面
+  assert.deepEqual(ids(second), ['m1', 'm4', 'm3', 'm2']);
+  assert.equal(get(second, 'm1').updatedAt, get(state, 'm1').updatedAt);  // 只调顺序，不改更新时间
+  assert.deepEqual(['m1', 'm4', 'm3', 'm2'].map(id => get(second, id).sortRank), [1, 2, 3, 4]);
+  const third = O.reorder(second, 'm1', {before: ''});                    // 放到最后
+  assert.deepEqual(ids(third), ['m4', 'm3', 'm2', 'm1']);
+  const same = O.reorder(third, 'm2', {before: 'm1'});                    // 已经在那里：什么都不变
+  assert.deepEqual(ids(same), ['m4', 'm3', 'm2', 'm1']);
+  assert.equal(JSON.stringify(O.reorder(same, 'm2', {before: 'm1'})), JSON.stringify(same));
+  // 其他排序不受影响
+  assert.deepEqual(ids(second, 'open', 'createdAt-desc'), ['m4', 'm3', 'm2', 'm1']);
+  assert.deepEqual(ids(second, 'open', 'bogus'), ['m4', 'm3', 'm2', 'm1']);
+  assert.equal(O.board(second, {sort: 'manual'}, TODAY).filters.sort, 'manual');
+  assert.ok(O.SORTS.some(([id]) => id === 'manual'));
+  // 看不见的卡片（被筛掉）保持相对位置
+  const searched = O.reorder(second, 'm2', {before: 'm4', now: stamp});
+  assert.deepEqual(ids(searched), ['m1', 'm2', 'm4', 'm3']);
+  // 找不到 before：放到最后
+  assert.deepEqual(ids(O.reorder(second, 'm1', {before: 'ghost'})), ['m4', 'm3', 'm2', 'm1']);
+});
+
+test('manual sort: dropping into another column changes stage (with history) and takes the place; lost needs a reason', () => {
+  let state = base;
+  ['m1', 'm2', 'm3'].forEach((id, index) => { state = add(state, id, {stage: index < 2 ? 'open' : 'unpaid'}, `2026-10-0${index + 1}T02:00:00.000Z`); });
+  state = O.reorder(state, 'm1', {before: 'm2'});
+  const moved = O.reorder(state, 'm2', {stage: 'unpaid', before: 'm3', now: '2026-10-07T00:00:00.000Z'});
+  assert.equal(get(moved, 'm2').stage, 'unpaid');
+  assert.deepEqual(get(moved, 'm2').stageHistory.map(entry => entry.stage), ['open', 'unpaid']);
+  assert.equal(get(moved, 'm2').updatedAt, '2026-10-07T00:00:00.000Z');
+  const col = (s, stage) => O.board(s, {sort: 'manual'}, TODAY).columns.find(column => column.id === stage).cards.map(card => card.id);
+  assert.deepEqual(col(moved, 'unpaid'), ['m2', 'm3']);
+  assert.deepEqual(col(moved, 'open'), ['m1']);
+  assert.throws(() => O.reorder(state, 'm1', {stage: 'lost', before: ''}), /请选择输单原因/);
+  const lost = O.reorder(state, 'm1', {stage: 'lost', lostReason: '价格原因'});
+  assert.equal(get(lost, 'm1').stage, 'lost'); assert.ok(get(lost, 'm1').closedAt);
+  assert.throws(() => O.reorder(state, 'm1', {stage: 'nope'}), /没有这个阶段/);
+  assert.throws(() => O.reorder(state, 'zzz', {stage: 'open'}), /商机不存在/);
+  // 换阶段后旧的排序号不带过去
+  assert.equal(O.moveStage(state, 'm1', 'unpaid').laiOpportunities.find(item => item.id === 'm1').sortRank, undefined);
+  // 另一个销售流程里的同名阶段互不影响
+  let two = O.addFlow(base, {label: '样品单'}, {id: 'fs'});
+  two = add(add(two, 'a', {}, '2026-10-01T02:00:00.000Z'), 'b', {flow: 'fs'}, '2026-10-02T02:00:00.000Z');
+  const ranked = O.reorder(two, 'a', {before: ''});
+  assert.equal(get(ranked, 'b').sortRank, undefined);
+});
+
+test('review fixes: ".." inside a file name is fine, real traversal is not; rename keeps the extension; removing a stage clears manual ranks', () => {
+  const state = add(base, 'm1');
+  const ok = name => O.addAttachments(state, 'm1', [FILE({fileUrl: '/attachments/opportunities/m1/ab12cd34ef-' + encodeURIComponent(name), name})]);
+  assert.doesNotThrow(() => ok('a..b.pdf')); assert.doesNotThrow(() => ok('报告..pdf'));
+  for (const url of ['/attachments/opportunities/../x/y.pdf', '/attachments/opportunities/m1/..', '/attachments/opportunities/m1/%2e%2e', '/attachments/opportunities/m1/', '/attachments/opportunities/m1', '/attachments/opportunities/m1/a/b.pdf', '/attachments/opportunities/m1/a%2Fb.pdf', '/attachments/opportunities/m1/a%00.pdf', '/attachments/opportunities/%zz/a.pdf', '/attachments/opportunities/m1/a.pdf?x=1'])
+    assert.throws(() => O.addAttachments(state, 'm1', [FILE({fileUrl: url})]), /存放位置无效/, url);
+  const withFile = O.addAttachments(state, 'm1', [FILE({id: 'a1'})]);
+  assert.throws(() => O.renameAttachment(withFile, 'm1', 'a1', '合同.png'), /不能修改文件的扩展名/);
+  assert.throws(() => O.renameAttachment(withFile, 'm1', 'a1', '合同'), /不能修改文件的扩展名/);
+  assert.equal(O.attachmentsOf(get(O.renameAttachment(withFile, 'm1', 'a1', '合同.PDF'), 'm1'))[0].name, '合同.PDF');
+  let two = add(add(base, 'a', {}, '2026-10-01T02:00:00.000Z'), 'b', {stage: 'unpaid'}, '2026-10-02T02:00:00.000Z');
+  two = O.reorder(O.reorder(two, 'a', {before: ''}), 'b', {before: ''});
+  assert.equal(get(two, 'a').sortRank, 1);
+  const removed = O.removeFlowStage(two, 'default', 'open', {moveTo: 'unpaid'});
+  assert.equal(get(removed, 'a').stage, 'unpaid'); assert.equal(Object.hasOwn(get(removed, 'a'), 'sortRank'), false);
+  assert.equal(O.reorder(two, 'a', {before: 'a'}), two, 'dropping a card before itself changes nothing');
+});
