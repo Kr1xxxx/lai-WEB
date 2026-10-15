@@ -546,6 +546,33 @@
    }
   },
   {
+   "id": "products",
+   "area": "trade",
+   "description": "产品: a product list under 交易 with 产品分组 (two levels), 产品字段 (show / required per field) and 规格管理 (types and values); products use them and in-use groups or specs cannot be deleted",
+   "steps": [
+    "交易 → 产品 → 产品分组: add 睫毛, add 子分组 单根",
+    "规格管理: add 颜色, add 规格值 黑色",
+    "产品字段: tick 产品型号 必填, untick 产品备注 显示",
+    "产品列表 → 新建产品: name, group, spec; saving without 型号 is refused; 备注 is not in the form",
+    "删除 a group or spec value that a product uses: refused"
+   ],
+   "e2e": "products.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "doc-templates",
+   "area": "trade",
+   "description": "单据模板: 交易 → 单据模板 has 报价单, 形式发票, 销售订单, 发货通知 tabs (title, columns, terms, footer, bank and signature switches, live preview, print) and a shared 公司信息 tab",
+   "steps": [
+    "交易 → 单据模板 → 公司信息: fill 公司名称 and 开户银行, save",
+    "形式发票: change title to PI 单, untick 单价 and 金额, save: preview follows, reload keeps it",
+    "报价单: preview shows the company name; with products in 产品, the table shows them",
+    "恢复默认 needs two clicks and brings the default title back"
+   ],
+   "e2e": "doc-templates.e2e.mjs",
    "id": "opportunity-attachments",
    "area": "opportunities",
    "description": "商机详情抽屉、附件（上传、列表、删除）、卡片拖动",

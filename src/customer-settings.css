@@ -77,3 +77,46 @@
 .cs-dedupe .check-row { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; }
 .cs-dedupe td { padding-right: 16px; }
 .cs-dedupe input[type="radio"] { width: auto; flex: none; margin: 0; }
+
+.cs-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 8px; }
+.cs-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border: 1px solid var(--line, #e5e7eb); border-radius: 999px; font-size: 13px; }
+.cs-chip button { border: 0; background: transparent; cursor: pointer; padding: 0 6px; font-size: 14px; line-height: 1; color: inherit; }
+.cs-table .cs-subhead th { background: transparent; text-align: left; font-size: 13px; padding-top: 14px; }
+.cs-prod td:first-child { min-width: 180px; white-space: normal; overflow: visible; text-overflow: clip; }
+.cs-prod td:first-child .company-link { max-width: none; white-space: normal; text-align: left; }
+
+/* ---- 单据模板 ---- */
+.dt-grid { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.dt-form { display: grid; gap: 12px; }
+.dt-form textarea { width: 100%; resize: vertical; }
+.dt-checks { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.dt-form .cs-actions { display: flex; gap: 8px; }
+.dt-company { max-width: 640px; }
+.dt-group { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.dt-group h3 { grid-column: 1 / -1; margin: 4px 0 10px; font-size: 14px; }
+.dt-company .cs-field input { max-width: 100%; }
+.dt-side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dt-paper { background: #fff; color: #111; border: 1px solid var(--line, #e5e5e5); border-radius: 8px; padding: 20px; overflow: auto; }
+.dt-doc { font-size: 12px; line-height: 1.5; }
+.dt-doc * { max-width: none; }
+.dt-doc .dt-table th, .dt-doc .dt-table td { font-size: 12px; white-space: normal; overflow: visible; text-overflow: clip; padding: 5px 4px; }
+.dt-doc .dt-co { min-width: 0; overflow-wrap: anywhere; }
+.dt-head { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #111; padding-bottom: 10px; }
+.dt-co span { display: block; color: #555; }
+.dt-title { text-align: right; }
+.dt-title h2 { margin: 0; font-size: 18px; }
+.dt-title span { color: #777; font-size: 11px; }
+.dt-meta { display: flex; gap: 24px; margin: 10px 0; }
+.dt-meta dt { color: #777; }
+.dt-meta dd { margin: 0; font-weight: 600; }
+.dt-table { width: 100%; border-collapse: collapse; }
+.dt-table th, .dt-table td { border-bottom: 1px solid #ddd; padding: 5px 6px; text-align: left; }
+.dt-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.dt-total { text-align: right; margin: 8px 0; }
+.dt-block h3 { font-size: 12px; margin: 12px 0 2px; }
+.dt-block p { margin: 2px 0; }
+.dt-block p span { color: #777; }
+.dt-footer { margin-top: 16px; }
+.dt-sign { margin-top: 36px; border-top: 1px solid #111; width: 200px; padding-top: 4px; color: #777; }
+.dt-blank { color: #999; font-weight: 400; }
+@media (max-width: 1100px) { .dt-grid { grid-template-columns: 1fr; } }

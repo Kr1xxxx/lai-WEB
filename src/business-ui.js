@@ -989,6 +989,147 @@
         return saveNext(() => LD().remove(state(), d.id), errorId, leadSaved(""));
       }
     }
+    // ---------- 产品：列表、分组、字段、规格 ----------
+    const PM = () => root.LaiProductModel;
+    let productUI = null;
+    const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM()));
+    const prodView = { tab: "list", search: "", group: "", editing: null, armed: "" };
+    let prodDraft = null;
+    function renderProducts() {
+      return header("产品", "你卖的产品：分组、字段、规格都在这里设置", "") + `<div class="business-scroll">${PU().pageMarkup(state(), prodView)}</div>`;
+    }
+    function prodSave(makeNext, after) {
+      const box = document.getElementById("prod-error");
+      box?.classList.remove("visible");
+      return saveNext(makeNext, "prod-error", () => {
+        prodView.editing = null;
+        prodView.armed = "";
+        return after ? after() : undefined;
+      });
+    }
+    function openProductForm(id) {
+      const old = id === undefined ? null : PM().find(state(), id);
+      if (id !== undefined && !old) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
+      prodDraft = { id: old ? old.id : undefined };
+      ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="product-form">保存产品</button>', "business-product");
+    }
+    function productAction(d) {
+      const action = d.prodAction;
+      if (action !== "delete") prodView.armed = "";
+      if (action === "new") return openProductForm();
+      if (action === "edit") return openProductForm(d.id);
+      if (action === "delete") {
+        if (prodView.armed !== d.id) {
+          prodView.armed = d.id;
+          render();
+          return document.querySelector?.(`[data-prod-action="delete"][data-id="${cssEscape(d.id)}"]`)?.focus?.({ preventScroll: true });
+        }
+        return prodSave(() => PM().remove(state(), d.id));
+      }
+    }
+    function productClick(d) {
+      if (d.prodTab) {
+        prodView.tab = d.prodTab;
+        prodView.editing = null;
+        prodView.armed = "";
+        return render();
+      }
+      if (d.prodAction) return productAction(d);
+      if (d.prodCancel !== undefined) {
+        prodView.editing = null;
+        return render();
+      }
+      if (d.prodEdit) {
+        prodView.editing = { kind: d.prodEdit, key: d.key };
+        render();
+        return document.querySelector?.(".cs-inline input")?.focus?.({ preventScroll: true });
+      }
+      if (d.prodSub) {
+        prodView.editing = { kind: "groupsub", key: d.prodSub };
+        render();
+        return document.querySelector?.('[data-prod-form="group-add"][data-parent] input')?.focus?.({ preventScroll: true });
+      }
+      if (d.prodMove) return prodSave(() => PM().moveGroup(state(), d.prodMove, Number(d.delta)));
+      if (d.prodDelete) return prodSave(() => (d.prodDelete === "spec" ? PM().deleteSpec(state(), d.key) : PM().deleteGroup(state(), d.key)));
+      if (d.prodValueRemove) return prodSave(() => PM().removeSpecValue(state(), d.prodValueRemove, d.value));
+    }
+    function productSubmit(form) {
+      const kind = form.dataset.prodForm, data = Object.fromEntries(new FormData(form));
+      const text = (key) => String(data[key] || "");
+      return prodSave(() => {
+        if (kind === "group-add") return PM().addGroup(state(), { name: text("name"), parentId: form.dataset.parent || "" });
+        if (kind === "group-rename") return PM().renameGroup(state(), form.dataset.id, text("name"));
+        if (kind === "spec-add") return PM().addSpec(state(), text("name"));
+        if (kind === "spec-rename") return PM().renameSpec(state(), form.dataset.id, text("name"));
+        if (kind === "value-add") return PM().addSpecValue(state(), form.dataset.id, text("value"));
+        throw new Error("无法保存");
+      });
+    }
+    function productFormSubmit(form) {
+      if (!prodDraft) return;
+      const data = Object.fromEntries(new FormData(form));
+      const specs = Object.entries(data).filter(([key, value]) => key.startsWith("spec:") && value).map(([key, value]) => ({ type: key.slice(5), value }));
+      const { id } = prodDraft;
+      return saveNext(
+        () => PM().upsert(state(), id, { ...data, specs }),
+        "product-error",
+        () => {
+          prodDraft = null;
+          ctx.closeDialog();
+        },
+      );
+    }
+    // ---------- 单据模板：报价单、形式发票、销售订单、发货通知 ----------
+    const DM = () => root.LaiDocTemplateModel;
+    let docUI = null;
+    const DU = () => docUI || (docUI = root.LaiDocTemplateUI.create(E, DM()));
+    const docView = { tab: "quote", armed: "" };
+    function renderDocTemplates() {
+      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: B.localDate ? B.localDate() : "" })}</div>`;
+    }
+    function docPrint(type) {
+      const html = DU().printHtml(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
+      const frame = document.createElement("iframe");
+      frame.setAttribute("aria-hidden", "true");
+      frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+      document.body.appendChild(frame);
+      frame.srcdoc = html;
+      frame.onload = () => {
+        try {
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
+        } catch (error) {
+          ctx.toast("这里打不开打印，请换个浏览器试试");
+        }
+        setTimeout(() => frame.remove(), 60000);
+      };
+    }
+    function docClick(d) {
+      if (d.docTab) {
+        docView.tab = d.docTab;
+        docView.armed = "";
+        return render();
+      }
+      if (d.docAction === "print") return docPrint(d.type);
+      if (d.docAction === "reset") {
+        if (docView.armed !== "reset") {
+          docView.armed = "reset";
+          return render();
+        }
+        docView.armed = "";
+        return saveNext(() => DM().resetTemplate(state(), d.type), "doc-error");
+      }
+    }
+    function docSubmit(form) {
+      const data = Object.fromEntries(new FormData(form));
+      docView.armed = "";
+      if (form.dataset.docForm === "company") {
+        const pick = (kind, fields) => Object.fromEntries(fields.map(([key]) => [key, data[`${kind}:${key}`] || ""]));
+        return saveNext(() => DM().setBank(DM().setCompany(state(), pick("company", DM().COMPANY_FIELDS)), pick("bank", DM().BANK_FIELDS)), "doc-error");
+      }
+      const columns = Object.fromEntries(DM().COLUMNS.map(([key]) => [key, `col:${key}` in data]));
+      return saveNext(() => DM().setTemplate(state(), form.dataset.type, { title: data.title, terms: data.terms, footer: data.footer, columns, showBank: "showBank" in data, showSignature: "showSignature" in data }), "doc-error");
+    }
     const LEAD_FILTERS = { "lead-search": "search", "lead-owner": "owner", "lead-source": "source", "lead-sort": "sort" };
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
@@ -1082,6 +1223,8 @@
         "opp-flows": renderOppFlows,
         leads: renderLeads,
         "lead-trash": renderLeadTrash,
+        products: renderProducts,
+        "doc-templates": renderDocTemplates,
         calendar: renderCalendar,
         settings: renderSettings,
         "settings-hub": renderSettingsHub,
@@ -1238,6 +1381,8 @@
       const d = el.dataset;
       if (d.attachAction && onOppPage() && attachView.id) return attachAction(d);
       if (d.oppAction && onOppPage()) return oppAction(d);
+      if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
+      if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove)) return productClick(d);
       if (d.leadAction && onLeadPage()) return leadAction(d);
       if (d.leadStatus && route === "leads") {
         leadView.filters = { ...leadView.filters, status: d.leadStatus };
@@ -1455,6 +1600,17 @@
         });
       }
       if (onLeadPage() && e.target.closest?.("#lead-convert-form") && e.target.name === "mode") return syncLeadConvert(e.target.closest("#lead-convert-form"));
+      if (route === "products" && (e.target.id === "prod-search" || e.target.id === "prod-group")) {
+        prodView[e.target.id === "prod-search" ? "search" : "group"] = e.target.value;
+        render();
+        return document.getElementById(e.target.id)?.focus?.({ preventScroll: true });
+      }
+      if (route === "products" && e.target.dataset?.prodField) {
+        const input = e.target, key = input.dataset.prodField;
+        return saveNext(() => PM().setField(state(), key, { [input.dataset.prop]: input.checked }), "prod-error", () => undefined).then((ok) => {
+          if (!ok) render();
+        });
+      }
       if (route === "leads" && Object.hasOwn(LEAD_FILTERS, e.target.id)) {
         leadView.filters = { ...leadView.filters, [LEAD_FILTERS[e.target.id]]: e.target.value };
         leadView.limit = 0;
@@ -1512,8 +1668,16 @@
     });
     document.addEventListener("submit", (e) => {
       const form = e.target;
+      if (route === "doc-templates" && form.dataset?.docForm) {
+        e.preventDefault();
+        return docSubmit(form);
+      }
+      if (route === "products" && form.dataset?.prodForm) {
+        e.preventDefault();
+        return productSubmit(form);
+      }
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
           form.id,
         )
       )
@@ -1542,6 +1706,7 @@
           "opp-stage-remove-error",
           () => ctx.closeDialog(),
         );
+      if (form.id === "product-form") return productFormSubmit(form);
       if (form.id === "lead-form") {
         if (!leadDraft) return;
         const { id, isNew } = leadDraft;
