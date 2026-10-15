@@ -21,6 +21,8 @@ python3 scripts/build.py --node-runtime "$(command -v node)"
 npm test
 ```
 
+**桌面版（Mac、Windows）自动构建已暂停（D-019，2026-10-10），目前只做网页版；需要时可手动运行一次 CI 来构建。** 暂停前：
+
 每个 PR 都会在 GitHub Actions 的 macOS 上自动测试、构建并跑集成测试（`.github/workflows/ci.yml`），构建出的 `.app` 压缩包可在该次运行页面的 Artifacts 里下载（保留 14 天）。
 
 输出 `dist/来财Lai.app`，采用本地 ad-hoc 签名，不属于 Apple 公证发行。`--output` 可以指定其他本地构建路径，禁止直接构建到 `/Applications`。
