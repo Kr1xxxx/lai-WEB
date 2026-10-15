@@ -4,6 +4,8 @@
   // 销售流程（每个流程有自己的一组阶段）保存在 state.laiOpportunityFlows；没保存过时用下面的默认流程。
   const node=typeof module!=='undefined'&&module.exports;
   const LM=node?require('./modules.js'):root.LaiModules;
+  // 来源名单与线索、客户共用一份（客户设置 → 来源设置）；读不到时按没有名单处理。
+  const CSM=node?require('./customer-settings-model.js'):root.LaiCustomerSettings;
   const trim=value=>String(value??'').trim();
   // 销售阶段：kind 决定金额归入「进行中」「赢单」还是「输单」。
   const STAGES=Object.freeze([
@@ -164,6 +166,297 @@
   }
   const productsText=products=>(Array.isArray(products)?products:[]).filter(item=>item&&typeof item==='object'&&trim(item.name)).map(item=>`${trim(item.name)}, ${item.quantity??1}, ${item.unitPrice??0}`).join('\n');
 
+  // ---------- 商机设置：输单原因、商机类型、字段显示与必填、自定义字段 ----------
+  // 全部存在 state.laiSettings.opportunitySettings；没存过时用默认值。每个函数返回新的 state，不自己保存。
+  const SET_LIMITS=Object.freeze({reasons:30,types:30,customFields:30,options:50,choiceLen:20,optionLen:30,text:200,textarea:2000});
+  const DEFAULT_TYPES=Object.freeze(['新客户商机','老客户复购','样品单']);
+  const CUSTOM_TYPES=Object.freeze([['text','文本'],['textarea','多行文本'],['number','数字'],['date','日期'],['select','单选'],['multi','多选']]);
+  // mode：fixed 一直显示且必填；auto 自动生成，只读；rate 一直显示（美元以外才出现），只能改是否必填；config 显示和必填都能改。
+  const SYSTEM_FIELDS=Object.freeze([
+    ['client','客户','下拉单选','fixed'],['name','商机名称','文本','fixed'],['amount','销售金额 / 币种','数值','fixed'],['stage','销售阶段','下拉单选','fixed'],
+    ['endDate','结束日期','日期','fixed'],['owner','负责人','下拉单选','fixed'],['flow','销售流程','下拉单选','fixed'],['lostReason','输单原因','下拉单选','fixed'],
+    ['number','商机编号','编号','auto'],
+    ['contact','关联联系人','下拉单选','config'],['collaborators','协同跟进人','多人','config'],['sources','商机来源','下拉多选','config'],['type','商机类型','下拉单选','config'],
+    ['leadId','来源线索','下拉单选','config'],['exchangeRate','汇率','数值','rate'],['tags','商机标签','多个标签','config'],['note','备注','多行文本','config'],['products','关联产品','产品明细','config']
+  ].map(([id,label,type,mode])=>Object.freeze({id,label,type,mode})));
+  const REQUIRED_BY_DEFAULT=new Set(['contact','exchangeRate']);
+  const plainObject=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  const settingsOf=state=>plainObject(state?.laiSettings?.opportunitySettings);
+  function putSettings(state,patch){
+    const outer=state?.laiSettings,inner=outer?.opportunitySettings;
+    if(outer!==undefined&&outer!==null&&(typeof outer!=='object'||Array.isArray(outer)))throw new Error('已保存的设置格式异常，为避免覆盖，未做任何修改');
+    if(inner!==undefined&&inner!==null&&(typeof inner!=='object'||Array.isArray(inner)))throw new Error('已保存的商机设置格式异常，为避免覆盖，未做任何修改');
+    return {...state,laiSettings:{...(outer||{}),opportunitySettings:{...(inner||{}),...patch}}};
+  }
+  const cleanText=value=>cleanName(String(value??'').replace(/[​-‍⁠﻿]/g,''));
+  const textLength=text=>[...new Intl.Segmenter().segment(text)].length;
+  // 读已保存的名单：去空、去重（不区分大小写）；allowEmpty 为假且读出来是空时用默认名单。
+  function storedNames(value,defaults,allowEmpty){
+    if(!Array.isArray(value))return [...defaults];
+    const seen=new Set(),out=[];
+    for(const entry of value){const text=typeof entry==='string'?cleanText(entry):'';if(text&&!seen.has(text.toLowerCase())){seen.add(text.toLowerCase());out.push(text);}}
+    return out.length||allowEmpty?out:[...defaults];
+  }
+  const lostReasons=state=>storedNames(settingsOf(state).lostReasons,LOST_REASONS,false);
+  const typeChoices=state=>storedNames(settingsOf(state).types,DEFAULT_TYPES,true);
+  // 输单原因和商机类型是同一种名单：加、改名（商机上的同步改）、上下移、删除（有商机在用时不让删）。
+  const CHOICES=Object.freeze({
+    reasons:{key:'lostReasons',what:'输单原因',field:'lostReason',max:SET_LIMITS.reasons,min:1,read:lostReasons,that:'这个原因'},
+    types:{key:'types',what:'商机类型',field:'type',max:SET_LIMITS.types,min:0,read:typeChoices,that:'这个类型'}
+  });
+  function choiceKind(kind){if(!Object.hasOwn(CHOICES,kind))throw new Error('名单类型无效');return CHOICES[kind];}
+  function choiceText(c,value){
+    const text=cleanText(value);
+    if(!text)throw new Error(`请填写${c.what}`);
+    if(textLength(text)>SET_LIMITS.choiceLen)throw new Error(`${c.what}不能超过 ${SET_LIMITS.choiceLen} 个字`);
+    return text;
+  }
+  const choiceUse=(state,kind,name)=>{const c=choiceKind(kind);return list(state).filter(item=>trim(item[c.field])===name).length;};
+  function requireChoice(c,items,name){
+    const index=items.indexOf(name);
+    if(index<0)throw new Error(`${c.what}不存在，可能已被删除`);
+    return index;
+  }
+  function addChoice(state,kind,value){
+    const c=choiceKind(kind),items=c.read(state),text=choiceText(c,value);
+    if(items.length>=c.max)throw new Error(`最多保留 ${c.max} 个${c.what}`);
+    if(items.some(entry=>sameName(entry,text)))throw new Error(`已经有同名的${c.what}`);
+    return putSettings(state,{[c.key]:[...items,text]});
+  }
+  function renameChoice(state,kind,name,value){
+    requireList(state);
+    const c=choiceKind(kind),items=c.read(state),index=requireChoice(c,items,name),text=choiceText(c,value);
+    if(items.some((entry,at)=>at!==index&&sameName(entry,text)))throw new Error(`已经有同名的${c.what}`);
+    if(text===name)return state;
+    const next=putSettings(state,{[c.key]:items.map((entry,at)=>at===index?text:entry)});
+    // 在用的商机跟着改名（不改它们的更新时间）。
+    return raw(next).some(item=>item&&trim(item[c.field])===name)?{...next,laiOpportunities:raw(next).map(item=>item&&trim(item[c.field])===name?{...item,[c.field]:text}:item)}:next;
+  }
+  function moveChoice(state,kind,name,direction){
+    const c=choiceKind(kind),items=c.read(state),index=requireChoice(c,items,name),other=index+(direction<0?-1:1);
+    if(other<0||other>=items.length)throw new Error(direction<0?'已经是第一个了':'已经是最后一个了');
+    const next=[...items];next[index]=items[other];next[other]=name;
+    return putSettings(state,{[c.key]:next});
+  }
+  function removeChoice(state,kind,name){
+    requireList(state);
+    const c=choiceKind(kind),items=c.read(state);
+    requireChoice(c,items,name);
+    const used=choiceUse(state,kind,name);
+    if(used)throw new Error(`还有 ${used} 个商机用了${c.that}，先改掉它们`);
+    if(items.length<=c.min)throw new Error(`至少保留 ${c.min} 个${c.what}`);
+    return putSettings(state,{[c.key]:items.filter(entry=>entry!==name)});
+  }
+  const addLostReason=(state,value)=>addChoice(state,'reasons',value),renameLostReason=(state,name,value)=>renameChoice(state,'reasons',name,value);
+  const moveLostReason=(state,name,direction)=>moveChoice(state,'reasons',name,direction),removeLostReason=(state,name)=>removeChoice(state,'reasons',name);
+  const addType=(state,value)=>addChoice(state,'types',value),renameType=(state,name,value)=>renameChoice(state,'types',name,value);
+  const moveType=(state,name,direction)=>moveChoice(state,'types',name,direction),removeType=(state,name)=>removeChoice(state,'types',name);
+
+  // 系统字段的显示与必填。fixed 的一直显示且必填；隐藏的字段一定不必填。
+  function fieldRows(state){
+    const saved=plainObject(settingsOf(state).fields);
+    return SYSTEM_FIELDS.map(def=>{
+      const entry=plainObject(saved[def.id]);
+      const show=def.mode==='config'?entry.show!==false:true;
+      const required=def.mode==='fixed'?true:def.mode==='auto'?false:show&&(typeof entry.required==='boolean'?entry.required:REQUIRED_BY_DEFAULT.has(def.id));
+      return {...def,show,required,showLocked:def.mode!=='config',requiredLocked:def.mode==='fixed'||def.mode==='auto'||!show};
+    });
+  }
+  const fieldMapCache=new WeakMap();
+  function fieldMap(state){
+    if(state&&typeof state==='object'&&fieldMapCache.has(state))return fieldMapCache.get(state);
+    const map=Object.fromEntries(fieldRows(state).map(row=>[row.id,{show:row.show,required:row.required}]));
+    if(state&&typeof state==='object')fieldMapCache.set(state,map);
+    return map;
+  }
+  function setField(state,id,patch={}){
+    const def=SYSTEM_FIELDS.find(entry=>entry.id===id);
+    if(!def||def.mode==='fixed'||def.mode==='auto')throw new Error('这个字段不能修改');
+    const saved=plainObject(settingsOf(state).fields),entry={...plainObject(saved[id])};
+    if(Object.hasOwn(patch,'show')){
+      if(def.mode!=='config')throw new Error('这个字段一直显示');
+      // 隐藏时先把当前的必填状态记下来，再显示出来时还是原样。
+      if(patch.show!==true&&typeof entry.required!=='boolean')entry.required=fieldRows(state).find(row=>row.id===id).required;
+      entry.show=patch.show===true;
+    }
+    if(Object.hasOwn(patch,'required')){
+      if(entry.show===false)throw new Error('隐藏的字段不能设为必填，先让它显示');
+      entry.required=patch.required===true;
+    }
+    return putSettings(state,{fields:{...saved,[id]:entry}});
+  }
+
+  // 自定义字段：{id,name,type,options,required}；值存在商机的 custom[字段ID] 里。
+  function readCustomField(entry){
+    if(!entry||typeof entry!=='object'||typeof entry.id!=='string'||!entry.id.trim())return null;
+    const type=CUSTOM_TYPES.find(item=>item[0]===entry.type)?.[0],name=cleanText(entry.name);
+    if(!type||!name)return null;
+    return {id:entry.id,name,type,options:type==='select'||type==='multi'?storedNames(entry.options,[],true):[],required:entry.required===true};
+  }
+  const rawCustomFields=state=>Array.isArray(settingsOf(state).customFields)?settingsOf(state).customFields:[];
+  function customFields(state){
+    const seen=new Set(),out=[];
+    for(const entry of rawCustomFields(state)){const field=readCustomField(entry);if(field&&!seen.has(field.id)){seen.add(field.id);out.push(field);}}
+    return out;
+  }
+  const customTypeLabel=type=>CUSTOM_TYPES.find(item=>item[0]===type)?.[1]||type;
+  // 保存时把读得懂的字段写回（带上原条目里不认识的内容），读不懂的条目原样接在后面。
+  function saveCustomFields(state,fields){
+    const raws=rawCustomFields(state),byId=new Map(),used=new Set();
+    for(const entry of raws)if(readCustomField(entry)&&!byId.has(entry.id)){byId.set(entry.id,entry);used.add(entry);}
+    const leftovers=raws.filter(entry=>!used.has(entry));
+    return putSettings(state,{customFields:[...fields.map(field=>({...(byId.get(field.id)||{}),id:field.id,name:field.name,type:field.type,options:field.options,required:field.required})),...leftovers]});
+  }
+  const reservedLabels=()=>[...SYSTEM_FIELDS.map(def=>def.label),'币种','销售金额','输单说明'];
+  function customName(state,value,exceptId=''){
+    const text=cleanText(value);
+    if(!text)throw new Error('请填写字段名称');
+    if(textLength(text)>SET_LIMITS.choiceLen)throw new Error(`字段名称不能超过 ${SET_LIMITS.choiceLen} 个字`);
+    if(reservedLabels().some(label=>sameName(label,text))||customFields(state).some(field=>field.id!==exceptId&&sameName(field.name,text)))throw new Error('已经有同名的字段');
+    return text;
+  }
+  function customOptions(value){
+    const options=storedNames(Array.isArray(value)?value:String(value??'').split(/[\n,，、;；]/),[],true);
+    if(!options.length)throw new Error('请至少填写一个选项');
+    if(options.length>SET_LIMITS.options)throw new Error(`一个字段最多 ${SET_LIMITS.options} 个选项`);
+    if(options.some(option=>textLength(option)>SET_LIMITS.optionLen))throw new Error(`每个选项不能超过 ${SET_LIMITS.optionLen} 个字`);
+    return options;
+  }
+  const truthy=value=>value===true||value==='on'||value==='1'||value==='true';
+  function addCustomField(state,input={},options={}){
+    const fields=customFields(state);
+    if(fields.length>=SET_LIMITS.customFields)throw new Error(`最多添加 ${SET_LIMITS.customFields} 个自定义字段`);
+    const name=customName(state,input.name),type=CUSTOM_TYPES.find(item=>item[0]===trim(input.type))?.[0];
+    if(!type)throw new Error('请选择字段类型');
+    const id=trim(options.id)||newId('c',new Set(fields.map(field=>field.id)));
+    if(fields.some(field=>field.id===id))throw new Error('字段 ID 重复');
+    const field={id,name,type,options:type==='select'||type==='multi'?customOptions(input.options):[],required:truthy(input.required)};
+    return saveCustomFields(state,[...fields,field]);
+  }
+  function requireCustom(state,id){
+    const field=customFields(state).find(entry=>entry.id===id);
+    if(!field)throw new Error('字段不存在，可能已被删除');
+    return field;
+  }
+  // patch：name、required、options（只有单选和多选有）。类型建好后不能改。
+  function updateCustomField(state,id,patch={}){
+    const field=requireCustom(state,id),next={...field};
+    if(Object.hasOwn(patch,'name'))next.name=customName(state,patch.name,id);
+    if(Object.hasOwn(patch,'required'))next.required=truthy(patch.required);
+    if(Object.hasOwn(patch,'options')){
+      if(field.type!=='select'&&field.type!=='multi')throw new Error('这个类型的字段没有选项');
+      next.options=customOptions(patch.options);
+    }
+    return saveCustomFields(state,customFields(state).map(entry=>entry.id===id?next:entry));
+  }
+  function moveCustomField(state,id,direction){
+    const fields=customFields(state),index=fields.findIndex(entry=>entry.id===id),other=index+(direction<0?-1:1);
+    if(index<0)throw new Error('字段不存在，可能已被删除');
+    if(other<0||other>=fields.length)throw new Error(direction<0?'已经是第一个了':'已经是最后一个了');
+    const next=[...fields];next[index]=fields[other];next[other]=fields[index];
+    return saveCustomFields(state,next);
+  }
+  const hasValue=value=>Array.isArray(value)?value.length>0:value!==undefined&&value!==null&&trim(value)!=='';
+  const customUse=(state,id)=>list(state).filter(item=>item.custom&&typeof item.custom==='object'&&hasValue(item.custom[id])).length;
+  // 只从设置里去掉这个字段；商机里已填的值原样留着，只是不再显示。
+  function removeCustomField(state,id){
+    requireCustom(state,id);
+    return saveCustomFields(state,customFields(state).filter(entry=>entry.id!==id));
+  }
+  // 把表单传来的一个字段值整理成要保存的样子；空值返回 undefined。选项以外的值只有「本来就存着」才放行。
+  function cleanCustomValue(field,value,previous){
+    const label=`“${field.name}”`;
+    if(field.type==='multi'){
+      const picked=splitList(Array.isArray(value)?value:String(value??'').split('\n')),before=Array.isArray(previous)?previous:[];
+      for(const item of picked)if(!field.options.some(option=>sameName(option,item))&&!before.some(entry=>sameName(entry,item)))throw new Error(`${label}的选项“${item}”不在选项里`);
+      const canon=picked.map(item=>field.options.find(option=>sameName(option,item))||item);
+      return canon.length?canon:undefined;
+    }
+    const text=Array.isArray(value)?'':trim(value);
+    if(!text)return undefined;
+    if(field.type==='number')return decimal(text,label);
+    if(field.type==='date'){if(!validDate(text))throw new Error(`${label}请选择有效的日期`);return text;}
+    if(field.type==='select'){
+      const hit=field.options.find(option=>sameName(option,text));
+      if(!hit&&trim(previous)!==text)throw new Error(`${label}的选项“${text}”不在选项里`);
+      return hit||text;
+    }
+    const max=field.type==='textarea'?SET_LIMITS.textarea:SET_LIMITS.text;
+    if(textLength(text)>max)throw new Error(`${label}不能超过 ${max} 个字`);
+    return text;
+  }
+  // 商机上的自定义字段值显示用：只列设置里还有的字段，且有值。
+  function customRows(state,item){
+    const values=plainObject(item?.custom);
+    return customFields(state).filter(field=>hasValue(values[field.id])).map(field=>({id:field.id,name:field.name,type:field.type,value:Array.isArray(values[field.id])?values[field.id].join('、'):String(values[field.id])}));
+  }
+
+  // 商机来源、来源线索、商机编号
+  function sourceList(state){
+    try{const choices=CSM&&CSM.sourceChoices?CSM.sourceChoices(state):null;return Array.isArray(choices)?choices:null;}catch{return null;}
+  }
+  // 从客户新建商机时，客户的来源在名单里就带过来。
+  function sourcesFromCustomer(state,client){
+    const profile=state?.customers&&Object.hasOwn(state.customers,client)?state.customers[client]:null,source=cleanName(profile?.source);
+    const hit=source&&(sourceList(state)||[]).find(entry=>sameName(entry,source));
+    return hit?[hit]:[];
+  }
+  const leadsOf=state=>(Array.isArray(state?.laiLeads)?state.laiLeads:[]).filter(lead=>lead&&typeof lead==='object'&&typeof lead.id==='string'&&lead.id);
+  const leadChoices=state=>leadsOf(state).filter(lead=>!lead.trashed).map(lead=>({id:lead.id,name:trim(lead.name)||'（未命名线索）'})).sort((a,b)=>a.name.localeCompare(b.name,'zh'));
+  const leadName=(state,id)=>{const lead=leadsOf(state).find(entry=>entry.id===id);return lead?trim(lead.name)||'（未命名线索）':'（已删除的线索）';};
+  // 编号：OPP-年月日-当天序号（三位）。序号取当天已有编号里最大的加一，已存着的编号不会重复。
+  function nextNumber(state,day){
+    const prefix=`OPP-${day.replaceAll('-','')}-`;
+    let highest=0;
+    for(const item of raw(state)){
+      const text=trim(item?.number);
+      if(text.startsWith(prefix)&&/^\d+$/.test(text.slice(prefix.length)))highest=Math.max(highest,Number(text.slice(prefix.length)));
+    }
+    return `${prefix}${String(highest+1).padStart(3,'0')}`;
+  }
+  // upsert 里处理新增的几个字段：来源、类型、来源线索、自定义字段。隐藏的字段不动（next 本来就带着原来的值）。
+  function applyExtras(state,next,previous,value,has,input,cfg,need){
+    const setOrDrop=(key,val)=>{if(hasValue(val))next[key]=val;else delete next[key];};
+    // 商机来源（多选）：新选的必须在来源名单里，原来就有的可以留着。
+    if(cfg.sources.show){
+      const before=Array.isArray(previous?.sources)?previous.sources.map(trim).filter(Boolean):[];
+      const wanted=has('sources')?splitList(input.sources):before,allowed=sourceList(state)||[];
+      for(const source of wanted)if(!before.some(entry=>sameName(entry,source))&&!allowed.some(entry=>sameName(entry,source)))throw new Error(`商机来源“${source}”不在来源名单里`);
+      setOrDrop('sources',wanted.map(source=>allowed.find(entry=>sameName(entry,source))||before.find(entry=>sameName(entry,source))||source));
+      need('sources','商机来源',next.sources?.length);
+    }
+    if(cfg.type.show){
+      const type=cleanText(value('type'));
+      if(type&&type!==trim(previous?.type)){
+        const hit=typeChoices(state).find(entry=>sameName(entry,type));
+        if(!hit)throw new Error(`商机类型“${type}”不在类型名单里`);
+        setOrDrop('type',hit);
+      }else setOrDrop('type',type);
+      need('type','商机类型',next.type);
+    }
+    // 来源线索：新选的必须是还在的线索。
+    if(cfg.leadId.show){
+      const id=trim(value('leadId'));
+      if(id&&id!==trim(previous?.leadId)&&!leadChoices(state).some(lead=>lead.id===id))throw new Error('来源线索不存在或已在回收站，请重新选择');
+      setOrDrop('leadId',id);
+      need('leadId','来源线索',next.leadId);
+    }
+    // 自定义字段：只处理设置里还有的字段；其余已存的值原样留着。
+    const stored=plainObject(previous?.custom),given=has('custom')?plainObject(input.custom):{},custom={...stored};
+    for(const def of customFields(state)){
+      if(Object.hasOwn(given,def.id)){
+        const cleaned=cleanCustomValue(def,given[def.id],stored[def.id]);
+        if(cleaned===undefined)delete custom[def.id];else custom[def.id]=cleaned;
+      }
+      if(def.required&&!hasValue(custom[def.id]))throw new Error(`请填写${def.name}`);
+    }
+    if(Object.keys(custom).length||previous?.custom!==undefined)next.custom=custom;
+  }
+  // 表单需要的设置：字段显示与必填、各名单、自定义字段。
+  function formSetup(state){
+    return {fields:fieldMap(state),reasons:lostReasons(state),types:typeChoices(state),sources:sourceList(state),leads:leadChoices(state),customFields:customFields(state)};
+  }
+
   function applyStage(state,next,previous,stageId,input,now){
     const flow=flowOf(state,next.flow),find=id=>flow.stages.find(stage=>stage.id===id);
     const sameFlow=!previous||flowOfItem(state,previous).id===flow.id;
@@ -176,7 +469,7 @@
     if(!stage)throw new Error(sameFlow?'请选择有效的销售阶段':'所选销售流程里没有这个阶段，请重新选择销售阶段');
     if(stage.kind==='lost'){
       const reason=trim(Object.hasOwn(input,'lostReason')?input.lostReason:previous?.lostReason);
-      if(!LOST_REASONS.includes(reason))throw new Error('请选择输单原因');
+      if(!lostReasons(state).includes(reason))throw new Error('请选择输单原因');
       next.lostReason=reason;
       next.lostNote=trim(Object.hasOwn(input,'lostNote')?input.lostNote:previous?.lostNote);
     }else{delete next.lostReason;delete next.lostNote;}
@@ -200,34 +493,46 @@
     const has=key=>Object.hasOwn(input,key);
     const value=(key,fallback='')=>has(key)?input[key]:previous?.[key]??fallback;
 
+    const cfg=fieldMap(state);
+    // 必填检查只管显示着的字段；隐藏的字段不检查，已有的内容原样保留。
+    const need=(id,label,filled)=>{if(cfg[id].show&&cfg[id].required&&!filled)throw new Error(`请填写${label}`);};
     next.owner=cleanName(value('owner'));
     if(!next.owner||next.owner==='未分配')throw new Error('请填写负责人');
     next.client=trim(value('client'));
     if(!next.client)throw new Error('请选择客户');
     if(next.client!==previous?.client&&!customerNames(state).includes(next.client))throw new Error('客户不存在或已在回收站，请从列表中选择');
     const contacts=contactsOf(state,next.client);
-    next.contact=trim(value('contact'));
-    if(next.contact!==previous?.contact||next.client!==previous?.client){
-      if(contacts.length&&!next.contact)throw new Error('请选择关联联系人');
-      if(next.contact&&contacts.length&&!contacts.includes(next.contact))throw new Error('关联联系人不属于所选客户');
+    if(!cfg.contact.show)next.contact=next.client===previous?.client?trim(previous?.contact):'';
+    else{
+      next.contact=trim(value('contact'));
+      if(next.contact!==previous?.contact||next.client!==previous?.client){
+        if(cfg.contact.required&&contacts.length&&!next.contact)throw new Error('请选择关联联系人');
+        if(next.contact&&contacts.length&&!contacts.includes(next.contact))throw new Error('关联联系人不属于所选客户');
+      }
     }
     next.amount=decimal(value('amount'),'销售金额');
     next.currency=trim(value('currency','USD')).toUpperCase();
     if(!/^[A-Z]{3}$/.test(next.currency))throw new Error('请填写三位币种代码');
-    // 汇率按「每 100 外币折合多少美元」填写，仅作记录；美元固定为 100。金额汇总不使用它。
-    next.exchangeRate=next.currency==='USD'?100:decimal(value('exchangeRate',100),'汇率',{allowZero:false});
+    // 汇率按「每 100 外币折合多少美元」填写，仅作记录；美元固定为 100。金额汇总不使用它。汇率设为非必填时，留空按 100 记录。
+    const rate=value('exchangeRate',100);
+    next.exchangeRate=next.currency==='USD'||(!cfg.exchangeRate.required&&trim(rate)==='')?100:decimal(rate,'汇率',{allowZero:false});
     next.endDate=trim(value('endDate'));
     if(!validDate(next.endDate))throw new Error('请选择有效的结束日期');
     // 流程：商机原来指向的流程现在读不到时按默认流程处理，但只要没有改选别的流程，就保留原来的指向（那个流程也许只是暂时读不懂）。
     const wantedFlow=trim(value('flow','default')),flowKnown=id=>flowsOf(state).some(flow=>flow.id===id);
     if(previous&&trim(previous.flow)&&!flowKnown(trim(previous.flow))&&flowOf(state,wantedFlow).id===flowOfItem(state,previous).id)next.flow=previous.flow;
     else next.flow=flowKnown(wantedFlow)?wantedFlow:'default';
-    next.note=trim(value('note'));
-    next.collaborators=splitList(value('collaborators',[])).filter(name=>!sameName(name,next.owner));
-    next.tags=splitList(value('tags',[]));
+    if(cfg.note.show){next.note=trim(value('note'));need('note','备注',next.note);}else next.note=trim(previous?.note);
+    if(cfg.collaborators.show){next.collaborators=splitList(value('collaborators',[])).filter(name=>!sameName(name,next.owner));need('collaborators','协同跟进人',next.collaborators.length);}
+    else next.collaborators=Array.isArray(previous?.collaborators)?previous.collaborators:[];
+    if(cfg.tags.show){next.tags=splitList(value('tags',[]));need('tags','商机标签',next.tags.length);}else next.tags=Array.isArray(previous?.tags)?previous.tags:[];
     // 产品文本没改动时保留原来保存的产品（包括上面不认识的字段和带逗号的名称）。
-    next.products=has('products')&&!(typeof input.products==='string'&&previous&&input.products.trim()===productsText(previous.products))?parseProducts(input.products):Array.isArray(previous?.products)?previous.products:[];
-    if(!previous){next.createdAt=now;next.archived=false;}
+    if(cfg.products.show){
+      next.products=has('products')&&!(typeof input.products==='string'&&previous&&input.products.trim()===productsText(previous.products))?parseProducts(input.products):Array.isArray(previous?.products)?previous.products:[];
+      need('products','关联产品',next.products.length);
+    }else next.products=Array.isArray(previous?.products)?previous.products:[];
+    applyExtras(state,next,previous,value,has,input,cfg,need);
+    if(!previous){next.createdAt=now;next.archived=false;next.number=nextNumber(state,localDay(now)||today);}
     next.updatedAt=now;
 
     next.nameMode=value('nameMode','auto')==='custom'?'custom':'auto';
@@ -289,7 +594,7 @@
   }
   const card=(state,item,today,orderIds,stage=stageOf(state,item))=>({
     flow:flowOfItem(state,item).id,stageLabel:stage.label,kind:stage.kind,
-    id:item.id,name:trim(item.name)||'（未命名商机）',amount:amountOf(item),currency:currencyOf(item),client:trim(item.client),contact:trim(item.contact),
+    id:item.id,number:trim(item.number),name:trim(item.name)||'（未命名商机）',amount:amountOf(item),currency:currencyOf(item),client:trim(item.client),contact:trim(item.contact),
     owner:cleanName(item.owner),endDate:trim(item.endDate),createdDay:localDay(item.createdAt),stage:stage.id,archived:item.archived===true,
     overdue:stage.kind==='open'&&validDate(item.endDate)&&item.endDate<today,lostReason:trim(item.lostReason),orderId:trim(item.orderId)&&(!orderIds||orderIds.has(trim(item.orderId)))?trim(item.orderId):'',tags:Array.isArray(item.tags)?item.tags:[],attachmentCount:attachmentsOf(item).length,sortRank:rankOf(item)
   });
@@ -305,7 +610,7 @@
     let items=list(state).filter(item=>archived==='all'||(item.archived===true)===(archived==='archived'));
     if(cleanName(filters.owner))items=items.filter(item=>sameName(item.owner,filters.owner));
     const search=cleanName(filters.search).toLowerCase();
-    if(search)items=items.filter(item=>[item.name,item.client,item.contact,item.owner,...(Array.isArray(item.tags)?item.tags:[])].some(text=>cleanName(text).toLowerCase().includes(search)));
+    if(search)items=items.filter(item=>[item.name,item.number,item.client,item.contact,item.owner,...(Array.isArray(item.tags)?item.tags:[])].some(text=>cleanName(text).toLowerCase().includes(search)));
     const field=filters.dateField==='endDate'?'endDate':'createdAt';
     const from=validDate(filters.from)?filters.from:'',to=validDate(filters.to)?filters.to:'';
     if(from||to)items=items.filter(item=>{const day=field==='endDate'?trim(item.endDate):localDay(item.createdAt);return day&&(!from||day>=from)&&(!to||day<=to);});
@@ -371,11 +676,18 @@
         winRate:rate(won.length,lost.length),averageDays:durations.length?Math.round(durations.reduce((a,b)=>a+b,0)/durations.length*10)/10:null};
     };
     const stages=flow.stages.map(stage=>{const rows=items.filter(item=>stageOf(state,item).id===stage.id);return {...stage,count:rows.length,amount:rows.reduce((sum,item)=>sum+amountOf(item),0),percent:items.length?Math.round(rows.length/items.length*100):0};});
-    const reasons=new Map();
+    const reasons=new Map(),reasonList=lostReasons(state);
     for(const item of items.filter(entry=>stageOf(state,entry).kind==='lost')){
-      const key=LOST_REASONS.includes(trim(item.lostReason))?trim(item.lostReason):'未填写';
+      const key=reasonList.includes(trim(item.lostReason))?trim(item.lostReason):'未填写';
       const row=reasons.get(key)||{reason:key,count:0,amount:0};
       row.count++;row.amount+=amountOf(item);reasons.set(key,row);
+    }
+    // 商机来源：一个商机有几个来源就在每个来源下各算一次；没填来源的单独一行放在最后。
+    const bySource=new Map();let noSource=null;
+    for(const item of items){
+      const names=Array.isArray(item.sources)?item.sources.map(trim).filter(Boolean):[];
+      if(!names.length){noSource||={source:'未填来源',count:0,amount:0};noSource.count++;noSource.amount+=amountOf(item);continue;}
+      for(const name of names){const row=bySource.get(name)||{source:name,count:0,amount:0};row.count++;row.amount+=amountOf(item);bySource.set(name,row);}
     }
     const owners=new Map();
     for(const item of items){
@@ -391,6 +703,7 @@
       currency,currencies,otherCurrencyCount:all.length-items.length,summary:summarise(items),stages,
       flow:flow.id,flows:flowsOf(state).map(entry=>({id:entry.id,label:entry.label,count:inRange.filter(item=>flowOfItem(state,item).id===entry.id).length})),
       lostReasons:[...reasons.values()].sort((a,b)=>b.count-a.count||a.reason.localeCompare(b.reason,'zh')),
+      sources:[...[...bySource.values()].sort((a,b)=>b.count-a.count||a.source.localeCompare(b.source,'zh')),...(noSource?[noSource]:[])],
       owners:[...owners.values()].map(group=>({owner:group.label,...summarise(group.items)})).sort((a,b)=>b.wonAmount-a.wonAmount||b.created-a.created||a.owner.localeCompare(b.owner,'zh'))
     };
   }
@@ -416,7 +729,7 @@
   // 新建表单的默认值。
   function defaults(state,today=isoDay(new Date())){
     return {nameMode:'auto',name:'',client:'',contact:'',amount:'',endDate:addDays(today,30),flow:'default',exchangeRate:100,currency:defaultCurrency(state),
-      stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner),collaborators:[],tags:[],products:[],lostReason:'',lostNote:''};
+      stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner),collaborators:[],tags:[],products:[],lostReason:'',lostNote:'',sources:[],type:'',leadId:'',custom:{}};
   }
   // 由赢单商机生成订单时预填的内容（交给现有的订单表单，由用户确认保存）。
   // 商机里的产品带到订单的产品明细；产品都没填单价时不带（不然订单金额会变成 0），只留“产品”文字。
@@ -636,7 +949,8 @@
       products:Array.isArray(item.products)?item.products.filter(row=>row&&typeof row==='object'&&trim(row.name)):[],exchangeRate:item.exchangeRate,
       createdAt:trim(item.createdAt),updatedAt:trim(item.updatedAt),closedAt:trim(item.closedAt),lostNote:trim(item.lostNote),
       history:(Array.isArray(item.stageHistory)?item.stageHistory:[]).filter(entry=>entry&&typeof entry==='object').map(entry=>({stage:trim(entry.stage),label:label(trim(entry.stage))?.label||trim(entry.stage),kind:label(trim(entry.stage))?.kind||'open',at:trim(entry.at)})),
-      attachments:attachmentsOf(item)};
+      attachments:attachmentsOf(item),number:trim(item.number),sources:Array.isArray(item.sources)?item.sources.map(trim).filter(Boolean):[],type:trim(item.type),
+      leadId:trim(item.leadId),leadName:trim(item.leadId)?leadName(state,trim(item.leadId)):'',custom:customRows(state,item)};
   }
   // 把商机放到某个阶段的某张卡片之前（before 为空表示放到最后）；阶段不同时同时换阶段。
   // 只改动这一列里 sortRank 需要变的商机；其他商机的更新时间不变。
@@ -658,6 +972,6 @@
       return item.sortRank===rank.get(item.id)?item:{...item,sortRank:rank.get(item.id)};
     })};
   }
-  const api={ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
+  const api={SET_LIMITS,DEFAULT_TYPES,CUSTOM_TYPES,SYSTEM_FIELDS,lostReasons,addLostReason,renameLostReason,moveLostReason,removeLostReason,typeChoices,addType,renameType,moveType,removeType,choiceUse,fieldRows,fieldMap,setField,customFields,customTypeLabel,addCustomField,updateCustomField,moveCustomField,removeCustomField,customUse,cleanCustomValue,customRows,sourceList,sourcesFromCustomer,leadChoices,leadName,nextNumber,formSetup,ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
   if(node)module.exports=api;else root.LaiOpportunityModel=api;
 })(typeof window!=='undefined'?window:globalThis);
