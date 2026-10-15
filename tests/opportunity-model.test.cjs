@@ -138,7 +138,9 @@ test('archive, delete and order link', () => {
   assert.deepEqual(O.list(O.remove(s, 'a')).map(i => i.id), ['b']);
   for (const fn of [() => O.remove(s, 'zz'), () => O.setArchived(s, 'zz', true), () => O.linkOrder(s, 'zz', 'x')]) assert.throws(fn, /不存在/);
   assert.deepEqual(O.orderDraft({...get(s, 'b'), products: [{name: 'A'}, {name: 'B'}]}, TODAY),
-    {client: 'Alpha Co', amount: 331.74, currency: 'USD', owner: 'Amy', stage: 'quote', paidAmount: 0, createdAt: TODAY, orderMonth: '2026-10', note: '由商机「26100602-Amy」生成', productType: 'A、B'});
+    {client: 'Alpha Co', amount: 331.74, currency: 'USD', owner: 'Amy', stage: 'quote', paidAmount: 0, createdAt: TODAY, orderMonth: '2026-10', note: '由商机「26100602-Amy」生成', productType: 'A、B', items: []});
+  assert.deepEqual(O.orderDraft({...get(s, 'b'), products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B'}]}, TODAY).items,
+    [{productId: '', code: '', name: 'A', model: '', unit: '', qty: 10, price: 2.5}, {productId: '', code: '', name: 'B', model: '', unit: '', qty: 1, price: 0}]);
 });
 
 // ---------- 看板与分析：手算 ----------

@@ -1088,7 +1088,11 @@
       return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: B.localDate ? B.localDate() : "" })}</div>`;
     }
     function docPrint(type) {
-      const html = DU().printHtml(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
+      return printDocument(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
+    }
+    // 只把单据本身放进一个看不见的框里打印；在打印窗口里可以选“存为 PDF”。
+    function printDocument(doc) {
+      const html = DU().printHtml(doc);
       const frame = document.createElement("iframe");
       frame.setAttribute("aria-hidden", "true");
       frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
@@ -1265,11 +1269,15 @@
           client: returnCustomer,
           paidAmount: 0,
         };
+      draft.items = B.linkItems((Array.isArray(o.items) ? o.items : []).map((item) => ({ ...item })), PM() ? PM().list(state()) : []);
+      draft.doc = "";
+      // 有产品明细时，订单金额和“产品”跟着明细走，不能手填。
+      const shown = draft.items.length ? { ...o, amount: B.itemsTotal(draft.items), productType: B.itemsSummary(draft.items) } : o;
       const field = (name, title, type = "text", wide = false) =>
-        `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(o[name] || "").slice(0, 10) : (o[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}></label>`;
+        `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(shown[name] || "").slice(0, 10) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
       ctx.dialog(
         old ? "编辑订单" : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><datalist id="biz-customer-names">${Object.keys(
+        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div><div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
           state().customers || {},
         )
           .filter(
@@ -1282,6 +1290,96 @@
         `${old ? button("archive-order", "移入回收站", `data-id="${E(old.id)}"`) : ""}${button("close-editor", "取消")}<button class="primary" type="submit" form="biz-order-form">保存订单</button>`,
         "business-order",
       );
+    }
+    // ---------- 订单产品明细（从产品库选）和由订单生成单据 ----------
+    function orderItemsMarkup(currency) {
+      const products = PM() ? PM().list(state()) : [];
+      const items = draft?.items || [];
+      if (!products.length && !items.length)
+        return '<p class="muted tiny order-items-empty">还没有产品。先到 交易 → 产品 添加产品，就能在这里选；也可以直接在上面“产品”里写文字。</p>';
+      const rows = items
+        .map((item, i) => {
+          const known = products.some((p) => p.id === item.productId);
+          const choices = `<option value="">请选择产品</option>${!known && item.name ? `<option value="__keep" selected>${E(item.name)}</option>` : ""}${products
+            .map((p) => `<option value="${E(p.id)}" ${p.id === item.productId ? "selected" : ""}>${E(p.name)}${p.code ? " · " + E(p.code) : ""}</option>`)
+            .join("")}`;
+          const unit = item.unit ? `（${E(item.unit)}）` : "";
+          return `<div class="order-item" data-item-row="${i}"><div class="order-item-top"><select data-item-product="${i}" aria-label="第 ${i + 1} 行产品">${choices}</select>${button("order-item-remove", "删除", `data-index="${i}" class="text-button"`)}</div><div class="order-item-nums"><label>数量${unit}<input data-item-field="qty" data-item-index="${i}" type="number" min="0" step="any" value="${E(item.qty ?? "")}"></label><label>单价<input data-item-field="price" data-item-index="${i}" type="number" min="0" step="0.01" value="${E(item.price ?? "")}"></label><span class="order-item-amount" data-item-amount="${i}">${money(Number(item.qty || 0) * Number(item.price || 0), currency)}</span></div></div>`;
+        })
+        .join("");
+      const table = items.length
+        ? `<div class="order-items">${rows}</div><p class="order-items-total">合计 <strong data-items-total>${money(B.itemsTotal(items), currency)}</strong></p>`
+        : '<p class="muted tiny">选了产品后，订单金额按明细自动合计。</p>';
+      return `${table}${products.length ? button("order-item-add", "＋ 添加产品") : ""}`;
+    }
+    const orderForm = () => document.getElementById("biz-order-form");
+    function renderOrderItems() {
+      const box = document.getElementById("biz-order-items");
+      if (box) box.innerHTML = orderItemsMarkup(orderForm()?.elements.currency?.value || "USD");
+      syncOrderAmount();
+    }
+    // 明细改了：订单金额、“产品”、每行金额、合计跟着变；没有明细时恢复手填。
+    function syncOrderAmount() {
+      const form = orderForm();
+      if (!form || !draft?.items) return;
+      const currency = form.elements.currency?.value || "USD",
+        has = draft.items.length > 0,
+        plain = (value) => money(value, currency).replace(/&amp;/g, "&");
+      for (const name of ["amount", "productType"]) form.elements[name].readOnly = has;
+      if (has) {
+        form.elements.amount.value = B.itemsTotal(draft.items);
+        form.elements.productType.value = B.itemsSummary(draft.items);
+      }
+      draft.items.forEach((item, i) => {
+        const cell = form.querySelector(`[data-item-amount="${i}"]`);
+        if (cell) cell.textContent = plain(Number(item.qty || 0) * Number(item.price || 0));
+      });
+      const total = form.querySelector("[data-items-total]");
+      if (total) total.textContent = plain(B.itemsTotal(draft.items));
+      if (draft.doc) showOrderDoc(draft.doc);
+    }
+    function orderDocData(type) {
+      const form = orderForm();
+      const f = form ? Object.fromEntries(new FormData(form)) : {};
+      return DM().preview(state(), type, {
+        lines: B.docLines({ items: draft?.items || [], productType: f.productType, amount: f.amount }),
+        currency: f.currency || "USD",
+        client: f.client || "",
+        number: f.num || "",
+        date: String(f.createdAt || "").slice(0, 10),
+      });
+    }
+    function showOrderDoc(type) {
+      const box = document.getElementById("biz-order-doc");
+      if (!box || !DM()) return;
+      draft.doc = type;
+      const doc = orderDocData(type);
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc="${E(type)}"><div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("order-doc-print", "打印 / 存为 PDF", `data-type="${E(type)}"`, true)}${button("order-doc-close", "收起")}</span></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这张表里现在填的内容，不用先保存订单。公司信息、银行和条款在 交易 → 单据模板 里改。</p></div>`;
+    }
+    function orderItemAction(action, d) {
+      if (!draft?.items) return;
+      if (action === "order-item-add") {
+        draft.items.push({ productId: "", code: "", name: "", model: "", unit: "", qty: 1, price: 0 });
+        renderOrderItems();
+        const selects = document.querySelectorAll("#biz-order-items [data-item-product]");
+        selects[selects.length - 1]?.focus();
+        return;
+      }
+      if (action === "order-item-remove") {
+        draft.items.splice(Number(d.index), 1);
+        return renderOrderItems();
+      }
+      if (action === "order-doc") {
+        showOrderDoc(d.type);
+        return document.querySelector("#biz-order-doc .order-doc-preview")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+      if (action === "order-doc-close") {
+        draft.doc = "";
+        const box = document.getElementById("biz-order-doc");
+        if (box) box.innerHTML = "";
+        return;
+      }
+      if (action === "order-doc-print") return printDocument(orderDocData(d.type));
     }
     function taskEditor(id) {
       const old = (state().laiTasks || []).find((t) => t.id === id);
@@ -1340,6 +1438,7 @@
         ? {
             ...Object.fromEntries(new FormData(form)),
             isDraft: form.elements.isDraft.checked,
+            items: draft?.items || [],
           }
         : null;
       ctx.dialog(
@@ -1446,6 +1545,7 @@
       if (action === "new-task") return taskEditor();
       if (action === "close-editor") return finishEditor();
       if (action === "archive-order") return archiveOrder(d.id);
+      if (action.startsWith("order-item-") || action.startsWith("order-doc")) return orderItemAction(action, d);
       if (action === "cancel-archive") return orderEditor(d.id, archiveDraft);
       if (action === "confirm-archive")
         return saveNext(
@@ -1518,6 +1618,12 @@
         input.setSelectionRange(pos, pos);
       }
       if (e.target.closest("#biz-settings-form")) settingsDirty = true;
+      const itemField = e.target.dataset?.itemField;
+      if (itemField && draft?.items?.[e.target.dataset.itemIndex]) {
+        draft.items[e.target.dataset.itemIndex][itemField] = e.target.value;
+        syncOrderAmount();
+      }
+      else if (draft?.doc && e.target.closest?.("#biz-order-form")) showOrderDoc(draft.doc);
     });
     document.addEventListener("compositionend", (e) => {
       if (e.target.id === "biz-search") {
@@ -1579,6 +1685,18 @@
     });
     document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
+      if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
+        const i = Number(e.target.dataset.itemProduct), old = draft.items[i], value = e.target.value;
+        if (value === "__keep") return;
+        const product = value && PM() ? PM().find(state(), value) : null;
+        if (!product) draft.items[i] = { ...old, productId: "", code: "", name: "", model: "", unit: "" };
+        else {
+          const next = B.itemFromProduct(product, old.qty || 1);
+          draft.items[i] = next.price > 0 ? next : { ...next, price: old.price };
+        }
+        return renderOrderItems();
+      }
+      if (e.target.closest?.("#biz-order-form") && e.target.name === "currency") return syncOrderAmount();
       if (e.target.id === "opp-attach-input" && onOppPage()) {
         const files = [...(e.target.files || [])];
         e.target.value = "";
@@ -1748,6 +1866,7 @@
         );
       if (form.id === "biz-order-form") {
         data.isDraft = form.elements.isDraft.checked;
+        data.items = draft.items || [];
         return saveNext(
           () => {
             const next = B.upsertOrder(state(), draft.id, data);

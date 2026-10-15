@@ -85,3 +85,34 @@ test('monthly analysis gives empty results for months without orders, draft-only
  }
  assert.deepEqual(B.monthlyAnalysis(undefined,'2026-10').orders,[]);
 });
+test('order items: amount and 产品 follow the items, bad rows are refused, no items keeps the typed amount',()=>{
+ const state=base();
+ const items=[{productId:'p1',code:'A-1',name:'Lash A',unit:'盒',qty:'100',price:'2.5'},{productId:'p2',name:'Lash B',qty:3,price:0.333}];
+ const next=B.upsertOrder(state,'a',{num:'SO1',client:'Alpha',amount:1,items});
+ const order=next.orders.find(o=>o.id==='a');
+ assert.equal(order.amount,251);assert.equal(order.productType,'Lash A、Lash B');
+ assert.deepEqual(order.items[0],{productId:'p1',code:'A-1',name:'Lash A',model:'',unit:'盒',qty:100,price:2.5});
+ assert.deepEqual(order.attachments,[{id:'doc'}]);
+ // An edit without items keeps the saved items and their total.
+ assert.equal(B.upsertOrder(next,'a',{amount:5}).orders.find(o=>o.id==='a').amount,251);
+ // Clearing the items goes back to the typed amount.
+ const cleared=B.upsertOrder(next,'a',{amount:80,items:[]}).orders.find(o=>o.id==='a');
+ assert.equal(cleared.amount,80);assert.deepEqual(cleared.items,[]);
+ assert.throws(()=>B.upsertOrder(state,'a',{items:[{name:'',qty:1,price:1}]}),/第 1 行还没选产品/);
+ assert.throws(()=>B.upsertOrder(state,'a',{items:[{name:'X',qty:0,price:1}]}),/数量要大于 0/);
+ assert.throws(()=>B.upsertOrder(state,'a',{items:[{name:'X',qty:1,price:-1}]}),/单价/);
+ assert.throws(()=>B.upsertOrder(state,'a',{items:'X'}),/格式无效/);
+ assert.throws(()=>B.upsertOrder(state,'a',{items:Array.from({length:B.ITEM_LIMIT+1},()=>({name:'X',qty:1,price:1}))}),/最多/);
+ assert.throws(()=>B.upsertOrder(state,'a',{paidAmount:300,items:[{name:'X',qty:1,price:100}]}),/已收款不能超过订单金额/);
+});
+test('order items helpers: from a product, linking by name, and document lines',()=>{
+ assert.deepEqual(B.itemFromProduct({id:'p1',code:'A-1',name:'Lash A',model:'M',unit:'盒',fob:'1,200.5'},2),{productId:'p1',code:'A-1',name:'Lash A',model:'M',unit:'盒',qty:2,price:1200.5});
+ assert.equal(B.itemFromProduct({id:'p2',name:'No price',fob:''}).price,0);
+ const linked=B.linkItems([{productId:'',name:'Lash A',qty:5,price:9},{productId:'',name:'Other',qty:1,price:1}],[{id:'p1',code:'A-1',name:'Lash A',unit:'盒',fob:'2'}]);
+ assert.deepEqual(linked[0],{productId:'p1',code:'A-1',name:'Lash A',model:'',unit:'盒',qty:5,price:9});
+ assert.equal(linked[1].productId,'');
+ assert.deepEqual(B.docLines({items:[{code:'A-1',name:'Lash A',unit:'盒',qty:100,price:2.5}]}),[{code:'A-1',name:'Lash A',model:'',unit:'盒',qty:100,price:2.5}]);
+ assert.deepEqual(B.docLines({productType:'假睫毛',amount:300}),[{code:'',name:'假睫毛',model:'',unit:'',qty:1,price:300}]);
+ assert.equal(B.docLines({amount:0})[0].name,'订单货款');
+ assert.equal(B.itemsTotal([{qty:3,price:0.1}]),0.3);
+});

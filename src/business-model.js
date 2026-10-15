@@ -57,6 +57,44 @@
       }
     }
   }
+  // 订单产品明细 order.items：[{productId, code, name, model, unit, qty, price}]，从产品库选，存在订单里（产品改了不影响已有订单）。
+  // 有明细时，订单金额＝明细合计，订单的“产品”一栏＝明细里的产品名称。
+  const ITEM_LIMIT=200;
+  const round2=value=>Math.round(value*100)/100;
+  function cleanItems(list){
+    if(!Array.isArray(list))throw new Error('产品明细格式无效');
+    if(list.length>ITEM_LIMIT)throw new Error(`一笔订单最多 ${ITEM_LIMIT} 个产品`);
+    return list.map((item,index)=>{
+      const name=trim(item&&item.name);
+      if(!name)throw new Error(`产品明细第 ${index+1} 行还没选产品`);
+      const qty=numericInput(item.qty,`「${name}」的数量`);
+      if(qty<=0)throw new Error(`「${name}」的数量要大于 0`);
+      const price=numericInput(item.price,`「${name}」的单价`);
+      return {productId:trim(item.productId),code:trim(item.code),name,model:trim(item.model),unit:trim(item.unit),qty,price};
+    });
+  }
+  const itemsTotal=items=>round2((Array.isArray(items)?items:[]).reduce((sum,item)=>sum+amount(item&&item.qty)*amount(item&&item.price),0));
+  const itemsSummary=items=>[...new Set((Array.isArray(items)?items:[]).map(item=>trim(item&&item.name)).filter(Boolean))].join('、');
+  // 从产品库的一个产品得到一行明细：单价默认取离岸价。
+  function itemFromProduct(product,qty=1){
+    const fob=Number(String(product&&product.fob||'').replace(/,/g,''));
+    return {productId:trim(product&&product.id),code:trim(product&&product.code),name:trim(product&&product.name),model:trim(product&&product.model),unit:trim(product&&product.unit),qty,price:Number.isFinite(fob)&&fob>0?fob:0};
+  }
+  // 名称和产品库里某个产品完全一样、又还没关联的明细，补上产品编号、型号和单位（例如由商机带过来的产品）。
+  function linkItems(items,products){
+    const list=Array.isArray(products)?products:[];
+    return (Array.isArray(items)?items:[]).map(item=>{
+      if(trim(item.productId))return item;
+      const match=list.find(product=>trim(product.name)===trim(item.name));
+      return match?{...itemFromProduct(match,item.qty),price:item.price}:item;
+    });
+  }
+  // 生成报价单、形式发票等单据用的明细：有产品明细就逐行列出；没有就把整笔订单当一行（产品栏文字，数量 1，单价＝订单金额）。
+  function docLines(order){
+    const items=Array.isArray(order&&order.items)?order.items.filter(item=>trim(item&&item.name)):[];
+    if(items.length)return items.map(item=>({code:trim(item.code),name:trim(item.name),model:trim(item.model),unit:trim(item.unit),qty:amount(item.qty),price:amount(item.price)}));
+    return [{code:'',name:trim(order&&order.productType)||'订单货款',model:'',unit:'',qty:1,price:amount(order&&order.amount)}];
+  }
   function upsertOrder(state,id,input){
     requireId(id);
     const orders=state.orders||[],previous=orders.find(order=>order.id===id);
@@ -66,7 +104,11 @@
     if(!next.num)throw new Error('请输入订单号');
     if(!next.client)throw new Error('请输入客户名称');
     if(next.client==='__proto__')throw new Error('该客户名称为系统保留名称');
-    next.amount=numericInput(Object.hasOwn(input,'amount')?input.amount:next.amount,'订单金额');
+    if(Object.hasOwn(input,'items'))next.items=cleanItems(input.items);
+    if(Array.isArray(next.items)&&next.items.length){
+      next.amount=itemsTotal(next.items);
+      next.productType=itemsSummary(next.items);
+    }else next.amount=numericInput(Object.hasOwn(input,'amount')?input.amount:next.amount,'订单金额');
     next.paidAmount=numericInput(Object.hasOwn(input,'paidAmount')?input.paidAmount:(next.paidAmount??0),'已收款');
     if(next.paidAmount>next.amount)throw new Error('已收款不能超过订单金额');
     next.currency=trim(next.currency||'USD').toUpperCase();
@@ -132,6 +174,6 @@
     if(typeof next.done!=='boolean')throw new Error('任务完成状态无效');
     return {...state,laiTasks:previous?state.laiTasks.map(task=>task.id===id?next:task):[next,...(state.laiTasks||[])]};
   }
-  const api={stages,localDate,orderMetrics,monthlyAnalysis,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
+  const api={stages,localDate,orderMetrics,monthlyAnalysis,ITEM_LIMIT,cleanItems,itemsTotal,itemsSummary,itemFromProduct,linkItems,docLines,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiBusinessModel=api;
 })(typeof window!=='undefined'?window:globalThis);

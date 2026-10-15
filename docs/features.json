@@ -586,6 +586,23 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "order-products",
+   "area": "trade",
+   "description": "订单选产品: the order form picks products from 产品 (qty, price, amount = items total, 产品 text follows) and makes a 报价单 / 形式发票 / 销售订单 / 发货通知 preview from the form, with print",
+   "steps": [
+    "Add two products in 产品 (one with 离岸价)",
+    "交易 → 新建订单: 添加产品 twice, pick both, type quantity, type the price of the one without 离岸价: amount = total, read-only",
+    "点 报价单: preview shows company, customer, both rows, total; change a quantity: preview follows",
+    "保存订单; reopen it: items are back; 形式发票 preview shows the order number",
+    "Remove all items: amount is typed again"
+   ],
+   "e2e": "order-products.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }
