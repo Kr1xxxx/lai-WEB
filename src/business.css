@@ -2192,3 +2192,18 @@ td.team-reached {
 .theme-preview .pv-cards { flex: 1; display: flex; gap: 8px; }
 .theme-preview .pv-cards i { flex: 1; border-radius: 6px; background: #fff; }
 .theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }
+
+/* 订单产品明细和由订单生成的单据。订单表单是右侧一张窄卡，明细一行一张小卡；打开单据预览时卡片变宽。 */
+#biz-order-form .order-items { display: grid; gap: 8px; }
+#biz-order-form .order-item { border: 1px solid var(--line, #e5e7eb); border-radius: 10px; padding: 8px; display: grid; gap: 6px; }
+#biz-order-form .order-item-top { display: flex; align-items: center; gap: 8px; }
+#biz-order-form .order-item-top > :first-child { flex: 1; min-width: 0; }
+#biz-order-form .order-item-nums { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+#biz-order-form .order-item-nums label { display: grid; gap: 2px; font-size: 12px; color: var(--muted, #6b7280); min-width: 0; }
+#biz-order-form .order-item-nums input { width: 100%; min-width: 0; }
+#biz-order-form .order-item-amount { font-variant-numeric: tabular-nums; white-space: nowrap; padding-bottom: 6px; font-size: 13px; }
+#biz-order-form .order-items-total { text-align: right; margin: 8px 0; font-variant-numeric: tabular-nums; }
+#biz-order-form .order-doc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+#biz-order-form .order-doc-preview { margin-top: 12px; }
+#biz-order-form .order-doc-buttons { display: flex; gap: 8px; }
+.overlay:has(#biz-order-form .order-doc-preview) .drawer { width: min(760px, calc(100vw - 24px)) !important; }

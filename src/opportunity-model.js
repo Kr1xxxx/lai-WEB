@@ -410,9 +410,13 @@
       stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner),collaborators:[],tags:[],products:[],lostReason:'',lostNote:''};
   }
   // 由赢单商机生成订单时预填的内容（交给现有的订单表单，由用户确认保存）。
+  // 商机里的产品带到订单的产品明细；产品都没填单价时不带（不然订单金额会变成 0），只留“产品”文字。
   function orderDraft(item,today=isoDay(new Date())){
+    const items=(Array.isArray(item.products)?item.products:[]).filter(product=>product&&trim(product.name)).map(product=>({productId:'',code:'',name:trim(product.name),model:'',unit:'',qty:Number(product.quantity??1),price:Number(product.unitPrice??0)}));
+    const priced=items.some(line=>line.qty>0&&line.price>0);
     return {client:trim(item.client),amount:amountOf(item),currency:currencyOf(item),owner:cleanName(item.owner),stage:'quote',paidAmount:0,createdAt:today,orderMonth:today.slice(0,7),
-      note:`由商机「${trim(item.name)}」生成`,productType:(Array.isArray(item.products)?item.products:[]).map(product=>product.name).join('、')};
+      note:`由商机「${trim(item.name)}」生成`,productType:(Array.isArray(item.products)?item.products:[]).map(product=>product.name).join('、'),
+      items:priced?items:[]};
   }
   // ---- 销售流程设置：新建／改名／删除流程，添加／改名／排序／删除阶段。每个动作各自保存。 ----
   function labelOf(value,what){
