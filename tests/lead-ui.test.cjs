@@ -12,7 +12,7 @@ const ui = U.create(escapeHtml, L);
 const TODAY = '2026-10-07';
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 function sample() {
-  let state = { customers: { 'Acme Trading': { client: 'Acme Trading', email: 'buy@acme.example' } }, orders: [] };
+  let state = { customers: { 'Acme Trading': { client: 'Acme Trading', email: 'buy@acme.example' } }, orders: [], laiSettings: { customerSettings: { leadDedupe: { name: 'allow', website: 'allow', email: 'allow', phone: 'allow' } } } };
   const add = (id, fields, now) => { state = L.upsert(state, id, fields, { now }); };
   add('open', { name: 'Open <b>Lead</b>', contact: 'Ann', email: 'ann@x.example', owner: 'Amy', source: '展会', product: 'lashes', nextFollow: '2026-10-01', note: 'line1\n<script>' }, '2026-10-01T00:00:00.000Z');
   add('worked', { name: 'Worked Lead', nextFollow: TODAY }, '2026-10-02T00:00:00.000Z');
