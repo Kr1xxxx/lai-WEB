@@ -989,12 +989,13 @@
         return saveNext(() => LD().remove(state(), d.id), errorId, leadSaved(""));
       }
     }
-    // ---------- 产品：列表、分组、字段、规格 ----------
+    // ---------- 产品：列表、分组、同步、字段、规格、布局 ----------
     const PM = () => root.LaiProductModel;
     let productUI = null;
     const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM()));
-    const prodView = { tab: "list", search: "", group: "", editing: null, armed: "" };
+    const prodView = { tab: "list", search: "", group: "", editing: null, armed: "", layoutEdit: "" };
     let prodDraft = null;
+    let syncDraft = null;
     function renderProducts() {
       return header("产品", "你卖的产品：分组、字段、规格都在这里设置", "") + `<div class="business-scroll">${PU().pageMarkup(state(), prodView)}</div>`;
     }
@@ -1013,11 +1014,140 @@
       prodDraft = { id: old ? old.id : undefined };
       ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="product-form">保存产品</button>', "business-product");
     }
+    function openProductDetail(id) {
+      const product = PM().find(state(), id);
+      if (!product) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
+      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" data-action="close-modal">关闭</button><button class="primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>`, "business-product");
+    }
+    // ---- 从表格同步：选文件 → 预览 → 确认 → 记一条任务（可撤销）----
+    function syncRefresh() {
+      const box = document.querySelector("#overlay-root .drawer");
+      if (!box || !syncDraft) return;
+      box.querySelector(".drawer-body")?.replaceWith(Object.assign(document.createElement("div"), { innerHTML: PU().syncMarkup(state(), syncDraft) }).firstElementChild);
+      const foot = box.querySelector(".drawer-footer");
+      if (foot) foot.innerHTML = PU().syncFooter(syncDraft);
+    }
+    function openSyncDialog() {
+      syncDraft = { fileName: "", mode: "code", records: null, plan: null, ignored: [], hidden: [], error: "" };
+      ctx.dialog("从表格同步产品", PU().syncMarkup(state(), syncDraft), PU().syncFooter(syncDraft), "business-product-sync");
+      document.querySelector("#overlay-root .drawer")?.classList.add("prod-sync-dialog");
+    }
+    async function readSyncFile(file) {
+      if (!syncDraft) return;
+      const draft = syncDraft;
+      try {
+        if (!file || !/\.(csv|xls|xlsx)$/i.test(file.name)) throw new Error("请选择 XLS、XLSX 或 UTF-8 CSV 文件");
+        if (file.size > 5 * 1024 * 1024) throw new Error("文件不能超过 5 MB");
+        const I = root.LaiCustomerImport;
+        let parsed;
+        try {
+          parsed = /\.csv$/i.test(file.name) ? I.parseCsv(await file.text()) : I.parseExcel(await file.arrayBuffer(), root.XLSX);
+        } catch (error) {
+          throw new Error(String(error.message).replace(/客户/g, "产品"));
+        }
+        const table = PM().readTable(state(), parsed.headers, parsed.rows, parsed.lineNumbers);
+        if (syncDraft !== draft) return;
+        Object.assign(draft, { fileName: file.name, records: table.records, ignored: table.ignored, hidden: table.hidden, error: "" });
+        draft.plan = PM().planSync(state(), draft.records, { mode: draft.mode });
+      } catch (error) {
+        if (syncDraft !== draft) return;
+        Object.assign(draft, { fileName: "", records: null, plan: null, ignored: [], hidden: [], error: error.message });
+      }
+      syncRefresh();
+    }
+    function syncMode(mode) {
+      if (!syncDraft) return;
+      syncDraft.mode = mode;
+      try {
+        if (syncDraft.records) syncDraft.plan = PM().planSync(state(), syncDraft.records, { mode });
+      } catch (error) {
+        syncDraft.error = error.message;
+      }
+      syncRefresh();
+    }
+    function commitSync() {
+      const draft = syncDraft;
+      if (!draft?.plan) return;
+      return saveNext(
+        () => PM().syncProducts(state(), draft.records, { mode: draft.mode, fileName: draft.fileName }).state,
+        "prod-sync-error",
+        () => {
+          syncDraft = null;
+          prodView.tab = "sync";
+          ctx.closeDialog();
+        },
+      );
+    }
+    function downloadSyncTemplate() {
+      const X = root.XLSX;
+      if (!X) return ctx.toast("Excel 模板组件未加载，请重新打开来财");
+      const book = X.utils.book_new();
+      X.utils.book_append_sheet(book, X.utils.aoa_to_sheet([PM().templateHeaders(state())]), "产品");
+      const bytes = X.write(book, { type: "array", bookType: "xlsx" });
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "来财产品同步模板.xlsx";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    // ---- 布局 ----
+    function layoutClick(d) {
+      const kind = d.prodLay, id = d.layout;
+      if (kind === "open") {
+        prodView.layoutEdit = prodView.layoutEdit === id ? "" : id;
+        prodView.editing = null;
+        return render();
+      }
+      if (kind === "copy") {
+        const from = PM().layoutById(state(), id);
+        const newId = "l" + crypto.randomUUID().slice(0, 8);
+        return prodSave(
+          () => PM().addLayout(state(), { name: PM().suggestLayoutName(state(), from ? from.name : "布局"), fromId: id, id: newId }),
+          () => {
+            prodView.layoutEdit = newId;
+          },
+        );
+      }
+      if (kind === "delete")
+        return prodSave(
+          () => PM().deleteLayout(state(), id),
+          () => {
+            if (prodView.layoutEdit === id) prodView.layoutEdit = "";
+          },
+        );
+      if (kind === "section-move") return prodSave(() => PM().moveSection(state(), id, Number(d.index), Number(d.delta)));
+      if (kind === "field-move") return prodSave(() => PM().moveLayoutField(state(), id, d.key, Number(d.delta)));
+      if (kind === "field-hide") return prodSave(() => PM().hideLayoutField(state(), id, d.key));
+    }
+    function layoutSelect(el) {
+      const d = el.dataset;
+      if (!el.value) return;
+      const value = el.value;
+      const done = (ok) => {
+        if (!ok) el.value = d.prodSel === "use" ? PM().settings(state()).layoutUse[d.place] : "";
+      };
+      if (d.prodSel === "use") return prodSave(() => PM().setLayoutUse(state(), d.place, value)).then(done);
+      if (d.prodSel === "move") return prodSave(() => PM().moveFieldToSection(state(), d.layout, d.key, Number(value))).then(done);
+      if (d.prodSel === "show") return prodSave(() => PM().showLayoutField(state(), d.layout, d.key, Number(value))).then(done);
+    }
     function productAction(d) {
       const action = d.prodAction;
-      if (action !== "delete") prodView.armed = "";
+      if (action !== "delete" && action !== "sync-undo") prodView.armed = "";
       if (action === "new") return openProductForm();
       if (action === "edit") return openProductForm(d.id);
+      if (action === "view") return openProductDetail(d.id);
+      if (action === "sync-open") return openSyncDialog();
+      if (action === "sync-template") return downloadSyncTemplate();
+      if (action === "sync-commit") return commitSync();
+      if (action === "sync-undo") {
+        if (prodView.armed !== `undo:${d.id}`) {
+          prodView.armed = `undo:${d.id}`;
+          render();
+          return document.querySelector?.(`[data-prod-action="sync-undo"][data-id="${cssEscape(d.id)}"]`)?.focus?.({ preventScroll: true });
+        }
+        return prodSave(() => PM().undoSync(state(), d.id).state);
+      }
       if (action === "delete") {
         if (prodView.armed !== d.id) {
           prodView.armed = d.id;
@@ -1035,6 +1165,7 @@
         return render();
       }
       if (d.prodAction) return productAction(d);
+      if (d.prodLay) return layoutClick(d);
       if (d.prodCancel !== undefined) {
         prodView.editing = null;
         return render();
@@ -1062,6 +1193,9 @@
         if (kind === "spec-add") return PM().addSpec(state(), text("name"));
         if (kind === "spec-rename") return PM().renameSpec(state(), form.dataset.id, text("name"));
         if (kind === "value-add") return PM().addSpecValue(state(), form.dataset.id, text("value"));
+        if (kind === "layout-add") return PM().addLayout(state(), { name: text("name") });
+        if (kind === "layout-rename") return PM().renameLayout(state(), form.dataset.id, text("name"));
+        if (kind === "section-rename") return PM().renameSection(state(), form.dataset.layout, Number(form.dataset.index), text("name"));
         throw new Error("无法保存");
       });
     }
@@ -1070,8 +1204,12 @@
       const data = Object.fromEntries(new FormData(form));
       const specs = Object.entries(data).filter(([key, value]) => key.startsWith("spec:") && value).map(([key, value]) => ({ type: key.slice(5), value }));
       const { id } = prodDraft;
+      // 布局里没放进表单的字段，保留原来的内容，不当成清空。
+      const previous = id === undefined ? null : PM().find(state(), id);
+      const shown = new Set(PM().formSections(state()).flatMap((sec) => sec.fields.map((item) => item[0])));
+      const kept = previous ? Object.fromEntries(PM().FIELDS.map((item) => item[0]).filter((key) => !shown.has(key)).map((key) => [key, previous[key] ?? ""])) : {};
       return saveNext(
-        () => PM().upsert(state(), id, { ...data, specs }),
+        () => PM().upsert(state(), id, { ...kept, ...data, specs }),
         "product-error",
         () => {
           prodDraft = null;
@@ -1481,7 +1619,7 @@
       if (d.attachAction && onOppPage() && attachView.id) return attachAction(d);
       if (d.oppAction && onOppPage()) return oppAction(d);
       if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
-      if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove)) return productClick(d);
+      if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove || d.prodLay)) return productClick(d);
       if (d.leadAction && onLeadPage()) return leadAction(d);
       if (d.leadStatus && route === "leads") {
         leadView.filters = { ...leadView.filters, status: d.leadStatus };
@@ -1723,6 +1861,9 @@
         render();
         return document.getElementById(e.target.id)?.focus?.({ preventScroll: true });
       }
+      if (route === "products" && e.target.id === "prod-sync-file") return void readSyncFile(e.target.files?.[0]);
+      if (route === "products" && e.target.name === "prod-sync-mode") return syncMode(e.target.value);
+      if (route === "products" && e.target.dataset?.prodSel) return layoutSelect(e.target);
       if (route === "products" && e.target.dataset?.prodField) {
         const input = e.target, key = input.dataset.prodField;
         return saveNext(() => PM().setField(state(), key, { [input.dataset.prop]: input.checked }), "prod-error", () => undefined).then((ok) => {
