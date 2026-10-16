@@ -12,7 +12,7 @@
   // 没写就谁都能看到。markup 的 info.can(key) 决定当前账号有没有，没传时全部显示。
   const GROUPS = Object.freeze([
     { id: "general", title: "通用", items: [
-      { id: "defaults", title: "默认录入", note: "公司名称、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
+      { id: "defaults", title: "默认录入", note: "公司资料（名称、地址、电话、银行）、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
       { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，只影响这台电脑", open: ["route", "settings"], current: "theme", perm: "settings.general" },
       { id: "favorites", title: "常用导航", note: "管理左侧栏“常用”里的快捷入口：添加、排序、移除", open: ["action", "favorite-nav-manage"] },
     ] },
@@ -27,6 +27,9 @@
     { id: "product", title: "产品和单据", items: [
       { id: "product-settings", title: "产品设置", note: "产品分组、字段、规格和布局；打开产品页后点上方的设置页签", open: ["route", "products"], perm: ["product.view", "settings.product"] },
       { id: "doc-templates", title: "单据模板", note: "报价单、形式发票、销售订单、发货通知的样式，并可预览", open: ["route", "doc-templates"], perm: "settings.docTemplate" },
+    ] },
+    { id: "chat", title: "沟通", items: [
+      { id: "chat-templates", title: "聊天模板", note: "WhatsApp 常用话术：新建、编辑、停用", open: ["route", "chat-templates"], perm: "chat.template" },
     ] },
     { id: "team", title: "团队", items: [
       { id: "targets", title: "目标管理", note: "团队和个人的月度和季度目标", open: ["route", "team-targets"], perm: "team.targets" },

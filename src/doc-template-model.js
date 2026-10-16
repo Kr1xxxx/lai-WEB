@@ -106,9 +106,16 @@
       hit={company:readGroup(COMPANY_FIELDS,raw.company),bank:readGroup(BANK_FIELDS,raw.bank),templates,numbering,counters};
       cache.set(key,hit);
     }
+    // 老版本在“设置”里单独存过公司名称（laiSettings.companyName）：单据模板里的名称还空着时，读的时候用它。
+    const legacy=trim(state&&state.laiSettings&&state.laiSettings.companyName);
+    if(!hit.company.name&&legacy)return {...hit,company:{...hit.company,name:legacy.slice(0,LIMITS.line)}};
     return hit;
   }
-  const put=(state,patch)=>({...state,laiSettings:{...(state.laiSettings||{}),docTemplates:{...settings(state),...patch}}});
+  // 公司资料只有一份（docTemplates.company）。保存后不再留老的 companyName，免得清空名称后又冒出来。
+  const put=(state,patch)=>{
+    const {companyName,...rest}=state.laiSettings||{};
+    return {...state,laiSettings:{...rest,docTemplates:{...settings(state),...patch}}};
+  };
   const typeName=type=>(TYPES.find(t=>t[0]===type)||[])[1];
   function assertType(type){
     if(!TYPE_IDS.includes(type))throw new Error('没有这种单据');

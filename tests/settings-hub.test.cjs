@@ -41,9 +41,9 @@ test('the page lists every group and entry once, shows the current defaults and 
   assert.doesNotThrow(() => Hub.markup());
 });
 
-test('the parts a user can set are all covered: defaults, theme, favorites, columns, segments, customer settings, sales flow, product settings, document templates, targets, mailbox', () => {
+test('the parts a user can set are all covered: defaults, theme, favorites, columns, segments, customer settings, sales flow, product settings, document templates, chat templates, targets, mailbox', () => {
   const ids = Hub.GROUPS.flatMap((g) => g.items.map((i) => i.id));
-  assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'columns', 'segments', 'customer-settings', 'flows', 'product-settings', 'doc-templates', 'targets', 'mail-account']);
+  assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'columns', 'segments', 'customer-settings', 'flows', 'product-settings', 'doc-templates', 'chat-templates', 'targets', 'mail-account']);
 });
 
 test('the 测试数据 entry shows only in the web trial, once, and opens the trial panel', () => {
@@ -70,4 +70,13 @@ test('产品设置 needs both product.view and settings.product, 单据模板 ne
   assert.match(html, /data-sh-item="doc-templates"[\s\S]*?data-lai-route="doc-templates"/);
   assert.match(html, /月度和季度目标/);
   assert.doesNotMatch(html, /来财里能设置的内容都在这里/, 'some settings still live on their own pages, so the subtitle must not promise everything');
+});
+
+test('聊天模板 opens the chat-templates page and needs chat.template', () => {
+  const ids = (can) => [...Hub.markup({ can }, E).matchAll(/data-sh-item="([\w-]+)"/g)].map((m) => m[1]);
+  assert.ok(ids(() => true).includes('chat-templates'));
+  assert.ok(!ids((key) => key !== 'chat.template').includes('chat-templates'));
+  const item = Hub.GROUPS.flatMap((g) => g.items).find((i) => i.id === 'chat-templates');
+  assert.deepEqual(item.open, ['route', 'chat-templates']);
+  assert.equal(item.perm, 'chat.template');
 });

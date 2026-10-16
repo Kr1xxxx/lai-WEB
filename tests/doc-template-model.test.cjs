@@ -64,3 +64,17 @@ test('UI: tabs, hidden columns leave the table, text is escaped', () => {
   assert.match(UI.pageMarkup(s, { tab: 'company' }), /data-doc-form="company"/);
   assert.match(UI.printHtml(M.preview(s, 'quote')), /^<!doctype html>/);
 });
+
+test('company details are one record: the old 设置 companyName is read when the template name is empty, and dropped on save', () => {
+  const state = { laiSettings: { companyName: '老公司名' } };
+  assert.equal(M.settings(state).company.name, '老公司名');
+  assert.equal(M.preview(state, 'quote').company.name, '老公司名');
+  const own = { laiSettings: { companyName: '老公司名', docTemplates: { company: { name: 'New Co' } } } };
+  assert.equal(M.settings(own).company.name, 'New Co', 'the template record wins');
+  const saved = M.setCompany(state, { name: '', address: 'Addr' });
+  assert.equal('companyName' in saved.laiSettings, false, 'companyName is no longer kept');
+  assert.equal(M.settings(saved).company.name, '', 'clearing the name stays cleared');
+  assert.equal(M.settings(saved).company.address, 'Addr');
+  const named = M.setCompany(state, { name: '  Real Co ' });
+  assert.equal(M.settings(named).company.name, 'Real Co');
+});
