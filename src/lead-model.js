@@ -315,11 +315,9 @@
     for(const value of values){const text=cleanName(value);if(text&&text!=='未分配'&&!seen.has(text.toLowerCase()))seen.set(text.toLowerCase(),text);}
     return [...seen.values()].sort((a,b)=>a.localeCompare(b,'zh'));
   }
-  // 名单数组上带一个看不见的 rules（线索设置里的字段显示和必填），表单据此隐藏和标星；不影响数组本身的内容。
-  const withRules=(names,state)=>Object.defineProperty([...names],'rules',{value:fieldRules(state),enumerable:false});
-  const ownerNames=state=>withRules(distinct([defaultOwner(state),...list(state).map(item=>item.owner),...Object.values(profilesOf(state)).map(profile=>profile?.owner)]),state);
+  const ownerNames=state=>distinct([defaultOwner(state),...list(state).map(item=>item.owner),...Object.values(profilesOf(state)).map(profile=>profile?.owner)]);
   const CSM=node?require('./customer-settings-model.js'):root.LaiCustomerSettings;
-  const sourceNames=state=>withRules((CSM&&CSM.sourceChoices(state))||distinct([...list(state).map(item=>item.source),...Object.values(profilesOf(state)).map(profile=>profile?.source),...SOURCE_HINTS]),state);
+  const sourceNames=state=>[...((CSM&&CSM.sourceChoices(state))||distinct([...list(state).map(item=>item.source),...Object.values(profilesOf(state)).map(profile=>profile?.source),...SOURCE_HINTS]))];
   // 线索设置：无效原因、字段显示与必填（见 lead-settings-model.js）。
   const reasons=state=>LS.reasonsOf(state);
   const fieldRules=state=>LS.get(state).fields;

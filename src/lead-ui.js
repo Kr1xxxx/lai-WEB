@@ -7,6 +7,10 @@
   const SEARCH_FIELDS=[['contact','联系人'],['email','邮箱'],['phone','电话'],['product','产品']];
   function create(E,model,can=()=>true,level=()=>'edit'){
     const vis=name=>level(name)!=='hidden';
+    // 电话旁的 WhatsApp 按钮：账号能开聊天、电话（加上线索的国家）能转成国际号码时才有。
+    const WA=()=>typeof module!=='undefined'&&module.exports?require('./whatsapp-model.js'):root.LaiWhatsAppModel;
+    const waNumber=row=>{try{return WA()?.toE164(row.phone,{country:row.country})||'';}catch(_){return '';}};
+    const waButton=row=>!row.trashed&&row.phone&&can('chat.send')&&waNumber(row)?` <button type="button" class="text-button lead-wa" data-lead-action="wa" data-id="${E(row.id)}" aria-label="用 WhatsApp 联系${E(row.name)}">WhatsApp</button>`:'';
     const dis=name=>level(name)==='read'?' disabled title="你的角色只能查看，不能修改"':'';
     // 看不到的字段：值直接清空，后面的标记就当它没填。
     const strip=row=>{const out={...row};for(const name of ['contact','email','phone','country','source','website','product','note'])if(!vis(name))out[name]='';return out;};
@@ -80,8 +84,8 @@
     const datalist=(id,values)=>`<datalist id="${id}">${(values||[]).map(value=>`<option value="${E(value)}"></option>`).join('')}</datalist>`;
     function formMarkup(values,context={}){
       const v=values||{};
-      // 线索设置里的字段规则（名单数组上的 rules）：不显示的字段不出现；显示且必填、当前账号又能改的字段标星并必填。
-      const rules=context.sources?.rules||context.owners?.rules||{};
+      // context.rules 是线索设置里的字段规则（L.fieldRules(state)）：不显示的字段不出现；显示且必填、当前账号又能改的字段标星并必填。
+      const rules=context.rules||{};
       const shown=name=>vis(name)&&rules[name]?.show!==false;
       const must=name=>shown(name)&&rules[name]?.required===true&&level(name)==='edit';
       const star=name=>must(name)?' required':'';
@@ -122,7 +126,7 @@
       return `<div class="drawer-body opp-form lead-detail"><div class="error" id="lead-detail-error" role="alert"></div>`
         +`<div class="lead-detail-head">${chip(row)}${row.overdue?`<span class="opp-due is-overdue">跟进逾期 ${E(shortDate(row.nextFollow,today))}</span>`:row.dueToday?'<span class="opp-due lead-today">今天该跟进</span>':''}${dup?`<span class="opp-chip lead-dup">可能重复</span>`:''}</div>`
         +(dup?`<p class="lead-banner is-dup">${E(dup)}。转为客户时可以选择关联到已有客户。</p>`:'')+banner
-        +`<dl class="lead-infos">${(vis('contact')?info('联系人',E(row.contact)):'')+(vis('email')?info('邮箱',E(row.email)):'')+(vis('phone')?info('电话',E(row.phone)):'')+(vis('country')?info('国家地区',E(row.country)):'')+(vis('source')?info('线索来源',E(row.source)):'')}${info('跟进人',E(row.owner||'未分配'))}${(vis('product')?info('意向产品',E(row.product)):'')+(vis('website')?info('网址',E(row.website)):'')}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
+        +`<dl class="lead-infos">${(vis('contact')?info('联系人',E(row.contact)):'')+(vis('email')?info('邮箱',E(row.email)):'')+(vis('phone')?info('电话',row.phone?E(row.phone)+waButton(row):''):'')+(vis('country')?info('国家地区',E(row.country)):'')+(vis('source')?info('线索来源',E(row.source)):'')}${info('跟进人',E(row.owner||'未分配'))}${(vis('product')?info('意向产品',E(row.product)):'')+(vis('website')?info('网址',E(row.website)):'')}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
         +(row.note?`<p class="lead-note">${E(row.note)}</p>`:'')
         +(actions?`<div class="lead-detail-actions">${actions}</div>`:'')+`${follow}<div class="form-section">记录</div>${timeline}</div>`;
     }

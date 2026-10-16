@@ -157,3 +157,50 @@ test('线索 is a real menu with its own pages, wired into the rail, the page sh
   }
   assert.match(shell, /hasDraft: \(\) => !!draft \|\| !!oppDraft \|\| !!leadDraft \|\| settingsDirty/);
 });
+
+
+test('the detail puts a WhatsApp button next to a phone that can be dialled, only for accounts that may chat', () => {
+  let state = sample();
+  state = L.upsert(state, 'ph', { name: 'Phone <b>Lead</b>', phone: '07700 900123', country: '英国' }, { now: '2026-10-08T00:00:00.000Z' });
+  state = L.upsert(state, 'bad', { name: 'Bad Phone', phone: 'ask the office' }, { now: '2026-10-08T00:00:00.000Z' });
+  state = L.upsert(state, 'nocountry', { name: 'No Country', phone: '07700 900123' }, { now: '2026-10-08T00:00:00.000Z' });
+  state = L.upsert(state, 'intl', { name: 'Intl', phone: '+1 415 555 0100' }, { now: '2026-10-08T00:00:00.000Z' });
+  const html = id => ui.detailMarkup(L.detail(state, id, TODAY), TODAY);
+  assert.match(html('ph'), /07700 900123 <button type="button" class="text-button lead-wa" data-lead-action="wa" data-id="ph"/);
+  assert.match(html('intl'), /data-lead-action="wa" data-id="intl"/, 'a number with + needs no country');
+  assert.doesNotMatch(html('bad'), /data-lead-action="wa"/, 'a phone that is not a number');
+  assert.doesNotMatch(html('nocountry'), /data-lead-action="wa"/, 'no country and no + : the number cannot be completed');
+  assert.doesNotMatch(html('open'), /data-lead-action="wa"/, 'no phone');
+  assert.doesNotMatch(html('ph'), /data-chat-action/, 'the click is handled by the lead page, not the customer chat route');
+  const trashed = ui.detailMarkup(L.detail(L.setTrashed(state, 'ph', true), 'ph', TODAY), TODAY);
+  assert.doesNotMatch(trashed, /data-lead-action="wa"/);
+  const quiet = U.create(escapeHtml, L, key => key !== 'chat.send');
+  assert.doesNotMatch(quiet.detailMarkup(L.detail(state, 'ph', TODAY), TODAY), /data-lead-action="wa"/, 'no 打开 WhatsApp 聊天 permission');
+  const hidden = U.create(escapeHtml, L, () => true, key => (key === 'phone' ? 'hidden' : 'edit'));
+  assert.doesNotMatch(hidden.detailMarkup(L.detail(state, 'ph', TODAY), TODAY), /data-lead-action="wa"|07700/);
+});
+
+test('lead settings travel as an explicit rules option, never as a hidden property on the name lists', () => {
+  const state = sample();
+  for (const list of [L.ownerNames(state), L.sourceNames(state)]) {
+    assert.ok(Array.isArray(list));
+    assert.equal(Object.getOwnPropertyNames(list).includes('rules'), false);
+  }
+  const rules = { ...L.fieldRules(state), website: { show: false } };
+  assert.doesNotMatch(ui.formMarkup({ name: '' }, { owners: [], sources: [], rules }), /name="website"/);
+  assert.match(ui.formMarkup({ name: '' }, { owners: [], sources: [] }), /name="website"/, 'no rules option: every field shows');
+  const hiddenOnList = Object.defineProperty([], 'rules', { value: { website: { show: false } }, enumerable: false });
+  assert.match(ui.formMarkup({ name: '' }, { owners: hiddenOnList, sources: hiddenOnList }), /name="website"/, 'a rules property on the lists is ignored');
+});
+
+
+test('business-ui wires the lead rules, the WhatsApp buttons and the opportunity rate prefill', () => {
+  const code = read('src/business-ui.js');
+  assert.match(code, /leadContext = \(\) => \(\{[^\n]*rules: LD\(\)\.fieldRules\(state\(\)\)/);
+  assert.match(code, /LEAD_NEED = \{[^\n]*wa: "chat\.send"/);
+  assert.match(code, /if \(action === "wa"\) \{\s*const row = LD\(\)\.detail/);
+  assert.match(code, /if \(action === "wa"\) \{\s*const detail = OM\(\)\.detailOf/);
+  assert.match(code, /if \(action\.startsWith\("wa-"\)\) return waAction\(action\)/);
+  assert.match(code, /OM\(\)\.prefillRate\(state\(\), values\.currency, values\.exchangeRate\)/);
+  assert.match(code, /OM\(\)\.prefillRate\(state\(\), el\.currency\.value, rate\.value, oppDraft\.prefilled\)/);
+});
