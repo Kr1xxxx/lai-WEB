@@ -1945,6 +1945,9 @@
           }),
         ]),
       );
+      // 自定义字段：表单里是 custom.<字段ID>，交给模型的是 custom 对象（只读、看不到的字段不在里面）。
+      for (const key of Object.keys(data)) if (key.startsWith("custom.")) delete data[key];
+      data.custom = window.LaiCustomerEditor.formValues(form).custom;
       // 勾选了「同时新建商机」：客户保存成功后直接打开新建商机表单，客户已填好。
       wantOpportunity = !!fd.get("createOpportunity");
     }
@@ -1993,6 +1996,13 @@
           const before = String(allCustomerRows().find((row) => row.name === oldName)?.owner || "").trim();
           if (String(data.owner || "").trim() !== before) throw new Error(R.denied("customer.reassign"));
         }
+        // 字段设置里的必填：只查这个账号能改的字段；编辑老客户时，本来空着、这次也没动的字段不拦。
+        const start = oldName ? window.LaiCustomerEditor.initialValues(form) : null;
+        const now = window.LaiCustomerEditor.formValues(form);
+        CS.assertRequired(state, {
+          values: now.custom, systemValues: now.system, gate: C.gate(state, state.customers?.[oldName] || "customer"),
+          previous: start?.custom, previousSystem: start?.system, touched: window.LaiCustomerEditor.touched(form),
+        });
       }
       // 客户分组只读或看不到时，保持原来的分组。
       if (form.id === "customer-form" && !C.gate(state, state.customers?.[form.dataset.oldName] || "customer").editable("previewGroup"))
@@ -5024,6 +5034,13 @@
       throw new Error("无法保存");
     });
   });
+  // 客户设置 → 字段设置：点击、修改、提交交给 customer-settings-ui.js 的 fieldsController，保存走 csSave。
+  const cfHost = () => ({ state: () => state, save: (make) => csSave(() => make(state)), rerender: () => customerSettings() });
+  for (const type of ["click", "change", "submit"])
+    document.addEventListener(type, (e) => {
+      if (activeRoute !== "customers" || customerScreen !== "customer-settings" || !e.target.closest?.('[data-cs-panel="fields"]') || !can("settings.customer")) return;
+      window.LaiCustomerSettingsUI.fieldsController[type](cfHost(), e);
+    });
   document.addEventListener("click", async (e) => {
     const el = e.target.closest("button,input");
     if (!el || el.disabled) return;

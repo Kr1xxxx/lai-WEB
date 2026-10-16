@@ -965,6 +965,123 @@ function checkFollowupTime(state, value, now = new Date()) {
   return new Date(t).toISOString();
 }
 
+// ---------- 字段设置：自定义字段、系统字段必填（客户设置 → 字段设置）----------
+// 设置存在 state.laiSettings.fieldSettings.customer（见 field-model.js）；值存在客户档案的 custom[字段ID]。
+// 必填只在客户编辑表单保存时检查，只查当前账号能改的字段；批量建档、导入、合并、公海等不检查。
+const fieldModel = () => root.LaiFieldModel || (typeof module !== "undefined" && module.exports ? require("./field-model.js") : null);
+const roleModel = () => {
+  if (root.LaiRoleModel) return root.LaiRoleModel;
+  try { return typeof module !== "undefined" && module.exports ? require("./role-model.js") : null; } catch (_) { return null; }
+};
+// 可以设为必填的系统字段：id 是表单和档案里的字段名，roleKey 是字段权限里的键。
+const SYSTEM_REQUIRED = Object.freeze([
+  { id: "email", label: "联系人邮箱", roleKey: "contact.email" },
+  { id: "phone", label: "联系电话", roleKey: "contact.phone" },
+  { id: "customerStage", label: "客户阶段", roleKey: "customerStage" },
+  { id: "previewGroup", label: "客户分组", roleKey: "previewGroup" },
+  { id: "productType", label: "主营产品类型", roleKey: "productType" },
+  { id: "customerType", label: "客户类型", roleKey: "customerType" },
+  { id: "website", label: "公司网址", roleKey: "website" },
+  { id: "timezone", label: "时区", roleKey: "timezone" },
+  { id: "customerStars", label: "客户星级", roleKey: "customerStars" },
+]);
+// 客户自带字段的名称：自定义字段不能和它们重名。
+const RESERVED_FIELD_NAMES = Object.freeze([
+  "公司名称", "国家地区", "客户来源", "公司网址", "客户标签", "客户分组", "客户阶段", "客户类型", "客户星级", "客户编号", "时区",
+  "主营产品类型", "主营产品", "卡纸", "定制盒", "默认付款计划", "客户账期", "公司简称", "座机", "详细地址", "公司备注", "公海分组",
+  "客户备注", "客户永久备注", "默认币种", "客户付款方式", "付款邮箱", "复购周期", "跟进人", "客户等级", "下次跟进", "评分",
+  "联系人", "昵称", "邮箱", "联系人邮箱", "联系电话", "社交平台", "主要联系方式", "Alibaba会员ID", "地址", "备用邮箱", "生日",
+  "付款方式", "联系人备注", "职位", "性别",
+]);
+const systemField = (id) => SYSTEM_REQUIRED.find((f) => f.id === id);
+const customRoleKey = (id) => `custom.${id}`;
+// 哪些角色把这个字段（字段权限的键）设成了只读或隐藏：[{role, level}]。客户和公海客户两套都算。
+function fieldLockedBy(state, roleKey) {
+  let roles = [];
+  try { roles = roleModel()?.settings(state).roles || []; } catch (_) { roles = []; }
+  const out = [];
+  for (const role of roles) {
+    if (role.id === "admin") continue;
+    for (const module of ["customer", "pool"]) {
+      const level = role.fields?.[module]?.[roleKey];
+      if ((level === "read" || level === "hidden") && !out.some((x) => x.role === role.name)) out.push({ role: role.name, level });
+    }
+  }
+  return out;
+}
+function customFieldSettings(state) {
+  const FM = fieldModel();
+  return FM ? FM.get(state, "customer") : { customFields: [], required: {} };
+}
+// 设置页用：系统字段（能否设必填）和自定义字段（含已填的客户数）。
+function fieldRows(state) {
+  const FM = fieldModel(), settings = customFieldSettings(state);
+  return {
+    system: SYSTEM_REQUIRED.map((f) => ({ ...f, required: settings.required[f.id] === true, locked: fieldLockedBy(state, f.roleKey) })),
+    custom: settings.customFields.map((f) => ({ ...f, typeLabel: FM.typeLabel(f.type), usage: FM.usage(state.customers, f.id), locked: fieldLockedBy(state, customRoleKey(f.id)) })),
+  };
+}
+function setSystemRequired(state, id, on) {
+  const def = systemField(id);
+  if (!def) throw new Error("这个字段不能设为必填");
+  return fieldModel().setSystemRequired(state, "customer", id, on, { lockedBy: fieldLockedBy(state, def.roleKey).map((x) => x.role) });
+}
+const addCustomField = (state, input) => fieldModel().addField(state, "customer", input, { reserved: RESERVED_FIELD_NAMES });
+const renameCustomField = (state, id, name) => fieldModel().renameField(state, "customer", id, name, { reserved: RESERVED_FIELD_NAMES });
+const moveCustomField = (state, id, delta) => fieldModel().moveField(state, "customer", id, Number(delta) < 0 ? -1 : 1);
+// 删除只去掉设置；客户身上已填的值原样保留，只是不再显示。
+const deleteCustomField = (state, id) => fieldModel().deleteField(state, "customer", id);
+function setCustomRequired(state, id, on) {
+  if (on === true || on === "true" || on === "on" || on === "1") {
+    const lock = fieldLockedBy(state, customRoleKey(id))[0];
+    if (lock) throw new Error(`角色「${lock.role}」把这个字段设为只读或隐藏，不能同时必填`);
+  }
+  return fieldModel().setRequired(state, "customer", id, on);
+}
+// 选项：可以添加、排序、删除，不能改名。删掉的选项，客户身上已存的值仍保留。
+function optionsOf(state, id) {
+  const field = customFieldSettings(state).customFields.find((f) => f.id === id);
+  if (!field) throw new Error("字段不存在，可能已被删除");
+  if (field.type !== "select" && field.type !== "multi") throw new Error("这个类型的字段没有选项");
+  return field.options;
+}
+function addFieldOption(state, id, text) {
+  const value = trim(text);
+  if (!value) throw new Error("请填写选项");
+  const options = optionsOf(state, id);
+  if (options.some((o) => norm(o) === norm(value))) throw new Error("已经有这个选项");
+  return fieldModel().setOptions(state, "customer", id, [...options, value]);
+}
+function moveFieldOption(state, id, option, delta) {
+  const options = [...optionsOf(state, id)], i = options.indexOf(option), j = i + (Number(delta) < 0 ? -1 : 1);
+  if (i < 0) throw new Error("选项不存在，可能已被删除");
+  if (j < 0 || j >= options.length) throw new Error(j < 0 ? "已经是第一个了" : "已经是最后一个了");
+  [options[i], options[j]] = [options[j], options[i]];
+  return fieldModel().setOptions(state, "customer", id, options);
+}
+function removeFieldOption(state, id, option) {
+  const options = optionsOf(state, id);
+  if (!options.includes(option)) throw new Error("选项不存在，可能已被删除");
+  if (options.length <= 1) throw new Error("至少要留一个选项");
+  return fieldModel().setOptions(state, "customer", id, options.filter((o) => o !== option));
+}
+// 客户编辑保存前的必填检查，返回缺少的字段名称。
+// values：自定义字段值；systemValues：系统字段值（键见 SYSTEM_REQUIRED）；gate：customer-fields.js 的 gate（省略时都能改）。
+// 编辑已有客户时传 previous / previousSystem（打开表单时的值）和 touched（这次动过的字段）：本来空着、这次也没碰的不拦。
+function missingRequired(state, { values = {}, systemValues = {}, gate = null, previous, previousSystem, touched } = {}) {
+  const FM = fieldModel();
+  if (!FM) return [];
+  const settings = customFieldSettings(state), ids = new Set(settings.customFields.map((f) => f.id));
+  const editable = (id) => !gate || (ids.has(id) ? gate.editable(customRoleKey(id)) : gate.editable(systemField(id)?.roleKey || id));
+  const required = Object.fromEntries(Object.entries(settings.required).filter(([id]) => systemField(id)));
+  const systemLabels = Object.fromEntries(SYSTEM_REQUIRED.map((f) => [f.id, f.label]));
+  return FM.missingRequired({ ...settings, required }, values, { systemValues, editable, previous, previousSystem, touched, systemLabels });
+}
+function assertRequired(state, options) {
+  const missing = missingRequired(state, options);
+  if (missing.length) throw new Error(`请填写${missing.join("、")}`);
+}
+
 const api = {
   DEFAULTS, DEDUPE_FIELDS, DEFAULT_STAGES, DEFAULT_TYPES, DUPLICATE_FIELDS, LIMITS, SEP,
   get, put,
@@ -980,6 +1097,8 @@ const api = {
   setActivity, autoMailSince,
   setFollowupOptions, addTemplateGroup, renameTemplateGroup, deleteTemplateGroup, moveTemplateGroup,
   addTemplate, editTemplate, deleteTemplate, checkFollowupTime,
+  SYSTEM_REQUIRED, RESERVED_FIELD_NAMES, fieldLockedBy, customFieldSettings, fieldRows, setSystemRequired, addCustomField, renameCustomField,
+  moveCustomField, deleteCustomField, setCustomRequired, addFieldOption, moveFieldOption, removeFieldOption, missingRequired, assertRequired,
 };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 else root.LaiCustomerSettings = api;

@@ -790,3 +790,10 @@
 /* 角色字段权限：只读字段看得出不能改 */
 #customer-form [data-role-readonly] :is(input, select, textarea, button):disabled,
 #customer-form :is(input, textarea)[readonly] { background: var(--ink-50); color: var(--ink-600); cursor: not-allowed; }
+
+/* 自定义字段（客户设置 → 字段设置） */
+.ce-custom-fields { margin: 4px 0 8px; }
+.ce-custom-fields > h3 { margin-bottom: 12px; }
+.ce-multi { display: flex; flex-wrap: wrap; gap: 6px 16px; min-height: 32px; align-items: center; }
+.ce-multi-option { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #262626; cursor: pointer; }
+.ce-multi-option input { margin: 0; }

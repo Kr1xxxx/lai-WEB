@@ -142,6 +142,22 @@
     page=Math.max(1,Math.min(pageCount,Math.floor(Number(page)||1)));
     return {items:items.slice((page-1)*size,page*size),page,pageCount,total:items.length};
   }
+  // 自定义字段（客户设置 → 字段设置）：只收设置里还有的字段，按字段类型整理；没传的、设置里已删的字段保留原值。
+  // 必填不在这里查：只有客户编辑表单保存时才查（见 customer-settings-model.js 的 assertRequired）。
+  const fieldModel = () => root.LaiFieldModel || (typeof module !== 'undefined' && module.exports ? require('./field-model.js') : null);
+  function withCustomValues(state, previous, next, given) {
+    if (!given || typeof given !== 'object' || Array.isArray(given)) throw new Error('自定义字段格式无效');
+    const FM = fieldModel();
+    if (!FM) return next;
+    const stored = previous.custom && typeof previous.custom === 'object' && !Array.isArray(previous.custom) ? previous.custom : {};
+    const custom = { ...stored };
+    for (const def of FM.get(state, 'customer').customFields) {
+      if (!Object.hasOwn(given, def.id)) continue;
+      const value = FM.cleanValue(def, given[def.id], stored[def.id]);
+      if (value === undefined) delete custom[def.id]; else custom[def.id] = value;
+    }
+    return Object.keys(custom).length || previous.custom !== undefined ? { ...next, custom } : next;
+  }
   function upsertCustomer(state, oldName, fields, time=new Date().toISOString()) {
     const name=String(fields.name||'').trim();
     if (!name) throw new Error('请输入公司 / 客户名称');
@@ -152,7 +168,7 @@
     const previous=state.customers?.[oldName]||{};
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
     const record=oldName?(buildCustomers(state).find(c=>c.name===oldName)||{}):{};
-    const next={...previous,client:name,updated:time};
+    let next={...previous,client:name,updated:time};
     if(!oldName){
       if(!String(fields.country??'').trim())throw new Error('请输入国家地区');
       if(!String(fields.source??'').trim())throw new Error('请输入客户来源');
@@ -211,6 +227,7 @@
     }
     if(Object.hasOwn(fields,'tags')) next.tags=tags(fields.tags);
     if(Object.hasOwn(fields,'previewGroup'))next.previewGroup=String(fields.previewGroup);
+    if(Object.hasOwn(fields,'custom'))next=withCustomValues(state,previous,next,fields.custom);
     if(CS&&CS.assertNotDuplicate)CS.assertNotDuplicate(state,next,[previous,record],oldName);
     next.history=[{time,text:oldName?'更新客户资料':'新建客户档案',type:'operation'},...(previous.history||[])];
     const customers={...state.customers};
