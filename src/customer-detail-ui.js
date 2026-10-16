@@ -115,6 +115,7 @@
     // 角色权限：没有编辑权限就不画编辑入口。
     const roles = root.LaiRoleModel;
     const can = (key) => !roles || roles.can(state, key);
+    const showOpp = can("opp.view"), showOrder = can("order.view");
     const canEdit = can(profile.laiBucket === "pool" ? "pool.edit" : "customer.edit");
     const editLock = hideContacts ? ' disabled title="公海客户不能编辑（客户设置 → 公海管理）"' : "";
     let forecast = null;
@@ -379,7 +380,8 @@
         ["平均销售周期", Number.isFinite(c.opportunityCycle) ? `${c.opportunityCycle} 天` : "—"],
       ];
       const allOpportunities = list(c.opportunities), shownOpportunities = allOpportunities.slice(0, 10);
-      return `${heading("商机", `<div class="lcd-heading-inline">${feature("全部商机", `全部 (${Number.isFinite(c.opportunityAllCount) ? c.opportunityAllCount : "—"}) ›`)}${mini("新建商机", "plus")}</div>`)}<div class="lcd-metrics">${metrics.map(([name, content]) => `<div><span>${E(name)}</span><strong>${content}</strong></div>`).join("")}</div><div class="lcd-table-scroll"><table class="lcd-table lcd-opportunity-table"><thead><tr>${["商机编号", "商机名称", "当前阶段", "销售金额", "结束日期", "负责人"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${shownOpportunities.map((item) => `<tr data-opportunity-row="${E(item.id)}"><td>${value(item.number)}</td><td>${E(item.name)}</td><td>${value(item.stageLabel)}</td><td>${E(item.currency)} ${numeric(item.amount, true)}</td><td>${E(date(item.endDate))}</td><td>${value(item.owner)}</td></tr>`).join("") || '<tr><td colspan="6" class="lcd-no-data">暂无商机数据</td></tr>'}</tbody></table></div><div class="lcd-pagination">共 ${allOpportunities.length} 条${allOpportunities.length > shownOpportunities.length ? `，这里只列出最近 ${shownOpportunities.length} 条，点上方「全部」查看全部` : ""}</div><div class="lcd-rule"></div>${heading(`销售订单 (${list(c.orders).length})`, `<button type="button" class="lcd-feature" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`)}<div class="lcd-table-scroll"><table class="lcd-table"><thead><tr><th>订单编号</th><th>订单日期</th><th>订单金额</th><th>当前阶段</th><th>产品类型</th></tr></thead><tbody>${
+      const oppPart = `${heading("商机", `<div class="lcd-heading-inline">${feature("全部商机", `全部 (${Number.isFinite(c.opportunityAllCount) ? c.opportunityAllCount : "—"}) ›`)}${mini("新建商机", "plus")}</div>`)}<div class="lcd-metrics">${metrics.map(([name, content]) => `<div><span>${E(name)}</span><strong>${content}</strong></div>`).join("")}</div><div class="lcd-table-scroll"><table class="lcd-table lcd-opportunity-table"><thead><tr>${["商机编号", "商机名称", "当前阶段", "销售金额", "结束日期", "负责人"].map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${shownOpportunities.map((item) => `<tr data-opportunity-row="${E(item.id)}"><td>${value(item.number)}</td><td>${E(item.name)}</td><td>${value(item.stageLabel)}</td><td>${E(item.currency)} ${numeric(item.amount, true)}</td><td>${E(date(item.endDate))}</td><td>${value(item.owner)}</td></tr>`).join("") || '<tr><td colspan="6" class="lcd-no-data">暂无商机数据</td></tr>'}</tbody></table></div><div class="lcd-pagination">共 ${allOpportunities.length} 条${allOpportunities.length > shownOpportunities.length ? `，这里只列出最近 ${shownOpportunities.length} 条，点上方「全部」查看全部` : ""}</div>`;
+      const orderPart = `${heading(`销售订单 (${list(c.orders).length})`, `<button type="button" class="lcd-feature" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`)}<div class="lcd-table-scroll"><table class="lcd-table"><thead><tr><th>订单编号</th><th>订单日期</th><th>订单金额</th><th>当前阶段</th><th>产品类型</th></tr></thead><tbody>${
         list(c.orders)
           .map(
             (order) =>
@@ -388,12 +390,14 @@
           .join("") ||
         '<tr><td colspan="5" class="lcd-no-data">暂无销售订单</td></tr>'
       }</tbody></table></div>`;
+      // 没有商机查看／订单查看权限的角色，对应那一块不显示。
+      return [showOpp ? oppPart : "", showOrder ? orderPart : ""].filter(Boolean).join('<div class="lcd-rule"></div>') || empty("你的角色不能查看商机和订单");
     }
     function documents() {
       const normalizeName = (name) => String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
       const attachmentName = (file) => file.name || file.fileName || file.type || "未命名";
       const query = normalizeName(documentQuery.trim());
-      const attachments = list(state.orders)
+      const attachments = (showOrder ? list(state.orders) : [])
         .flatMap((order, orderIndex) => order.client === c.name
           ? list(order.attachments).map((file, fileIndex) => ({ file, order, key: `${order.id || order.num || orderIndex}:${fileIndex}` }))
           : [])
@@ -423,7 +427,7 @@
     const sideOrders = list(c.orders).slice(0, 4).map((order) =>
       `<div class="lcd-side-order"><div><button type="button" class="lcd-blue" data-lai-order="${E(order.id)}">${E(order.num || order.id)}</button><b>${E(order.currency || "USD")} ${E(money(Number(order.amount)))}</b></div><span>${E(date(order.createdAt))} · ${E(stageNames[order.stage] || order.stage || "—")} · ${E(order.productType || "—")}</span></div>`).join("")
       || '<p class="lcd-side-empty">暂无销售订单</p>';
-    const sideDocs = list(state.orders).flatMap((order) => order.client === c.name ? list(order.attachments).map((file) => ({ file, order })) : []).slice(0, 4)
+    const sideDocs = (showOrder ? list(state.orders) : []).flatMap((order) => order.client === c.name ? list(order.attachments).map((file) => ({ file, order })) : []).slice(0, 4)
       .map(({ file, order }) => `<div class="lcd-side-doc"><span>${E(file.name || file.fileName || file.type || "未命名")}</span><small>销售订单 ${E(order.num || "")}</small></div>`).join("")
       || '<p class="lcd-side-empty">暂无文档</p>';
     const sideHistory = operationHistory.slice(0, 3)
@@ -431,14 +435,14 @@
       || '<p class="lcd-side-empty">暂无操作记录</p>';
     const sideColumn = !withSideColumn ? "" : `<aside class="lcd-side" aria-label="客户摘要">`
       + sideCard("资料", canEdit ? `<button type="button" class="lcd-side-link" data-action="edit"${editLock}>编辑</button>` : "", `<div class="lcd-side-rows">${sideInfo}</div>${sideLink("info", "查看全部资料")}`)
-      + sideCard(`销售订单 （${list(c.orders).length}）`, `<button type="button" class="lcd-side-link" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`, sideOrders + (list(c.orders).length > 4 ? sideLink("trade") : ""))
+      + (!showOrder ? "" : sideCard(`销售订单 （${list(c.orders).length}）`, `<button type="button" class="lcd-side-link" data-new-customer-order="${E(c.name)}" aria-label="新建销售订单">＋ 新建</button>`, sideOrders + (list(c.orders).length > 4 ? sideLink("trade") : "")))
       + sideCard("文档", "", sideDocs + sideLink("documents"))
       + sideCard("操作历史", "", sideHistory + sideLink("history"))
       + `</aside>`;
     const tabs = [
       ["activity", "动态"],
       ["info", "资料"],
-      ["trade", "商机和订单"],
+      ...(showOpp || showOrder ? [["trade", "商机和订单"]] : []),
       ["documents", "文档"],
       ["history", "操作历史"],
     ];
@@ -454,7 +458,7 @@
               : tab === "history"
                 ? timeline(operationHistory, false)
                 : empty("暂无数据");
-    return `<div class="lcd-root"><header class="lcd-pagebar"><h1>客户详情</h1><div>${can("customer.merge") ? '<button type="button" class="lcd-feature lcd-pill" data-action="merge-customer" aria-label="合并客户">合并客户</button>' : ""}${canEdit ? `<button class="lcd-pill" data-action="edit"${editLock}>编辑</button>` : ""}${feature("写邮件", "写邮件", "lcd-pill lcd-primary")}${miniAction("客户更多操作", "more", "customer-actions")}<button class="lcd-icon lcd-return" data-action="list" aria-label="返回客户列表" title="返回客户列表">${icon("back")}</button></div></header>${forecastNotice}<div class="lcd-columns"${state.laiSettings?.customerSettings?.layout === "left-large" ? ' data-layout="left-large"' : ""}>${left}<div class="lcd-right">${opportunity}<section class="lcd-card lcd-tabs-card"><nav class="lcd-tabs" aria-label="客户详情页签">${tabs.map(([id, title]) => `<button type="button" data-tab="${id}" class="${id === tab ? "active" : ""}" aria-selected="${id === tab}">${E(title)}</button>`).join("")}<span class="lcd-active-indicator" aria-hidden="true"></span></nav><button type="button" class="lcd-tabs-more" data-action="detail-tabs-more" aria-label="更多详情页签" aria-haspopup="menu" aria-expanded="false" aria-controls="lcd-tabs-overflow-menu" hidden><svg viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M176 511a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0z"/></svg></button><div id="lcd-tabs-overflow-menu" class="lcd-tabs-overflow-menu" role="menu" aria-label="更多详情页签" hidden>${tabs.map(([id, title]) => `<button type="button" role="menuitem" data-overflow-tab="${id}" hidden>${E(title)}</button>`).join("")}</div><div class="lcd-body lcd-body-${E(tab)}">${body}</div></section></div>${sideColumn}</div></div>`;
+    return `<div class="lcd-root"><header class="lcd-pagebar"><h1>客户详情</h1><div>${can("customer.merge") ? '<button type="button" class="lcd-feature lcd-pill" data-action="merge-customer" aria-label="合并客户">合并客户</button>' : ""}${canEdit ? `<button class="lcd-pill" data-action="edit"${editLock}>编辑</button>` : ""}${feature("写邮件", "写邮件", "lcd-pill lcd-primary")}${miniAction("客户更多操作", "more", "customer-actions")}<button class="lcd-icon lcd-return" data-action="list" aria-label="返回客户列表" title="返回客户列表">${icon("back")}</button></div></header>${forecastNotice}<div class="lcd-columns"${state.laiSettings?.customerSettings?.layout === "left-large" ? ' data-layout="left-large"' : ""}>${left}<div class="lcd-right">${showOpp ? opportunity : ""}<section class="lcd-card lcd-tabs-card"><nav class="lcd-tabs" aria-label="客户详情页签">${tabs.map(([id, title]) => `<button type="button" data-tab="${id}" class="${id === tab ? "active" : ""}" aria-selected="${id === tab}">${E(title)}</button>`).join("")}<span class="lcd-active-indicator" aria-hidden="true"></span></nav><button type="button" class="lcd-tabs-more" data-action="detail-tabs-more" aria-label="更多详情页签" aria-haspopup="menu" aria-expanded="false" aria-controls="lcd-tabs-overflow-menu" hidden><svg viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M176 511a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0zm280 0a56 56 0 10112 0 56 56 0 10-112 0z"/></svg></button><div id="lcd-tabs-overflow-menu" class="lcd-tabs-overflow-menu" role="menu" aria-label="更多详情页签" hidden>${tabs.map(([id, title]) => `<button type="button" role="menuitem" data-overflow-tab="${id}" hidden>${E(title)}</button>`).join("")}</div><div class="lcd-body lcd-body-${E(tab)}">${body}</div></section></div>${sideColumn}</div></div>`;
   }
   const api = { render, summaryFieldOptions, defaultSummaryFields, normalizeSummaryFields, followupTimeInput, followupTemplateList, localInputTime };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

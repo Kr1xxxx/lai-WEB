@@ -151,7 +151,7 @@ test('单据: 作废 only with doc.void', () => {
 
 test('设置中心: cards the account cannot use are hidden, and a group with no card disappears', () => {
   const ids = (html) => [...html.matchAll(/data-sh-item="([\w-]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(ids(Hub.markup({ can: canOf(amy) }, E)), ['favorites', 'columns', 'segments', 'mail-account']);
+  assert.deepEqual(ids(Hub.markup({ can: canOf(amy) }, E)), ['favorites', 'columns', 'segments', 'customer-settings', 'mail-account'], '业务有来源设置权限，所以客户设置入口在（页里只有来源设置页签）');
   assert.doesNotMatch(Hub.markup({ can: canOf(amy) }, E), /data-sh-group="(opportunity|team)"/);
   assert.deepEqual([...Hub.markup({ can: canOf(amy) }, E).matchAll(/data-sh-group="(\w+)"/g)].map((m) => m[1]), ['general', 'customer', 'mail']);
   assert.equal(ids(Hub.markup({ can: canOf(admin) }, E)).length, Hub.GROUPS.flatMap((g) => g.items).length);
