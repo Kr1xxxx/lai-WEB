@@ -471,3 +471,40 @@ test('opportunity figures: local month at the boundary, floor for the win rate, 
   assert.deepEqual([T.overview(odd, '2026-10').total.oppAmounts, T.overview(odd, '2026-10').oppCurrency], [[{currency: 'EUR', total: 2}, {currency: 'USD', total: 7.5}], 'USD']);
   assert.doesNotMatch(T.overview(old, '2026-10').rules.oppWon, /待付尾款|已完成/, 'the rule text no longer names the default stages');
 });
+
+// ---------- 可见范围（D-022）：本人／本部门只算看得到的人 ----------
+const mine = (name) => (owner) => String(owner || '').trim().toLowerCase() === name.toLowerCase();
+const withTargets = {...state, laiTargets: [
+  {metric: 'orders', period: '2026-10', owner: null, value: 9},
+  {metric: 'added', period: '2026-10', owner: 'Amy', value: 2},
+  {metric: 'added', period: '2026-10', owner: 'Bob', value: 3}]};
+
+test('scopeState: 本人 keeps only own customers, orders, tasks and member targets', () => {
+  const scoped = T.scopeState(withTargets, mine('Amy'));
+  assert.deepEqual(Object.keys(scoped.customers).sort(), ['Alpha Co', 'Beta Ltd', 'Trash Co']);
+  assert.ok(scoped.orders.every((order) => order.owner === 'Amy'));
+  assert.deepEqual(scoped.laiTasks.map((task) => task.id).sort(), ['t1', 't2', 't6', 't7']);
+  assert.deepEqual(scoped.laiTargets.map((target) => target.owner), ['Amy']);
+  assert.equal(withTargets.laiTargets.length, 3, 'the full state is not changed');
+});
+
+test('scoped reports and overview show only the visible owner, with no 未分配 row and no other owner in drill-downs', () => {
+  const scoped = T.scopeState(withTargets, mine('Amy'));
+  for (const kind of T.kinds) {
+    const report = T.report(kind, scoped, '2026-10');
+    assert.ok(report.rows.every((row) => row.owner === 'Amy'), kind + ' rows');
+    const text = JSON.stringify(report);
+    for (const hidden of ['Gamma Inc', 'Delta GmbH', 'Legacy', 'G1', 'B1', 'B2']) assert.ok(!text.includes(hidden), kind + ' leaks ' + hidden);
+  }
+  const overview = T.overview(scoped, '2026-10');
+  assert.deepEqual(overview.members.map((member) => member.owner), ['Amy']);
+  assert.deepEqual(overview.goals, {}, 'company-level goals are hidden');
+  assert.equal(overview.members[0].goals.added[0].value, 2);
+});
+
+test('scoped to a department: sees every member of the list, nothing else; full scope is unchanged', () => {
+  const dept = T.scopeState(withTargets, (owner) => ['amy', 'bob'].includes(String(owner || '').trim().toLowerCase()));
+  assert.deepEqual(T.overview(dept, '2026-10').members.map((member) => member.owner).sort(), ['Amy', 'Bob']);
+  assert.equal(T.scopeState(withTargets, undefined), withTargets);
+  assert.equal(T.overview(withTargets, '2026-10').members.some((member) => member.owner === ''), true);
+});

@@ -452,12 +452,26 @@
       members:list,primaryCurrency,oppCurrency,moneyMetrics:MONEY_METRICS,rules:rulesFor(months.length>1?'本季度':'本月'),trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
       total};
   }
+  // 只看本人／本部门的账号：先把客户、订单、商机、任务、目标里不归自己的去掉，再交给下面的汇总。
+  // 没有跟进人的记录（未分配）和企业整体目标只有全公司看得到；sees(owner) 由角色模型给出。保存时仍用完整数据，这里只返回副本。
+  function scopeState(state,sees){
+    if(!state||typeof sees!=='function')return state;
+    const keepList=list=>Array.isArray(list)?list.filter(item=>item&&sees(item.owner)):list;
+    const customers=Object.fromEntries(Object.entries(state.customers||{}).filter(([,c])=>c&&sees(c.owner)));
+    const tasks=Array.isArray(state.laiTasks)?state.laiTasks.filter(task=>{
+      if(!task||typeof task!=='object')return false;
+      if(trim(task.owner)&&!sees(task.owner))return false;
+      return Object.hasOwn(customers,trim(task.customer));
+    }):state.laiTasks;
+    const targets=Array.isArray(state.laiTargets)?state.laiTargets.filter(target=>target&&typeof target==='object'&&target.owner!==null&&target.owner!==undefined&&sees(target.owner)):state.laiTargets;
+    return {...state,customers,orders:keepList(state.orders),trashOrders:keepList(state.trashOrders),laiOpportunities:keepList(state.laiOpportunities),laiLeads:keepList(state.laiLeads),laiTasks:tasks,laiTargets:targets};
+  }
   const reports={assets,followups,tasks,orders};
   const kinds=Object.freeze(Object.keys(reports));
   function report(kind,state,month){
     if(!Object.hasOwn(reports,kind))throw new Error('不支持的团队数据报表');
     return reports[kind](state||{},month);
   }
-  const api={kinds,report,overview,monthOf,monthsEnding,periodMonths,quarterOf,periodLabel,validPeriod,targetMetrics:TARGET_METRICS,moneyMetrics:MONEY_METRICS,opportunityStats,listTargets,setTarget,removeTarget};
+  const api={kinds,scopeState,report,overview,monthOf,monthsEnding,periodMonths,quarterOf,periodLabel,validPeriod,targetMetrics:TARGET_METRICS,moneyMetrics:MONEY_METRICS,opportunityStats,listTargets,setTarget,removeTarget};
   if(node)module.exports=api;else root.LaiTeamModel=api;
 })(typeof window!=='undefined'?window:globalThis);
