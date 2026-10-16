@@ -122,9 +122,13 @@ function mergeCustomers(state,primary,others,at=new Date().toISOString()){
   }
   const created=[base,...srcs.map(s=>s.p)].map(p=>trim(p.createdAt)).filter(Boolean).sort()[0];
   if(created)base.createdAt=created;
-  const history=[...(Array.isArray(base.history)?base.history:[])];
-  for(const s of srcs)for(const h of Array.isArray(s.p.history)?s.p.history:[])history.push(h&&typeof h==='object'?{...h,mergedFrom:s.name}:h);
-  history.sort((a,b)=>(time(b?.time)||0)-(time(a?.time)||0));
+  let history=[...(Array.isArray(base.history)?base.history:[])];
+  const incoming=[];
+  for(const s of srcs)for(const h of Array.isArray(s.p.history)?s.p.history:[])incoming.push(h&&typeof h==='object'?{...h,mergedFrom:s.name}:h);
+  // 两边都导入过同一段 WhatsApp 聊天时，重复的聊天行只留一份（沟通模块的规则）；没有沟通模块时按原来的办法合并。
+  const WA=typeof module!=='undefined'&&module.exports?require('./whatsapp-model.js'):root.LaiWhatsAppModel;
+  if(WA&&typeof WA.mergeChatHistory==='function')history=WA.mergeChatHistory(history,incoming);
+  else{history.push(...incoming);history.sort((a,b)=>(time(b?.time)||0)-(time(a?.time)||0));}
   history.unshift({time:at,text:`合并客户：${list.join('、')} → ${primary}`,type:'operation'});
   base.history=history;
   base.mergedFrom=[...(Array.isArray(base.mergedFrom)?base.mergedFrom:[]),...list.map(name=>({name,at}))];

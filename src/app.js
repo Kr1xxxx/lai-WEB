@@ -4309,6 +4309,7 @@
     if (d.laiRoute) return navigateApp(d.laiRoute);
     if (d.mailFolder) return mail.select(d.mailFolder);
     if (d.mailAction) return mail.action(d.mailAction, e.detail > 0, el);
+    if (d.chatAction) return chatAction(d.chatAction, e.detail > 0, el);
     if (d.mailView) return mail.showView(d.mailView);
     if (d.navFavorite) return toggleFavoriteHeart(el, d.navFavorite);
     if (d.action === "favorite-nav") return openFavorites();
@@ -5612,5 +5613,112 @@
       $("#app").innerHTML = shell(html);
     },
   });
+  // ---- 沟通：WhatsApp（D-023）----
+  // 来财不收发消息：只做打开聊天链接、记一笔、导入手机导出的聊天。页面和对话框在 whatsapp-ui.js，规则在 whatsapp-model.js。
+  const WAM = window.LaiWhatsAppModel;
+  // 模型和页面在“找客户”上的约定不一样：模型要一个判断函数、返回 {candidates, leadMatches}；页面传名字数组、要 {customers, leads}。这里接起来。
+  const waModel = {
+    ...WAM,
+    matchCustomers(snapshot, query, visibleNames) {
+      const seeable = new Set(Array.isArray(visibleNames) ? visibleNames : []);
+      const peers = (query?.peers || []).map((peer) => WAM.toE164(peer)).filter(Boolean);
+      const found = WAM.matchCustomers(
+        snapshot,
+        { ...query, leadVisible: (lead) => R.can(snapshot, "lead.view") && R.canSee(snapshot, lead.owner) },
+        (name) => seeable.has(name),
+      );
+      const peerOf = (hit) => {
+        if (!hit.reasons.includes("phone")) return "";
+        const profile = snapshot.customers?.[hit.name] || {};
+        const e164 = WAM.toE164(hit.phone, { code: profile.phoneCountryCode, country: profile.country });
+        return peers.includes(e164) ? e164 : peers[0] || "";
+      };
+      return { customers: found.candidates.map((hit) => ({ ...hit, peer: peerOf(hit) })), leads: found.leadMatches };
+    },
+  };
+  // 聊天存进客户动态后，正在看这位客户的话把动态或资料当场更新。
+  function refreshChatViews() {
+    if (activeRoute !== "customers" || !currentName || customerScreen === "customer-settings") return;
+    if (tab === "activity" && $("#activity-results")) replaceActivityResults(true);
+    else if (!modal) detail(currentName, true, "");
+  }
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (_) {
+        /* 下面用选中文字的办法 */
+      }
+    }
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.cssText = "position:fixed;top:-100px;opacity:0";
+    document.body.append(area);
+    area.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (_) {
+      ok = false;
+    }
+    area.remove();
+    if (!ok) throw new Error("这里不能复制，请自己选中文字复制");
+  }
+  const wa = window.LaiWhatsAppUI.create({
+    getState: () => state,
+    persist: async (next) => {
+      await persist(next);
+      refreshChatViews();
+    },
+    can: (key) => R.can(state, key),
+    // 客户范围：本人／本部门账号只看自己范围里的客户；公海客户看“公海查看”；回收站里的不出现。
+    canSeeCustomer: (name, profile) => {
+      const found = profile || state.customers?.[name];
+      if (!found || L.bucket(found) === "trash") return false;
+      return L.bucket(found) === "pool" ? can("pool.view") : can("customer.view") && customerVisible({ name, owner: found.owner });
+    },
+    meName: () => R.meName(state),
+    openCustomer: (name) => navigateApp("customers", name),
+    toast,
+    escape: E,
+    icon,
+    model: waModel,
+    mount: (html) => {
+      window.LaiActivityCategoryNavigation.mount(null);
+      closeDropdowns();
+      removePopover();
+      $("#app").innerHTML = shell(html);
+    },
+    // 只传 https 链接，用系统浏览器打开；打不开时复制链接（对话框里也一直有“复制链接”）。
+    openExternal: (url) => {
+      try {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } catch (_) {
+        copyText(url).then(() => toast("没能打开，已复制链接"), () => toast("没能打开，请用“复制链接”"));
+      }
+    },
+    dialog: drawer,
+    closeDialog: () => {
+      if (modal === "whatsapp") closeModal(false, true);
+    },
+    isActive: () => activeRoute === "chats",
+    get isTrial() {
+      return !!window.LaiWebTrial;
+    },
+    copy: copyText,
+  });
+  window.LaiExtraPages = window.LaiExtraPages || {};
+  window.LaiExtraPages.chats = { title: "聊天记录", render: () => void wa.render() };
+  window.LaiExtraPages["chat-templates"] = { title: "聊天模板", render: () => void wa.renderTemplates() };
+  // 带 data-chat-action 的按钮（聊天页、对话框、客户资料里的入口）都转给这里。
+  function chatAction(name, pointer, el) {
+    const d = el.dataset;
+    if (name === "open-wa") return wa.openDialog({ customer: currentName, contact: d.waContact, phone: d.waPhone, code: d.waCode });
+    if (name === "log-chat") return wa.openLog({ customer: currentName });
+    if (name === "import-chat") return wa.openImport({ customer: currentName });
+    return wa.action(name, pointer, el);
+  }
   boot();
 })();

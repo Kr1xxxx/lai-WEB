@@ -566,7 +566,9 @@
       s.suggestions = Array.isArray(result.customers) ? result.customers.filter((c) => names().includes(c.name)) : [];
       s.leads = Array.isArray(result.leads) ? result.leads : [];
       if (s.customer && !names().includes(s.customer)) s.customer = "";
-      if (!s.customer && s.suggestions.length) pickCustomerImport(s.suggestions[0].name);
+      // 从客户资料里点“导入聊天记录”进来时，先选这位客户（还是可以改）。
+      if (!s.customer && s.preset && names().includes(s.preset)) pickCustomerImport(s.preset);
+      else if (!s.customer && s.suggestions.length) pickCustomerImport(s.suggestions[0].name);
     }
     function pickCustomerImport(name) {
       const s = importState;
@@ -630,9 +632,9 @@
           if (list) list.innerHTML = candidatesHtml();
         });
     }
-    function openImport() {
+    function openImport(options = {}) {
       if (!guard("chat.import")) return;
-      importState = { text: "", parsed: null, me: "", dayFirst: true, customer: "", contact: "", peer: "", find: "", suggestions: [], leads: [], file: "" };
+      importState = { text: "", parsed: null, me: "", dayFirst: true, customer: "", contact: "", peer: "", find: "", suggestions: [], leads: [], file: "", preset: plain(options.customer) };
       ctx.dialog(
         "导入聊天记录",
         `<form class="drawer-body wa-import" id="wa-import-form" autocomplete="off" novalidate>` +

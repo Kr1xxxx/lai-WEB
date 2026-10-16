@@ -154,3 +154,20 @@ test('公海规则：执行后客户进公海并记一条动态，跟进人记�
   const back=L.moveCustomers(r.state,['Other'],'active');
   assert.equal(back.customers.Other.owner,'Kris');
 });
+
+test('合并客户：两边导入过同一段 WhatsApp 聊天时，重复的聊天行只留一份',()=>{
+  const WA=require('../src/whatsapp-model.js');
+  const parsed=WA.parseExport('12/10/2026, 14:05 - Maria: Hello\n12/10/2026, 14:06 - Me: Hi there\n',{dayFirst:true});
+  const entries=imp=>WA.buildEntries(parsed.messages,{me:'Me',peer:'+447700900123',contact:'Maria',owner:'Kris',importId:imp,subtype:'whatsapp'});
+  let s=base();
+  s=WA.mergeImport(s,'Acme',entries('imp-a'),{id:'imp-a',at:'2026-10-12T10:00:00.000Z'}).state;
+  s=WA.mergeImport(s,'Acme Ltd',entries('imp-b'),{id:'imp-b',at:'2026-10-12T10:01:00.000Z'}).state;
+  const merged=T.mergeCustomers(s,'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z');
+  const chats=merged.customers.Acme.history.filter(h=>h.type==='chat');
+  assert.equal(chats.reduce((sum,h)=>sum+h.lines.length,0),2,'each chat line is kept once');
+  assert.ok(merged.customers.Acme.history.some(h=>h.text==='电话沟通'&&h.mergedFrom==='Acme Ltd'),'other history still merged');
+  // chat lines only on the merged-in customer are kept
+  const only=WA.mergeImport(base(),'Acme Ltd',entries('imp-c'),{id:'imp-c',at:'2026-10-12T10:00:00.000Z'}).state;
+  const kept=T.mergeCustomers(only,'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z').customers.Acme.history.filter(h=>h.type==='chat');
+  assert.equal(kept.reduce((sum,h)=>sum+h.lines.length,0),2);
+});

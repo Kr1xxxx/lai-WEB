@@ -481,3 +481,17 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* 客户详情里的沟通入口 */
+.lcd-chat-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0 12px;
+}
+.lcd-chat-record .wa-entry {
+  margin-top: 4px;
+}
+.lcd-contact-actions .lcd-wa-phone {
+  color: var(--brand-700, inherit);
+}
