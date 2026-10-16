@@ -415,7 +415,7 @@
     return `${prefix}${String(highest+1).padStart(3,'0')}`;
   }
   // upsert 里处理新增的几个字段：来源、类型、来源线索、自定义字段。隐藏的字段不动（next 本来就带着原来的值）。
-  function applyExtras(state,next,previous,value,has,input,cfg,need){
+  function applyExtras(state,next,previous,value,has,input,cfg,need,locked=new Set()){
     const setOrDrop=(key,val)=>{if(hasValue(val))next[key]=val;else delete next[key];};
     // 商机来源（多选）：新选的必须在来源名单里，原来就有的可以留着。
     if(cfg.sources.show){
@@ -448,9 +448,37 @@
         const cleaned=cleanCustomValue(def,given[def.id],stored[def.id]);
         if(cleaned===undefined)delete custom[def.id];else custom[def.id]=cleaned;
       }
-      if(def.required&&!hasValue(custom[def.id]))throw new Error(`请填写${def.name}`);
+      if(def.required&&!locked.has(`custom.${def.id}`)&&!hasValue(custom[def.id]))throw new Error(`请填写${def.name}`);
     }
     if(Object.keys(custom).length||previous?.custom!==undefined)next.custom=custom;
+  }
+  // ---------- 字段权限（角色权限 → 设置字段权限）----------
+  // 能设的商机字段，键就是商机上保存的字段名；自定义字段是 custom.<字段ID>，值在商机的 custom 里。
+  // 商机名称、客户、销售金额／币种、销售阶段、销售流程、负责人、输单原因、编号是保存必须有或自动生成的，不在清单里。
+  const ROLE_FIELDS=Object.freeze([['contact','基本信息'],['collaborators','基本信息'],['endDate','基本信息'],['exchangeRate','基本信息'],
+    ['type','来源与分类'],['leadId','来源与分类'],['sources','来源与分类'],['tags','补充信息'],['note','补充信息'],['products','补充信息']]);
+  function roleFieldList(state){
+    const label=id=>SYSTEM_FIELDS.find(def=>def.id===id)?.label||id;
+    return [...ROLE_FIELDS.map(([key,group])=>({key,label:label(key),group})),
+      ...customFields(state).map(field=>({key:`custom.${field.id}`,label:field.name,group:'自定义字段'}))];
+  }
+  // 保存前用：把当前账号改不了的字段（locked，如 ['note','custom.c1']）从表单内容里去掉。
+  // 编辑时 upsert 会沿用商机原来的值；新建时不许填，这些字段用默认值（defaults），自定义字段留空。
+  function lockInput(locked,before,input,defaults={}){
+    const keys=Array.isArray(locked)?locked:[];
+    if(!input||typeof input!=='object'||!keys.length)return input;
+    const out={...input};
+    const ids=new Set(keys.filter(key=>key.startsWith('custom.')).map(key=>key.slice(7)));
+    for(const key of keys){
+      if(key.startsWith('custom.'))continue;
+      delete out[key];
+      if(!before&&Object.hasOwn(defaults,key))out[key]=defaults[key];
+    }
+    if(ids.size&&out.custom&&typeof out.custom==='object'){
+      out.custom={...out.custom};
+      for(const id of ids)delete out.custom[id];
+    }
+    return out;
   }
   // 表单需要的设置：字段显示与必填、各名单、自定义字段。
   function formSetup(state){
@@ -494,8 +522,10 @@
     const value=(key,fallback='')=>has(key)?input[key]:previous?.[key]??fallback;
 
     const cfg=fieldMap(state);
+    // 字段权限锁住的字段（options.locked，如 'note'、'custom.c1'）：当前账号改不了，也就不能因为它没填而挡住保存。
+    const locked=new Set(Array.isArray(options.locked)?options.locked:[]);
     // 必填检查只管显示着的字段；隐藏的字段不检查，已有的内容原样保留。
-    const need=(id,label,filled)=>{if(cfg[id].show&&cfg[id].required&&!filled)throw new Error(`请填写${label}`);};
+    const need=(id,label,filled)=>{if(!locked.has(id)&&cfg[id].show&&cfg[id].required&&!filled)throw new Error(`请填写${label}`);};
     next.owner=cleanName(value('owner'));
     if(!next.owner||next.owner==='未分配')throw new Error('请填写负责人');
     next.client=trim(value('client'));
@@ -505,7 +535,9 @@
     if(!cfg.contact.show)next.contact=next.client===previous?.client?trim(previous?.contact):'';
     else{
       next.contact=trim(value('contact'));
-      if(next.contact!==previous?.contact||next.client!==previous?.client){
+      // 联系人锁住时换了客户：原来的联系人属于别的客户，不能留着，清空。
+      if(locked.has('contact')&&next.client!==previous?.client)next.contact='';
+      if(!locked.has('contact')&&(next.contact!==previous?.contact||next.client!==previous?.client)){
         if(cfg.contact.required&&contacts.length&&!next.contact)throw new Error('请选择关联联系人');
         if(next.contact&&contacts.length&&!contacts.includes(next.contact))throw new Error('关联联系人不属于所选客户');
       }
@@ -517,7 +549,8 @@
     const rate=value('exchangeRate',100);
     next.exchangeRate=next.currency==='USD'||(!cfg.exchangeRate.required&&trim(rate)==='')?100:decimal(rate,'汇率',{allowZero:false});
     next.endDate=trim(value('endDate'));
-    if(!validDate(next.endDate))throw new Error('请选择有效的结束日期');
+    // 结束日期锁住且没变：老商机里原来就没填或填得不对，也照样能保存（当前账号改不了它）。
+    if(!validDate(next.endDate)&&!(locked.has('endDate')&&previous&&next.endDate===trim(previous.endDate)))throw new Error('请选择有效的结束日期');
     // 流程：商机原来指向的流程现在读不到时按默认流程处理，但只要没有改选别的流程，就保留原来的指向（那个流程也许只是暂时读不懂）。
     const wantedFlow=trim(value('flow','default')),flowKnown=id=>flowsOf(state).some(flow=>flow.id===id);
     if(previous&&trim(previous.flow)&&!flowKnown(trim(previous.flow))&&flowOf(state,wantedFlow).id===flowOfItem(state,previous).id)next.flow=previous.flow;
@@ -531,7 +564,7 @@
       next.products=has('products')&&!(typeof input.products==='string'&&previous&&input.products.trim()===productsText(previous.products))?parseProducts(input.products):Array.isArray(previous?.products)?previous.products:[];
       need('products','关联产品',next.products.length);
     }else next.products=Array.isArray(previous?.products)?previous.products:[];
-    applyExtras(state,next,previous,value,has,input,cfg,need);
+    applyExtras(state,next,previous,value,has,input,cfg,need,locked);
     if(!previous){next.createdAt=now;next.archived=false;next.number=nextNumber(state,localDay(now)||today);}
     next.updatedAt=now;
 
@@ -605,13 +638,16 @@
     // stages：这个商机所在流程的全部阶段（操作菜单里「移到…」用）。
     return item?{...card(state,item,today,activeOrderIds(state)),stages:flowOfItem(state,item).stages}:null;
   }
+  const gone=filters=>new Set(Array.isArray(filters?.hidden)?filters.hidden:[]);
   function applyFilters(state,filters={},today){
     const archived=['archived','all'].includes(filters.archived)?filters.archived:'active';
     let items=list(state).filter(item=>archived==='all'||(item.archived===true)===(archived==='archived'));
     if(cleanName(filters.owner))items=items.filter(item=>sameName(item.owner,filters.owner));
     const search=cleanName(filters.search).toLowerCase();
-    if(search)items=items.filter(item=>[item.name,item.number,item.client,item.contact,item.owner,...(Array.isArray(item.tags)?item.tags:[])].some(text=>cleanName(text).toLowerCase().includes(search)));
-    const field=filters.dateField==='endDate'?'endDate':'createdAt';
+    // filters.hidden：当前账号看不到的字段名（字段权限）；这些字段不参与搜索，也不能按它排序、按它的日期筛选。
+    const hide=gone(filters);
+    if(search)items=items.filter(item=>[item.name,item.number,item.client,hide.has('contact')?'':item.contact,item.owner,...(hide.has('tags')||!Array.isArray(item.tags)?[]:item.tags)].some(text=>cleanName(text).toLowerCase().includes(search)));
+    const field=filters.dateField==='endDate'&&!hide.has('endDate')?'endDate':'createdAt';
     const from=validDate(filters.from)?filters.from:'',to=validDate(filters.to)?filters.to:'';
     if(from||to)items=items.filter(item=>{const day=field==='endDate'?trim(item.endDate):localDay(item.createdAt);return day&&(!from||day>=from)&&(!to||day<=to);});
     return {items,archived,field,from,to};
@@ -643,7 +679,7 @@
     const currency=currencies.includes(trim(filters.currency).toUpperCase())?trim(filters.currency).toUpperCase():currencies[0]||defaultCurrency(state);
     const orderIds=activeOrderIds(state);
     const selected=items.filter(item=>currencyOf(item)===currency).map(item=>({...card(state,item,today,orderIds),createdAt:trim(item.createdAt)}));
-    const sorted=sortCards(selected,filters.sort);
+    const sorted=sortCards(selected,gone(filters).has('endDate')&&/^endDate-/.test(filters.sort||'')?'createdAt-desc':filters.sort);
     const columns=flow.stages.map(stage=>{
       const cards=sorted.filter(item=>item.stage===stage.id);
       return {...stage,count:cards.length,amount:cards.reduce((sum,item)=>sum+item.amount,0),cards};
@@ -654,7 +690,7 @@
       flow:flow.id,flows:flowsOf(state).map(entry=>({id:entry.id,label:entry.label,count:filtered.filter(item=>flowOfItem(state,item).id===entry.id).length})),
       otherFlowCount:filtered.length-items.length,
       totals:{open:sum('open'),won:sum('won'),lost:sum('lost'),total:sum('open')+sum('won')},
-      filters:{flow:flow.id,archived,dateField:field,from,to,owner:cleanName(filters.owner),search:trim(filters.search),sort:SORTS.some(entry=>entry[0]===filters.sort)?filters.sort:'createdAt-desc'}
+      filters:{flow:flow.id,archived,dateField:field,from,to,owner:cleanName(filters.owner),search:trim(filters.search),sort:SORTS.some(entry=>entry[0]===filters.sort)&&!(gone(filters).has('endDate')&&/^endDate-/.test(filters.sort))?filters.sort:'createdAt-desc'}
     };
   }
   // 商机分析：按创建月份取一批商机（months 为空表示全部时间），看各阶段分布、赢单率、输单原因和各负责人表现。
@@ -974,6 +1010,6 @@
       return item.sortRank===rank.get(item.id)?item:{...item,sortRank:rank.get(item.id)};
     })};
   }
-  const api={SET_LIMITS,addChoice,renameChoice,moveChoice,removeChoice,DEFAULT_TYPES,CUSTOM_TYPES,SYSTEM_FIELDS,lostReasons,addLostReason,renameLostReason,moveLostReason,removeLostReason,typeChoices,addType,renameType,moveType,removeType,choiceUse,fieldRows,fieldMap,setField,customFields,customTypeLabel,addCustomField,updateCustomField,moveCustomField,removeCustomField,customUse,cleanCustomValue,customRows,sourceList,sourcesFromCustomer,leadChoices,leadName,nextNumber,formSetup,ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
+  const api={SET_LIMITS,addChoice,renameChoice,moveChoice,removeChoice,DEFAULT_TYPES,CUSTOM_TYPES,SYSTEM_FIELDS,lostReasons,addLostReason,renameLostReason,moveLostReason,removeLostReason,typeChoices,addType,renameType,moveType,removeType,choiceUse,fieldRows,fieldMap,setField,customFields,customTypeLabel,addCustomField,updateCustomField,moveCustomField,removeCustomField,customUse,cleanCustomValue,customRows,roleFieldList,lockInput,sourceList,sourcesFromCustomer,leadChoices,leadName,nextNumber,formSetup,ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
   if(node)module.exports=api;else root.LaiOpportunityModel=api;
 })(typeof window!=='undefined'?window:globalThis);

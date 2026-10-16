@@ -16,6 +16,15 @@ const openSettings = async () => {
 };
 const tab = async (id) => { await app.page.locator(`[data-cs-tab="${id}"]`).click(); await app.page.locator(`[data-cs-panel="${id}"]`).waitFor(); };
 const settings = async () => (await app.readData()).laiSettings?.customerSettings || {};
+const savedDealRule = async (want) => {
+  let by;
+  for (let i = 0; i < 40; i++) {
+    by = (await settings()).dealRule?.by;
+    if (by === want) break;
+    await app.page.waitForTimeout(100);
+  }
+  return by;
+};
 const pool = async () => (await app.readData()).laiSettings?.poolRules || {};
 const section = (title) => app.page.locator(`.cs-section:has(h3:text-is("${title}"))`);
 const saveSection = (title) => section(title).locator('button[type=submit]').click();
@@ -232,10 +241,11 @@ test('客户成交规则: switch between 订单 and 商机', async () => {
   assert.equal(await page.locator('[data-cs-deal="order"]').isChecked(), true);
   await page.locator('[data-cs-deal="opportunity"]').check();
   await page.locator('[data-cs-deal="opportunity"]:checked').waitFor();
-  assert.equal((await settings()).dealRule.by, 'opportunity');
+  // The radio is checked by the browser right away; the save finishes a moment later.
+  assert.equal(await savedDealRule('opportunity'), 'opportunity');
   await page.locator('[data-cs-deal="order"]').check();
   await page.locator('[data-cs-deal="order"]:checked').waitFor();
-  assert.equal((await settings()).dealRule.by, 'order');
+  assert.equal(await savedDealRule('order'), 'order');
   assert.deepEqual(app.errors, []);
 });
 

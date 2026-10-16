@@ -35,6 +35,7 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | # | Task | State | Notes |
 | --- | --- | --- | --- |
 | 2 | Waiting branches → PRs | Done except 1.4.127 | See table above |
+| 2i | 部门 + 本部门 scope + 部门管理员; field permissions (可编辑/只读/隐藏) for 线索/商机/客户/公海/产品; product layouts by role; split perms | In progress | PR #15 (`claude/project-thread-5ob5ux`), main (#17, #18) merged in; waiting for 合并. Data stays in `laiSettings.roles` (v2, v1 upgraded on read; no schema change) |
 | 3 | Owner walks the Mac build | Blocked | Desktop builds paused (D-019) |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo (owner) | Needs his real account (D-004); fake-server e2e passes |
 | 6 | More e2e: orders, opportunities, mail, settings | Done | `orders`, `opportunities`, `mail`, `settings-hub`, `features-walkthrough`, `customer-fixes`, `business-fixes`, `save-conflict` (data-safety PR) |

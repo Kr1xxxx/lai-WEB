@@ -387,8 +387,11 @@
         if (label) label.hidden = !shown[name];
       }
     }
+    let targetFormKey = "team.targets";
     function showTargetForm(metric) {
-      if (!need("team.targets")) return;
+      // 目标管理页要“目标管理”，目标完成情况里设置目标值要“编辑目标值”。
+      targetFormKey = route === "team-targets" ? "team.targets" : "team.goalEdit";
+      if (!need(targetFormKey)) return;
       const T = root.LaiTeamModel;
       // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
       const overview = T.overview(state(), periodKey());
@@ -426,7 +429,7 @@
     }
     // 把当前看到的成员排行榜导出为 Excel（与导入模板下载用同一种方式）。
     function exportBoard() {
-      if (!teamOverview) return;
+      if (!need("team.export") || !teamOverview) return;
       if (!root.XLSX) return ctx.toast("Excel 组件未加载，请重新打开来财");
       const workbook = root.XLSX.utils.book_new();
       root.XLSX.utils.book_append_sheet(workbook, root.XLSX.utils.aoa_to_sheet(TU().boardRows(teamOverview, teamView)), TU().tabLabels[teamView.tab] || "结果目标");
@@ -452,7 +455,11 @@
     // ---------- 商机：看板、表单、阶段流转、归档删除、生成订单、分析 ----------
     const OM = () => root.LaiOpportunityModel;
     let oppUI = null;
-    const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM(), can));
+    // 字段权限：商机字段当前账号是 edit｜read｜hidden（系统管理员都是 edit）；oppLocked 是改不了的字段名（含 custom.字段ID），oppHidden 是看不到的。
+    const oppLevel = (key) => (RM() ? RM().fieldLevel(state(), "opp", key) : "edit");
+    const oppLocked = () => (RM() ? RM().lockedFields(state(), "opp") : []);
+    const oppHidden = () => oppLocked().filter((key) => oppLevel(key) === "hidden");
+    const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM(), can, oppLevel));
     const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "", analysisFlow: "" };
     // 商机设置页：当前页签、销售流程页当前看的流程，以及等待再次确认删除的那一项（"flow:ID"、"stage:ID"、"reasons:名称"、"types:名称" 或 "cf:ID"）。
     const flowView = { tab: "flows", flow: "default", armed: "" };
@@ -479,7 +486,7 @@
     };
     function renderOpportunities() {
       const today = B.localDate();
-      const board = OM().board(scoped(), oppView.filters, today);
+      const board = OM().board(scoped(), { ...oppView.filters, hidden: oppHidden() }, today);
       const context = { owners: OM().ownerNames(scoped()).filter(sees), today };
       return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
     }
@@ -709,6 +716,7 @@
         if (note) note.hidden = custom;
       } else if (name === "currency") {
         const rate = el.exchangeRate;
+        if (!rate) return;
         const usd = String(el.currency.value || "").trim().toUpperCase() === "USD";
         if (usd && !rate.readOnly) {
           rate.dataset.rate = rate.value;
@@ -749,7 +757,9 @@
     // 赢单商机生成订单：打开现有的订单表单并预填，保存订单时同时把订单记到商机上。
     function orderFromOpp(id) {
       if (!need("order.create") || oppBlocked(id)) return;
-      const item = oppItem(id);
+      // 看不到“关联产品”的账号：不把商机里的产品带进订单。
+      const found = oppItem(id);
+      const item = found && oppHidden().includes("products") ? { ...found, products: [] } : found;
       if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       const card = oppCard(id);
       if (card.kind !== "won") return ctx.toast("只有赢单阶段的商机可以生成订单");
@@ -1040,7 +1050,10 @@
     // ---------- 线索：列表、新建／编辑、写跟进、转为客户、标记无效、回收站 ----------
     const LD = () => root.LaiLeadModel;
     let leadUI = null;
-    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD(), can));
+    // 字段权限：线索字段当前账号是 edit｜read｜hidden（系统管理员都是 edit）；leadHidden 是看不到的字段名。
+    const leadLevel = (key) => (RM() ? RM().fieldLevel(state(), "lead", key) : "edit");
+    const leadHidden = () => (RM() ? RM().lockedFields(state(), "lead").filter((key) => leadLevel(key) === "hidden") : []);
+    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD(), can, leadLevel));
     const leadView = { filters: {}, limit: 0 };
     // leadDraft：正在新建或编辑的线索；leadArmed：回收站里等待再次确认彻底删除的那一条。
     let leadDraft = null,
@@ -1048,7 +1061,7 @@
     const onLeadPage = () => route === "leads" || route === "lead-trash";
     function renderLeads() {
       const today = B.localDate();
-      const page = LD().page(scoped(), leadView.filters, today);
+      const page = LD().page(scoped(), leadView.filters, today, leadHidden());
       return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
     }
     function renderLeadTrash() {
@@ -1058,7 +1071,7 @@
     // 线索不归当前账号负责（角色只看本人时）：提示一句，什么也不做。
     const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
     // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
-    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.delete" };
+    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge" };
     const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(state()) });
     function openLeadForm(id) {
       if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
@@ -1163,6 +1176,8 @@
     }
     // ---------- 产品：列表、分组、同步、字段、规格、布局 ----------
     const PM = () => root.LaiProductModel;
+    // 订单里选产品：角色看不到的产品字段不带进订单明细。
+    const orderProducts = () => (PM() ? PM().list(state()).map((p) => PM().forRole(state(), p)) : []);
     let productUI = null;
     const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM(), can));
     const prodView = { tab: "list", search: "", group: "", editing: null, armed: "", layoutEdit: "" };
@@ -1592,36 +1607,51 @@
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
     let roleUI = null;
-    const RU = () => roleUI || (roleUI = root.LaiRoleUI.create(E, RM()));
-    const roleView = { edit: "", armed: "", armedMember: "", filter: "", nextFilter: "" };
+    // 字段清单来自 LaiRoleFields，产品布局清单来自 LaiProductModel。
+    const RU = () => roleUI || (roleUI = root.LaiRoleUI.create(E, RM(), { fields: root.LaiRoleFields, layouts: (s) => root.LaiProductModel?.layoutList?.(s) || [] }));
+    // draft：编辑角色时在窗口里选的字段权限和布局，点“保存”才写进角色；取消就丢掉。dept：成员管理左边选中的部门（""＝我的企业）。
+    const roleView = { edit: "", armed: "", armedMember: "", armedDept: "", filter: "", nextFilter: "", dept: "", draft: null };
+    const cloneJSON = (value) => JSON.parse(JSON.stringify(value || {}));
+    function roleDraft(id) {
+      if (roleView.draft?.id !== id) {
+        const role = RM().settings(state()).roles.find((r) => r.id === id);
+        roleView.draft = { id, fields: cloneJSON(role?.fields), layouts: cloneJSON(role?.layouts) };
+      }
+      return roleView.draft;
+    }
+    const pickedDept = () => (RM().deptTree(state()).some((d) => d.id === roleView.dept) ? roleView.dept : "");
     const onRolePage = () => route === "roles" || route === "members";
     // 换页面时回到列表；从“角色权限”点“成员”过来时带上要看的角色。
     function roleReset(next) {
       roleView.filter = next === "members" ? roleView.nextFilter : "";
       roleView.nextFilter = "";
       roleView.edit = "";
+      roleView.draft = null;
       roleView.armed = "";
       roleView.armedMember = "";
+      roleView.armedDept = "";
+      roleView.dept = "";
     }
     function renderRoles() {
       const title = roleView.edit ? (RM().settings(state()).roles.find((r) => r.id === roleView.edit)?.locked ? "查看角色" : "编辑角色") : "角色权限";
       const description = roleView.edit ? "勾选这个角色能做的事" : "设置每个角色能看什么、能做什么";
       if (!RM().can(state(), "settings.roles")) return header("角色权限", description) + RU().deniedMarkup();
-      if (roleView.edit) return header(title, description) + RU().editMarkup(state(), roleView.edit);
+      if (roleView.edit) return header(title, description) + RU().editMarkup(state(), roleView.edit, roleDraft(roleView.edit));
       return header(title, description, '<button type="button" class="primary" data-role-action="add">新增角色</button>') + RU().rolesMarkup(state(), { armed: roleView.armed });
     }
     function renderMembers() {
       const description = "测试账号：切换后看到的就是这个角色能看的内容";
       if (!RM().can(state(), "settings.roles")) return header("成员管理", description) + RU().deniedMarkup();
-      return header("成员管理", description, '<button type="button" class="primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter });
+      return header("成员管理", description, '<button type="button" class="primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter, dept: roleView.dept, armedDept: roleView.armedDept });
     }
     function roleClick(d) {
       const action = d.roleAction;
       if (action !== "delete") roleView.armed = "";
       if (action !== "member-delete") roleView.armedMember = "";
+      if (action !== "dept-delete") roleView.armedDept = "";
       const cancel = '<button type="button" data-action="close-modal">取消</button>';
       if (action === "add") return ctx.dialog("新增角色", RU().addRoleMarkup(state()), cancel + '<button class="primary" type="submit" form="role-add-form">新增</button>', "role-add");
-      if (action === "member-add") return ctx.dialog("添加成员", RU().addMemberMarkup(state()), cancel + '<button class="primary" type="submit" form="member-add-form">添加</button>', "member-add");
+      if (action === "member-add") return ctx.dialog("添加成员", RU().addMemberMarkup(state(), { deptId: pickedDept() }), cancel + '<button class="primary" type="submit" form="member-add-form">添加</button>', "member-add");
       if (action === "rename") {
         const member = RM().settings(state()).members.find((m) => m.id === d.id);
         if (!member) return ctx.toast("没有找到这位成员，请刷新后重试");
@@ -1629,11 +1659,41 @@
       }
       if (action === "edit") {
         roleView.edit = d.id;
+        roleView.draft = null;
         return render();
       }
       if (action === "back") {
         roleView.edit = "";
+        roleView.draft = null;
         return render();
+      }
+      if (action === "fields" || action === "layouts") return roleFieldsDialog(action, d.module, cancel);
+      if (action === "fields-all") {
+        document.querySelectorAll("#role-fields-form [data-field-row]").forEach((row) => {
+          const box = row.querySelector(`input[type="radio"][value="${d.level}"]`);
+          if (box) box.checked = true;
+        });
+        return;
+      }
+      if (action === "dept-pick") {
+        roleView.dept = d.id || "";
+        return render();
+      }
+      if (action === "dept-add") return ctx.dialog("新建部门", RU().deptAddMarkup(state(), pickedDept()), cancel + '<button class="primary" type="submit" form="dept-add-form">新建</button>', "dept-add");
+      if (action === "dept-rename") {
+        const dept = RM().deptTree(state()).find((x) => x.id === d.id);
+        if (!dept) return ctx.toast("没有找到这个部门，请刷新后重试");
+        return ctx.dialog("部门改名", RU().deptRenameMarkup(dept), cancel + '<button class="primary" type="submit" form="dept-rename-form">保存</button>', "dept-rename");
+      }
+      if (action === "dept-delete") {
+        if (roleView.armedDept !== d.id) {
+          roleView.armedDept = d.id;
+          return render();
+        }
+        roleView.armedDept = "";
+        return saveNext(() => RM().deleteDepartment(state(), d.id), "member-list-error", () => {
+          roleView.dept = "";
+        });
       }
       if (action === "members") {
         roleView.nextFilter = d.id;
@@ -1666,6 +1726,32 @@
         return saveNext(() => RM().switchTo(state(), d.id), "member-list-error", () => undefined);
       }
     }
+    // 设置字段权限／布局权限的窗口：只改编辑页里的草稿，点角色的“保存”才真正存下来。
+    function roleFieldsDialog(action, module, cancel) {
+      const role = RM().settings(state()).roles.find((r) => r.id === roleView.edit);
+      if (!role) return;
+      const readOnly = !!role.locked,
+        draft = roleDraft(role.id),
+        close = '<button type="button" data-action="close-modal">关闭</button>';
+      if (action === "layouts") {
+        const body = RU().layoutMarkup(state(), draft.layouts.product || {}, { readOnly });
+        return ctx.dialog("设置布局权限", body, readOnly ? close : cancel + '<button class="primary" type="submit" form="role-layout-form">确定</button>', "role-layouts");
+      }
+      const name = (RM().FIELD_MODULES.find(([id]) => id === module) || [])[1] || "";
+      const has = (root.LaiRoleFields?.list?.(state(), module) || []).length > 0;
+      ctx.dialog(`${name}字段权限`, RU().fieldsMarkup(state(), module, draft.fields[module] || {}, { readOnly }), readOnly || !has ? close : cancel + '<button class="primary" type="submit" form="role-fields-form">确定</button>', "role-fields");
+    }
+    function showLimitTags() {
+      const draft = roleView.draft;
+      if (!draft) return;
+      document.querySelectorAll("[data-role-limit]").forEach((el) => {
+        const count = RU().limitCount(state(), el.dataset.roleLimit, draft.fields);
+        el.textContent = RU().limitText(count);
+        el.hidden = !count;
+      });
+      const tag = document.querySelector("[data-role-layout-tag]");
+      if (tag) tag.hidden = !RU().layoutSet(draft.layouts);
+    }
     function roleSubmit(form) {
       const kind = form.dataset.roleForm;
       const data = Object.fromEntries(new FormData(form));
@@ -1675,16 +1761,54 @@
           ctx.closeDialog();
           // 建好后直接打开新角色的编辑页。
           roleView.edit = RM().settings(state()).roles.find((r) => !before.has(r.id))?.id || "";
+          roleView.draft = null;
         });
       }
       if (kind === "edit") {
         const perms = {};
         form.querySelectorAll('input[name="perm"]:checked').forEach((box) => (perms[box.value] = true));
-        return saveNext(() => RM().updateRole(state(), form.dataset.id, { name: data.name, scope: data.scope, perms }), "role-error", () => {
+        const draft = roleDraft(form.dataset.id);
+        return saveNext(() => RM().updateRole(state(), form.dataset.id, { name: data.name, scope: data.scope, perms, fields: draft.fields, layouts: draft.layouts }), "role-error", () => {
           roleView.edit = "";
+          roleView.draft = null;
         });
       }
-      if (kind === "member-add") return saveNext(() => RM().addMember(state(), { name: data.name, roleId: data.roleId }), "member-add-error", () => ctx.closeDialog());
+      if (kind === "fields") {
+        const module = form.dataset.module,
+          draft = roleDraft(roleView.edit),
+          rows = [...form.querySelectorAll("[data-field-row]")];
+        if (rows.length) {
+          const listed = new Set(rows.map((row) => row.dataset.fieldKey)),
+            // 清单里已经没有的字段，原来的限制照样留着。
+            rules = Object.fromEntries(Object.entries(draft.fields[module] || {}).filter(([key]) => !listed.has(key)));
+          for (const row of rows) {
+            const level = row.querySelector('input[type="radio"]:checked')?.value;
+            if (level === "read" || level === "hidden") rules[row.dataset.fieldKey] = level;
+          }
+          if (Object.keys(rules).length) draft.fields[module] = rules;
+          else delete draft.fields[module];
+        }
+        ctx.closeDialog();
+        return showLimitTags();
+      }
+      if (kind === "layouts") {
+        const draft = roleDraft(roleView.edit),
+          pick = { form: data.form || "", detail: data.detail || "" };
+        try {
+          const PM = root.LaiProductModel;
+          if (PM?.checkRoleLayout) for (const place of ["form", "detail"]) PM.checkRoleLayout(state(), place, pick[place]);
+        } catch (error) {
+          const box = document.getElementById("role-layout-error");
+          if (box) box.textContent = error.message;
+          return true;
+        }
+        draft.layouts = pick.form || pick.detail ? { product: pick } : {};
+        ctx.closeDialog();
+        return showLimitTags();
+      }
+      if (kind === "dept-add") return saveNext(() => RM().addDepartment(state(), { name: data.name, parentId: data.parentId }), "dept-add-error", () => ctx.closeDialog());
+      if (kind === "dept-rename") return saveNext(() => RM().renameDepartment(state(), form.dataset.id, data.name), "dept-rename-error", () => ctx.closeDialog());
+      if (kind === "member-add") return saveNext(() => RM().addMember(state(), { name: data.name, roleId: data.roleId, deptId: data.deptId }), "member-add-error", () => ctx.closeDialog());
       if (kind === "member-rename") return saveNext(() => RM().renameMember(state(), form.dataset.id, data.name), "member-rename-error", () => ctx.closeDialog());
     }
     // 编辑角色里的勾选：“全选”带动整组；整组都勾上时“全选”自己也勾上。成员表里换角色马上保存。
@@ -1698,6 +1822,19 @@
         const group = target.closest("[data-role-group]");
         const all = group?.querySelector("[data-role-all]");
         if (all) all.checked = [...group.querySelectorAll("[data-role-perm]")].every((box) => box.checked);
+        return true;
+      }
+      if (target.id === "role-scope") {
+        const hint = document.getElementById("role-scope-hint");
+        if (hint) hint.textContent = RU().scopeHint(target.value);
+        return true;
+      }
+      if (target.dataset?.roleMemberDept !== undefined) {
+        const id = target.dataset.id;
+        const previous = RM().settings(state()).members.find((m) => m.id === id)?.deptId || "";
+        saveNext(() => RM().setMemberDept(state(), id, target.value), "member-list-error", () => undefined).then((saved) => {
+          if (!saved) target.value = previous;
+        });
         return true;
       }
       if (target.dataset?.roleMemberRole !== undefined) {
@@ -1783,7 +1920,7 @@
           client: returnCustomer,
           paidAmount: 0,
         };
-      draft.items = B.linkItems((Array.isArray(o.items) ? o.items : []).map((item) => ({ ...item })), PM() ? PM().list(state()) : []);
+      draft.items = B.linkItems((Array.isArray(o.items) ? o.items : []).map((item) => ({ ...item })), orderProducts());
       draft.doc = "";
       // 有产品明细时，订单金额和“产品”跟着明细走，不能手填。
       const shown = draft.items.length ? { ...o, amount: B.itemsTotal(draft.items), productType: B.itemsSummary(draft.items) } : o;
@@ -1808,7 +1945,7 @@
     }
     // ---------- 订单产品明细（从产品库选）和由订单生成单据 ----------
     function orderItemsMarkup(currency) {
-      const products = PM() ? PM().list(state()) : [];
+      const products = orderProducts();
       const items = draft?.items || [];
       if (!products.length && !items.length)
         return '<p class="muted tiny order-items-empty">还没有产品。先到 交易 → 产品 添加产品，就能在这里选；也可以直接在上面“产品”里写文字。</p>';
@@ -1914,7 +2051,8 @@
       if (!detail) return null;
       return {
         type: oppDoc.type,
-        lines: DM().linesFromOpportunity(state(), detail),
+        // 看不到“关联产品”的账号：单据里不列商机里的产品，只用商机本身一行。
+        lines: DM().linesFromOpportunity(state(), detail, { hideProducts: oppHidden().includes("products") }),
         currency: detail.currency,
         client: detail.client,
         date: docToday(),
@@ -2345,7 +2483,7 @@
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
         const i = Number(e.target.dataset.itemProduct), old = draft.items[i], value = e.target.value;
         if (value === "__keep") return;
-        const product = value && PM() ? PM().find(state(), value) : null;
+        const product = value && PM() ? PM().forRole(state(), PM().find(state(), value)) : null;
         if (!product) draft.items[i] = { ...old, productId: "", code: "", name: "", model: "", unit: "" };
         else {
           const next = B.itemFromProduct(product, old.qty || 1);
@@ -2505,8 +2643,10 @@
         const lowered = (name) => String(name || "").trim().toLowerCase();
         const was = isNew ? LD().defaults(state()).owner : LD().list(state()).find((entry) => entry.id === id)?.owner;
         if (!can("lead.reassign") && lowered(data.owner) !== lowered(was)) return ctx.toast(RM().denied("lead.reassign"));
+        // 字段权限：只读和隐藏的字段不能改。编辑时用原来的值，新建时不许填（表单里漏掉的字段也不会被清空）。
+        const lead = RM().keepLocked(state(), "lead", isNew ? null : LD().list(state()).find((entry) => entry.id === id), data);
         // 和客户相同但设为「允许保存」：第一次点保存先提醒，内容没变再点一次才保存。
-        const warn = LD().saveWarnings(state(), id, data, { mustExist: !isNew });
+        const warn = LD().saveWarnings(state(), id, lead, { mustExist: !isNew });
         if (warn.message && leadDraft.warned !== warn.message) {
           leadDraft.warned = warn.message;
           const box = document.getElementById("lead-warn");
@@ -2516,7 +2656,7 @@
           return;
         }
         return saveNext(
-          () => LD().upsert(state(), id, data, { mustExist: !isNew }),
+          () => LD().upsert(state(), id, lead, { mustExist: !isNew }),
           "lead-error",
           () => {
             leadDraft = null;
@@ -2547,8 +2687,11 @@
         const owner = (name) => String(name || "").trim().toLowerCase();
         const was = oppDraft.isNew ? OM().defaults(state(), B.localDate()).owner : oppItem(oppDraft.id)?.owner;
         if (!can("opp.transfer") && owner(data.owner) !== owner(was)) return ctx.toast(RM().denied("opp.transfer"));
+        // 字段权限：只读和隐藏的字段不能改。编辑时沿用原来的值，新建时不许填（用默认值），表单里漏掉的字段也不会被清空。
+        const locked = oppLocked();
+        const input = OM().lockInput(locked, oppDraft.isNew ? null : oppItem(oppDraft.id), data, OM().defaults(state(), B.localDate()));
         return saveNext(
-          () => OM().upsert(state(), oppDraft.id, data, { mustExist: !oppDraft.isNew }),
+          () => OM().upsert(state(), oppDraft.id, input, { mustExist: !oppDraft.isNew, locked }),
           "opp-error",
           () => {
             oppDraft = null;
@@ -2563,7 +2706,7 @@
           "opp-lost-error",
           oppDone,
         );
-      if (form.id === "biz-target-form" && !need("team.targets")) return;
+      if (form.id === "biz-target-form" && !need(targetFormKey)) return;
       if (form.id === "biz-target-form")
         return saveNext(
           () => root.LaiTeamModel.setTarget(state(), data),

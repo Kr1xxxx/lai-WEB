@@ -570,6 +570,22 @@
    }
   },
   {
+   "id": "doc-templates",
+   "area": "trade",
+   "description": "单据模板: 交易 → 单据模板 has 报价单, 形式发票, 销售订单, 发货通知 tabs (title, columns, terms, footer, bank and signature switches, live preview, print) and a shared 公司信息 tab",
+   "steps": [
+    "交易 → 单据模板 → 公司信息: fill 公司名称 and 开户银行, save",
+    "形式发票: change title to PI 单, untick 单价 and 金额, save: preview follows, reload keeps it",
+    "报价单: preview shows the company name; with products in 产品, the table shows them",
+    "恢复默认 needs two clicks and brings the default title back"
+   ],
+   "e2e": "doc-templates.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
    "id": "opportunity-attachments",
    "area": "opportunities",
    "description": "商机详情抽屉、附件（上传、列表、删除）、卡片拖动",
@@ -691,6 +707,22 @@
     "Avatar menu → switch back to the admin: everything is back"
    ],
    "e2e": "roles.e2e.mjs, roles-customers.e2e.mjs, roles-business.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "roles-departments-fields",
+   "area": "settings",
+   "description": "Departments with 本部门 scope and built-in 部门管理员; per-role field permissions (可编辑/只读/隐藏) for 线索, 商机, 客户, 公海客户, 产品; product layouts per role; split permissions 编辑目标值, 产品编号, 跟进动态·查看, 线索·彻底删除, 导出成员排行",
+   "steps": [
+    "成员管理: 新建部门 销售一部, put Mia in it; 角色权限: give 业务 scope 本部门",
+    "编辑 业务 → 客户 设置字段权限: 邮箱 隐藏, 备注 只读; 产品 设置布局权限: pick a layout",
+    "Switch to Mia: customer list/detail/editor have no 邮箱, 备注 is grey; edit and save, then switch back to Kris: 邮箱 and 备注 unchanged",
+    "As Mia, products use the chosen layout; 客户详情 shows only her department's customers"
+   ],
+   "e2e": "roles-departments.e2e.mjs, roles-customer-fields.e2e.mjs, roles-lead-opp-fields.e2e.mjs, roles-product-team.e2e.mjs, roles-opp-leaks.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false

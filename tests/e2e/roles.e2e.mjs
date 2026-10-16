@@ -23,16 +23,20 @@ test('角色权限 lists 系统管理员 (view only) and 业务', async () => {
   const { page } = app;
   await openPage('角色权限');
   assert.equal(await page.locator('.business-title h1').innerText(), '角色权限');
-  assert.deepEqual(await page.locator('.role-table thead th').allInnerTexts(), ['角色名称', '可见范围', '成员数', '操作']);
-  assert.deepEqual(await rowOf('系统管理员').locator('button').allInnerTexts(), ['查看']);
-  assert.equal(await rowOf('系统管理员').locator('button').getAttribute('title'), '不可编辑，仅查看');
-  assert.deepEqual(await rowOf('业务').locator('button').allInnerTexts(), ['编辑', '成员']);
+  assert.deepEqual(await page.locator('.role-table thead th').allInnerTexts(), ['角色', '可见范围', '成员', '操作']);
+  assert.deepEqual(await rowOf('系统管理员').locator('.role-actions button').allInnerTexts(), ['查看']);
+  assert.equal(await rowOf('系统管理员').locator('.role-actions button').getAttribute('title'), '不可编辑，仅查看');
+  assert.deepEqual(await rowOf('业务').locator('.role-actions button').allInnerTexts(), ['编辑']);
+  assert.deepEqual(await rowOf('部门管理员').locator('.role-actions button').allInnerTexts(), ['编辑']);
+  assert.equal(await rowOf('部门管理员').locator('.role-members-empty').innerText(), '暂无成员');
+  assert.equal(await rowOf('业务').locator('.role-members button').innerText(), '编辑成员');
+  assert.ok((await rowOf('业务').locator('.role-avatar').count()) >= 1);
   await page.screenshot({ path: process.env.ROLE_SHOTS ? `${process.env.ROLE_SHOTS}/roles-list.png` : undefined, type: 'png' }).catch(() => {});
 });
 
 test('系统管理员 opens read-only', async () => {
   const { page } = app;
-  await rowOf('系统管理员').locator('button').click();
+  await rowOf('系统管理员').locator('.role-actions button').click();
   await page.locator('#role-edit-form').waitFor();
   assert.ok((await page.locator('.role-lock-note').innerText()).includes('系统管理员不可编辑，仅查看'));
   assert.equal(await page.locator('#role-edit-form button[type=submit]').count(), 0);
@@ -44,13 +48,16 @@ test('系统管理员 opens read-only', async () => {
 
 test('edit 业务: 全选 follows the items, saving keeps 线索·删除 after a reload', async () => {
   const { page } = app;
-  await rowOf('业务').locator('button', { hasText: '编辑' }).click();
+  await rowOf('业务').locator('.role-actions button', { hasText: '编辑' }).click();
   await page.locator('#role-edit-form').waitFor();
   const leadGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("线索")') });
   const del = leadGroup.locator('input[value="lead.delete"]');
   assert.equal(await del.isChecked(), false);
   assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), false);
   await del.check();
+  // 彻底删除（回收站） is a separate permission now, so 全选 turns on only after it is ticked too.
+  assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), false);
+  await leadGroup.locator('input[value="lead.purge"]').check();
   assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), true, 'the last item turns 全选 on');
   await page.locator('#role-scope').selectOption('all');
   await page.locator('#role-edit-form button[type=submit]').click();
@@ -62,7 +69,7 @@ test('edit 业务: 全选 follows the items, saving keeps 线索·删除 after a
   await app.open('customers');
   await openPage('角色权限');
   assert.equal(await rowOf('业务').locator('td').nth(1).innerText(), '全公司');
-  await rowOf('业务').locator('button', { hasText: '编辑' }).click();
+  await rowOf('业务').locator('.role-actions button', { hasText: '编辑' }).click();
   await page.locator('#role-edit-form').waitFor();
   assert.equal(await page.locator('input[value="lead.delete"]').isChecked(), true);
   // 全选 on a whole group, then back to the list without saving: nothing is stored.
@@ -77,7 +84,7 @@ test('edit 业务: 全选 follows the items, saving keeps 线索·删除 after a
 
 test('a role name that is already taken shows an error under the form', async () => {
   const { page } = app;
-  await rowOf('业务').locator('button', { hasText: '编辑' }).click();
+  await rowOf('业务').locator('.role-actions button', { hasText: '编辑' }).click();
   await page.locator('#role-edit-form').waitFor();
   await page.locator('#role-edit-form input[name=name]').fill('系统管理员');
   await page.locator('#role-edit-form button[type=submit]').click();
@@ -130,10 +137,10 @@ test('成员管理: add Bob as 业务, switch to Bob, and he lands on 工作台 
   assert.ok((await stored()).members.some((member) => member.name === 'Bob' && member.roleId === 'sales'));
   // a role change in the table is saved at once
   const bob = page.locator('[data-member-row]', { hasText: 'Bob' });
-  await bob.locator('select').selectOption({ label: '经理' });
+  await bob.locator('select[data-role-member-role]').selectOption({ label: '经理' });
   await settle();
   assert.notEqual((await stored()).members.find((member) => member.name === 'Bob').roleId, 'sales');
-  await bob.locator('select').selectOption({ label: '业务' });
+  await bob.locator('select[data-role-member-role]').selectOption({ label: '业务' });
   await settle();
   assert.equal((await stored()).members.find((member) => member.name === 'Bob').roleId, 'sales');
   // rename the account and back

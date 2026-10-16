@@ -5,7 +5,10 @@
   const CURRENCIES=['USD','EUR','CNY','GBP','JPY','HKD','TWD','AUD','CAD'];
   const number=value=>Number(value||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
-  function create(E,model,can=()=>true){
+  // level(key)：字段权限，'edit'｜'read'｜'hidden'（商机的 contact、endDate 等字段名；自定义字段是 custom.字段ID）；没传时都可编辑。
+  function create(E,model,can=()=>true,level=()=>'edit'){
+    const vis=key=>level(key)!=='hidden';
+    const dis=key=>level(key)==='read'?' disabled title="你的角色只能查看，不能修改"':'';
     const money=(value,currency)=>`${E(currency)} ${number(value)}`;
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     // 结束日期：今年的只显示月-日，其他年份显示完整日期（与参考界面一致）。
@@ -21,7 +24,7 @@
     function cardMarkup(card,today){
       // 进行中的商机才谈得上“截止”；已赢单、已输单的只显示日期。
       const closed=kindOf(card)!=='open';
-      const due=card.endDate?(card.overdue?`<span class="opp-due is-overdue">逾期 ${E(shortDate(card.endDate,today))}</span>`:`<span class="opp-due">${E(shortDate(card.endDate,today))}${closed?'':' 截止'}</span>`):'';
+      const due=card.endDate&&vis('endDate')?(card.overdue?`<span class="opp-due is-overdue">逾期 ${E(shortDate(card.endDate,today))}</span>`:`<span class="opp-due">${E(shortDate(card.endDate,today))}${closed?'':' 截止'}</span>`):'';
       return `<article class="opp-card${card.archived?' is-archived':''}" draggable="${can('opp.edit')?'true':'false'}" data-opp-id="${E(card.id)}">`
         +`<div class="opp-card-head"><button type="button" class="opp-card-name" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></div>`
         +`<div class="opp-card-amount"><span><small>${E(card.currency)}</small>${number(card.amount)}</span>${clip(card)}</div>`
@@ -35,11 +38,11 @@
       const f=board.filters;
       const owners=(context.owners||[]).map(name=>option(name,name,f.owner&&name.toLowerCase()===f.owner.toLowerCase()?name:'')).join('');
       return `<div class="opp-toolbar">${viewSwitch(view,' opp-view-in')}${flowSelect('opp-flow',board.flows,board.flow)}<span class="opp-count">共 <b>${board.count}</b> 个商机</span>`
-        +`<input type="search" id="opp-search" value="${E(f.search)}" placeholder="搜索名称、客户、联系人、标签" aria-label="搜索商机">`
+        +`<input type="search" id="opp-search" value="${E(f.search)}" placeholder="搜索${['名称','客户',...(vis('contact')?['联系人']:[]),...(vis('tags')?['标签']:[])].join('、')}" aria-label="搜索商机">`
         +`<select id="opp-owner" aria-label="负责人"><option value="">全部负责人</option>${owners}</select>`
         +`<select id="opp-archived" aria-label="归档状态">${option('active','未归档',f.archived)}${option('archived','已归档',f.archived)}${option('all','全部',f.archived)}</select>`
-        +`<span class="opp-range"><select id="opp-date-field" aria-label="日期类型">${option('createdAt','创建时间',f.dateField)}${option('endDate','结束日期',f.dateField)}</select><input type="date" id="opp-from" value="${E(f.from)}" aria-label="开始日期"><span aria-hidden="true">至</span><input type="date" id="opp-to" value="${E(f.to)}" aria-label="结束日期"></span>`
-        +`<select id="opp-sort" class="opp-sort" aria-label="排序">${model.SORTS.map(([id,label])=>option(id,label,f.sort)).join('')}</select></div>`;
+        +`<span class="opp-range"><select id="opp-date-field" aria-label="日期类型">${option('createdAt','创建时间',f.dateField)}${vis('endDate')?option('endDate','结束日期',f.dateField):''}</select><input type="date" id="opp-from" value="${E(f.from)}" aria-label="开始日期"><span aria-hidden="true">至</span><input type="date" id="opp-to" value="${E(f.to)}" aria-label="结束日期"></span>`
+        +`<select id="opp-sort" class="opp-sort" aria-label="排序">${model.SORTS.filter(([id])=>vis('endDate')||!/^endDate-/.test(id)).map(([id,label])=>option(id,label,f.sort)).join('')}</select></div>`;
     }
     // 金额汇总：一种币种的三个数字并排，输单单独放在最后、颜色放轻。
     function totals(board){
@@ -61,7 +64,7 @@
     function table(board,view,today){
       const limit=Math.max(PAGE,Number(view.limits?.list)||PAGE);
       const shown=board.cards.slice(0,limit),rest=board.cards.length-shown.length;
-      return `<section class="business-section opp-list"><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>商机编号</th><th>商机名称</th><th>客户</th><th>销售金额</th><th>销售阶段</th><th>负责人</th><th>结束日期</th><th>创建日期</th><th>操作</th></tr></thead><tbody>${shown.map(card=>`<tr><td class="opp-num">${E(card.number||'—')}</td><td><button type="button" class="company-link" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button></td><td><button type="button" class="company-link" data-biz-customer="${E(card.client)}">${E(card.client)}</button></td><td class="opp-num">${money(card.amount,card.currency)}</td><td><span class="opp-chip opp-stage-chip opp-kind-${kindOf(card)}">${E(stageLabel(card))}</span></td><td>${E(card.owner||'—')}</td><td>${card.overdue?`<span class="opp-due is-overdue">逾期 ${E(card.endDate)}</span>`:E(card.endDate||'—')}</td><td>${E(card.createdDay||'—')}</td><td><button type="button" class="text-button" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></td></tr>`).join('')||'<tr><td colspan="9">暂无商机</td></tr>'}</tbody></table></div>${rest>0?`<button type="button" class="opp-more" data-opp-action="more" data-stage="list">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</section>`;
+      return `<section class="business-section opp-list"><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>商机编号</th><th>商机名称</th><th>客户</th><th>销售金额</th><th>销售阶段</th><th>负责人</th>${vis('endDate')?'<th>结束日期</th>':''}<th>创建日期</th><th>操作</th></tr></thead><tbody>${shown.map(card=>`<tr><td class="opp-num">${E(card.number||'—')}</td><td><button type="button" class="company-link" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button></td><td><button type="button" class="company-link" data-biz-customer="${E(card.client)}">${E(card.client)}</button></td><td class="opp-num">${money(card.amount,card.currency)}</td><td><span class="opp-chip opp-stage-chip opp-kind-${kindOf(card)}">${E(stageLabel(card))}</span></td><td>${E(card.owner||'—')}</td>${vis('endDate')?`<td>${card.overdue?`<span class="opp-due is-overdue">逾期 ${E(card.endDate)}</span>`:E(card.endDate||'—')}</td>`:''}<td>${E(card.createdDay||'—')}</td><td><button type="button" class="text-button" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></td></tr>`).join('')||`<tr><td colspan="${vis('endDate')?9:8}">暂无商机</td></tr>`}</tbody></table></div>${rest>0?`<button type="button" class="opp-more" data-opp-action="more" data-stage="list">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</section>`;
     }
     const undoMarkup=undo=>undo?`<div class="opp-undo" id="opp-undo" role="status"><span>${E(undo.label)}</span><button type="button" data-opp-action="undo">撤销</button></div>`:'';
     const boardMarkup=(board,view={},context={})=>`<div class="business-scroll opp-page">${toolbar(board,view,context)}${totals(board)}${view.mode==='list'?table(board,view,context.today):columns(board,view,context.today)}${undoMarkup(view.undo)}</div>`;
@@ -112,24 +115,24 @@
       const fact=(label,value,wide=false)=>label&&(value||value===0)?`<div${wide?' class="is-wide"':''}><dt>${label}</dt><dd>${value}</dd></div>`:'';
       const rate=detail.currency!=='USD'&&Number(detail.exchangeRate)?`每 100 ${E(detail.currency)} ＝ ${E(number(detail.exchangeRate))} USD`:'';
       const stageChip=`<span class="opp-chip opp-stage-chip opp-kind-${E(detail.kind)}">${E(detail.stageLabel)}</span>`;
-      const products=detail.products.length?`<div class="form-section">关联产品</div><table class="order-table opp-products"><thead><tr><th>产品</th><th>数量</th><th>单价</th><th>小计</th></tr></thead><tbody>${detail.products.map(row=>`<tr><td>${E(row.name)}</td><td>${E(row.quantity??1)}</td><td>${E(number(row.unitPrice))}</td><td>${E(number((Number(row.quantity)||0)*(Number(row.unitPrice)||0)))}</td></tr>`).join('')}</tbody></table>`:'';
+      const products=detail.products.length&&vis('products')?`<div class="form-section">关联产品</div><table class="order-table opp-products"><thead><tr><th>产品</th><th>数量</th><th>单价</th><th>小计</th></tr></thead><tbody>${detail.products.map(row=>`<tr><td>${E(row.name)}</td><td>${E(row.quantity??1)}</td><td>${E(number(row.unitPrice))}</td><td>${E(number((Number(row.quantity)||0)*(Number(row.unitPrice)||0)))}</td></tr>`).join('')}</tbody></table>`:'';
       const history=detail.history.length?`<div class="form-section">阶段记录</div><ol class="opp-history">${detail.history.map((entry,index)=>`<li class="opp-kind-${E(entry.kind)}${index===detail.history.length-1?' is-current':''}"><i aria-hidden="true"></i><span>${E(entry.label)}</span><time>${E(stamp(entry.at))}</time></li>`).join('')}</ol>`:'';
       return `<div class="drawer-body opp-detail" data-id="${E(detail.id)}">`
         +`<div class="opp-detail-top"><div class="opp-detail-amount"><small>${E(detail.currency)}</small>${number(detail.amount)}</div><div class="opp-detail-chips">${stageChip}${detail.overdue?'<span class="opp-chip is-danger">已逾期</span>':''}${detail.archived?'<span class="opp-chip">已归档</span>':''}</div></div>`
         +`<div class="error" id="opp-detail-error" role="alert"></div>`
         +`<dl class="opp-facts">`
         +fact('客户',detail.client?`<button type="button" class="company-link" data-biz-customer="${E(detail.client)}">${E(detail.client)}</button>`:'')
-        +fact('联系人',E(detail.contact))+fact('负责人',E(detail.owner))+fact('协同跟进人',E(detail.collaborators.join('、')))
-        +fact('结束日期',E(detail.endDate))+(context.multiFlow?fact('销售流程',E(detail.flowLabel)):'')
-        +fact('汇率',E(rate))+fact('创建时间',E(stamp(detail.createdAt)))
+        +(vis('contact')?fact('联系人',E(detail.contact)):'')+fact('负责人',E(detail.owner))+(vis('collaborators')?fact('协同跟进人',E(detail.collaborators.join('、'))):'')
+        +(vis('endDate')?fact('结束日期',E(detail.endDate)):'')+(context.multiFlow?fact('销售流程',E(detail.flowLabel)):'')
+        +(vis('exchangeRate')?fact('汇率',E(rate)):'')+fact('创建时间',E(stamp(detail.createdAt)))
         +fact(detail.kind==='won'?'赢单时间':detail.kind==='lost'?'输单时间':'',detail.kind!=='open'&&detail.closedAt?E(stamp(detail.closedAt)):'')
         +fact('输单原因',detail.lostReason?E(detail.lostReason+(detail.lostNote?`（${detail.lostNote}）`:'')):'')
-        +fact('商机编号',E(detail.number||'—'))+fact('商机类型',E(detail.type))
-        +fact('商机来源',(detail.sources||[]).length?detail.sources.map(source=>`<span class="opp-chip">${E(source)}</span>`).join(' '):'')+fact('来源线索',E(detail.leadName))
-        +(detail.custom||[]).map(row=>fact(E(row.name),E(row.value).replace(/\n/g,'<br>'),row.type==='textarea')).join('')
-        +fact('标签',detail.tags.length?detail.tags.map(tag=>`<span class="opp-chip">${E(tag)}</span>`).join(' '):'')
+        +fact('商机编号',E(detail.number||'—'))+(vis('type')?fact('商机类型',E(detail.type)):'')
+        +(vis('sources')?fact('商机来源',(detail.sources||[]).length?detail.sources.map(source=>`<span class="opp-chip">${E(source)}</span>`).join(' '):''):'')+(vis('leadId')?fact('来源线索',E(detail.leadName)):'')
+        +(detail.custom||[]).filter(row=>vis(`custom.${row.id}`)).map(row=>fact(E(row.name),E(row.value).replace(/\n/g,'<br>'),row.type==='textarea')).join('')
+        +(vis('tags')?fact('标签',detail.tags.length?detail.tags.map(tag=>`<span class="opp-chip">${E(tag)}</span>`).join(' '):''):'')
         +fact('关联订单',detail.orderId?`<button type="button" class="company-link" data-biz-order="${E(detail.orderId)}">查看关联订单</button>`:'')
-        +fact('备注',E(detail.note).replace(/\n/g,'<br>'),true)
+        +(vis('note')?fact('备注',E(detail.note).replace(/\n/g,'<br>'),true):'')
         +`</dl>${products}${documentsBlock(context.documents)}${history}<section class="opp-attach" id="opp-attach" data-id="${E(detail.id)}">${attachmentsInner(detail.attachments,view)}</section></div>`;
     }
 
@@ -171,13 +174,13 @@
       // 每个字段：标签一行（必填星号紧跟文字），控件一行，可选的说明一行。
       const field=(label,control,{required=false,wide=false,hidden=false,hint=''}={})=>`<label class="opp-field${wide?' is-wide':''}"${hidden?' hidden':''}><span class="opp-field-label">${label}${required?req:''}</span>${control}${hint?`<span class="opp-field-hint">${hint}</span>`:''}</label>`;
       // 多选：一排勾选框，不带 name（提交时由页面按 data-multi 收集成列表）。名单里已经没有的旧选项仍显示出来，免得保存时被悄悄去掉。
-      const multi=(key,label,options,chosen,{required=false,hint=''}={})=>{
+      const multi=(key,label,options,chosen,{required=false,hint='',lock=''}={})=>{
         const stale=chosen.filter(item=>!options.includes(item));
         const boxes=[...options.map(item=>[item,item]),...stale.map(item=>[item,`${item}（已不在名单里）`])].map(([value,text])=>`<label class="opp-check"><input type="checkbox" value="${E(value)}"${chosen.includes(value)?' checked':''}><span>${E(text)}</span></label>`).join('');
-        return `<fieldset class="opp-field is-wide opp-multi" data-multi="${E(key)}"><legend class="opp-field-label">${label}${required?req:''}</legend>${boxes?`<div class="opp-multi-list">${boxes}</div>`:''}${hint?`<span class="opp-field-hint">${hint}</span>`:''}</fieldset>`;
+        return `<fieldset class="opp-field is-wide opp-multi" data-multi="${E(key)}"${lock}><legend class="opp-field-label">${label}${required?req:''}</legend>${boxes?`<div class="opp-multi-list">${boxes}</div>`:''}${hint?`<span class="opp-field-hint">${hint}</span>`:''}</fieldset>`;
       };
       // 单选下拉：当前值已不在名单里时仍保留为一个选项。
-      const choose=(name,options,current,blank)=>`<select name="${name}"><option value="">${blank}</option>${options.map(item=>option(item,item,current)).join('')}${current&&!options.includes(current)?`<option value="${E(current)}" selected>${E(current)}（已不在名单里）</option>`:''}</select>`;
+      const choose=(name,options,current,blank)=>`<select name="${name}"${dis(name)}><option value="">${blank}</option>${options.map(item=>option(item,item,current)).join('')}${current&&!options.includes(current)?`<option value="${E(current)}" selected>${E(current)}（已不在名单里）</option>`:''}</select>`;
       // 阶段跟着销售流程走；只有一个流程时不显示流程选择。
       const flows=context.flows||[],stages=context.stages||model.STAGES;
       const flow=flows.length>1?field('销售流程',`<select name="flow" id="opp-form-flow">${flows.map(item=>option(item.id,item.label,v.flow||'default')).join('')}</select>`,{required:true}):`<input type="hidden" name="flow" value="${E(v.flow||'default')}">`;
@@ -186,8 +189,9 @@
       const sourceChoices=Array.isArray(setup.sources)?setup.sources:[];
       const customValue=def=>v.custom&&typeof v.custom==='object'?v.custom[def.id]:undefined;
       const customControl=def=>{
-        const name=`custom:${def.id}`,value=customValue(def),text=Array.isArray(value)?'':String(value??''),label=E(def.name),must=def.required?' required':'';
-        if(def.type==='multi')return multi(name,label,def.options,Array.isArray(value)?value.map(String):[],{required:def.required});
+        const name=`custom:${def.id}`,value=customValue(def),text=Array.isArray(value)?'':String(value??''),label=E(def.name),must=(def.required?' required':'')+dis(`custom.${def.id}`);
+        if(!vis(`custom.${def.id}`))return '';
+        if(def.type==='multi')return multi(name,label,def.options,Array.isArray(value)?value.map(String):[],{required:def.required,lock:dis(`custom.${def.id}`)});
         if(def.type==='textarea')return field(label,`<textarea name="${E(name)}" rows="3" maxlength="${model.SET_LIMITS.textarea}"${must}>${E(text)}</textarea>`,{required:def.required,wide:true});
         if(def.type==='select')return field(label,`<select name="${E(name)}"${must}><option value="">请选择</option>${def.options.map(item=>option(item,item,text)).join('')}${text&&!def.options.includes(text)?`<option value="${E(text)}" selected>${E(text)}（已不在选项里）</option>`:''}</select>`,{required:def.required});
         if(def.type==='date')return field(label,`<input name="${E(name)}" type="date" value="${E(text)}"${must}>`,{required:def.required});
@@ -197,29 +201,29 @@
       const section=(title,html)=>html?`<div class="form-section">${title}</div><div class="opp-grid">${html}</div>`:'';
       const classify=[
         `<div class="opp-field"><span class="opp-field-label">商机编号</span><span class="opp-static" id="opp-number">${E(v.number||(context.isNew?'保存后自动生成':'—'))}</span>${context.isNew?'<span class="opp-field-hint">格式：OPP-日期-当天序号</span>':''}</div>`,
-        cfg.type.show?field('商机类型',choose('type',setup.types||[],String(v.type||''),'请选择'),{required:cfg.type.required}):'',
-        cfg.leadId.show?field('来源线索',`<select name="leadId"><option value="">不选</option>${leadOptions}</select>`,{required:cfg.leadId.required}):'',
-        cfg.sources.show?multi('sources','商机来源',sourceChoices,chosenSources,{required:cfg.sources.required,hint:sourceChoices.length?'':'先在 客户设置 → 来源设置 里添加来源'}):''
+        cfg.type.show&&vis('type')?field('商机类型',choose('type',setup.types||[],String(v.type||''),'请选择'),{required:cfg.type.required}):'',
+        cfg.leadId.show&&vis('leadId')?field('来源线索',`<select name="leadId"${dis('leadId')}><option value="">不选</option>${leadOptions}</select>`,{required:cfg.leadId.required}):'',
+        cfg.sources.show&&vis('sources')?multi('sources','商机来源',sourceChoices,chosenSources,{lock:dis('sources'),required:cfg.sources.required,hint:sourceChoices.length?'':'先在 客户设置 → 来源设置 里添加来源'}):''
       ].join('');
       const extra=[
-        cfg.tags.show?field('商机标签',`<input name="tags" value="${E(list(v.tags))}" placeholder="多个标签用逗号分隔">`,{wide:true,required:cfg.tags.required}):'',
-        cfg.note.show?field('备注',`<textarea name="note" rows="3">${E(v.note||'')}</textarea>`,{wide:true,required:cfg.note.required}):'',
-        cfg.products.show?field('关联产品',`<textarea name="products" rows="4" placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal,required:cfg.products.required}):''
+        cfg.tags.show&&vis('tags')?field('商机标签',`<input name="tags" value="${E(list(v.tags))}" placeholder="多个标签用逗号分隔"${dis('tags')}>`,{wide:true,required:cfg.tags.required}):'',
+        cfg.note.show&&vis('note')?field('备注',`<textarea name="note" rows="3"${dis('note')}>${E(v.note||'')}</textarea>`,{wide:true,required:cfg.note.required}):'',
+        cfg.products.show&&vis('products')?field('关联产品',`<textarea name="products" rows="4"${dis('products')} placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal,required:cfg.products.required}):''
       ].join('');
       const reasons=setup.reasons||model.LOST_REASONS;
       return `<form class="drawer-body opp-form" id="opp-form"><div class="error" id="opp-error" role="alert"></div>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
         +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
         +field('客户',`<input name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
-        +(cfg.contact.show?field('关联联系人',`<select name="contact"${contacts.length&&cfg.contact.required?' required':''}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
+        +(cfg.contact.show&&vis('contact')?field('关联联系人',`<select name="contact"${contacts.length&&cfg.contact.required?' required':''}${dis('contact')}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
         +field('负责人',`<input name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" required${can('opp.transfer')?'':' readonly'}><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
-        +(cfg.collaborators.show?field('协同跟进人',`<input name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔">`,{required:cfg.collaborators.required}):'')
+        +(cfg.collaborators.show&&vis('collaborators')?field('协同跟进人',`<input name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔"${dis('collaborators')}>`,{required:cfg.collaborators.required}):'')
         +`</div><div class="form-section">金额与进度</div><div class="opp-grid">`
         +`<div class="opp-field"><span class="opp-field-label" id="opp-amount-label">销售金额${req}</span><span class="opp-group"><input name="currency" id="opp-form-currency" class="opp-group-currency" value="${E(v.currency||'USD')}" list="opp-currency-list" maxlength="3" autocomplete="off" aria-label="币种" required><datalist id="opp-currency-list">${CURRENCIES.map(code=>`<option value="${code}"></option>`).join('')}</datalist><input name="amount" value="${E(v.amount??'')}" inputmode="decimal" autocomplete="off" aria-labelledby="opp-amount-label" placeholder="0.00" required></span></div>`
         +(flows.length>1?flow:'')
         +field('销售阶段',`<select name="stage" id="opp-form-stage">${stageOptions(stages,v.stage)}</select>`,{required:true})
-        +field('结束日期',`<input name="endDate" type="date" value="${E(v.endDate||'')}" required>`,{required:true})
-        +field('汇率',`<input name="exchangeRate" value="${E(usd?100:v.exchangeRate??100)}" data-rate="${E(v.exchangeRate??100)}" inputmode="decimal"${usd?' readonly':''} aria-describedby="opp-rate-note">`,{required:cfg.exchangeRate.required,hidden:usd,hint:'<span id="opp-rate-note">每 100 外币折合多少美元，仅作记录</span>'})
+        +(vis('endDate')?field('结束日期',`<input name="endDate" type="date" value="${E(v.endDate||'')}" required${dis('endDate')}>`,{required:true}):'')
+        +(vis('exchangeRate')?field('汇率',`<input name="exchangeRate" value="${E(usd?100:v.exchangeRate??100)}" data-rate="${E(v.exchangeRate??100)}" inputmode="decimal"${usd?' readonly':''}${dis('exchangeRate')} aria-describedby="opp-rate-note">`,{required:cfg.exchangeRate.required,hidden:usd,hint:'<span id="opp-rate-note">每 100 外币折合多少美元，仅作记录</span>'}):'')
         +field('输单原因',`<select name="lostReason"${isLost?' required':' disabled'}><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,v.lostReason)).join('')}${v.lostReason&&!reasons.includes(v.lostReason)?`<option value="${E(v.lostReason)}" selected>${E(v.lostReason)}</option>`:''}</select>`,{required:true,hidden:!isLost})
         +field('输单说明',`<input name="lostNote" value="${E(v.lostNote||'')}"${isLost?'':' disabled'}>`,{hidden:!isLost})
         +(flows.length>1?'':flow)
@@ -250,7 +254,7 @@
         +`<div class="team-tiles">${tile('新建商机数',s.created)}${tile('进行中',s.open,money(s.openAmount,c))}${tile('赢单',s.won,money(s.wonAmount,c))}${tile('输单',s.lost,money(s.lostAmount,c))}${tile('赢单率',percent(s.winRate),'赢单 ÷（赢单＋输单）')}${tile('平均成交周期',s.averageDays===null?'—':`${s.averageDays} 天`,'创建到首次赢单')}</div>`
         +`<div class="business-columns"><section class="business-section"><div class="section-head"><h3>销售阶段分布</h3><span class="muted tiny">按商机数量</span></div><div class="opp-bars">${report.stages.map(stage=>`<div class="opp-bar opp-kind-${stage.kind||'open'}"><span class="opp-bar-label">${E(stage.label)}</span><span class="opp-bar-track"><i style="width:${Math.round(stage.count/max*100)}%"></i></span><b class="opp-bar-count">${stage.count} 个 · ${stage.percent}%</b><span class="opp-bar-amount">${money(stage.amount,c)}</span></div>`).join('')}</div></section>`
         +`<section class="business-section"><div class="section-head"><h3>输单原因</h3></div><table class="order-table team-table"><thead><tr><th>原因</th><th>数量</th><th>金额</th></tr></thead><tbody>${report.lostReasons.map(row=>`<tr><td>${E(row.reason)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有输单</td></tr>'}</tbody></table></section>`
-        +`<section class="business-section"><div class="section-head"><h3>商机来源</h3><span class="muted tiny">选了几个来源的商机，在每个来源下各算一次</span></div><table class="order-table team-table"><thead><tr><th>来源</th><th>数量</th><th>金额</th></tr></thead><tbody>${(report.sources||[]).map(row=>`<tr><td>${E(row.source)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有商机</td></tr>'}</tbody></table></section></div>`
+        +(!vis('sources')?'':`<section class="business-section"><div class="section-head"><h3>商机来源</h3><span class="muted tiny">选了几个来源的商机，在每个来源下各算一次</span></div><table class="order-table team-table"><thead><tr><th>来源</th><th>数量</th><th>金额</th></tr></thead><tbody>${(report.sources||[]).map(row=>`<tr><td>${E(row.source)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有商机</td></tr>'}</tbody></table></section>`)+`</div>`
         +`<section class="business-section"><div class="section-head"><h3>按负责人</h3><span class="muted tiny">按商机上填写的负责人名称汇总，只差大小写的算同一个人；已归档的商机也计入本页</span></div><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>负责人</th><th>新建</th><th>进行中</th><th>赢单</th><th>输单</th><th>赢单金额</th><th>赢单率</th><th>平均成交周期</th></tr></thead><tbody>${report.owners.map(row=>`<tr><td>${E(row.owner)}</td><td>${row.created}</td><td>${row.open}</td><td>${row.won}</td><td>${row.lost}</td><td>${money(row.wonAmount,c)}</td><td>${percent(row.winRate)}</td><td>${row.averageDays===null?'—':row.averageDays+' 天'}</td></tr>`).join('')||'<tr><td colspan="8">所选范围内没有商机</td></tr>'}</tbody></table></div></section></div>`;
     }
 

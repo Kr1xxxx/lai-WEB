@@ -400,6 +400,8 @@ test('customer page: detail shows the current in-progress opportunity, real coun
   const sandbox = {state: s, currentName: 'Alpha <b>Co</b>', activeRoute: 'customers', toast: t => calls.push(['toast', t]), detail: (...a) => calls.push(['detail', ...a]),
     business: {newOpportunity: n => calls.push(['new', n]), showOpportunities: n => calls.push(['all', n]), opportunityMenu: (...a) => calls.push(['menu', ...a]), moveOpportunity: (...a) => calls.push(['move', ...a])}};
   sandbox.window = {LaiOpportunityModel: O};
+  // customerOpportunities 按角色范围筛商机（本人／本部门只算自己能看到的）。
+  sandbox.R = require('../src/role-model.js');
   vm.createContext(sandbox); vm.runInContext(body, sandbox);
   const run = code => vm.runInContext(code, sandbox);
   const stats = run('customerOpportunities(currentName)');
