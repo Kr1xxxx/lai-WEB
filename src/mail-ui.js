@@ -8,10 +8,13 @@
     { id: "pending", label: "待处理邮件", icon: "check" },
     { id: "unread", label: "未读邮件", icon: "bell" },
     { id: "drafts", label: "草稿箱", icon: "note" },
-    { id: "sent", label: "发件箱", icon: "next" },
+    { id: "sent", label: "发件箱", icon: "send" },
     { id: "bulk", label: "群发箱", icon: "people" },
   ];
   const DEFAULT_FOLDER = folders[0].id;
+  // 发件箱用纸飞机；公共图标表里没有，就在这里画一个。
+  const sendIcon = `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M21 3L10 14 M21 3l-7 18-4-7-7-4z"/></svg>`;
+  const folderIcon = (name, draw) => (name === "send" ? sendIcon : draw(name));
   const views = [
     { id: "mail", label: "邮件" },
     { id: "customer", label: "客户" },
@@ -461,7 +464,7 @@
             .map(
               (item) =>
                 // 右侧的心形由页面外壳提供（设为常用）；没提供时（例如单独测试）这一行就没有心形。
-                `<div class="nav-row" role="listitem"><button type="button" class="nav-entry ${item.id === folder ? "active" : ""}" data-mail-folder="${item.id}" ${item.id === folder ? 'aria-current="page"' : ""}>${icon(item.icon)}<span class="mail-folder-label">${E(item.label)}</span>${badge(item.id)}</button>${ctx.favoriteHeart ? ctx.favoriteHeart("mail:" + item.id, item.label) : ""}</div>`,
+                `<div class="nav-row" role="listitem"><button type="button" class="nav-entry ${item.id === folder ? "active" : ""}" data-mail-folder="${item.id}" ${item.id === folder ? 'aria-current="page"' : ""}>${folderIcon(item.icon, icon)}<span class="mail-folder-label">${E(item.label)}</span>${badge(item.id)}</button>${ctx.favoriteHeart ? ctx.favoriteHeart("mail:" + item.id, item.label) : ""}</div>`,
             )
             .join("") +
           `</div>`;
@@ -659,7 +662,7 @@
       `<button type="button" class="mail-thread-item" data-mail-action="open" data-box="${item.box}" data-uid="${item.uid}"><span class="mail-avatar small" style="background:hsl(${hue(item.from && item.from.address)} 45% 46%)">${E(item.box === "sent" ? "我" : initial(item.from))}</span><span class="mail-thread-who">${E(item.box === "sent" ? "我" : person(item.from) || "（未知发件人）")}</span><span class="mail-thread-snippet">${E(item.snippet || item.subject || "")}</span><span class="mail-row-time">${E(shortTime(item.date))}</span></button>`;
     function readerPane() {
       if (!reading)
-        return `<div class="empty mail-unbound mail-reader-empty"><div class="mail-unbound-art">${icon("mail")}</div><strong>选择一封邮件</strong><span>在左边的列表里点一封，内容会显示在这里。</span><span class="mail-keys">↑ ↓ 上一封／下一封 · R 回复 · A 回复全部 · F 转发 · S 待处理 · U 标为未读 · Delete 删除 · C 写信 · / 搜索</span></div>`;
+        return `<div class="empty mail-unbound mail-reader-empty"><div class="mail-unbound-art">${icon("mail")}</div><strong>选择一封邮件</strong><span>在左边的列表里点一封，内容会显示在这里。</span><span class="mail-keys">快捷键：↑ ↓ 上一封／下一封，R 回复，A 回复全部，F 转发，S 待处理，U 标为未读，Delete 删除，C 写信，/ 搜索</span></div>`;
       const back = `<button type="button" class="mail-back" data-mail-action="back" title="返回列表">${icon("back")}返回</button>`;
       if (reading.loading) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div><div class="empty mail-unbound" aria-busy="true"><span>正在读取邮件内容…</span></div></div>`;
       if (reading.error) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div>${empty("mail", "无法打开这封邮件", reading.error, `<button type="button" class="primary" data-mail-action="back">返回列表</button>`)}</div>`;

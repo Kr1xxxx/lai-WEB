@@ -1597,8 +1597,11 @@ td.team-reached {
   gap: 12px;
   min-width: 0;
 }
-.team-rank-empty {
-  justify-content: center;
+.team-rank-list li.team-rank-empty {
+  width: 100%;
+  display: block;
+  text-align: center;
+  white-space: nowrap;
   padding: 28px 0;
 }
 
