@@ -22,6 +22,7 @@ before(async () => {
     { id: 'opp1', number: 'OPP-1', name: 'Spring restock', client: ME, amount: 5000, currency: 'USD', stage: 'open', owner: 'Kris', endDate: '2026-12-01', createdAt: '2026-10-01T04:00:00.000Z' },
     { id: 'opp2', number: 'OPP-2', name: 'Autumn deal', client: ME, amount: 800, currency: 'USD', stage: 'done', owner: 'Kris', endDate: '2026-09-01', createdAt: '2026-08-01T04:00:00.000Z', closedAt: '2026-09-01T04:00:00.000Z' },
   ];
+  state.data.orders = [...(state.data.orders || []), { id: 'ord-fix-1', num: 'L-2610-901', client: ME, owner: 'Kris', amount: 100, currency: 'USD', stage: 'quote', createdAt: '2026-10-01', orderMonth: '2026-10' }];
   state.data.laiSettings = {
     ...(state.data.laiSettings || {}), defaultOwner: 'Kris',
     roles: {
@@ -195,6 +196,16 @@ test('设置中心 opens 客户设置 as a real page (address and highlight foll
   assert.match(await page.locator('.tag-manager').innerText(), /KrisRenamed/);
   assert.deepEqual((await app.readData()).customers[ME].tags, ['VIP', 'KrisRenamed']);
   await page.locator('[data-action="close-modal"]').first().click();
+  assert.deepEqual(pageErrors(), []);
+});
+
+test('opening an order from a customer\'s detail and closing it brings you back to that customer', async () => {
+  const { page } = app;
+  await openCustomer(ME);
+  await page.locator('.lcd-side [data-lai-order="ord-fix-1"]').click();
+  await page.locator('[data-biz-action="close-editor"]').first().click();
+  await page.locator('.lcd-root').waitFor();
+  assert.match(await page.locator('.lcd-root h2').first().innerText(), new RegExp(ME.split(' ')[0]));
   assert.deepEqual(pageErrors(), []);
 });
 

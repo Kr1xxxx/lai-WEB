@@ -4907,8 +4907,10 @@
       return business.createOrderForCustomer(currentName);
     }
     if (d.laiOrder) {
+      // 从客户详情打开订单：记下是哪位客户，保存或取消后回到这位客户。
+      const back = currentName;
       if (await navigateApp("order-list"))
-        return business.openOrder(d.laiOrder);
+        return business.openOrder(d.laiOrder, undefined, back);
       return;
     }
     if (d.filterMode) {
