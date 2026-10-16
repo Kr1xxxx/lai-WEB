@@ -6,7 +6,7 @@
     // 团队数据模块只在打开对应页面时才取用。
     let teamReport = null,
       teamUI = null;
-    const TU = () => teamUI || (teamUI = root.LaiTeamUI.create(E));
+    const TU = () => teamUI || (teamUI = root.LaiTeamUI.create(E, can));
     let route = "dashboard",
       search = "",
       stage = "",
@@ -18,6 +18,42 @@
       draft = null,
       settingsDirty = false;
     const state = () => ctx.getState();
+    // ---------- 角色权限（本机预览，不是安全措施）----------
+    // can(key)：当前账号有没有这个权限；need(key)：没有就提示并返回 false；sees(owner)：看不看得到这位跟进人／负责人的记录。
+    // scoped()：角色只看“本人”时，去掉线索、商机、订单、回收站订单里不归自己的，只用来画页面；保存时永远用完整的 state()。
+    const RM = () => root.LaiRoleModel;
+    const can = (key) => !RM() || RM().can(state(), key);
+    const need = (key) => can(key) || (ctx.toast(RM().denied(key)), false);
+    const sees = (owner) => !RM() || RM().canSee(state(), owner);
+    const notYours = (item) => !!item && !sees(item.owner) && (ctx.toast("这条记录不归你负责"), true);
+    let scopeMemo = null,
+      dashMemo = null;
+    function scoped() {
+      const s = state(),
+        R = RM();
+      if (!R || R.scopeOf(s) === "all") return s;
+      const me = R.meName(s);
+      if (scopeMemo && scopeMemo.state === s && scopeMemo.me === me) return scopeMemo.value;
+      const mine = (list) => (Array.isArray(list) ? list.filter((item) => item && R.canSee(s, item.owner)) : list);
+      const value = { ...s, laiLeads: mine(s.laiLeads), laiOpportunities: mine(s.laiOpportunities), orders: mine(s.orders), trashOrders: mine(s.trashOrders) };
+      scopeMemo = { state: s, me, value };
+      return value;
+    }
+    // 工作台还要看客户：同样只留自己做跟进人的。
+    function dashState() {
+      const s = scoped();
+      if (s === state()) return s;
+      if (dashMemo && dashMemo.base === s) return dashMemo.value;
+      const R = RM(),
+        customers = Object.fromEntries(Object.entries(s.customers || {}).filter(([, c]) => c && R.canSee(s, c.owner)));
+      dashMemo = { base: s, value: { ...s, customers } };
+      return dashMemo.value;
+    }
+    // 打开了没有权限的页面：不画页面，只说明为什么。
+    const routeDenied = (name) => {
+      const key = RM() && RM().pagePerm("route", name);
+      return key && !can(key) ? header("没有权限", "") + `<div class="business-scroll"><div class="module-note" role="alert">${E(RM().denied(key))}</div></div>` : "";
+    };
     const label = (id) =>
       B.stages.find((s) => s.id === id)?.label || id || "未填写";
     const date = (value) => String(value || "").slice(0, 10) || "—";
@@ -32,7 +68,8 @@
       `<div class="pagebar"><div class="business-title"><h1>${title}</h1><span>${description}</span></div><div class="page-actions">${actions}</div></div>`;
     const openButton = (o) =>
       `<button class="company-link" data-biz-order="${E(o.id)}">${E(o.num || "未编号")}</button>`;
-    const activeOrders = () => state().orders || [];
+    const allOrders = () => state().orders || [];
+    const activeOrders = () => scoped().orders || [];
     const customerButton = (name) =>
       `<button class="company-link" data-biz-customer="${E(name)}">${E(name)}</button>`;
     function filteredOrders() {
@@ -77,7 +114,8 @@
       const counts = ctx.mailCounts?.() || null;
       return root.LaiWorkbench.markup(
         {
-          state: state(),
+          state: dashState(),
+          can,
           today: B.localDate(),
           B,
           OM: root.LaiOpportunityModel,
@@ -90,7 +128,7 @@
     }
     // 未读邮件要向本机邮件服务要；拿到后只更新页面上对应的几处，不重画整页。
     async function loadWorkbenchMail() {
-      if (!ctx.mailSummary || Date.now() - wbMailAt < 30000) return;
+      if (!ctx.mailSummary || !can("mail.view") || Date.now() - wbMailAt < 30000) return;
       wbMailAt = Date.now();
       let data = null;
       try {
@@ -118,11 +156,11 @@
     }
     function renderDashboard() {
       if (glassSkin()) return workbenchMarkup();
-      const orders = activeOrders(),
+      const orders = can("order.view") ? activeOrders() : [],
         m = B.orderMetrics(orders),
         tasks = (state().laiTasks || []).filter((t) => !t.done),
         today = B.localDate(),
-        followups = Object.entries(state().customers || {}).filter(
+        followups = Object.entries(dashState().customers || {}).filter(
           ([, c]) =>
             root.LaiModules.bucket(c) !== "trash" &&
             c.nextFollow &&
@@ -132,7 +170,7 @@
         header(
           "工作台",
           "查看客户跟进与订单进度",
-          button("new-order", "＋ 新建订单", "", true),
+          can("order.create") ? button("new-order", "＋ 新建订单", "", true) : "",
         ) +
         `<div class="business-scroll"><div class="business-kpis">${[
           ["有效订单", m.count],
@@ -194,7 +232,8 @@
             currencies: [...new Set(activeOrders().map((o) => o.currency || "USD"))],
             page,
             pages,
-            trash: state().trashOrders || [],
+            trash: scoped().trashOrders || [],
+            can,
           },
           E,
         );
@@ -203,20 +242,20 @@
           "订单管理",
           `${activeOrders().length} 笔订单`,
           button("order-trash", "订单回收站") +
-            button("new-order", "＋ 新建订单", "", true),
+            (can("order.create") ? button("new-order", "＋ 新建订单", "", true) : ""),
         ) +
-        `<section class="business-section order-workspace"><div class="business-toolbar"><input class="business-search" id="biz-search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(search)}"><select id="biz-stage" aria-label="订单阶段">${option("", "全部阶段", stage)}${B.stages.map((s) => option(s.id, s.label, stage)).join("")}</select><select id="biz-currency" aria-label="订单币种">${option("", "全部币种", currency)}${[...new Set(activeOrders().map((o) => o.currency || "USD"))].map((c) => option(c, c, currency)).join("")}</select>${button("clear-filters", "清除筛选")}</div><div class="business-table-scroll" id="biz-order-scroll"><table class="order-table unified-orders"><thead><tr><th>订单编号</th><th>客户名称</th><th>国家地区</th><th>创建日期</th><th>产品</th><th>订单金额</th><th>已收款</th><th>阶段</th><th>物流单号</th><th>操作</th></tr></thead><tbody>${items.map((o) => `<tr><td>${openButton(o)}${o.isDraft ? '<span class="tag">草稿</span>' : ""}</td><td>${customerButton(o.client)}</td><td>${E(o.country || "—")}</td><td>${date(o.createdAt)}</td><td>${E(o.productType || "—")}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${money(["shipment", "done"].includes(o.stage) ? o.amount : o.paidAmount, o.currency || "USD")}</td><td><span class="tag stage-${E(o.stage)}">${E(label(o.stage))}</span></td><td>${E(o.trackingNumber || "—")}</td><td><button class="text-button" data-biz-order="${E(o.id)}">查看 / 编辑</button></td></tr>`).join("")}</tbody></table>${items.length ? "" : '<div class="empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>'}</div><footer class="pagination"><span>共 ${filtered.length} 笔订单</span><div class="pages">${button("prev", "‹", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${button("next", "›", page === pages ? "disabled" : "")}</div></footer></section>`
+        `<section class="business-section order-workspace"><div class="business-toolbar"><input class="business-search" id="biz-search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(search)}"><select id="biz-stage" aria-label="订单阶段">${option("", "全部阶段", stage)}${B.stages.map((s) => option(s.id, s.label, stage)).join("")}</select><select id="biz-currency" aria-label="订单币种">${option("", "全部币种", currency)}${[...new Set(activeOrders().map((o) => o.currency || "USD"))].map((c) => option(c, c, currency)).join("")}</select>${button("clear-filters", "清除筛选")}</div><div class="business-table-scroll" id="biz-order-scroll"><table class="order-table unified-orders"><thead><tr><th>订单编号</th><th>客户名称</th><th>国家地区</th><th>创建日期</th><th>产品</th><th>订单金额</th><th>已收款</th><th>阶段</th><th>物流单号</th><th>操作</th></tr></thead><tbody>${items.map((o) => `<tr><td>${openButton(o)}${o.isDraft ? '<span class="tag">草稿</span>' : ""}</td><td>${customerButton(o.client)}</td><td>${E(o.country || "—")}</td><td>${date(o.createdAt)}</td><td>${E(o.productType || "—")}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${money(["shipment", "done"].includes(o.stage) ? o.amount : o.paidAmount, o.currency || "USD")}</td><td><span class="tag stage-${E(o.stage)}">${E(label(o.stage))}</span></td><td>${E(o.trackingNumber || "—")}</td><td><button class="text-button" data-biz-order="${E(o.id)}">${can("order.edit") ? "查看 / 编辑" : "查看"}</button></td></tr>`).join("")}</tbody></table>${items.length ? "" : '<div class="empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>'}</div><footer class="pagination"><span>共 ${filtered.length} 笔订单</span><div class="pages">${button("prev", "‹", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${button("next", "›", page === pages ? "disabled" : "")}</div></footer></section>`
       );
     }
     function renderOrderTrash() {
-      const orders = state().trashOrders || [];
+      const orders = scoped().trashOrders || [];
       return (
         header(
           "订单回收站",
           "已归档订单可恢复",
           button("orders", "返回订单列表"),
         ) +
-        `<section class="business-section"><div class="module-note">归档只移动订单，保留客户、历史、附件引用和原始字段。</div><table class="order-table"><thead><tr><th>订单编号</th><th>客户</th><th>金额</th><th>归档时间</th><th>操作</th></tr></thead><tbody>${orders.map((o) => `<tr><td>${E(o.num)}</td><td>${E(o.client)}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${date(o.trashedAt)}</td><td>${button("restore-order", "恢复订单", `data-id="${E(o.id)}"`)}</td></tr>`).join("")}</tbody></table>${orders.length ? "" : '<div class="empty"><strong>订单回收站为空</strong></div>'}</section>`
+        `<section class="business-section"><div class="module-note">归档只移动订单，保留客户、历史、附件引用和原始字段。</div><table class="order-table"><thead><tr><th>订单编号</th><th>客户</th><th>金额</th><th>归档时间</th><th>操作</th></tr></thead><tbody>${orders.map((o) => `<tr><td>${E(o.num)}</td><td>${E(o.client)}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${date(o.trashedAt)}</td><td>${can("order.edit") ? button("restore-order", "恢复订单", `data-id="${E(o.id)}"`) : ""}</td></tr>`).join("")}</tbody></table>${orders.length ? "" : '<div class="empty"><strong>订单回收站为空</strong></div>'}</section>`
       );
     }
     function renderAnalysis() {
@@ -264,7 +303,7 @@
     const periodKey = () => (teamView.period === "quarter" ? root.LaiTeamModel.quarterOf(month) : month);
     const periodSwitch = () =>
       `<span class="team-segment team-period" role="group" aria-label="统计周期"><button type="button" data-team-period="month" aria-pressed="${teamView.period !== "quarter"}">按月</button><button type="button" data-team-period="quarter" aria-pressed="${teamView.period === "quarter"}">按季度</button></span>`;
-    const targetsButton = () => '<button type="button" data-lai-route="team-targets">目标设置</button>';
+    const targetsButton = () => (can("team.targets") ? '<button type="button" data-lai-route="team-targets">目标设置</button>' : "");
     function renderGoals() {
       teamOverview = root.LaiTeamModel.overview(state(), periodKey());
       return (
@@ -323,7 +362,7 @@
         header(
           "目标管理",
           "按周期、对象、指标保存的目标值",
-          `${monthInput()}<button type="button" class="primary" data-team-target="new">新建目标</button>`,
+          `${monthInput()}${can("team.targets") ? '<button type="button" class="primary" data-team-target="new">新建目标</button>' : ""}`,
         ) + TU().targetsMarkup(T.listTargets(state()), T.periodLabel, armedTarget)
       );
     }
@@ -341,6 +380,7 @@
       }
     }
     function showTargetForm(metric) {
+      if (!need("team.targets")) return;
       const T = root.LaiTeamModel;
       // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
       const overview = T.overview(state(), periodKey());
@@ -365,6 +405,7 @@
     }
     // 删除需要点两次：第一次只把按钮变成「再点一次确认删除」。
     function removeTarget(key) {
+      if (!need("team.targets")) return;
       if (armedTarget !== key) {
         armedTarget = key;
         return render();
@@ -403,7 +444,7 @@
     // ---------- 商机：看板、表单、阶段流转、归档删除、生成订单、分析 ----------
     const OM = () => root.LaiOpportunityModel;
     let oppUI = null;
-    const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM()));
+    const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM(), can));
     const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "", analysisFlow: "" };
     // 商机设置页：当前页签、销售流程页当前看的流程，以及等待再次确认删除的那一项（"flow:ID"、"stage:ID"、"reasons:名称"、"types:名称" 或 "cf:ID"）。
     const flowView = { tab: "flows", flow: "default", armed: "" };
@@ -426,14 +467,14 @@
     };
     function renderOpportunities() {
       const today = B.localDate();
-      const board = OM().board(state(), oppView.filters, today);
-      const context = { owners: OM().ownerNames(state()), today };
+      const board = OM().board(scoped(), oppView.filters, today);
+      const context = { owners: OM().ownerNames(scoped()).filter(sees), today };
       return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
     }
     function renderOppAnalysis() {
       const T = root.LaiTeamModel;
       const months = oppView.range === "month" ? [month] : oppView.range === "quarter" ? T.periodMonths(T.quarterOf(month)) : null;
-      const report = OM().analysis(state(), { months, currency: oppView.analysisCurrency, flow: oppView.analysisFlow }, B.localDate());
+      const report = OM().analysis(scoped(), { months, currency: oppView.analysisCurrency, flow: oppView.analysisFlow }, B.localDate());
       const label = months ? T.periodLabel(months.length > 1 ? T.quarterOf(month) : month) : "全部时间";
       const range = (id, text) => `<button type="button" data-opp-range="${id}" aria-pressed="${oppView.range === id}">${text}</button>`;
       return (
@@ -466,6 +507,7 @@
         return false;
       });
     function setAction(d) {
+      if (!need("settings.opportunity")) return;
       const action = d.setAction, key = d.key, kind = d.list;
       const here = `[data-set-action="${action}"][data-key="${cssEscape(key)}"]`;
       if (action === "up" || action === "down") {
@@ -498,6 +540,7 @@
     }
     // 设置页里输入框、勾选框、选项框的修改：改完马上保存；没保存成功就把控件恢复成已保存的样子。
     function setChange(input) {
+      if (!need("settings.opportunity")) return;
       const d = input.dataset;
       if (d.setRename) {
         const kind = d.setRename, key = d.key;
@@ -540,6 +583,7 @@
         return false;
       });
     function flowAction(d) {
+      if (!need("settings.opportunity")) return;
       const action = d.flowAction,
         key = action === "flow-remove" ? "flow:" + d.flow : "stage:" + d.stage;
       if (action === "stage-up" || action === "stage-down") {
@@ -571,7 +615,10 @@
     }
     const oppItem = (id) => OM().list(state()).find((item) => item.id === id);
     const oppCard = (id) => OM().cardOf(state(), id, B.localDate());
+    // 商机不归当前账号负责（角色只看本人时）：提示一句，什么也不做。
+    const oppBlocked = (id) => notYours(oppItem(id));
     function openOppForm(id, client = "") {
+      if (!need(id === undefined ? "opp.create" : "opp.edit") || (id !== undefined && oppBlocked(id))) return;
       let next;
       if (id === undefined) {
         // 新建时默认放进看板当前正在看的那个流程的第一个阶段。
@@ -661,6 +708,7 @@
       }
     }
     function showOppMenu(id) {
+      if (oppBlocked(id)) return;
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       ctx.dialog(E(card.name), OU().menuMarkup(card, oppArmed === id), '<button type="button" data-action="close-modal">关闭</button>', "opp-menu");
@@ -678,16 +726,18 @@
       drawerEl.style.cssText += `;left:${at.left}px;top:${at.top}px;right:auto;max-height:${at.maxHeight}px`;
     }
     function showOppLost(id) {
+      if (!need("opp.edit") || oppBlocked(id)) return;
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       ctx.dialog("移到输单", OU().lostMarkup(card, OM().lostReasons(state())), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
     }
     const nextOrderNumber = () => {
       const defaults = state().laiSettings || state().orderSettings || {};
-      return (defaults.orderPrefix || "L") + B.localDate().replaceAll("-", "") + "-" + String(activeOrders().length + 1).padStart(3, "0");
+      return (defaults.orderPrefix || "L") + B.localDate().replaceAll("-", "") + "-" + String(allOrders().length + 1).padStart(3, "0");
     };
     // 赢单商机生成订单：打开现有的订单表单并预填，保存订单时同时把订单记到商机上。
     function orderFromOpp(id) {
+      if (!need("order.create") || oppBlocked(id)) return;
       const item = oppItem(id);
       if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       const card = oppCard(id);
@@ -710,9 +760,13 @@
         return render();
       }
       if (action === "move") return moveOpp(d.id, d.stage, "opp-menu-error");
-      if (action === "archive") return saveNext(() => OM().setArchived(state(), d.id, d.archived === "1"), "opp-menu-error", oppDone);
+      if (action === "archive") {
+        if (!need("opp.archive") || oppBlocked(d.id)) return;
+        return saveNext(() => OM().setArchived(state(), d.id, d.archived === "1"), "opp-menu-error", oppDone);
+      }
       if (action === "order") return orderFromOpp(d.id);
       if (action === "delete") {
+        if (!need("opp.delete") || oppBlocked(d.id)) return;
         if (oppArmed !== d.id) {
           oppArmed = d.id;
           return showOppMenu(d.id);
@@ -748,6 +802,7 @@
       return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents }, attachView);
     }
     function showOppDetail(id) {
+      if (oppBlocked(id)) return;
       const detail = OM().detailOf(state(), id, B.localDate());
       if (!detail) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       Object.assign(attachView, { id, renaming: "", armed: "", preview: "", busy: false });
@@ -755,7 +810,7 @@
       ctx.dialog(
         E(detail.name),
         detailBody(id),
-        `<button type="button" data-action="close-modal">关闭</button><button type="button" data-opp-action="menu" data-id="${E(id)}">更多操作</button><button class="primary" type="button" data-opp-action="edit" data-id="${E(id)}">编辑商机</button>`,
+        `<button type="button" data-action="close-modal">关闭</button><button type="button" data-opp-action="menu" data-id="${E(id)}">更多操作</button>${can("opp.edit") ? `<button class="primary" type="button" data-opp-action="edit" data-id="${E(id)}">编辑商机</button>` : ""}`,
         "opp-detail",
       );
       hydratePreview();
@@ -797,6 +852,7 @@
       if (fileUrls.length) try { await oppCall("/api/opportunity-file/delete", { fileUrls }); } catch (_) {}
     }
     async function uploadFiles(fileList) {
+      if (!need("opp.edit")) return;
       const id = attachView.id;
       if (!id || attachView.busy) return;
       const files = [...(fileList || [])];
@@ -844,6 +900,7 @@
     }
     function attachAction(d, form) {
       const id = attachView.id, action = d.attachAction;
+      if ((action === "save" && !need("opp.fileDownload")) || (action === "delete" && !need("opp.fileDelete")) || (action === "rename" && !need("opp.edit"))) return;
       if (action !== "delete") attachView.armed = "";
       const entry = OM().attachmentsOf(oppItem(id)).find((item) => item.id === d.att);
       attachError("");
@@ -892,8 +949,10 @@
     }
     // drop：拖放才有，{before}；没有 drop 参数就是菜单／键盘的普通移动。
     function moveOpp(id, stage, errorId, drop) {
+      if (!need("opp.edit")) return;
       const item = oppItem(id);
       if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      if (notYours(item)) return;
       const current = OM().stageOf(state(), item).id;
       if (drop && current === stage && !manualSort()) return ctx.toast("当前不是「手动排序」，不能调整卡片的先后。想自己排顺序，请先把右上角的排序改成「手动排序」");
       if (current === stage && !drop) return;
@@ -970,7 +1029,7 @@
     // ---------- 线索：列表、新建／编辑、写跟进、转为客户、标记无效、回收站 ----------
     const LD = () => root.LaiLeadModel;
     let leadUI = null;
-    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD()));
+    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD(), can));
     const leadView = { filters: {}, limit: 0 };
     // leadDraft：正在新建或编辑的线索；leadArmed：回收站里等待再次确认彻底删除的那一条。
     let leadDraft = null,
@@ -978,15 +1037,20 @@
     const onLeadPage = () => route === "leads" || route === "lead-trash";
     function renderLeads() {
       const today = B.localDate();
-      const page = LD().page(state(), leadView.filters, today);
+      const page = LD().page(scoped(), leadView.filters, today);
       return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
     }
     function renderLeadTrash() {
       const today = B.localDate();
-      return header("线索回收站", "移入回收站的线索可以恢复，也可以彻底删除", '<button type="button" data-lead-action="list-page">返回线索列表</button>') + LU().trashMarkup(LD().trash(state(), today), leadArmed, today);
+      return header("线索回收站", "移入回收站的线索可以恢复，也可以彻底删除", '<button type="button" data-lead-action="list-page">返回线索列表</button>') + LU().trashMarkup(LD().trash(scoped(), today), leadArmed, today);
     }
+    // 线索不归当前账号负责（角色只看本人时）：提示一句，什么也不做。
+    const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
+    // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
+    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.delete" };
     const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(state()) });
     function openLeadForm(id) {
+      if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
       let next;
       if (id === undefined) next = { id: crypto.randomUUID(), isNew: true, values: LD().defaults(state()) };
       else {
@@ -1008,12 +1072,14 @@
     }
     // 打开线索详情；focusFollow 为真时光标直接落在「写跟进」里。
     function showLead(id, focusFollow = false) {
+      if (leadBlocked(id)) return;
       const row = LD().detail(state(), id, B.localDate());
       if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
       ctx.dialog(E(row.name), LU().detailMarkup(row, B.localDate()), '<button type="button" data-action="close-modal">关闭</button>', "business-lead-detail");
       if (focusFollow) document.querySelector?.('#lead-follow-form textarea[name="text"]')?.focus?.({ preventScroll: true });
     }
     function openLeadConvert(id) {
+      if (!need("lead.convert") || leadBlocked(id)) return;
       const row = LD().detail(state(), id, B.localDate());
       if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
       let values;
@@ -1045,6 +1111,8 @@
     };
     function leadAction(d) {
       const action = d.leadAction;
+      if (Object.hasOwn(LEAD_NEED, action) && !need(LEAD_NEED[action])) return;
+      if (d.id && leadBlocked(d.id)) return;
       if (action !== "delete") leadArmed = "";
       if (action === "new") return openLeadForm();
       if (action === "edit") return openLeadForm(d.id);
@@ -1085,7 +1153,7 @@
     // ---------- 产品：列表、分组、同步、字段、规格、布局 ----------
     const PM = () => root.LaiProductModel;
     let productUI = null;
-    const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM()));
+    const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM(), can));
     const prodView = { tab: "list", search: "", group: "", editing: null, armed: "", layoutEdit: "" };
     let prodDraft = null;
     let syncDraft = null;
@@ -1110,7 +1178,7 @@
     function openProductDetail(id) {
       const product = PM().find(state(), id);
       if (!product) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
-      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" data-action="close-modal">关闭</button><button class="primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>`, "business-product");
+      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" data-action="close-modal">关闭</button>${can("product.edit") ? `<button class="primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>` : ""}`, "business-product");
     }
     // ---- 从表格同步：选文件 → 预览 → 确认 → 记一条任务（可撤销）----
     function syncRefresh() {
@@ -1126,7 +1194,7 @@
       document.querySelector("#overlay-root .drawer")?.classList.add("prod-sync-dialog");
     }
     async function readSyncFile(file) {
-      if (!syncDraft) return;
+      if (!syncDraft || !need("product.sync")) return;
       const draft = syncDraft;
       try {
         if (!file || !/\.(csv|xls|xlsx)$/i.test(file.name)) throw new Error("请选择 XLS、XLSX 或 UTF-8 CSV 文件");
@@ -1214,6 +1282,7 @@
       if (kind === "field-hide") return prodSave(() => PM().hideLayoutField(state(), id, d.key));
     }
     function layoutSelect(el) {
+      if (!need("settings.product")) return render();
       const d = el.dataset;
       if (!el.value) return;
       const value = el.value;
@@ -1224,8 +1293,11 @@
       if (d.prodSel === "move") return prodSave(() => PM().moveFieldToSection(state(), d.layout, d.key, Number(value))).then(done);
       if (d.prodSel === "show") return prodSave(() => PM().showLayoutField(state(), d.layout, d.key, Number(value))).then(done);
     }
+    // 每个产品操作要的权限；产品的分组、字段、规格、布局是产品设置，要 settings.product（见 productClick）。
+    const PROD_NEED = { new: "product.create", edit: "product.edit", delete: "product.delete", "sync-open": "product.sync", "sync-template": "product.sync", "sync-commit": "product.sync", "sync-undo": "product.sync" };
     function productAction(d) {
       const action = d.prodAction;
+      if (Object.hasOwn(PROD_NEED, action) && !need(PROD_NEED[action])) return;
       if (action !== "delete" && action !== "sync-undo") prodView.armed = "";
       if (action === "new") return openProductForm();
       if (action === "edit") return openProductForm(d.id);
@@ -1251,6 +1323,8 @@
       }
     }
     function productClick(d) {
+      if (d.prodTab && d.prodTab !== "list" && !need(d.prodTab === "sync" ? "product.sync" : "settings.product")) return;
+      if ((d.prodLay || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove) && !need("settings.product")) return;
       if (d.prodTab) {
         prodView.tab = d.prodTab;
         prodView.editing = null;
@@ -1278,6 +1352,7 @@
       if (d.prodValueRemove) return prodSave(() => PM().removeSpecValue(state(), d.prodValueRemove, d.value));
     }
     function productSubmit(form) {
+      if (!need("settings.product")) return;
       const kind = form.dataset.prodForm, data = Object.fromEntries(new FormData(form));
       const text = (key) => String(data[key] || "");
       return prodSave(() => {
@@ -1297,6 +1372,7 @@
       const data = Object.fromEntries(new FormData(form));
       const specs = Object.entries(data).filter(([key, value]) => key.startsWith("spec:") && value).map(([key, value]) => ({ type: key.slice(5), value }));
       const { id } = prodDraft;
+      if (!need(id === undefined ? "product.create" : "product.edit")) return;
       // 布局里没放进表单的字段，保留原来的内容，不当成清空。
       const previous = id === undefined ? null : PM().find(state(), id);
       const shown = new Set(PM().formSections(state()).flatMap((sec) => sec.fields.map((item) => item[0])));
@@ -1313,7 +1389,7 @@
     // ---------- 单据模板：报价单、形式发票、销售订单、发货通知 ----------
     const DM = () => root.LaiDocTemplateModel;
     let docUI = null;
-    const DU = () => docUI || (docUI = root.LaiDocTemplateUI.create(E, DM()));
+    const DU = () => docUI || (docUI = root.LaiDocTemplateUI.create(E, DM(), can));
     const docView = { tab: "quote", armed: "", armedVoid: "", rec: { type: "", query: "" } };
     const docToday = () => (B.localDate ? B.localDate() : "");
     function renderDocTemplates() {
@@ -1397,6 +1473,7 @@
       return false;
     }
     function docClick(d) {
+      if ((d.docAction === "reset" && !need("settings.docTemplate")) || (d.docAction === "void" && !need("doc.void"))) return;
       if (d.docAction !== "void") docView.armedVoid = "";
       if (d.docTab) {
         docView.tab = d.docTab;
@@ -1424,6 +1501,7 @@
       }
     }
     function docSubmit(form) {
+      if (!need("settings.docTemplate")) return;
       const data = Object.fromEntries(new FormData(form));
       docView.armed = "";
       if (form.dataset.docForm === "company") {
@@ -1487,7 +1565,7 @@
         old = state().orderSettings || {},
         theme = THEME_CHOICES.find(([id]) => id === settings.theme) || THEME_CHOICES[0];
       return root.LaiSettingsHub.markup(
-        { orderPrefix: settings.orderPrefix || old.orderPrefix || "L", currency: settings.defaultCurrency || old.defaultCurrency || "USD", themeName: theme[1], testData: Boolean(root.LaiWebTrial) },
+        { orderPrefix: settings.orderPrefix || old.orderPrefix || "L", currency: settings.defaultCurrency || old.defaultCurrency || "USD", themeName: theme[1], testData: Boolean(root.LaiWebTrial), can },
         E,
       );
     }
@@ -1656,7 +1734,7 @@
         settings: renderSettings,
         "settings-hub": renderSettingsHub,
       };
-      ctx.mount((views[route] || renderDashboard)());
+      ctx.mount(routeDenied(route) || (views[route] || renderDashboard)());
       if (route === "dashboard" && glassSkin()) loadWorkbenchMail();
       if (oppPosition) {
         const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
@@ -1672,14 +1750,17 @@
       }
     }
     function orderEditor(id, unsaved, returnCustomer = "", fromOpportunity = "") {
-      const old = activeOrders().find((o) => o.id === id);
+      const old = allOrders().find((o) => o.id === id);
       if (id !== undefined && !old) {
         ctx.toast("订单不存在，可能已移入回收站，请刷新列表后重试");
         return;
       }
+      // 新建要有“创建”权限；打开别人的订单不行；只能看不能改的，表单只读。
+      if (old ? notYours(old) : !need("order.create")) return;
+      const locked = !!old && !can("order.edit");
       const defaults = state().laiSettings || state().orderSettings || {},
         today = B.localDate();
-      draft = { id: id || crypto.randomUUID(), isNew: !old, returnCustomer };
+      draft = { id: id || crypto.randomUUID(), isNew: !old, returnCustomer, locked };
       if (fromOpportunity) draft.fromOpportunity = fromOpportunity;
       const o = unsaved ||
         old || {
@@ -1699,8 +1780,8 @@
       const field = (name, title, type = "text", wide = false) =>
         `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(shown[name] || "").slice(0, 10) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
       ctx.dialog(
-        old ? "编辑订单" : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div><div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div><div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
+        old ? (locked ? "订单详情" : "编辑订单") : "新建订单",
+        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>${can("doc.create") ? `<div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div>` : ""}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
           state().customers || {},
         )
           .filter(
@@ -1710,9 +1791,10 @@
           .join(
             "",
           )}</datalist>${old ? `<p class="muted tiny">已有历史与附件资料会保留。已发货 / 已完成按订单全额计已收款。</p>` : ""}</form>`,
-        `${old ? button("archive-order", "移入回收站", `data-id="${E(old.id)}"`) : ""}${button("close-editor", "取消")}<button class="primary" type="submit" form="biz-order-form">保存订单</button>`,
+        `${old && can("order.delete") ? button("archive-order", "移入回收站", `data-id="${E(old.id)}"`) : ""}${button("close-editor", locked ? "关闭" : "取消")}${locked ? "" : '<button class="primary" type="submit" form="biz-order-form">保存订单</button>'}`,
         "business-order",
       );
+      if (locked) document.querySelectorAll?.("#biz-order-form input,#biz-order-form select,#biz-order-form textarea").forEach((el) => (el.disabled = true));
     }
     // ---------- 订单产品明细（从产品库选）和由订单生成单据 ----------
     function orderItemsMarkup(currency) {
@@ -1727,13 +1809,13 @@
             .map((p) => `<option value="${E(p.id)}" ${p.id === item.productId ? "selected" : ""}>${E(p.name)}${p.code ? " · " + E(p.code) : ""}</option>`)
             .join("")}`;
           const unit = item.unit ? `（${E(item.unit)}）` : "";
-          return `<div class="order-item" data-item-row="${i}"><div class="order-item-top"><select data-item-product="${i}" aria-label="第 ${i + 1} 行产品">${choices}</select>${button("order-item-remove", "删除", `data-index="${i}" class="text-button"`)}</div><div class="order-item-nums"><label>数量${unit}<input data-item-field="qty" data-item-index="${i}" type="number" min="0" step="any" value="${E(item.qty ?? "")}"></label><label>单价<input data-item-field="price" data-item-index="${i}" type="number" min="0" step="0.01" value="${E(item.price ?? "")}"></label><span class="order-item-amount" data-item-amount="${i}">${money(Number(item.qty || 0) * Number(item.price || 0), currency)}</span></div></div>`;
+          return `<div class="order-item" data-item-row="${i}"><div class="order-item-top"><select data-item-product="${i}" aria-label="第 ${i + 1} 行产品">${choices}</select>${draft?.locked ? "" : button("order-item-remove", "删除", `data-index="${i}" class="text-button"`)}</div><div class="order-item-nums"><label>数量${unit}<input data-item-field="qty" data-item-index="${i}" type="number" min="0" step="any" value="${E(item.qty ?? "")}"></label><label>单价<input data-item-field="price" data-item-index="${i}" type="number" min="0" step="0.01" value="${E(item.price ?? "")}"></label><span class="order-item-amount" data-item-amount="${i}">${money(Number(item.qty || 0) * Number(item.price || 0), currency)}</span></div></div>`;
         })
         .join("");
       const table = items.length
         ? `<div class="order-items">${rows}</div><p class="order-items-total">合计 <strong data-items-total>${money(B.itemsTotal(items), currency)}</strong></p>`
         : '<p class="muted tiny">选了产品后，订单金额按明细自动合计。</p>';
-      return `${table}${products.length ? button("order-item-add", "＋ 添加产品") : ""}`;
+      return `${table}${products.length && !draft?.locked ? button("order-item-add", "＋ 添加产品") : ""}`;
     }
     const orderForm = () => document.getElementById("biz-order-form");
     function renderOrderItems() {
@@ -1840,6 +1922,7 @@
       return `<div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("oppdoc-save", "保存单据", "", true)}${button("oppdoc-print", "打印 / 存为 PDF")}</span></div><div class="error" id="opp-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这个商机的客户、币种和关联产品（没有关联产品就用商机金额）。点“保存单据”才会生成单据编号并记下来。</p>`;
     }
     function showOppDoc(id, type) {
+      if (!need("doc.create") || oppBlocked(id)) return;
       if (!DM() || !DM().TYPES.some(([t]) => t === type)) return;
       oppDoc = { id, type, saved: "" };
       if (!oppDocInput()) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
@@ -1854,6 +1937,7 @@
         return printDocument(saved ? saved.snapshot : oppDocPreview(input));
       }
       if (action === "oppdoc-save") {
+        if (!need("doc.create")) return;
         let result = null;
         return saveNext(
           () => {
@@ -1874,6 +1958,8 @@
     }
     function orderItemAction(action, d) {
       if (!draft?.items) return;
+      if (draft.locked && action.startsWith("order-item-")) return;
+      if ((action === "order-doc" || action === "order-doc-save") && !need("doc.create")) return;
       if (action === "order-item-add") {
         draft.items.push({ productId: "", code: "", name: "", model: "", unit: "", qty: 1, price: 0 });
         renderOrderItems();
@@ -1961,12 +2047,13 @@
         : null;
       ctx.dialog(
         "移入订单回收站",
-        `<div class="drawer-body"><p>归档 ${E(activeOrders().find((o) => o.id === id)?.num || "此订单")}？</p><div class="module-note">订单和客户资料保留，可从订单回收站恢复。</div><div id="biz-order-error" class="error" role="alert"></div></div>`,
+        `<div class="drawer-body"><p>归档 ${E(allOrders().find((o) => o.id === id)?.num || "此订单")}？</p><div class="module-note">订单和客户资料保留，可从订单回收站恢复。</div><div id="biz-order-error" class="error" role="alert"></div></div>`,
         `${button("cancel-archive", "返回编辑", `data-id="${E(id)}"`)}${button("confirm-archive", "确认归档", `data-id="${E(id)}"`, true)}`,
         "business-order",
       );
     }
     async function localAction(name) {
+      if (!need("settings.general")) return;
       const target = document.getElementById("biz-backup-status");
       if (target)
         target.textContent = name === "backup" ? "正在备份…" : "正在打开…";
@@ -2071,19 +2158,25 @@
       if (action === "order-trash") return ctx.navigate("order-trash");
       if (action === "new-task") return taskEditor();
       if (action === "close-editor") return finishEditor();
-      if (action === "archive-order") return archiveOrder(d.id);
+      if (action === "archive-order") {
+        if (!need("order.delete") || notYours(allOrders().find((o) => o.id === d.id))) return;
+        return archiveOrder(d.id);
+      }
       if (action.startsWith("oppdoc-")) return oppDocAction(action);
       if (action.startsWith("docrec-")) return docRecAction(action, d);
       if (action.startsWith("order-item-") || action.startsWith("order-doc")) return orderItemAction(action, d);
       if (action === "cancel-archive") return orderEditor(d.id, archiveDraft);
+      if (action === "confirm-archive" && !need("order.delete")) return;
       if (action === "confirm-archive")
         return saveNext(
           () => B.archiveOrder(state(), d.id),
           "biz-order-error",
           finishEditor,
         );
-      if (action === "restore-order")
+      if (action === "restore-order") {
+        if (!need("order.edit") || notYours((state().trashOrders || []).find((o) => o.id === d.id))) return;
         return saveNext(() => B.restoreOrder(state(), d.id), "", null);
+      }
       if (action === "prev" || action === "next") {
         page += action === "prev" ? -1 : 1;
         return render();
@@ -2111,6 +2204,7 @@
         return render();
       }
       if (action === "set-theme") {
+        if (!need("settings.general")) return;
         const id = d.themeId;
         if (!THEME_CHOICES.some(([themeId]) => themeId === id)) return;
         // 只存配色，不重画页面，免得丢掉「默认录入」里还没保存的修改；颜色由 persist() 写到 <html data-theme>。
@@ -2167,6 +2261,7 @@
     // 看板拖动：拖到另一列调整阶段，「手动排序」下还能在列内调整先后；拖到输单会先问原因。拖进来的文件放进详情里的附件区。
     document.addEventListener("dragstart", (e) => {
       const card = route === "opportunities" ? e.target.closest?.("[data-opp-id]") : null;
+      if (card && !can("opp.edit")) return e.preventDefault?.();
       oppDrag = card ? card.dataset.oppId : "";
       if (!card) return;
       e.dataTransfer?.setData("text/plain", oppDrag);
@@ -2240,12 +2335,14 @@
       if (route === "opp-flows" && ["setRename", "setField", "cfRename", "cfRequired", "cfOptions"].some((key) => e.target.dataset?.[key] !== undefined)) return setChange(e.target);
       // 改名没保存成功（空名、重名）时，输入框恢复成已保存的名称，提示留在页面上方。
       if (route === "opp-flows" && e.target.dataset?.flowRename) {
+        if (!need("settings.opportunity")) return;
         const input = e.target, id = input.dataset.flowRename;
         return saveFlow(() => OM().renameFlow(state(), id, input.value), "[data-flow-rename]").then((ok) => {
           if (!ok) input.value = OM().flowOf(state(), id).label;
         });
       }
       if (route === "opp-flows" && e.target.dataset?.stageRename) {
+        if (!need("settings.opportunity")) return;
         const input = e.target, flowId = input.dataset.flow, id = input.dataset.stageRename;
         return saveFlow(() => OM().renameFlowStage(state(), flowId, id, input.value), `[data-stage-rename="${cssEscape(id)}"]`).then((ok) => {
           if (!ok) input.value = OM().flowOf(state(), flowId).stages.find((stage) => stage.id === id)?.label ?? input.value;
@@ -2261,6 +2358,7 @@
       if (route === "products" && e.target.name === "prod-sync-mode") return syncMode(e.target.value);
       if (route === "products" && e.target.dataset?.prodSel) return layoutSelect(e.target);
       if (route === "products" && e.target.dataset?.prodField) {
+        if (!need("settings.product")) return render();
         const input = e.target, key = input.dataset.prodField;
         return saveNext(() => PM().setField(state(), key, { [input.dataset.prop]: input.checked }), "prod-error", () => undefined).then((ok) => {
           if (!ok) render();
@@ -2342,7 +2440,9 @@
       )
         return;
       e.preventDefault();
+      if (/^opp-(flow-add|stage-add-open|stage-add-won|stage-remove-form|reasons-add|types-add|cf-add)$/.test(form.id) && !need("settings.opportunity")) return;
       const data = Object.fromEntries(new FormData(form));
+      if (form.id === "opp-attach-rename" && !need("opp.edit")) return;
       if (form.id === "opp-attach-rename")
         return saveNext(
           () => OM().renameAttachment(state(), attachView.id, form.dataset.att, data.name),
@@ -2371,6 +2471,11 @@
       if (form.id === "lead-form") {
         if (!leadDraft) return;
         const { id, isNew } = leadDraft;
+        if (!need(isNew ? "lead.create" : "lead.edit")) return;
+        // 改跟进人要有“重新分配”权限；没有时跟进人必须和原来（新建时是默认跟进人）一样。
+        const lowered = (name) => String(name || "").trim().toLowerCase();
+        const was = isNew ? LD().defaults(state()).owner : LD().list(state()).find((entry) => entry.id === id)?.owner;
+        if (!can("lead.reassign") && lowered(data.owner) !== lowered(was)) return ctx.toast(RM().denied("lead.reassign"));
         // 和客户相同但设为「允许保存」：第一次点保存先提醒，内容没变再点一次才保存。
         const warn = LD().saveWarnings(state(), id, data, { mustExist: !isNew });
         if (warn.message && leadDraft.warned !== warn.message) {
@@ -2391,11 +2496,15 @@
           },
         );
       }
+      if (form.id === "lead-follow-form" && !need("lead.edit")) return;
+      if (form.id === "lead-convert-form" && !need("lead.convert")) return;
+      if (form.id === "lead-invalid-form" && !need("lead.edit")) return;
       if (form.id === "lead-follow-form") return saveNext(() => LD().addFollowup(state(), form.dataset.id, data), "lead-follow-error", leadSaved(form.dataset.id));
       if (form.id === "lead-convert-form") return saveNext(() => LD().convert(state(), form.dataset.id, data), "lead-convert-error", leadSaved(form.dataset.id));
       if (form.id === "lead-invalid-form") return saveNext(() => LD().markInvalid(state(), form.dataset.id, data), "lead-invalid-error", leadSaved(form.dataset.id));
       if (form.id === "opp-form") {
         if (!oppDraft) return;
+        if (!need(oppDraft.isNew ? "opp.create" : "opp.edit")) return;
         // 多选（商机来源、多选的自定义字段）和自定义字段的值：表单里的名字是 custom:字段ID，这里收成 data.custom。
         const custom = { ...(data.custom || {}) };
         for (const key of Object.keys(data)) if (key.startsWith("custom:")) { custom[key.slice(7)] = data[key]; delete data[key]; }
@@ -2405,6 +2514,10 @@
           else data[group.dataset.multi] = picked;
         }
         if (Object.keys(custom).length) data.custom = custom;
+        // 改负责人要有“转移负责人”权限；没有时负责人必须和原来（新建时是默认负责人）一样。
+        const owner = (name) => String(name || "").trim().toLowerCase();
+        const was = oppDraft.isNew ? OM().defaults(state(), B.localDate()).owner : oppItem(oppDraft.id)?.owner;
+        if (!can("opp.transfer") && owner(data.owner) !== owner(was)) return ctx.toast(RM().denied("opp.transfer"));
         return saveNext(
           () => OM().upsert(state(), oppDraft.id, data, { mustExist: !oppDraft.isNew }),
           "opp-error",
@@ -2414,12 +2527,14 @@
           },
         );
       }
+      if (form.id === "opp-lost-form" && !need("opp.edit")) return;
       if (form.id === "opp-lost-form")
         return saveNext(
           () => OM().moveStage(state(), form.dataset.id, "lost", data),
           "opp-lost-error",
           oppDone,
         );
+      if (form.id === "biz-target-form" && !need("team.targets")) return;
       if (form.id === "biz-target-form")
         return saveNext(
           () => root.LaiTeamModel.setTarget(state(), data),
@@ -2427,6 +2542,7 @@
           () => ctx.closeDialog(),
         );
       if (form.id === "biz-order-form") {
+        if (!need(draft?.isNew ? "order.create" : "order.edit")) return;
         data.isDraft = form.elements.isDraft.checked;
         data.items = draft.items || [];
         return saveNext(
@@ -2449,6 +2565,7 @@
           finishEditor,
         );
       }
+      if (!need("settings.general")) return;
       return saveNext(
         () => ({
           ...state(),
