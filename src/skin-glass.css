@@ -320,8 +320,8 @@
 /* ===== 全部订单页（设计画布 Orders.dc.html；markup 在 src/orders-page.js）===== */
 :root[data-skin="glass"] .main:has(.op-page) { overflow: auto; }
 :root[data-skin="glass"] .op-page { display: flex; flex-direction: column; gap: 10px; min-height: 100%; font-size: 12px; color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .op-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 2px 4px 0; }
-:root[data-skin="glass"] .op-top h1 { margin: 0; font-size: 18px; font-weight: 700; }
+:root[data-skin="glass"] .op-top { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 10px; box-sizing: border-box; height: 60px; margin-bottom: -10px; padding: 0; }
+:root[data-skin="glass"] .op-top h1 { margin: 0; font-size: 18px; line-height: 28px; font-weight: 700; }
 :root[data-skin="glass"] .op-sub { font-size: 12px; color: var(--text-muted); }
 :root[data-skin="glass"] .op-top-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 :root[data-skin="glass"] .op-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
@@ -339,8 +339,11 @@
 :root[data-skin="glass"] .op-legend { margin-left: auto; }
 :root[data-skin="glass"] .op-scroll { flex: 1 1 auto; overflow-x: auto; overflow-y: auto; }
 :root[data-skin="glass"] .op-money { white-space: nowrap; }
-:root[data-skin="glass"] .op-table { min-width: 1120px; display: flex; flex-direction: column; }
-:root[data-skin="glass"] .op-grid, :root[data-skin="glass"] .op-row { display: grid; grid-template-columns: 104px minmax(0,1.4fr) 62px 112px 112px 112px 108px 62px 52px minmax(0,1.3fr) 82px; gap: 10px; align-items: center; padding: 7px 12px; }
+/* 产品、跟进人两格：太长时用省略号收住（鼠标移上去看全文），不撑乱整行 */
+:root[data-skin="glass"] .op-row > span:nth-child(3) { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+:root[data-skin="glass"] .op-row > span:nth-child(9) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .op-table { min-width: 1064px; display: flex; flex-direction: column; }
+:root[data-skin="glass"] .op-grid, :root[data-skin="glass"] .op-row { display: grid; grid-template-columns: 92px minmax(110px,1.4fr) 56px 96px 96px 96px 100px 56px 46px minmax(140px,1.3fr) 76px; gap: 8px; align-items: center; padding: 7px 10px; }
 :root[data-skin="glass"] .op-head { background: #faf7f9; font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--ink-100); }
 :root[data-skin="glass"] .op-row { min-height: 44px; padding-top: 4px; padding-bottom: 4px; border-top: 1px solid var(--ink-100); }
 :root[data-skin="glass"] .op-row:hover { background: #fcf8fa; }
@@ -386,7 +389,7 @@
 }
 :root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-head, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-head { height: 48px; padding: 0 14px; }
 :root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-head h2, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-head h2 { font-size: 14px; font-weight: 700; }
-:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-body, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-body { padding: 12px 14px; }
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-body, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-body { padding: 12px 14px 64px; }
 :root[data-skin="glass"] .overlay:has(#biz-order-form) .form-grid, :root[data-skin="glass"] .overlay:has(#opp-form) .form-grid { grid-template-columns: 1fr; gap: 10px; }
 :root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-footer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-footer { height: 54px; padding: 0 14px; gap: 8px; }
 :root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: 364px; }

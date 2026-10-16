@@ -585,6 +585,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 预览文字在客户标签前面就用省略号收住，不被标签直接盖掉 */
+.mail-row:has(.mail-customer-chip) .mail-row-snippet {
+  padding-right: 164px;
+}
 .mail-list.wide .mail-row-main {
   padding: 12px 20px 12px 14px;
 }

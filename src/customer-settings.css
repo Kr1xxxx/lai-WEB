@@ -52,6 +52,9 @@
 .cs-layout-pic.large-left i:last-child { flex: 1; }
 .cs-layout-card.active .cs-layout-pic i { background: var(--color-primary-100); }
 .cs-group-form .cs-field input { max-width: 100%; }
+/* 新建产品抽屉：分组标题和第一项之间留空；产品分组下拉和其他输入框一样宽。 */
+.cs-group-form > fieldset.cs-field > legend { margin-bottom: 14px; }
+.cs-group-form .cs-field button.lai-select-trigger { width: 100%; max-width: none; }
 .cs-section { margin: 0 0 24px; padding-top: 16px; border-top: 1px solid var(--ink-100, #eff0f3); }
 .cs-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
 .cs-section h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }

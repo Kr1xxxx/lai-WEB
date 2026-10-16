@@ -2400,6 +2400,8 @@ td.team-reached {
 .theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }
 
 /* 订单产品明细和由订单生成的单据。订单表单是右侧一张窄卡，明细一行一张小卡；打开单据预览时卡片变宽。 */
+/* 抽屉底部的按钮栏高 64，表单底部留出同样的空白，滚到底时最后一项不会被压住。 */
+#biz-order-form.drawer-body, #opp-form.drawer-body { padding-bottom: 64px; }
 #biz-order-form .order-items { display: grid; gap: 8px; }
 #biz-order-form .order-item { border: 1px solid var(--line, #e5e7eb); border-radius: 10px; padding: 8px; display: grid; gap: 6px; }
 #biz-order-form .order-item-top { display: flex; align-items: center; gap: 8px; }
