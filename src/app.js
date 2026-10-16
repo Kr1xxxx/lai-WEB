@@ -207,35 +207,111 @@
     });
     return { res, result: await res.json().catch(() => ({})) };
   }
+  // 自动备份：保存后由本机服务排队备份。备份没成功时在页面底部提示，可以点「重试」；不显示原始的英文错误。
+  let backupWarning = false;
+  let backupStatusTimer = null, backupStatusGeneration = 0;
+  function scheduleBackupStatus(result, generation) {
+    if (!result.pending) return;
+    const delay = Math.max(1000, Math.min(60000, (Number(result.nextAttemptAt) || Date.now() + 60000) - Date.now() + 250));
+    backupStatusTimer = setTimeout(async () => {
+      backupStatusTimer = null;
+      try {
+        const response = await fetch("/api/backup-status", { cache: "no-store" });
+        if (!response.ok) throw new Error("backup status unavailable");
+        const data = await response.json();
+        if (!data.backup) throw new Error("backup status unavailable");
+        if (generation === backupStatusGeneration) updateBackupNotice(data.backup);
+      } catch (_) {
+        if (generation === backupStatusGeneration) scheduleBackupStatus({ pending: true, nextAttemptAt: Date.now() + 60000 }, generation);
+      }
+    }, delay);
+  }
+  function updateBackupNotice(result) {
+    if (!result) return;
+    if (backupStatusTimer !== null) clearTimeout(backupStatusTimer);
+    backupStatusTimer = null;
+    scheduleBackupStatus(result, ++backupStatusGeneration);
+    if (result.ok === false) backupWarning = true;
+    else if (!result.skipped) backupWarning = false;
+    let notice = document.getElementById("backup-warning");
+    if (!backupWarning) { if (notice) notice.hidden = true; return; }
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.id = "backup-warning";
+      notice.className = "backup-warning";
+      notice.setAttribute("role", "alert");
+      notice.innerHTML = '<span>自动备份没有成功，数据已保存。</span><button type="button">重试</button>';
+      document.body.appendChild(notice);
+      notice.querySelector("button").addEventListener("click", async () => {
+        const button = notice.querySelector("button");
+        button.disabled = true;
+        try {
+          const response = await fetch("/api/manual-backup", { method: "POST" });
+          const backup = await response.json();
+          updateBackupNotice(backup);
+          toast(backup.ok ? "备份已完成" : "备份还是没有成功，请稍后再试");
+        } catch (_) { toast("备份还是没有成功，请稍后再试"); }
+        finally { button.disabled = false; }
+      });
+    }
+    notice.hidden = false;
+  }
+  // 版本冲突（别处先保存了）：取最新数据；这次改动碰到的客户、订单、设置都没被别处改过时，
+  // 把改动套到最新数据上返回，由调用处再存一次；否则告诉用户是哪些被改了，正在填的表单不关。
+  async function rebaseAfterConflict(diff) {
+    const generic = "数据刚在别处更新过，这次的修改还没有保存。请核对后再保存。";
+    const response = await fetch("/api/data", { cache: "no-store" });
+    if (!response.ok) throw new Error(generic);
+    const payload = await response.json();
+    if (!payload.data || !Array.isArray(payload.data.orders) || !payload.data.customers || !Number.isInteger(payload.revision))
+      throw new Error(generic);
+    const result = diff ? M.rebaseChanges(savedSnapshot, diff.changes, payload.data) : { ok: false, conflicts: [] };
+    adoptServerState(payload.data, payload.revision);
+    rebuildRows();
+    if (result.ok) return result.data;
+    const names = [...new Set(result.conflicts.map((item) =>
+      item.kind === "customer" ? `客户「${item.name}」` : item.kind === "order" ? `订单「${item.num}」` : item.kind === "orderList" ? "订单列表" : item.kind === "lookups" ? "物流查询记录" : "设置"))];
+    if (!names.length) throw new Error(generic);
+    throw new Error(`数据已发生变化：${names.slice(0, 3).join("、")}${names.length > 3 ? "等" : ""}刚在别处改过，你的修改还没有保存。已载入最新内容，请核对后再保存。`);
+  }
   async function persist(next, importLog = null) {
     if (pending) throw new Error("上一项修改正在保存，请稍候");
     status("正在保存…");
     pending = (async () => {
-      const diff = savedSnapshot ? M.diffState(savedSnapshot, next) : null;
-      let sent = null;
-      if (diff && diff.empty && !importLog) {
-        sent = { res: { ok: true, status: 200 }, result: { ok: true, revision } };
-      } else if (diff) {
-        sent = await postJson("/api/save-changes", {
-          changes: diff.changes,
-          baseRevision: revision,
-          ...(importLog ? {importLog} : {}),
-        });
-        // 只传改动没走通（旧版服务、核对没过）时，退回整包保存；版本冲突不退回。
-        if ([400, 404, 422, 500].includes(sent.res.status)) sent = null;
+      const send = async (data) => {
+        const diff = savedSnapshot ? M.diffState(savedSnapshot, data) : null;
+        let sent = null;
+        if (diff && diff.empty && !importLog) {
+          sent = { res: { ok: true, status: 200 }, result: { ok: true, revision } };
+        } else if (diff) {
+          sent = await postJson("/api/save-changes", {
+            changes: diff.changes,
+            baseRevision: revision,
+            ...(importLog ? {importLog} : {}),
+          });
+          // 只传改动没走通（旧版服务、核对没过）时，退回整包保存；版本冲突不退回。
+          if ([400, 404, 422, 500].includes(sent.res.status)) sent = null;
+        }
+        if (!sent) {
+          sent = await postJson("/api/save", {
+            state: { app: "laicai-lai", version: APP_VERSION, data },
+            baseRevision: revision,
+            ...(importLog ? {importLog} : {}),
+          });
+        }
+        return { diff, ...sent };
+      };
+      let attempt = await send(next);
+      // 版本冲突只自动重试一次。
+      if (attempt.res.status === 409) {
+        next = await rebaseAfterConflict(attempt.diff);
+        attempt = await send(next);
       }
-      if (!sent) {
-        sent = await postJson("/api/save", {
-          state: { app: "laicai-lai", version: APP_VERSION, data: next },
-          baseRevision: revision,
-          ...(importLog ? {importLog} : {}),
-        });
-      }
-      const { res, result } = sent;
+      const { res, result, diff } = attempt;
       if (!res.ok || !result.ok)
         throw new Error(
           res.status === 409
-            ? "数据已发生变化，请重新打开来财后再编辑。"
+            ? "数据刚在别处更新过，这次的修改还没有保存。请稍后再保存一次。"
             : result.message || result.error || "保存失败，请重试",
         );
       state = next;
@@ -243,7 +319,8 @@
       savedSnapshot = diff ? diff.snapshot : M.snapshotState(next);
       applyTheme(state.laiSettings?.theme);
       rebuildRows();
-      status("已保存到来财");
+      updateBackupNotice(result.backup);
+      status(backupWarning ? "已保存 · 自动备份没有成功" : "已保存到来财", backupWarning);
       return true;
     })();
     try {
@@ -2100,6 +2177,9 @@
       adoptServerState(payload.data, payload.revision);
       applyTheme(state.laiSettings?.theme);
       rebuildRows();
+      // 上次的自动备份没成功时，一打开就提示（网页试用版没有备份，不查）。
+      if (!window.LaiWebTrial)
+        fetch("/api/backup-status", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => updateBackupNotice(d?.backup)).catch(() => {});
       const initialCustomer = new URLSearchParams(location.search).get("customer");
       if (location.hash === "#favorites") await openFavorites();
       else await navigateApp(location.hash.slice(1) || "customers", initialCustomer, false);
