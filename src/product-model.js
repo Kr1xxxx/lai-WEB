@@ -180,6 +180,15 @@
     if(from!==to){
       const swap=v=>trim(v)===from?to:trim(v).startsWith(from+SEP)?to+trim(v).slice(from.length):null;
       next={...next,laiProducts:raw(next).map(p=>{const v=swap(p.group);return v===null?p:{...p,group:v};})};
+      // 导入记录里「撤销时要还原的旧样子」也跟着改名，撤销后分组不会指向已经不存在的名字。
+      if(Array.isArray(next.laiProductSyncTasks)&&next.laiProductSyncTasks.some(t=>t&&t.before&&Object.values(t.before).some(p=>p&&swap(p.group)!==null))){
+        next={...next,laiProductSyncTasks:next.laiProductSyncTasks.map(t=>{
+          if(!t||!t.before||typeof t.before!=='object')return t;
+          const before={};
+          for(const [pid,p] of Object.entries(t.before)){const v=p?swap(p.group):null;before[pid]=v===null?p:{...p,group:v};}
+          return {...t,before};
+        })};
+      }
     }
     return next;
   }
@@ -565,7 +574,8 @@
       if(!text)return;
       const key=lookup.get(norm(text))||lookup.get(bare(text));
       if(!key||roleHidden.has(key)){ignored.push(text);return;}
-      if(!config[key].visible){hidden.push(labelOf(key));return;}
+      // 产品编号隐藏时仍然读这一列，只用来对上已有的产品，不会写进产品里。
+      if(!config[key].visible&&key!=='code'){hidden.push(labelOf(key));return;}
       if(seen.has(key)){ignored.push(text);return;}
       seen.add(key);cols.push([key,index]);
     });
@@ -579,7 +589,7 @@
     });
     if(records.length>LIMITS.syncRows)throw new Error(`一次最多导入 ${LIMITS.syncRows} 行，这个文件有 ${records.length} 行`);
     if(!records.length)throw new Error('文件里没有产品数据');
-    return {records,columns:cols.map(c=>c[0]),ignored,hidden};
+    return {records,columns:cols.map(c=>c[0]).filter(key=>config[key].visible),ignored,hidden,matchOnly:cols.some(c=>c[0]==='code')&&!config.code.visible?['code']:[]};
   }
   const asRecord=(row,index)=>row&&row.values&&typeof row.values==='object'?{line:row.line||index+2,values:row.values}:{line:index+2,values:row||{}};
   // 先算一遍每行会怎样（预览和真正同步用同一份计算）：new 新建、update 更新、skip 跳过。
@@ -615,7 +625,13 @@
         if(v.length>(type==='area'?LIMITS.description:LIMITS.text)){skip(`${label}太长`);continue;}
         values[key]=v;
       }
-      const code=trim(values.code),codeKey=norm(code);
+      // 产品编号隐藏时，只拿来对上已有的产品，不写进产品。
+      let code=trim(values.code);
+      if(!code&&!config.code.visible){
+        const v=trim(rec.values.code);
+        if(v.length>LIMITS.text)skip('产品编号太长');else code=v;
+      }
+      const codeKey=norm(code);
       let target=null;
       if(!reason&&code){
         if(fileCodes.has(codeKey))skip(`产品编号和第 ${fileCodes.get(codeKey)} 行重复`);
@@ -679,14 +695,21 @@
     if(task.status==='已撤销')throw new Error('这次导入已经撤销过了');
     if(undoableTask(state).id!==task.id)throw new Error('只能撤销最近一次导入，请先撤销它后面的导入');
     const created=new Set(task.createdIds||[]),before=task.before||{};
-    let removed=0,restored=0,kept=0;
+    let removed=0,restored=0,kept=0,groupCleared=0;
+    const groups=new Set(groupChoices(state));
     const list=[];
     for(const p of raw(state)){
       if(created.has(p.id)){if(p.updatedAt===task.at){removed++;continue;}kept++;list.push(p);continue;}
-      if(Object.hasOwn(before,p.id)){if(p.updatedAt===task.at){restored++;list.push(before[p.id]);continue;}kept++;}
+      if(Object.hasOwn(before,p.id)){if(p.updatedAt===task.at){
+        restored++;
+        const old=before[p.id];
+        // 旧分组后来被删了：还原时清掉分组，免得产品指向不存在的分组。
+        if(trim(old.group)&&!groups.has(trim(old.group))){groupCleared++;list.push({...old,group:''});}else list.push(old);
+        continue;
+      }kept++;}
       list.push(p);
     }
-    const done={...task,status:'已撤销',undoneAt:at,createdIds:[],before:{},result:{removed,restored,kept}};
+    const done={...task,status:'已撤销',undoneAt:at,createdIds:[],before:{},result:{removed,restored,kept,...(groupCleared?{groupCleared}:{})}};
     return {state:{...state,laiProducts:list,laiProductSyncTasks:tasks.map(t=>t.id===task.id?done:t)},task:done,result:done.result};
   }
 
