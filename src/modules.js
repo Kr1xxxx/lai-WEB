@@ -68,6 +68,8 @@ function moveCustomers(state,names,target,time=new Date().toISOString(),opts={})
  }
  return {...state,customers};
 }
+// 太短的电话（不足 6 位数字）和不像邮箱的内容不拿来查重，免得“-”“无”之类被当成重复。
+const looksLikeEmail=value=>/^[^@\s]+@[^@\s]*\.[^@\s.][^@\s]*$/.test(value);
 function findDuplicates(state,dedupe){
  const extras=[['customerCode','客户编号'],['landline','座机'],['socialAccount','社交账号'],['website','公司网址'],['shortName','简称'],['companyAddress','详细地址'],['alibabaId','Alibaba会员ID']].filter(([key])=>dedupe&&(dedupe[key]==='allow'||dedupe[key]==='block'));
  const index=new Map();
@@ -94,8 +96,8 @@ function findDuplicates(state,dedupe){
    ...contacts.flatMap(item=>(Array.isArray(item?.additionalPhones)?item.additionalPhones:[]).map(phone=>[phone?.phone,phone?.phoneCountryCode])),
   ];
   const values=[
-   ...new Set(emails.map(value=>String(value??'').trim().toLowerCase()).filter(Boolean).map(value=>'email:'+value)),
-   ...new Set(phones.map(([phone,code])=>phoneKey(phone,code)).filter(Boolean).map(value=>'phone:'+value)),
+   ...new Set(emails.map(value=>String(value??'').trim().toLowerCase()).filter(looksLikeEmail).map(value=>'email:'+value)),
+   ...new Set(phones.filter(([phone])=>String(phone??'').replace(/\D/g,'').length>=6).map(([phone,code])=>phoneKey(phone,code)).filter(Boolean).map(value=>'phone:'+value)),
   ];
   for(const [key] of extras){const v=String(c[key]??'').trim().toLowerCase();if(v)values.push(key+':'+v);}
   for(const value of values){if(value==='email:'||value==='phone:')continue;const members=index.get(value)||new Set();members.add(name);index.set(value,members);}

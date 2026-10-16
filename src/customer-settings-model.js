@@ -454,9 +454,9 @@ function limitFor(state, owner) {
   return Object.hasOwn(caps.perOwner, who) ? caps.perOwner[who] : caps.defaultLimit;
 }
 function ownerCount(state, owner, exclude = []) {
-  const who = trim(owner);
+  const who = trim(owner).toLowerCase();
   const skip = new Set(exclude);
-  return Object.entries(profiles(state)).filter(([name, p]) => !skip.has(name) && bucketOf(p) === "active" && ownerOf(p) === who).length;
+  return Object.entries(profiles(state)).filter(([name, p]) => !skip.has(name) && bucketOf(p) === "active" && ownerOf(p).toLowerCase() === who).length;
 }
 // adding：要新增给这位跟进人的客户数。0 表示不限。
 function assertCanTake(state, owner, adding = 1, exclude = []) {
