@@ -150,7 +150,8 @@ test('mapped import preserves existing fields, skips duplicates by default and c
 });
 
 test('import never merges a different company only because a contact email matches', () => {
-  const state={orders:[],customers:{Acme:{email:'sales@acme.test'}}};
+  // 邮箱判重默认是“允许保存”；这里按“不允许保存”测（判重按客户设置，S1 修复 4）
+  const state={orders:[],customers:{Acme:{email:'sales@acme.test'}},laiSettings:{customerSettings:{dedupe:{email:'block'}}}};
   const parsed={headers:['公司名称','邮箱'],rows:[['Other','sales@acme.test']]};
   const out=I.applyImport?.(state,parsed,{name:0,email:1},{destination:'active',duplicate:'update'});
   assert.deepEqual(out?.result,{created:0,updated:0,skipped:1});
@@ -158,7 +159,7 @@ test('import never merges a different company only because a contact email match
 });
 
 test('import reports skipped rows and stores a local record even when all rows are skipped', () => {
-  const state={orders:[],customers:{Acme:{email:'sales@acme.test'}}};
+  const state={orders:[],customers:{Acme:{email:'sales@acme.test'}},laiSettings:{customerSettings:{dedupe:{email:'block'}}}};
   const parsed={headers:['公司名称','邮箱'],rows:[
     ['Acme','sales@acme.test'],
     ['Other','sales@acme.test'],
@@ -168,7 +169,7 @@ test('import reports skipped rows and stores a local record even when all rows a
   assert.deepEqual(out.result,{created:0,updated:0,skipped:2});
   assert.deepEqual(out.details,[
     {row:2,name:'Acme',status:'skipped',reason:'同名客户已存在'},
-    {row:3,name:'Other',status:'skipped',reason:'邮箱与其他客户重复'},
+    {row:3,name:'Other',status:'skipped',reason:'邮箱和已有客户「Acme」相同，不能保存'},
   ]);
   assert.equal(out.state.laiImportHistory.length,1);
   assert.deepEqual(out.state.laiImportHistory[0],{
