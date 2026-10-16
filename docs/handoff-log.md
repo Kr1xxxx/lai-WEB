@@ -4,6 +4,13 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-16 — Claude — Owner said 合并 for #15: brought main (#17, #18) into its branch (merge commit, tests green), merged
+  #15, `main` 892e284; web trial v1.08. Owner decisions recorded: pink default (D-008), D-022 company details / team data
+  scope / personal tasks, D-023 WhatsApp, D-024 Cloudflare later, D-025 audit before complex tasks. Settings audit (three
+  reviewers) → fixes S1 (客户设置 logic), S2a (customer pages), S2b (business pages), plus #15-area fixes (opportunity
+  required trap, stage labels, product import, member rename cascade, new permission keys); all merged here with main.
+  WhatsApp and six-feature audits done; plans kept locally in docs/whatsapp-plan.md and docs/next-features-plan.md;
+  model pieces built on local branches feat-wa-model, feat-wa-ui, feat-export-model, feat-field-model.
 - 2026-10-16 — Claude — Owner said 合并: merged #18 (data safety), `main` 9579f5c. Web trial v1.07 published from it (same new page).
   Owner asked whether every setting is finished and takes effect; a settings audit was started.
 - 2026-10-16 — Claude — Owner said 合并: merged #17 (polish pass), `main` 9df7d37. Restarted `claude/gallant-bell-0m7uzb` from it and
