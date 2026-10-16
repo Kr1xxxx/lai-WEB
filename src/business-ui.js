@@ -113,6 +113,9 @@
       `<button type="button" ${primary ? 'class="primary"' : ""} data-biz-action="${action}" ${extra}>${text}</button>`;
     const header = (title, description, actions = "") =>
       `<div class="pagebar"><div class="business-title"><h1>${title}</h1><span>${description}</span></div><div class="page-actions">${actions}</div></div>`;
+    // 列表页头的「导出」按钮：只有有对应导出权限的账号才看得到。
+    const exportButton = (kind) =>
+      root.LaiExportUI && can(`${kind}.export`) ? `<button type="button" data-export-kind="${kind}">导出</button>` : "";
     const openButton = (o) =>
       `<button class="company-link" data-biz-order="${E(o.id)}">${E(o.num || "未编号")}</button>`;
     const allOrders = () => state().orders || [];
@@ -281,6 +284,7 @@
             pages,
             trash: scoped().trashOrders || [],
             can,
+            exportable: !!root.LaiExportUI,
           },
           E,
         );
@@ -288,7 +292,7 @@
         header(
           "订单管理",
           `${activeOrders().length} 笔订单`,
-          button("order-trash", "订单回收站") +
+          exportButton("order") + button("order-trash", "订单回收站") +
             (can("order.create") ? button("new-order", "＋ 新建订单", "", true) : ""),
         ) +
         `<section class="business-section order-workspace"><div class="business-toolbar"><input class="business-search" id="biz-search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(search)}"><select id="biz-stage" aria-label="订单阶段">${option("", "全部阶段", stage)}${B.stages.map((s) => option(s.id, s.label, stage)).join("")}</select><select id="biz-currency" aria-label="订单币种">${option("", "全部币种", currency)}${[...new Set(activeOrders().map((o) => o.currency || "USD"))].map((c) => option(c, c, currency)).join("")}</select><select id="biz-period" aria-label="时间">${(root.LaiOrdersPage?.PERIODS || [["", "全部时间"]]).map(([v, t]) => option(v, t, period)).join("")}</select>${button("clear-filters", "清除筛选")}</div><div class="business-table-scroll" id="biz-order-scroll"><table class="order-table unified-orders"><thead><tr><th>订单编号</th><th>客户名称</th><th>国家地区</th><th>创建日期</th><th>产品</th><th>订单金额</th><th>已收款</th><th>阶段</th><th>物流单号</th><th>操作</th></tr></thead><tbody>${items.map((o) => `<tr><td>${openButton(o)}${o.isDraft ? '<span class="tag">草稿</span>' : ""}</td><td>${customerButton(o.client)}</td><td>${E(o.country || "—")}</td><td>${date(o.createdAt)}</td><td>${E(o.productType || "—")}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${money(["shipment", "done"].includes(o.stage) ? o.amount : o.paidAmount, o.currency || "USD")}</td><td><span class="tag stage-${E(o.stage)}">${E(label(o.stage))}</span></td><td>${E(o.trackingNumber || "—")}</td><td><button class="text-button" data-biz-order="${E(o.id)}">${can("order.edit") ? "查看 / 编辑" : "查看"}</button></td></tr>`).join("")}</tbody></table>${items.length ? "" : '<div class="empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>'}</div><footer class="pagination"><span>共 ${filtered.length} 笔订单</span><div class="pages">${button("prev", "‹", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${button("next", "›", page === pages ? "disabled" : "")}</div></footer></section>`
@@ -542,7 +546,7 @@
       const today = B.localDate();
       const board = OM().board(scoped(), { ...oppView.filters, hidden: oppHidden() }, today);
       const context = { owners: OM().ownerNames(scoped()).filter(sees), today };
-      return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
+      return header("商机", "按销售阶段跟进每一笔机会", exportButton("opp") + OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
     }
     function renderOppAnalysis() {
       const T = root.LaiTeamModel;
@@ -1116,7 +1120,7 @@
     function renderLeads() {
       const today = B.localDate();
       const page = LD().page(scoped(), leadView.filters, today, leadHidden());
-      return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
+      return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", exportButton("lead") + LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
     }
     function renderLeadTrash() {
       const today = B.localDate();
@@ -2341,8 +2345,36 @@
         ctx.toast(message);
       }
     }
+    // 导出：行来自页面上已经按账号范围筛好的列表（scoped()）；商机、线索的列走字段权限（自定义字段的权限键是 custom.<id>）。
+    function openExport(kind) {
+      if (!need(`${kind}.export`)) return;
+      const full = scoped(),
+        today = B.localDate(),
+        byIds = (items, shown) => {
+          const ids = new Set(shown.map((row) => row.id));
+          return items.filter((item) => ids.has(item.id));
+        },
+        fieldGate = (module) => ({ columnVisible: (id) => !RM() || RM().fieldVisible(state(), module, String(id).replace(/^custom:/, "custom.")) });
+      const setup = { order: () => ({ filtered: filteredOrders(), all: activeOrders() }),
+        opp: () => ({
+          filtered: byIds(full.laiOpportunities || [], OM().board(full, { ...oppView.filters, hidden: oppHidden() }, today).cards),
+          all: full.laiOpportunities || [],
+        }),
+        lead: () => ({
+          filtered: byIds(full.laiLeads || [], LD().page(full, leadView.filters, today, leadHidden()).rows),
+          all: (full.laiLeads || []).filter((lead) => lead && !lead.trashed),
+        }) }[kind];
+      if (!setup) return;
+      root.LaiExportUI?.open(kind, { state: full, can, toast: ctx.toast, dialog: ctx.dialog, closeDialog: ctx.closeDialog, denied: RM()?.denied,
+        scopes: setup(), gate: kind === "order" ? undefined : fieldGate(kind) });
+    }
     document.addEventListener("click", (e) => {
       if (extra()?.click?.(extraCtx(), e) === true) return;
+      {
+        const exportEl = e.target.closest("button[data-export-kind]"),
+          exportKind = exportEl?.dataset?.exportKind;
+        if (exportKind && exportKind !== "customer" && !exportEl.disabled) return openExport(exportKind);
+      }
       // 点卡片的空白处也打开详情（按钮、链接、输入框照常工作）。
       if (route === "opportunities" && !e.target.closest("button,a,input,select,textarea,label")) {
         const cardEl = e.target.closest(".opp-card");

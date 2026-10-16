@@ -762,6 +762,25 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "export",
+   "area": "data",
+   "description": "导出 (customer, order, opportunity and lead lists): 范围 / 列 / 格式 dialog, .xlsx and CSV download, own rows only for a 本人 account, hidden fields leave the file, web trial 复制表格",
+   "steps": [
+    "As the administrator open 客户列表: the 导出 button is next to 新建客户. Click it: 导出客户 shows 范围 (当前筛选结果 / 全部我能看到的 with counts), 列, 格式, the hint 表里有客户联系方式，请妥善保管。 and a preview of the first 5 rows",
+    "Tick one customer, click 导出: 已选的（1 条） is there and chosen; pick 全部字段 and 导出: a file 来财-客户-YYYYMMDD.xlsx downloads with a header row and 1 customer, toast 已导出 1 位客户",
+    "订单, 商机 and 线索 lists each have 导出; the order file has the sheets 订单 and 产品明细; choose CSV for 线索 and the file opens in Excel with correct Chinese",
+    "Switch to a 本人 account that has the export permissions: the files hold only that account's customers, orders, opportunities and leads",
+    "Switch to a role that hides 邮箱 and 电话 (customer), 邮箱 (lead) and 联系人 (opportunity): those columns are not in the preview or the file",
+    "Switch to 业务 without the export permission: no 导出 button on any of the four lists",
+    "In the web trial page: 导出 shows 网页试用版不能下载文件。 and 复制表格; click it and paste into a spreadsheet: tab-separated rows, no file is downloaded"
+   ],
+   "e2e": "export.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }
