@@ -110,7 +110,7 @@
       const choose=(name,title,current)=>`<label class="field">${E(title)}<select name="${E(name)}"${readOnly?' disabled':''}>${option('','跟随默认分配',readOnly?'':current)}${list.map(l=>option(l.id,l.name||l.id,readOnly?'':current)).join('')}</select></label>`;
       const note=readOnly?'系统管理员不可编辑，一律跟随默认分配。':'选了布局，这个角色的成员新建、编辑和查看产品时就用它；不选就跟着“产品 → 布局”里的默认分配。';
       return `<form id="role-layout-form" class="drawer-body role-layouts" data-role-form="layouts" novalidate><p class="role-hint">${E(note)}</p>`
-        +choose('form','新建/编辑产品用的布局',product.form||'')+choose('detail','产品详情用的布局',product.detail||'')+`</form>`;
+        +choose('form','新建/编辑产品用的布局',product.form||'')+choose('detail','产品详情用的布局',product.detail||'')+`<div class="error" id="role-layout-error" role="alert"></div></form>`;
     }
 
     // ---------- 新增角色 ----------

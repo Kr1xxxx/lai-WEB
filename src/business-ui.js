@@ -1773,6 +1773,14 @@
       if (kind === "layouts") {
         const draft = roleDraft(roleView.edit),
           pick = { form: data.form || "", detail: data.detail || "" };
+        try {
+          const PM = root.LaiProductModel;
+          if (PM?.checkRoleLayout) for (const place of ["form", "detail"]) PM.checkRoleLayout(state(), place, pick[place]);
+        } catch (error) {
+          const box = document.getElementById("role-layout-error");
+          if (box) box.textContent = error.message;
+          return true;
+        }
         draft.layouts = pick.form || pick.detail ? { product: pick } : {};
         ctx.closeDialog();
         return showLimitTags();
