@@ -380,8 +380,11 @@
         if (label) label.hidden = !shown[name];
       }
     }
+    let targetFormKey = "team.targets";
     function showTargetForm(metric) {
-      if (!need("team.targets")) return;
+      // 目标管理页要“目标管理”，目标完成情况里设置目标值要“编辑目标值”。
+      targetFormKey = route === "team-targets" ? "team.targets" : "team.goalEdit";
+      if (!need(targetFormKey)) return;
       const T = root.LaiTeamModel;
       // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
       const overview = T.overview(state(), periodKey());
@@ -419,7 +422,7 @@
     }
     // 把当前看到的成员排行榜导出为 Excel（与导入模板下载用同一种方式）。
     function exportBoard() {
-      if (!teamOverview) return;
+      if (!need("team.export") || !teamOverview) return;
       if (!root.XLSX) return ctx.toast("Excel 组件未加载，请重新打开来财");
       const workbook = root.XLSX.utils.book_new();
       root.XLSX.utils.book_append_sheet(workbook, root.XLSX.utils.aoa_to_sheet(TU().boardRows(teamOverview, teamView)), TU().tabLabels[teamView.tab] || "结果目标");
@@ -1153,6 +1156,8 @@
     }
     // ---------- 产品：列表、分组、同步、字段、规格、布局 ----------
     const PM = () => root.LaiProductModel;
+    // 订单里选产品：角色看不到的产品字段不带进订单明细。
+    const orderProducts = () => (PM() ? PM().list(state()).map((p) => PM().forRole(state(), p)) : []);
     let productUI = null;
     const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM(), can));
     const prodView = { tab: "list", search: "", group: "", editing: null, armed: "", layoutEdit: "" };
@@ -1773,7 +1778,7 @@
           client: returnCustomer,
           paidAmount: 0,
         };
-      draft.items = B.linkItems((Array.isArray(o.items) ? o.items : []).map((item) => ({ ...item })), PM() ? PM().list(state()) : []);
+      draft.items = B.linkItems((Array.isArray(o.items) ? o.items : []).map((item) => ({ ...item })), orderProducts());
       draft.doc = "";
       // 有产品明细时，订单金额和“产品”跟着明细走，不能手填。
       const shown = draft.items.length ? { ...o, amount: B.itemsTotal(draft.items), productType: B.itemsSummary(draft.items) } : o;
@@ -1798,7 +1803,7 @@
     }
     // ---------- 订单产品明细（从产品库选）和由订单生成单据 ----------
     function orderItemsMarkup(currency) {
-      const products = PM() ? PM().list(state()) : [];
+      const products = orderProducts();
       const items = draft?.items || [];
       if (!products.length && !items.length)
         return '<p class="muted tiny order-items-empty">还没有产品。先到 交易 → 产品 添加产品，就能在这里选；也可以直接在上面“产品”里写文字。</p>';
@@ -2316,7 +2321,7 @@
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
         const i = Number(e.target.dataset.itemProduct), old = draft.items[i], value = e.target.value;
         if (value === "__keep") return;
-        const product = value && PM() ? PM().find(state(), value) : null;
+        const product = value && PM() ? PM().forRole(state(), PM().find(state(), value)) : null;
         if (!product) draft.items[i] = { ...old, productId: "", code: "", name: "", model: "", unit: "" };
         else {
           const next = B.itemFromProduct(product, old.qty || 1);
@@ -2534,7 +2539,7 @@
           "opp-lost-error",
           oppDone,
         );
-      if (form.id === "biz-target-form" && !need("team.targets")) return;
+      if (form.id === "biz-target-form" && !need(targetFormKey)) return;
       if (form.id === "biz-target-form")
         return saveNext(
           () => root.LaiTeamModel.setTarget(state(), data),

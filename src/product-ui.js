@@ -22,17 +22,21 @@
       const rows=M.list(state,{search:view.search,group:view.group});
       const total=M.list(state).length;
       const groups=M.groupChoices(state);
-      const toolbar=`<div class="opp-toolbar lead-toolbar"><input type="search" id="prod-search" value="${E(view.search||'')}" placeholder="搜索名称、编号、型号、备注" aria-label="搜索产品">`
-        +`<select id="prod-group" aria-label="产品分组"><option value="">全部分组</option>${groups.map(g=>option(g,g,view.group)).join('')}</select>`
+      // 角色看不到的字段：列、搜索提示、分组筛选都不出现。
+      const hidden=M.hiddenKeys?M.hiddenKeys(state):new Set();
+      const shows=key=>!hidden.has(key);
+      const hint=[['name','名称'],['code','编号'],['model','型号'],['remark','备注']].filter(([key])=>shows(key)).map(item=>item[1]).join('、');
+      const toolbar=`<div class="opp-toolbar lead-toolbar"><input type="search" id="prod-search" value="${E(view.search||'')}" placeholder="搜索${hint}" aria-label="搜索产品">`
+        +(shows('group')?`<select id="prod-group" aria-label="产品分组"><option value="">全部分组</option>${groups.map(g=>option(g,g,view.group)).join('')}</select>`:'')
         +`${can('product.create')?'<button type="button" class="primary" data-prod-action="new">新建产品</button>':''}</div>`;
       if(!total)return toolbar+empty(can('product.create')?'还没有产品。点“新建产品”添加；字段、分组、规格可以先在其他页签里设置。':'还没有产品。');
       if(!rows.length)return toolbar+empty('没有符合条件的产品，换个关键词或分组再看。');
       const body=rows.map(p=>{
         const armed=view.armed===p.id;
-        return `<tr><td><button type="button" class="company-link" data-prod-action="view" data-id="${E(p.id)}">${E(p.name)}</button>${p.nameCn?`<div class="cs-use">${E(p.nameCn)}</div>`:''}</td><td>${E(p.code||'—')}</td><td>${E(p.model||'—')}</td><td>${E(p.group||'未分组')}</td><td>${p.fob?E(p.fob):'—'}</td><td>${E(p.unit||'—')}</td><td>${E(day(p.updatedAt))}</td>`
+        return `<tr><td><button type="button" class="company-link" data-prod-action="view" data-id="${E(p.id)}">${E(p.name)}</button>${p.nameCn&&shows('nameCn')?`<div class="cs-use">${E(p.nameCn)}</div>`:''}</td><td>${E(p.code||'—')}</td>${shows('model')?`<td>${E(p.model||'—')}</td>`:''}${shows('group')?`<td>${E(p.group||'未分组')}</td>`:''}${shows('fob')?`<td>${p.fob?E(p.fob):'—'}</td>`:''}${shows('unit')?`<td>${E(p.unit||'—')}</td>`:''}<td>${E(day(p.updatedAt))}</td>`
           +`<td><span class="cs-row-actions">${can('product.edit')?`<button type="button" data-prod-action="edit" data-id="${E(p.id)}">编辑</button>`:''}${can('product.delete')?`<button type="button" data-prod-action="delete" data-id="${E(p.id)}">${armed?'确定删除':'删除'}</button>`:''}</span></td></tr>`;
       }).join('');
-      return toolbar+`<table class="cs-table cs-prod"><thead><tr><th>产品名称</th><th>产品编号</th><th>产品型号</th><th>产品分组</th><th>离岸价</th><th>计量单位</th><th>更新</th><th>操作</th></tr></thead><tbody>${body}</tbody></table>`
+      return toolbar+`<table class="cs-table cs-prod"><thead><tr><th>产品名称</th><th>产品编号</th>${shows('model')?'<th>产品型号</th>':''}${shows('group')?'<th>产品分组</th>':''}${shows('fob')?'<th>离岸价</th>':''}${shows('unit')?'<th>计量单位</th>':''}<th>更新</th><th>操作</th></tr></thead><tbody>${body}</tbody></table>`
         +`<p class="cs-hint">共 ${rows.length} 个产品${rows.length!==total?`（全部 ${total} 个）`:''}。${can('product.delete')?'删除后不能恢复。':''}</p>`;
     }
     // ---- 产品分组 ----
@@ -113,10 +117,12 @@
       const assign=section('布局分配','决定新建/编辑产品和产品详情各用哪个布局。',`<div class="pl-assign">${M.PLACES.map(([place,label])=>`<label class="cs-field"><span>${E(label)}</span><select data-prod-sel="use" data-place="${place}" aria-label="${E(label)}用的布局">${list.map(l=>option(l.id,l.name,s.layoutUse[place])).join('')}</select></label>`).join('')}</div>`);
       const rows=list.map(l=>{
         const places=M.placesOf(state,l.id);
+        const roles=M.rolesUsing?M.rolesUsing(state,l.id):[];
+        const roleText=roles.map(r=>`${r.roleName}（${r.places.join('、')}）`).join('；');
         const renaming=edit&&edit.kind==='layout'&&edit.key===l.id;
         const head=renaming
           ?`<form class="cs-inline" data-prod-form="layout-rename" data-id="${E(l.id)}"><input name="name" value="${E(l.name)}" maxlength="20" aria-label="布局名称" autocomplete="off"><button type="submit" class="primary">保存</button><button type="button" data-prod-cancel>取消</button></form>`
-          :`<strong>${E(l.name)}</strong>${l.builtin?'<span class="cs-chip">内置</span>':''}<span class="cs-use">${places.length?`用于：${E(places.join('、'))}`:'没有地方在用'}</span><span class="cs-row-actions"><button type="button" data-prod-lay="open" data-layout="${E(l.id)}">${l.builtin?'查看':'编辑'}</button><button type="button" data-prod-lay="copy" data-layout="${E(l.id)}">${l.builtin?'复制为新布局':'复制'}</button>${l.builtin?'':`<button type="button" data-prod-edit="layout" data-key="${E(l.id)}">改名</button><button type="button" data-prod-lay="delete" data-layout="${E(l.id)}">删除</button>`}</span>`;
+          :`<strong>${E(l.name)}</strong>${l.builtin?'<span class="cs-chip">内置</span>':''}<span class="cs-use">${places.length?`用于：${E(places.join('、'))}`:(roles.length?'':'没有地方在用')}${roles.length?`${places.length?'；':''}<span data-prod-layout-roles="${E(l.id)}">角色：${E(roleText)}</span>`:''}</span><span class="cs-row-actions"><button type="button" data-prod-lay="open" data-layout="${E(l.id)}">${l.builtin?'查看':'编辑'}</button><button type="button" data-prod-lay="copy" data-layout="${E(l.id)}">${l.builtin?'复制为新布局':'复制'}</button>${l.builtin?'':`<button type="button" data-prod-edit="layout" data-key="${E(l.id)}">改名</button><button type="button" data-prod-lay="delete" data-layout="${E(l.id)}">删除</button>`}</span>`;
         return `<li class="cs-group"><div class="cs-row${view.layoutEdit===l.id?' pl-open':''}">${head}</div></li>`;
       }).join('');
       const listing=section('布局列表',`最多 ${M.LIMITS.layouts} 个自己建的布局。默认布局不能改，要改先复制。`,`<form class="cs-add" data-prod-form="layout-add"><input name="name" placeholder="新布局名称（从默认布局开始）" maxlength="20" aria-label="新布局名称" autocomplete="off"><button type="submit" class="primary">新建布局</button></form><ul class="cs-list cs-tree">${rows}</ul>`);
@@ -159,24 +165,29 @@
     // ---- 新建／编辑产品 ----
     function formMarkup(state,values,isNew){
       const config=M.settings(state).fields;
+      // 角色不能改的字段（只读）：输入框不能动；保存时产品模块会把原来的值留着，所以不在表单里也不会丢。
+      const locked=M.lockedKeys?M.lockedKeys(state,!isNew):new Set();
       const one=([key,label,,type])=>{
         const star=config[key].required?'<span class="ce-required" aria-hidden="true">*</span>':'';
         const v=values[key]??'';
+        const off=locked.has(key)?' disabled title="你的角色不能修改这一项"':'';
         let input;
-        if(type==='area')input=`<textarea name="${key}" rows="3" maxlength="${M.LIMITS.description}"${config[key].required?' required':''}>${E(v)}</textarea>`;
+        if(type==='area')input=`<textarea name="${key}" rows="3" maxlength="${M.LIMITS.description}"${config[key].required?' required':''}${off}>${E(v)}</textarea>`;
         else if(type==='group'){
           const choices=M.groupChoices(state);
           if(v&&!choices.includes(v))choices.push(v);
-          input=`<select name="group"${config[key].required?' required':''}><option value="">未分组</option>${choices.map(g=>option(g,g,v)).join('')}</select>`;
-        }else input=`<input name="${key}" value="${E(v)}"${type==='number'?' inputmode="decimal"':''} maxlength="${M.LIMITS.text}" autocomplete="off"${config[key].required?' required':''}>`;
-        return `<label class="cs-field"><span>${star}${E(label)}</span>${input}</label>`;
+          input=`<select name="group"${config[key].required?' required':''}${off}><option value="">未分组</option>${choices.map(g=>option(g,g,v)).join('')}</select>`;
+        }else input=`<input name="${key}" value="${E(v)}"${type==='number'?' inputmode="decimal"':''} maxlength="${M.LIMITS.text}" autocomplete="off"${config[key].required?' required':''}${off}>`;
+        return `<label class="cs-field"><span>${star}${E(label)}${locked.has(key)?' <span class="cs-use">（只读）</span>':''}</span>${input}</label>`;
       };
       const blocks=M.formSections(state).map(sec=>`<fieldset class="cs-field"><legend>${E(sec.name)}</legend>${sec.fields.map(one).join('')}</fieldset>`).join('');
       const specs=M.settings(state).specs;
       const chosen=Array.isArray(values.specs)?values.specs:[];
-      const specBlock=specs.length?`<fieldset class="cs-field"><legend>规格</legend>${specs.map(s=>{
+      const specsHidden=M.hiddenKeys&&M.hiddenKeys(state).has('specs');
+      const specOff=locked.has('specs')?' disabled title="你的角色不能修改这一项"':'';
+      const specBlock=specs.length&&!specsHidden?`<fieldset class="cs-field"><legend>规格</legend>${specs.map(s=>{
         const current=(chosen.find(c=>c.type===s.name)||{}).value||'';
-        return `<label class="cs-field"><span>${E(s.name)}</span><select name="spec:${E(s.name)}"><option value="">不选</option>${s.values.map(v=>option(v,v,current)).join('')}</select></label>`;
+        return `<label class="cs-field"><span>${E(s.name)}${specOff?' <span class="cs-use">（只读）</span>':''}</span><select name="spec:${E(s.name)}"${specOff}><option value="">不选</option>${s.values.map(v=>option(v,v,current)).join('')}</select></label>`;
       }).join('')}</fieldset>`:'';
       return `<form id="product-form" class="drawer-body cs-group-form"><div class="error" id="product-error" role="alert"></div>${blocks}${specBlock}</form>`;
     }
@@ -187,7 +198,7 @@
         if(!items.length)return '';
         return `<section class="pd-section"><h3>${E(sec.name)}</h3><dl class="pd-list">${items.map(([key,label,,type])=>`<div class="pd-item${type==='area'?' pd-wide':''}"><dt>${E(label)}</dt><dd>${E(product[key]??'')}</dd></div>`).join('')}</dl></section>`;
       }).join('');
-      const specs=Array.isArray(product.specs)?product.specs:[];
+      const specs=M.hiddenKeys&&M.hiddenKeys(state).has('specs')?[]:(Array.isArray(product.specs)?product.specs:[]);
       const specBlock=specs.length?`<section class="pd-section"><h3>规格</h3><dl class="pd-list">${specs.map(s=>`<div class="pd-item"><dt>${E(s.type)}</dt><dd>${E(s.value)}</dd></div>`).join('')}</dl></section>`:'';
       return `<div class="drawer-body pd-body" data-prod-detail="${E(product.id)}">${sections}${specBlock}<p class="cs-hint">更新于 ${E(day(product.updatedAt))}</p></div>`;
     }
