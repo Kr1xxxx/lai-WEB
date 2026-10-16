@@ -1,5 +1,11 @@
 (function (root) {
   "use strict";
+  // 页面登记处：后面的模块（导出、汇率、线索设置、任务设置、功能开关……）把自己的页面登记在这里，
+  // 不用改这个文件。root.LaiExtraPages[路由] = { title, render(c), afterRender(c), click(c, e), input(c, e), change(c, e), submit(c, e) }。
+  // c 是页面用的 ctx：原来的 ctx（getState、save、toast、dialog、escape……）再加 state()、can(key)、need(key)、sees(owner)、
+  // scoped()、route()、refresh()。render 返回页面的 HTML（由这里放进主区域）；页面自己已经放好时返回别的值。
+  // click / input / change / submit 返回 true 表示已处理。路由对应的权限仍在 role-model.js 的 PAGE_PERMS 里。
+  root.LaiExtraPages = root.LaiExtraPages || {};
   function create(ctx) {
     const B = root.LaiBusinessModel,
       E = ctx.escape;
@@ -25,6 +31,14 @@
     const can = (key) => !RM() || RM().can(state(), key);
     const need = (key) => can(key) || (ctx.toast(RM().denied(key)), false);
     const sees = (owner) => !RM() || RM().canSee(state(), owner);
+    // 登记的页面：只在当前真的停在业务页面时才算（客户页、邮件页上不转发事件）。
+    const extra = (name = route) => {
+      const pages = root.LaiExtraPages;
+      if (!pages || !Object.hasOwn(pages, name) || Object.hasOwn(builtinViews(), name) || (ctx.isActive && !ctx.isActive())) return null;
+      const page = pages[name];
+      return page && typeof page === "object" ? page : null;
+    };
+    const extraCtx = () => ({ ...ctx, state, can, need, sees, scoped, route: () => route, refresh: () => render() });
     const notYours = (item) => !!item && !sees(item.owner) && (ctx.toast("这条记录不归你负责"), true);
     let scopeMemo = null,
       dashMemo = null;
@@ -1918,6 +1932,32 @@
       }
       return false;
     }
+    // 自带的页面。登记处（LaiExtraPages）里的页面不能盖掉它们。
+    const builtinViews = () => ({
+      dashboard: renderDashboard,
+      "order-list": renderOrders,
+      "order-trash": renderOrderTrash,
+      analysis: renderAnalysis,
+      "team-goals": renderGoals,
+      "team-targets": renderTargets,
+      "team-wall": renderWall,
+      "team-assets": () => renderTeam("assets"),
+      "team-followups": () => renderTeam("followups"),
+      "team-tasks": () => renderTeam("tasks"),
+      "team-orders": () => renderTeam("orders"),
+      opportunities: renderOpportunities,
+      "opp-analysis": renderOppAnalysis,
+      "opp-flows": renderOppFlows,
+      leads: renderLeads,
+      "lead-trash": renderLeadTrash,
+      products: renderProducts,
+      "doc-templates": renderDocTemplates,
+      roles: renderRoles,
+      members: renderMembers,
+      calendar: renderCalendar,
+      settings: renderSettings,
+      "settings-hub": renderSettingsHub,
+    });
     function render(preserveOrderScroll = false) {
       const previous = preserveOrderScroll && route === "order-list"
         ? document.getElementById("biz-order-scroll") : null;
@@ -1928,32 +1968,13 @@
         ? { page: document.querySelector?.(".opp-page"), board: document.querySelector?.(".opp-board") } : null;
       const oppPosition = oppScroll?.page ? { top: oppScroll.page.scrollTop, left: oppScroll.board?.scrollLeft || 0 } : null;
       settingsDirty = false;
-      const views = {
-        dashboard: renderDashboard,
-        "order-list": renderOrders,
-        "order-trash": renderOrderTrash,
-        analysis: renderAnalysis,
-        "team-goals": renderGoals,
-        "team-targets": renderTargets,
-        "team-wall": renderWall,
-        "team-assets": () => renderTeam("assets"),
-        "team-followups": () => renderTeam("followups"),
-        "team-tasks": () => renderTeam("tasks"),
-        "team-orders": () => renderTeam("orders"),
-        opportunities: renderOpportunities,
-        "opp-analysis": renderOppAnalysis,
-        "opp-flows": renderOppFlows,
-        leads: renderLeads,
-        "lead-trash": renderLeadTrash,
-        products: renderProducts,
-        "doc-templates": renderDocTemplates,
-        roles: renderRoles,
-        members: renderMembers,
-        calendar: renderCalendar,
-        settings: renderSettings,
-        "settings-hub": renderSettingsHub,
-      };
-      ctx.mount(routeDenied(route) || (views[route] || renderDashboard)());
+      const views = builtinViews();
+      const denied = routeDenied(route);
+      const extraPage = !denied && !views[route] ? extra() : null;
+      let html = denied;
+      if (!html) html = extraPage && typeof extraPage.render === "function" ? extraPage.render(extraCtx()) : (views[route] || renderDashboard)();
+      if (typeof html === "string") ctx.mount(html);
+      if (extraPage && typeof extraPage.afterRender === "function") extraPage.afterRender(extraCtx());
       if (route === "dashboard" && glassSkin()) loadWorkbenchMail();
       if (oppPosition) {
         const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
@@ -2299,6 +2320,7 @@
       }
     }
     document.addEventListener("click", (e) => {
+      if (extra()?.click?.(extraCtx(), e) === true) return;
       // 点卡片的空白处也打开详情（按钮、链接、输入框照常工作）。
       if (route === "opportunities" && !e.target.closest("button,a,input,select,textarea,label")) {
         const cardEl = e.target.closest(".opp-card");
@@ -2454,6 +2476,7 @@
         return localAction(action);
     });
     document.addEventListener("input", (e) => {
+      if (extra()?.input?.(extraCtx(), e) === true) return;
       if (docInput(e, "input")) return;
       if (e.target.id === "biz-search") {
         search = e.target.value;
@@ -2550,6 +2573,7 @@
     });
     document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
+      if (extra()?.change?.(extraCtx(), e) === true) return;
       if (onRolePage() && roleChange(e)) return;
       if (docInput(e, "change")) return;
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
@@ -2660,6 +2684,7 @@
     });
     document.addEventListener("submit", (e) => {
       const form = e.target;
+      if (extra()?.submit?.(extraCtx(), e) === true) return;
       if (onRolePage() && form.dataset?.roleForm) {
         e.preventDefault();
         return roleSubmit(form);

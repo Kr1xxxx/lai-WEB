@@ -11,17 +11,18 @@
   const SCOPES=Object.freeze([['self','本人'],['dept','本部门'],['all','全公司']].map(item=>Object.freeze(item)));
   // 权限清单：[模块, [[key, 名称], ...]]。只列来财真有的功能。
   const GROUPS=Object.freeze([
-    ['线索',[['lead.view','查看'],['lead.create','创建'],['lead.edit','编辑'],['lead.delete','删除'],['lead.purge','彻底删除（回收站）'],['lead.reassign','重新分配'],['lead.convert','转为客户']]],
-    ['商机',[['opp.view','查看'],['opp.create','创建'],['opp.edit','编辑'],['opp.delete','删除'],['opp.transfer','转移负责人'],['opp.archive','商机归档'],['opp.fileDownload','下载文件'],['opp.fileDelete','删除文件']]],
-    ['客户',[['customer.view','查看'],['customer.create','创建'],['customer.edit','编辑'],['customer.reassign','重新分配'],['customer.removeOwner','移除跟进人'],['customer.unfollow','取消关注'],['customer.toPool','移入公海'],['customer.merge','合并客户'],['customer.batchFollow','批量写跟进'],['customer.duplicates','客户查重页面-查看'],['customer.trash','移入回收站'],['customer.import','导入客户']]],
+    ['线索',[['lead.view','查看'],['lead.create','创建'],['lead.edit','编辑'],['lead.delete','删除'],['lead.purge','彻底删除（回收站）'],['lead.reassign','重新分配'],['lead.convert','转为客户'],['lead.export','导出线索']]],
+    ['商机',[['opp.view','查看'],['opp.create','创建'],['opp.edit','编辑'],['opp.delete','删除'],['opp.transfer','转移负责人'],['opp.archive','商机归档'],['opp.fileDownload','下载文件'],['opp.fileDelete','删除文件'],['opp.export','导出商机']]],
+    ['客户',[['customer.view','查看'],['customer.create','创建'],['customer.edit','编辑'],['customer.reassign','重新分配'],['customer.removeOwner','移除跟进人'],['customer.unfollow','取消关注'],['customer.toPool','移入公海'],['customer.merge','合并客户'],['customer.batchFollow','批量写跟进'],['customer.duplicates','客户查重页面-查看'],['customer.trash','移入回收站'],['customer.import','导入客户'],['customer.export','导出客户']]],
     ['公海客户',[['pool.view','查看'],['pool.claim','移入私海（领取）'],['pool.assign','分配客户'],['pool.edit','编辑'],['pool.delete','删除']]],
-    ['订单',[['order.view','查看'],['order.create','创建'],['order.edit','编辑'],['order.delete','删除']]],
+    ['订单',[['order.view','查看'],['order.create','创建'],['order.edit','编辑'],['order.delete','删除'],['order.export','导出订单']]],
     ['产品',[['product.view','查看'],['product.create','创建'],['product.edit','编辑'],['product.delete','删除'],['product.sync','同步'],['product.codeNew','编辑产品编号（新建产品）'],['product.codeEdit','编辑产品编号（编辑产品）']]],
     ['单据',[['doc.create','生成并保存单据'],['doc.void','作废单据']]],
     ['目标与团队数据',[['team.view','查看团队数据'],['team.wall','查看团队墙'],['team.goalEdit','编辑目标值'],['team.targets','目标管理'],['team.export','导出成员排行']]],
     ['跟进动态',[['activity.view','查看']]],
     ['邮件',[['mail.view','查看'],['mail.send','写信和回复']]],
-    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模版设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理']]],
+    ['沟通',[['chat.view','查看聊天记录'],['chat.send','打开 WhatsApp 聊天和记聊天'],['chat.import','导入和撤销聊天记录'],['chat.template','管理聊天模板']]],
+    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模版设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理'],['settings.lead','线索设置'],['settings.rate','汇率设置'],['settings.task','任务设置'],['settings.switch','功能开关']]],
   ].map(([name,items])=>Object.freeze([name,Object.freeze(items.map(item=>Object.freeze(item)))])));
   const KEYS=Object.freeze(GROUPS.flatMap(([,items])=>items.map(([key])=>key)));
   const labelOf=key=>{for(const [group,items] of GROUPS){const hit=items.find(item=>item[0]===key);if(hit)return `${group}·${hit[1]}`;}return key;};
@@ -38,6 +39,7 @@
     'team.wall',
     'activity.view',
     'mail.view','mail.send',
+    'chat.view','chat.send','chat.import',
     'settings.source']);
   const DEPT_ADMIN='deptAdmin';
   // 部门管理员：照业务的权限，再加看团队数据、编辑目标值、重新分配客户；看本部门。小满有这个内置角色，具体勾选可以改。
@@ -433,7 +435,8 @@
     route:Object.freeze({leads:'lead.view','lead-trash':'lead.view',opportunities:'opp.view','opp-analysis':'opp.view','opp-flows':'settings.opportunity',
       'order-list':'order.view','order-trash':'order.view',products:'product.view','doc-templates':'settings.docTemplate',
       'team-goals':'team.view','team-targets':'team.targets','team-wall':'team.wall',analysis:'team.view','team-assets':'team.view','team-followups':'team.view','team-tasks':'team.view','team-orders':'team.view',
-      settings:'settings.general',roles:'settings.roles',members:'settings.roles'}),
+      settings:'settings.general',roles:'settings.roles',members:'settings.roles',
+      chats:'chat.view','chat-templates':'chat.template','lead-settings':'settings.lead',rates:'settings.rate','task-settings':'settings.task','feature-switch':'settings.switch'}),
     screen:Object.freeze({active:'customer.view',pool:'pool.view',duplicates:'customer.duplicates','customer-settings':'settings.customer'}),
     mail:'mail.view',
   });

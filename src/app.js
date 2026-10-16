@@ -3707,7 +3707,7 @@
       ["heart", "常用", null],
       ["grid", "工作台", "dashboard"],
       ["mail", "邮件", "mail"],
-      ["chat", "沟通", null],
+      ["chat", "沟通", "chats"],
       ["lead", "线索", "leads"],
       ["people", "客户", "customers"],
       ["globe", "商机", "opportunities"],
@@ -3996,7 +3996,7 @@
     if (!section) return "";
     section.entries = section.entries.filter(entryAllowed);
     if (!section.entries.length) return "";
-    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings" };
+    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", chats: "chat", "chat-templates": "note" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
@@ -4015,6 +4015,8 @@
   }
   // 业务页面的清单取自 rail-menu.js，与「可设为常用」同一份来源。
   const businessRoutes = new Set(RM.favoritable().filter((entry) => entry.kind === "route").map((entry) => entry.target));
+  // 其他模块登记的页面（window.LaiExtraPages，见 business-ui.js）：不在左侧栏里，但地址栏和页面内的链接可以打开。
+  const isBusinessRoute = (route) => businessRoutes.has(route) || (!!route && Object.hasOwn(window.LaiExtraPages || {}, route));
   async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
     // 离开邮件页时，正在写的信自动存成草稿；存不下来就留在原地。
     if (activeRoute === "mail" && mail?.composing() && !(await mail.leave())) return false;
@@ -4022,16 +4024,16 @@
     rememberCustomerListViewport();
     closeModal();
     // 「favorites」是列表为空时的「常用」页。
-    activeRoute = route === "mail" || route === "favorites" || businessRoutes.has(route) ? route : "customers";
+    activeRoute = route === "mail" || route === "favorites" || isBusinessRoute(route) ? route : "customers";
     favoritesMode = favorites || activeRoute === "favorites";
     // 「收起导航」只有客户页有恢复按钮；去别的页面时恢复显示，否则二级导航会藏起来又没处可点。
     if (activeRoute !== "customers") $("#app").classList.remove("nav-collapsed");
     currentName = "";
     history.replaceState(null, "", "#" + activeRoute);
     // 当前账号打不开的页面：显示原因，不显示页面。
-    const blockKey = activeRoute === "mail" ? R.pagePerm("mail") : businessRoutes.has(activeRoute) ? R.pagePerm("route", activeRoute) : null;
+    const blockKey = activeRoute === "mail" ? R.pagePerm("mail") : isBusinessRoute(activeRoute) ? R.pagePerm("route", activeRoute) : null;
     if (blockKey && !R.can(state, blockKey)) {
-      blockedPage(activeRoute === "mail" ? "邮件" : RM.entryById("route:" + activeRoute)?.label || "页面", R.denied(blockKey));
+      blockedPage(activeRoute === "mail" ? "邮件" : RM.entryById("route:" + activeRoute)?.label || window.LaiExtraPages?.[activeRoute]?.title || "页面", R.denied(blockKey));
       return true;
     }
     if (activeRoute === "customers") {
@@ -5540,6 +5542,8 @@
     openCustomer: (name) => navigateApp("customers", name),
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,
+    // 当前是不是业务页面（不是客户页、邮件页、常用页）：登记的页面只在这时收到点击和输入。
+    isActive: () => activeRoute !== "customers" && activeRoute !== "mail" && activeRoute !== "favorites",
     // 成员管理页换了账号或角色后，请整个界面按当前账号重画（左侧栏、二级导航、当前页面）。
     rerenderApp,
     // 成员管理页的“切换到此账号”：和头像菜单一样，清掉上个账号的筛选再重画。

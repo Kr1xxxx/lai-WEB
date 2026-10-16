@@ -12,20 +12,22 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + 邮件 6 + 沟通 2 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
   'route:leads', 'route:lead-trash',
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
   'route:dashboard',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
+  'route:chats', 'route:chat-templates',
   'route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates',
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
   'route:calendar', 'route:settings', 'route:settings-hub',
   'route:roles', 'route:members'
 ];
-const MENUS = ['客户', '线索', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '设置', '企业管理'];
-const RESERVED = ['沟通'];
+const MENUS = ['客户', '线索', '商机', '工作台', '邮件', '沟通', '交易', '团队数据', '协同', '设置', '企业管理'];
+// 沟通 became a real menu (WhatsApp, D-023); no menu is a pure placeholder any more. Leads keeps one reserved row.
+const RESERVED = [];
 
 // ---------------- 清单只有一份来源 ----------------
 test('every real entry of every menu is favoritable, in menu order; the reserved menus have nothing to favorite', () => {
@@ -437,6 +439,19 @@ test('reserved menus explain themselves, with no hearts; an empty 常用 flyout 
   hover(h, railItem('常用'));
   assert.match(h.flyout.innerHTML, /还没有常用导航。把鼠标移到导航条目上，点右侧的心形，就能加到常用。/);
   assert.doesNotMatch(h.flyout.innerHTML, /☆|★|收藏|data-flyout-kind/);
+});
+
+test('沟通 is a real menu (WhatsApp): the rail icon opens 聊天记录, the flyout lists both pages with hearts and no reserved notice', () => {
+  assert.deepEqual(RM.menuFor('沟通').map(r => [r.label, r.kind, r.target, r.id]), [['聊天记录', 'route', 'chats', 'route:chats'], ['聊天模板', 'route', 'chat-templates', 'route:chat-templates']]);
+  assert.match(app, /\["chat", "沟通", "chats"\]/);
+  assert.equal(RM.sectionFor('chats').label, '沟通');
+  assert.equal(RM.sectionFor('chat-templates').label, '沟通');
+  const h = harness({settings: undefined});
+  hover(h, railItem('沟通'));
+  assert.doesNotMatch(h.flyout.innerHTML, /功能入口已保留/);
+  assert.deepEqual(h.hearts('flyout').map(b => b.dataset.navFavorite), ['route:chats', 'route:chat-templates']);
+  assert.equal(RM.menuFor('线索').length, 2);
+  assert.deepEqual(RM.menuFor('Leads').map(r => r.kind), ['feature'], 'only Leads keeps a reserved row until its settings page lands');
 });
 
 test('the 常用 flyout lists the favorites of every kind, each with a lit heart', () => {
