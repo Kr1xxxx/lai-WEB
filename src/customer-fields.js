@@ -262,9 +262,11 @@
         ]
       : field === "level" ? row.displayLevel ?? row.level : row[field];
 
-  function globalCustomerSearch(rows = [], { field = "all", query = "" } = {}) {
+  function globalCustomerSearch(rows = [], { field = "all", query = "", hidden = null } = {}) {
     if (!active(query)) return [...rows];
     if (!globalSearchFields.some((item) => item.id === field)) return [];
+    // 角色看不到的字段不能拿来搜（选了那个字段就没有结果，搜“全部”时也跳过它）。
+    if (hidden && hidden.has(field)) return [];
     const fieldValues = (row) => ({
       nameOrShort: [row.name, row.shortName, row.abbreviation],
       note: [row.companyRemark],
@@ -281,7 +283,7 @@
     return rows.filter((row) => {
       const searchable = fieldValues(row);
       const candidates = field === "all"
-        ? Object.values(searchable).flat()
+        ? Object.entries(searchable).filter(([id]) => !(hidden && hidden.has(id))).flatMap(([, list]) => list)
         : searchable[field];
       return contains(candidates, query);
     });
@@ -413,8 +415,198 @@
     );
   }
 
+  // ---------- 角色字段权限 ----------
+  // 键 = 客户档案上存的属性名（编辑页的字段名）；联系人字段加前缀 contact.，对每位联系人都生效。
+  // 不在清单里（始终可编辑）：公司名称、国家地区、客户来源（新建必填）、跟进人（由“重新分配”管）、联系人昵称、下次跟进、各种时间和系统算出来的字段。
+  const roleCompanyFields = [
+    ["website", "公司网址"], ["tags", "客户标签"], ["previewGroup", "客户分组"], ["customerStage", "客户阶段"],
+    ["customerType", "客户类型"], ["customerStars", "客户星级"], ["customerCode", "客户编号"], ["level", "客户等级"],
+    ["timezone", "时区"], ["defaultPaymentPlan", "默认付款计划"], ["customerAccountPeriod", "客户账期"],
+    ["productType", "主营产品."], ["companyProducts", "主营产品"], ["cardStock", "卡纸"], ["customBox", "定制盒"],
+    ["shortName", "公司简称"], ["landline", "座机"], ["companyAddress", "详细地址"], ["companyRemark", "公司备注"],
+    ["note", "客户备注"], ["permanentNote", "客户永久备注"],
+  ];
+  const roleTradeFields = [["currency", "默认币种"], ["paymentMethod", "客户付款方式"], ["paymentEmail", "付款邮箱"], ["repurchaseCycle", "复购周期"]];
+  const roleContactFields = [
+    ["email", "邮箱"], ["phone", "联系电话"], ["socialAccount", "社交平台"], ["primaryContactMethod", "主要联系方式"],
+    ["alibabaId", "Alibaba会员ID"], ["address", "地址"], ["alternateEmail", "备用邮箱"], ["birthday", "生日"],
+    ["contactPaymentMethod", "付款方式"], ["contactNote", "联系人备注"],
+  ];
+  // 一个联系人字段在档案里实际存了哪些属性：主联系人在档案顶层，其他联系人在 extraContacts 的每一项里。
+  const contactStore = {
+    email: { primary: ["email"], extra: ["email"], list: "emails" },
+    phone: { primary: ["phone", "phoneCountryCode", "additionalPhones"], extra: ["phone", "phoneCountryCode", "additionalPhones"], list: "phones" },
+    socialAccount: { primary: ["socialPlatform", "socialAccount", "additionalSocialAccounts"], extra: ["socialPlatform", "socialAccount", "additionalSocialAccounts"] },
+    primaryContactMethod: { primary: ["primaryContactMethod"], extra: ["primaryContactMethod"] },
+    alibabaId: { primary: ["alibabaId"], extra: ["alibabaId"] },
+    address: { primary: ["address"], extra: ["address"], list: "addresses" },
+    alternateEmail: { primary: ["alternateEmail", "alternativeEmail", "backupEmail"], extra: ["alternateEmail", "alternativeEmail", "backupEmail"] },
+    birthday: { primary: ["birthday"], extra: ["birthday"] },
+    contactPaymentMethod: { primary: ["contactPaymentMethod"], extra: ["contactPaymentMethod", "paymentMethod"] },
+    contactNote: { primary: ["contactNote"], extra: ["contactNote"] },
+  };
+  const roleModel = () => {
+    if (root.LaiRoleModel) return root.LaiRoleModel;
+    try { return typeof require === "function" ? require("./role-model.js") : null; } catch (_) { return null; }
+  };
+  // 字段权限分“客户”和“公海客户”两套：档案在公海里按公海的，其余按客户的。
+  const moduleOf = (target) => target === "pool" || target === "customer" ? target : target && target.laiBucket === "pool" ? "pool" : "customer";
+  function roleFieldList(state, module) {
+    if (module !== "customer" && module !== "pool") return [];
+    return [
+      ...roleCompanyFields.map(([key, label]) => ({ key, label, group: "公司信息" })),
+      ...roleTradeFields.map(([key, label]) => ({ key, label, group: "交易偏好" })),
+      ...roleContactFields.map(([key, label]) => ({ key: "contact." + key, label, group: "联系人" })),
+    ];
+  }
+  // 列表列（id）→ 字段权限的键。没列出的列（公司名称、国家、跟进人、各种时间……）始终可见。
+  const columnRoleKeys = {
+    website: "website", tags: "tags", group: "previewGroup", stage: "customerStage", customerStars: "customerStars",
+    customerCode: "customerCode", level: "level", timezone: "timezone", productType: "productType", companyProducts: "companyProducts",
+    cardStock: "cardStock", customBox: "customBox", customerPaymentMethod: "paymentMethod",
+    email: "contact.email", phone: "contact.phone", socialPlatforms: "contact.socialAccount",
+    primaryContactMethod: "contact.primaryContactMethod", alibabaId: "contact.alibabaId", address: "contact.address",
+    alternativeEmail: "contact.alternateEmail", birthday: "contact.birthday", contactPaymentMethod: "contact.contactPaymentMethod",
+    contactNote: "contact.contactNote",
+  };
+  // 快捷筛选、筛选条件里用的字段 → 字段权限的键。
+  const filterRoleKeys = { email: "contact.email", tag: "tags", group: "previewGroup", customerGroup: "previewGroup", stage: "customerStage", customerStars: "customerStars", level: "level" };
+  // 全局搜索范围 → 字段权限的键。
+  const searchRoleKeys = { email: "contact.email", phone: "contact.phone", social: "contact.socialAccount", website: "website", customerCode: "customerCode", note: "companyRemark", shortName: "shortName" };
+  // 客户详情左侧“摘要字段”→ 字段权限的键。
+  const summaryRoleKeys = { stage: "customerStage", group: "previewGroup", customerStars: "customerStars", website: "website", productType: "productType", level: "level", companyProducts: "companyProducts" };
+  // 客户查重页：重复的是哪一项（邮箱、电话……）→ 字段权限的键。看不到的那一项，查重页也不列出。
+  const dupTypeRoleKeys = { 邮箱: "contact.email", 电话: "contact.phone", 客户编号: "customerCode", 座机: "landline", 社交账号: "contact.socialAccount", 公司网址: "website", 简称: "shortName", 详细地址: "companyAddress", "Alibaba会员ID": "contact.alibabaId" };
+  // 没有“跟进动态·查看”权限就不显示这两列（里面是动态内容）。
+  const activityColumns = new Set(["latestActivity", "latestFollowup"]);
+  // gate(state, "customer" | "pool" | 档案)：当前账号对客户字段的权限。系统管理员什么都能看、能改。
+  function gate(state, target) {
+    const R = roleModel();
+    const module = moduleOf(target);
+    const plain = !R || R.isAdmin(state);
+    const level = (key) => plain ? "edit" : R.fieldLevel(state, module, key);
+    const visible = (key) => level(key) !== "hidden";
+    const editable = (key) => level(key) === "edit";
+    const canActivity = plain || R.can(state, "activity.view");
+    const columnVisible = (id) => (!columnRoleKeys[id] || visible(columnRoleKeys[id])) && (canActivity || !activityColumns.has(id));
+    const idsHidden = (map) => new Set(Object.keys(map).filter((id) => !visible(map[id])));
+    return {
+      module, plain, level, visible, editable, columnVisible, canActivity,
+      summaryVisible: (id) => !summaryRoleKeys[id] || visible(summaryRoleKeys[id]),
+      contactVisible: (key) => visible("contact." + key),
+      contactEditable: (key) => editable("contact." + key),
+      hiddenColumns: () => new Set(catalog.map((field) => field.id).filter((id) => !columnVisible(id))),
+      hiddenFilters: () => idsHidden(filterRoleKeys),
+      hiddenSearch: () => idsHidden(searchRoleKeys),
+    };
+  }
+  // 筛选条件里用到看不到的字段时，去掉那一项（不然能从筛选结果猜出隐藏的内容）。
+  function sanitizeFilters(state, filters = {}, module = "customer") {
+    const g = gate(state, module);
+    if (g.plain) return filters;
+    const out = { ...filters };
+    const hidden = g.hiddenFilters();
+    if (hidden.has(out.field)) out.query = "";
+    // filters.group 是左侧客群，不是“客户分组”这个字段（它在筛选条件里叫 customerGroup）。
+    for (const key of hidden) {
+      if (key !== "group" && Object.hasOwn(out, key)) out[key] = "";
+    }
+    if (g.hiddenColumns().has(out.sortField)) { out.sortField = ""; out.sortDirection = ""; }
+    return out;
+  }
+  // 客户档案里被锁住（只读或隐藏）的字段，保存时一律还原成原来的样子。
+  // before 是保存前的档案（新建时为空），after 是要保存的档案；联系人按 id 对应。
+  function guardProfile(state, before, after, module) {
+    const R = roleModel();
+    if (!R || !after || typeof after !== "object" || R.isAdmin(state)) return after;
+    module = module || moduleOf(before || after);
+    const locked = R.lockedFields(state, module);
+    if (!locked.length) return after;
+    const company = locked.filter((key) => !key.startsWith("contact."));
+    const contact = locked.filter((key) => key.startsWith("contact.")).map((key) => key.slice(8)).filter((key) => contactStore[key]);
+    let out = company.length ? R.keepLocked(state, module, before, after, company) : after;
+    if (!contact.length) return out;
+    out = { ...out };
+    const restore = (target, source, props) => {
+      for (const prop of props) {
+        if (source && Object.hasOwn(source, prop)) target[prop] = source[prop];
+        else delete target[prop];
+      }
+    };
+    for (const key of contact) restore(out, before, contactStore[key].primary);
+    const oldExtras = (Array.isArray(before?.extraContacts) ? before.extraContacts : []).map((item, index) =>
+      item && typeof item === "object" ? { ...item, id: String(item.id || "").trim() || "legacy-" + (index + 1) } : item);
+    if (Array.isArray(out.extraContacts)) {
+      out.extraContacts = out.extraContacts.map((item) => {
+        const old = oldExtras.find((entry) => entry && entry.id === item?.id);
+        const copy = { ...item };
+        for (const key of contact) restore(copy, old, contactStore[key].extra);
+        return copy;
+      });
+    }
+    // 邮箱、电话、地址在档案里还有一份按顺序排的清单（第一项是主联系人），一起对齐。
+    for (const key of contact) {
+      const list = contactStore[key].list;
+      if (!list || !Array.isArray(out[list])) continue;
+      out[list] = [out[key] ?? "", ...(Array.isArray(out.extraContacts) ? out.extraContacts.map((item) => item?.[key] ?? "") : out[list].slice(1))];
+    }
+    return out;
+  }
+  // 整份数据保存前：只看有改动的客户，把锁住的字段还原。includeNew 为真时新客户也处理（导入用，新建客户不能填锁住的字段）。
+  function guardState(state, next, { includeNew = false } = {}) {
+    const R = roleModel();
+    if (!R || R.isAdmin(state) || !next?.customers) return next;
+    const before = state?.customers || {};
+    let customers = null;
+    for (const [name, profile] of Object.entries(next.customers)) {
+      const old = Object.hasOwn(before, name) ? before[name] : null;
+      if (old === profile || (!old && !includeNew)) continue;
+      const guarded = guardProfile(state, old, profile);
+      if (guarded !== profile) { customers ||= { ...next.customers }; customers[name] = guarded; }
+    }
+    return customers ? { ...next, customers } : next;
+  }
+
+  // 团队客户里“选择部门或业务员”：部门（带层级）和成员，只列当前账号看得到的；列表里有、但不在成员里的跟进人也留着。
+  // 部门的值是 dept:<部门id>，成员的值就是名字。
+  function ownerFilterOptions(state, rows = []) {
+    const R = roleModel();
+    if (!R) return [...new Set(rows.map((row) => row.owner).filter(Boolean))].map((owner) => ({ value: owner, label: owner, level: 0, kind: "member" }));
+    const settings = R.settings(state);
+    const seeable = (name) => R.canSee(state, name);
+    const out = [];
+    const seen = new Set();
+    const add = (name, level) => {
+      const key = normalize(name);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push({ value: name, label: name, level, kind: "member" });
+    };
+    for (const dept of R.deptTree(state)) {
+      const below = R.deptAndBelow(state, dept.id);
+      const people = settings.members.filter((member) => below.has(member.deptId) && seeable(member.name));
+      if (!people.length) continue;
+      out.push({ value: "dept:" + dept.id, label: dept.name, level: dept.level, kind: "dept" });
+      for (const member of settings.members.filter((item) => item.deptId === dept.id && seeable(item.name))) add(member.name, dept.level + 1);
+    }
+    for (const member of settings.members) if (!member.deptId && seeable(member.name)) add(member.name, 0);
+    for (const owner of new Set(rows.map((row) => row.owner).filter(Boolean))) add(owner, 0);
+    return out;
+  }
+  // 选的是部门时，返回“跟进人是否属于这个部门（含下级部门）”的判断；选的是人或没选，返回 null。
+  function ownerDeptMatcher(state, value) {
+    const R = roleModel();
+    const text = String(value ?? "");
+    if (!R || !text.startsWith("dept:")) return null;
+    const ids = R.deptAndBelow(state, text.slice(5));
+    const names = new Set(R.settings(state).members.filter((member) => member.deptId && ids.has(member.deptId)).map((member) => normalize(member.name)));
+    return (owner) => names.has(normalize(owner));
+  }
+
   const api = { catalog, globalSearchFields, globalCustomerSearch, filter, sortRows, normalizeColumns, countryLabel,
-    companyDisplayFields, normalizeCompanyDisplayLayout };
+    companyDisplayFields, normalizeCompanyDisplayLayout, roleFieldList, gate, sanitizeFilters, guardProfile, guardState,
+    ownerFilterOptions, ownerDeptMatcher,
+    columnRoleKeys, filterRoleKeys, searchRoleKeys, dupTypeRoleKeys };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.LaiCustomerFields = api;
 })(typeof window !== "undefined" ? window : globalThis);

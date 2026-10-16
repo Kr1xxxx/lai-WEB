@@ -209,6 +209,8 @@
   }
   async function persist(next, importLog = null) {
     if (pending) throw new Error("上一项修改正在保存，请稍候");
+    // 角色锁住的客户字段（只读、隐藏）不管从哪条路径来，都还原成原来的值。
+    next = C.guardState(state, next);
     status("正在保存…");
     pending = (async () => {
       const diff = savedSnapshot ? M.diffState(savedSnapshot, next) : null;
@@ -386,6 +388,10 @@
         tableMarkup,
         importEnabled: importPreviewEnabled,
         can,
+        hiddenFilterFields: C.gate(state, "customer").hiddenFilters(),
+        ownerOptions: C.ownerFilterOptions(state, rows),
+        batchTags: C.gate(state, "customer").editable("tags"),
+        batchField: batchEditableFields().length > 0,
       }),
     );
     enhanceDropdowns($("#app"));
@@ -494,7 +500,7 @@
     }
     if (customerHidden(name)) {
       currentName = "";
-      return blockedPage("客户详情", "这位客户不在你名下，你的角色只能看自己跟进的客户。");
+      return blockedPage("客户详情", R.scopeOf(state) === "dept" ? "这位客户不在你的部门，你的角色只能看本部门跟进的客户。" : "这位客户不在你名下，你的角色只能看自己跟进的客户。");
     }
     if (currentName !== name) {
       collapsedInfoSections.clear();
@@ -1163,7 +1169,10 @@
     const draft = filterDraft.normal;
     const field = (name, label, values) =>
       `<label class="field"><span>${label}</span>${values ? `<select name="${name}">${opt("", "请选择", draft[name] || "")}${values.map((v) => opt(v, name === "country" ? C.countryLabel(v) : v, draft[name])).join("")}</select>` : `<input name="${name}" value="${E(draft[name] || "")}" placeholder="${name === "name" || name === "email" ? "请输入" : "请选择"}">`}</label>`;
-    const normal = `<div class="filter-fields">${field("name", "公司名称")}${field("email", "邮箱")}<div class="field"><span>客户标签</span><div class="tag-match-options">${["包含任一", "包含全部"].map((v) => `<label><input type="radio" name="tagMode" value="${v}" ${(draft.tagMode || "包含任一") === v ? "checked" : ""}>${v}标签</label>`).join("")}</div><input name="tag" value="${E(draft.tag || "")}" placeholder="请选择"></div>${field("customerGroup", "客户分组")}${field("alibabaIdentity", "阿里买家身份")}${field("country", "国家地区", [...new Set(rows.map((c) => c.country).filter(Boolean))].sort())}${field("source", "客户来源", [...new Set(rows.map((c) => c.source).filter(Boolean))])}${field("stage", "客户阶段", ["已成交", "未成交"])}${field("customerStars", "客户星级", ["1", "2", "3", "4", "5"])}<div class="field"><span>是否关注</span><div class="follow-options">${[
+    const hiddenFilters = C.gate(state, "customer").hiddenFilters();
+    const hiddenFilterColumns = C.gate(state, "customer").hiddenColumns();
+    const fieldIf = (name, ...rest) => (hiddenFilters.has(name) ? "" : field(name, ...rest));
+    const normal = `<div class="filter-fields">${field("name", "公司名称")}${fieldIf("email", "邮箱")}${hiddenFilters.has("tag") ? "" : `<div class="field"><span>客户标签</span><div class="tag-match-options">${["包含任一", "包含全部"].map((v) => `<label><input type="radio" name="tagMode" value="${v}" ${(draft.tagMode || "包含任一") === v ? "checked" : ""}>${v}标签</label>`).join("")}</div><input name="tag" value="${E(draft.tag || "")}" placeholder="请选择"></div>`}${fieldIf("customerGroup", "客户分组")}${field("alibabaIdentity", "阿里买家身份")}${field("country", "国家地区", [...new Set(rows.map((c) => c.country).filter(Boolean))].sort())}${field("source", "客户来源", [...new Set(rows.map((c) => c.source).filter(Boolean))])}${fieldIf("stage", "客户阶段", ["已成交", "未成交"])}${fieldIf("customerStars", "客户星级", ["1", "2", "3", "4", "5"])}<div class="field"><span>是否关注</span><div class="follow-options">${[
       ["", "不限"],
       ["false", "未关注"],
       ["true", "已关注"],
@@ -1177,7 +1186,7 @@
     const advanced = `<div class="advanced-filter"><p><select name="match">${opt("all", "满足全部条件", spec.match)}${opt("any", "满足任一条件", spec.match)}</select></p><div id="advanced-rules">${spec.rules
       .map(
         (r, i) =>
-          `<div class="advanced-row" data-advanced-rule="${i}"><select data-advanced-prop="field">${S.catalog.map((f) => opt(f.id, C.catalog.find((c) => c.id === f.id)?.label || f.label, r.field)).join("")}</select><select data-advanced-prop="op">${ops(
+          `<div class="advanced-row" data-advanced-rule="${i}"><select data-advanced-prop="field">${S.catalog.filter((f) => f.id === r.field || !hiddenFilterColumns.has(f.id)).map((f) => opt(f.id, C.catalog.find((c) => c.id === f.id)?.label || f.label, r.field)).join("")}</select><select data-advanced-prop="op">${ops(
             r.field,
           )
             .map((op) => opt(op, opLabels[op], r.op))
@@ -1873,7 +1882,10 @@
           if (String(data.owner || "").trim() !== before) throw new Error(R.denied("customer.reassign"));
         }
       }
-      const next =
+      // 客户分组只读或看不到时，保持原来的分组。
+      if (form.id === "customer-form" && !C.gate(state, state.customers?.[form.dataset.oldName] || "customer").editable("previewGroup"))
+        data.previewGroup = form.dataset.originalGroup ?? "";
+      let next =
         form.id === "customer-form"
           ? S.setEditorGroup(
               S.renameMember(
@@ -1886,6 +1898,13 @@
               form.dataset.originalGroup,
             )
           : M.addFollowup(state, currentName, data.text, data.nextFollow, CS.checkFollowupTime(state, data.followupTime));
+      // 保存前把锁住的字段（只读、隐藏）还原：漏在表单外的、被改的，都以原来的档案为准；联系人按 id 对应。
+      if (form.id === "customer-form" && next.customers?.[data.name.trim()]) {
+        const saved = data.name.trim();
+        const before = form.dataset.oldName ? state.customers?.[form.dataset.oldName] || null : null;
+        const guarded = C.guardProfile(state, before, next.customers[saved]);
+        if (guarded !== next.customers[saved]) next = { ...next, customers: { ...next.customers, [saved]: guarded } };
+      }
       await persist(next);
       buttons.forEach((b) => (b.disabled = b.dataset.wasDisabled === "true"));
       if (form.id === "customer-form") {
@@ -2140,12 +2159,21 @@
     return M.filterCustomers(rows, { group: id });
   }
   function filteredRows() {
-    let result = C.filter(groupRows(filters.group), filters);
-    result = C.globalCustomerSearch(result, globalSearch);
-    if (advancedSpec) result = S.filterByRules(result, advancedSpec);
-    result = M.filterCustomers(result, { sort: filters.sort, group: "all" });
-    return filters.sortField
-      ? C.sortRows(result, filters.sortField, filters.sortDirection)
+    // 角色看不到的字段，不能拿来筛选、搜索、排序（不然能从结果猜出隐藏的内容）。
+    const gate = C.gate(state, "customer");
+    const f = C.sanitizeFilters(state, filters);
+    const deptMatch = C.ownerDeptMatcher(state, f.owner);
+    let result = C.filter(groupRows(f.group), deptMatch ? { ...f, owner: "" } : f);
+    if (deptMatch) result = result.filter((row) => deptMatch(row.owner));
+    result = C.globalCustomerSearch(result, gate.plain ? globalSearch : { ...globalSearch, hidden: gate.hiddenSearch() });
+    if (advancedSpec) {
+      const hiddenColumns = gate.plain ? null : gate.hiddenColumns();
+      const rules = hiddenColumns ? (advancedSpec.rules || []).filter((rule) => !hiddenColumns.has(rule.field)) : advancedSpec.rules;
+      result = S.filterByRules(result, rules === advancedSpec.rules ? advancedSpec : { ...advancedSpec, rules });
+    }
+    result = M.filterCustomers(result, { sort: f.sort, group: "all" });
+    return f.sortField
+      ? C.sortRows(result, f.sortField, f.sortDirection)
       : result;
   }
 
@@ -2175,9 +2203,10 @@
     if (value === false || value === "false") return "否";
     return "—";
   }
+  let listGate = null;
   function displayCell(c, f) {
     if (f.id === "name") {
-      const customerLevel = customerLevelForRow(c);
+      const customerLevel = (listGate || C.gate(state, "customer")).visible("level") ? customerLevelForRow(c) : "";
       const badge = customerLevel ? `<span class="level-icon ${levelIconClass(customerLevel)}" aria-label="客户等级：${E(customerLevel)}" title="客户等级：${E(customerLevel)}"></span>` : '';
       return `${badge}<button class="company-link" data-open="${E(c.name)}" title="${E(c.name)}">${E(c.name)}</button>`;
     }
@@ -2200,8 +2229,10 @@
   function tableMarkup(p) {
     // 新界面（粉色、橙色）的选择列收窄：只放一个复选框，不需要 84px
     const selectionWidth = document.documentElement.dataset.skin === "glass" ? 48 : 84, actionsWidth = 52;
+    listGate = C.gate(state, "customer");
+    const hiddenColumns = listGate.hiddenColumns();
     const prefs = tablePrefs(),
-      fields = prefs.order.map((id) => ({
+      fields = prefs.order.filter((id) => !hiddenColumns.has(id)).map((id) => ({
         ...fieldById.get(id),
         width:
           fieldById.get(id).width * (prefs.compactWidth === false ? 1.25 : 1),
@@ -2241,14 +2272,17 @@
   }
   function renderColumns(pointerActivated = false) {
     const d = columnDraft;
+    // 看不到的字段不列出来（它们在已存的列设置里原样保留）。
+    const hiddenColumns = C.gate(state, "customer").hiddenColumns();
+    const columnCatalog = C.catalog.filter((f) => !hiddenColumns.has(f.id));
     drawer(
       "设置「全部客户」显示字段",
       `<div class="drawer-body columns-body"><div class="columns-layout"><section><div class="column-search-wrap">${icon("search")}<input id="column-search" aria-label="搜索字段名称" placeholder="可输入字段搜索"></div><h3>可选字段</h3><div class="available-fields">${[
-        ...new Set(C.catalog.map((f) => f.category)),
+        ...new Set(columnCatalog.map((f) => f.category)),
       ]
         .map(
           (cat) =>
-            `<h4>${E(cat)}</h4>${C.catalog
+            `<h4>${E(cat)}</h4>${columnCatalog
               .filter((f) => f.category === cat)
               .map(
                 (f) =>
@@ -2263,7 +2297,7 @@
         .map(
           (title, j) =>
             `<h4>${title}</h4><div class="selected-fields">${d.order
-              .filter((id) => d.frozen.includes(id) === (j === 0))
+              .filter((id) => !hiddenColumns.has(id) && d.frozen.includes(id) === (j === 0))
               .map(
                 (id) =>
                   `<div class="selected-field" draggable="${id !== "name"}" data-drag-field="${id}"><span class="drag-handle" aria-hidden="true"><svg viewBox="0 0 48 48" width="16" height="16" fill="currentColor" focusable="false"><path d="M19 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-4 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm22-32a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-4 18a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span><span>${E(fieldById.get(id).label)}</span>${id === "name" ? "" : `<button class="text-button" data-column-move="${id}" data-step="-1" aria-label="上移${E(fieldById.get(id).label)}">↑</button><button class="text-button" data-column-move="${id}" data-step="1" aria-label="下移${E(fieldById.get(id).label)}">↓</button><button class="text-button freeze-button" data-column-freeze="${id}" aria-label="${j === 0 ? "取消冻结" : "冻结"}${E(fieldById.get(id).label)}">${j === 0 ? "取消冻结" : "冻结"}</button><button class="text-button" data-column-remove="${id}" aria-label="移除${E(fieldById.get(id).label)}">×</button>`}</div>`,
@@ -2364,6 +2398,8 @@
     // Accepted historical groups may omit match; other invalid values stay invalid.
     const match = d.match === undefined ? "all" : d.match;
     const previousScroll = $("#segment-form")?.scrollTop || 0;
+    // 条件里不能选角色看不到的字段（已经选了的保留，筛选时会被忽略）。
+    const hiddenRuleFields = C.gate(state, "customer").hiddenColumns();
     drawer(
       segmentList().some((s) => s.id === d.id) ? "编辑客群" : "新建客群",
       `<form id="segment-form" class="drawer-body"><div class="form-grid"><label class="field wide">客群名称<input name="name" value="${E(d.name)}" required maxlength="80" placeholder="如：美国重点客户"></label><label class="field">客群类型<select name="kind" ${segmentList().some((s) => s.id === d.id) ? "disabled" : ""}>${opt("rules", "条件客群 · 自动更新", d.kind)}${opt("manual", "手动分组 · 指定成员", d.kind)}</select></label></div>${
@@ -2375,7 +2411,7 @@
                 const valueControl = f.type === "boolean"
                   ? `<select data-rule-prop="value" aria-label="条件${i + 1}值" ${disabled}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>`
                   : `<input data-rule-prop="value" aria-label="条件${i + 1}值" type="${segmentRuleInputType(f, r)}" value="${E(r.value ?? "")}" ${r.op === "olderDays" || f.type === "number" ? 'step="any"' : ""} ${disabled}>`;
-                return `<div class="rule-row" data-rule="${i}"><span class="rule-index" aria-hidden="true">${i + 1}</span><select data-rule-prop="field" aria-label="条件${i + 1}字段">${S.catalog.map((f) => opt(f.id, f.label, r.field)).join("")}</select><select data-rule-prop="op" aria-label="条件${i + 1}运算">${ops(
+                return `<div class="rule-row" data-rule="${i}"><span class="rule-index" aria-hidden="true">${i + 1}</span><select data-rule-prop="field" aria-label="条件${i + 1}字段">${S.catalog.filter((f) => f.id === r.field || !hiddenRuleFields.has(f.id)).map((f) => opt(f.id, f.label, r.field)).join("")}</select><select data-rule-prop="op" aria-label="条件${i + 1}运算">${ops(
                   r.field,
                 )
                   .map((op) => opt(op, opLabels[op], r.op))
@@ -2467,10 +2503,11 @@
   }
   function summaryFieldsDialog(pointerActivated = false) {
     const detail = window.LaiCustomerDetail;
-    const chosen = new Set(detail.normalizeSummaryFields(state.previewDetailSummaryFields));
+    const summaryGate = C.gate(state, "customer");
+    const chosen = new Set(detail.normalizeSummaryFields(state.previewDetailSummaryFields).filter(summaryGate.summaryVisible));
     drawer(
       "客户摘要字段设置",
-      `<form id="summary-fields-form" class="drawer-body columns-body summary-fields-form"><div class="columns-layout summary-fields-layout"><section><div class="column-search-wrap">${icon("search")}<input id="summary-field-search" type="search" aria-label="搜索摘要字段名称" placeholder="可输入字段搜索" autocomplete="off"></div><h3>可选字段</h3><fieldset><legend class="summary-options-heading">显示字段</legend><div class="available-fields summary-options">${detail.summaryFieldOptions.map(({id,label}) => `<label><input type="checkbox" name="summaryField" value="${E(id)}" ${chosen.has(id) ? "checked" : ""}><span>${E(label)}</span></label>`).join("")}</div></fieldset><p class="summary-search-empty" hidden>未找到字段</p></section><section class="summary-selected" aria-label="已选摘要字段"><h3>已选 <span id="summary-selected-count"></span></h3><ul id="summary-selected-fields"></ul><p class="summary-settings-scope">设置对所有客户生效</p></section></div><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<form id="summary-fields-form" class="drawer-body columns-body summary-fields-form"><div class="columns-layout summary-fields-layout"><section><div class="column-search-wrap">${icon("search")}<input id="summary-field-search" type="search" aria-label="搜索摘要字段名称" placeholder="可输入字段搜索" autocomplete="off"></div><h3>可选字段</h3><fieldset><legend class="summary-options-heading">显示字段</legend><div class="available-fields summary-options">${detail.summaryFieldOptions.filter(({id}) => summaryGate.summaryVisible(id)).map(({id,label}) => `<label><input type="checkbox" name="summaryField" value="${E(id)}" ${chosen.has(id) ? "checked" : ""}><span>${E(label)}</span></label>`).join("")}</div></fieldset><p class="summary-search-empty" hidden>未找到字段</p></section><section class="summary-selected" aria-label="已选摘要字段"><h3>已选 <span id="summary-selected-count"></span></h3><ul id="summary-selected-fields"></ul><p class="summary-settings-scope">设置对所有客户生效</p></section></div><div class="error" id="workspace-error" role="alert"></div></form>`,
       `<button type="button" id="reset-summary-fields">恢复默认</button><button type="button" data-action="close-modal">取消</button><button type="submit" form="summary-fields-form" class="primary">保存</button>`,
       "actions",
       pointerActivated,
@@ -2510,7 +2547,9 @@
         error.classList.add("visible");
         return;
       }
-      workspaceSave(() => ({ ...state, previewDetailSummaryFields: fields }));
+      // 当前账号看不到的摘要字段，别人选的保持不变。
+      const kept = detail.normalizeSummaryFields(state.previewDetailSummaryFields).filter((id) => !summaryGate.summaryVisible(id));
+      workspaceSave(() => ({ ...state, previewDetailSummaryFields: [...fields, ...kept] }));
     });
   }
   function applyCompanyDisplayToEditor(layout) {
@@ -2667,6 +2706,7 @@
   }
   function batchTagsDialog(pointerActivated = false) {
     if (!allow("customer.edit")) return;
+    if (!C.gate(state, "customer").editable("tags")) return toast("你的角色不能修改客户标签");
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
     drawer(
@@ -2687,13 +2727,19 @@
       );
     });
   }
+  // 批量编辑字段里能选的字段：角色只能看或看不到的字段不给选。
+  function batchEditableFields() {
+    const gate = C.gate(state, "customer");
+    return M.batchEditableCustomerFields.filter((field) => gate.editable(field.id));
+  }
   function batchFieldDialog(pointerActivated = false) {
     if (!allow("customer.edit")) return;
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
+    if (!batchEditableFields().length) return toast("你的角色不能批量修改这些字段");
     drawer(
       "批量编辑字段",
-      `<form id="batch-field-form" class="drawer-body batch-tags-form batch-field-form"><p class="batch-tags-count">将字段应用到 <strong>${names.length}</strong> 位客户</p><div class="transition-names">${names.slice(0, 4).map(name => `<div>${E(name)}</div>`).join("")}${names.length > 4 ? `<div>还有 ${names.length - 4} 位客户</div>` : ""}</div><label class="field" for="batch-field-name"><span>客户字段</span><select id="batch-field-name" name="field" required><option value="">请选择字段</option>${M.batchEditableCustomerFields.map(field => `<option value="${E(field.id)}">${E(field.label)}</option>`).join("")}</select></label><label class="field" for="batch-field-value"><span>新值</span><input id="batch-field-value" name="value" list="batch-field-suggestions" maxlength="500" required placeholder="输入要设置的值" autocomplete="off"></label><datalist id="batch-field-suggestions"></datalist><label class="batch-field-clear"><input type="checkbox" name="clear"> 清空所选字段</label><p class="muted tiny" id="batch-field-hint">仅修改所选客户的一个档案字段；跟进人、标签和分组请使用对应操作。</p><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<form id="batch-field-form" class="drawer-body batch-tags-form batch-field-form"><p class="batch-tags-count">将字段应用到 <strong>${names.length}</strong> 位客户</p><div class="transition-names">${names.slice(0, 4).map(name => `<div>${E(name)}</div>`).join("")}${names.length > 4 ? `<div>还有 ${names.length - 4} 位客户</div>` : ""}</div><label class="field" for="batch-field-name"><span>客户字段</span><select id="batch-field-name" name="field" required><option value="">请选择字段</option>${batchEditableFields().map(field => `<option value="${E(field.id)}">${E(field.label)}</option>`).join("")}</select></label><label class="field" for="batch-field-value"><span>新值</span><input id="batch-field-value" name="value" list="batch-field-suggestions" maxlength="500" required placeholder="输入要设置的值" autocomplete="off"></label><datalist id="batch-field-suggestions"></datalist><label class="batch-field-clear"><input type="checkbox" name="clear"> 清空所选字段</label><p class="muted tiny" id="batch-field-hint">仅修改所选客户的一个档案字段；跟进人、标签和分组请使用对应操作。</p><div class="error" id="workspace-error" role="alert"></div></form>`,
       `<button type="button" data-action="close-modal">取消</button><button type="submit" form="batch-field-form" class="primary">应用到 ${names.length} 位客户</button>`,
       "actions",
       pointerActivated,
@@ -2724,7 +2770,10 @@
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       workspaceSave(
-        () => M.batchEditCustomerField(state, names, fieldInput.value, valueInput.value, clearInput.checked),
+        () => {
+          if (!batchEditableFields().some((field) => field.id === fieldInput.value)) throw new Error("你的角色不能修改这个字段");
+          return M.batchEditCustomerField(state, names, fieldInput.value, valueInput.value, clearInput.checked);
+        },
         () => selected.clear(),
       );
     });
@@ -3016,7 +3065,8 @@
       const prepared = I.applyImport(state, importDraft.parsed, importDraft.mapping,
         {destination:importDraft.destination, duplicate:importDraft.duplicate,
           fileName:importDraft.fileName, recordId:crypto.randomUUID()});
-      await persist(prepared.state, {id:prepared.record.id,
+      // 导入不能改角色锁住的字段：已有客户保持原值，新客户这些字段留空。
+      await persist(C.guardState(state, prepared.state, { includeNew: true }), {id:prepared.record.id,
         issues:prepared.details.filter(item => item.status === 'skipped')
           .map(({row,name,reason}) => ({row,name,reason}))});
       importDraft.result = prepared.result;
@@ -3784,11 +3834,13 @@
     if (screen === "duplicates") {
       // 本人范围的账号只在自己的客户里查重。
       const mine = R.scopeOf(state) === "all" ? null : new Set(allCustomerRows().map((row) => row.name));
+      const dupGate = C.gate(state, "customer");
       const groups = L.findDuplicates(state, CSM.get(state).dedupe)
+        .filter((g) => !C.dupTypeRoleKeys[g.type] || dupGate.visible(C.dupTypeRoleKeys[g.type]))
         .map((g) => (mine ? { ...g, names: g.names.filter((name) => mine.has(name)) } : g))
         .filter((g) => g.names.length > 1);
       const dupChosen = CSM.get(state).duplicateFields;
-      const dupFields = CSM.DUPLICATE_FIELDS.filter(([key]) => dupChosen.includes(key));
+      const dupFields = CSM.DUPLICATE_FIELDS.filter(([key]) => dupChosen.includes(key) && dupGate.visible(key));
       body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span>${showIf("customer.merge", `<button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button>`)}</h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button>${dupFields.map(([key, label]) => `<span>${E(label)}：${E(CSM.duplicateValue(state, name, key) ? (key === "country" ? C.countryLabel(state.customers[name]?.country) : CSM.duplicateValue(state, name, key)) : "—")}</span>`).join("")}<button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + (mine ? mine.size : Object.keys(state.customers).length) + " 个客户档案</span></div>"}`;
     } else {
       const data = allCustomerRows().filter(
@@ -3969,6 +4021,7 @@
   }
   function customerTagEditor(anchor, pointerActivated = false) {
     const name = currentName;
+    if (!C.gate(state, state.customers?.[name] || "customer").editable("tags")) return toast("你的角色不能修改客户标签");
     if (L.bucket(state.customers?.[name] || {}) === "trash")
       return toast("请先恢复回收站客户");
     const tags = M.tags(state.customers?.[name]?.tags);
@@ -4354,7 +4407,7 @@
   function globalSearchScopeMenu(anchor, pointerActivated = false) {
     const categories = ["邮件", "客户", "线索", "商机", "成员", "日程"];
     const box = popover(anchor,
-      `<div class="global-search-categories">${categories.map((label, index) => `<button type="button" data-global-category="${E(label)}" class="${label === "客户" ? "active" : ""}">${E(label)}${index < 4 ? icon("next") : ""}</button>`).join("")}</div><div class="global-search-fields">${C.globalSearchFields.map(({ id, label }) => `<button type="button" data-global-field="${E(id)}">${E(label)}</button>`).join("")}</div>`,
+      `<div class="global-search-categories">${categories.map((label, index) => `<button type="button" data-global-category="${E(label)}" class="${label === "客户" ? "active" : ""}">${E(label)}${index < 4 ? icon("next") : ""}</button>`).join("")}</div><div class="global-search-fields">${C.globalSearchFields.filter(({ id }) => !C.gate(state, "customer").hiddenSearch().has(id)).map(({ id, label }) => `<button type="button" data-global-field="${E(id)}">${E(label)}</button>`).join("")}</div>`,
       `global-search-scope-menu${pointerActivated ? " global-search-scope-motion" : ""}`);
     anchor.setAttribute("aria-expanded", "true");
     if (!pointerActivated) box.querySelector('[data-global-category="客户"]')?.focus();
