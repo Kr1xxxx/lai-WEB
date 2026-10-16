@@ -174,6 +174,20 @@
     if(typeof next.done!=='boolean')throw new Error('任务完成状态无效');
     return {...state,laiTasks:previous?state.laiTasks.map(task=>task.id===id?next:task):[next,...(state.laiTasks||[])]};
   }
-  const api={stages,localDate,orderMetrics,monthlyAnalysis,ITEM_LIMIT,cleanItems,itemsTotal,itemsSummary,itemFromProduct,linkItems,docLines,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
+  // 建议的新订单号：前缀＋日期＋三位序号。序号取现有订单、回收站、已删除订单里同前缀同日期的最大序号加 1，并保证整个库里没人用过。
+  function nextOrderNumber(state,prefix,date){
+    const base=`${trim(prefix)||'L'}${trim(date||localDate()).replaceAll('-','')}-`,head=base.toLowerCase();
+    const used=new Set();let max=0;
+    for(const bucket of buckets)for(const order of (state&&state[bucket])||[]){
+      const num=normalized(order&&order.num);
+      if(!num)continue;
+      used.add(num);
+      if(num.startsWith(head)&&/^\d+$/.test(num.slice(head.length)))max=Math.max(max,Number(num.slice(head.length)));
+    }
+    let seq=max+1,next=base+String(seq).padStart(3,'0');
+    while(used.has(next.toLowerCase())){seq++;next=base+String(seq).padStart(3,'0');}
+    return next;
+  }
+  const api={stages,localDate,orderMetrics,monthlyAnalysis,ITEM_LIMIT,cleanItems,itemsTotal,itemsSummary,itemFromProduct,linkItems,docLines,upsertOrder,nextOrderNumber,archiveOrder,restoreOrder,calendarEvents,setTask};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiBusinessModel=api;
 })(typeof window!=='undefined'?window:globalThis);
