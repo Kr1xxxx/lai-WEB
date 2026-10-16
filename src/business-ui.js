@@ -2075,15 +2075,17 @@
             { method: "POST" },
           ),
           result = await response.json();
-        if (!response.ok || result.ok === false)
-          throw Error(result.message || "操作失败");
+        if (!response.ok || result.ok === false) throw Error(result.message || "");
         if (target)
           target.textContent =
             name === "backup" ? "备份已保存到来财数据目录。" : "已打开数据目录";
         ctx.toast(name === "backup" ? "备份完成" : "已打开数据目录");
       } catch (e) {
-        if (target) target.textContent = e.message;
-        ctx.toast(e.message);
+        // 不把原始的英文错误给用户看：中文提示照用，其余换成一句说明。
+        const message = /[\u4e00-\u9fff]/.test(String(e?.message || "")) ? e.message
+          : name === "backup" ? "备份没有成功，数据没有受影响。请稍后再试。" : "没能打开数据目录，请稍后再试。";
+        if (target) target.textContent = message;
+        ctx.toast(message);
       }
     }
     document.addEventListener("click", (e) => {

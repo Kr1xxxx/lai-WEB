@@ -11,3 +11,26 @@ test('unified HTTP routes reject legacy surfaces and malformed requests while re
   const data=await (await request('/api/data')).json();assert.equal(data.data.customers.Legacy.custom.preserve,true);const saved=await request('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:data,baseRevision:data.revision})});assert.equal(saved.status,200);assert.equal((await saved.json()).revision,data.revision+1);assert.deepEqual((await (await request('/api/data')).json()).data.extraState,{keep:true});
  }finally{if(child.exitCode===null)await new Promise(resolve=>{child.once('exit',resolve);child.kill('SIGTERM');});fs.rmSync(temporary,{recursive:true,force:true});}
 });
+
+test('backup status route, queued backups after saves, incomplete full saves and manual backups over HTTP',async()=>{
+ const temporary=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'lai-test-http-backup-'));const resources=path.join(temporary,'resources');fs.mkdirSync(resources);for(const file of ['server.js','storage.js','storage-path.js','auth.js','errors.js','mail-account.js','mail-imap.js','mail-client.js','mail-smtp.js','mail-mime.js','mail-service.js','mail-libs.js','opportunity-files.js'])fs.copyFileSync(path.join(__dirname,'../backend',file),path.join(resources,file));
+ fs.writeFileSync(path.join(resources,'trade-order-system.html'),'<!doctype html><title>Lai HTTP fixture</title>');
+ const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});const token=crypto.randomBytes(32).toString('hex');const dataDir=path.join(temporary,'data');const child=spawn(process.execPath,[path.join(resources,'server.js')],{env:{...process.env,LAI_DATA_DIR:dataDir,LAI_APP_PORT:String(port),LAI_API_TOKEN:token,LAI_APP_NO_OPEN:'1'},stdio:['ignore','ignore','ignore']});const base=`http://127.0.0.1:${port}`;const request=(route,options={})=>fetch(base+route,{...options,headers:{Authorization:`Bearer ${token}`,...options.headers}});const post=(route,body)=>request(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ try{
+  let ready=false;for(let i=0;i<500;i++){try{if((await fetch(base+'/api/health')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,20));}assert.equal(ready,true);
+  assert.equal((await fetch(base+'/api/backup-status')).status,401);
+  const first=await (await request('/api/backup-status')).json();assert.equal(first.ok,true);assert.equal(first.backup.ok,true);assert.equal(first.backup.pending,false);
+  const data=await (await request('/api/data')).json();data.data.customers.Synthetic={client:'Synthetic'};
+  const saved=await (await post('/api/save',{state:data,baseRevision:data.revision})).json();
+  assert.equal(saved.ok,true);assert.equal(saved.backup.pending,true,'the save is queued for backup instead of copying the database right away');assert.ok(saved.backup.nextAttemptAt>Date.now());
+  assert.deepEqual(fs.readdirSync(path.join(dataDir,'backups')).filter(n=>n.endsWith('.sqlite')),[]);
+  const current=await (await request('/api/data')).json();
+  const incomplete=await post('/api/save',{state:{data:{orders:[]}},baseRevision:current.revision});
+  assert.equal(incomplete.status,400);const refused=await incomplete.json();assert.match(refused.message,/不完整/);assert.equal(refused.code,'incomplete_save');
+  assert.equal((await (await request('/api/data')).json()).data.customers.Synthetic.client,'Synthetic');
+  const manual=await (await request('/api/manual-backup',{method:'POST'})).json();
+  assert.equal(manual.ok,true);assert.match(path.basename(manual.file),/^manual-\d{8}-\d{6}\.sqlite$/);assert.equal(manual.pending,false);
+  const status=await (await request('/api/backup-status')).json();assert.equal(status.backup.pending,false);assert.ok(status.backup.lastSuccessfulAt>0);
+  const health=await (await request('/api/health')).json();assert.equal(health.ok,true);assert.equal(health.counts.customers,1);
+ }finally{if(child.exitCode===null)await new Promise(resolve=>{child.once('exit',resolve);child.kill('SIGTERM');});fs.rmSync(temporary,{recursive:true,force:true});}
+});

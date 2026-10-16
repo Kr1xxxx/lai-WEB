@@ -441,7 +441,43 @@
     changes.appState=appState;changes.removeAppState=removeAppState;
     return {changes,snapshot:next,empty};
   }
-  const api={snapshotState,diffState,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,nameKey,tags};
+  // 保存时版本冲突（别处先保存了）：saved 是这次改动所基于的快照，fresh 是服务器上的最新数据。
+  // 这次改动碰到的客户、订单、设置在服务器上都没被别处改过时，把改动套到最新数据上（ok:true, data）；
+  // 否则返回被别处改过的是哪些（ok:false, conflicts）。
+  function rebaseChanges(saved, changes, fresh={}) {
+    const now=snapshotState(fresh),conflicts=[];
+    const customerSet=changes.customers?.set||{},customerRemove=changes.customers?.remove||[];
+    const orderSet=changes.orders?.set||{},orderRemove=changes.orders?.remove||[],sequence=changes.orders?.sequence||{};
+    const freshOrders=new Map(ORDER_BUCKETS.flatMap(bucket=>(Array.isArray(fresh[bucket])?fresh[bucket]:[]).map(order=>[String(order?.id||''),order])));
+    for(const name of [...Object.keys(customerSet),...customerRemove])
+      if(saved.customers.get(name)!==now.customers.get(name))conflicts.push({kind:'customer',name});
+    const orderKey=entry=>entry?entry.bucket+'\u0001'+entry.json:'';
+    for(const id of [...Object.keys(orderSet),...orderRemove])
+      if(orderKey(saved.orders.get(id))!==orderKey(now.orders.get(id)))
+        conflicts.push({kind:'order',id,num:String(freshOrders.get(id)?.num||orderSet[id]?.order?.num||id)});
+    if(Object.keys(sequence).some(bucket=>saved.sequence[bucket]!==now.sequence[bucket]))conflicts.push({kind:'orderList'});
+    if(changes.trackingLookups!==undefined&&saved.lookups!==now.lookups)conflicts.push({kind:'lookups'});
+    for(const key of [...Object.keys(changes.appState||{}),...(changes.removeAppState||[])])
+      if(saved.app.get(key)!==now.app.get(key))conflicts.push({kind:'setting',key});
+    if(conflicts.length)return {ok:false,conflicts};
+    const data={...fresh,customers:{...(fresh.customers||{})}};
+    for(const name of customerRemove)delete data.customers[name];
+    for(const [name,customer] of Object.entries(customerSet))data.customers[name]=customer;
+    const removed=new Set(orderRemove.map(String)),byId=new Map(freshOrders);
+    for(const [id,entry] of Object.entries(orderSet))byId.set(id,entry.order);
+    for(const bucket of ORDER_BUCKETS){
+      if(sequence[bucket]){
+        const list=sequence[bucket].map(id=>byId.get(String(id)));
+        if(list.some(order=>!order))return {ok:false,conflicts:[{kind:'orderList'}]};
+        data[bucket]=list;
+      }else data[bucket]=(Array.isArray(fresh[bucket])?fresh[bucket]:[]).filter(order=>!removed.has(String(order?.id||''))).map(order=>orderSet[String(order?.id||'')]?.order||order);
+    }
+    if(changes.trackingLookups!==undefined)data.trackingLookups=changes.trackingLookups;
+    for(const [key,value] of Object.entries(changes.appState||{}))data[key]=value;
+    for(const key of changes.removeAppState||[])delete data[key];
+    return {ok:true,data};
+  }
+  const api={snapshotState,diffState,rebaseChanges,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,nameKey,tags};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.PreviewModel=api;
 })(typeof window!=='undefined'?window:globalThis);
