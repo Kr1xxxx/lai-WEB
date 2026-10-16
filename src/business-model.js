@@ -129,11 +129,18 @@
     assertUnique(state,id,next.num,previous?'orders':undefined);
     const customers={...(state.customers||{})};
     const clientKey=customerKey(next.client);
+    // 回收站里的客户：只拦新订单和改到这个客户名下的订单，原有订单照常能改。
+    const sameClient=Boolean(previous)&&customerKey(previous.client)===clientKey;
     const existing=Object.keys(customers).find(name=>customerKey(name)===clientKey);
     if(existing!==undefined){
-      if(customers[existing]&&customers[existing].laiBucket==='trash')throw new Error('客户在回收站里，请先恢复');
+      if(!sameClient&&customers[existing]&&customers[existing].laiBucket==='trash')throw new Error('客户在回收站里，请先恢复');
       next.client=existing;
-    }else customers[next.client]={client:next.client,country:next.country||'',owner:next.owner||''};
+    }else{
+      // 只在订单里出现过的客户（没有客户档案）也算已有客户，沿用订单里的写法。
+      const known=[...orders,...(state.trashOrders||[]),...(state.deletedOrders||[])].map(order=>order&&order.client).find(name=>typeof name==='string'&&name&&customerKey(name)===clientKey);
+      if(known!==undefined)next.client=known;
+      customers[next.client]={client:next.client,country:next.country||'',owner:next.owner||''};
+    }
     return {...state,customers,orders:previous?orders.map(order=>order.id===id?next:order):[next,...orders]};
   }
   function archiveOrder(state,id,now=new Date().toISOString()){

@@ -156,3 +156,14 @@ test('nextOrderNumber: first number, max+1 (not count+1), and the archive/delete
  // Sequences past 999 keep growing.
  assert.equal(B.nextOrderNumber({orders:[{id:'z',num:'L20261016-999'}]},'L','2026-10-16'),'L20261016-1000');
 });
+
+test('orders of a trashed customer stay editable, and order-only customers are matched',()=>{
+ const s0={customers:{'Old Co':{client:'Old Co',laiBucket:'trash'}},orders:[{id:'o1',num:'N9',client:'Old Co',amount:5,currency:'USD',stage:'quote',createdAt:'2026-10-01',orderMonth:'2026-10'}]};
+ const s1=B.upsertOrder(s0,'o1',{stage:'done'});
+ assert.equal(s1.orders[0].stage,'done');
+ assert.throws(()=>B.upsertOrder(s0,'o2',{num:'N10',client:'old co',amount:5}),/客户在回收站里，请先恢复/);
+ const legacy={customers:{},orders:[{id:'a',num:'A1',client:'Acme',amount:1,currency:'USD',stage:'quote',createdAt:'2026-10-01',orderMonth:'2026-10'}]};
+ const s2=B.upsertOrder(legacy,'b',{num:'A2',client:' acme ',amount:2});
+ assert.deepEqual(s2.orders.map(o=>o.client),['Acme','Acme']);
+ assert.deepEqual(Object.keys(s2.customers),['Acme']);
+});

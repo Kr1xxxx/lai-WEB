@@ -3498,10 +3498,12 @@
     L.bucket(state.customers?.[c.name]) === "pool" ? can("pool.view") : R.canSee(state, c.owner);
   // 整个客户表重算一遍很贵，而详情页上每点一下都会问一次：同一份数据、同一个账号下只算一次。
   // 数据每次保存都会换成新对象（persist / adoptServerState），所以按数据对象和当前账号缓存就够了。
-  let rowCache = { state: null, member: "", every: null, visible: null };
+  let rowCache = { state: null, member: "", day: "", every: null, visible: null };
   const rowCacheFresh = () => {
     const member = R.currentMember(state)?.id || "";
-    if (rowCache.state !== state || rowCache.member !== member) rowCache = { state, member, every: null, visible: null };
+    // 客群里按天数算的条件（如“超过 N 天未跟进”）跨过零点会变，所以日期也算进缓存。
+    const day = new Date().toDateString();
+    if (rowCache.state !== state || rowCache.member !== member || rowCache.day !== day) rowCache = { state, member, day, every: null, visible: null };
     return rowCache;
   };
   const everyCustomerRow = () => {
