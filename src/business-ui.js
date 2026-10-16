@@ -60,7 +60,8 @@
       if (dashMemo && dashMemo.base === s) return dashMemo.value;
       const R = RM(),
         customers = Object.fromEntries(Object.entries(s.customers || {}).filter(([, c]) => c && R.canSee(s, c.owner)));
-      dashMemo = { base: s, value: { ...s, customers } };
+      // 待办属于负责人（D-022）：只留负责人看得到的；老任务没有负责人时按所关联客户的跟进人（要用完整的客户资料算）。
+      dashMemo = { base: s, value: { ...s, customers, laiTasks: B.visibleTasks(s, (owner) => R.canSee(s, owner)) } };
       return dashMemo.value;
     }
     // 下拉名单用的数据：角色只看本人或本部门时，客户只留看得到的，订单、线索、商机也只留自己的；只用来出名单，保存时永远用完整的 state()。
@@ -163,6 +164,7 @@
         {
           state: dashState(),
           can,
+          showOwner: !!RM() && RM().scopeOf(state()) !== "self",
           today: B.localDate(),
           B,
           OM: root.LaiOpportunityModel,
@@ -205,7 +207,7 @@
       if (glassSkin()) return workbenchMarkup();
       const orders = can("order.view") ? activeOrders() : [],
         m = B.orderMetrics(orders),
-        tasks = (state().laiTasks || []).filter((t) => !t.done),
+        tasks = (dashState().laiTasks || []).filter((t) => !t.done),
         today = B.localDate(),
         followups = Object.entries(dashState().customers || {}).filter(
           ([, c]) =>
@@ -259,8 +261,29 @@
         }</section></div>${metricsMarkup(orders)}</div>`
       );
     }
+    // 负责人名：账号只看自己的待办时不用写；看得到别人的待办时标出是谁的。
+    const taskWho = (t) => {
+      if (!RM() || RM().scopeOf(state()) === "self") return "";
+      return B.taskOwner(state(), t) || "未分配";
+    };
     function taskMarkup(t) {
-      return `<div class="business-line task-line"><label><input type="checkbox" data-biz-task="${E(t.id)}" ${t.done ? "checked" : ""}> <span class="${t.done ? "done-text" : ""}">${E(t.title)}</span></label><time>${date(t.date)}</time></div>`;
+      const who = taskWho(t);
+      return `<div class="business-line task-line"><label><input type="checkbox" data-biz-task="${E(t.id)}" ${t.done ? "checked" : ""}> <span class="${t.done ? "done-text" : ""}">${E(t.title)}</span>${who ? ` <small class="muted">${E(who)}</small>` : ""}</label><time>${date(t.date)}</time></div>`;
+    }
+    // 管理员在日历上看到的提示：有老待办没有负责人。点“去分配”打开第一条，在编辑框里选负责人；点“知道了”这台电脑上不再提示。
+    const TASK_HINT_KEY = "lai-task-owner-hint-dismissed";
+    function taskHintDismissed() {
+      try {
+        return localStorage.getItem(TASK_HINT_KEY) === "1";
+      } catch {
+        return false;
+      }
+    }
+    function taskOwnerHint() {
+      if (!RM() || !RM().isAdmin(state()) || taskHintDismissed()) return "";
+      const open = B.unassignedTasks(state());
+      if (!open.length) return "";
+      return `<div class="business-section task-owner-hint" role="status"><span>有 ${open.length} 条待办没有负责人</span> ${button("assign-tasks", "去分配", `data-id="${E(open[0].id)}"`)} ${button("hide-task-hint", "知道了")}</div>`;
     }
     function renderOrders() {
       const filtered = filteredOrders(),
@@ -1664,7 +1687,7 @@
             button("month-next", "›") +
             button("new-task", "＋ 添加任务", "", true),
         ) +
-        `<div class="business-scroll calendar-layout"><section class="business-section"><div class="calendar-week">${["一", "二", "三", "四", "五", "六", "日"].map((d) => `<span>周${d}</span>`).join("")}</div><div class="calendar-grid">${Array.from({ length: offset }, () => '<div class="calendar-blank"></div>').join("")}${Array.from(
+        `${taskOwnerHint()}<div class="business-scroll calendar-layout"><section class="business-section"><div class="calendar-week">${["一", "二", "三", "四", "五", "六", "日"].map((d) => `<span>周${d}</span>`).join("")}</div><div class="calendar-grid">${Array.from({ length: offset }, () => '<div class="calendar-blank"></div>').join("")}${Array.from(
           { length: days },
           (_, i) => {
             const day = month + "-" + String(i + 1).padStart(2, "0"),
@@ -1681,7 +1704,7 @@
           },
         ).join(
           "",
-        )}</div></section><aside class="business-section calendar-agenda"><div class="section-head"><h3>${selectedDate || month} 日程</h3>${selectedDate ? button("all-days", "全部") : ""}</div>${shown.map((e) => `<button class="agenda-item" ${e.kind === "order" ? `data-biz-order="${E(e.id)}"` : e.kind === "followup" ? `data-biz-customer="${E(e.customer)}"` : `data-biz-edit-task="${E(e.id)}"`}><time>${e.date}</time><strong>${E(e.title)}</strong><span>${{ order: "订单", followup: "客户跟进", task: "待办任务" }[e.kind]}</span></button>`).join("") || '<div class="small-empty">暂无日程</div>'}</aside></div>`
+        )}</div></section><aside class="business-section calendar-agenda"><div class="section-head"><h3>${selectedDate || month} 日程</h3>${selectedDate ? button("all-days", "全部") : ""}</div>${shown.map((e) => `<button class="agenda-item" ${e.kind === "order" ? `data-biz-order="${E(e.id)}"` : e.kind === "followup" ? `data-biz-customer="${E(e.customer)}"` : `data-biz-edit-task="${E(e.id)}"`}><time>${e.date}</time><strong>${E(e.title)}</strong><span>${{ order: "订单", followup: "客户跟进", task: "待办任务" }[e.kind]}${e.kind === "task" && taskWho(e) ? ` · ${E(taskWho(e))}` : ""}</span></button>`).join("") || '<div class="small-empty">暂无日程</div>'}</aside></div>`
       );
     }
     function renderSettingsHub() {
@@ -2250,10 +2273,29 @@
       }
       if (action === "order-doc-print") return printDocument(orderDocData(d.type));
     }
+    // 可以指定的负责人：有“重新分配”权限的账号，从自己看得到的成员里选；其他账号只看到自己的名字，不能改。
+    const taskCanReassign = () => !RM() || can("customer.reassign");
+    function taskMembers() {
+      if (!RM()) return [];
+      return RM().settings(state()).members.map((m) => m.name).filter((name) => sees(name));
+    }
+    function taskOwnerField(old) {
+      if (!RM()) return "";
+      const current = old ? B.taskOwner(state(), old) : RM().meName(state());
+      if (!taskCanReassign()) return `<label class="field">负责人<input value="${E(current || "未分配")}" disabled></label>`;
+      const names = taskMembers();
+      if (current && !names.some((name) => name.toLowerCase() === current.toLowerCase())) names.unshift(current);
+      const blank = current ? "" : '<option value="">未分配（按客户负责人）</option>';
+      return `<label class="field">负责人<select name="owner">${blank}${names.map((name) => option(name, name, current)).join("")}</select></label>`;
+    }
     function taskEditor(id) {
       const old = (state().laiTasks || []).find((t) => t.id === id);
       if (id !== undefined && !old) {
         ctx.toast("待办不存在，请刷新列表后重试");
+        return;
+      }
+      if (old && RM() && !sees(B.taskOwner(state(), old))) {
+        ctx.toast("这条待办不归你负责");
         return;
       }
       const t = old || {
@@ -2264,7 +2306,7 @@
       draft = { id: id || crypto.randomUUID(), task: true };
       ctx.dialog(
         id ? "编辑待办" : "添加待办",
-        `<form id="biz-task-form" class="drawer-body"><div class="form-grid"><label class="field wide">任务名称<input name="title" value="${E(t.title)}" required maxlength="200"></label><label class="field">日期<input type="date" name="date" value="${E(t.date)}" required></label><label class="business-check"><input type="checkbox" name="done" ${t.done ? "checked" : ""}> 已完成</label></div><div class="error" id="biz-task-error" role="alert"></div></form>`,
+        `<form id="biz-task-form" class="drawer-body"><div class="form-grid"><label class="field wide">任务名称<input name="title" value="${E(t.title)}" required maxlength="200"></label><label class="field">日期<input type="date" name="date" value="${E(t.date)}" required></label>${taskOwnerField(old)}<label class="business-check"><input type="checkbox" name="done" ${t.done ? "checked" : ""}> 已完成</label></div><div class="error" id="biz-task-error" role="alert"></div></form>`,
         `${button("close-editor", "取消")}<button class="primary" type="submit" form="biz-task-form">保存任务</button>`,
         "business-task",
       );
@@ -2425,6 +2467,15 @@
       if (action === "orders") return ctx.navigate("order-list");
       if (action === "order-trash") return ctx.navigate("order-trash");
       if (action === "new-task") return taskEditor();
+      if (action === "assign-tasks") return taskEditor(d.id);
+      if (action === "hide-task-hint") {
+        try {
+          localStorage.setItem(TASK_HINT_KEY, "1");
+        } catch {
+          /* 存不了也没关系，下次还会提示 */
+        }
+        return render();
+      }
       if (action === "close-editor") return finishEditor();
       if (action === "archive-order") {
         if (!need("order.delete") || notYours(allOrders().find((o) => o.id === d.id))) return;
@@ -2866,8 +2917,10 @@
       }
       if (form.id === "biz-task-form") {
         data.done = form.elements.done.checked;
+        // 负责人：新待办默认是当前账号；只有能“重新分配”的账号才能指定别人（页面上其他账号看不到这个选项，这里再卡一次）。
+        const taskOpts = RM() ? { me: RM().meName(state()), canReassign: taskCanReassign(), members: taskMembers() } : {};
         return saveNext(
-          () => B.setTask(state(), draft.id, data),
+          () => B.setTask(state(), draft.id, data, taskOpts),
           "biz-task-error",
           finishEditor,
         );
