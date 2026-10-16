@@ -2952,7 +2952,12 @@
     const redraw = () => { const old = root(); if (old) old.outerHTML = body(); root()?.querySelector(".tag-rename-input")?.focus(); };
     const run = async (fn) => {
       if (pending) return;
-      try { await persist(fn().state); message = ""; editing = ""; confirmDelete = ""; refresh(); toast("已保存到来财"); }
+      try {
+        await persist(fn().state); message = ""; editing = ""; confirmDelete = "";
+        if (activeRoute === "customers" && !currentName && customerScreen === "customer-settings") customerSettings(true);
+        else refresh();
+        toast("已保存到来财");
+      }
       catch (error) { message = error.message; }
       redraw();
     };
@@ -4484,10 +4489,11 @@
     ...(can("settings.dedupe") ? [] : ["dedupe"]),
     ...(can("settings.source") ? [] : ["sources"]),
   ];
-  function customerSettings() {
+  function customerSettings(keepModal = false) {
     window.LaiActivityCategoryNavigation.mount(null);
     rememberCustomerListViewport();
-    closeModal();
+    // 标签管理窗口开着时页面在后面刷新，窗口要留着让人继续改。
+    if (!keepModal) closeModal();
     if (screenBlocked("customer-settings")) return;
     customerScreen = "customer-settings";
     currentName = "";
