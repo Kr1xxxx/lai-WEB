@@ -239,3 +239,27 @@ test('renameOwnerEverywhere: no-ops, and the current account renaming carries th
   const cased = R.renameMember(state0, kris.id, 'KRIS');
   assert.equal(cased.customers.a.owner, 'KRIS');
 });
+
+test('a saved 业务 role gets permissions added after it was saved (by its known list), but never re-enables ones it knew', () => {
+  const stored = known => ({ laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known, perms: { 'lead.view': true } }, { id: 'rx', name: '自建', scope: 'self', v: 2, known, perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } });
+  const all = R.KEYS.filter(key => key !== 'mail.send' && key !== 'doc.create');
+  // The role was saved when mail.send and doc.create did not exist yet: both are granted (both are in the default 业务 list).
+  let s = R.settings(stored(all));
+  const sales = s.roles.find(r => r.id === 'sales');
+  assert.equal(sales.perms['mail.send'], true);
+  assert.equal(sales.perms['doc.create'], true);
+  assert.equal(sales.perms['lead.view'], true);
+  assert.equal(sales.perms['lead.edit'], undefined, 'known and left off: stays off');
+  // A key outside the default 业务 list is never granted; a custom role never gets defaults.
+  assert.equal(sales.perms['lead.delete'], undefined);
+  assert.equal(s.roles.find(r => r.id === 'rx').perms['mail.send'], undefined);
+  // Everything known at save time: nothing is added.
+  s = R.settings(stored([...R.KEYS]));
+  assert.equal(s.roles.find(r => r.id === 'sales').perms['mail.send'], undefined);
+  // An old save without a known list is read against the key list of the time it was written (nothing new yet).
+  s = R.settings(stored(undefined));
+  assert.equal(s.roles.find(r => r.id === 'sales').perms['mail.send'], undefined);
+  // Saving writes the known list, so a later new key is granted from then on.
+  const saved = R.addMember(stored([...R.KEYS]), { name: 'Bob' });
+  assert.deepEqual(saved.laiSettings.roles.roles.find(r => r.id === 'sales').known, [...R.KEYS]);
+});

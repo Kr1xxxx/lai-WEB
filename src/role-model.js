@@ -60,6 +60,9 @@
     if(out['product.edit'])out['product.codeEdit']=true;
     return out;
   }
+  // 存下来的角色带着“存的时候权限清单里有哪些”（known）。之后新加的权限，内置角色（业务、部门管理员）按默认值补上，
+  // 不然老账号永远拿不到新功能；已经知道的权限（不管勾没勾）不动。没带 known 的旧数据，按下面这份当时的清单算。
+  const LEGACY_KNOWN=Object.freeze(['lead.view','lead.create','lead.edit','lead.delete','lead.purge','lead.reassign','lead.convert','opp.view','opp.create','opp.edit','opp.delete','opp.transfer','opp.archive','opp.fileDownload','opp.fileDelete','customer.view','customer.create','customer.edit','customer.reassign','customer.removeOwner','customer.unfollow','customer.toPool','customer.merge','customer.batchFollow','customer.duplicates','customer.trash','customer.import','pool.view','pool.claim','pool.assign','pool.edit','pool.delete','order.view','order.create','order.edit','order.delete','product.view','product.create','product.edit','product.delete','product.sync','product.codeNew','product.codeEdit','doc.create','doc.void','team.view','team.wall','team.goalEdit','team.targets','team.export','activity.view','mail.view','mail.send','settings.customer','settings.dedupe','settings.source','settings.opportunity','settings.product','settings.docTemplate','settings.general','settings.roles']);
   let counter=0;
   const newId=prefix=>`${prefix}${Date.now().toString(36)}${(counter++).toString(36)}`;
   function cleanName(value,label){
@@ -91,7 +94,12 @@
     return form||detail?{product:{form,detail}}:{};
   }
   function readRole(r,base){
-    const perms=r?upgrade(cleanPerms(r.perms),Number(r.v)||1):Object.fromEntries(base.defaults.map(key=>[key,true]));
+    let perms=r?upgrade(cleanPerms(r.perms),Number(r.v)||1):Object.fromEntries(base.defaults.map(key=>[key,true]));
+    if(r&&base.defaults.length){
+      const known=new Set(Array.isArray(r.known)?r.known:LEGACY_KNOWN);
+      perms={...perms};
+      for(const key of base.defaults)if(!known.has(key))perms[key]=true;
+    }
     return {...base,perms:cleanPerms(perms),fields:cleanFields(r?.fields),layouts:cleanLayouts(r?.layouts)};
   }
 
@@ -188,7 +196,7 @@
   // “默认跟进人”只在换账号（或给当前账号改名）时跟着变，其他改动不碰你在设置里填的值。
   function put(state,next,{owner=false}={}){
     const roles=next.roles.filter(r=>r.id!==ADMIN).map(r=>{
-      const row={id:r.id,name:r.name,scope:r.scope,perms:cleanPerms(r.perms),v:VERSION};
+      const row={id:r.id,name:r.name,scope:r.scope,perms:cleanPerms(r.perms),v:VERSION,known:[...KEYS]};
       const fields=cleanFields(r.fields),layouts=cleanLayouts(r.layouts);
       if(Object.keys(fields).length)row.fields=fields;
       if(Object.keys(layouts).length)row.layouts=layouts;
