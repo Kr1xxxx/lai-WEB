@@ -308,7 +308,7 @@ test('controller: a failed save keeps the form and its content; analysis page an
 });
 
 test('navigation: 商机 is a real menu with its own pages and highlight', () => {
-  assert.deepEqual(RM.sectionFor('opportunities').entries.map(e => [e.label, e.target]), [['商机看板', 'opportunities'], ['商机分析', 'opp-analysis'], ['销售流程设置', 'opp-flows']]);
+  assert.deepEqual(RM.sectionFor('opportunities').entries.map(e => [e.label, e.target]), [['商机看板', 'opportunities'], ['商机分析', 'opp-analysis'], ['商机设置', 'opp-flows']]);
   assert.equal(RM.sectionFor('opp-analysis').label, '商机');
   const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
   assert.match(app, /\["globe", "商机", "opportunities"\]/);
@@ -514,7 +514,7 @@ test('流程设置页: flows on the left, stages grouped by kind with usage, and
 test('controller: flow settings save each action, confirm deletions, and the board and form follow', async () => {
   const c = controller(sample());
   c.page.navigate('opp-flows');
-  assert.match(c.mounted.at(-1), /<h1>销售流程设置<\/h1>/);
+  assert.match(c.mounted.at(-1), /<h1>商机设置<\/h1>/);
   await c.submit('opp-stage-add-open', {label: '已报价'}, {flow: 'default', kind: 'open'});
   assert.deepEqual(O.flowOf(c.state(), 'default').stages.map(st => st.label), ['未成单', '付款未到账', '已报价', '待付尾款', '已完成', '输单']);
   const quoted = O.flowOf(c.state(), 'default').stages[2].id;

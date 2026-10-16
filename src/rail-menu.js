@@ -14,7 +14,7 @@
   const fixed={
     '客户':menu('客户',['客户列表','screen','active'],['公海客户','screen','pool'],['客户查重','screen','duplicates'],['客户设置','screen','customer-settings']),
     '线索':menu('线索',['线索列表','route','leads'],['线索回收站','route','lead-trash']),
-    '商机':menu('商机',['商机看板','route','opportunities'],['商机分析','route','opp-analysis'],['销售流程设置','route','opp-flows']),
+    '商机':menu('商机',['商机看板','route','opportunities'],['商机分析','route','opp-analysis'],['商机设置','route','opp-flows']),
     '工作台':menu('工作台',['工作台','route','dashboard']),
     // Leads：入口已保留；菜单里先放一个「设置」，点开提示待后续实现（kind 为 feature，不能设为常用）。
     'Leads':menu('Leads',['设置','feature','Leads 设置']),

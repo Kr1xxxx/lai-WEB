@@ -3352,7 +3352,7 @@
 
   const L = window.LaiModules;
   let customerScreen = "active";
-  let csTab = "groups", csEditing = null;
+  let csTab = "groups", csEditing = null, csDedupeSub = "customer";
   const allCustomerRows = () => S.enrich(M.buildCustomers(state), state);
   function rebuildRows() {
     rows = allCustomerRows().filter(
@@ -4224,7 +4224,7 @@
     const sameTab = document.querySelector(`.cs-panel[data-cs-panel="${csTab}"]`);
     const scrolled = sameTab ? sameTab.closest("main")?.scrollTop || 0 : 0;
     $("#app").innerHTML = shell(
-      window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing }, E, ownerChoices()),
+      window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing, dedupeSub: csDedupeSub }, E, ownerChoices()),
     );
     if (scrolled) {
       const main = document.querySelector(".cs-panel")?.closest("main");
@@ -4362,6 +4362,11 @@
       csSave(() => CSM.deleteTemplate(state, d.tplGroup, d.csTplDelete));
       return true;
     }
+    if (d.csDedupeSub) {
+      csDedupeSub = d.csDedupeSub === "lead" ? "lead" : "customer";
+      customerSettings();
+      return true;
+    }
     if (d.csTab) {
       csTab = d.csTab;
       csEditing = null;
@@ -4492,6 +4497,7 @@
       if (kind === "add-source") return CSM.addSource(state, { name: text("name"), parentId: form.dataset.parent || "" });
       if (kind === "rename-source") return CSM.renameSource(state, form.dataset.id, text("name"));
       if (kind === "dedupe") return CSM.setDedupe(state, Object.fromEntries(CSM.DEDUPE_FIELDS.map(([key]) => [key, text(`dedupe:${key}`)])));
+      if (kind === "lead-dedupe") return CSM.setLeadDedupe(state, Object.fromEntries(CSM.LEAD_DEDUPE_FIELDS.map(([key]) => [key, text(`dedupe:${key}`)])));
       if (kind === "duplicates") return CSM.setDuplicateFields(state, data.getAll("field").map(String));
       if (kind === "caps") {
         const perOwner = {};

@@ -58,7 +58,7 @@ test('UI: tabs, hidden columns leave the table, text is escaped', () => {
   const s = M.setCompany(M.setTemplate({}, 'quote', { columns: { price: false, amount: false } }), { name: '<b>ACME</b>' });
   const html = UI.pageMarkup(s, { tab: 'quote' });
   assert.match(html, /data-doc-tab="company"/);
-  assert.equal((html.match(/data-doc-tab=/g) || []).length, 5);
+  assert.equal((html.match(/data-doc-tab=/g) || []).length, 7);
   assert.ok(!html.includes('<th class="num">单价</th>') && !html.includes('合计'));
   assert.ok(html.includes('&lt;b&gt;ACME') && !html.includes('<b>ACME'));
   assert.match(UI.pageMarkup(s, { tab: 'company' }), /data-doc-form="company"/);

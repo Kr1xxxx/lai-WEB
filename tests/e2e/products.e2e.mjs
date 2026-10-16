@@ -20,7 +20,7 @@ const products = async () => (await app.readData()).laiProducts || [];
 test('the 产品 entry sits under 交易 and starts empty', async () => {
   const { page } = app;
   assert.equal(await page.locator('.cs-empty').first().innerText().then((t) => t.includes('还没有产品')), true);
-  assert.deepEqual(await page.locator('[data-prod-tab]').allInnerTexts(), ['产品列表', '产品分组', '产品字段', '规格管理']);
+  assert.deepEqual(await page.locator('[data-prod-tab]').allInnerTexts(), ['产品列表', '产品分组', '同步', '产品字段', '规格管理', '布局']);
 });
 
 test('groups and specs can be created, a product uses them, and in-use ones cannot be deleted', async () => {
