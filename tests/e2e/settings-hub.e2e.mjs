@@ -19,9 +19,9 @@ test('the settings centre lists every group, and its theme entry shows the curre
   const { page } = app;
   await openHub();
   await page.getByRole('heading', { name: '设置中心' }).waitFor();
-  assert.deepEqual(await page.locator('.sh-group h3').allInnerTexts(), ['通用', '客户', '商机', '产品和单据', '团队', '邮件']);
+  assert.deepEqual(await page.locator('.sh-group h3').allInnerTexts(), ['通用', '客户', '商机', '产品和单据', '沟通', '团队', '邮件']);
   assert.deepEqual(await page.locator('.sh-item strong').allInnerTexts(),
-    ['默认录入', '界面配色', '常用导航', '列表字段', '客群管理', '客户设置', '商机设置', '产品设置', '单据模板', '目标管理', '邮箱设置']);
+    ['默认录入', '界面配色', '常用导航', '列表字段', '客群管理', '客户设置', '商机设置', '产品设置', '单据模板', '聊天模板', '目标管理', '邮箱设置']);
   assert.match(await page.locator('[data-sh-item="theme"] .sh-now').innerText(), /粉色/);
   assert.match(await page.locator('[data-sh-item="defaults"] .sh-now').innerText(), /USD/);
   assert.equal(await page.locator('.sh-page [data-feature]').count(), 0, 'no placeholder entries');
@@ -105,20 +105,21 @@ test('default entry values (company, order prefix, currency, owner) save and per
   const { page } = app;
   await app.open('settings');
   const form = page.locator('#biz-settings-form');
-  await form.locator('[name=companyName]').fill('深圳测试贸易有限公司');
+  await form.locator('[name="company:name"]').fill('深圳测试贸易有限公司');
   await form.locator('[name=orderPrefix]').fill('TST');
   await form.locator('[name=defaultCurrency]').selectOption('EUR');
   await form.locator('[name=defaultOwner]').fill('王小明');
   await form.locator('button[type=submit]').click();
   await settle(900);
   const saved = await laiSettings();
-  assert.equal(saved.companyName, '深圳测试贸易有限公司');
+  assert.equal(saved.docTemplates.company.name, '深圳测试贸易有限公司');
+  assert.equal('companyName' in saved, false, 'the old separate field is no longer written');
   assert.equal(saved.orderPrefix, 'TST');
   assert.equal(saved.defaultCurrency, 'EUR');
   assert.equal(saved.defaultOwner, '王小明');
   await page.reload();
   await form.waitFor();
-  assert.equal(await form.locator('[name=companyName]').inputValue(), '深圳测试贸易有限公司');
+  assert.equal(await form.locator('[name="company:name"]').inputValue(), '深圳测试贸易有限公司');
   assert.equal(await form.locator('[name=orderPrefix]').inputValue(), 'TST');
   assert.equal(await form.locator('[name=defaultCurrency]').inputValue(), 'EUR');
   assert.equal(await form.locator('[name=defaultOwner]').inputValue(), '王小明');
