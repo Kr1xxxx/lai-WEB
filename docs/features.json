@@ -727,6 +727,24 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "whatsapp",
+   "area": "communication",
+   "description": "沟通 (WhatsApp, D-023): import an exported chat into 动态, click-to-chat links, log a chat by hand, undo an import, 沟通 page, permissions and owner scope",
+   "steps": [
+    "Open 沟通 → 聊天记录: empty page says how to start",
+    "导入聊天记录: choose docs/samples/whatsapp/android-24h.txt, pick 哪个是你, the customer is suggested, 确认导入: toast 已导入 n 条，跳过 0 条重复",
+    "The chat shows on 沟通 → 聊天记录 and on the customer 动态 › 聊天记录 (expand to see the bubbles)",
+    "Import the same file again: toast 已导入 0 条，跳过 n 条重复; in 导入记录 click 撤销 on the first import and confirm: the chat disappears and the row says 已撤销",
+    "客户详情 → WhatsApp: the number is shown with the country code, type a message, 打开 WhatsApp opens https://wa.me/<number>?text=...; 发出去了吗？记一笔 adds the message to 动态",
+    "Switch to a 业务 account (本人): another owner's customer and chats are not listed or suggested; turn 查看聊天记录 off for 业务: 沟通 page, rail menu and 聊天记录 entries are gone"
+   ],
+   "e2e": "whatsapp.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }
