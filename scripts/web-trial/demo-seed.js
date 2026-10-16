@@ -59,6 +59,37 @@
     ['确认 Lash Lab 新托盘印刷规格', 4]
   ];
 
+  // 示例 WhatsApp 聊天（沟通 › 聊天记录）：全是虚构的。[客户, 联系人, 号码, 跟进人, [[几天前, 时, 分, 'out'|'in', 内容], ...]]
+  var CHATS = [
+    ['London Lash Pro', 'Charlotte Hughes', '+442079460101', 'Kris', [
+      [3, 14, 5, 'in', 'Hi Kris, could you send the updated price list for the grafting trays?'],
+      [3, 14, 9, 'out', 'Hello Charlotte, sending it now. MOQ is 500 trays per style.'],
+      [3, 14, 12, 'in', 'Perfect. We plan a PO of about USD 50,000 for Q4.'],
+      [1, 9, 40, 'out', 'The PI is ready, I will email it this afternoon.'],
+      [1, 16, 2, 'in', 'Received, thank you. Can you hold the production slot for us?']]],
+    ['Velvet Lash Co.', 'Madison Cole', '+13105550102', 'Kris', [
+      [6, 11, 30, 'out', 'Hi Madison, the holiday gift boxes passed inspection. Photos attached.'],
+      [6, 11, 52, 'in', 'They look great! When can they ship?'],
+      [5, 8, 15, 'out', 'We can ship on October 20, after the 70% balance arrives.']]]
+  ];
+  function chatEntries(today, row) {
+    var byDay = {};
+    row[4].forEach(function (line, index) {
+      var when = new Date(today.getTime()); when.setDate(when.getDate() - line[0]); when.setHours(line[1], line[2], 0, 0);
+      var key = iso(when);
+      (byDay[key] = byDay[key] || []).push({at: when.toISOString(), from: line[3] === 'out' ? row[3] : row[1], dir: line[3], text: line[4], key: 'demo-' + row[0].replace(/\W/g, '').toLowerCase() + '-' + index});
+    });
+    return Object.keys(byDay).sort().reverse().map(function (dayKey) {
+      var lines = byDay[dayKey], sent = lines.filter(function (l) { return l.dir === 'out'; }), got = lines.filter(function (l) { return l.dir === 'in'; });
+      var entry = {type: 'chat', subtype: 'whatsapp', channel: 'WhatsApp', time: lines[lines.length - 1].at, owner: row[3], contact: row[1],
+        text: 'WhatsApp 聊天 ' + lines.length + ' 条（发出 ' + sent.length + '，收到 ' + got.length + '）\n' + lines.map(function (l) { return l.text; }).join(' ').slice(0, 140),
+        chatRef: {src: 'manual', peer: row[2], day: dayKey}, lines: lines};
+      if (sent.length) entry.lastSentAt = sent[sent.length - 1].at;
+      if (got.length) entry.lastReceivedAt = got[got.length - 1].at;
+      return entry;
+    });
+  }
+
   function build(today) {
     var data = {orders: [], trashOrders: [], deletedOrders: [], customers: {}, trackingLookups: []};
     var owners = {};
@@ -71,6 +102,10 @@
         lastWrittenFollowup: stamp(today, c.recordDays, 9),
         history: [{time: stamp(today, c.recordDays, 9), text: c.record, type: 'followup', subtype: 'quick'}]
       };
+    });
+    CHATS.forEach(function (row) {
+      var profile = data.customers[row[0]];
+      if (profile) profile.history = chatEntries(today, row).concat(profile.history || []);
     });
     ORDERS.forEach(function (row, index) {
       var prev = row[7] === 'prev', created = prev ? day(today, -45 - index) : inMonth(today, row[7]);

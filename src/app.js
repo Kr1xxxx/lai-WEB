@@ -3996,7 +3996,7 @@
     if (!section) return "";
     section.entries = section.entries.filter(entryAllowed);
     if (!section.entries.length) return "";
-    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", chats: "chat", "chat-templates": "note" };
+    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", chats: "chat", "chat-templates": "folder" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
