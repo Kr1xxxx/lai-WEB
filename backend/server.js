@@ -57,7 +57,7 @@ const mailRoutes = {
   'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
   'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/import-log', 'POST /api/save', 'POST /api/save-changes', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/backup-status', 'GET /api/import-log', 'POST /api/save', 'POST /api/save-changes', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 
 function securityHeaders(type = '') {
   return {
@@ -148,9 +148,8 @@ const server = http.createServer(async (req, res) => {
       const request = await readJsonBody(req);
       const payload = request?.state && typeof request.state === 'object' ? request.state : request;
       const result = store.save(payload, { baseRevision: request?.baseRevision ?? payload?.baseRevision, importLog:request?.importLog });
-      let backup;
-      try { backup = store.backup(false); } catch (error) { backup = { ok: false, message: error.message || 'automatic backup failed' }; }
-      return send(res, 200, JSON.stringify({ ok: true, storageMode: 'sqlite', ...result, backup }));
+      // 备份不在这里马上做：存储层的备份队列会在一小时内补上（见 storage.js 的 queueBackup）。
+      return send(res, 200, JSON.stringify({ ok: true, storageMode: 'sqlite', ...result, backup: store.backupStatus() }));
     }
     if (url.pathname === '/api/mail-account') return send(res, 200, JSON.stringify(mailAccounts.status()));
     if (url.pathname === '/api/mail-account/bind') {
@@ -188,12 +187,11 @@ const server = http.createServer(async (req, res) => {
       if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
       const request = await readJsonBody(req);
       const result = store.saveChanges(request?.changes, { baseRevision: request?.baseRevision, importLog: request?.importLog });
-      let backup;
-      try { backup = store.backup(false); } catch (error) { backup = { ok: false, message: error.message || 'automatic backup failed' }; }
-      return send(res, 200, JSON.stringify({ ok: true, storageMode: 'sqlite', ...result, backup }));
+      return send(res, 200, JSON.stringify({ ok: true, storageMode: 'sqlite', ...result, backup: store.backupStatus() }));
     }
+    if (url.pathname === '/api/backup-status') return send(res, 200, JSON.stringify({ ok: true, backup: store.backupStatus() }));
     if (url.pathname === '/api/manual-backup') {
-      const backup = store.backup(true);
+      const backup = store.backup(true, 'manual');
       return send(res, backup.ok ? 200 : 503, JSON.stringify(backup));
     }
     if (url.pathname === '/api/open-data-folder') {

@@ -107,4 +107,13 @@
 
 ## 保存方式（只传改动，D-020）
 页面保存时，`persist()`（`src/app.js`）用 `src/model.js` 的 `snapshotState/diffState` 把新数据和上次保存的快照按文字比较，只把变了的客户、订单（含它们在各分栏里的先后顺序）和其它设置发给 `POST /api/save-changes`（`backend/storage.js` 的 `applyChanges`）。后端在同一个事务里先核对 `baseRevision`，套用后核对各表条数和订单顺序，对不上就整体撤销返回 422，页面随后改走整包的 `POST /api/save`（导入等整批改动也走它）。读取仍是整包 `GET /api/data`。
+- 整包保存在写事务里先核对：服务器已有的顶层字段都要在、类型要对（`validateReplacement`），否则 400 `incomplete_save`。
+- 版本冲突（409）时页面取最新数据，用 `model.js` 的 `rebaseChanges` 判断这次改动碰到的记录在别处有没有被改：没有就套到最新数据上重试一次，有就报出是哪些客户／订单。
+- 一次删掉 5 个以上客户或订单前先做 `before-delete-*` 备份，备份失败就不删（503）。
+
+## 备份（storage.js）
+- 保存不再当场备份：`business_backup_revision`／`mail_backup_revision`（metadata 表）记着有没备份的改动，`queueBackup` 在上次备份满一小时时做一份，失败一分钟后重试；`close()` 不做备份，下次启动按记号重新排队；启动和每次备份前删掉残留的 `*.partial`；`GET /api/backup-status` 给页面看（`app.js` 的 `updateBackupNotice`）。
+- 文件名：自动 `lai-data-*`、删除前 `before-delete-*`、手动 `manual-*`（`POST /api/manual-backup`）。分层保留见 `pruneBackups`（`before-delete-*` 不占分层名额，留 30 天）；手动备份不自动删除。备份文件做好后删旧备份、写 `backup-meta.json` 出错都不算失败（记录先留在内存里，下次读时再写）。
+- 附件只认相对地址 `/attachments/...`；缺失的附件文件、读不懂的行都跳过并计数（`missingAttachments`、`invalidRows`）。
+- `/api/health` 不做完整性检查和整包读取；完整性检查只在启动时做。数据目录的符号链接／硬链接检查只在启动时做一次（`laiDataDirectory({ scan })`，跳过 `backups/`）。
 

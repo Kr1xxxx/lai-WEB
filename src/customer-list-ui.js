@@ -70,7 +70,7 @@
     const soldCountryEntries = [...soldCountryCounts.keys()].sort();
     const groupHeading = `<div class="group-title group-list-heading"><strong>客群列表</strong><button class="text-button group-settings" data-action="manage-segments" aria-label="管理客群">${icon("settings")}</button></div>`;
     const groupBody =
-      `${group("all", "全部客户", rows.length)}${branch("won", "❤️成交客户分层", rows.filter((c) => c.orderCount).length, group("won", "成交客户", rows.filter((c) => c.orderCount).length, true) + group("due", "待收款客户", rows.filter((c) => c.due > 0).length, true))}${branch("lapsed", "即将流失客户（超过45天未复购）", o.lapsedCount ?? 0, group("lapsed", "超过45天未复购", o.lapsedCount ?? 0, true))}${group("followed", "我的关注", rows.filter((c) => c.followed).length)}${branch("manual", "分组", rows.length, grouped + '<button class="text-button new-group" data-action="new-manual">＋ 新建分组</button>')}${branch("new", "未成交客户", rows.filter((c) => !c.orderCount).length, group("new", "全部未成交客户", rows.filter((c) => !c.orderCount).length, true))}${branch("countries", "各国已成交客户", [...soldCountryCounts.values()].reduce((sum, count) => sum + count, 0), soldCountryEntries.map((country) => group("country:" + country, country, soldCountryCounts.get(country), true)).join(""))}${rules.map((s) => group("segment:" + s.id, s.name, o.ruleCounts?.[s.id] ?? 0)).join("")}<div class="group-extra"><button class="text-button" data-action="new-segment">＋ 新建条件客群</button>${group("followup", "待跟进客户", o.followupCount)}</div>`;
+      `${group("all", "全部客户", rows.length)}${branch("won", "❤️成交客户分层", rows.filter((c) => c.orderCount).length, group("won", "成交客户", rows.filter((c) => c.orderCount).length, true))}${branch("lapsed", "即将流失客户（超过45天未复购）", o.lapsedCount ?? 0, group("lapsed", "超过45天未复购", o.lapsedCount ?? 0, true))}${group("followed", "我的关注", rows.filter((c) => c.followed).length)}${branch("manual", "分组", rows.length, grouped + '<button class="text-button new-group" data-action="new-manual">＋ 新建分组</button>')}${branch("new", "未成交客户", rows.filter((c) => !c.orderCount).length, group("new", "全部未成交客户", rows.filter((c) => !c.orderCount).length, true))}${branch("countries", "各国已成交客户", [...soldCountryCounts.values()].reduce((sum, count) => sum + count, 0), soldCountryEntries.map((country) => group("country:" + country, country, soldCountryCounts.get(country), true)).join(""))}${rules.map((s) => group("segment:" + s.id, s.name, o.ruleCounts?.[s.id] ?? 0)).join("")}<div class="group-extra"><button class="text-button" data-action="new-segment">＋ 新建条件客群</button>${group("followup", "待跟进客户", o.followupCount)}</div>`;
     const current =
       segments.find((s) => filters.group === "segment:" + s.id)?.name ||
       {
@@ -79,7 +79,6 @@
         new: "未成交客户",
         followed: "我的关注",
         lapsed: "即将流失客户",
-        due: "待收款客户",
         followup: "待跟进客户",
       }[filters.group] ||
       (filters.group.startsWith("country:") ? filters.group.slice(8) : "客户列表");

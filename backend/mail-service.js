@@ -19,6 +19,9 @@ const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const MAX_RECIPIENTS = 50;
 const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_BATCH = 200;        // 一次批量标记／删除最多多少封
+const MAX_TEXT_BYTES = 1024 * 1024;
+// 保存邮件附件到「下载」时拦下可执行文件，和商机附件用同一份清单（backend/opportunity-files.js）。
+const { BLOCKED_EXTENSIONS } = require('./opportunity-files.js');
 const MAX_TEMPLATES = 200;
 const STALE_CHECK_MS = 20000; // 连接闲了这么久再用之前，先问服务器一声它还在不在
 const OPERATION_TIMEOUT_MS = 120000; // 一次操作最多等这么久；超时就放弃这条连接
@@ -244,7 +247,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     const source = await session.fetchSource(uid);
     if (!source) throw fail(404, 'not_found', '这封邮件已经不在邮箱里了，可能已被移动或删除。');
     const parsed = await mime.parseMessage(source);
-    const key = `${current.email}|${box}|${uid}`;
+    const key = `${imap.accountIdentity(current)}|${box}|${uid}`;
     recent.delete(key); recent.set(key, parsed);
     while (recent.size > 4) recent.delete(recent.keys().next().value);
     return { parsed, flags: meta.flags };
@@ -265,7 +268,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       const { parsed, flags } = await load(session, current, box, uid);
       if (!flags.includes('\\seen')) await session.addFlags(uid, ['\\Seen']);
       return { ok: true, message: {
-        box, uid, from: parsed.from, to: parsed.to, cc: parsed.cc, replyTo: parsed.replyTo, subject: parsed.subject, date: parsed.date,
+        box, uid, accountIdentity: imap.accountIdentity(current), from: parsed.from, to: parsed.to, cc: parsed.cc, replyTo: parsed.replyTo, subject: parsed.subject, date: parsed.date,
         messageId: parsed.messageId, inReplyTo: parsed.inReplyTo, references: parsed.references, text: parsed.text.slice(0, 2 * 1024 * 1024),
         html: inlineImages(parsed.html, parsed.attachments).slice(0, 8 * 1024 * 1024),
         attachments: parsed.attachments.filter(item => !(item.inline && item.contentId && parsed.html.includes('cid:' + item.contentId))).map(({ index, filename, contentType, size }) => ({ index, filename, contentType, size })),
@@ -297,7 +300,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
   }
 
   async function cachedMessage(box, uid) {
-    const current = account(), key = `${current.email}|${box}|${uid}`;
+    const current = account(), key = `${imap.accountIdentity(current)}|${box}|${uid}`;
     if (recent.has(key)) return recent.get(key);
     return withSession(async (session, active) => session.withMailbox(await resolveBox(session, active, box), true, async () => (await load(session, active, box, uid)).parsed));
   }
@@ -306,8 +309,9 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     const parsed = await cachedMessage(box, uid);
     const attachment = parsed.attachments.find(item => item.index === Number(index));
     if (!attachment) throw fail(404, 'not_found', '找不到这个附件');
-    fs.mkdirSync(downloadsDir, { recursive: true });
     const name = mime.safeFilename(attachment.filename), extension = path.extname(name), stem = name.slice(0, name.length - extension.length);
+    if (BLOCKED_EXTENSIONS.includes(extension.slice(1).toLowerCase())) throw fail(400, 'blocked_type', '这个附件是可执行文件，为了安全不保存到下载。需要的话请到 Zoho 邮箱里查看。');
+    fs.mkdirSync(downloadsDir, { recursive: true });
     for (let attempt = 0; attempt < 500; attempt++) {
       const file = path.join(downloadsDir, attempt ? `${stem} (${attempt})${extension}` : name);
       try { fs.writeFileSync(file, attachment.content, { flag: 'wx', mode: 0o600 }); }
@@ -333,15 +337,24 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     }
     return parsed;
   }
+  // 正文太长时直接拒绝（不悄悄截掉一部分再保存或发出）。
   function cleanDraft(input, id) {
     const request = input && typeof input === 'object' ? input : {};
     const line = (value, max) => String(value ?? '').replace(/[\r\n\u0000]+/g, ' ').slice(0, max);
+    const text = String(request.text ?? '').replace(/\u0000/g, '');
+    if (Buffer.byteLength(text, 'utf8') > MAX_TEXT_BYTES) throw fail(413, 'too_large', '邮件正文超过 1 MB，请删减正文后再试（这次没有保存或发送）。');
+    const html = String(request.html ?? '').replace(/\u0000/g, '');
+    if (Buffer.byteLength(html, 'utf8') > MAX_HTML_BYTES) throw fail(413, 'too_large', '邮件正文和里面的图片合计超过 2 MB，请减少图片或正文后再试（这次没有保存或发送）。');
+    const forward = request.forwardOf;
+    const forwardOf = forward && typeof forward === 'object' && (forward.box === 'inbox' || forward.box === 'sent') && Number.isSafeInteger(Number(forward.uid))
+      ? { box: forward.box, uid: Number(forward.uid), accountIdentity: /^[0-9a-f]{64}$/.test(String(forward.accountIdentity || '')) ? String(forward.accountIdentity) : '' } : null;
     return {
       id, to: line(request.to, 4000), cc: line(request.cc, 4000), bcc: line(request.bcc, 4000), subject: line(request.subject, 500),
-      text: String(request.text ?? '').replace(/\u0000/g, '').slice(0, 1024 * 1024),
-      html: String(request.html ?? '').replace(/\u0000/g, '').slice(0, MAX_HTML_BYTES),
+      text, html,
       inReplyTo: line(request.inReplyTo, 1000), references: line(request.references, 8000),
-      forwardOf: request.forwardOf && typeof request.forwardOf === 'object' && (request.forwardOf.box === 'inbox' || request.forwardOf.box === 'sent') && Number.isSafeInteger(Number(request.forwardOf.uid)) ? { box: request.forwardOf.box, uid: Number(request.forwardOf.uid) } : null,
+      // 转发：记下原邮件属于哪个邮箱（accountIdentity）。只有明确勾选（forwardAttachments === true）才带上原附件。
+      forwardOf,
+      ...(forwardOf ? { forwardAttachments: request.forwardAttachments === true, forwardCount: Number.isSafeInteger(Number(request.forwardCount)) && Number(request.forwardCount) >= 0 ? Math.min(30, Number(request.forwardCount)) : 0 } : {}),
       updatedAt: now().toISOString(),
     };
   }
@@ -387,7 +400,9 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     if (!draft.subject.trim() && !content.text.trim() && !content.images.length) throw fail(400, 'invalid_input', '主题和正文不能都为空');
     const { attachments, bytes: uploaded } = uploadedAttachments(request);
     let bytes = uploaded + content.images.reduce((sum, item) => sum + item.content.length, 0);
-    if (draft.forwardOf && request.forwardAttachments !== false) {
+    if (draft.forwardOf && draft.forwardAttachments) {
+      // 原邮件必须属于现在绑定的这个邮箱；换过邮箱、或旧草稿没记来源时不发原附件，也不发这封。
+      if (draft.forwardOf.accountIdentity !== imap.accountIdentity(current)) throw fail(409, 'forward_source_changed', '原邮件属于别的邮箱，或这份旧草稿无法确认来源。请取消「附带原邮件附件」，或在当前邮箱重新打开原邮件转发。');
       const original = await cachedMessage(draft.forwardOf.box, draft.forwardOf.uid).catch((error) => { throw asHttp(error); });
       for (const item of original.attachments) { bytes += item.size; attachments.push({ filename: item.filename, contentType: item.contentType, content: item.content }); }
     }
@@ -414,7 +429,14 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     const found = draftId(id) && store.listMailDrafts().find(item => item.id === draftId(id));
     if (!found) throw fail(404, 'not_found', '找不到这份草稿');
     const files = store.readMailDraftFiles ? store.readMailDraftFiles(found.id) : [];
-    return { ok: true, draft: found, attachments: files.filter(item => item && typeof item.contentBase64 === 'string').map(item => ({ filename: String(item.filename || ''), contentType: String(item.contentType || 'application/octet-stream'), contentBase64: item.contentBase64 })) };
+    // 转发草稿：原邮件不属于现在的邮箱时，不再默认带原附件，并告诉界面来源不可用。
+    let draft = found;
+    if (found.forwardOf) {
+      const current = store.readMailAccount();
+      const sourceUnavailable = !current || found.forwardOf.accountIdentity !== imap.accountIdentity(current);
+      draft = { ...found, forwardAttachments: !sourceUnavailable && found.forwardAttachments === true, forwardCount: Number(found.forwardCount) || 0, sourceUnavailable };
+    }
+    return { ok: true, draft, attachments: files.filter(item => item && typeof item.contentBase64 === 'string').map(item => ({ filename: String(item.filename || ''), contentType: String(item.contentType || 'application/octet-stream'), contentBase64: item.contentBase64 })) };
   }
   function saveDraft(input) {
     const request = input && typeof input === 'object' ? input : {};
@@ -426,8 +448,8 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       if (attachments.length > 30) throw fail(400, 'invalid_input', '附件不能超过 30 个');
       if (bytes > MAX_ATTACHMENT_BYTES) throw fail(413, 'too_large', '附件合计超过 10 MB，无法随草稿保存');
       draft.attachments = attachments.map(fileMeta);
-      store.writeMailDraft(draft);
-      store.writeMailDraftFiles(id, attachments.map(item => ({ filename: item.filename, contentType: item.contentType, contentBase64: item.content.toString('base64') })));
+      // 草稿和附件一起写（同一个事务），不会出现新文字配旧附件。
+      store.writeMailDraft(draft, attachments.map(item => ({ filename: item.filename, contentType: item.contentType, contentBase64: item.content.toString('base64') })));
     } else {
       const previous = store.listMailDrafts().find(item => item.id === id);
       draft.attachments = previous && Array.isArray(previous.attachments) ? previous.attachments : [];
@@ -472,18 +494,28 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
   let bulkRunning = null;
   const bulkCount = (batch, status) => batch.items.filter(item => item.status === status).length;
   const bulkSummary = batch => ({ id: batch.id, createdAt: batch.createdAt, finishedAt: batch.finishedAt || '', subject: batch.subject, status: batch.status, stopReason: batch.stopReason || '',
-    total: batch.items.length, sent: bulkCount(batch, 'sent'), failed: bulkCount(batch, 'failed'), pending: bulkCount(batch, 'pending'), skipped: bulkCount(batch, 'skipped') });
+    total: batch.items.length, sent: bulkCount(batch, 'sent'), failed: bulkCount(batch, 'failed'), pending: bulkCount(batch, 'pending') + bulkCount(batch, 'sending'), uncertain: bulkCount(batch, 'uncertain'), skipped: bulkCount(batch, 'skipped') });
   // 正文和主题里的 {{姓名}}、{{公司}} 换成每位收件人自己的；没有联系人姓名时用公司名。
   const escapeHtml = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // 用函数做替换：客户名里的 $ 不会被当成替换记号。
   const personalize = (text, item, asHtml = false) => { const put = value => (asHtml ? escapeHtml(value) : value); return String(text).replace(/\{\{\s*姓名\s*\}\}/g, () => put(item.name || item.customer || '')).replace(/\{\{\s*公司\s*\}\}/g, () => put(item.customer || '')); };
-  const saveBulk = (batch) => { try { store.writeMailBulk(batch); } catch (_) {} };
-  // 应用在发送途中被关闭的批次不会自动续发（无法确定最后一封是否已发出），标为中断。
+  // 群发记录写不进去时不再假装成功：抛出错误由调用处处理；这次运行里仍能看到内存中的最新状态。
+  const failedBatches = new Map();
+  const saveBulk = batch => { store.writeMailBulk(batch); failedBatches.delete(batch.id); };
+  const UNCERTAIN = '发送结果待核对：应用在提交这一封时关闭，请到邮箱「已发送」核对后再决定是否重发';
+  // 应用在发送途中被关闭的批次不会自动续发，标为中断。每封发出前先记「发送中」：
+  // 重启后仍是「发送中」的那封可能已经发出，标为「待核对」，不当作没发。
+  // 旧版本留下的批次没有这个记号，第一封「待发送」的可能正在发送，同样标为待核对。
   function settleInterrupted(batch) {
     if (batch.status !== 'sending' || (bulkRunning && bulkRunning.id === batch.id)) return batch;
-    for (const item of batch.items) if (item.status === 'pending') { item.status = 'skipped'; item.error = '应用在发送过程中关闭，这一封没有发送'; }
-    batch.status = 'interrupted'; batch.stopReason = '应用在发送过程中关闭'; batch.finishedAt = batch.finishedAt || now().toISOString();
-    saveBulk(batch);
+    let legacyInFlight = batch.checkpointVersion !== 1;
+    for (const item of batch.items) {
+      if (item.status === 'sending' || (item.status === 'pending' && legacyInFlight)) { item.status = 'uncertain'; item.error = UNCERTAIN; legacyInFlight = false; }
+      else if (item.status === 'pending') { item.status = 'skipped'; item.error = '应用在发送过程中关闭，这一封没有发送'; }
+    }
+    batch.status = 'interrupted'; batch.finishedAt = batch.finishedAt || now().toISOString();
+    batch.stopReason = batch.items.some(item => item.status === 'uncertain') ? '应用在发送过程中关闭，请先核对「待核对」的那一封' : '应用在发送过程中关闭';
+    try { saveBulk(batch); } catch (_) { failedBatches.set(batch.id, batch); }
     return batch;
   }
   async function runBulk(batch, current, attachments, senderName) {
@@ -493,6 +525,10 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       for (let index = 0; index < batch.items.length; index++) {
         const item = batch.items[index];
         if (running.cancel) break;
+        // 先把「发送中」写进记录再交给发信服务器；写不进去就停下，这一封不发。
+        item.status = 'sending';
+        try { saveBulk(batch); }
+        catch (_) { item.status = 'pending'; stopReason = '发送记录保存失败，已停止；这一封还没有发出'; break; }
         try {
           const content = body({ text: personalize(batch.text, item), html: personalize(batch.html || '', item, true) });
           await smtp.send({ account: current, mail: { from: { name: senderName, address: current.email }, to: [{ name: item.name, address: item.address }], subject: personalize(batch.subject, item), text: content.text, html: content.html, attachments: [...content.images, ...attachments], date: now() } }, smtpOptions);
@@ -502,7 +538,12 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
           if (error?.code === 'auth_failed') stopReason = '发信登录失败，已停止';
           else if (streak >= 5) stopReason = '连续 5 封发送失败，已停止';
         }
-        saveBulk(batch);
+        try { saveBulk(batch); }
+        catch (_) {
+          if (item.status === 'sent') { item.status = 'uncertain'; item.error = '已交给发信服务器，但发送记录没有保存成功；请到邮箱「已发送」核对，不要直接重发'; }
+          stopReason = '发送记录保存失败，已停止；请先到邮箱核对发送结果';
+          break;
+        }
         if (stopReason) break;
         if (bulkPauseMs && index < batch.items.length - 1 && !running.cancel) await new Promise(resolve => setTimeout(resolve, bulkPauseMs));
       }
@@ -511,7 +552,7 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
       for (const item of batch.items) if (item.status === 'pending') { item.status = 'skipped'; item.error = reason || '未发送'; }
       batch.status = stopReason ? 'stopped' : running.cancel ? 'cancelled' : 'done';
       batch.stopReason = reason; batch.finishedAt = now().toISOString();
-      saveBulk(batch);
+      try { saveBulk(batch); } catch (_) { failedBatches.set(batch.id, batch); }
       if (bulkRunning === running) bulkRunning = null;
     }
   }
@@ -537,17 +578,17 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
     if (attachments.length > 30) throw fail(400, 'invalid_input', '附件不能超过 30 个');
     if (bytes > MAX_ATTACHMENT_BYTES) throw fail(413, 'too_large', '附件合计超过 10 MB，无法发送');
     const senderName = String(request.fromName ?? current.senderName ?? '').replace(/[\r\n\u0000]+/g, ' ').trim().slice(0, 80);
-    const batch = { id: crypto.randomBytes(16).toString('hex'), createdAt: now().toISOString(), finishedAt: '', subject: draft.subject, text: draft.text.trim() ? draft.text : mime.htmlToText(draft.html), html: draft.html, attachmentNames: attachments.map(item => item.filename), status: 'sending', stopReason: '', items };
+    const batch = { checkpointVersion: 1, id: crypto.randomBytes(16).toString('hex'), createdAt: now().toISOString(), finishedAt: '', subject: draft.subject, text: draft.text.trim() ? draft.text : mime.htmlToText(draft.html), html: draft.html, attachmentNames: attachments.map(item => item.filename), status: 'sending', stopReason: '', items };
     store.writeMailBulk(batch);
     bulkRunning = { id: batch.id, cancel: false };
     bulkRunning.done = runBulk(batch, current, attachments, senderName).catch(() => {});
     return { ok: true, batch: bulkSummary(batch) };
   }
   function bulkList() {
-    return { ok: true, items: store.listMailBulk().map(settleInterrupted).map(bulkSummary) };
+    return { ok: true, items: store.listMailBulk().map(batch => failedBatches.get(batch.id) || batch).map(settleInterrupted).map(bulkSummary) };
   }
   function bulkGet({ id } = {}) {
-    const batch = draftId(id) && store.readMailBulk(draftId(id));
+    const batch = draftId(id) && (failedBatches.get(draftId(id)) || store.readMailBulk(draftId(id)));
     if (!batch) throw fail(404, 'not_found', '找不到这批群发记录');
     settleInterrupted(batch);
     return { ok: true, batch: { ...bulkSummary(batch), text: batch.text, attachmentNames: batch.attachmentNames || [], items: batch.items } };
