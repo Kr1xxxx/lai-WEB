@@ -228,7 +228,9 @@ function readSettings(raw) {
   };
 }
 function put(state, patch) {
-  const next = { ...get(state), ...patch };
+  // 保存的设置里有本版本不认识的项（比如以后版本加的），原样留着，不能因为改别的设置就丢掉。
+  const stored = state && state.laiSettings && state.laiSettings.customerSettings;
+  const next = { ...(stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {}), ...get(state), ...patch };
   return { ...state, laiSettings: { ...(state.laiSettings || {}), customerSettings: next } };
 }
 const mapCustomers = (state, fn) => {
@@ -241,6 +243,58 @@ const mapCustomers = (state, fn) => {
   }
   return changed ? { ...state, customers } : state;
 };
+// 改名后，已保存的客群条件和公海规则里写着旧名字的要跟着改，否则条件悄悄失效。
+// 客群条件里 field 是 stage / group / source 的值；子路径（“上级 / 子级”）跟着换前缀。
+const swapPath = (value, from, to) => {
+  const text = trim(value);
+  if (text === from) return to;
+  if (text.startsWith(from + SEP)) return to + text.slice(from.length);
+  return null;
+};
+function renameInSegments(state, field, from, to, prefix = false) {
+  if (!Array.isArray(state.previewSegments) || from === to) return state;
+  let changed = false;
+  const previewSegments = state.previewSegments.map((segment) => {
+    if (!segment || !Array.isArray(segment.rules)) return segment;
+    let hit = false;
+    const rules = segment.rules.map((rule) => {
+      if (!rule || rule.field !== field || typeof rule.value !== "string") return rule;
+      const value = prefix ? swapPath(rule.value, from, to) : (trim(rule.value) === from ? to : null);
+      if (value === null) return rule;
+      hit = true;
+      return { ...rule, value };
+    });
+    if (!hit) return segment;
+    changed = true;
+    return { ...segment, rules };
+  });
+  return changed ? { ...state, previewSegments } : state;
+}
+// 公海规则按分组路径选分组（见 customer-tools.js）；这里直接改保存的规则，不去读那个文件（它要用到本文件）。
+function renameInPoolRules(state, from, to) {
+  const pool = state && state.laiSettings && state.laiSettings.poolRules;
+  if (!pool || !Array.isArray(pool.rules) || from === to) return state;
+  let changed = false;
+  const rules = pool.rules.map((rule) => {
+    if (!rule || !Array.isArray(rule.groups)) return rule;
+    let hit = false;
+    const groups = rule.groups.map((g) => { const v = swapPath(g, from, to); if (v === null) return g; hit = true; return v; });
+    if (!hit) return rule;
+    changed = true;
+    return { ...rule, groups: [...new Set(groups)] };
+  });
+  return changed ? { ...state, laiSettings: { ...state.laiSettings, poolRules: { ...pool, rules } } } : state;
+}
+function poolRuleUsing(state, path) {
+  const pool = state && state.laiSettings && state.laiSettings.poolRules;
+  const rules = pool && Array.isArray(pool.rules) ? pool.rules : [];
+  return rules.find((rule) => rule && Array.isArray(rule.groups) && rule.groups.some((g) => swapPath(g, path, path) !== null)) || null;
+}
+// 手动客群和客户分组共用一个“分组”下拉，重名会分不清。
+function manualSegmentNamed(state, name) {
+  const key = norm(name);
+  return (Array.isArray(state && state.previewSegments) ? state.previewSegments : []).find((s) => s && s.kind === "manual" && !s.archived && norm(s.name) === key) || null;
+}
 const countBy = (state, test) => Object.values(profiles(state)).filter((p) => bucketOf(p) !== "trash" && test(p)).length;
 const pushHistory = (profile, text, at) => ({ ...profile, history: [{ time: at, text, type: "operation" }, ...(Array.isArray(profile.history) ? profile.history : [])] });
 
@@ -260,7 +314,7 @@ function renameStage(state, oldName, newName, at = new Date().toISOString()) {
   if (value !== oldName && list.some((s) => norm(s) === norm(value))) throw new Error("已有同名阶段");
   const next = put(state, { stages: list.map((s) => (s === oldName ? value : s)) });
   if (value === oldName) return next;
-  return mapCustomers(next, (p) => (trim(p.customerStage) === oldName ? pushHistory({ ...p, customerStage: value }, `客户阶段改名：${oldName} → ${value}`, at) : p));
+  return renameInSegments(mapCustomers(next, (p) => (trim(p.customerStage) === oldName ? pushHistory({ ...p, customerStage: value }, `客户阶段改名：${oldName} → ${value}`, at) : p)), "stage", oldName, value);
 }
 function deleteStage(state, name) {
   const list = get(state).stages;
@@ -322,10 +376,12 @@ function addGroup(state, { name, parentId = "", members = "all" } = {}) {
     if (!parent) throw new Error("没有找到上级分组");
     if (parent.children.some((c) => norm(c.name) === norm(value))) throw new Error("同一个上级下已有同名分组");
     if (parent.children.length >= LIMITS.children) throw new Error(`一个分组下最多 ${LIMITS.children} 个子分组`);
+    if (manualSegmentNamed(state, pathOf(parent.name, value))) throw new Error(`已有同名的手动客群“${pathOf(parent.name, value)}”，请换个分组名称`);
     parent.children.push({ id: newId(), name: value });
   } else {
     if (groups.some((g) => norm(g.name) === norm(value))) throw new Error("已有同名分组");
     if (groups.length >= LIMITS.groups) throw new Error(`一级分组最多 ${LIMITS.groups} 个`);
+    if (manualSegmentNamed(state, value)) throw new Error(`已有同名的手动客群“${value}”，请换个分组名称`);
     groups.push({ id: newId(), name: value, children: [], childRequired: false, members: members === "all" || !Array.isArray(members) ? "all" : uniqueNames(members) });
   }
   return put(state, { groups });
@@ -347,17 +403,20 @@ function editGroup(state, id, { name, members, childRequired } = {}, at = new Da
     const value = name === undefined ? hit.child.name : cleanName(name, "分组名称");
     if (value !== hit.child.name && hit.top.children.some((c) => c.id !== id && norm(c.name) === norm(value))) throw new Error("同一个上级下已有同名分组");
     const from = pathOf(hit.top.name, hit.child.name);
+    const to = pathOf(hit.top.name, value);
+    if (from !== to && manualSegmentNamed(state, to)) throw new Error(`已有同名的手动客群“${to}”，请换个分组名称`);
     hit.child.name = value;
     next = put(state, { groups });
-    const to = pathOf(hit.top.name, value);
     if (from !== to) {
       next = mapCustomers(next, (p) => (trim(p.previewGroup) === from ? pushHistory({ ...p, previewGroup: to }, `客户分组改名：${from} → ${to}`, at) : p));
+      next = renameInPoolRules(renameInSegments(next, "group", from, to, true), from, to);
     }
     return next;
   }
   const oldName = hit.top.name;
   const value = name === undefined ? oldName : cleanName(name, "分组名称");
   if (value !== oldName && groups.some((g) => g.id !== id && norm(g.name) === norm(value))) throw new Error("已有同名分组");
+  if (value !== oldName && manualSegmentNamed(state, value)) throw new Error(`已有同名的手动客群“${value}”，请换个分组名称`);
   hit.top.name = value;
   if (members !== undefined) hit.top.members = members === "all" || !Array.isArray(members) ? "all" : uniqueNames(members);
   if (childRequired !== undefined) hit.top.childRequired = hit.top.children.length > 0 && childRequired === true;
@@ -369,6 +428,7 @@ function editGroup(state, id, { name, members, childRequired } = {}, at = new Da
       if (current.startsWith(oldName + SEP)) return pushHistory({ ...p, previewGroup: value + current.slice(oldName.length) }, `客户分组改名：${oldName} → ${value}`, at);
       return p;
     });
+    next = renameInPoolRules(renameInSegments(next, "group", oldName, value, true), oldName, value);
   }
   return next;
 }
@@ -379,6 +439,8 @@ function deleteGroup(state, id) {
   const path = hit.child ? pathOf(hit.top.name, hit.child.name) : hit.top.name;
   const used = groupUse(state, path);
   if (used) throw new Error(`还有 ${used} 位客户在“${path}”里，先把他们移到别的分组`);
+  const rule = poolRuleUsing(state, path);
+  if (rule) throw new Error(`公海规则“${trim(rule.name)}”在用分组“${path}”，先把规则里的分组改掉`);
   if (hit.child) {
     hit.top.children = hit.top.children.filter((c) => c.id !== id);
     if (!hit.top.children.length) hit.top.childRequired = false;
@@ -426,32 +488,45 @@ function addBlacklist(state, value) {
 function removeBlacklist(state, value) {
   return put(state, { blacklist: get(state).blacklist.filter((entry) => entry !== norm(value)) });
 }
+// 一个格子里可能有好几个邮箱（用 ; , 空格分开，或写成“名字 <邮箱>”）：拆开，每个都检查。
+const EMAIL_IN_TEXT = /[^\s@,;<>"'()；，]+@[^\s@,;<>"'()；，]+\.[^\s@,;<>"'()；，]+/g;
+const splitEmails = (value) => [...new Set((String(value ?? "").toLowerCase().match(EMAIL_IN_TEXT) || []))];
 function blacklistHit(state, email) {
-  const value = norm(email);
-  if (!EMAIL_RE.test(value)) return "";
   const list = get(state).blacklist;
   if (!list.length) return "";
-  const domain = value.slice(value.indexOf("@"));
-  return list.find((entry) => entry === value || entry === domain) || "";
+  for (const value of splitEmails(email)) {
+    const domain = value.slice(value.indexOf("@"));
+    const hit = list.find((entry) => entry === value || entry === domain);
+    if (hit) return hit;
+  }
+  return "";
 }
 // 只拦“新增的”邮箱：已有客户本来就有的邮箱，后来才进黑名单，不影响他继续编辑。
 function assertEmailsAllowed(state, emails, existing = []) {
-  const had = new Set((existing || []).map(norm));
+  const had = new Set((existing || []).flatMap(splitEmails));
   for (const email of emails || []) {
-    const value = norm(email);
-    if (!value || had.has(value)) continue;
-    const hit = blacklistHit(state, value);
-    if (hit) throw new Error(`邮箱“${trim(email)}”在建档黑名单里（${hit}），不能新建或加到客户上`);
+    for (const value of splitEmails(email)) {
+      if (had.has(value)) continue;
+      const hit = blacklistHit(state, value);
+      if (hit) throw new Error(`邮箱“${value}”在建档黑名单里（${hit}），不能新建或加到客户上`);
+    }
   }
 }
 
 // ============ 客户上限 ============
 const ownerOf = (p) => trim(p && p.owner);
+// 单独给某位跟进人定的上限；名字大小写不同也算同一个人（和计数一致）。没有单独定返回 null。
+function ownLimit(caps, who) {
+  if (Object.hasOwn(caps.perOwner, who)) return caps.perOwner[who];
+  const key = Object.keys(caps.perOwner).find((k) => norm(k) === norm(who));
+  return key === undefined ? null : caps.perOwner[key];
+}
 function limitFor(state, owner) {
   const who = trim(owner);
   if (!who) return 0;
   const caps = get(state).caps;
-  return Object.hasOwn(caps.perOwner, who) ? caps.perOwner[who] : caps.defaultLimit;
+  const own = ownLimit(caps, who);
+  return own === null ? caps.defaultLimit : own;
 }
 function ownerCount(state, owner, exclude = []) {
   const who = trim(owner).toLowerCase();
@@ -468,7 +543,7 @@ function assertCanTake(state, owner, adding = 1, exclude = []) {
 }
 function capRows(state, owners) {
   const caps = get(state).caps;
-  return uniqueNames(owners).map((owner) => ({ owner, count: ownerCount(state, owner), limit: Object.hasOwn(caps.perOwner, owner) ? caps.perOwner[owner] : null, effective: limitFor(state, owner) }));
+  return uniqueNames(owners).map((owner) => ({ owner, count: ownerCount(state, owner), limit: ownLimit(caps, owner), effective: limitFor(state, owner) }));
 }
 function setCaps(state, { defaultLimit, perOwner } = {}) {
   const current = get(state).caps;
@@ -546,6 +621,7 @@ function renameSource(state, id, name, at = new Date().toISOString()) {
   if (from !== to) {
     const swap = (v) => (trim(v) === from ? to : trim(v).startsWith(from + SEP) ? to + trim(v).slice(from.length) : null);
     next = mapCustomers(next, (p) => { const v = swap(p.source); return v === null ? p : pushHistory({ ...p, source: v }, `客户来源改名：${from} → ${to}`, at); });
+    next = renameInSegments(next, "source", from, to, true);
   }
   return next;
 }
@@ -726,12 +802,17 @@ function latestByAction(state, name) {
     claim: latestOf([profile.lastPrivatePoolEntry]),
   };
 }
+// 取消勾选“写跟进”后，资料上老的 lastFollowup 不能再把写过的跟进带回来：
+// 只有没有任何可统计动态的客户（导入的老客户）或规则里勾了“写跟进”时才用它。
+const hasTrackedHistory = (profile) => (Array.isArray(profile.history) ? profile.history : []).some((h) => h && ["followup", "email", "chat", "call"].includes(h.type));
 function contactTimes(state, name) {
   const rules = get(state).followRules;
   const profile = profiles(state)[name] || {};
   const latest = latestByAction(state, name);
   const calc = (keys, legacy) => latestOf([...keys.map((key) => latest[key] || ""), legacy]);
-  return { lastContact: calc(rules.contact, profile.lastContact), lastFollowup: calc(rules.followup, profile.lastFollowup) };
+  // 资料上的 lastFollowup 本来就算“写跟进”；没勾“写跟进”时，只有没有任何动态记录的老客户才用它。
+  const legacyFollowup = hasTrackedHistory(profile) && !rules.followup.includes("followup") ? "" : profile.lastFollowup;
+  return { lastContact: calc(rules.contact, profile.lastContact), lastFollowup: calc(rules.followup, legacyFollowup) };
 }
 
 // ============ 成交怎么算 ============
@@ -739,9 +820,39 @@ function setDealRule(state, by) {
   if (!["order", "opportunity"].includes(by)) throw new Error("请选择成交的算法");
   return put(state, { dealRule: { by } });
 }
+// 商机模块要读本文件，所以这里用到时才取它（提前取会互相等）。网页里它在本文件之后才装载，运行时一定在了。
+const opportunityModel = () => {
+  try { return typeof module !== "undefined" && module.exports ? require("./opportunity-model.js") : root.LaiOpportunityModel; } catch (_) { return null; }
+};
+const pad2 = (n) => String(n).padStart(2, "0");
+const localDayOf = (value) => {
+  const text = trim(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const t = validTime(text);
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+// 这位客户最近一次赢单的日期（本地日期）：销售流程里“赢单”类阶段的商机，取结束时间最晚的；
+// 商机没写结束时间时用最后更新时间。资料上导入的 opportunityLastWonDate 作为后备。
+function lastWonDate(state, name) {
+  const OM = opportunityModel();
+  let best = "";
+  if (OM && typeof OM.stageOf === "function") {
+    for (const item of opportunitiesOf(state, name)) {
+      let kind = "";
+      try { kind = OM.stageOf(state, item)?.kind; } catch (_) { kind = ""; }
+      if (kind !== "won") continue;
+      const day = localDayOf(item.closedAt || item.updatedAt);
+      if (day && day > best) best = day;
+    }
+  }
+  const savedRaw = trim((profiles(state)[name] || {}).opportunityLastWonDate);
+  const saved = localDayOf(savedRaw);
+  return saved && saved >= best ? savedRaw : best;
+}
 function lastDealDate(state, name) {
-  const profile = profiles(state)[name] || {};
-  if (get(state).dealRule.by === "opportunity") return trim(profile.opportunityLastWonDate);
+  if (get(state).dealRule.by === "opportunity") return lastWonDate(state, name);
   return latestOf(ordersOf(state, name)
     .filter((o) => !o.isDraft && ["shipment", "done"].includes(o.stage))
     .map((o) => o.shippedAt || o.createdAt));
@@ -850,12 +961,12 @@ const api = {
   addStage, renameStage, deleteStage, stageUse, moveItem,
   addType, renameType, deleteType, typeUse,
   addGroup, editGroup, deleteGroup, groupUse, groupChoices, checkGroup, isConfiguredGroup, groupPaths,
-  addBlacklist, removeBlacklist, blacklistHit, assertEmailsAllowed,
+  addBlacklist, removeBlacklist, blacklistHit, assertEmailsAllowed, splitEmails, manualSegmentNamed,
   limitFor, ownerCount, assertCanTake, capRows, setCaps,
   sourceChoices, sourcePath, sourceUse, addSource, renameSource, setSourceHidden, moveSource, deleteSource,
   setDuplicateFields, duplicateValue, setLayout, setDedupe, setLeadDedupe, LEAD_DEDUPE_FIELDS, assertNotDuplicate, dedupeValues,
   FOLLOW_ACTIONS, setFollowRules, contactTimes,
-  setDealRule, lastDealDate,
+  setDealRule, lastDealDate, lastWonDate,
   setActivity, autoMailSince,
   setFollowupOptions, addTemplateGroup, renameTemplateGroup, deleteTemplateGroup, moveTemplateGroup,
   addTemplate, editTemplate, deleteTemplate, checkFollowupTime,

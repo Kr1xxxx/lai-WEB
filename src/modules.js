@@ -62,6 +62,11 @@ function moveCustomers(state,names,target,time=new Date().toISOString(),opts={})
    profile.lastPrivatePoolEntry=time;
    if(owner)profile.poolClaims=[...(Array.isArray(old.poolClaims)?old.poolClaims:[]),{owner,time}].slice(-20);
   }
+  // 从回收站恢复到“在用”的客户，也要算进跟进人的客户上限
+  if(target==='restore'&&next==='active'&&CS){
+   const owner=String(old.owner??'').trim();
+   if(owner)CS.assertCanTake({...state,customers},owner,1,[name]);
+  }
   if(next==='trash'){profile.laiPreviousBucket=previous;profile.laiArchivedAt=time;}
   if(target==='restore')delete profile.laiArchivedAt;
   customers[name]=profile;
@@ -71,6 +76,8 @@ function moveCustomers(state,names,target,time=new Date().toISOString(),opts={})
 // 太短的电话（不足 6 位数字）和不像邮箱的内容不拿来查重，免得“-”“无”之类被当成重复。
 const looksLikeEmail=value=>/^[^@\s]+@[^@\s]*\.[^@\s.][^@\s]*$/.test(value);
 function findDuplicates(state,dedupe){
+ // 判重设置里把邮箱 / 电话选了“不判重”，查重页就不再按它们找；没传设置的调用方照旧都查。
+ const useEmail=!dedupe||dedupe.email!=='off',usePhone=!dedupe||dedupe.phone!=='off';
  const extras=[['customerCode','客户编号'],['landline','座机'],['socialAccount','社交账号'],['website','公司网址'],['shortName','简称'],['companyAddress','详细地址'],['alibabaId','Alibaba会员ID']].filter(([key])=>dedupe&&(dedupe[key]==='allow'||dedupe[key]==='block'));
  const index=new Map();
  const phoneKey=(phone,countryCode='')=>{
@@ -96,8 +103,8 @@ function findDuplicates(state,dedupe){
    ...contacts.flatMap(item=>(Array.isArray(item?.additionalPhones)?item.additionalPhones:[]).map(phone=>[phone?.phone,phone?.phoneCountryCode])),
   ];
   const values=[
-   ...new Set(emails.map(value=>String(value??'').trim().toLowerCase()).filter(looksLikeEmail).map(value=>'email:'+value)),
-   ...new Set(phones.filter(([phone])=>String(phone??'').replace(/\D/g,'').length>=6).map(([phone,code])=>phoneKey(phone,code)).filter(Boolean).map(value=>'phone:'+value)),
+   ...(useEmail?new Set(emails.map(value=>String(value??'').trim().toLowerCase()).filter(looksLikeEmail).map(value=>'email:'+value)):[]),
+   ...(usePhone?new Set(phones.filter(([phone])=>String(phone??'').replace(/\D/g,'').length>=6).map(([phone,code])=>phoneKey(phone,code)).filter(Boolean).map(value=>'phone:'+value)):[]),
   ];
   for(const [key] of extras){const v=String(c[key]??'').trim().toLowerCase();if(v)values.push(key+':'+v);}
   for(const value of values){if(value==='email:'||value==='phone:')continue;const members=index.get(value)||new Set();members.add(name);index.set(value,members);}

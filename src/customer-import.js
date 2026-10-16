@@ -149,49 +149,18 @@
     const known = new Map([...new Set([...Object.keys(customers), ...(state.orders || []).map(order => order.client).filter(Boolean)])]
       .map(name => [normalize(name), name]));
     const originallyKnown = new Set(known.keys()), processed = new Set();
-    const emails = new Map(), phones = new Map();
-    const contactValues = profile => ({
-      email:[profile.email, ...(Array.isArray(profile.emails) ? profile.emails : []),
-        ...(Array.isArray(profile.extraContacts) ? profile.extraContacts.map(contact => contact?.email) : [])],
-      phone:[profile.phone, ...(Array.isArray(profile.phones) ? profile.phones : []),
-        ...(Array.isArray(profile.extraContacts) ? profile.extraContacts.map(contact => contact?.phone) : [])],
-    });
-    const removeContact = (name, profile) => {
-      const values = contactValues(profile);
-      for (const value of values.email) {
-        const key = normalize(value), names = emails.get(key);
-        names?.delete(name);
-        if (names && !names.size) emails.delete(key);
-      }
-      for (const value of values.phone) {
-        const key = phoneKey(value), names = phones.get(key);
-        names?.delete(name);
-        if (names && !names.size) phones.delete(key);
-      }
-    };
-    const addContact = (name, profile) => {
-      const values = contactValues(profile);
-      for (const value of values.email) if (normalize(value)) {
-        const key = normalize(value), names = emails.get(key) || new Set(); names.add(name); emails.set(key, names);
-      }
-      for (const value of values.phone) if (phoneKey(value).length >= 7) {
-        const key = phoneKey(value), names = phones.get(key) || new Set(); names.add(name); phones.set(key, names);
-      }
-    };
-    for (const [name, profile] of Object.entries(customers)) addContact(name, profile);
     const result = {created:0, updated:0, skipped:0};
     const details = [];
     for (const [index, values] of records.entries()) {
       const key = normalize(values.name), existingName = known.get(key);
       const name = existingName || values.name;
       const old = customers[name] || {};
-      const otherEmail = normalize(values.email) && [...(emails.get(normalize(values.email)) || [])].some(owner => owner !== name);
-      const otherPhone = phoneKey(values.phone).length >= 7 && [...(phones.get(phoneKey(values.phone)) || [])].some(owner => owner !== name);
       const blocked = (() => {
         if (!CS) return '';
-        const hit = values.email && CS.blacklistHit(state, values.email);
-        const had = [old.email, ...(Array.isArray(old.emails) ? old.emails : [])].map(value => normalize(value));
-        if (hit && !had.includes(normalize(values.email))) return '邮箱在建档黑名单里';
+        // 格子里可能有好几个邮箱（; , 或空格分开）：每个都查，客户原来就有的不算。
+        const had = new Set([old.email, ...(Array.isArray(old.emails) ? old.emails : []),
+          ...(Array.isArray(old.extraContacts) ? old.extraContacts.map(contact => contact?.email) : [])].flatMap(value => CS.splitEmails(value)));
+        if (CS.splitEmails(values.email).some(email => !had.has(email) && CS.blacklistHit(state, email))) return '邮箱在建档黑名单里';
         const owner = String(values.owner || '').trim();
         if (owner && destination === 'active' && owner !== String(old.owner || '').trim()) {
           try { CS.assertCanTake({...state, customers}, owner, 1, [name]); } catch (error) { return `${owner}的客户数已达上限`; }
@@ -200,8 +169,7 @@
       })();
       const reason = old.laiBucket === 'trash' ? '回收站客户不可更新'
         : originallyKnown.has(key) && duplicate === 'skip' ? '同名客户已存在'
-        : otherEmail ? '邮箱与其他客户重复'
-        : otherPhone ? '电话与其他客户重复' : blocked;
+        : blocked;
       if (reason) {
         result.skipped++;
         details.push({row:parsed.lineNumbers?.[index] || index + 2,name:values.name,status:'skipped',reason});
@@ -234,7 +202,7 @@
           phone:old.extraContacts?.[i]?.phone ?? old.phones?.[i+1] ?? '',
         }))];
         const matches = entry => normalize(values.email) && normalize(entry.email) === normalize(values.email)
-          || phoneKey(values.phone).length >= 7 && phoneKey(entry.phone) === phoneKey(values.phone)
+          || phoneKey(values.phone).length >= 6 && phoneKey(entry.phone) === phoneKey(values.phone)
           || values.contact && normalize(entry.contact) === normalize(values.contact)
             && (!values.email || !entry.email) && (!values.phone || !entry.phone);
         let target = contacts.findIndex(matches);
@@ -282,6 +250,16 @@
         for (const [single,multi] of [['contact','contacts'],['email','emails'],['phone','phones']])
           record[multi] = contacts.map(item => String(item[single] || ''));
       }
+      // 判重按“客户设置 → 判重设置”：选了“不允许保存”的资料，和别的客户重复就跳过这一行并写明原因。
+      // 只看这一行新带来的值；客户本来就有的重复不挡。文件里前面刚导入的行也算“别的客户”。
+      if (CS && CS.assertNotDuplicate) {
+        try { CS.assertNotDuplicate({...state, customers}, record, old, name); }
+        catch (error) {
+          result.skipped++;
+          details.push({row:line,name:values.name,status:'skipped',reason:error.message});
+          continue;
+        }
+      }
       const firstForCompany = !processed.has(key);
       const status = firstForCompany ? (originallyKnown.has(key) ? 'updated' : 'created')
         : contactAdded ? 'contact-added' : 'contact-updated';
@@ -291,8 +269,6 @@
       customers[name] = record;
       known.set(key, name);
       processed.add(key);
-      removeContact(name, old);
-      addContact(name, record);
       if (firstForCompany) result[status]++;
       if (contactAdded) result.contactsAdded = (result.contactsAdded || 0) + 1;
       details.push({row:line,name:values.name,status});

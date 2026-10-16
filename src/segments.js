@@ -52,7 +52,7 @@
         : profile.firstOrderTotal??row.firstOrderTotal??null;
       const legacyGroups=Array.isArray(row.group)?row.group:row.group?[row.group]:[];
       const manualGroups=manualSets.filter(item=>item.members.has(row.name)).map(item=>item.name);
-      return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
+      return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:CS&&CS.lastWonDate?CS.lastWonDate(state,row.name):profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
     });
     const memberships=(Array.isArray(state.previewSegments)?state.previewSegments:[])
       .filter(segment=>segment&&!segment.archived&&String(segment.name||'').trim())
@@ -148,6 +148,9 @@
     const previous=current.find(item=>item.id===id);
     if(previous?.archived)throw new Error('已归档客群不能编辑');
     if(!['manual','rules'].includes(input.kind))throw new Error('请选择客群类型');
+    // 手动客群和“客户设置”里的客户分组共用一个分组下拉，重名会分不清选的是哪个。
+    if(input.kind==='manual'&&CS&&previous?.name!==name&&CS.groupPaths(CS.get(state).groups).some(path=>norm(path)===norm(name)))
+      throw new Error('客户设置里已有同名的客户分组，请换个客群名称');
     const rules=validateRules({match:input.match,rules:input.kind==='rules'?input.rules:[]});
     if(input.kind==='rules'&&!rules.length)throw new Error('条件客群至少需要一条条件');
     const members=[...new Set(input.members||previous?.members||[])];

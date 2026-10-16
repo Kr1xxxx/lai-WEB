@@ -204,22 +204,15 @@ function batchCreate(state,text,defaults={},at=new Date().toISOString()){
   const tags=M.tags(defaults.tags);
   let cur=state;
   const created=[],skipped=[];
-  const emails=new Map(),phones=new Map();
-  for(const row of M.buildCustomers(state)){
-    for(const e of [row.email,...(row.emails||[])])if(norm(e))emails.set(norm(e),row.name);
-    for(const p of [row.phone,...(row.phones||[])])if(digits(p).length>=6)phones.set(digits(p),row.name);
-  }
   for(const row of rows){
     const country=row.country||trim(defaults.country);
     try{
       if(!row.name)throw new Error('缺少客户名称');
       if(row.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email))throw new Error('邮箱格式不对');
       if(!country)throw new Error('缺少国家地区（请在上面填默认国家，或在这一行末尾写上）');
-      const dupe=(row.email&&emails.get(norm(row.email)))||(digits(row.phone).length>=6&&phones.get(digits(row.phone)));
-      if(dupe)throw new Error(`邮箱或电话和已有客户「${dupe}」相同`);
+      // 邮箱、电话等是否算重复，按“客户设置 → 判重设置”：不允许保存的跳过这一行并写明原因，允许保存的照建，不判重的不查。
+      // upsertCustomer 保存前会按这份设置检查（包括这一批里前面刚建的客户）。
       cur=M.upsertCustomer(cur,'',{name:row.name,contact:row.contact,email:row.email,phone:row.phone,country,source,owner:trim(defaults.owner),tags},at);
-      if(row.email)emails.set(norm(row.email),row.name);
-      if(digits(row.phone).length>=6)phones.set(digits(row.phone),row.name);
       created.push(row.name);
     }catch(e){skipped.push({line:row.line,raw:row.raw,reason:e.message});}
   }
@@ -387,7 +380,12 @@ function lastDealOf(state,name){
 const defaultTimes=Object.freeze({
   lastContact(state,name){
     const CS=settingsModel();
-    if(CS&&typeof CS.contactTimes==='function')return trim(CS.contactTimes(state,name)?.lastContact);
+    // 刚从公海领回的客户，不管“最近联系”里有没有勾“从公海领回”，领回时间都算（否则刚领回就又被移走）。
+    const claimed=trim(profiles(state)[name]?.lastPrivatePoolEntry);
+    if(CS&&typeof CS.contactTimes==='function'){
+      const contact=trim(CS.contactTimes(state,name)?.lastContact);
+      return Number.isFinite(time(claimed))&&(!Number.isFinite(time(contact))||time(claimed)>time(contact))?claimed:contact;
+    }
     const t=lastActivity(state,name,profiles(state)[name]||{});
     return Number.isFinite(t)?new Date(t).toISOString():'';
   },
@@ -414,7 +412,9 @@ function evaluate(state,rules,now,times,only){
   if(!active.length)return [];
   const out=[];
   const openStages=new Set(['quote','deposit','production','balance']);
-  const white=new Set(rules.whitelist);
+  const lower=v=>trim(v).toLowerCase();
+  const white=new Set(rules.whitelist.map(lower));
+  const skipTags=new Set(rules.skipTags.map(lower));
   let openClients=null;
   const hasOpenOrder=name=>{
     if(!openClients)openClients=new Set((state.orders||[]).filter(o=>o&&!o.isDraft&&openStages.has(o.stage)).map(o=>o.client));
@@ -427,9 +427,9 @@ function evaluate(state,rules,now,times,only){
     const p=profiles(state)[row.name]||{};
     if(bucketOf(p)!=='active')continue;
     const owner=trim(row.owner);
-    if(!owner||white.has(owner))continue; // 没有跟进人的客户不算「被放着不管」
+    if(!owner||white.has(lower(owner)))continue; // 没有跟进人的客户不算「被放着不管」
     if(rules.skipFollowed&&p.previewFollowed===true)continue;
-    if(rules.skipTags.length&&M.tags(p.tags).some(t=>rules.skipTags.includes(t)))continue;
+    if(skipTags.size&&M.tags(p.tags).some(t=>skipTags.has(lower(t))))continue;
     if(rules.skipOpenOrders&&hasOpenOrder(row.name))continue;
     const groups=groupsOf(row,p);
     let best=null;
