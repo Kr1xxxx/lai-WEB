@@ -17,7 +17,7 @@
     ] },
     { id: "customer", title: "客户", items: [
       { id: "columns", title: "列表字段", note: "客户列表显示哪些字段、顺序和冻结列", open: ["action", "settings"] },
-      { id: "segments", title: "客群管理", note: "新建、编辑、删除客群", open: ["action", "manage-segments"] },
+      { id: "segments", title: "客群管理", note: "新建、编辑、归档客群", open: ["action", "manage-segments"] },
       { id: "customer-settings", title: "客户设置", note: "客户相关设置的入口页", open: ["screen", "customer-settings"], perm: "settings.customer" },
     ] },
     { id: "opportunity", title: "商机", items: [

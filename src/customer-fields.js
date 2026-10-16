@@ -36,7 +36,7 @@
       ["poolEntryCount", "进入公海次数", "number"],
       ["creationMethod", "创建方式"],
       ["followers", "关注人"],
-      ["productType", "主营产品."],
+      ["productType", "主营产品类型"],
       ["cardStock", "卡纸"],
       ["customBox", "定制盒"],
       ["country", "国家地区", "text", 100],
@@ -161,7 +161,7 @@
   // These are Lai-local view preferences, separate from customer profile data.
   const companyDisplayFields = Object.freeze([
     ["website", "公司网址"], ["name", "公司名称"], ["country", "国家地区"],
-    ["source", "客户来源"], ["productType", "主营产品."], ["tags", "客户标签"],
+    ["source", "客户来源"], ["productType", "主营产品类型"], ["tags", "客户标签"],
     ["previewGroup", "客户分组"], ["customerStage", "客户阶段"],
     ["customerStars", "客户星级"], ["customerCode", "客户编号"],
     ["timezone", "时区"], ["defaultPaymentPlan", "默认付款计划"],
