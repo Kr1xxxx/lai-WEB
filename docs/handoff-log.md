@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-16 — Claude — Merged lai-WEB #11 (owner said 合并). Owner asked for 角色分配 with test accounts, roles 管理员 and 业务
+  (screenshots of 小满 角色权限 / 编辑角色). Built on `claude/project-thread-5ob5ux` in three parallel worktrees: `src/role-model.js`
+  (`laiSettings.roles`; 系统管理员 locked with all perms; 业务 defaults from 小满 普通用户; scope self/all; `can`, `canSee`,
+  `canOpen` + `PAGE_PERMS`), `src/role-ui.js` + routes `roles`/`members` under 企业管理, avatar-menu account switch and customer
+  scope/guards in `app.js`, guards and 本人 scope in business pages, workbench, settings hub and mail send. Also repaired
+  `docs/features.json` (the #11 merge had fused the doc-numbering and ui-fonts entries). Not done: 本部门, layouts by role.
 - 2026-10-15 — Claude — Owner asked for four 小满 gaps; built in parallel worktrees and merged on `claude/project-thread-5ob5ux`:
   商机设置 (route `opp-flows` renamed 商机设置: tabs 销售流程/输单原因/商机字段; `laiSettings.opportunitySettings`; new opportunity fields
   sources/type/leadId/number/custom), 判重 新线索与已有客户 (`customerSettings.leadDedupe`, default all block), 产品 同步 from xls/xlsx/csv
