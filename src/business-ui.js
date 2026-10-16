@@ -332,8 +332,23 @@
         }</tbody></table></section></div></div>`
       );
     }
+    // 团队数据按账号的可见范围算：本人只算自己的，本部门算本部门成员的，全公司不变。看不到的数据连明细里都不会有。
+    const teamNote = () => {
+      const scope = RM() ? RM().scopeOf(state()) : "all";
+      return scope === "all" ? "" : scope === "dept" ? "只显示本部门的数据" : "只显示你自己的数据";
+    };
+    let teamMemo = null;
+    function teamState() {
+      const s = state();
+      if (!teamNote()) return s;
+      const me = RM().meName(s);
+      if (teamMemo && teamMemo.state === s && teamMemo.me === me) return teamMemo.value;
+      teamMemo = { state: s, me, value: root.LaiTeamModel.scopeState(s, sees) };
+      return teamMemo.value;
+    }
     function renderTeam(kind) {
-      teamReport = root.LaiTeamModel.report(kind, state(), month);
+      teamReport = root.LaiTeamModel.report(kind, teamState(), month);
+      if (teamNote()) teamReport.scopeNote = teamNote();
       return (
         header(
           teamReport.title,
@@ -352,17 +367,17 @@
       `<span class="team-segment team-period" role="group" aria-label="统计周期"><button type="button" data-team-period="month" aria-pressed="${teamView.period !== "quarter"}">按月</button><button type="button" data-team-period="quarter" aria-pressed="${teamView.period === "quarter"}">按季度</button></span>`;
     const targetsButton = () => (can("team.targets") ? '<button type="button" data-lai-route="team-targets">目标设置</button>' : "");
     function renderGoals() {
-      teamOverview = root.LaiTeamModel.overview(state(), periodKey());
+      teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
       return (
         header(
           "目标完成情况",
           `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}<span class="team-scope">我的企业</span>${targetsButton()}`,
+          `${periodSwitch()}${monthInput()}<span class="team-scope">${teamNote() ? "我的数据" : "我的企业"}</span>${targetsButton()}`,
         ) + TU().goalsMarkup(teamOverview, teamView)
       );
     }
     function renderWall() {
-      teamOverview = root.LaiTeamModel.overview(state(), periodKey());
+      teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
       return (
         header(
           "团队墙",
@@ -410,7 +425,7 @@
           "目标管理",
           "按周期、对象、指标保存的目标值",
           `${monthInput()}${can("team.targets") ? '<button type="button" class="primary" data-team-target="new">新建目标</button>' : ""}`,
-        ) + TU().targetsMarkup(T.listTargets(state()), T.periodLabel, armedTarget)
+        ) + TU().targetsMarkup(T.listTargets(teamState()), T.periodLabel, armedTarget)
       );
     }
     // 设置目标表单：币种只在金额类指标时出现，成员只在对象选「成员」时出现；收起来的栏位不参与提交。
@@ -433,7 +448,7 @@
       if (!need(targetFormKey)) return;
       const T = root.LaiTeamModel;
       // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
-      const overview = T.overview(state(), periodKey());
+      const overview = { ...T.overview(teamState(), periodKey()), scopeNote: teamNote() };
       const quarter = T.quarterOf(month);
       // 修改已有的企业目标时带出原来的数值；金额有多个币种时带出第一个。
       const existing = Object.hasOwn(overview.goals, metric) ? overview.goals[metric][0] : null;

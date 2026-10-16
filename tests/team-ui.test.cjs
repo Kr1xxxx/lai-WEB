@@ -594,3 +594,16 @@ test('target form: currency only for money figures, member only once 对象 is �
   }
   assert.deepEqual(['amount', 'oppWonAmount', 'oppWon', 'added'].map(ui.isMoney), [true, true, false, false]);
 });
+
+test('scopeNote: shown on every page type, replaces 我的企业 and hides the company goal edit and 未分配 footnote', () => {
+  const scoped = T.scopeState(state, owner => String(owner || '').trim().toLowerCase() === 'bob');
+  const note = '只显示你自己的数据';
+  const html = ui.markup({...T.report('orders', scoped, '2026-10'), scopeNote: note});
+  assert.ok(html.includes(note));
+  const overview = {...T.overview(scoped, '2026-10'), scopeNote: note};
+  const goals = ui.goalsMarkup(overview, {}), wall = ui.wallMarkup(overview, {}, '2026-10-16');
+  for (const page of [goals, wall]) { assert.ok(page.includes(note)); assert.ok(!page.includes('我的企业')); assert.ok(!page.includes('「未分配」不参与排名')); }
+  assert.ok(wall.includes('我的数据'));
+  assert.ok(!goals.includes('data-team-target='));
+  assert.ok(ui.goalsMarkup(T.overview(state, '2026-10'), {}).includes('data-team-target="new"'));
+});
