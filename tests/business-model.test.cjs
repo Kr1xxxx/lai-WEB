@@ -116,3 +116,22 @@ test('order items helpers: from a product, linking by name, and document lines',
  assert.equal(B.docLines({amount:0})[0].name,'订单货款');
  assert.equal(B.itemsTotal([{qty:3,price:0.1}]),0.3);
 });
+
+test('editing the order date moves orderMonth unless it was set by hand',()=>{
+ let s=B.upsertOrder({customers:{},orders:[]},'n',{num:'N1',client:'Zed',amount:10,createdAt:'2026-09-30'});
+ assert.equal(s.orders[0].orderMonth,'2026-09');
+ s=B.upsertOrder(s,'n',{num:'N1',client:'Zed',createdAt:'2026-10-02'});
+ assert.equal(s.orders[0].orderMonth,'2026-10');
+ s=B.upsertOrder(s,'n',{orderMonth:'2026-12'});
+ s=B.upsertOrder(s,'n',{createdAt:'2026-11-05'});
+ assert.equal(s.orders[0].orderMonth,'2026-12');
+});
+test('order client matches existing customer by normalised name and refuses trashed ones',()=>{
+ const s0={customers:{'ABC Co':{client:'ABC Co'},'Old Co':{client:'Old Co',laiBucket:'trash'}},orders:[]};
+ const s=B.upsertOrder(s0,'x',{num:'X1',client:'  abc   co ',amount:5});
+ assert.equal(s.orders[0].client,'ABC Co');
+ assert.deepEqual(Object.keys(s.customers),['ABC Co','Old Co']);
+ assert.throws(()=>B.upsertOrder(s0,'y',{num:'Y1',client:'old co',amount:5}),/客户在回收站里，请先恢复/);
+ const n=B.upsertOrder(s0,'z',{num:'Z1',client:'New Co',amount:5});
+ assert.ok(Object.hasOwn(n.customers,'New Co'));
+});

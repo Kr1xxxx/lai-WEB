@@ -16,6 +16,7 @@
     if(source.length>10&&!Number.isFinite(Date.parse(source.replace(' ','T'))))return '';
     return match[0].slice(0,10);
   }
+  const customerKey=name=>trim(name).normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
   function requireId(id){if(typeof id!=='string'||!id.trim())throw new Error('记录 ID 无效');}
   function numericInput(value,label){
     if(value===null||value===undefined||typeof value==='boolean'||!String(value).trim()||!Number.isFinite(Number(value))||Number(value)<0)throw new Error(`${label}必须为不小于 0 的有效数字`);
@@ -119,11 +120,20 @@
     next.isDraft=Object.hasOwn(input,'isDraft')?input.isDraft:previous?.isDraft===true;
     if(!Object.hasOwn(input,'createdAt')&&!next.createdAt)next.createdAt=localDate();
     if(!datePart(next.createdAt))throw new Error('订单日期无效');
-    if(!Object.hasOwn(input,'orderMonth')&&!next.orderMonth)next.orderMonth=datePart(next.createdAt).slice(0,7);
+    if(!Object.hasOwn(input,'orderMonth')){
+      const oldMonth=previous?datePart(previous.createdAt).slice(0,7):'';
+      // 订单月份原来跟着创建日期走（或没填）时，改创建日期就一起改月份；手动改过的月份不动。
+      if(!next.orderMonth||(Object.hasOwn(input,'createdAt')&&(!previous?.orderMonth||previous.orderMonth===oldMonth)))next.orderMonth=datePart(next.createdAt).slice(0,7);
+    }
     if(!validMonth(next.orderMonth))throw new Error('订单月份无效');
     assertUnique(state,id,next.num,previous?'orders':undefined);
     const customers={...(state.customers||{})};
-    if(!Object.hasOwn(customers,next.client))customers[next.client]={client:next.client,country:next.country||'',owner:next.owner||''};
+    const clientKey=customerKey(next.client);
+    const existing=Object.keys(customers).find(name=>customerKey(name)===clientKey);
+    if(existing!==undefined){
+      if(customers[existing]&&customers[existing].laiBucket==='trash')throw new Error('客户在回收站里，请先恢复');
+      next.client=existing;
+    }else customers[next.client]={client:next.client,country:next.country||'',owner:next.owner||''};
     return {...state,customers,orders:previous?orders.map(order=>order.id===id?next:order):[next,...orders]};
   }
   function archiveOrder(state,id,now=new Date().toISOString()){
