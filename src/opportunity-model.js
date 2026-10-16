@@ -723,7 +723,9 @@
       opportunityTotal:usd.length?total:null,opportunityAverage:usd.length?total/usd.length:null,
       opportunityWinRate:won.length+lost.length?Math.floor(won.length/(won.length+lost.length)*100):null,
       opportunityCycle:days.length?Math.round(days.reduce((a,b)=>a+b,0)/days.length*10)/10:null,
-      activeOpportunities:active
+      activeOpportunities:active,
+      // 该客户的全部商机（含赢单、输单、已归档），新的在前；客户详情「商机&交易」页签的表格用。
+      opportunities:sortCards(all.map(item=>({...card(state,item,today,orderIds),createdAt:trim(item.createdAt)})),'createdAt-desc')
     };
   }
   // 新建表单的默认值。

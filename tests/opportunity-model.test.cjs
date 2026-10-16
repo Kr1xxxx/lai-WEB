@@ -321,10 +321,15 @@ test('customer stats: active list, won count and USD amount, win rate, cycle', (
   s = add(s, 'other', {client: 'Beta Ltd', contact: '', amount: '999'}, '2026-10-05T04:00:00.000Z');
   const stats = O.customerStats(s, 'Alpha Co', TODAY);
   assert.deepEqual(stats.activeOpportunities.map(c => [c.id, c.amount, c.note]), [['a2', 50, '第二个'], ['a1', 100, '']], 'newest first; archived and other customers are left out');
-  assert.deepEqual({...stats, activeOpportunities: null}, {opportunityAllCount: 7, activeOpportunityCount: 2, opportunityCount: 3, opportunityTotal: 600, opportunityAverage: 300,
-    opportunityWinRate: 75, opportunityCycle: 5, activeOpportunities: null}, 'USD figures ignore the EUR win; win rate 3 of 4; cycle (10 + 4 + 1) / 3');
-  assert.deepEqual({...O.customerStats(s, 'Nobody', TODAY), activeOpportunities: null}, {opportunityAllCount: 0, activeOpportunityCount: 0, opportunityCount: 0, opportunityTotal: null, opportunityAverage: null,
-    opportunityWinRate: null, opportunityCycle: null, activeOpportunities: null});
+  // The detail page's 商机 table lists every opportunity of the customer (won, lost and archived too), newest first.
+  assert.equal(stats.opportunities.length, 7);
+  assert.deepEqual(stats.opportunities.map(c => c.id).sort(), ['a1', 'a2', 'arch', 'l1', 'w1', 'w2', 'w3']);
+  assert.ok(stats.opportunities.every(c => c.stageLabel && c.name && c.currency && 'endDate' in c && 'owner' in c));
+  assert.deepEqual({...stats, activeOpportunities: null, opportunities: null}, {opportunityAllCount: 7, activeOpportunityCount: 2, opportunityCount: 3, opportunityTotal: 600, opportunityAverage: 300,
+    opportunityWinRate: 75, opportunityCycle: 5, activeOpportunities: null, opportunities: null}, 'USD figures ignore the EUR win; win rate 3 of 4; cycle (10 + 4 + 1) / 3');
+  assert.deepEqual(O.customerStats(s, 'Nobody', TODAY).opportunities, []);
+  assert.deepEqual({...O.customerStats(s, 'Nobody', TODAY), activeOpportunities: null, opportunities: null}, {opportunityAllCount: 0, activeOpportunityCount: 0, opportunityCount: 0, opportunityTotal: null, opportunityAverage: null,
+    opportunityWinRate: null, opportunityCycle: null, activeOpportunities: null, opportunities: null});
 });
 
 

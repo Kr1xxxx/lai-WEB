@@ -154,6 +154,9 @@
     advancedSpec = null,
     filterDraft = null;
   const followupDrafts = new Map();
+  // 只有正在看的客户详情页上写了一半的跟进才算「没保存的内容」；其他客户留下的草稿只留在内存里，不拦着换页。
+  const openFollowupDraft = () =>
+    activeRoute === "customers" && !!currentName && !!followupDrafts.get(currentName)?.text.trim();
   const collapsedInfoSections = new Set();
   const collapsedDetailCards = new Set();
   const stageLabels = {
@@ -277,7 +280,7 @@
         modal,
       ) ||
       mail?.composeDirty() ||
-      [...followupDrafts.values()].some((d) => d.text.trim())
+      openFollowupDraft()
     ) {
       toast("请先保存或取消正在编辑的内容");
       return false;
@@ -303,7 +306,7 @@
   function shell(content) {
     const scope = C.globalSearchFields.find((field) => field.id === globalSearch.field)?.label || "客户";
     const searchScope = globalSearch.field === "all" ? "客户" : scope;
-    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><svg class="brand-mark" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="#16121A" d="M46.00,0.00 H154.00 A46,46 0 0 1 200.00,46.00 V154.00 A46,46 0 0 1 154.00,200.00 H46.00 A46,46 0 0 1 0.00,154.00 V46.00 A46,46 0 0 1 46.00,0.00 Z"/><path fill="#FF4F9A" fill-rule="evenodd" d="M51.00,108.00 H149.00 A25,25 0 0 1 174.00,133.00 V133.00 A25,25 0 0 1 149.00,158.00 H51.00 A25,25 0 0 1 26.00,133.00 V133.00 A25,25 0 0 1 51.00,108.00 Z M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#16121A" d="M129.00,29.00 L130.57,29.09 L132.12,29.35 L133.62,29.79 L135.07,30.39 L136.45,31.15 L137.73,32.05 L138.90,33.10 L139.95,34.27 L140.85,35.55 L141.61,36.93 L142.21,38.38 L142.65,39.88 L142.91,41.43 L143.00,43.00 L143.00,127.00 L57.00,127.00 L57.00,43.00 L57.09,41.43 L57.35,39.88 L57.79,38.38 L58.39,36.93 L59.15,35.55 L60.05,34.27 L61.10,33.10 L62.27,32.05 L63.55,31.15 L64.93,30.39 L66.38,29.79 L67.88,29.35 L69.43,29.09 L71.00,29.00 Z"/><path fill="#0B080D" d="M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#FFC23D" d="M129.00,34.00 L130.01,34.06 L131.00,34.23 L131.97,34.51 L132.90,34.89 L133.79,35.38 L134.61,35.96 L135.36,36.64 L136.04,37.39 L136.62,38.21 L137.11,39.10 L137.49,40.03 L137.77,41.00 L137.94,41.99 L138.00,43.00 L138.00,133.00 L62.00,133.00 L62.00,43.00 L62.06,41.99 L62.23,41.00 L62.51,40.03 L62.89,39.10 L63.38,38.21 L63.96,37.39 L64.64,36.64 L65.39,35.96 L66.21,35.38 L67.10,34.89 L68.03,34.51 L69.00,34.23 L69.99,34.06 L71.00,34.00 Z"/><path fill="#16121A" fill-rule="evenodd" d="M125.00,42.00 L125.56,42.03 L126.11,42.13 L126.65,42.28 L127.17,42.50 L127.66,42.77 L128.12,43.09 L128.54,43.46 L128.91,43.88 L129.23,44.34 L129.50,44.83 L129.72,45.35 L129.87,45.89 L129.97,46.44 L130.00,47.00 L130.00,133.00 L70.00,133.00 L70.00,47.00 L70.03,46.44 L70.13,45.89 L70.28,45.35 L70.50,44.83 L70.77,44.34 L71.09,43.88 L71.46,43.46 L71.88,43.09 L72.34,42.77 L72.83,42.50 L73.35,42.28 L73.89,42.13 L74.44,42.03 L75.00,42.00 Z M123.50,46.00 L123.78,46.02 L124.06,46.06 L124.33,46.14 L124.58,46.25 L124.83,46.38 L125.06,46.55 L125.27,46.73 L125.45,46.94 L125.62,47.17 L125.75,47.42 L125.86,47.67 L125.94,47.94 L125.98,48.22 L126.00,48.50 L126.00,133.00 L74.00,133.00 L74.00,48.50 L74.02,48.22 L74.06,47.94 L74.14,47.67 L74.25,47.42 L74.38,47.17 L74.55,46.94 L74.73,46.73 L74.94,46.55 L75.17,46.38 L75.42,46.25 L75.67,46.14 L75.94,46.06 L76.22,46.02 L76.50,46.00 Z"/><path fill="#16121A" d="M101.67 102.58V107.00H98.17V102.52Q92.38 102.03 88.83 99.05Q85.28 96.08 85.06 90.95H95.00Q95.33 94.22 98.17 95.15V86.52Q93.91 85.43 91.37 84.39Q88.83 83.35 86.92 81.06Q85.01 78.77 85.01 74.78Q85.01 69.81 88.70 66.81Q92.38 63.81 98.17 63.42V59.00H101.67V63.42Q107.40 63.86 110.73 66.75Q114.06 69.65 114.44 74.78H104.45Q104.12 71.83 101.67 70.96V79.42Q106.20 80.68 108.66 81.66Q111.11 82.65 113.05 84.91Q114.99 87.18 114.99 91.11Q114.99 94.11 113.43 96.65Q111.88 99.19 108.85 100.80Q105.82 102.41 101.67 102.58ZM98.17 78.28V70.69Q96.64 70.96 95.77 71.86Q94.89 72.76 94.89 74.34Q94.89 75.71 95.74 76.64Q96.59 77.57 98.17 78.28ZM105.22 91.44Q105.22 90.02 104.31 89.12Q103.41 88.22 101.67 87.56V95.31Q103.30 95.04 104.26 94.00Q105.22 92.97 105.22 91.44Z"/></svg><svg class="brand-cn" viewBox="0 0 54 32" aria-hidden="true" focusable="false"><text x="27" y="24" text-anchor="middle">来财</text></svg><sup>AI</sup><button type="button" class="app-version" data-action="version-history" aria-haspopup="dialog" aria-label="当前版本 ${APP_VERSION}，查看版本更新历史">v${APP_VERSION}</button></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions">${showIf("customer.create", `<button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button>`)}<i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="当前账号：${E(R.meName(state))}" title="当前账号：${E(R.meName(state))}" aria-haspopup="menu">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
+    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><svg class="brand-mark" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="#16121A" d="M46.00,0.00 H154.00 A46,46 0 0 1 200.00,46.00 V154.00 A46,46 0 0 1 154.00,200.00 H46.00 A46,46 0 0 1 0.00,154.00 V46.00 A46,46 0 0 1 46.00,0.00 Z"/><path fill="#FF4F9A" fill-rule="evenodd" d="M51.00,108.00 H149.00 A25,25 0 0 1 174.00,133.00 V133.00 A25,25 0 0 1 149.00,158.00 H51.00 A25,25 0 0 1 26.00,133.00 V133.00 A25,25 0 0 1 51.00,108.00 Z M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#16121A" d="M129.00,29.00 L130.57,29.09 L132.12,29.35 L133.62,29.79 L135.07,30.39 L136.45,31.15 L137.73,32.05 L138.90,33.10 L139.95,34.27 L140.85,35.55 L141.61,36.93 L142.21,38.38 L142.65,39.88 L142.91,41.43 L143.00,43.00 L143.00,127.00 L57.00,127.00 L57.00,43.00 L57.09,41.43 L57.35,39.88 L57.79,38.38 L58.39,36.93 L59.15,35.55 L60.05,34.27 L61.10,33.10 L62.27,32.05 L63.55,31.15 L64.93,30.39 L66.38,29.79 L67.88,29.35 L69.43,29.09 L71.00,29.00 Z"/><path fill="#0B080D" d="M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#FFC23D" d="M129.00,34.00 L130.01,34.06 L131.00,34.23 L131.97,34.51 L132.90,34.89 L133.79,35.38 L134.61,35.96 L135.36,36.64 L136.04,37.39 L136.62,38.21 L137.11,39.10 L137.49,40.03 L137.77,41.00 L137.94,41.99 L138.00,43.00 L138.00,133.00 L62.00,133.00 L62.00,43.00 L62.06,41.99 L62.23,41.00 L62.51,40.03 L62.89,39.10 L63.38,38.21 L63.96,37.39 L64.64,36.64 L65.39,35.96 L66.21,35.38 L67.10,34.89 L68.03,34.51 L69.00,34.23 L69.99,34.06 L71.00,34.00 Z"/><path fill="#16121A" fill-rule="evenodd" d="M125.00,42.00 L125.56,42.03 L126.11,42.13 L126.65,42.28 L127.17,42.50 L127.66,42.77 L128.12,43.09 L128.54,43.46 L128.91,43.88 L129.23,44.34 L129.50,44.83 L129.72,45.35 L129.87,45.89 L129.97,46.44 L130.00,47.00 L130.00,133.00 L70.00,133.00 L70.00,47.00 L70.03,46.44 L70.13,45.89 L70.28,45.35 L70.50,44.83 L70.77,44.34 L71.09,43.88 L71.46,43.46 L71.88,43.09 L72.34,42.77 L72.83,42.50 L73.35,42.28 L73.89,42.13 L74.44,42.03 L75.00,42.00 Z M123.50,46.00 L123.78,46.02 L124.06,46.06 L124.33,46.14 L124.58,46.25 L124.83,46.38 L125.06,46.55 L125.27,46.73 L125.45,46.94 L125.62,47.17 L125.75,47.42 L125.86,47.67 L125.94,47.94 L125.98,48.22 L126.00,48.50 L126.00,133.00 L74.00,133.00 L74.00,48.50 L74.02,48.22 L74.06,47.94 L74.14,47.67 L74.25,47.42 L74.38,47.17 L74.55,46.94 L74.73,46.73 L74.94,46.55 L75.17,46.38 L75.42,46.25 L75.67,46.14 L75.94,46.06 L76.22,46.02 L76.50,46.00 Z"/><path fill="#16121A" d="M101.67 102.58V107.00H98.17V102.52Q92.38 102.03 88.83 99.05Q85.28 96.08 85.06 90.95H95.00Q95.33 94.22 98.17 95.15V86.52Q93.91 85.43 91.37 84.39Q88.83 83.35 86.92 81.06Q85.01 78.77 85.01 74.78Q85.01 69.81 88.70 66.81Q92.38 63.81 98.17 63.42V59.00H101.67V63.42Q107.40 63.86 110.73 66.75Q114.06 69.65 114.44 74.78H104.45Q104.12 71.83 101.67 70.96V79.42Q106.20 80.68 108.66 81.66Q111.11 82.65 113.05 84.91Q114.99 87.18 114.99 91.11Q114.99 94.11 113.43 96.65Q111.88 99.19 108.85 100.80Q105.82 102.41 101.67 102.58ZM98.17 78.28V70.69Q96.64 70.96 95.77 71.86Q94.89 72.76 94.89 74.34Q94.89 75.71 95.74 76.64Q96.59 77.57 98.17 78.28ZM105.22 91.44Q105.22 90.02 104.31 89.12Q103.41 88.22 101.67 87.56V95.31Q103.30 95.04 104.26 94.00Q105.22 92.97 105.22 91.44Z"/></svg><svg class="brand-cn" viewBox="0 0 54 32" aria-hidden="true" focusable="false"><text x="27" y="24" text-anchor="middle">来财</text></svg><sup>AI</sup><button type="button" class="app-version" data-action="version-history" aria-haspopup="dialog" aria-label="当前版本 ${APP_VERSION}，查看版本更新历史">v${APP_VERSION}</button></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions">${showIf("customer.create", `<button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button>`)}<i></i><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="avatar" data-action="profile-menu" aria-label="当前账号：${E(R.meName(state))}" title="当前账号：${E(R.meName(state))}" aria-haspopup="menu">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
   }
   // 当前账号打不开的页面：只显示原因，不显示页面内容。
   function blockedPage(title, message, hint = "可以点右上角头像，切换到别的测试账号。") {
@@ -1147,6 +1150,8 @@
     trigger?.setAttribute("aria-expanded", "false");
     if (restoreFocus) trigger?.focus();
   }
+  // 客户阶段可选值：客户设置里的阶段，加上没手填时系统按订单算出的「已成交／未成交」。
+  const stageChoices = () => [...new Set([...CS.get(state).stages, "已成交", "未成交"])];
   function filterForm(pointerActivated = false) {
     if (!filterDraft) {
       filterDraft = {
@@ -1163,7 +1168,7 @@
     const draft = filterDraft.normal;
     const field = (name, label, values) =>
       `<label class="field"><span>${label}</span>${values ? `<select name="${name}">${opt("", "请选择", draft[name] || "")}${values.map((v) => opt(v, name === "country" ? C.countryLabel(v) : v, draft[name])).join("")}</select>` : `<input name="${name}" value="${E(draft[name] || "")}" placeholder="${name === "name" || name === "email" ? "请输入" : "请选择"}">`}</label>`;
-    const normal = `<div class="filter-fields">${field("name", "公司名称")}${field("email", "邮箱")}<div class="field"><span>客户标签</span><div class="tag-match-options">${["包含任一", "包含全部"].map((v) => `<label><input type="radio" name="tagMode" value="${v}" ${(draft.tagMode || "包含任一") === v ? "checked" : ""}>${v}标签</label>`).join("")}</div><input name="tag" value="${E(draft.tag || "")}" placeholder="请选择"></div>${field("customerGroup", "客户分组")}${field("alibabaIdentity", "阿里买家身份")}${field("country", "国家地区", [...new Set(rows.map((c) => c.country).filter(Boolean))].sort())}${field("source", "客户来源", [...new Set(rows.map((c) => c.source).filter(Boolean))])}${field("stage", "客户阶段", ["已成交", "未成交"])}${field("customerStars", "客户星级", ["1", "2", "3", "4", "5"])}<div class="field"><span>是否关注</span><div class="follow-options">${[
+    const normal = `<div class="filter-fields">${field("name", "公司名称")}${field("email", "邮箱")}<div class="field"><span>客户标签</span><div class="tag-match-options">${["包含任一", "包含全部"].map((v) => `<label><input type="radio" name="tagMode" value="${v}" ${(draft.tagMode || "包含任一") === v ? "checked" : ""}>${v}标签</label>`).join("")}</div><input name="tag" value="${E(draft.tag || "")}" placeholder="请选择"></div>${field("customerGroup", "客户分组")}${field("alibabaIdentity", "阿里买家身份")}${field("country", "国家地区", [...new Set(rows.map((c) => c.country).filter(Boolean))].sort())}${field("source", "客户来源", [...new Set(rows.map((c) => c.source).filter(Boolean))])}${field("stage", "客户阶段", stageChoices())}${field("customerStars", "客户星级", ["1", "2", "3", "4", "5"])}<div class="field"><span>是否关注</span><div class="follow-options">${[
       ["", "不限"],
       ["false", "未关注"],
       ["true", "已关注"],
@@ -1183,15 +1188,15 @@
             .map((op) => opt(op, opLabels[op], r.op))
             .join(
               "",
-            )}</select><input data-advanced-prop="value" value="${E(r.value ?? "")}" type="${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? "number" : fieldById.get(r.field)?.type === "date" ? "date" : "text"}" ${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? 'step="any"' : ""} ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}><button class="text-button" type="button" data-remove-advanced="${i}" aria-label="移除条件">⊖</button></div>`,
+            )}</select>${fieldById.get(r.field)?.type === "boolean" ? `<select data-advanced-prop="value" aria-label="条件${i + 1}值" ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>` : `<input data-advanced-prop="value" value="${E(r.value ?? "")}" type="${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? "number" : fieldById.get(r.field)?.type === "date" ? "date" : "text"}" ${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? 'step="any"' : ""} ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>`}<button class="text-button" type="button" data-remove-advanced="${i}" aria-label="移除条件">⊖</button></div>`,
       )
       .join(
         "",
-      )}</div><button type="button" class="text-button" data-action="add-advanced">＋ 添加条件</button><p class="tiny muted">其它字段高级运算</p><button type="button" data-feature="更多高级筛选字段">设置筛选条件</button></div>`;
+      )}</div><button type="button" class="text-button" data-action="add-advanced">＋ 添加条件</button></div>`;
     drawer(
       "筛选条件",
-      `<form id="filter-form" class="drawer-body filter-body"><div class="filter-assistant"><button type="button" data-feature="AI数据助理"><span class="filter-assistant-label">✦ AI 数据助理　今年成交订单金额Top10客户</span><span class="filter-assistant-arrow" aria-hidden="true">⌄</span></button></div><div class="filter-switch"><button type="button" data-filter-mode="normal" class="${filterMode === "normal" ? "active" : ""}">普通筛选</button><button type="button" data-filter-mode="advanced" class="${filterMode === "advanced" ? "active" : ""}">高级筛选</button></div>${filterMode === "normal" ? normal : advanced}<div id="filter-error" class="error" role="alert"></div></form>`,
-      `<div class="filter-footer"><button class="text-button" data-feature="设置筛选条件">设置筛选条件</button><button class="text-button" data-action="filter-segment">将所选条件生成为客群</button><button data-action="reset-filter-form">清空</button><button class="primary" type="submit" form="filter-form">筛选</button></div>`,
+      `<form id="filter-form" class="drawer-body filter-body"><div class="filter-switch"><button type="button" data-filter-mode="normal" class="${filterMode === "normal" ? "active" : ""}">普通筛选</button><button type="button" data-filter-mode="advanced" class="${filterMode === "advanced" ? "active" : ""}">高级筛选</button></div>${filterMode === "normal" ? normal : advanced}<div id="filter-error" class="error" role="alert"></div></form>`,
+      `<div class="filter-footer"><button class="text-button" data-action="filter-segment">将所选条件生成为客群</button><button data-action="reset-filter-form">清空</button><button class="primary" type="submit" form="filter-form">筛选</button></div>`,
       "filter",
       pointerActivated,
     );
@@ -1619,11 +1624,12 @@
       return;
     }
     if (a === "clear-query") {
-      const search = $("#search");
-      if (!search) return;
-      search.value = "";
-      el.remove();
-      search.focus();
+      // 清掉筛选值时要连筛选条件一起清掉，列表立刻刷新。
+      filters.query = "";
+      filters.quickCountries = [];
+      page = 1;
+      list();
+      $("#search")?.focus();
       return;
     }
     if (a === "reset-filters" || a === "reset-all") {
@@ -1742,7 +1748,12 @@
       }
       return;
     }
-    if (el.id === "search-field") {
+    if (el.id === "search" && el.tagName === "SELECT") {
+      filters.query = el.value;
+      filters.quickCountries = [];
+      page = 1;
+      list();
+    } else if (el.id === "search-field") {
       filters.field = el.value;
       filters.quickCountries = [];
       filters.query = "";
@@ -1785,6 +1796,8 @@
       // An unchanged displayed stage may be derived from orders, not a manual value.
       if (form.dataset.oldName && data.customerStage === form.dataset.originalStage)
         delete data.customerStage;
+      // 没选星级时表单带的是「0」，模型只认 1–5，空着就当没填。
+      if (data.customerStars === "0") data.customerStars = "";
       const fd = new FormData(form);
       const cards = [...form.querySelectorAll("[data-contact-card]")];
       const readMethods = (card, kind) =>
@@ -2041,7 +2054,7 @@
   // 有没保存的修改、正在保存或写了一半的内容时，后台自动做的事（公海规则、自动记邮件）先不动，下次再做。
   const hasUnsavedWork = () =>
     !!(pending || modal || business?.hasDraft() || mail?.composeDirty() ||
-      [...followupDrafts.values()].some((draft) => draft.text.trim()));
+      openFollowupDraft());
   // 每天自动按公海规则移一次客户；没有要移的也记下今天已执行，一天只跑一次。
   async function autoRunPoolRules() {
     try {
@@ -2703,7 +2716,7 @@
     const valueInput = form.elements.namedItem("value");
     const clearInput = form.elements.namedItem("clear");
     const suggestions = {
-      customerStage: ["已成交", "未成交"],
+      customerStage: stageChoices(),
       level: ["自动判断", "A级钻石客户", "B级翡翠客户", "C级白金客户", "D级黄金客户", "E级白银客户", "F级青铜客户"],
       customerStars: ["1", "2", "3", "4", "5"],
     };
@@ -2711,7 +2724,7 @@
       $("#batch-field-suggestions").innerHTML = (suggestions[fieldInput.value] || [])
         .map(value => `<option value="${E(value)}"></option>`).join("");
       $("#batch-field-hint").textContent = fieldInput.value === "level"
-        ? "请选择完整等级标签，或输入“自动判断”恢复 TOS 自动等级。"
+        ? "请选择完整等级标签，或输入“自动判断”恢复自动等级。"
         : fieldInput.value === "customerStars"
           ? "客户星级填写 1–5；如需移除星级，请勾选清空字段。"
           : "仅修改所选客户的一个档案字段；跟进人、标签和分组请使用对应操作。";
@@ -2822,6 +2835,49 @@
       );
     });
   }
+  // 客户详情里的「合并客户」：先选要和当前客户合并的其他客户，再走和列表一样的合并确认。
+  function mergePickerDialog(name, pointerActivated = false) {
+    if (!allow("customer.merge")) return;
+    if (!name || !state.customers?.[name]) return;
+    const others = allCustomerRows()
+      .filter((row) => row.name !== name && L.bucket(state.customers?.[row.name] || {}) !== "trash")
+      .sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"));
+    const picked = new Set();
+    drawer(
+      "合并客户",
+      `<form id="merge-pick-form" class="drawer-body merge-form"><p class="batch-tags-count">选择要和 <strong>${E(name)}</strong> 合并的客户：</p><label class="field"><span>搜索客户</span><input id="merge-pick-search" type="search" placeholder="公司名称、联系人或邮箱" autocomplete="off"></label><div class="merge-choices" id="merge-pick-list"></div><div class="error" id="workspace-error" role="alert"></div></form>`,
+      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="merge-pick-form" class="primary">下一步</button>`,
+      "actions",
+      pointerActivated,
+    );
+    const form = $("#merge-pick-form");
+    const listBox = $("#merge-pick-list");
+    const draw = () => {
+      const q = $("#merge-pick-search").value.trim().toLowerCase();
+      const match = (row) => !q || [row.name, row.contact, row.email].some((v) => String(v || "").toLowerCase().includes(q));
+      const shown = [...others.filter((row) => picked.has(row.name)), ...others.filter((row) => !picked.has(row.name) && match(row)).slice(0, 30)];
+      listBox.innerHTML = shown.length
+        ? shown.map((row) => `<label class="merge-choice"><input type="checkbox" name="other" value="${E(row.name)}" ${picked.has(row.name) ? "checked" : ""}><span><strong>${E(row.name)}</strong><small>${E([row.contact, row.email].filter(Boolean).join(" · ") || "没有联系人资料")}</small></span></label>`).join("")
+        : '<p class="muted tiny">没有找到客户</p>';
+    };
+    draw();
+    $("#merge-pick-search").addEventListener("input", draw);
+    listBox.addEventListener("change", (event) => {
+      const box = event.target;
+      if (box.name !== "other") return;
+      box.checked ? picked.add(box.value) : picked.delete(box.value);
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!picked.size) {
+        const err = $("#workspace-error");
+        err.textContent = "请至少选一位要合并的客户";
+        err.classList.add("visible");
+        return;
+      }
+      mergeDialog([name, ...picked]);
+    });
+  }
   function batchCreateDialog(pointerActivated = false) {
     if (!allow("customer.create")) return;
     const owners = ownerChoices();
@@ -2859,15 +2915,31 @@
         toast(`已建档 ${result.created.length} 位客户`);
         const btn = document.querySelector('button[form="batch-create-form"]');
         if (btn) btn.textContent = result.skipped.length ? "再建一次（仅跳过的行）" : "完成";
-        if (!result.skipped.length) form.addEventListener("submit", (e2) => { e2.preventDefault(); closeModal(); }, { once: true });
+        if (!result.skipped.length) {
+          // 名单已经清空：输入框不再必填，「完成」改成普通按钮，直接关掉窗口。
+          form.elements.text.required = false;
+          if (btn) {
+            btn.type = "button";
+            btn.removeAttribute("form");
+            btn.dataset.action = "close-modal";
+          }
+        }
       } catch (error) { err.textContent = error.message; err.classList.add("visible"); }
     });
   }
   function tagManagerDialog(pointerActivated = false) {
     if (!allow("customer.edit")) return;
     let editing = "", confirmDelete = "", message = "";
+    // 只统计、改名、删除当前账号看得到、也有权限改的客户身上的标签；其他客户的标签原样不动。
+    // 客户工具函数不能只传一部分名单，所以先拿一份只含这些客户的数据副本去算，再把改好的客户放回完整数据里。
+    const scoped = () => {
+      const visible = new Set(allCustomerRows().map((row) => row.name));
+      const customers = Object.fromEntries(Object.entries(state.customers || {}).filter(([name]) => visible.has(name) && can(tagEditKey(name))));
+      return { ...state, customers };
+    };
+    const mergeBack = (result) => ({ ...result, state: { ...state, customers: { ...state.customers, ...result.state.customers } } });
     const body = () => {
-      const stats = CT.tagStats(state);
+      const stats = CT.tagStats(scoped());
       const rows = stats.map((t) => {
         if (editing === t.tag) return `<div class="tag-row"><input class="tag-rename-input" value="${E(t.tag)}" maxlength="40" aria-label="新的标签名称"><button type="button" data-tag-save="${E(t.tag)}" class="primary">保存</button><button type="button" data-tag-cancel>取消</button></div>`;
         if (confirmDelete === t.tag) return `<div class="tag-row"><span class="tag-name">${E(t.tag)}</span><span class="muted tiny">从 ${t.count} 位客户身上去掉？</span><button type="button" data-tag-delete-ok="${E(t.tag)}" class="danger">确认删除</button><button type="button" data-tag-cancel>取消</button></div>`;
@@ -2892,8 +2964,8 @@
       if (d.tagRename !== undefined) { editing = d.tagRename; confirmDelete = ""; message = ""; redraw(); }
       else if (d.tagDelete !== undefined) { confirmDelete = d.tagDelete; editing = ""; message = ""; redraw(); }
       else if (d.tagCancel !== undefined) { editing = ""; confirmDelete = ""; message = ""; redraw(); }
-      else if (d.tagSave !== undefined) run(() => CT.renameTag(state, d.tagSave, root().querySelector(".tag-rename-input").value));
-      else if (d.tagDeleteOk !== undefined) run(() => CT.deleteTag(state, d.tagDeleteOk));
+      else if (d.tagSave !== undefined) run(() => mergeBack(CT.renameTag(scoped(), d.tagSave, root().querySelector(".tag-rename-input").value)));
+      else if (d.tagDeleteOk !== undefined) run(() => mergeBack(CT.deleteTag(scoped(), d.tagDeleteOk)));
     });
     host.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && event.target.classList?.contains("tag-rename-input")) { event.preventDefault(); root().querySelector("[data-tag-save]")?.click(); }
@@ -3087,7 +3159,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function workspaceSave(makeNext, after) {
-    if (pending) return;
+    if (pending) return toast("上一项修改正在保存，请稍候");
     const controls = [
         ...document.querySelectorAll("button,input,select,textarea"),
       ],
@@ -3419,10 +3491,21 @@
   // 本人范围的账号只看自己做跟进人的客户；公海客户没有跟进人，看有没有“公海查看”权限。
   const customerVisible = (c) =>
     L.bucket(state.customers?.[c.name]) === "pool" ? can("pool.view") : R.canSee(state, c.owner);
-  const everyCustomerRow = () => S.enrich(M.buildCustomers(state), state);
+  // 整个客户表重算一遍很贵，而详情页上每点一下都会问一次：同一份数据、同一个账号下只算一次。
+  // 数据每次保存都会换成新对象（persist / adoptServerState），所以按数据对象和当前账号缓存就够了。
+  let rowCache = { state: null, member: "", every: null, visible: null };
+  const rowCacheFresh = () => {
+    const member = R.currentMember(state)?.id || "";
+    if (rowCache.state !== state || rowCache.member !== member) rowCache = { state, member, every: null, visible: null };
+    return rowCache;
+  };
+  const everyCustomerRow = () => {
+    const cache = rowCacheFresh();
+    return (cache.every ??= S.enrich(M.buildCustomers(state), state));
+  };
   const allCustomerRows = () => {
-    const all = everyCustomerRow();
-    return R.scopeOf(state) === "all" ? all : all.filter(customerVisible);
+    const cache = rowCacheFresh();
+    return (cache.visible ??= R.scopeOf(state) === "all" ? everyCustomerRow() : everyCustomerRow().filter(customerVisible));
   };
   // 客户存在，但当前账号看不到（不在自己名下）。
   const customerHidden = (name) =>
@@ -3967,8 +4050,11 @@
     box.addEventListener("animationend", finish, { once: true });
     box._closeTimer = setTimeout(finish, 240);
   }
+  // 改客户标签要有编辑权限（公海客户看公海编辑权限）。
+  const tagEditKey = (name) => (L.bucket(state.customers?.[name] || {}) === "pool" ? "pool.edit" : "customer.edit");
   function customerTagEditor(anchor, pointerActivated = false) {
     const name = currentName;
+    if (!allow(tagEditKey(name))) return;
     if (L.bucket(state.customers?.[name] || {}) === "trash")
       return toast("请先恢复回收站客户");
     const tags = M.tags(state.customers?.[name]?.tags);
@@ -3989,6 +4075,7 @@
     });
     box.querySelector("form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (!allow(tagEditKey(name))) return;
       const value = event.currentTarget.elements.tags.value;
       let saved = false;
       await workspaceSave(() => M.upsertCustomer(state, name, { name, tags: value }), () => {
@@ -4352,7 +4439,8 @@
     box._closeTimer = setTimeout(() => box.remove(), 300);
   }
   function globalSearchScopeMenu(anchor, pointerActivated = false) {
-    const categories = ["邮件", "客户", "线索", "商机", "成员", "日程"];
+    // 现在只有客户能搜，别的类别先不显示。
+    const categories = ["客户"];
     const box = popover(anchor,
       `<div class="global-search-categories">${categories.map((label, index) => `<button type="button" data-global-category="${E(label)}" class="${label === "客户" ? "active" : ""}">${E(label)}${index < 4 ? icon("next") : ""}</button>`).join("")}</div><div class="global-search-fields">${C.globalSearchFields.map(({ id, label }) => `<button type="button" data-global-field="${E(id)}">${E(label)}</button>`).join("")}</div>`,
       `global-search-scope-menu${pointerActivated ? " global-search-scope-motion" : ""}`);
@@ -4366,14 +4454,14 @@
       anchor,
       `${[
         ["列表字段", "settings"],
-        ["标签管理", "标签管理"],
+        ["标签管理", "tag-manager"],
         ["客户设置", "customer-settings"],
-        ["客户字段管理", "客户字段管理"],
       ]
         .filter(([, action]) => action !== "customer-settings" || can("settings.customer"))
+        .filter(([, action]) => action !== "tag-manager" || can("customer.edit"))
         .map(
           ([label, action]) =>
-            `<div><span>${label}</span><button ${["settings", "customer-settings"].includes(action) ? "data-action" : "data-feature"}="${action}">设置</button></div>`,
+            `<div><span>${label}</span><button data-action="${action}">设置</button></div>`,
         )
         .join("")}<hr>${[
         ["compact", "表格行高"],
@@ -4418,7 +4506,7 @@
   const CSM = window.LaiCustomerSettings;
   // 保存设置：成功后刷新页面；出错时把原因显示在页面（或抽屉）里，不关窗口。
   async function csSave(makeNext, errorSelector, closeDrawer, doneMessage) {
-    if (pending) return false;
+    if (pending) return toast("上一项修改正在保存，请稍候"), false;
     const box = $(errorSelector || "#cs-error");
     box?.classList.remove("visible");
     try {
@@ -4725,10 +4813,7 @@
       }
       return globalSearchScopeMenu(el, e.detail > 0);
     }
-    if (d.globalCategory) {
-      if (d.globalCategory !== "客户") toast(`${d.globalCategory}搜索尚未接入`);
-      return;
-    }
+    if (d.globalCategory) return;
     if (d.globalField) {
       if (!C.globalSearchFields.some((field) => field.id === d.globalField)) return;
       globalSearch.field = d.globalField;
@@ -4866,6 +4951,13 @@
     if (a === "batch-schedule") return batchScheduleDialog(e.detail > 0);
     if (a === "batch-tags") return batchTagsDialog(e.detail > 0);
     if (a === "batch-merge") return mergeDialog([...selected], e.detail > 0);
+    if (a === "merge-customer") return mergePickerDialog(currentName, e.detail > 0);
+    if (a === "document-all") {
+      documentQuery = "";
+      documentPage = 1;
+      documentSelected.clear();
+      return detail(currentName, true, "");
+    }
     if (a === "batch-create") return batchCreateDialog(e.detail > 0);
     if (a === "tag-manager") return tagManagerDialog(e.detail > 0);
     if (a === "merge-group") return mergeDialog(el.dataset.names.split("\u0001"), e.detail > 0);
@@ -4873,7 +4965,7 @@
     if (a === "batch-more")
       return popover(
         el,
-        `${showIf("customer.merge", '<button data-action="batch-merge">合并客户</button><hr>')}<button data-feature="共享给">共享给</button>${showIf("customer.toPool", '<button data-action="batch-pool">移入公海</button>')}<button data-action="batch-follow">关注</button>${showIf("customer.unfollow", '<button data-action="batch-unfollow">取消关注</button>')}<hr>${showIf("customer.reassign", '<button data-action="batch-assign-owner">重新分配</button>')}${showIf("customer.removeOwner", '<button data-action="batch-clear-owner">移除跟进人</button>')}<button data-feature="变更公海分组">变更公海分组</button><hr><button data-action="remove-members">移出客群</button>${showIf("customer.trash", '<button data-action="batch-trash">移入回收站</button>')}`,
+        `${showIf("customer.merge", '<button data-action="batch-merge">合并客户</button><hr>')}${showIf("customer.toPool", '<button data-action="batch-pool">移入公海</button>')}<button data-action="batch-follow">关注</button>${showIf("customer.unfollow", '<button data-action="batch-unfollow">取消关注</button>')}<hr>${showIf("customer.reassign", '<button data-action="batch-assign-owner">重新分配</button>')}${showIf("customer.removeOwner", '<button data-action="batch-clear-owner">移除跟进人</button>')}<hr><button data-action="remove-members">移出客群</button>${showIf("customer.trash", '<button data-action="batch-trash">移入回收站</button>')}`,
       );
     if (a === "batch-assign-owner" || a === "batch-clear-owner")
       return batchOwnerDialog(a === "batch-clear-owner", e.detail > 0);
@@ -4939,9 +5031,11 @@
       const field = fieldById.get(row.querySelector('[data-advanced-prop="field"]').value);
       const input = row.querySelector('[data-advanced-prop="value"]');
       const numeric = el.value === "olderDays" || field.type === "number";
-      input.type = numeric ? "number" : field.type === "date" ? "date" : "text";
-      if (numeric) input.setAttribute("step", "any");
-      else input.removeAttribute("step");
+      if (input.tagName !== "SELECT") {
+        input.type = numeric ? "number" : field.type === "date" ? "date" : "text";
+        if (numeric) input.setAttribute("step", "any");
+        else input.removeAttribute("step");
+      }
       input.disabled = ["empty", "notEmpty"].includes(el.value);
     }
     if (el.dataset.advancedProp === "field") {
@@ -4951,7 +5045,7 @@
           Number(el.closest("[data-advanced-rule]").dataset.advancedRule)
         ];
       r.op = ops(r.field)[0];
-      r.value = "";
+      r.value = fieldById.get(r.field)?.type === "boolean" ? "true" : "";
       filterForm();
     }
     if (el.dataset.livePref) {
@@ -5174,14 +5268,14 @@
   window.addEventListener("focus", async () => {
     if (!nativeWindowBridge() || focusRefreshInProgress || pending || modal ||
         !state?.customers || business?.hasDraft() ||
-        [...followupDrafts.values()].some((draft) => draft.text.trim())) return;
+        openFollowupDraft()) return;
     focusRefreshInProgress = true;
     try {
       const response = await fetch("/api/data", { cache: "no-store" });
       if (!response.ok) return;
       const snapshot = await response.json();
       if (pending || modal || business?.hasDraft() ||
-          [...followupDrafts.values()].some((draft) => draft.text.trim()) ||
+          openFollowupDraft() ||
           !Number.isInteger(snapshot?.revision) || snapshot.revision <= revision ||
           !Array.isArray(snapshot.data?.orders) || !snapshot.data?.customers ||
           typeof snapshot.data.customers !== "object" ||

@@ -20,6 +20,8 @@ function harness({dirty = false, wait = false} = {}) {
     nativeWindowBridge: () => true, pending: null, modal: null,
     state: original, revision: 1, business: {hasDraft: () => dirty},
     followupDrafts: new Map(),
+    // app.js counts only the draft of the open detail page; here that page is the synthetic customer.
+    openFollowupDraft: () => !!boundary.followupDrafts.get('Synthetic')?.text.trim(),
     async fetch() { reads++; return wait ? new Promise(resolve => {release = resolve;}) : response; },
     rebuildRows() {rebuilds++;}, refresh() {refreshes++;},
   };
