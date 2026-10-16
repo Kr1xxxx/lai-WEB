@@ -2202,6 +2202,27 @@
       status("");
     } finally {
       poolAutoRunning = false;
+      // 任务设置里的规则跟在公海规则后面跑（同样的时机：启动、切回窗口、每 30 分钟）。
+      await autoRunTaskRules();
+    }
+  }
+  // 每天按任务设置里开着的规则自动建待办（task-rule-model.js）。跳过的条件同公海规则；不弹提示，一天只跑一次。
+  let taskAutoRunning = false;
+  async function autoRunTaskRules() {
+    const TR = window.LaiTaskRuleModel;
+    if (!TR || taskAutoRunning) return;
+    taskAutoRunning = true;
+    try {
+      if (separateCustomerWindow || pending || hasUnsavedWork() || !TR.due(state)) return;
+      const result = TR.run(state);
+      // 只加待办和改规则的运行记录，不动客户资料，所以走默认的字段保护也不会改到什么。
+      await persist(result.state);
+      if (result.created.length && ["calendar", "dashboard", "task-settings"].includes(activeRoute)) refresh();
+    } catch (_) {
+      // 这次没成功就算了，下次再试；不留“保存失败”的提示。
+      status("");
+    } finally {
+      taskAutoRunning = false;
     }
   }
   // 页面开着跨过零点时也要按规则跑：切回窗口时、以及每 30 分钟检查一次；有窗口或草稿开着就等下次（规则同 autoRunPoolRules）。
