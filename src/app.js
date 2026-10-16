@@ -240,7 +240,7 @@
       notice.id = "backup-warning";
       notice.className = "backup-warning";
       notice.setAttribute("role", "alert");
-      notice.innerHTML = '<span>自动备份没有成功，数据已保存。</span><button type="button">重试</button>';
+      notice.innerHTML = '<span>备份没有成功，数据已保存。</span><button type="button">重试</button>';
       document.body.appendChild(notice);
       notice.querySelector("button").addEventListener("click", async () => {
         const button = notice.querySelector("button");
@@ -320,7 +320,7 @@
       applyTheme(state.laiSettings?.theme);
       rebuildRows();
       updateBackupNotice(result.backup);
-      status(backupWarning ? "已保存 · 自动备份没有成功" : "已保存到来财", backupWarning);
+      status(backupWarning ? "已保存 · 备份没有成功" : "已保存到来财", backupWarning);
       return true;
     })();
     try {

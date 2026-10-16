@@ -112,8 +112,8 @@
 - 一次删掉 5 个以上客户或订单前先做 `before-delete-*` 备份，备份失败就不删（503）。
 
 ## 备份（storage.js）
-- 保存不再当场备份：`business_backup_revision`／`mail_backup_revision`（metadata 表）记着有没备份的改动，`queueBackup` 在上次备份满一小时时做一份，失败一分钟后重试，`close()` 时补做；`GET /api/backup-status` 给页面看（`app.js` 的 `updateBackupNotice`）。
-- 文件名：自动 `lai-data-*`、删除前 `before-delete-*`、手动 `manual-*`（`POST /api/manual-backup`）。分层保留见 `pruneBackups`；手动备份不自动删除。
-- 附件只认相对地址 `/attachments/...`；缺失的附件文件跳过并计数（`missingAttachments`）。
+- 保存不再当场备份：`business_backup_revision`／`mail_backup_revision`（metadata 表）记着有没备份的改动，`queueBackup` 在上次备份满一小时时做一份，失败一分钟后重试；`close()` 不做备份，下次启动按记号重新排队；启动和每次备份前删掉残留的 `*.partial`；`GET /api/backup-status` 给页面看（`app.js` 的 `updateBackupNotice`）。
+- 文件名：自动 `lai-data-*`、删除前 `before-delete-*`、手动 `manual-*`（`POST /api/manual-backup`）。分层保留见 `pruneBackups`（`before-delete-*` 不占分层名额，留 30 天）；手动备份不自动删除。备份文件做好后删旧备份、写 `backup-meta.json` 出错都不算失败（记录先留在内存里，下次读时再写）。
+- 附件只认相对地址 `/attachments/...`；缺失的附件文件、读不懂的行都跳过并计数（`missingAttachments`、`invalidRows`）。
 - `/api/health` 不做完整性检查和整包读取；完整性检查只在启动时做。数据目录的符号链接／硬链接检查只在启动时做一次（`laiDataDirectory({ scan })`，跳过 `backups/`）。
 

@@ -48,7 +48,7 @@ test('a background backup failure becomes a warning in plain Chinese, never the 
   await h.tick();
   assert.equal(requests, 1);
   assert.equal(h.notice().hidden, false);
-  assert.match(h.notice().innerHTML, /自动备份没有成功，数据已保存。/);
+  assert.match(h.notice().innerHTML, /备份没有成功，数据已保存。/);
   assert.match(h.notice().innerHTML, />重试</);
   assert.doesNotMatch(h.notice().innerHTML, /Synthetic|ENOSPC/);
   assert.equal(h.timers.size, 1, 'it keeps checking while the backup is still due');

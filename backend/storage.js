@@ -833,10 +833,13 @@ function openStorage({ seedFile }) {
   }
   // 分层保留自动备份：最新 24 份全留；最近 14 天每天留最新一份；最近 8 周每周留最新一份；
   // 刚做好的那份和最新一份总是留着。手动备份（manual-*）和旧的 .json 备份从不自动删除。
+  // 大量删除前的备份（before-delete-*）不占上面的名额，至少留 30 天，过了 30 天才按时间删。
+  const BEFORE_DELETE_KEEP_MS = 30 * 86400000;
   function pruneBackups(keepName) {
     const now = Date.now(), DAY = 86400000;
-    const entries = fs.readdirSync(backupDir).map(parseBackupName).filter(entry => entry && entry.kind !== 'manual')
-      .sort((a, b) => compareBackupNames(a.name, b.name));
+    const all = fs.readdirSync(backupDir).map(parseBackupName).filter(Boolean);
+    const entries = all.filter(entry => entry.kind === 'lai-data').sort((a, b) => compareBackupNames(a.name, b.name));
+    const expired = all.filter(entry => entry.kind === 'before-delete' && entry.name !== keepName && now - entry.time >= BEFORE_DELETE_KEEP_MS);
     const keep = new Set([keepName]);
     entries.slice(0, 24).forEach(entry => keep.add(entry.name));
     const days = new Set(), weeks = new Set();
@@ -846,7 +849,7 @@ function openStorage({ seedFile }) {
       if (age < 56 * DAY && !weeks.has(entry.week)) { weeks.add(entry.week); keep.add(entry.name); }
     }
     let removed = 0;
-    for (const entry of entries) {
+    for (const entry of [...entries, ...expired]) {
       if (keep.has(entry.name)) continue;
       fs.rmSync(path.join(backupDir, entry.name), { force: true });
       fs.rmSync(path.join(backupDir, entry.name) + '.attachments', { recursive: true, force: true });
@@ -885,22 +888,24 @@ function openStorage({ seedFile }) {
     return refs;
   }
 
+  // 读不懂的一行（JSON 坏了）不让整个备份失败：这一行照样在备份的数据库里，只是找不到它引用的附件；跳过并计数。
   function backupAttachmentRefs(file) {
-    if (file.endsWith('.json')) return collectAttachmentRefs(readJson(file));
+    if (file.endsWith('.json')) return { refs: collectAttachmentRefs(readJson(file)), invalid: 0 };
     const backup = new DatabaseSync(file, { readOnly:true });
     try {
       const refs = new Set();
+      let invalid = 0;
       const tables = new Set(backup.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map(row => row.name));
       for (const table of ['orders', 'customers', 'tracking_lookups', 'app_state', 'mail_account', 'mail_drafts', 'mail_draft_files', 'mail_templates', 'mail_bulk']) {
         if (!tables.has(table)) continue;
         for (const row of backup.prepare(`SELECT data_json FROM ${table}`).all()) {
           let data;
           try { data = JSON.parse(row.data_json); }
-          catch (_) { throw new Error(table.startsWith('mail_') ? 'Backup contains invalid stored mail data' : 'Backup contains invalid stored business data'); }
+          catch (_) { invalid += 1; continue; }
           collectAttachmentRefs(data, refs);
         }
       }
-      return refs;
+      return { refs, invalid };
     } finally { backup.close(); }
   }
   // 复制备份引用到的附件。文件已经不在（被移走、删掉）时跳过并计数，不让整个备份失败。
@@ -908,7 +913,8 @@ function openStorage({ seedFile }) {
     const dir = backupFile + '.attachments';
     fs.mkdirSync(dir, { recursive:true, mode:0o700 });
     let count = 0, missing = 0;
-    for (const source of backupAttachmentRefs(backupFile)) {
+    const { refs, invalid } = backupAttachmentRefs(backupFile);
+    for (const source of refs) {
       const relative = path.relative(attachmentsDir, source);
       if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid backup attachment path');
       let stat = null;
@@ -921,16 +927,34 @@ function openStorage({ seedFile }) {
       fs.chmodSync(target, 0o600);
       count += 1;
     }
-    return { count, missing };
+    return { count, missing, invalid };
   }
 
   const BACKUP_INTERVAL_MS = 60 * 60 * 1000, BACKUP_RETRY_MS = 60 * 1000;
+  // 备份已经做好、但备份记录（backup-meta.json）没写进去时，先记在内存里，下次读记录时再写一次。
+  let unsavedMeta = null;
+  function writeBackupMeta(meta) {
+    unsavedMeta = meta;
+    try { atomicWrite(backupMetaFile, JSON.stringify(meta, null, 2)); unsavedMeta = null; return true; }
+    catch (_) { return false; }
+  }
   function backupMeta() {
+    if (unsavedMeta) { writeBackupMeta(unsavedMeta); if (unsavedMeta) return unsavedMeta; }
     try { return fs.existsSync(backupMetaFile) ? readJson(backupMetaFile) : {}; } catch (_) { return {}; }
+  }
+  // 上次做到一半被打断（比如退出时被强行结束）留下的 *.partial 和 *.partial.attachments 删掉。
+  function removePartialBackups() {
+    try {
+      for (const name of fs.readdirSync(backupDir)) {
+        if (name.endsWith('.partial') || name.endsWith('.partial.attachments'))
+          fs.rmSync(path.join(backupDir, name), { recursive: true, force: true });
+      }
+    } catch (_) { /* 清不掉不影响备份本身。 */ }
   }
   function performBackup(force = false, kind = 'auto') {
     ensureStorage();
     if (storageMode !== 'sqlite' || !database) return { ok: false, message: storageError || 'SQLite unavailable' };
+    removePartialBackups();
     const meta = backupMeta();
     const now = Date.now();
     // 上次备份的时间比现在还晚（电脑时间被往回调过）时，当作该备份了。
@@ -963,13 +987,15 @@ function openStorage({ seedFile }) {
       fs.rmSync(backupFile + '.attachments', { recursive:true, force:true });
       throw error;
     }
-    pruneBackups(backupName);
-    atomicWrite(backupMetaFile, JSON.stringify({ lastBackupAt: now, lastBackupFile: backupFile, lastMailRevision: coveredMailRevision, lastBusinessRevision: coveredBusinessRevision, missingAttachments: copied.missing }, null, 2));
-    return { ok:true, file:backupFile, kind, attachmentsDir:backupFile + '.attachments', attachmentCount: copied.count, missingAttachments: copied.missing };
+    // 备份文件已经做好：后面删旧备份、写备份记录出错，都不算这次备份失败。
+    try { pruneBackups(backupName); }
+    catch (error) { console.warn('Lai: removing old backups failed:', error.message); }
+    const metaSaved = writeBackupMeta({ lastBackupAt: now, lastBackupFile: backupFile, lastMailRevision: coveredMailRevision, lastBusinessRevision: coveredBusinessRevision, missingAttachments: copied.missing, invalidRows: copied.invalid });
+    return { ok:true, file:backupFile, kind, attachmentsDir:backupFile + '.attachments', attachmentCount: copied.count, missingAttachments: copied.missing, invalidRows: copied.invalid, metaSaved };
   }
 
   // 备份队列：保存成功后不马上复制整个数据库，而是在上次备份满一小时时做一份（期间的改动合在一起）；
-  // 失败后一分钟重试；正常关闭时把还没备份的改动补上。“有没有没备份的改动”记在数据库的 metadata 里。
+  // 失败后一分钟重试。“有没有没备份的改动”记在数据库的 metadata 里，关闭后下次打开接着排队。
   let backupFailure = '', backupTimer = null, backupTimerAt = 0;
   function backupPending(meta = backupMeta()) {
     return !!database && (Number(metadataValue('mail_backup_revision', '0')) > Number(meta.lastMailRevision || 0)
@@ -978,7 +1004,7 @@ function openStorage({ seedFile }) {
   function backupStatus() {
     const meta = backupMeta();
     return { ok: !(backupFailure || meta.lastError), message: backupFailure || meta.lastError || '', lastSuccessfulAt: meta.lastBackupAt || 0,
-      pending: backupPending(meta), nextAttemptAt: backupTimerAt, missingAttachments: Number(meta.missingAttachments || 0) };
+      pending: backupPending(meta), nextAttemptAt: backupTimerAt, missingAttachments: Number(meta.missingAttachments || 0), invalidRows: Number(meta.invalidRows || 0) };
   }
   function cancelBackupTimer() {
     if (backupTimer) clearTimeout(backupTimer);
@@ -1015,9 +1041,8 @@ function openStorage({ seedFile }) {
     } catch (error) {
       cancelBackupTimer();
       backupFailure = error.message || 'automatic backup failed';
-      try {
-        atomicWrite(backupMetaFile, JSON.stringify({ ...backupMeta(), lastError: backupFailure, failedAt: Date.now() }, null, 2));
-      } catch (_) { /* 磁盘满时失败记录也可能写不进去。 */ }
+      // 磁盘满时失败记录也可能写不进去，那就先记在内存里。
+      writeBackupMeta({ ...backupMeta(), lastError: backupFailure, failedAt: Date.now() });
       result = { ok:false, message:backupFailure };
     }
     queueBackup();
@@ -1264,8 +1289,8 @@ function openStorage({ seedFile }) {
 
   function close() {
     if (!database) return;
-    // 正常关闭时，把还没进备份的改动补一份备份（失败只记下来，不影响关闭）。
-    if (backupPending()) createBackup(true);
+    // 关闭时不做备份（Mac 外壳 2 秒后会强行结束进程，备份可能做到一半）。
+    // 没备份的改动记在数据库里，下次打开会重新排队。
     cancelBackupTimer();
     database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
     database.close();
@@ -1274,6 +1299,7 @@ function openStorage({ seedFile }) {
 
   initializeStorage();
   if (database && storageMode === 'sqlite') {
+    removePartialBackups();
     // 旧数据库还没有“业务改动已备份到哪个版本”的记号：把当前版本记上，排一次备份覆盖它（只改备份记号，不动业务数据）。
     if (!metadataValue('business_backup_revision', '')) setMetadata('business_backup_revision', metadataValue('revision', '0'));
     // 邮件数据同理：已有邮件数据而没有记号时，记一次待备份。

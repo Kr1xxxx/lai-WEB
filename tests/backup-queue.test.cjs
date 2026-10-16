@@ -13,7 +13,7 @@ function fixture(t) {
   process.env.LAI_DATA_DIR = path.join(dir, 'live');
   const seedFile = path.join(dir, 'no-seed.json');
   let store = openStorage({ seedFile });
-  t.after(() => { try { store.close(); } catch (_) {} t.mock.timers.reset(); if (previous === undefined) delete process.env.LAI_DATA_DIR; else process.env.LAI_DATA_DIR = previous; fs.rmSync(dir, { recursive: true, force: true }); });
+  t.after(() => { repair(); try { store.close(); } catch (_) {} t.mock.timers.reset(); if (previous === undefined) delete process.env.LAI_DATA_DIR; else process.env.LAI_DATA_DIR = previous; fs.rmSync(dir, { recursive: true, force: true }); });
   return { dir, seedFile, get store() { return store; }, restart() { store.close(); store = openStorage({ seedFile }); }, openAfterCrash() { store = openStorage({ seedFile }); } };
 }
 const backupDir = s => path.join(s.directory, 'backups');
@@ -21,9 +21,12 @@ const files = s => fs.readdirSync(backupDir(s)).filter(f => f.endsWith('.sqlite'
 const latest = s => JSON.parse(fs.readFileSync(path.join(s.directory, 'backup-meta.json'), 'utf8')).lastBackupFile;
 function row(file, table) { const db = new DatabaseSync(file, { readOnly: true }); try { const r = db.prepare(`SELECT data_json FROM ${table}`).get(); return r ? JSON.parse(r.data_json) : null; } finally { db.close(); } }
 function business(s, label) { const snap = s.readSnapshot(); snap.data.customers.Synthetic = { note: label, unknown: { retain: [null, 1] } }; s.save(snap, { baseRevision: snap.revision }); return s.readSnapshot(); }
-// A row the backup cannot read makes the next backup fail; repair() removes it again.
-function breakBackups(s) { const db = new DatabaseSync(path.join(s.directory, 'lai-data.sqlite')); db.prepare("INSERT INTO mail_templates(id, updated_at, data_json) VALUES('broken', '2026-10-07', 'not json')").run(); db.close(); }
-function repair(s) { const db = new DatabaseSync(path.join(s.directory, 'lai-data.sqlite')); db.prepare("DELETE FROM mail_templates WHERE id = 'broken'").run(); db.close(); }
+// Simulated full disk: moving a finished backup into place fails (fs is shared with backend/storage.js).
+// repair() puts the real function back.
+const realRename = fs.renameSync, realRm = fs.rmSync;
+function failRename(match) { fs.renameSync = (from, to) => { if (match(String(from), String(to))) throw Object.assign(new Error('ENOSPC: synthetic disk full'), { code: 'ENOSPC' }); return realRename(from, to); }; }
+function breakBackups(s) { const dir = backupDir(s) + path.sep; failRename((from, to) => to.startsWith(dir) && to.endsWith('.sqlite')); }
+function repair() { fs.renameSync = realRename; fs.rmSync = realRm; }
 
 test('business changes coalesce and the quiet tail enters a backup at the original hourly deadline', t => {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.now() });
@@ -54,15 +57,36 @@ test('save-changes is queued for backup just like a full save', t => {
   assert.equal(h.store.backupStatus().pending, false);
 });
 
-test('normal close backs up the last save inside the hourly window', t => {
+test('close does not back up; the unbacked save is queued again on the next start', t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.now() });
   const h = fixture(t);
   h.store.backup(true);
+  const deadline = Date.now() + HOUR;
   const saved = business(h.store, 'Close tail');
   h.restart();
-  assert.equal(files(h.store).length, 2);
-  assert.equal(h.store.backupStatus().pending, false);
+  assert.equal(files(h.store).length, 1, 'closing makes no backup (the Mac shell may kill a slow one)');
+  assert.equal(h.store.backupStatus().pending, true);
+  assert.equal(h.store.backupStatus().nextAttemptAt, deadline);
   assert.deepEqual(h.store.readSnapshot(), saved);
+  t.mock.timers.tick(HOUR);
+  assert.equal(files(h.store).length, 2);
   assert.equal(row(latest(h.store), 'customers').note, 'Close tail');
+  assert.equal(h.store.backupStatus().pending, false);
+});
+
+test('leftovers of a backup that was cut off are removed at start and before the next backup', t => {
+  const h = fixture(t);
+  business(h.store, 'Partial');
+  const leftovers = () => fs.readdirSync(backupDir(h.store)).filter(n => n.includes('.partial'));
+  const plant = stamp => { fs.writeFileSync(path.join(backupDir(h.store), `lai-data-${stamp}.sqlite.partial`), 'half'); fs.mkdirSync(path.join(backupDir(h.store), `lai-data-${stamp}.sqlite.partial.attachments/orders`), { recursive: true }); };
+  plant('20261001-101010');
+  h.store.close();
+  h.openAfterCrash();
+  assert.deepEqual(leftovers(), [], 'removed at start');
+  plant('20261002-101010');
+  assert.equal(h.store.backup(true).ok, true);
+  assert.deepEqual(leftovers(), [], 'removed before the next backup');
+  assert.equal(files(h.store).length, 1);
 });
 
 test('a failed backup is retried a minute later and never touches the saved data', t => {
@@ -73,11 +97,11 @@ test('a failed backup is retried a minute later and never touches the saved data
   t.mock.timers.tick(2000);
   const failed = h.store.backupStatus();
   assert.equal(failed.ok, false); assert.equal(failed.pending, true); assert.equal(failed.nextAttemptAt, Date.now() + 60000);
-  assert.equal(failed.message, 'Backup contains invalid stored mail data');
+  assert.match(failed.message, /ENOSPC/);
   const committed = h.store.readSnapshot();
   assert.equal(committed.data.customers.Synthetic.note, 'Committed');
   assert.equal(files(h.store).length, 0, 'no half-made backup is left behind');
-  repair(h.store);
+  repair();
   t.mock.timers.tick(60000);
   assert.equal(files(h.store).length, 1);
   assert.deepEqual([h.store.backupStatus().ok, h.store.backupStatus().pending, h.store.backupStatus().message], [true, false, '']);
@@ -91,7 +115,7 @@ test('a failure is remembered across a restart until a backup succeeds', t => {
   assert.equal(h.store.backup(true).ok, false);
   h.restart();
   assert.equal(h.store.backupStatus().ok, false);
-  repair(h.store);
+  repair();
   const succeeded = h.store.backup(true);
   assert.equal(succeeded.ok, true); assert.ok(succeeded.lastSuccessfulAt > 0);
   assert.equal(h.store.backupStatus().message, '');
@@ -270,7 +294,7 @@ test('removing more than 5 customers or orders makes a backup first; if that fai
   const changes = { orders: { set: {}, remove: ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'], sequence: { orders: full.data.orders.filter(o => !o.id.startsWith('p')).map(o => o.id) } }, counts: { orders: full.data.orders.length - 6, trashOrders: 0, deletedOrders: 0, customers: 2, trackingLookups: 0 } };
   assert.throws(() => h.store.saveChanges(changes, { baseRevision: full.revision }), e => e.status === 503 && /删除前的备份没有成功/.test(e.message));
   assert.deepEqual(h.store.readSnapshot(), full);
-  repair(h.store);
+  repair();
   h.store.saveChanges(changes, { baseRevision: full.revision });
   assert.equal(before().length, 2);
   assert.equal(h.store.readSnapshot().data.orders.some(o => o.id.startsWith('p')), false);
@@ -386,4 +410,76 @@ test('the deep folder check runs at startup only and skips backups/', t => {
   fs.unlinkSync(path.join(h.store.directory, 'attachments', 'linked'));
   h.openAfterCrash();
   assert.equal(h.store.readSnapshot().data.customers.Synthetic.note, 'Still saves');
+});
+
+test('before-delete backups are not counted as hourly ones and stay at least 30 days', t => {
+  const start = new Date(2026, 9, 16, 12, 0, 0).getTime();
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: start });
+  const h = fixture(t);
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = ms => { const d = new Date(ms); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; };
+  const put = name => { fs.writeFileSync(path.join(backupDir(h.store), name), ''); return name; };
+  // 40 recent hourly backups and before-delete backups of several ages.
+  for (let i = 1; i <= 40; i++) put(`lai-data-${stamp(start - i * HOUR)}.sqlite`);
+  const recent = [1, 2, 3].map(i => put(`before-delete-${stamp(start - i * 30 * 60000)}.sqlite`));
+  const day20 = put(`before-delete-${stamp(start - 20 * DAY)}.sqlite`), day29 = put(`before-delete-${stamp(start - 29 * DAY - HOUR)}.sqlite`);
+  const day31 = put(`before-delete-${stamp(start - 31 * DAY)}.sqlite`), day90 = put(`before-delete-${stamp(start - 90 * DAY)}.sqlite`);
+  fs.mkdirSync(path.join(backupDir(h.store), day90 + '.attachments'));
+  assert.equal(h.store.backup(true).ok, true);
+  const kept = new Set(fs.readdirSync(backupDir(h.store)));
+  for (const name of [...recent, day20, day29]) assert.ok(kept.has(name), 'kept: ' + name);
+  for (const name of [day31, day90, day90 + '.attachments']) assert.equal(kept.has(name), false, 'removed after 30 days: ' + name);
+  const hourly = [...kept].filter(n => /^lai-data-.*\.sqlite$/.test(n));
+  assert.ok(hourly.length >= 24, 'before-delete backups do not take the places of hourly ones');
+  for (let i = 1; i <= 23; i++) assert.ok(kept.has(`lai-data-${stamp(start - i * HOUR)}.sqlite`));
+});
+
+test('a row whose stored JSON cannot be read is skipped and counted; backups and big deletes still work', t => {
+  const h = fixture(t);
+  let snap = h.store.readSnapshot();
+  for (let i = 0; i < 8; i++) snap.data.customers['C' + i] = { client: 'C' + i };
+  h.store.save(snap, { baseRevision: snap.revision });
+  const db = new DatabaseSync(path.join(h.store.directory, 'lai-data.sqlite'));
+  db.prepare("INSERT INTO mail_templates(id, updated_at, data_json) VALUES('broken', '2026-10-07', 'not json')").run();
+  db.prepare("INSERT INTO app_state(key, data_json) VALUES('brokenKey', 'not json either')").run();
+  db.close();
+  const result = h.store.backup(true);
+  assert.equal(result.ok, true); assert.equal(result.invalidRows, 2);
+  assert.equal(h.store.backupStatus().invalidRows, 2);
+  const copy = new DatabaseSync(result.file, { readOnly: true });
+  try { assert.equal(copy.prepare("SELECT data_json FROM mail_templates WHERE id = 'broken'").get().data_json, 'not json', 'the row itself is still in the backup'); } finally { copy.close(); }
+  const cleanDb = new DatabaseSync(path.join(h.store.directory, 'lai-data.sqlite'));
+  cleanDb.prepare("DELETE FROM app_state WHERE key = 'brokenKey'").run(); cleanDb.close();
+  snap = h.store.readSnapshot();
+  for (let i = 0; i < 6; i++) delete snap.data.customers['C' + i];
+  h.store.save(snap, { baseRevision: snap.revision });
+  assert.equal(Object.keys(h.store.readSnapshot().data.customers).length, 2);
+});
+
+test('cleaning old backups or writing the backup record can fail without failing a finished backup', t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.now() });
+  const h = fixture(t);
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = ms => { const d = new Date(ms); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; };
+  for (let i = 1; i <= 120; i++) fs.writeFileSync(path.join(backupDir(h.store), `lai-data-${stamp(Date.now() - i * DAY)}.sqlite`), '');
+  const warn = console.warn; console.warn = () => {};
+  const dir = backupDir(h.store) + path.sep;
+  fs.rmSync = (target, options) => { if (String(target).startsWith(dir) && !String(target).includes('.partial')) throw Object.assign(new Error('EACCES: synthetic'), { code: 'EACCES' }); return realRm(target, options); };
+  let result;
+  try { result = h.store.backup(true); } finally { console.warn = warn; fs.rmSync = realRm; }
+  assert.equal(result.ok, true); assert.ok(fs.existsSync(result.file));
+  assert.equal(h.store.backupStatus().ok, true, 'a failed clean-up is not a failed backup');
+  // The record cannot be written: the copy stays, the backup counts as done, and the record is written later.
+  business(h.store, 'Record later');
+  const metaFile = path.join(h.store.directory, 'backup-meta.json');
+  failRename((from, to) => to === metaFile);
+  const second = h.store.backup(true);
+  assert.equal(second.ok, true); assert.equal(second.metaSaved, false); assert.ok(fs.existsSync(second.file));
+  assert.equal(h.store.backupStatus().ok, true); assert.equal(h.store.backupStatus().pending, false, 'the new backup covers the save');
+  assert.notEqual(JSON.parse(fs.readFileSync(metaFile, 'utf8')).lastBackupFile, second.file, 'the file on disk is still the old record');
+  t.mock.timers.tick(HOUR * 2);
+  assert.equal(files(h.store).filter(n => n === path.basename(second.file)).length, 1);
+  repair();
+  h.store.backupStatus();
+  assert.equal(JSON.parse(fs.readFileSync(metaFile, 'utf8')).lastBackupFile, second.file, 'the record is written on the next read');
 });
