@@ -321,7 +321,7 @@ test('业务: pages she may not open show the no-permission notice instead of th
   const c = controller(amy);
   for (const [route, text] of [['settings', '设置'], ['opp-flows', '商机设置'], ['team-goals', '团队数据'], ['team-targets', '目标管理'], ['doc-templates', '单据模版设置']]) {
     c.ui.navigate(route);
-    assert.match(c.html, /role="alert"/, route);
+    assert.match(c.html, /class="empty role-blocked" role="status"/, route);
     assert.match(c.html, /没有“/, route);
     assert.ok(c.html.includes(text), `${route} names the missing permission (${text})`);
     assert.doesNotMatch(c.html, /biz-settings-form|opp-set|team-goal-grid|dt-form/, route);

@@ -148,20 +148,20 @@ test('成员管理: add Bob as 业务, switch to Bob, and the page shows the no-
   await bob.waitFor();
   // switch
   await bob.locator('button', { hasText: '切换到此账号' }).click();
-  await page.locator('.role-denied').waitFor();
-  assert.equal(await page.locator('.role-denied').innerText(), '你的角色没有“设置管理·角色权限和成员管理”权限，请找系统管理员开通');
+  await page.locator('.role-blocked strong').waitFor();
+  assert.equal(await page.locator('.role-blocked strong').innerText(), '你的角色没有“设置管理·角色权限和成员管理”权限，请找系统管理员开通');
   assert.equal(await page.locator('.role-table').count(), 0);
   const roles = await stored();
   assert.equal(roles.members.find((member) => member.id === roles.current).name, 'Bob');
   await page.screenshot({ path: process.env.ROLE_SHOTS ? `${process.env.ROLE_SHOTS}/roles-denied.png` : undefined, type: 'png' }).catch(() => {});
 });
 
-test('after a reload Bob is still the account and 角色权限 shows the notice too', async () => {
+test('after a reload Bob is still the account and 企业管理 is hidden from him', async () => {
   const { page } = app;
   await app.open('customers');
-  await openPage('角色权限');
-  assert.equal(await page.locator('.business-title h1').innerText(), '角色权限');
-  await page.locator('.role-denied').waitFor();
+  await page.locator('.avatar[data-action="profile-menu"]').waitFor();
+  assert.match(await page.locator('.avatar[data-action="profile-menu"]').getAttribute('aria-label'), /Bob/);
+  assert.equal(await page.locator('.rail-item[data-rail-menu="企业管理"]').count(), 0);
   const roles = await stored();
   assert.equal(roles.members.find((member) => member.id === roles.current).name, 'Bob');
   assert.ok(roles.roles.some((role) => role.name === '经理'));

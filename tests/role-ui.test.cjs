@@ -5,7 +5,7 @@ const RU = require('../src/role-ui.js');
 
 const E = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const ui = RU.create(E, R);
-const base = () => ({ laiSettings: { defaultOwner: 'Kris' }, customerProfiles: { a: { owner: 'Kris' }, b: { owner: 'Amy' } }, orders: [] });
+const base = () => ({ laiSettings: { defaultOwner: 'Kris' }, customers: { a: { owner: 'Kris' }, b: { owner: 'Amy' } }, orders: [] });
 const rowOf = (html, id) => html.match(new RegExp(`<tr data-role-row="${id}">.*?</tr>`))[0];
 
 test('roles list: columns, admin row has only 查看, 业务 row has 编辑 and 成员 but no 删除', () => {

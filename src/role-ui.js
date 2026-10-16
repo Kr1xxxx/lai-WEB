@@ -8,7 +8,8 @@
     const SCOPE_HINT='本人＝只看自己负责的客户、线索、商机和订单；全公司＝能看到所有人的。';
 
     // 没有“角色权限”权限时，两个页面都只显示这句话。
-    const deniedMarkup=()=>`<div class="business-scroll"><section class="business-section role-denied" role="status"><p>${E(M.denied('settings.roles'))}</p></section></div>`;
+    // 和 app.js 的 blockedPage 一个样子。
+    const deniedMarkup=()=>`<section class="module-page"><div class="empty role-blocked" role="status"><strong>${E(M.denied('settings.roles'))}</strong><span>可以点右上角头像，切换到别的测试账号。</span></div></section>`;
 
     // ---------- 角色权限：列表 ----------
     function rolesMarkup(state,view={}){

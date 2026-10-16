@@ -81,11 +81,11 @@ test('业务 (Amy) sees only her own records and has no delete, new or sync butt
 
     await go(app, 'settings');
     assert.equal(await count(app, '#biz-settings-form'), 0);
-    assert.match(await page.locator('.module-note[role="alert"]').innerText(), /没有“设置/);
+    assert.match(await page.locator('.role-blocked strong').innerText(), /没有“设置/);
 
     await go(app, 'opp-flows');
     assert.equal(await count(app, '.opp-set'), 0);
-    assert.match(await page.locator('.module-note[role="alert"]').innerText(), /商机设置/);
+    assert.match(await page.locator('.role-blocked strong').innerText(), /商机设置/);
 
     await go(app, 'dashboard');
     text = await body(app);

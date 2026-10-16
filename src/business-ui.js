@@ -52,7 +52,8 @@
     // 打开了没有权限的页面：不画页面，只说明为什么。
     const routeDenied = (name) => {
       const key = RM() && RM().pagePerm("route", name);
-      return key && !can(key) ? header("没有权限", "") + `<div class="business-scroll"><div class="module-note" role="alert">${E(RM().denied(key))}</div></div>` : "";
+      // 和 app.js 的 blockedPage 一个样子。
+      return key && !can(key) ? `<div class="pagebar"><div class="page-tabs"><h1>没有权限</h1></div></div><section class="module-page"><div class="empty role-blocked" role="status"><strong>${E(RM().denied(key))}</strong><span>可以点右上角头像，切换到别的测试账号。</span></div></section>` : "";
     };
     const label = (id) =>
       B.stages.find((s) => s.id === id)?.label || id || "未填写";
@@ -1579,7 +1580,6 @@
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
-    const RM = () => root.LaiRoleModel;
     let roleUI = null;
     const RU = () => roleUI || (roleUI = root.LaiRoleUI.create(E, RM()));
     const roleView = { edit: "", armed: "", armedMember: "", filter: "", nextFilter: "" };

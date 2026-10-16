@@ -5235,6 +5235,8 @@
     escape: E,
     icon,
     favoriteHeart,
+    // 写信、回复、转发要有“邮件·写信和回复”权限。
+    can: (key) => R.can(state, key),
     // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
     createEditor: (node, bar, html) => window.LaiMailEditor.create(node, bar, html),
     editorToolbar: () => window.LaiMailEditor.toolbar(),

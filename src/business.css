@@ -2822,7 +2822,6 @@ td.team-reached {
 .role-hint { margin: 10px 0 0; font-size: 12px; color: var(--ink-600); }
 .role-note { margin: 0 0 14px; padding: 10px 12px; font-size: 13px; color: var(--ink-700); background: var(--ink-50); border-radius: var(--radius-md, 4px); }
 .role-filter { margin: 0 0 12px; font-size: 13px; color: var(--ink-700); display: flex; align-items: center; gap: 8px; }
-.role-denied p { margin: 0; font-size: 14px; color: var(--ink-700); }
 .role-lock-note { margin: 0 0 14px; padding: 10px 12px; font-size: 13px; color: var(--ink-700); background: var(--ink-50); border-radius: var(--radius-md, 4px); }
 .role-edit .role-basic { display: grid; grid-template-columns: minmax(200px, 320px) minmax(200px, 320px); gap: 16px 24px; margin-bottom: 20px; align-items: start; }
 .role-edit .role-basic .field { display: grid; gap: 6px; font-size: 13px; margin: 0; }
