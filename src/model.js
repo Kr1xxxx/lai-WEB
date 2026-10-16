@@ -2,6 +2,11 @@
   'use strict';
   const CS = typeof module !== 'undefined' && module.exports ? require('./customer-settings-model.js') : root.LaiCustomerSettings;
   const norm = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  // 客户名称查重用：全角半角、大小写、空格多少都算同一个名字（D-003）。存的仍是用户填的原样。
+  const nameKey = value => String(value ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+  // 只检查客户是否存在，不用把所有客户都算一遍。
+  const customerExists = (state, name) => typeof name === 'string' && !!name && (Object.hasOwn(state?.customers || {}, name) || (state?.orders || []).some(o => o && o.client === name));
+  const knownCustomerNames = state => new Set([...Object.keys(state?.customers || {}), ...(state?.orders || []).map(o => o && o.client).filter(Boolean)]);
   const tags = value => Array.isArray(value) ? value.filter(Boolean).map(String) : String(value || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
   const amount = value => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -141,12 +146,12 @@
     const name=String(fields.name||'').trim();
     if (!name) throw new Error('请输入公司 / 客户名称');
     if(name==='__proto__')throw new Error('该名称为系统保留名称，请填写完整公司名称');
-    const orderNames=[...(state.orders||[]),...(state.trashOrders||[])].map(o=>o.client).filter(n=>n&&norm(n)!==norm(oldName));
+    const orderNames=[...(state.orders||[]),...(state.trashOrders||[])].map(o=>o.client).filter(n=>n&&nameKey(n)!==nameKey(oldName));
     const known=[...Object.keys(state.customers||{}),...orderNames];
-    if (known.some(n=>n!==oldName&&norm(n)===norm(name))) throw new Error('客户名称已存在，请使用其他名称');
+    if (known.some(n=>n!==oldName&&nameKey(n)===nameKey(name))) throw new Error('客户名称已存在，请使用其他名称');
     const previous=state.customers?.[oldName]||{};
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
-    const record=buildCustomers(state).find(c=>c.name===oldName)||{};
+    const record=oldName?(buildCustomers(state).find(c=>c.name===oldName)||{}):{};
     const next={...previous,client:name,updated:time};
     if(!oldName){
       if(!String(fields.country??'').trim())throw new Error('请输入国家地区');
@@ -161,6 +166,8 @@
     for(const key of ['country','owner','email','phone','contact','address','website','source','customerStage','nextFollow','note','permanentNote','contactNote','productType','paymentMethod','paymentEmail','currency','contactPaymentMethod','alibabaId','primaryContactMethod','level','customerStars','customerCode','timezone','defaultPaymentPlan','customerAccountPeriod','companyProducts','cardStock','customBox','socialPlatform','socialAccount','phoneCountryCode','alternateEmail','birthday','shortName','landline','companyAddress','companyRemark','poolGroup','contactTitle','contactGender','customerType']){
       if(Object.hasOwn(fields,key)) next[key]=String(fields[key]??'').trim();
     }
+    // 星级 0 表示没打星：存成空，这样没评过星的客户保持为空，也可以清掉已打的星。
+    if(Object.hasOwn(fields,'customerStars')&&/^0+(\.0*)?$/.test(next.customerStars))next.customerStars='';
     if(CS){
       const had=[previous.email,...(Array.isArray(previous.emails)?previous.emails:[]),...(Array.isArray(previous.extraContacts)?previous.extraContacts.map(c=>c&&c.email):[]),record.email];
       const incoming=[next.email,...(Object.hasOwn(fields,'extraContacts')&&Array.isArray(fields.extraContacts)?fields.extraContacts.map(c=>c&&c.email):[])];
@@ -212,20 +219,23 @@
     const relinkOrders=orders=>orders.map(o=>oldName&&o.client===oldName?{...o,client:name}:o);
     const linked={orders:relinkOrders(state.orders||[])};
     if(oldName&&oldName!==name){
+      if(Array.isArray(state.laiOpportunities))linked.laiOpportunities=state.laiOpportunities.map(o=>o&&o.client===oldName?{...o,client:name}:o);
+      if(Array.isArray(state.laiTasks))linked.laiTasks=state.laiTasks.map(t=>t&&t.customer===oldName?{...t,customer:name}:t);
       for(const bucket of ['trashOrders','deletedOrders'])
         if(Array.isArray(state[bucket]))linked[bucket]=relinkOrders(state[bucket]);
     }
     return {...state,customers,...linked};
   }
-  function addFollowup(state,name,text,nextFollow,time=new Date().toISOString()) {
+  function addFollowup(state,name,text,nextFollow,time=new Date().toISOString(),known) {
     if(!String(text||'').trim())throw new Error('请输入跟进内容');
-    const row=buildCustomers(state).find(c=>c.name===name);
-    if(!row)throw new Error('客户不存在');
-    const previous=state.customers?.[name]||{};
+    if(!(known?known.has(name):customerExists(state,name)))throw new Error('客户不存在');
+    return {...state,customers:{...state.customers,[name]:followupProfile(state.customers?.[name]||{},name,text,nextFollow,time)}};
+  }
+  function followupProfile(previous,name,text,nextFollow,time) {
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
     // 补记过去的跟进时，不能把更新时间、最近跟进时间往回改。
     const later=(old)=>Number.isFinite(Date.parse(old))&&Date.parse(old)>Date.parse(time)?old:time;
-    return {...state,customers:{...state.customers,[name]:{...previous,client:name,updated:later(previous.updated),lastFollowup:later(previous.lastFollowup),lastWrittenFollowup:later(previous.lastWrittenFollowup),nextFollow:nextFollow===undefined?(previous.nextFollow||''):String(nextFollow||''),history:[{time,text:String(text).trim(),type:'followup',subtype:'quick'},...(previous.history||[])]}}};
+    return {...previous,client:name,updated:later(previous.updated),lastFollowup:later(previous.lastFollowup),lastWrittenFollowup:later(previous.lastWrittenFollowup),nextFollow:nextFollow===undefined?(previous.nextFollow||''):String(nextFollow||''),history:[{time,text:String(text).trim(),type:'followup',subtype:'quick'},...(previous.history||[])]};
   }
   // 把一封邮件记到客户动态里（类型“往来邮件”）。同一封邮件只记一次；不改下次跟进，也不算写过跟进。
   const mailKey=mail=>String(mail?.messageId||'').replace(/\s+/g,' ').trim().slice(0,300)||(mail?.box&&mail?.uid?`${mail.box}|${mail.uid}`:'');
@@ -235,8 +245,7 @@
     return (state.customers[name].history||[]).some(item=>item&&item.type==='email'&&item.mailRef&&mailKey(item.mailRef)===key);
   }
   function addMailActivity(state,name,mail,time=new Date().toISOString()) {
-    const row=buildCustomers(state).find(c=>c.name===name);
-    if(!row)throw new Error('客户不存在');
+    if(!customerExists(state,name))throw new Error('客户不存在');
     const previous=state.customers?.[name]||{};
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
     if(!mail||typeof mail!=='object'||!mailKey(mail))throw new Error('缺少邮件信息');
@@ -251,10 +260,12 @@
       mailRef:{messageId:line(mail.messageId,300),box:sent?'sent':'inbox',uid:Number(mail.uid)||0}};
     return {...state,customers:{...state.customers,[name]:{...previous,client:name,updated:time,history:[item,...(previous.history||[])]}}};
   }
-  function setCustomerNextFollow(state,name,rawDate,time=new Date().toISOString()) {
-    if(typeof name!=='string'||!name||name==='__proto__'||!buildCustomers(state).some(row=>row.name===name))
+  function setCustomerNextFollow(state,name,rawDate,time=new Date().toISOString(),known) {
+    if(typeof name!=='string'||!name||name==='__proto__'||!(known?known.has(name):customerExists(state,name)))
       throw new Error('客户不存在');
-    const previous=state.customers?.[name]||{};
+    return {...state,customers:{...state.customers,[name]:nextFollowProfile(state,state.customers?.[name]||{},name,rawDate,time)}};
+  }
+  function nextFollowProfile(state,previous,name,rawDate,time) {
     const archived=['trashCustomers','deletedCustomers'].some(bucket=>{
       const value=state[bucket];
       return Array.isArray(value)
@@ -272,15 +283,15 @@
     if(String(previous.nextFollow||'').trim()===nextFollow)
       throw new Error('跟进日程无需更新');
     const text=nextFollow?`安排客户跟进日程：${nextFollow}`:'取消客户跟进日程';
-    return {...state,customers:{...state.customers,[name]:{
+    return {
       ...previous,client:name,nextFollow,updated:time,
       history:[{time,text,type:'operation'},...(Array.isArray(previous.history)?previous.history:[])],
-    }}};
+    };
   }
   function batchSetCustomerNextFollow(state,names,rawDate,time=new Date().toISOString()) {
     if(!Array.isArray(names)||!names.length)throw new Error('请先选择客户');
     const selected=[...new Set(names)];
-    const known=new Set(buildCustomers(state).map(row=>row.name));
+    const known=knownCustomerNames(state);
     if(selected.some(name=>!known.has(name)))throw new Error('所选客户不存在，请重新选择');
     if(selected.some(name=>['pool','trash'].includes(state.customers?.[name]?.laiBucket)))
       throw new Error('只能为私海客户安排跟进日程');
@@ -288,14 +299,16 @@
     if(!date)throw new Error('请选择下次跟进日期');
     const changed=selected.filter(name=>String(state.customers?.[name]?.nextFollow||'').trim()!==date);
     if(!changed.length)throw new Error('所选客户的跟进日程无需更新');
-    return changed.reduce((next,name)=>setCustomerNextFollow(next,name,date,time),state);
+    const customers={...state.customers};
+    for(const name of changed)customers[name]=nextFollowProfile(state,customers[name]||{},name,date,time);
+    return {...state,customers};
   }
   function batchAddFollowup(state,names,text,nextFollow,time=new Date().toISOString()) {
     if(!Array.isArray(names)||!names.length)throw new Error('请先选择客户');
     const content=String(text||'').trim();
     if(!content)throw new Error('请输入跟进内容');
     const selected=[...new Set(names)];
-    const known=new Set(buildCustomers(state).map(customer=>customer.name));
+    const known=knownCustomerNames(state);
     if(selected.some(name=>!known.has(name)))throw new Error('所选客户不存在，请重新选择');
     const date=String(nextFollow??'').trim();
     if(date){
@@ -303,7 +316,10 @@
       if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)
         throw new Error('下次跟进日期无效');
     }
-    return selected.reduce((next,name)=>addFollowup(next,name,content,date||undefined,time),state);
+    // 只复制一次客户表，再逐个改（客户很多时，每人复制一次会很慢）。
+    const customers={...state.customers};
+    for(const name of selected)customers[name]=followupProfile(customers[name]||{},name,content,date||undefined,time);
+    return {...state,customers};
   }
   function batchSetOwner(state,names,rawOwner,time=new Date().toISOString()) {
     if(!Array.isArray(names)||!names.length)throw new Error('请先选择客户');
@@ -333,7 +349,7 @@
     if(!['add','remove'].includes(mode))throw new Error('标签操作无效');
     const changes=[...new Set(tags(rawTags))];
     if(!changes.length)throw new Error('请输入至少一个客户标签');
-    const known=new Set(buildCustomers(state).map(customer=>customer.name));
+    const known=knownCustomerNames(state);
     const selected=[...new Set(names)];
     if(selected.some(name=>!known.has(name)))throw new Error('所选客户不存在，请重新选择');
     const customers={...state.customers};
@@ -425,7 +441,7 @@
     changes.appState=appState;changes.removeAppState=removeAppState;
     return {changes,snapshot:next,empty};
   }
-  const api={snapshotState,diffState,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,tags};
+  const api={snapshotState,diffState,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,nameKey,tags};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.PreviewModel=api;
 })(typeof window!=='undefined'?window:globalThis);
