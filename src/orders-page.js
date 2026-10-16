@@ -9,7 +9,14 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
   const PERIODS = Object.freeze([["", "全部时间"], ["month", "本月"], ["lastMonth", "上月"], ["quarter", "本季度"], ["year", "今年"]]);
-  const day = (value) => String(value || "").slice(0, 10);
+  // 完整的时间（带 Z 或时区）按本机日历日算，不按 UTC 日；只有日期的原样使用。
+  const day = (value) => {
+    const source = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}[T ]/.test(source)) return source.slice(0, 10);
+    const parsed = new Date(source.replace(" ", "T"));
+    const pad = (n) => String(n).padStart(2, "0");
+    return Number.isNaN(parsed.getTime()) ? source.slice(0, 10) : `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
+  };
   const num = (value) => Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const money = (value, code) => `${num(value)} ${code || "USD"}`;
 

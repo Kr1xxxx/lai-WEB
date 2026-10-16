@@ -50,7 +50,7 @@ test('an order made from an opportunity shows where it came from, escaped, and t
   assert.match(html, /role="note"/);
   assert.equal(ui.sourceBannerMarkup(null), '', '商机不存在时不显示');
   const business = read('src/business-ui.js');
-  assert.match(business, /orderEditor\(undefined, \{ \.\.\.OM\(\)\.orderDraft\(item, B\.localDate\(\)\), num: nextOrderNumber\(\) \}, back, id\);/);
+  assert.match(business, /orderEditor\(undefined, \{ \.\.\.OM\(\)\.orderDraft\(item, B\.localDate\(\)\), num: suggestedOrderNumber\(\) \}, back, id\);/);
   assert.match(business, /draft\.fromOpportunity \? OU\(\)\.sourceBannerMarkup\(oppCard\(draft\.fromOpportunity\)\) : ""/);
   assert.match(read('src/business.css'), /\.opp-source-banner \{/);
 });

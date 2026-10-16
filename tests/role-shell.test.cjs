@@ -38,11 +38,13 @@ test('the customer detail has no edit or merge entry for a role without those pe
   try {
     const limited = D.render(customer, { state, escape: M.escapeHtml });
     assert.doesNotMatch(limited, /data-action="edit"/);
-    assert.doesNotMatch(limited, /data-feature="合并客户"/);
+    assert.doesNotMatch(limited, /data-action="merge-customer"/);
+    assert.doesNotMatch(limited, /data-action="customer-tags"/);
     assert.doesNotMatch(limited, /data-action="add-contact"/);
     const admin = D.render(customer, { state: { ...state, laiSettings: { roles: { ...state.laiSettings.roles, current: 'a' } } }, escape: M.escapeHtml });
     assert.match(admin, /data-action="edit"/);
-    assert.match(admin, /data-feature="合并客户"/);
+    assert.match(admin, /data-action="merge-customer"/);
+    assert.match(admin, /data-action="customer-tags"/);
     assert.match(admin, /data-action="add-contact"/);
   } finally {
     delete globalThis.LaiRoleModel;

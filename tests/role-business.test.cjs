@@ -341,3 +341,19 @@ test('an order the role can see but not edit opens as a read-only detail', async
   await c.click({ bizOrder: 'order-a' });
   assert.equal(c.saves, 0);
 });
+
+test('without 查看订单 the calendar hides order events and a hand-made order click is refused', async () => {
+  const noView = R.updateRole(admin, 'sales', { perms: Object.fromEntries(R.SALES_DEFAULT.filter((key) => key !== 'order.view').map((key) => [key, true])) });
+  const state = R.switchTo(noView, R.settings(noView).members.find((m) => m.name === 'Amy').id);
+  assert.equal(R.can(state, 'order.view'), false);
+  const c = controller(state);
+  c.ui.selectCalendarDate('2026-10-01');
+  assert.doesNotMatch(c.html, /data-biz-order=|订单 L-Amy/, 'order events are not drawn');
+  await c.click({ bizOrder: 'order-a' });
+  assert.deepEqual(c.dialogs, [], 'the editor does not open');
+  assert.match(c.toasts.at(-1), /订单·查看/);
+  // With the permission the same month shows the order again.
+  const withView = controller(amy);
+  withView.ui.selectCalendarDate('2026-10-01');
+  assert.match(withView.html, /data-biz-order="order-a"/);
+});

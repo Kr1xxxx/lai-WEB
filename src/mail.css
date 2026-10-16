@@ -585,6 +585,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 预览文字在客户标签前面就用省略号收住，不被标签直接盖掉 */
+.mail-row:has(.mail-customer-chip) .mail-row-snippet {
+  padding-right: 164px;
+}
 .mail-list.wide .mail-row-main {
   padding: 12px 20px 12px 14px;
 }
@@ -1298,6 +1302,10 @@
   min-height: 30px;
   border-bottom: 0;
 }
+/* 和上面输入框的文字左对齐（输入框自带 12px 内边距） */
+.mail-compose-row.slim .text-button {
+  padding-left: 12px;
+}
 .mail-compose-row.tall {
   align-items: flex-start;
   padding: 10px 0;
@@ -1326,8 +1334,8 @@
 }
 .mail-editor-toolbar button,
 .mail-editor-toolbar select {
-  height: 28px;
-  min-height: 28px;
+  height: 32px;
+  min-height: 32px;
   padding: 0 8px;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -1337,6 +1345,10 @@
 }
 .mail-editor-toolbar select {
   border-color: var(--line);
+}
+/* 列表、引用等按钮和 字号／颜色 下拉一样：白底、同高 */
+.mail-editor-toolbar > button {
+  background: #fff;
 }
 .mail-editor-toolbar button:hover {
   background: var(--ink-100);

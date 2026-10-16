@@ -473,7 +473,7 @@
   const undoableTask=state=>syncTasks(state).find(t=>t.status!=='已撤销')||null;
   function assertSyncReadable(state){
     assertReadable(state);
-    if(state&&state.laiProductSyncTasks!==undefined&&state.laiProductSyncTasks!==null&&!Array.isArray(state.laiProductSyncTasks))throw new Error('已保存的同步记录格式异常，为避免覆盖，未做任何修改');
+    if(state&&state.laiProductSyncTasks!==undefined&&state.laiProductSyncTasks!==null&&!Array.isArray(state.laiProductSyncTasks))throw new Error('已保存的导入记录格式异常，为避免覆盖，未做任何修改');
   }
   // 模板的表头：所有显示着的产品字段。
   const templateHeaders=state=>visibleFields(state).map(item=>item[1]);
@@ -500,7 +500,7 @@
       if(!Object.values(values).some(Boolean))return;
       records.push({line:(lineNumbers&&lineNumbers[index])||index+2,values});
     });
-    if(records.length>LIMITS.syncRows)throw new Error(`一次最多同步 ${LIMITS.syncRows} 行，这个文件有 ${records.length} 行`);
+    if(records.length>LIMITS.syncRows)throw new Error(`一次最多导入 ${LIMITS.syncRows} 行，这个文件有 ${records.length} 行`);
     if(!records.length)throw new Error('文件里没有产品数据');
     return {records,columns:cols.map(c=>c[0]),ignored,hidden};
   }
@@ -509,7 +509,7 @@
   function planSync(state,records,{mode='code'}={}){
     assertSyncReadable(state);
     const list=(Array.isArray(records)?records:[]).map(asRecord);
-    if(list.length>LIMITS.syncRows)throw new Error(`一次最多同步 ${LIMITS.syncRows} 行，这个文件有 ${list.length} 行`);
+    if(list.length>LIMITS.syncRows)throw new Error(`一次最多导入 ${LIMITS.syncRows} 行，这个文件有 ${list.length} 行`);
     const byMode=mode==='new'?'new':'code';
     const config=settings(state).fields,groups=groupChoices(state);
     const existing=raw(state);
@@ -566,7 +566,7 @@
   // 真正同步：返回新的 state 和这次的任务记录（记着新建了哪些、更新前的样子，用来撤销）。
   function syncProducts(state,rows,{mode='code',fileName='',at=new Date().toISOString()}={}){
     const plan=planSync(state,rows,{mode});
-    if(!plan.counts.new&&!plan.counts.update)throw new Error('没有能同步的产品，看看预览里每行为什么被跳过');
+    if(!plan.counts.new&&!plan.counts.update)throw new Error('没有能导入的产品，看看预览里每行为什么被跳过');
     const list=raw(state).slice();
     const index=new Map(list.map((p,i)=>[p.id,i]));
     const before={},createdIds=[],fresh=[];
@@ -592,9 +592,9 @@
     assertSyncReadable(state);
     const tasks=syncTasks(state);
     const task=tasks.find(t=>t.id===id);
-    if(!task)throw new Error('没有找到这次同步');
-    if(task.status==='已撤销')throw new Error('这次同步已经撤销过了');
-    if(undoableTask(state).id!==task.id)throw new Error('只能撤销最近一次同步，请先撤销它后面的同步');
+    if(!task)throw new Error('没有找到这次导入');
+    if(task.status==='已撤销')throw new Error('这次导入已经撤销过了');
+    if(undoableTask(state).id!==task.id)throw new Error('只能撤销最近一次导入，请先撤销它后面的导入');
     const created=new Set(task.createdIds||[]),before=task.before||{};
     let removed=0,restored=0,kept=0;
     const list=[];

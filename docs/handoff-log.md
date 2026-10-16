@@ -4,6 +4,17 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-16 — Claude — Owner asked to review the repo, then "hand every task to subagents; polish the app, fix problems,
+  keep improving features". Opus coordinated 15 subagents: four read-only audits (customer pages, business pages, data safety
+  + 1.4.127 branch, UI audit), three e2e slices (orders/opportunities, mail/settings against fake mail servers, walkthrough of
+  the 17 unverified features → all 46 now browser-verified), fix batches A (lead duplicate index, order month follows date,
+  order client matching), B (decimal prices, order numbers never reused, opp detail buttons from 单据记录, workbench open-opp
+  count, local dates, calendar order permission, prefix check, live opp search, 同步→导入), C1 (batch speed on 10k
+  customers, NFKC name dedupe, rename repoints opps/tasks, merge keeps all fields, bad segment skipped, dedupe junk), C2
+  (draft no longer blocks navigation, row cache, stage/boolean filters, tag permissions, merge picker, real opps in 商机和订单,
+  回款 columns and ~20 placeholder entries removed per D-003/D-006), D (UI audit fixes, audit false positive). Data-safety
+  batch kept on local `data-safety-pr2` for a separate needs-owner PR. Closed duplicate PR #16 (owner agreed). Branch deletion
+  was blocked by the session's safety rules. Next: owner 合并, then the data-safety PR, then publish the web trial.
 - 2026-10-16 — Claude — Merged lai-WEB #11 (owner said 合并). Owner asked for 角色分配 with test accounts, roles 管理员 and 业务
   (screenshots of 小满 角色权限 / 编辑角色). Built on `claude/project-thread-5ob5ux` in three parallel worktrees: `src/role-model.js`
   (`laiSettings.roles`; 系统管理员 locked with all perms; 业务 defaults from 小满 普通用户; scope self/all; `can`, `canSee`,
