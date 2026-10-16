@@ -2832,7 +2832,7 @@ td.team-reached {
 .role-group { margin: 0; padding: 12px 16px 14px; border: 1px solid var(--line); border-radius: var(--radius-lg, 6px); min-width: 0; }
 .role-group legend { padding: 0 6px; display: flex; align-items: center; gap: 16px; font-size: 13px; }
 .role-group-name { font-weight: 600; color: var(--ink-900); }
-.role-perms { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px 16px; }
+.role-perms { display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr)); gap: 8px 16px; }
 .role-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-800); cursor: pointer; }
 .role-check input { accent-color: var(--brand-500); margin: 0; }
 .role-check input:disabled + span { color: var(--ink-600); }
@@ -2840,3 +2840,54 @@ td.team-reached {
 .role-edit .error { margin-top: 14px; }
 .role-edit .section-head { margin: 4px 0 12px; }
 @media (max-width: 760px) { .role-edit .role-basic { grid-template-columns: 1fr; } }
+
+/* 角色列表里的成员头像 */
+.role-list-table td { vertical-align: middle; }
+.role-members { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.role-avatars { display: inline-flex; }
+.role-avatar { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; border: 2px solid #fff; margin-left: -6px; box-sizing: border-box; background: var(--brand-500); }
+.role-avatar:first-child { margin-left: 0; }
+.role-av-0 { background: var(--brand-500); }
+.role-av-1 { background: var(--brand-700); }
+.role-av-2 { background: var(--color-success, #32916e); }
+.role-av-3 { background: var(--brand-900, #3b0f27); }
+.role-av-4 { background: #b7791f; }
+.role-members-total, .role-members-empty { font-size: 13px; color: var(--ink-600); }
+.role-members .company-link { font-size: 13px; max-width: none; }
+/* 编辑角色：每组标题旁的“设置字段权限”等链接 */
+.role-group legend .role-field-link { font-size: 13px; max-width: none; color: var(--brand-600); font-weight: 500; }
+.role-group legend .role-limit-count { font-size: 12px; color: var(--ink-600); padding: 0 8px; border-radius: 10px; background: var(--ink-50); line-height: 20px; }
+.role-group legend .role-limit-count[hidden] { display: none; }
+/* 字段权限窗口 */
+.role-fields-quick { display: flex; gap: 8px; margin: 10px 0 8px; }
+.role-fields-quick button { height: 28px; padding: 0 12px; font-size: 13px; }
+.role-field-list { display: grid; gap: 0; }
+.role-field-group { margin: 12px 0 4px; padding-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--ink-600); border-bottom: 1px solid var(--line); }
+.role-field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.role-field-name { min-width: 0; overflow-wrap: anywhere; color: var(--ink-800); }
+.role-seg { display: inline-flex; flex: none; border: 1px solid var(--ink-300); border-radius: var(--radius-md, 4px); overflow: hidden; }
+.role-seg-item { display: inline-flex; cursor: pointer; }
+.role-seg-item + .role-seg-item { border-left: 1px solid var(--ink-300); }
+.role-seg-item input { position: absolute; opacity: 0; width: 0; height: 0; }
+.role-seg-item span { padding: 3px 12px; font-size: 12px; color: var(--ink-700); background: #fff; line-height: 20px; }
+.role-seg-item input:checked + span { background: var(--brand-500); color: #fff; }
+.role-seg-item input:focus-visible + span { outline: 2px solid var(--brand-300); outline-offset: -2px; }
+.role-seg-item input:disabled + span { cursor: default; }
+.role-layouts .field { display: grid; gap: 6px; font-size: 13px; margin-top: 14px; }
+.role-layouts select { height: 32px; padding: 0 10px; border: 1px solid var(--ink-300); border-radius: var(--radius-md, 4px); background: #fff; font: inherit; }
+/* 成员管理：左边组织架构 */
+.role-org-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: start; }
+.role-org { border: 1px solid var(--line); border-radius: var(--radius-lg, 6px); padding: 10px 8px 12px; background: #fff; }
+.role-org-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 8px; font-size: 13px; }
+.role-org-head .company-link { font-size: 13px; max-width: none; }
+.role-dept-tree { display: grid; gap: 2px; }
+.role-dept-node { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 32px; padding: 0 10px 0 calc(10px + var(--lv, 0) * 16px); border: 0; border-radius: var(--radius-md, 4px); background: transparent; font: inherit; font-size: 13px; color: var(--ink-800); text-align: left; cursor: pointer; }
+.role-dept-node:hover { background: var(--ink-50); }
+.role-dept-node.is-selected { background: var(--brand-50); color: var(--brand-700); font-weight: 600; }
+.role-dept-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.role-dept-count { flex: none; font-size: 12px; color: var(--ink-600); font-variant-numeric: tabular-nums; }
+.role-dept-bar { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; font-size: 13px; color: var(--ink-700); }
+.role-dept-bar .company-link { font-size: 13px; max-width: none; }
+.role-dept-bar .role-danger { color: var(--color-danger, #e45656); }
+.role-org-main { min-width: 0; }
+@media (max-width: 860px) { .role-org-layout { grid-template-columns: 1fr; } }
