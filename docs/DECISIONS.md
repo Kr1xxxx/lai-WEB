@@ -158,3 +158,10 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   dataset (`GET /api/data`); true server-side paging needs search, sort, segments and counts to move to the server and
   belongs to the move to a server.
 
+### D-021 One interface font: Inter + MiSans, embedded in the page (2026-10-15)
+- Context: the owner asked to unify every font: MiSans for Chinese, a recommended font for English.
+- Decision: `--font-ui` is Inter (Latin, digits) then MiSans VF (Chinese), then system fonts. Both are vendored in
+  `vendor/fonts/` and inlined into the page as data URIs at build time, so the Mac app and the web trial look the same
+  and need no network. Styles use `var(--font-ui)` or `inherit`, never their own stack (test: `tests/ui-fonts.test.cjs`);
+  the 来财 wordmark keeps its rounded font. MiSans's license requires naming it in the software (关于来财Lai).
+

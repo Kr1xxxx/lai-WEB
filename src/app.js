@@ -1648,7 +1648,7 @@
     if (a === "about")
       drawer(
         "关于来财Lai",
-        `<div class="drawer-body"><h2>来财Lai ${APP_VERSION}</h2><p>独立的客户与经营管理软件。</p><div class="drawer-note">客户、订单、工作台、统计、日历与设置共享来财本地数据库。程序、窗口、菜单及数据目录均独立。</div><h3>使用说明</h3><p>客户客群、横向字段、跟进、公海和回收站，与订单、统计、日历使用同一套界面。所有模块共享来财本地数据。</p></div>`,
+        `<div class="drawer-body"><h2>来财Lai ${APP_VERSION}</h2><p>独立的客户与经营管理软件。</p><div class="drawer-note">客户、订单、工作台、统计、日历与设置共享来财本地数据库。程序、窗口、菜单及数据目录均独立。</div><h3>使用说明</h3><p>客户客群、横向字段、跟进、公海和回收站，与订单、统计、日历使用同一套界面。所有模块共享来财本地数据。</p><h3>字体</h3><p>中文使用小米 MiSans 字体，英文和数字使用 Inter 字体。</p></div>`,
         `<button class="primary" data-action="close-modal">知道了</button>`,
         "about",
         e.detail > 0,

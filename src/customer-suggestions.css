@@ -12,9 +12,7 @@
   background: #fff;
   box-shadow: var(--shadow-popover);
   color: #333;
-  font-family:
-    -apple-system, system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei",
-    sans-serif;
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 20px;
   scrollbar-width: thin;

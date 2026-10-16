@@ -11,6 +11,14 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   报价单/PI from an opportunity. Fixed the unclosed `.lead-timeline {` in `src/business.css` (everything after it was nested and
   ignored, incl. opportunity detail/attachment styles) and removed two green colours that this exposed. model 952 / e2e 76 green;
   ui-audit pink 1440×900 passes. Not done: 商机自动化设置, 归属部门, 销售订单/发货通知 from 商机, layout by role.
+- 2026-10-15 — Claude — Owner asked to unify all fonts: MiSans for Chinese, Latin font of Claude's choice (Inter). Vendored
+  `vendor/fonts/` (MiSans VF 4.009, 56 official slices from npm `misans@5.0.0`; Inter 4 variable latin + latin-ext from
+  `@fontsource-variable/inter@5.3.0`, OFL); `scripts/build.py` `font_faces_css()` inlines them as data URIs at the new
+  `<!--UI_FONTS-->` marker, so the Mac app and the web trial both work offline (CSP already allows `font-src data:`).
+  `--font-ui` is `"Inter", "MiSans VF", system fallbacks`; the four CSS files with their own stacks and the glass skin's
+  Bricolage numbers now use the token. MiSans credit added to 关于来财Lai (its license requires it). Kept on purpose: the
+  rounded 来财 wordmark (Yuanti SC), printed documents and the mail viewer (separate documents). Page grows from 2.9 MB to
+  9.2 MB. Tests: `tests/ui-fonts.test.cjs`, `tests/e2e/fonts.e2e.mjs`. Not done: Mac app not looked at (builds paused).
 - 2026-10-15 — Claude — Owner said 合并: merged lai-WEB #1, #3, #4, #6, #8 in that order (each branch carried the previous one so
   conflicts were solved once; two decisions were both D-019, the changes-only save is now D-020). Earlier the same day: #9
   (date test), #5 (desktop pause), #2 (customer list speed). Web trial v1.02 published from `main` a34ddbf (Artifact Version 47)
