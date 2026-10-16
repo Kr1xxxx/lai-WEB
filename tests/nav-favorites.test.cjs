@@ -23,7 +23,7 @@ const ALL = [
   'route:chats', 'route:chat-templates',
   'route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates', 'route:rates',
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
-  'route:calendar', 'route:task-settings', 'route:settings', 'route:settings-hub',
+  'route:calendar', 'route:task-settings', 'route:settings', 'route:settings-hub', 'route:feature-switch',
   'route:roles', 'route:members'
 ];
 const MENUS = ['客户', '线索', '商机', '工作台', 'Leads', '邮件', '沟通', '交易', '团队数据', '协同', '设置', '企业管理'];
@@ -161,10 +161,10 @@ test('rail menus list only existing destinations; callers cannot alter the menu 
 });
 
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'rates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'task-settings', 'settings', 'settings-hub', 'roles', 'members'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'rates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'task-settings', 'settings', 'settings-hub', 'feature-switch', 'roles', 'members'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '协同', '设置', '设置', '企业管理', '企业管理']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '协同', '设置', '设置', '设置', '企业管理', '企业管理']);
   assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站', '产品', '单据模板', '汇率设置']);
   const labels = ['工作台', '交易', '团队数据', '协同', '设置', '企业管理'];
   const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label)[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
@@ -215,7 +215,7 @@ function harness({settings, flush = true, failSave = null, route = 'customers', 
   let flyout = null;
   const mailState = {...mail};
   const boundary = {
-    NF: F, RM, R: require('../src/role-model.js'), E: escapeHtml, icons: {heart: 'M0 0h24v24z'}, icon: name => `<i:${name}>`, menuIcon: name => `<i:${name}>`,
+    NF: F, RM, R: require('../src/role-model.js'), FS: require('../src/feature-switch-model.js'), E: escapeHtml, icons: {heart: 'M0 0h24v24z'}, icon: name => `<i:${name}>`, menuIcon: name => `<i:${name}>`,
     state: {customers: {}, orders: [], laiSettings: settings},
     activeRoute: route, favoritesMode, customerScreen, currentName: '', failSave, flush,
     mail: {view: () => mailState.view, folder: () => mailState.folder, subnav: () => '<MAIL-SUBNAV/>', composing: () => false, leave: async () => true, select: folder => { mailState.view = 'mail'; mailState.folder = folder || 'inbox'; calls.mailSelect.push(folder); boundary.shell('<MAIL-PAGE/>'); }},
