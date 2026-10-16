@@ -717,7 +717,7 @@
    ],
    "e2e": "roles-departments.e2e.mjs, roles-customer-fields.e2e.mjs, roles-lead-opp-fields.e2e.mjs, roles-product-team.e2e.mjs, roles-opp-leaks.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   }
