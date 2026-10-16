@@ -224,3 +224,30 @@ test('the lead scripts load before the business page shell, in the template and 
   }
   assert.match(build, /\('<!--LEAD_MODEL-->','lead-model\.js','script'\),\('<!--LEAD_UI-->','lead-ui\.js','script'\)/);
 });
+
+test('duplicatesOf uses an index: 5000 leads stay fast and match the plain scan', () => {
+  const norm = value => String(value ?? '').trim().normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+  const leads = [];
+  let seed = 7;
+  const rnd = n => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed >> 8) % n; };
+  for (let i = 0; i < 5000; i++) {
+    leads.push({ id: 'p' + i, name: 'Co ' + rnd(2500), email: rnd(3) ? 'm' + rnd(2500) + '@x.example' : '', status: rnd(10) === 0 ? 'converted' : 'new', trashed: rnd(15) === 0 });
+  }
+  const state = { ...base(), laiLeads: leads };
+  const start = Date.now();
+  const rows = L.list(state).map(item => L.duplicatesOf(state, item));
+  assert.ok(Date.now() - start < 1000, 'took ' + (Date.now() - start) + ' ms');
+  const old = item => L.list(state).filter(o => o.id !== item.id && !o.trashed && L.statusOf(o) !== 'converted' && (norm(o.name) === norm(item.name) || (String(item.email || '').trim() && norm(o.email) === norm(item.email)))).map(o => o.name);
+  let withDuplicates = 0;
+  for (let n = 0; n < 150; n++) {
+    const i = rnd(5000), item = leads[i];
+    if (L.statusOf(item) === 'converted') { assert.deepEqual(rows[i].leads, []); continue; }
+    assert.deepEqual(rows[i].leads, old(item));
+    if (rows[i].leads.length) withDuplicates++;
+  }
+  assert.ok(withDuplicates > 0, 'sample should include real duplicates');
+  const small = { ...base(), laiLeads: [{ id: 'a', name: 'Same Co' }, { id: 'b', name: 'same  co' }] };
+  assert.deepEqual(L.duplicatesOf(small, get(small, 'b')).leads, ['Same Co']);
+  const moved = { ...small, laiLeads: [{ id: 'a', name: 'Other' }, small.laiLeads[1]] };
+  assert.deepEqual(L.duplicatesOf(moved, get(moved, 'b')).leads, []);
+});
