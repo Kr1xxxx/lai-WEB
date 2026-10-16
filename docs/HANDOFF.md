@@ -40,8 +40,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 6 | More e2e: orders, opportunities, mail, settings | Done | `orders`, `opportunities`, `mail`, `settings-hub`, `features-walkthrough`, `customer-fixes`, `business-fixes`, `save-conflict` (data-safety PR) |
 | 7 | Translate `ARCHITECTURE.md` / `VALIDATION.md` to English | Todo | |
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
-| 9 | 沟通 module — which chat tool | Blocked (owner) | Rail entry and flyout kept as the only placeholder besides Leads → 设置 (D-009) |
-| 10 | Company-wide sharing (accounts, server) | Blocked (owner) | Roles are a local preview only: anyone can switch back to admin |
+| 9 | 沟通 module — WhatsApp (D-023) | Todo | Audit first (D-025); what works without a server decides the first slice |
+| 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
 | 25 | Split `src/app.js` (~5300 lines) and `business-ui.js` (~2700) by page | Todo | Many `tests/*.test.cjs` read source text; move them to behaviour tests while splitting |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |

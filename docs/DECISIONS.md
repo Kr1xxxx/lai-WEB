@@ -29,6 +29,9 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Accepted |
 | D-019 | Desktop builds (Mac, Windows) paused; web version only for now | Accepted |
 | D-022 | Company details live in one place; 本人 scope also limits 团队数据; tasks belong to a person | Accepted |
+| D-023 | 沟通 module uses WhatsApp | Accepted |
+| D-024 | Multi-user later runs on Cloudflare; not set up now | Accepted |
+| D-025 | Complex tasks get their own audit before building | Accepted |
 
 ---
 
@@ -173,3 +176,17 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   from there. The separate 公司名称 field in 设置 no longer stands on its own.
 - An account with the 本人 scope sees only its own figures in 团队数据 (rankings, goals, drill-downs).
 - Calendar tasks belong to the person who owns them; a 本人 account sees only its own tasks.
+
+### D-023 沟通 module: WhatsApp (2026-10-16)
+- The 沟通 module is built for WhatsApp. Task 9 is unblocked; the 沟通 entry stops being a placeholder once it is built.
+- Until there is a server (D-024) the app cannot receive WhatsApp messages by itself; what can be built without one is
+  decided in the WhatsApp audit (D-025). Sending real messages from the owner's account needs his go-ahead (D-004).
+
+### D-024 Multi-user on Cloudflare, later (2026-10-16)
+- When several people use 来财, it runs in the cloud on Cloudflare. Not set up now; the app stays local and web-only
+  (D-019). Roles and accounts stay a local preview until then.
+
+### D-025 Complex tasks get their own audit (2026-10-16)
+- Before building a complex task (a new module, a cross-module change, anything touching data storage or permissions),
+  Claude runs a separate read-only audit first: what exists, what the reference product does, risks, a proposed spec
+  and slices. Building starts from that audit. Small fixes skip it.
