@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const R = require('../src/role-model.js');
 
-const base = () => ({ laiSettings: { defaultOwner: 'Kris' }, customerProfiles: { a: { owner: 'Kris' }, b: { owner: 'Amy' } }, orders: [] });
+const base = () => ({ laiSettings: { defaultOwner: 'Kris' }, customers: { a: { owner: 'Kris' }, b: { owner: 'Amy' } }, orders: [] });
 
 test('defaults: admin + 业务 roles, members from owners, admin first', () => {
   const s = R.settings(base());

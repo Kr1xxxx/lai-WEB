@@ -57,7 +57,7 @@
     const seen=new Map();
     const add=value=>{const name=trim(value);if(name&&!seen.has(norm(name)))seen.set(norm(name),name);};
     add(state?.laiSettings?.defaultOwner);add(state?.orderSettings?.defaultOwner);
-    for(const profile of Object.values(state?.customerProfiles||{}))add(profile?.owner);
+    for(const profile of Object.values(state?.customers||{}))add(profile?.owner);
     for(const order of Array.isArray(state?.orders)?state.orders:[])add(order?.owner);
     return [...seen.values()];
   }
