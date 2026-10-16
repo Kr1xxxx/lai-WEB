@@ -171,8 +171,9 @@ test('the order list and the workbench count the new order and the opportunities
   await page.locator('.wb').waitFor();
   const stat = (label) => page.locator('.wb-stat', { hasText: label });
   assert.match(clean(await stat('有效订单').innerText()), /有效订单 1/);
-  // Two open USD cards: Northwind (付款未到账) and Bluebell (未成单); the EUR one is not counted in USD.
-  assert.match(clean(await stat('进行中商机').innerText()), /进行中商机 2 USD \$2,000/);
+  // The workbench counts every open card across all flows and currencies, with the amount noted per currency:
+  // Northwind (付款未到账) and Bluebell (未成单) in USD, plus the EUR one.
+  assert.match(clean(await stat('进行中商机').innerText()), /进行中商机 3 EUR 500 · USD 2,000/);
   const tiles = clean(await page.locator('.wb-tiles').innerText());
   for (const part of ['未成单', '付款未到账', '待付尾款', '已完成', '输单']) assert.ok(tiles.includes(part), part);
   assert.match(clean(await page.locator('.wb-tile', { hasText: '已完成' }).innerText()), /已完成 1 个/);

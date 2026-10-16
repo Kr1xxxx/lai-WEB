@@ -240,6 +240,10 @@ test('customer-tools: merge two customers, rename a tag, and bulk create custome
     await until(app, (d) => d.customers['Bluebell Beauty Supply'].tags.includes('核心客户'), 'tag renamed');
     assert.ok(!(await app.readData()).customers['Bluebell Beauty Supply'].tags.includes('重点'));
     assert.ok((await app.readData()).customers['Bluebell Beauty Supply'].tags.includes('批发'), 'other tags untouched');
+    // The tag manager stays open after a rename; 完成 closes it.
+    await manager.locator('.tag-row', { hasText: '核心客户' }).waitFor();
+    await page.locator('#overlay-root').getByRole('button', { name: '完成' }).click();
+    await manager.waitFor({ state: 'detached' });
 
     // Bulk create from pasted lines.
     await subnav(app, '客户列表').click();
@@ -253,8 +257,8 @@ test('customer-tools: merge two customers, rename a tag, and bulk create custome
     assert.equal(created.country, '美国');
     assert.equal(created.email, 'mia@cedarlash.example');
     await page.locator('#batch-create-result', { hasText: '已建档 2 位' }).waitFor();
-    // The 完成 button cannot submit while the emptied required textarea is invalid (app bug, reported); Escape closes it.
-    await page.keyboard.press('Escape');
+    // Once the list is empty, 完成 is a plain close button (the emptied textarea is no longer required).
+    await page.locator('button[data-action="close-modal"]', { hasText: '完成' }).click();
     await page.locator('#batch-create-form').waitFor({ state: 'detached' });
     await subnav(app, '客户列表').click();
     await page.locator('tbody tr', { hasText: 'Delta Brow GmbH' }).waitFor();
