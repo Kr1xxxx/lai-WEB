@@ -342,8 +342,8 @@
 /* 产品、跟进人两格：太长时用省略号收住（鼠标移上去看全文），不撑乱整行 */
 :root[data-skin="glass"] .op-row > span:nth-child(3) { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 :root[data-skin="glass"] .op-row > span:nth-child(9) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-skin="glass"] .op-table { min-width: 1064px; display: flex; flex-direction: column; }
-:root[data-skin="glass"] .op-grid, :root[data-skin="glass"] .op-row { display: grid; grid-template-columns: 92px minmax(110px,1.4fr) 56px 96px 96px 96px 100px 56px 46px minmax(140px,1.3fr) 76px; gap: 8px; align-items: center; padding: 7px 10px; }
+:root[data-skin="glass"] .op-table { min-width: 1092px; display: flex; flex-direction: column; }
+:root[data-skin="glass"] .op-grid, :root[data-skin="glass"] .op-row { display: grid; grid-template-columns: 92px minmax(110px,1.2fr) minmax(72px,.8fr) 96px 96px 96px 100px 56px 46px minmax(140px,1.3fr) 88px; gap: 8px; align-items: center; padding: 7px 10px; }
 :root[data-skin="glass"] .op-head { background: #faf7f9; font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--ink-100); }
 :root[data-skin="glass"] .op-row { min-height: 44px; padding-top: 4px; padding-bottom: 4px; border-top: 1px solid var(--ink-100); }
 :root[data-skin="glass"] .op-row:hover { background: #fcf8fa; }

@@ -339,7 +339,7 @@
   overflow-wrap: anywhere;
 }
 .settings-layout {
-  max-width: 1000px;
+  max-width: none;
 }
 .settings-actions {
   display: flex;
@@ -358,6 +358,11 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
+}
+/* 添加待办：「已完成」和日期输入框在同一水平线上（贴着输入框那一行的中间） */
+#biz-task-form .business-check {
+  align-self: end;
+  min-height: 36px;
 }
 .settings-layout h3 {
   font-size: 14px;
@@ -1558,10 +1563,16 @@ td.team-reached {
 /* 目标卡片：目标说明和进度条固定在卡片底部，同一行的卡片底边对齐。 */
 .team-goal-foot {
   align-items: flex-end;
+  flex-wrap: wrap;
   margin-top: auto;
+}
+/* 说明文字不折行；放不下时「修改目标值 »」换到下一行靠右，不挤断说明 */
+.team-goal-foot > span {
+  white-space: nowrap;
 }
 .team-goal-foot .team-link {
   flex: 0 0 auto;
+  margin-left: auto;
   white-space: nowrap;
 }
 /* 团队墙金额卡片：完成值独占一行不折行，目标值、完成率并排在下面。 */
@@ -1704,6 +1715,7 @@ td.team-reached {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 34px; /* 和左边流程名称输入框同高，文字和按钮跟它上下对齐 */
 }
 .opp-flow-note {
   margin: 12px 0 4px;
@@ -1809,7 +1821,7 @@ td.team-reached {
 }
 
 /* 设置中心：每组一张卡片，每行是“名称＋说明＋当前值＋设置按钮” */
-.sh-page { max-width: 1000px; display: flex; flex-direction: column; gap: 14px; }
+.sh-page { max-width: none; display: flex; flex-direction: column; gap: 14px; }
 .sh-group { margin: 0; flex: 0 0 auto; }
 .sh-group .section-head { margin-bottom: 2px; }
 .sh-list { display: flex; flex-direction: column; }
@@ -2792,6 +2804,8 @@ td.team-reached {
 
 /* ---------- 单据：编号规则、单据记录、保存过的单据 ---------- */
 .cs-panel.dt-wide { max-width: none; }
+/* 产品页、单据模板页：和其他页面一样用满页面宽度，右边不留空 */
+.cs-page > .cs-panel[data-prod-panel], .cs-page > .cs-panel[data-doc-panel] { max-width: none; }
 .dt-num-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
 .dt-num-card { padding: 14px 16px; border: 1px solid var(--line, #e5e5e5); border-radius: 8px; display: grid; gap: 8px; align-content: start; }
 .dt-num-card h3 { margin: 0; font-size: 14px; }
