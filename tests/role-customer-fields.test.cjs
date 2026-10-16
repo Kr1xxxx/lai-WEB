@@ -107,19 +107,35 @@ test('a hidden email survives an edit that omits it, a read-only phone cannot ch
   assert.equal(state.customers.Acme.phone, '111');
 });
 
-test('removing a contact removes it for real; a contact added during the edit gets no locked values', () => {
+// Changed on purpose (data safety): a contact that holds a value in a locked field cannot be removed by that account —
+// removing it would delete the locked value. The editor hides 移除 for it and guardProfile puts it back.
+test('removing a contact with locked values puts it back; a contact added during the edit gets no locked values', () => {
   const state = asSales({ 'contact.email': 'hidden' });
   const before = state.customers.Acme;
   const data = { name: 'Acme', country: '美国', source: '官网', owner: 'Amy', additionalPhones: [], additionalSocialAccounts: [],
     extraContacts: [{ id: 'new-1', contact: 'Cleo', email: 'cleo@acme.example', phone: '555', additionalPhones: [], additionalSocialAccounts: [] }] };
   const next = M.upsertCustomer(state, 'Acme', data);
   const guarded = F.guardProfile(state, before, next.customers.Acme);
-  assert.equal(guarded.extraContacts.length, 1);
+  assert.equal(guarded.extraContacts.length, 2);
   assert.equal(guarded.extraContacts[0].id, 'new-1');
   assert.equal(guarded.extraContacts[0].email, undefined, 'a locked field cannot be filled on a new contact');
   assert.equal(guarded.extraContacts[0].phone, '555');
+  assert.deepEqual(guarded.extraContacts[1], before.extraContacts[0], 'the removed contact comes back with its hidden email');
   assert.equal(guarded.email, 'ann@acme.example');
-  assert.deepEqual(guarded.emails, ['ann@acme.example', '']);
+  assert.deepEqual(guarded.emails, ['ann@acme.example', 'bob@acme.example'], 'the locked email list stays as it was');
+});
+
+test('removing a contact without locked values removes it for real', () => {
+  const state = asSales({ 'contact.birthday': 'hidden' });
+  const before = state.customers.Acme;
+  const data = { name: 'Acme', country: '美国', source: '官网', owner: 'Amy', additionalPhones: [], additionalSocialAccounts: [], extraContacts: [] };
+  const next = M.upsertCustomer(state, 'Acme', data);
+  const guarded = F.guardProfile(state, before, next.customers.Acme);
+  assert.deepEqual(guarded.extraContacts, []);
+  assert.equal(F.contactHasLocked(state, 'customer', before.extraContacts[0]), false);
+  assert.equal(F.contactHasLocked(asSales({ 'contact.email': 'read' }), 'customer', before.extraContacts[0]), true);
+  assert.equal(F.contactHasLocked(asSales({ 'contact.phone': 'hidden' }), 'customer', { additionalPhones: [{ phone: '1' }] }), true);
+  assert.equal(F.contactHasLocked(asSales({ 'contact.phone': 'hidden' }), 'customer', { phone: ' ', additionalPhones: [] }), false);
 });
 
 test('legacy contacts without an id are matched the way the editor names them', () => {

@@ -535,6 +535,8 @@
     if(!cfg.contact.show)next.contact=next.client===previous?.client?trim(previous?.contact):'';
     else{
       next.contact=trim(value('contact'));
+      // 联系人锁住时换了客户：原来的联系人属于别的客户，不能留着，清空。
+      if(locked.has('contact')&&next.client!==previous?.client)next.contact='';
       if(!locked.has('contact')&&(next.contact!==previous?.contact||next.client!==previous?.client)){
         if(cfg.contact.required&&contacts.length&&!next.contact)throw new Error('请选择关联联系人');
         if(next.contact&&contacts.length&&!contacts.includes(next.contact))throw new Error('关联联系人不属于所选客户');
@@ -547,7 +549,8 @@
     const rate=value('exchangeRate',100);
     next.exchangeRate=next.currency==='USD'||(!cfg.exchangeRate.required&&trim(rate)==='')?100:decimal(rate,'汇率',{allowZero:false});
     next.endDate=trim(value('endDate'));
-    if(!validDate(next.endDate))throw new Error('请选择有效的结束日期');
+    // 结束日期锁住且没变：老商机里原来就没填或填得不对，也照样能保存（当前账号改不了它）。
+    if(!validDate(next.endDate)&&!(locked.has('endDate')&&previous&&next.endDate===trim(previous.endDate)))throw new Error('请选择有效的结束日期');
     // 流程：商机原来指向的流程现在读不到时按默认流程处理，但只要没有改选别的流程，就保留原来的指向（那个流程也许只是暂时读不懂）。
     const wantedFlow=trim(value('flow','default')),flowKnown=id=>flowsOf(state).some(flow=>flow.id===id);
     if(previous&&trim(previous.flow)&&!flowKnown(trim(previous.flow))&&flowOf(state,wantedFlow).id===flowOfItem(state,previous).id)next.flow=previous.flow;
