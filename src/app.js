@@ -3797,7 +3797,7 @@
     if (activeRoute === "customers")
       return `<h3>客户${customerNavToggle(true)}</h3>${RM.menuFor("客户")
         .filter(entryAllowed)
-        .map((row) => navRow(row, row.target === customerScreen, `data-lai-screen="${row.target}"`, `<span class="nav-label">${E(row.label)}</span>`))
+        .map((row) => navRow(row, row.target === customerScreen, `data-lai-screen="${row.target}"`, `${menuIcon({ active: "people", pool: "globe", duplicates: "search", "customer-settings": "settings" }[row.target])}<span class="nav-label">${E(row.label)}</span>`))
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
@@ -3877,7 +3877,7 @@
       const data = allCustomerRows().filter(
         (c) => L.bucket(state.customers[c.name]) === screen,
       );
-      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回时选跟进人，默认是原跟进人。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td>${(screen === "pool" ? can("pool.claim") || can("pool.assign") : can("customer.trash")) ? `<button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button>` : ""}<button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>在客户列表选择客户后，可使用批量操作。</span></div>"}</div>`;
+      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回时选跟进人，默认是原跟进人。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td>${(screen === "pool" ? can("pool.claim") || can("pool.assign") : can("customer.trash")) ? `<button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button>` : ""}<button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>" + (screen === "pool" ? "客户移入公海后会显示在这里" : "删除的客户会显示在这里") + "</span></div>"}</div>`;
     }
     $("#app").innerHTML = shell(
       `<div class="pagebar"><div class="page-tabs"><h1>${names[screen]}</h1></div><button data-lai-screen="active">返回客户列表</button></div><section class="module-page">${body}</section>`,
@@ -4118,6 +4118,8 @@
         favoriteNavPanel();
         ($(".favorite-nav-jump") || $(".drawer-footer .primary"))?.focus({ preventScroll: true });
       });
+    // 从别的页面（比如设置中心）进客户页面时要真正换页：网址、左侧高亮才会跟着走。
+    if (d.laiScreen && activeRoute !== "customers") return openCustomerScreen(d.laiScreen);
     if (d.laiScreen === "customer-settings") return customerSettings();
     if (d.laiScreen) return showCustomerScreen(d.laiScreen);
     if (d.customerTransition === "active") return claimDialog(d.customerName, e.detail > 0);

@@ -163,7 +163,7 @@ test('detail summary fields follow saved local selection and keep list field mea
  assert.match(summary,/<dt>客户等级:<\/dt><dd>B级翡翠客户<\/dd>/);
  assert.match(summary,/<dt>客户来源:<\/dt><dd>Trade fair<\/dd>/);
  assert.match(summary,/<dt>最近联系时间:<\/dt><dd>—<\/dd>/);
- assert.doesNotMatch(summary,/客户阶段:|公司网址:|主营产品\.:/);
+ assert.doesNotMatch(summary,/客户阶段:|公司网址:|主营产品类型:/);
  const otherRow=S.enrich(M.buildCustomers(state),state).find(customer=>customer.name==='Beta');
  const other=D.render(otherRow,{state:chosenState,escape:M.escapeHtml});
  const otherSummary=other.match(/<div class="lcd-summary-fields"><dl>([\s\S]*?)<\/dl>/)?.[1]||'';

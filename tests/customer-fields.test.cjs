@@ -108,7 +108,9 @@ test('first completed order date and USD amount reach their visible customer col
 test('catalog retains every captured field and the exact 18 default columns', () => {
   const capture = fs.readFileSync(path.join(__dirname, 'fixtures/cus-list-003-fields.txt'), 'utf8');
   const modal = capture.slice(capture.indexOf('602 container 设置'));
-  const labels = [...modal.matchAll(/checkbox .*Description: (.*?)\s*, Value/g)].map(m => m[1].trim());
+  // The capture has two fields called 主营产品 and 主营产品. (stray dot); the second is shown as 主营产品类型 so users can tell them apart.
+  const shownAs = {'主营产品.': '主营产品类型'};
+  const labels = [...modal.matchAll(/checkbox .*Description: (.*?)\s*, Value/g)].map(m => shownAs[m[1].trim()] || m[1].trim());
   assert.ok(labels.length > 80);
   for (const label of labels) assert.ok(F.catalog.some(f => f.label === label), `Missing captured field: ${label}`);
   assert.equal(new Set(F.catalog.map(f => f.id)).size, F.catalog.length);
@@ -224,7 +226,7 @@ test('module loads without CommonJS as window.LaiCustomerFields', () => {
 });
 
 test('company and custom product fields remain distinct, and persisted aliases retain columns', () => {
-  for (const [id,label] of [['companyProducts','主营产品'],['productType','主营产品.'],['cardStock','卡纸']]) assert.equal(F.catalog.find(f=>f.id===id)?.label,label);
+  for (const [id,label] of [['companyProducts','主营产品'],['productType','主营产品类型'],['cardStock','卡纸']]) assert.equal(F.catalog.find(f=>f.id===id)?.label,label);
   assert.deepEqual(F.normalizeColumns({order:['name','customMainProduct','cardPaper'],frozen:['customMainProduct','cardPaper']}), {order:['name','productType','cardStock'],frozen:['name','productType','cardStock']});
   const input=[{name:'A',customerStars:5,level:'A'},{name:'B',customerStars:1,level:'5'}];
   assert.deepEqual(F.filter(input,{customerStars:'5'}),[input[0]]);

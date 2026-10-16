@@ -7,7 +7,7 @@
     { id: "score", label: "评分" },
     { id: "source", label: "客户来源" },
     { id: "website", label: "公司网址" },
-    { id: "productType", label: "主营产品." },
+    { id: "productType", label: "主营产品类型" },
     { id: "level", label: "客户等级" },
     { id: "country", label: "国家地区" },
     { id: "companyProducts", label: "主营产品" },
@@ -248,7 +248,7 @@
       const hasTradePreferences = Boolean(profile.paymentMethod || profile.paymentEmail || profile.repurchaseCycle || profile.currency && profile.currency !== "USD");
       // The captured detail view has a fixed 9+4 layout. The display drawer
       // configures the editor; tags already live in the identity card above.
-      const companyCommon = `${label("公司网址", c.website)}${label("公司名称", c.name)}${label("国家地区", country)}${label("客户来源", c.source)}${label("主营产品.", c.productType)}${label("客户分组", group)}${label("客户阶段", c.stage)}${c.customerType ? label("客户类型", c.customerType) : ""}${label("客户星级", stars, true)}${label("客户编号", c.customerCode)}`;
+      const companyCommon = `${label("公司网址", c.website)}${label("公司名称", c.name)}${label("国家地区", country)}${label("客户来源", c.source)}${label("主营产品类型", c.productType)}${label("客户分组", group)}${label("客户阶段", c.stage)}${c.customerType ? label("客户类型", c.customerType) : ""}${label("客户星级", stars, true)}${label("客户编号", c.customerCode)}`;
       const companyOther = `${label("时区", profile.timezone)}${label("主营产品", profile.companyProducts ?? profile.mainProducts ?? profile["主营产品"])}${label("卡纸", profile.cardStock ?? profile.cardPaper ?? profile["卡纸"])}${label("定制盒", profile.customBox ?? profile["定制盒"])}${[["公司简称",profile.shortName],["座机",profile.landline],["详细地址",profile.companyAddress],["公司备注",profile.companyRemark],["公海分组",profile.poolGroup]].filter(([,value]) => value).map(([name,value]) => label(name,value)).join("")}`;
       return `${section("company-common", "公司常用信息", companyCommon, miniAction("公司常用信息设置", "settings", "company-display-settings"))}<div class="lcd-rule"></div>${section("company-other", "公司其他信息", companyOther)}<div class="lcd-rule"></div>${section("followup", "跟进信息", fields(followupFields))}<div class="lcd-rule"></div>${section("system", "系统信息", fields(systemFields))}${profile.note || profile.permanentNote ? `<div class="lcd-rule"></div>${section("notes", "客户备注", `${label("客户备注", profile.note)}${label("客户永久备注", profile.permanentNote)}`)}` : ""}${hasTradePreferences ? `<div class="lcd-rule"></div>${section("trade-preferences", "交易偏好", `${label("默认币种", profile.currency || "USD")}${label("客户付款方式", profile.paymentMethod)}${label("付款邮箱", profile.paymentEmail)}${label("复购周期", profile.repurchaseCycle ? `${profile.repurchaseCycle} 天` : "")}`)}` : ""}`;
     }
@@ -438,7 +438,7 @@
     const tabs = [
       ["activity", "动态"],
       ["info", "资料"],
-      ["trade", "商机&交易"],
+      ["trade", "商机和订单"],
       ["documents", "文档"],
       ["history", "操作历史"],
     ];

@@ -415,7 +415,7 @@ test('customer page: detail shows the current in-progress opportunity, real coun
   assert.deepEqual(calls.at(-1), ['menu', 'p2', 'Alpha <b>Co</b>'], 'actions apply to the opportunity currently shown');
   run('customerOpportunityFeature("下一个商机")');
   assert.equal(run('customerOpportunities(currentName).activeOpportunityIndex'), 0, 'wraps around');
-  assert.equal(run('customerOpportunityFeature("合并客户")'), false, 'other reserved buttons are not touched');
+  assert.equal(run('customerOpportunityFeature("写邮件")'), false, 'buttons handled elsewhere are not touched');
   sandbox.currentName = 'Beta Ltd';
   assert.equal(run('customerOpportunities(currentName).activeOpportunityIndex'), 0, 'a different customer starts at the first opportunity');
   sandbox.activeRoute = 'mail';
