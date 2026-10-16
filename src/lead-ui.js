@@ -80,20 +80,25 @@
     const datalist=(id,values)=>`<datalist id="${id}">${(values||[]).map(value=>`<option value="${E(value)}"></option>`).join('')}</datalist>`;
     function formMarkup(values,context={}){
       const v=values||{};
+      // 线索设置里的字段规则（名单数组上的 rules）：不显示的字段不出现；显示且必填、当前账号又能改的字段标星并必填。
+      const rules=context.sources?.rules||context.owners?.rules||{};
+      const shown=name=>vis(name)&&rules[name]?.show!==false;
+      const must=name=>shown(name)&&rules[name]?.required===true&&level(name)==='edit';
+      const star=name=>must(name)?' required':'';
       return `<form class="drawer-body opp-form lead-form" id="lead-form"><div class="error" id="lead-error" role="alert"></div><p class="lead-banner is-dup" id="lead-warn" role="status" hidden></p>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
         +field('线索名称',`<input name="name" value="${E(v.name||'')}" placeholder="公司名称；个人买家填姓名" maxlength="120" autocomplete="off" required>`,{required:true,wide:true})
-        +(vis('contact')?field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off"${dis('contact')}>`):'')
-        +(vis('email')?field('邮箱',`<input name="email" type="email" value="${E(v.email||'')}" maxlength="120" autocomplete="off"${dis('email')}>`):'')
-        +(vis('phone')?field('电话',`<input name="phone" value="${E(v.phone||'')}" maxlength="40" autocomplete="off" placeholder="含国家区号"${dis('phone')}>`):'')
-        +(vis('country')?field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off"${dis('country')}>`,{hint:'转为客户时必填，现在可以先空着'}):'')
-        +(vis('website')?field('网址',`<input name="website" value="${E(v.website||'')}" maxlength="200" autocomplete="off"${dis('website')}>`,{wide:true}):'')
+        +(shown('contact')?field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off"${dis('contact')}${star('contact')}>`,{required:must('contact')}):'')
+        +(shown('email')?field('邮箱',`<input name="email" type="email" value="${E(v.email||'')}" maxlength="120" autocomplete="off"${dis('email')}${star('email')}>`,{required:must('email')}):'')
+        +(shown('phone')?field('电话',`<input name="phone" value="${E(v.phone||'')}" maxlength="40" autocomplete="off" placeholder="含国家区号"${dis('phone')}${star('phone')}>`,{required:must('phone')}):'')
+        +(shown('country')?field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off"${dis('country')}${star('country')}>`,{required:must('country'),hint:must('country')?'':'转为客户时必填，现在可以先空着'}):'')
+        +(shown('website')?field('网址',`<input name="website" value="${E(v.website||'')}" maxlength="200" autocomplete="off"${dis('website')}${star('website')}>`,{required:must('website'),wide:true}):'')
         +`</div><div class="form-section">跟进安排</div><div class="opp-grid">`
-        +(vis('source')?field('线索来源',`<input name="source" value="${E(v.source||'')}" list="lead-source-list" maxlength="40" autocomplete="off" placeholder="输入或选择"${dis('source')}>${datalist('lead-source-list',context.sources)}`):'')
+        +(shown('source')?field('线索来源',`<input name="source" value="${E(v.source||'')}" list="lead-source-list" maxlength="40" autocomplete="off" placeholder="输入或选择"${dis('source')}${star('source')}>${datalist('lead-source-list',context.sources)}`,{required:must('source')}):'')
         +field('跟进人',`<input name="owner" value="${E(v.owner||'')}" list="lead-owner-list" maxlength="40" autocomplete="off" placeholder="留空表示未分配"${can('lead.reassign')?'':' readonly'}>${datalist('lead-owner-list',context.owners)}`)
-        +field('下次跟进日期',`<input name="nextFollow" type="date" value="${E(v.nextFollow||'')}">`)
-        +(vis('product')?field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off"${dis('product')}>`):'')
-        +(vis('note')?field('备注',`<textarea name="note" rows="4" maxlength="2000"${dis('note')}>${E(v.note||'')}</textarea>`,{wide:true}):'')
+        +(shown('nextFollow')?field('下次跟进日期',`<input name="nextFollow" type="date" value="${E(v.nextFollow||'')}"${star('nextFollow')}>`,{required:must('nextFollow')}):'')
+        +(shown('product')?field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off"${dis('product')}${star('product')}>`,{required:must('product')}):'')
+        +(shown('note')?field('备注',`<textarea name="note" rows="4" maxlength="2000"${dis('note')}${star('note')}>${E(v.note||'')}</textarea>`,{required:must('note'),wide:true}):'')
         +`</div></form>`;
     }
 
@@ -140,7 +145,7 @@
     function invalidMarkup(row){
       return `<form class="drawer-body opp-form lead-form" id="lead-invalid-form" data-id="${E(row.id)}"><div class="error" id="lead-invalid-error" role="alert"></div>`
         +`<p class="lead-banner">把线索「${E(row.name)}」标记为无效。以后想再跟进，可以点「重新跟进」。</p><div class="opp-grid">`
-        +field('无效原因',`<select name="reason" required><option value="">请选择</option>${model.INVALID_REASONS.map(reason=>option(reason,reason,'')).join('')}</select>`,{required:true,wide:true})
+        +field('无效原因',`<select name="reason" required><option value="">请选择</option>${(row.reasons||model.INVALID_REASONS).map(reason=>option(reason,reason,'')).join('')}</select>`,{required:true,wide:true})
         +field('补充说明',`<input name="note" maxlength="200" autocomplete="off">`,{wide:true})
         +`</div></form>`;
     }

@@ -16,8 +16,8 @@
     '线索':menu('线索',['线索列表','route','leads'],['线索回收站','route','lead-trash']),
     '商机':menu('商机',['商机看板','route','opportunities'],['商机分析','route','opp-analysis'],['商机设置','route','opp-flows']),
     '工作台':menu('工作台',['工作台','route','dashboard']),
-    // Leads：入口已保留；菜单里先放一个「设置」，点开提示待后续实现（kind 为 feature，不能设为常用）。
-    'Leads':menu('Leads',['设置','feature','Leads 设置']),
+    // Leads：只有一个「设置」，打开线索设置页（无效原因、线索字段）。
+    'Leads':menu('Leads',['设置','route','lead-settings']),
     // 邮件文件夹：与 mail-ui.js 的 folders 一一对应（测试里核对）。邮箱没有绑定时六个文件夹都显示「未绑定邮箱」。
     '邮件':menu('邮件',['收件箱','mail','inbox'],['待处理邮件','mail','pending'],['未读邮件','mail','unread'],['草稿箱','mail','drafts'],['发件箱','mail','sent'],['群发箱','mail','bulk']),
     // 沟通：WhatsApp（D-023）。聊天记录是主页面，聊天模板由有“管理聊天模板”权限的账号管理。
