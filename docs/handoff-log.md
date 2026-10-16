@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-16 — Claude — Merged lai-WEB #11 (owner said 合并). Owner asked for 角色分配 with test accounts, roles 管理员 and 业务
+  (screenshots of 小满 角色权限 / 编辑角色). Built on `claude/project-thread-5ob5ux` in three parallel worktrees: `src/role-model.js`
+  (`laiSettings.roles`; 系统管理员 locked with all perms; 业务 defaults from 小满 普通用户; scope self/all; `can`, `canSee`,
+  `canOpen` + `PAGE_PERMS`), `src/role-ui.js` + routes `roles`/`members` under 企业管理, avatar-menu account switch and customer
+  scope/guards in `app.js`, guards and 本人 scope in business pages, workbench, settings hub and mail send. Also repaired
+  `docs/features.json` (the #11 merge had fused the doc-numbering and ui-fonts entries). Not done: 本部门, layouts by role.
 - 2026-10-16 — Claude — Owner said 合并: merged lai-WEB #12 (fonts), `main` ea17189. The live web trial was already v1.03,
   published by another thread from the unmerged branch `claude/project-thread-5ob5ux` (opportunity settings, document numbering,
   product sync, lead dedupe). To keep that, v1.04 was built from that branch merged with `main` (only docs conflicted) and

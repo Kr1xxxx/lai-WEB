@@ -8,25 +8,26 @@
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
   // open：怎么打开。route＝业务页面（data-lai-route）、screen＝客户页面（data-lai-screen）、action＝应用里已有的 data-action。
+  // perm：要有这个权限才显示（见 role-model.js）；没写就谁都能看到。markup 的 info.can(key) 决定当前账号有没有，没传时全部显示。
   const GROUPS = Object.freeze([
     { id: "general", title: "通用", items: [
-      { id: "defaults", title: "默认录入", note: "公司名称、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults" },
-      { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，只影响这台电脑", open: ["route", "settings"], current: "theme" },
+      { id: "defaults", title: "默认录入", note: "公司名称、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
+      { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，只影响这台电脑", open: ["route", "settings"], current: "theme", perm: "settings.general" },
       { id: "favorites", title: "常用导航", note: "管理左侧栏“常用”里的快捷入口：添加、排序、移除", open: ["action", "favorite-nav-manage"] },
     ] },
     { id: "customer", title: "客户", items: [
       { id: "columns", title: "列表字段", note: "客户列表显示哪些字段、顺序和冻结列", open: ["action", "settings"] },
       { id: "segments", title: "客群管理", note: "新建、编辑、删除客群", open: ["action", "manage-segments"] },
-      { id: "customer-settings", title: "客户设置", note: "客户相关设置的入口页", open: ["screen", "customer-settings"] },
+      { id: "customer-settings", title: "客户设置", note: "客户相关设置的入口页", open: ["screen", "customer-settings"], perm: "settings.customer" },
     ] },
     { id: "opportunity", title: "商机", items: [
-      { id: "flows", title: "商机设置", note: "销售流程、输单原因和商机字段", open: ["route", "opp-flows"] },
+      { id: "flows", title: "商机设置", note: "销售流程、输单原因和商机字段", open: ["route", "opp-flows"], perm: "settings.opportunity" },
     ] },
     { id: "team", title: "团队", items: [
-      { id: "targets", title: "目标管理", note: "团队和个人的月度目标", open: ["route", "team-targets"] },
+      { id: "targets", title: "目标管理", note: "团队和个人的月度目标", open: ["route", "team-targets"], perm: "team.targets" },
     ] },
     { id: "mail", title: "邮件", items: [
-      { id: "mail-account", title: "邮箱设置", note: "发件人名称、签名、是否自动检查新邮件", open: ["action", "open-mail-settings"] },
+      { id: "mail-account", title: "邮箱设置", note: "发件人名称、签名、是否自动检查新邮件", open: ["action", "open-mail-settings"], perm: "mail.view" },
     ] },
   ]);
   // 只在网页试用版里出现：试用页自带的数据面板由页面脚本接管，点击 data-action="web-trial-data" 即打开。应用本体没有这一组。
@@ -43,7 +44,11 @@
   function markup(info, escape) {
     const E = escape || identity;
     const data = { orderPrefix: "L", currency: "USD", themeName: "粉色", ...(info || {}) };
-    const groups = (data.testData ? GROUPS.concat([TEST_DATA_GROUP]) : GROUPS).map((group) => `<section class="business-section sh-group" data-sh-group="${group.id}"><div class="section-head"><h3>${E(group.title)}</h3></div><div class="sh-list">${
+    const can = typeof data.can === "function" ? data.can : () => true;
+    const visible = (data.testData ? GROUPS.concat([TEST_DATA_GROUP]) : GROUPS)
+      .map((group) => ({ ...group, items: group.items.filter((item) => !item.perm || can(item.perm)) }))
+      .filter((group) => group.items.length);
+    const groups = visible.map((group) => `<section class="business-section sh-group" data-sh-group="${group.id}"><div class="section-head"><h3>${E(group.title)}</h3></div><div class="sh-list">${
       group.items.map((item) => {
         const now = current(item, data, E);
         return `<div class="sh-item" data-sh-item="${item.id}"><div class="sh-text"><strong>${E(item.title)}</strong><span>${E(item.note)}</span></div>${now ? `<em class="sh-now">${now}</em>` : ""}<button type="button" ${ATTR[item.open[0]]}="${item.open[1]}" aria-label="打开${E(item.title)}">设置</button></div>`;

@@ -4,7 +4,8 @@
   const PAGE=30;
   const CURRENCIES=['USD','EUR','CNY','GBP','JPY','HKD','TWD','AUD','CAD'];
   const number=value=>Number(value||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  function create(E,model){
+  // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
+  function create(E,model,can=()=>true){
     const money=(value,currency)=>`${E(currency)} ${number(value)}`;
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     // 结束日期：今年的只显示月-日，其他年份显示完整日期（与参考界面一致）。
@@ -21,7 +22,7 @@
       // 进行中的商机才谈得上“截止”；已赢单、已输单的只显示日期。
       const closed=kindOf(card)!=='open';
       const due=card.endDate?(card.overdue?`<span class="opp-due is-overdue">逾期 ${E(shortDate(card.endDate,today))}</span>`:`<span class="opp-due">${E(shortDate(card.endDate,today))}${closed?'':' 截止'}</span>`):'';
-      return `<article class="opp-card${card.archived?' is-archived':''}" draggable="true" data-opp-id="${E(card.id)}">`
+      return `<article class="opp-card${card.archived?' is-archived':''}" draggable="${can('opp.edit')?'true':'false'}" data-opp-id="${E(card.id)}">`
         +`<div class="opp-card-head"><button type="button" class="opp-card-name" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></div>`
         +`<div class="opp-card-amount"><span><small>${E(card.currency)}</small>${number(card.amount)}</span>${clip(card)}</div>`
         +`<button type="button" class="opp-card-client" data-biz-customer="${E(card.client)}">${E(card.client)}</button>`
@@ -66,7 +67,7 @@
     const boardMarkup=(board,view={},context={})=>`<div class="business-scroll opp-page">${toolbar(board,view,context)}${totals(board)}${view.mode==='list'?table(board,view,context.today):columns(board,view,context.today)}${undoMarkup(view.undo)}</div>`;
     // 看板／列表切换：旧版式放在页头；新界面（粉色、橙色）放进筛选卡片里，两处只显示一处（见 skin-glass.css）。
     const viewSwitch=(view={},extra='')=>`<span class="team-segment opp-view${extra}" role="group" aria-label="视图"><button type="button" data-opp-view="board" aria-pressed="${view.mode!=='list'}">看板</button><button type="button" data-opp-view="list" aria-pressed="${view.mode==='list'}">列表</button></span>`;
-    const headerActions=(board,context={},view={})=>`${viewSwitch(view)}<button type="button" class="opp-analysis-link" data-lai-route="opp-analysis">商机分析</button><button type="button" class="primary" data-opp-action="new">新建商机</button>`;
+    const headerActions=(board,context={},view={})=>`${viewSwitch(view)}<button type="button" class="opp-analysis-link" data-lai-route="opp-analysis">商机分析</button>${can('opp.create')?'<button type="button" class="primary" data-opp-action="new">新建商机</button>':''}`;
 
 
     // ---------- 商机详情与附件 ----------
@@ -89,14 +90,14 @@
         const image=model.previewKind(entry.name)==='image',armed=view.armed===entry.id,renaming=view.renaming===entry.id;
         const main=renaming
           ?`<form class="opp-file-rename" id="opp-attach-rename" data-att="${E(entry.id)}"><input name="name" value="${E(entry.name)}" maxlength="${limits.maxName}" aria-label="新的文件名" required><button type="submit" class="primary">保存</button><button type="button" data-attach-action="rename-cancel">取消</button></form>`
-          :`<button type="button" class="opp-file-name" data-attach-action="${image?'preview':'save'}" data-att="${E(entry.id)}" title="${image?'点击预览':'保存到「下载」'}">${E(entry.name)}</button>`;
+          :(image||can('opp.fileDownload')?`<button type="button" class="opp-file-name" data-attach-action="${image?'preview':'save'}" data-att="${E(entry.id)}" title="${image?'点击预览':'保存到「下载」'}">${E(entry.name)}</button>`:`<span class="opp-file-name">${E(entry.name)}</span>`);
         const tools=renaming?'':`${image?`<button type="button" data-attach-action="${view.preview===entry.id?'preview-close':'preview'}" data-att="${E(entry.id)}">${view.preview===entry.id?'关闭预览':'预览'}</button>`:''}`
-          +`<button type="button" data-attach-action="save" data-att="${E(entry.id)}">保存到「下载」</button><button type="button" data-attach-action="rename" data-att="${E(entry.id)}">重命名</button>`
-          +`<button type="button" class="${armed?'team-danger':''}" data-attach-action="delete" data-att="${E(entry.id)}" aria-label="${armed?'再点一次确认删除':'删除'}：${E(entry.name)}">${armed?'再点一次确认删除':'删除'}</button>`;
+          +(can('opp.fileDownload')?`<button type="button" data-attach-action="save" data-att="${E(entry.id)}">保存到「下载」</button>`:'')+(can('opp.edit')?`<button type="button" data-attach-action="rename" data-att="${E(entry.id)}">重命名</button>`:'')
+          +(can('opp.fileDelete')?`<button type="button" class="${armed?'team-danger':''}" data-attach-action="delete" data-att="${E(entry.id)}" aria-label="${armed?'再点一次确认删除':'删除'}：${E(entry.name)}">${armed?'再点一次确认删除':'删除'}</button>`:'');
         return `<li class="opp-file"><span class="opp-file-ext" aria-hidden="true">${E(extLabel(entry.name))}</span><span class="opp-file-main">${main}<small>${fileSize(entry.size)} · ${E(stamp(entry.uploadedAt))}</small></span><span class="opp-file-tools">${tools}</span></li>`;
       }).join('');
       return `<div class="form-section">附件<span class="opp-attach-count">${items.length} / ${limits.maxCount}</span></div>`
-        +`<label class="opp-dropzone${full?' is-full':''}" data-opp-dropzone><input type="file" id="opp-attach-input" multiple hidden${full||view.busy?' disabled':''}><span class="opp-dropzone-main">${full?`已达到 ${limits.maxCount} 个附件的上限，删除一些再添加`:'把文件拖到这里，或<u>点击选择文件</u>'}</span><small>单个文件不超过 ${Math.round(limits.maxBytes/1024/1024)} MB，每个商机最多 ${limits.maxCount} 个；不收可执行或安装类文件</small></label>`
+        +(!can('opp.edit')?'':`<label class="opp-dropzone${full?' is-full':''}" data-opp-dropzone><input type="file" id="opp-attach-input" multiple hidden${full||view.busy?' disabled':''}><span class="opp-dropzone-main">${full?`已达到 ${limits.maxCount} 个附件的上限，删除一些再添加`:'把文件拖到这里，或<u>点击选择文件</u>'}</span><small>单个文件不超过 ${Math.round(limits.maxBytes/1024/1024)} MB，每个商机最多 ${limits.maxCount} 个；不收可执行或安装类文件</small></label>`)
         +`<div class="opp-attach-status" id="opp-attach-status" role="status"></div><div class="error" id="opp-attach-error" role="alert"></div>`
         +(previewing?`<figure class="opp-preview"><img data-opp-fetch="${E(previewing.fileUrl)}" alt="${E(previewing.name)}"><figcaption>${E(previewing.name)}</figcaption></figure>`:'')
         +(rows?`<ul class="opp-files">${rows}</ul>`:'<p class="opp-empty">还没有附件。报价单、合同、样品图都可以放在这里。</p>');
@@ -211,7 +212,7 @@
         +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
         +field('客户',`<input name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
         +(cfg.contact.show?field('关联联系人',`<select name="contact"${contacts.length&&cfg.contact.required?' required':''}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
-        +field('负责人',`<input name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" required><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
+        +field('负责人',`<input name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" required${can('opp.transfer')?'':' readonly'}><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
         +(cfg.collaborators.show?field('协同跟进人',`<input name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔">`,{required:cfg.collaborators.required}):'')
         +`</div><div class="form-section">金额与进度</div><div class="opp-grid">`
         +`<div class="opp-field"><span class="opp-field-label" id="opp-amount-label">销售金额${req}</span><span class="opp-group"><input name="currency" id="opp-form-currency" class="opp-group-currency" value="${E(v.currency||'USD')}" list="opp-currency-list" maxlength="3" autocomplete="off" aria-label="币种" required><datalist id="opp-currency-list">${CURRENCIES.map(code=>`<option value="${code}"></option>`).join('')}</datalist><input name="amount" value="${E(v.amount??'')}" inputmode="decimal" autocomplete="off" aria-labelledby="opp-amount-label" placeholder="0.00" required></span></div>`
@@ -228,11 +229,15 @@
     function menuMarkup(card,armed=false){
       const stages=card.stages||model.STAGES;
       const stage=stages.find(item=>item.id===card.stage);
+      // 一组按钮；没有一个能用的按钮时整组（含小标题）不显示。
+      const group=(title,buttons)=>buttons?`${title?`<h3>${title}</h3>`:''}<div class="opp-menu-group">${buttons}</div>`:'';
       const moves=stages.filter(item=>item.id!==card.stage).map(item=>`<button type="button" class="opp-move opp-kind-${item.kind}" data-opp-action="move" data-id="${E(card.id)}" data-stage="${E(item.id)}">移到「${E(item.label)}」</button>`).join('');
       return `<div class="drawer-body opp-menu"><div class="opp-menu-summary"><b>${money(card.amount,card.currency)}</b><span>${E(card.client)}</span><span class="opp-chip opp-stage-chip opp-kind-${stage?.kind||'open'}">${E(stage?.label||card.stage)}</span></div>`
-        +`<div class="opp-menu-group"><button type="button" class="primary" data-opp-action="edit" data-id="${E(card.id)}">编辑商机</button>${stage?.kind==='won'&&!card.orderId?`<button type="button" data-opp-action="order" data-id="${E(card.id)}">生成订单</button>`:''}${card.orderId?`<button type="button" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}</div>`
-        +`<h3>生成单据</h3><div class="opp-menu-group"><button type="button" data-opp-doc="quote" data-id="${E(card.id)}">报价单</button><button type="button" data-opp-doc="pi" data-id="${E(card.id)}">形式发票</button></div>`
-        +`<h3>调整销售阶段</h3><div class="opp-menu-group">${moves}</div><h3>其他</h3><div class="opp-menu-group"><button type="button" data-opp-action="archive" data-id="${E(card.id)}" data-archived="${card.archived?'0':'1'}">${card.archived?'取消归档':'归档'}</button><button type="button" class="${armed?'team-danger':''}" data-opp-action="delete" data-id="${E(card.id)}">${armed?'再点一次确认删除（不可恢复）':'删除商机'}</button></div><div class="error" id="opp-menu-error" role="alert"></div></div>`;
+        +group('',`${can('opp.edit')?`<button type="button" class="primary" data-opp-action="edit" data-id="${E(card.id)}">编辑商机</button>`:''}${stage?.kind==='won'&&!card.orderId&&can('order.create')?`<button type="button" data-opp-action="order" data-id="${E(card.id)}">生成订单</button>`:''}${card.orderId?`<button type="button" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}`)
+        +(can('doc.create')?group('生成单据',`<button type="button" data-opp-doc="quote" data-id="${E(card.id)}">报价单</button><button type="button" data-opp-doc="pi" data-id="${E(card.id)}">形式发票</button>`):'')
+        +(can('opp.edit')?group('调整销售阶段',moves):'')
+        +group('其他',`${can('opp.archive')?`<button type="button" data-opp-action="archive" data-id="${E(card.id)}" data-archived="${card.archived?'0':'1'}">${card.archived?'取消归档':'归档'}</button>`:''}${can('opp.delete')?`<button type="button" class="${armed?'team-danger':''}" data-opp-action="delete" data-id="${E(card.id)}">${armed?'再点一次确认删除（不可恢复）':'删除商机'}</button>`:''}`)
+        +`<div class="error" id="opp-menu-error" role="alert"></div></div>`;
     }
     const lostMarkup=(card,reasons=model.LOST_REASONS)=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" required><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
 

@@ -170,6 +170,13 @@
     clearTimeout(toast.timer);
     toast.timer = setTimeout(() => $("#toast").classList.remove("show"), 3000);
   }
+  // ---- 角色权限（测试账号）：当前账号能看哪些客户、能做哪些操作。规则都在 role-model.js，这里只在界面上用上。 ----
+  const R = window.LaiRoleModel;
+  const can = (key) => R.can(state, key);
+  // 有权限返回 true；没有就提示原因并返回 false，调用处直接 return。
+  const allow = (key) => can(key) || (toast(R.denied(key)), false);
+  // 没权限的按钮不画出来。
+  const showIf = (key, html) => (can(key) ? html : "");
   function status(text, error = false) {
     const el = $("#save-status");
     if (el) {
@@ -296,7 +303,27 @@
   function shell(content) {
     const scope = C.globalSearchFields.find((field) => field.id === globalSearch.field)?.label || "客户";
     const searchScope = globalSearch.field === "all" ? "客户" : scope;
-    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><svg class="brand-mark" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="#16121A" d="M46.00,0.00 H154.00 A46,46 0 0 1 200.00,46.00 V154.00 A46,46 0 0 1 154.00,200.00 H46.00 A46,46 0 0 1 0.00,154.00 V46.00 A46,46 0 0 1 46.00,0.00 Z"/><path fill="#FF4F9A" fill-rule="evenodd" d="M51.00,108.00 H149.00 A25,25 0 0 1 174.00,133.00 V133.00 A25,25 0 0 1 149.00,158.00 H51.00 A25,25 0 0 1 26.00,133.00 V133.00 A25,25 0 0 1 51.00,108.00 Z M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#16121A" d="M129.00,29.00 L130.57,29.09 L132.12,29.35 L133.62,29.79 L135.07,30.39 L136.45,31.15 L137.73,32.05 L138.90,33.10 L139.95,34.27 L140.85,35.55 L141.61,36.93 L142.21,38.38 L142.65,39.88 L142.91,41.43 L143.00,43.00 L143.00,127.00 L57.00,127.00 L57.00,43.00 L57.09,41.43 L57.35,39.88 L57.79,38.38 L58.39,36.93 L59.15,35.55 L60.05,34.27 L61.10,33.10 L62.27,32.05 L63.55,31.15 L64.93,30.39 L66.38,29.79 L67.88,29.35 L69.43,29.09 L71.00,29.00 Z"/><path fill="#0B080D" d="M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#FFC23D" d="M129.00,34.00 L130.01,34.06 L131.00,34.23 L131.97,34.51 L132.90,34.89 L133.79,35.38 L134.61,35.96 L135.36,36.64 L136.04,37.39 L136.62,38.21 L137.11,39.10 L137.49,40.03 L137.77,41.00 L137.94,41.99 L138.00,43.00 L138.00,133.00 L62.00,133.00 L62.00,43.00 L62.06,41.99 L62.23,41.00 L62.51,40.03 L62.89,39.10 L63.38,38.21 L63.96,37.39 L64.64,36.64 L65.39,35.96 L66.21,35.38 L67.10,34.89 L68.03,34.51 L69.00,34.23 L69.99,34.06 L71.00,34.00 Z"/><path fill="#16121A" fill-rule="evenodd" d="M125.00,42.00 L125.56,42.03 L126.11,42.13 L126.65,42.28 L127.17,42.50 L127.66,42.77 L128.12,43.09 L128.54,43.46 L128.91,43.88 L129.23,44.34 L129.50,44.83 L129.72,45.35 L129.87,45.89 L129.97,46.44 L130.00,47.00 L130.00,133.00 L70.00,133.00 L70.00,47.00 L70.03,46.44 L70.13,45.89 L70.28,45.35 L70.50,44.83 L70.77,44.34 L71.09,43.88 L71.46,43.46 L71.88,43.09 L72.34,42.77 L72.83,42.50 L73.35,42.28 L73.89,42.13 L74.44,42.03 L75.00,42.00 Z M123.50,46.00 L123.78,46.02 L124.06,46.06 L124.33,46.14 L124.58,46.25 L124.83,46.38 L125.06,46.55 L125.27,46.73 L125.45,46.94 L125.62,47.17 L125.75,47.42 L125.86,47.67 L125.94,47.94 L125.98,48.22 L126.00,48.50 L126.00,133.00 L74.00,133.00 L74.00,48.50 L74.02,48.22 L74.06,47.94 L74.14,47.67 L74.25,47.42 L74.38,47.17 L74.55,46.94 L74.73,46.73 L74.94,46.55 L75.17,46.38 L75.42,46.25 L75.67,46.14 L75.94,46.06 L76.22,46.02 L76.50,46.00 Z"/><path fill="#16121A" d="M101.67 102.58V107.00H98.17V102.52Q92.38 102.03 88.83 99.05Q85.28 96.08 85.06 90.95H95.00Q95.33 94.22 98.17 95.15V86.52Q93.91 85.43 91.37 84.39Q88.83 83.35 86.92 81.06Q85.01 78.77 85.01 74.78Q85.01 69.81 88.70 66.81Q92.38 63.81 98.17 63.42V59.00H101.67V63.42Q107.40 63.86 110.73 66.75Q114.06 69.65 114.44 74.78H104.45Q104.12 71.83 101.67 70.96V79.42Q106.20 80.68 108.66 81.66Q111.11 82.65 113.05 84.91Q114.99 87.18 114.99 91.11Q114.99 94.11 113.43 96.65Q111.88 99.19 108.85 100.80Q105.82 102.41 101.67 102.58ZM98.17 78.28V70.69Q96.64 70.96 95.77 71.86Q94.89 72.76 94.89 74.34Q94.89 75.71 95.74 76.64Q96.59 77.57 98.17 78.28ZM105.22 91.44Q105.22 90.02 104.31 89.12Q103.41 88.22 101.67 87.56V95.31Q103.30 95.04 104.26 94.00Q105.22 92.97 105.22 91.44Z"/></svg><svg class="brand-cn" viewBox="0 0 54 32" aria-hidden="true" focusable="false"><text x="27" y="24" text-anchor="middle">来财</text></svg><sup>AI</sup><button type="button" class="app-version" data-action="version-history" aria-haspopup="dialog" aria-label="当前版本 ${APP_VERSION}，查看版本更新历史">v${APP_VERSION}</button></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions"><button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button><i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="用户与设置">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
+    return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><svg class="brand-mark" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="#16121A" d="M46.00,0.00 H154.00 A46,46 0 0 1 200.00,46.00 V154.00 A46,46 0 0 1 154.00,200.00 H46.00 A46,46 0 0 1 0.00,154.00 V46.00 A46,46 0 0 1 46.00,0.00 Z"/><path fill="#FF4F9A" fill-rule="evenodd" d="M51.00,108.00 H149.00 A25,25 0 0 1 174.00,133.00 V133.00 A25,25 0 0 1 149.00,158.00 H51.00 A25,25 0 0 1 26.00,133.00 V133.00 A25,25 0 0 1 51.00,108.00 Z M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#16121A" d="M129.00,29.00 L130.57,29.09 L132.12,29.35 L133.62,29.79 L135.07,30.39 L136.45,31.15 L137.73,32.05 L138.90,33.10 L139.95,34.27 L140.85,35.55 L141.61,36.93 L142.21,38.38 L142.65,39.88 L142.91,41.43 L143.00,43.00 L143.00,127.00 L57.00,127.00 L57.00,43.00 L57.09,41.43 L57.35,39.88 L57.79,38.38 L58.39,36.93 L59.15,35.55 L60.05,34.27 L61.10,33.10 L62.27,32.05 L63.55,31.15 L64.93,30.39 L66.38,29.79 L67.88,29.35 L69.43,29.09 L71.00,29.00 Z"/><path fill="#0B080D" d="M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#FFC23D" d="M129.00,34.00 L130.01,34.06 L131.00,34.23 L131.97,34.51 L132.90,34.89 L133.79,35.38 L134.61,35.96 L135.36,36.64 L136.04,37.39 L136.62,38.21 L137.11,39.10 L137.49,40.03 L137.77,41.00 L137.94,41.99 L138.00,43.00 L138.00,133.00 L62.00,133.00 L62.00,43.00 L62.06,41.99 L62.23,41.00 L62.51,40.03 L62.89,39.10 L63.38,38.21 L63.96,37.39 L64.64,36.64 L65.39,35.96 L66.21,35.38 L67.10,34.89 L68.03,34.51 L69.00,34.23 L69.99,34.06 L71.00,34.00 Z"/><path fill="#16121A" fill-rule="evenodd" d="M125.00,42.00 L125.56,42.03 L126.11,42.13 L126.65,42.28 L127.17,42.50 L127.66,42.77 L128.12,43.09 L128.54,43.46 L128.91,43.88 L129.23,44.34 L129.50,44.83 L129.72,45.35 L129.87,45.89 L129.97,46.44 L130.00,47.00 L130.00,133.00 L70.00,133.00 L70.00,47.00 L70.03,46.44 L70.13,45.89 L70.28,45.35 L70.50,44.83 L70.77,44.34 L71.09,43.88 L71.46,43.46 L71.88,43.09 L72.34,42.77 L72.83,42.50 L73.35,42.28 L73.89,42.13 L74.44,42.03 L75.00,42.00 Z M123.50,46.00 L123.78,46.02 L124.06,46.06 L124.33,46.14 L124.58,46.25 L124.83,46.38 L125.06,46.55 L125.27,46.73 L125.45,46.94 L125.62,47.17 L125.75,47.42 L125.86,47.67 L125.94,47.94 L125.98,48.22 L126.00,48.50 L126.00,133.00 L74.00,133.00 L74.00,48.50 L74.02,48.22 L74.06,47.94 L74.14,47.67 L74.25,47.42 L74.38,47.17 L74.55,46.94 L74.73,46.73 L74.94,46.55 L75.17,46.38 L75.42,46.25 L75.67,46.14 L75.94,46.06 L76.22,46.02 L76.50,46.00 Z"/><path fill="#16121A" d="M101.67 102.58V107.00H98.17V102.52Q92.38 102.03 88.83 99.05Q85.28 96.08 85.06 90.95H95.00Q95.33 94.22 98.17 95.15V86.52Q93.91 85.43 91.37 84.39Q88.83 83.35 86.92 81.06Q85.01 78.77 85.01 74.78Q85.01 69.81 88.70 66.81Q92.38 63.81 98.17 63.42V59.00H101.67V63.42Q107.40 63.86 110.73 66.75Q114.06 69.65 114.44 74.78H104.45Q104.12 71.83 101.67 70.96V79.42Q106.20 80.68 108.66 81.66Q111.11 82.65 113.05 84.91Q114.99 87.18 114.99 91.11Q114.99 94.11 113.43 96.65Q111.88 99.19 108.85 100.80Q105.82 102.41 101.67 102.58ZM98.17 78.28V70.69Q96.64 70.96 95.77 71.86Q94.89 72.76 94.89 74.34Q94.89 75.71 95.74 76.64Q96.59 77.57 98.17 78.28ZM105.22 91.44Q105.22 90.02 104.31 89.12Q103.41 88.22 101.67 87.56V95.31Q103.30 95.04 104.26 94.00Q105.22 92.97 105.22 91.44Z"/></svg><svg class="brand-cn" viewBox="0 0 54 32" aria-hidden="true" focusable="false"><text x="27" y="24" text-anchor="middle">来财</text></svg><sup>AI</sup><button type="button" class="app-version" data-action="version-history" aria-haspopup="dialog" aria-label="当前版本 ${APP_VERSION}，查看版本更新历史">v${APP_VERSION}</button></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions">${showIf("customer.create", `<button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button>`)}<i></i><button class="text-button" data-feature="TM">${icon("chat")} TM</button><button class="text-button" data-feature="消息">${icon("bell")} 消息</button><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="top-ai" data-feature="AI 助手" aria-label="AI 助手">✦</button><i></i><button class="avatar" data-action="profile-menu" aria-label="当前账号：${E(R.meName(state))}" title="当前账号：${E(R.meName(state))}" aria-haspopup="menu">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
+  }
+  // 当前账号打不开的页面：只显示原因，不显示页面内容。
+  function blockedPage(title, message, hint = "可以点右上角头像，切换到别的测试账号。") {
+    window.LaiActivityCategoryNavigation.mount(null);
+    closeDropdowns();
+    removePopover();
+    $("#app").innerHTML = shell(
+      `<div class="pagebar"><div class="page-tabs"><h1>${E(title)}</h1></div></div><section class="module-page"><div class="empty role-blocked" role="status"><strong>${E(message)}</strong><span>${E(hint)}</span></div></section>`,
+    );
+  }
+  const SCREEN_TITLES = { active: "客户列表", pool: "公海客户", trash: "客户回收站", duplicates: "客户查重", "customer-settings": "客户设置" };
+  // 客户页面需要的权限不够：显示提示页并返回 true。
+  function screenBlocked(screen) {
+    const key = R.pagePerm("screen", screen);
+    if (!key || can(key)) return false;
+    customerScreen = screen;
+    currentName = "";
+    selected.clear();
+    blockedPage(SCREEN_TITLES[screen] || "客户", R.denied(key));
+    return true;
   }
   function closeDropdowns() {
     window.LaiCustomerSelect?.close();
@@ -327,6 +354,7 @@
 
     customerScreen = "active";
     currentName = "";
+    if (screenBlocked("active")) return;
     const p = M.paginate(filteredRows(), page, pageSize);
     page = p.page;
     const viewportSignature = JSON.stringify([page, pageSize, filters, advancedSpec]);
@@ -357,6 +385,7 @@
         countryLabel: C.countryLabel,
         tableMarkup,
         importEnabled: importPreviewEnabled,
+        can,
       }),
     );
     enhanceDropdowns($("#app"));
@@ -458,6 +487,15 @@
     closeDropdowns();
     removePopover();
     rememberCustomerListViewport();
+    const viewKey = L.bucket(state.customers?.[name]) === "pool" ? "pool.view" : "customer.view";
+    if (!can(viewKey)) {
+      currentName = "";
+      return blockedPage("客户详情", R.denied(viewKey));
+    }
+    if (customerHidden(name)) {
+      currentName = "";
+      return blockedPage("客户详情", "这位客户不在你名下，你的角色只能看自己跟进的客户。");
+    }
     if (currentName !== name) {
       collapsedInfoSections.clear();
       collapsedDetailCards.clear();
@@ -1022,11 +1060,13 @@
   const poolEditBlocked = (name) =>
     L.bucket(state.customers?.[name] || {}) === "pool" && !CT.poolContactsVisible(state);
   function editForm(isNew = false, pointerActivated = false, customerName = currentName) {
+    if (!allow(isNew ? "customer.create" : L.bucket(state.customers?.[customerName] || {}) === "pool" ? "pool.edit" : "customer.edit")) return;
     if (!isNew && L.bucket(state.customers?.[customerName] || {}) === "trash")
       return toast("请先恢复回收站客户");
     if (!isNew && poolEditBlocked(customerName)) return toast(POOL_EDIT_BLOCKED);
+    // 本人范围的账号新建客户，跟进人默认是自己，否则建完在自己的列表里就看不到了。
     const c = isNew
-      ? {}
+      ? R.scopeOf(state) === "self" && R.meName(state) ? { owner: R.meName(state) } : {}
       : allCustomerRows().find((c) => c.name === customerName) || {};
     const form = window.LaiCustomerEditor.render(c, {
       isNew,
@@ -1171,6 +1211,7 @@
     };
   }
   async function follow(names, value) {
+    if (!value && !allow("customer.unfollow")) return;
     if (names.some((name) => L.bucket(state.customers?.[name] || {}) === "trash"))
       return toast("请先恢复回收站客户");
     const next = { ...state, customers: { ...state.customers } };
@@ -1822,6 +1863,16 @@
     try {
       if (form.id === "customer-form" && form.dataset.oldName && poolEditBlocked(form.dataset.oldName))
         throw new Error(POOL_EDIT_BLOCKED);
+      if (form.id === "customer-form") {
+        const oldName = form.dataset.oldName;
+        R.assert(state, !oldName ? "customer.create" : L.bucket(state.customers?.[oldName] || {}) === "pool" ? "pool.edit" : "customer.edit");
+        if (!oldName && R.scopeOf(state) === "self" && (!can("customer.reassign") || !String(data.owner || "").trim()))
+          data.owner = R.meName(state);
+        if (oldName && !can("customer.reassign")) {
+          const before = String(allCustomerRows().find((row) => row.name === oldName)?.owner || "").trim();
+          if (String(data.owner || "").trim() !== before) throw new Error(R.denied("customer.reassign"));
+        }
+      }
       const next =
         form.id === "customer-form"
           ? S.setEditorGroup(
@@ -2576,6 +2627,7 @@
     });
   }
   function scheduleDialog(pointerActivated = false) {
+    if (!allow("customer.edit")) return;
     const name = currentName;
     const savedDate = String(state.customers?.[name]?.nextFollow || "").slice(0, 10);
     if (!allCustomerRows().some((row) => row.name === name)) return toast("客户不存在");
@@ -2595,6 +2647,7 @@
     });
   }
   function batchScheduleDialog(pointerActivated = false) {
+    if (!allow("customer.edit")) return;
     const names=[...selected];
     if(!names.length)return toast("请先选择客户");
     drawer(
@@ -2613,6 +2666,7 @@
     });
   }
   function batchTagsDialog(pointerActivated = false) {
+    if (!allow("customer.edit")) return;
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
     drawer(
@@ -2634,6 +2688,7 @@
     });
   }
   function batchFieldDialog(pointerActivated = false) {
+    if (!allow("customer.edit")) return;
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
     drawer(
@@ -2694,6 +2749,7 @@
     target.setSelectionRange(target.value.length, target.value.length);
   }
   function batchFollowupDialog(pointerActivated = false) {
+    if (!allow("customer.batchFollow")) return;
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
     const single = names.length === 1;
@@ -2730,6 +2786,7 @@
     ].filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
   }
   function mergeDialog(names, pointerActivated = false) {
+    if (!allow("customer.merge")) return;
     names = [...new Set(names)];
     if (names.length < 2) return toast("请至少选择 2 位客户再合并");
     const rows = new Map(allCustomerRows().map((row) => [row.name, row]));
@@ -2766,6 +2823,7 @@
     });
   }
   function batchCreateDialog(pointerActivated = false) {
+    if (!allow("customer.create")) return;
     const owners = ownerChoices();
     drawer(
       "批量建档",
@@ -2806,6 +2864,7 @@
     });
   }
   function tagManagerDialog(pointerActivated = false) {
+    if (!allow("customer.edit")) return;
     let editing = "", confirmDelete = "", message = "";
     const body = () => {
       const stats = CT.tagStats(state);
@@ -2841,6 +2900,7 @@
     });
   }
   function batchOwnerDialog(clearOwner = false, pointerActivated = false) {
+    if (!allow(clearOwner ? "customer.removeOwner" : "customer.reassign")) return;
     const names = [...selected];
     if (!names.length) return toast("请先选择客户");
     const owners = [...new Set([
@@ -2909,6 +2969,7 @@
     dialog.querySelector('.drawer-footer').innerHTML = foot;
   }
   function importCustomers(pointerActivated = false) {
+    if (!allow("customer.import")) return;
     importDraft = {step:1, destination:'active', duplicate:'skip', parsed:null, mapping:{}, fileName:'', error:'', result:null, details:[]};
     drawer('导入客户', '<div class="drawer-body import-body"></div>', '', 'import', pointerActivated);
     $('.drawer').classList.add('customer-import');
@@ -2949,6 +3010,7 @@
     renderImportDrawer(pointerActivated && !importDraft.error);
   }
   async function saveImport(pointerActivated = false) {
+    if (!allow("customer.import")) return;
     if (!importDraft || importDraft.step !== 3 || pending) return;
     try {
       const prepared = I.applyImport(state, importDraft.parsed, importDraft.mapping,
@@ -2966,6 +3028,7 @@
     renderImportDrawer(pointerActivated && !importDraft.error);
   }
   function importRecords(pointerActivated = false) {
+    if (!allow("customer.import")) return;
     importRecordsPage = 1;
     drawer('客户导入记录', '<div class="drawer-body import-records-body"></div>',
       '<button type="button" data-action="close-modal">取消</button><button type="button" data-action="import-customers">导入客户</button>',
@@ -3353,7 +3416,17 @@
   const L = window.LaiModules;
   let customerScreen = "active";
   let csTab = "groups", csEditing = null, csDedupeSub = "customer";
-  const allCustomerRows = () => S.enrich(M.buildCustomers(state), state);
+  // 本人范围的账号只看自己做跟进人的客户；公海客户没有跟进人，看有没有“公海查看”权限。
+  const customerVisible = (c) =>
+    L.bucket(state.customers?.[c.name]) === "pool" ? can("pool.view") : R.canSee(state, c.owner);
+  const everyCustomerRow = () => S.enrich(M.buildCustomers(state), state);
+  const allCustomerRows = () => {
+    const all = everyCustomerRow();
+    return R.scopeOf(state) === "all" ? all : all.filter(customerVisible);
+  };
+  // 客户存在，但当前账号看不到（不在自己名下）。
+  const customerHidden = (name) =>
+    R.scopeOf(state) !== "all" && everyCustomerRow().some((c) => c.name === name && !customerVisible(c));
   function rebuildRows() {
     rows = allCustomerRows().filter(
       (c) => L.bucket(state.customers[c.name]) === "active",
@@ -3381,19 +3454,40 @@
       ["chart", "团队数据", "team-goals"],
       ["folder", "协同", "calendar", "calendar"],
       ["settings", "设置", "settings", "sliders"],
-      ["building", "企业管理", null, "building"],
+      ["building", "企业管理", "roles", "building"],
     ];
     return (
       `<div class="rail-scroll">` +
       items
+      .filter(([, label]) => !railHidden(label))
       .map(
-        ([i, label, route, duo]) =>
-          `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${route ? 'data-lai-route="' + route + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`,
+        ([i, label, route, duo]) => {
+          const target = railRoute(label, route);
+          return `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${target ? 'data-lai-route="' + target + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`;
+        },
       )
       .join("") +
       `</div><button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
     );
   }
+  // ---- 角色权限：当前账号打不开的入口不显示（保留入口 feature 不受限制） ----
+  const entryAllowed = (row) => row.kind === "feature" || R.canOpen(state, row.kind, row.target);
+  const menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed) ?? null;
+  const favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed);
+  // 整个菜单里的入口都打不开：左侧栏不显示这个菜单。
+  const railHidden = (label) => {
+    const rows = RM.menuFor(label);
+    return !!rows && rows.length > 0 && !rows.some(entryAllowed);
+  };
+  // 左侧栏图标的跳转目标：默认页面打不开时，换成这个菜单里第一个能打开的页面。
+  const railRoute = (label, route) => {
+    if (!route || route === "customers" || route === "mail") return route;
+    const rows = RM.menuFor(label) || [];
+    if (rows.some((row) => row.kind === "route" && row.target === route && entryAllowed(row))) return route;
+    return rows.find((row) => row.kind === "route" && entryAllowed(row))?.target || route;
+  };
+  // 点“客户”时先打开第一个能打开的客户页面。
+  const firstCustomerScreen = () => (RM.menuFor("客户") || []).find(entryAllowed)?.target || "active";
   // ---- 常用导航：心形标志 ----
   // 没设为常用的条目平时不显示标志（透明度为 0，位置保留），鼠标移到该行或键盘聚焦时浮现浅色空心心形；设为常用后实心心形一直显示。
   const HEART_PATH = icons.heart;
@@ -3461,7 +3555,7 @@
   }
   const FAVORITE_HINT = "把鼠标移到导航条目上，点右侧的心形，就能加到常用。";
   function favoriteNavPanel(pointerActivated = false) {
-    const items = NF.entries(state.laiSettings);
+    const items = favoriteEntries();
     const rows = items
       .map(
         (entry, index) =>
@@ -3497,7 +3591,7 @@
   }
   // 点左侧「常用」：打开列表第一项；列表为空时进入「常用」页，明确告诉用户怎么添加。
   function openFavorites() {
-    const first = NF.entries(state.laiSettings)[0];
+    const first = favoriteEntries()[0];
     return first ? openNavEntry(first, true) : navigateApp("favorites", "", true, true);
   }
   // 当前页面对应的导航条目 id，用来在「常用」二级导航里高亮当前所在的一项；不是导航条目的页面返回空串。
@@ -3524,7 +3618,7 @@
     return `<div class="nav-row"><button type="button" class="nav-entry${active ? " active" : ""}" ${attrs}${active ? ' aria-current="page"' : ""}>${content}</button>${favoriteHeart(entry.id, entry.label)}</div>`;
   }
   function favoritesSubnav() {
-    const items = NF.entries(state.laiSettings);
+    const items = favoriteEntries();
     const current = currentNavId();
     const toggle = activeRoute === "customers" ? customerNavToggle(true) : "";
     // 邮件页的「写信」按钮原本在邮件自己的二级导航里；常用模式下二级导航换成了常用列表，这里补一个，免得进了常用就写不了信。
@@ -3551,8 +3645,8 @@
   }
   function flyoutPanel(label) {
     const rows = label === "常用"
-      ? NF.entries(state.laiSettings).map((entry) => ({ label: entry.label, kind: "favorite", target: entry.id, id: entry.id }))
-      : RM.menuFor(label);
+      ? favoriteEntries().map((entry) => ({ label: entry.label, kind: "favorite", target: entry.id, id: entry.id }))
+      : menuRows(label);
     const body = rows === null
       ? '<div class="rail-flyout-note">功能入口已保留，深入功能待后续实现。</div>'
       : rows.length
@@ -3619,11 +3713,14 @@
     if (activeRoute === "mail") return mail.subnav();
     if (activeRoute === "customers")
       return `<h3>客户${customerNavToggle(true)}</h3>${RM.menuFor("客户")
+        .filter(entryAllowed)
         .map((row) => navRow(row, row.target === customerScreen, `data-lai-screen="${row.target}"`, `<span class="nav-label">${E(row.label)}</span>`))
         .join("")}`;
     const section = RM.sectionFor(activeRoute);
     if (!section) return "";
-    const routeIcons = { dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings" };
+    section.entries = section.entries.filter(entryAllowed);
+    if (!section.entries.length) return "";
+    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
@@ -3655,9 +3752,15 @@
     if (activeRoute !== "customers") $("#app").classList.remove("nav-collapsed");
     currentName = "";
     history.replaceState(null, "", "#" + activeRoute);
+    // 当前账号打不开的页面：显示原因，不显示页面。
+    const blockKey = activeRoute === "mail" ? R.pagePerm("mail") : businessRoutes.has(activeRoute) ? R.pagePerm("route", activeRoute) : null;
+    if (blockKey && !R.can(state, blockKey)) {
+      blockedPage(activeRoute === "mail" ? "邮件" : RM.entryById("route:" + activeRoute)?.label || "页面", R.denied(blockKey));
+      return true;
+    }
     if (activeRoute === "customers") {
       if (name) detail(name, false, animateDetail ? "detail" : "");
-      else showCustomerScreen("active");
+      else showCustomerScreen(firstCustomerScreen());
     } else if (activeRoute === "mail") mail.select(folder);
     else if (activeRoute === "favorites") showFavoritesHome();
     else business.navigate(activeRoute);
@@ -3665,6 +3768,7 @@
   }
   function showCustomerScreen(screen) {
     if (screen === "customer-settings") return customerSettings();
+    if (screenBlocked(screen)) return;
     window.LaiActivityCategoryNavigation.mount(null);
     rememberCustomerListViewport();
     customerScreen = screen;
@@ -3678,15 +3782,19 @@
     };
     let body = "";
     if (screen === "duplicates") {
-      const groups = L.findDuplicates(state, CSM.get(state).dedupe);
+      // 本人范围的账号只在自己的客户里查重。
+      const mine = R.scopeOf(state) === "all" ? null : new Set(allCustomerRows().map((row) => row.name));
+      const groups = L.findDuplicates(state, CSM.get(state).dedupe)
+        .map((g) => (mine ? { ...g, names: g.names.filter((name) => mine.has(name)) } : g))
+        .filter((g) => g.names.length > 1);
       const dupChosen = CSM.get(state).duplicateFields;
       const dupFields = CSM.DUPLICATE_FIELDS.filter(([key]) => dupChosen.includes(key));
-      body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span><button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button></h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button>${dupFields.map(([key, label]) => `<span>${E(label)}：${E(CSM.duplicateValue(state, name, key) ? (key === "country" ? C.countryLabel(state.customers[name]?.country) : CSM.duplicateValue(state, name, key)) : "—")}</span>`).join("")}<button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + Object.keys(state.customers).length + " 个客户档案</span></div>"}`;
+      body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span>${showIf("customer.merge", `<button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button>`)}</h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button>${dupFields.map(([key, label]) => `<span>${E(label)}：${E(CSM.duplicateValue(state, name, key) ? (key === "country" ? C.countryLabel(state.customers[name]?.country) : CSM.duplicateValue(state, name, key)) : "—")}</span>`).join("")}<button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + (mine ? mine.size : Object.keys(state.customers).length) + " 个客户档案</span></div>"}`;
     } else {
       const data = allCustomerRows().filter(
         (c) => L.bucket(state.customers[c.name]) === screen,
       );
-      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回时选跟进人，默认是原跟进人。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td><button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button><button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>在客户列表选择客户后，可使用批量操作。</span></div>"}</div>`;
+      body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回时选跟进人，默认是原跟进人。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td>${(screen === "pool" ? can("pool.claim") || can("pool.assign") : can("customer.trash")) ? `<button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button>` : ""}<button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>在客户列表选择客户后，可使用批量操作。</span></div>"}</div>`;
     }
     $("#app").innerHTML = shell(
       `<div class="pagebar"><div class="page-tabs"><h1>${names[screen]}</h1></div><button data-lai-screen="active">返回客户列表</button></div><section class="module-page">${body}</section>`,
@@ -3697,7 +3805,69 @@
         el.classList.toggle("active", el.dataset.laiScreen === screen),
       );
   }
+  // ---- 头像菜单：当前账号、切换测试账号 ----
+  function profileMenuMarkup() {
+    const me = R.currentMember(state);
+    const roleName = (member) => R.roleOf(state, member)?.name || "";
+    const others = R.settings(state).members.filter((member) => member.id !== me.id);
+    const switcher = others.length
+      ? `<hr><div class="account-label">切换测试账号</div>${others
+          .map((member) => `<button type="button" data-lai-switch-member="${E(member.id)}">${E(member.name)} · ${E(roleName(member))}</button>`)
+          .join("")}`
+      : "";
+    return `<div class="account-head"><strong>${E(me.name)}</strong> · ${E(roleName(me))}</div>${switcher}<hr>${
+      R.canOpen(state, "route", "settings") ? '<button data-lai-route="settings">来财设置</button>' : ""
+    }${showIf("settings.roles", '<button data-lai-route="roles">角色权限</button><button data-lai-route="members">成员管理</button>')}<button data-action="about">关于来财</button>`;
+  }
+  // 当前页面这个账号能不能打开（换账号后用来决定是留在原页面还是回工作台）。
+  function currentPageAllowed() {
+    if (activeRoute === "favorites") return true;
+    if (activeRoute === "mail") return R.canOpen(state, "mail", "inbox");
+    if (activeRoute === "customers") {
+      if (currentName) {
+        const key = L.bucket(state.customers?.[currentName]) === "pool" ? "pool.view" : "customer.view";
+        return can(key) && !customerHidden(currentName);
+      }
+      return R.canOpen(state, "screen", customerScreen);
+    }
+    return R.canOpen(state, "route", activeRoute);
+  }
+  // 换账号或改了角色权限之后，整个界面按当前账号重画；当前页面这个账号打不开时回工作台。
+  async function rerenderApp() {
+    hideRailFlyout();
+    removePopover();
+    rebuildRows();
+    if (!currentPageAllowed()) {
+      favoritesMode = false;
+      return navigateApp("dashboard");
+    }
+    if (activeRoute === "customers") return refresh();
+    if (activeRoute === "mail") return navigateApp("mail", "", true, favoritesMode, mail.folder());
+    if (activeRoute === "favorites") return showFavoritesHome();
+    return business.navigate(activeRoute);
+  }
+  // 切到另一个测试账号：只是预览不同角色看到什么，不需要密码。
+  async function switchAccount(id) {
+    removePopover();
+    if (id === R.currentMember(state).id) return true;
+    if (!(await window.flushPendingSave())) return false;
+    try {
+      await persist(R.switchTo(state, id));
+    } catch (error) {
+      toast(error.message);
+      return false;
+    }
+    // 上一个账号的筛选（比如“我的客户”）不带到新账号。
+    filters.owner = "";
+    team = "team";
+    selected.clear();
+    page = 1;
+    await rerenderApp();
+    toast(`已切换到 ${R.meName(state)}（${R.roleOf(state)?.name || ""}）`);
+    return true;
+  }
   function transitionDialog(names, target, pointerActivated = false) {
+    if (target === "pool" ? !allow("customer.toPool") : names.some((n) => L.bucket(state.customers?.[n] || {}) === "pool") ? !allow("pool.delete") : !allow("customer.trash")) return;
     const label = target === "pool" ? "移入公海" : "移入回收站";
     const pool = target === "pool" ? CT.poolRules(state) : null;
     // 公海规则里设了原因（或要求必填）时，移入公海要选原因；没设原因却要求必填时让他自己写。
@@ -3713,6 +3883,7 @@
       pointerActivated,
     );
     $("#confirm-transition").onclick = () =>
+      (target === "pool" ? allow("customer.toPool") : allow("customer.trash")) &&
       workspaceSave(
         () => L.moveCustomers(state, names, target, undefined, reasonField ? { reason: $("#transition-reason")?.value || "" } : undefined),
         () => {
@@ -3724,10 +3895,12 @@
   }
   // 领回客户：选谁来跟进（默认原跟进人），公海规则里的领回限制、领取上限、客户上限由 moveCustomers 检查。
   function claimDialog(name, pointerActivated = false) {
+    if (!can("pool.claim") && !can("pool.assign")) { allow("pool.claim"); return; }
     const profile = state.customers?.[name] || {};
     const previous = String(profile.laiPreviousOwner || "").trim();
-    const owners = [...new Set([previous, ...ownerChoices()].filter(Boolean))];
-    const first = previous || owners[0] || "";
+    // 只有“领取”没有“分配”的角色，只能领给自己。
+    const owners = can("pool.assign") ? [...new Set([previous, ...ownerChoices()].filter(Boolean))] : [R.meName(state)].filter(Boolean);
+    const first = can("pool.assign") ? previous || owners[0] || "" : owners[0] || "";
     drawer(
       "领回客户",
       `<form id="claim-form" class="drawer-body claim-form"><p>领回客户：<strong>${E(name)}</strong></p>${owners.length ? `<label class="field" for="claim-owner"><span>跟进人</span><select id="claim-owner" name="owner">${owners.map((owner) => `<option value="${E(owner)}" ${owner === first ? "selected" : ""}>${E(owner)}${owner === previous ? "（原跟进人）" : ""}</option>`).join("")}</select></label>` : `<label class="field" for="claim-owner"><span>跟进人</span><input id="claim-owner" name="owner" maxlength="120" autocomplete="off" placeholder="填写跟进人"></label>`}<p class="module-note" id="claim-quota"></p><div class="error" id="workspace-error" role="alert"></div></form>`,
@@ -3762,7 +3935,7 @@
       status = L.bucket(c);
     drawer(
       "客户操作",
-      `<div class="drawer-body"><h3>${E(currentName)}</h3><div class="customer-action-list">${status === "trash" ? `<button data-customer-transition="restore" data-customer-name="${E(currentName)}">恢复客户</button>` : status === "pool" ? `<button data-customer-transition="active" data-customer-name="${E(currentName)}">领回客户</button>` : `<button data-action="move-current-pool">移入公海</button><button data-action="archive-current">移入回收站</button>`}<button data-lai-route="order-list">查看订单列表</button></div><div class="error" id="workspace-error" role="alert"></div></div>`,
+      `<div class="drawer-body"><h3>${E(currentName)}</h3><div class="customer-action-list">${status === "trash" ? showIf("customer.trash", `<button data-customer-transition="restore" data-customer-name="${E(currentName)}">恢复客户</button>`) : status === "pool" ? (can("pool.claim") || can("pool.assign") ? `<button data-customer-transition="active" data-customer-name="${E(currentName)}">领回客户</button>` : "") : `${showIf("customer.toPool", '<button data-action="move-current-pool">移入公海</button>')}${showIf("customer.trash", '<button data-action="archive-current">移入回收站</button>')}`}<button data-lai-route="order-list">查看订单列表</button></div><div class="error" id="workspace-error" role="alert"></div></div>`,
       `<button data-action="close-modal">关闭</button>`,
       "actions",
       pointerActivated,
@@ -3831,6 +4004,7 @@
     const d = el.dataset;
     if (d.flyoutKind) return activateRailFlyout(d.flyoutKind, d.flyoutTarget);
     if (el.closest(".rail")) hideRailFlyout();
+    if (d.laiSwitchMember) return switchAccount(d.laiSwitchMember);
     if (d.laiRoute) return navigateApp(d.laiRoute);
     if (d.mailFolder) return mail.select(d.mailFolder);
     if (d.mailAction) return mail.action(d.mailAction, e.detail > 0, el);
@@ -3860,6 +4034,7 @@
     if (d.laiScreen === "customer-settings") return customerSettings();
     if (d.laiScreen) return showCustomerScreen(d.laiScreen);
     if (d.customerTransition === "active") return claimDialog(d.customerName, e.detail > 0);
+    if (d.customerTransition && !allow(d.customerTransition === "restore" ? "customer.trash" : d.customerTransition === "pool" ? "customer.toPool" : "customer.trash")) return;
     if (d.customerTransition)
       return workspaceSave(
         () => L.moveCustomers(state, [d.customerName], d.customerTransition),
@@ -4195,6 +4370,7 @@
         ["客户设置", "customer-settings"],
         ["客户字段管理", "客户字段管理"],
       ]
+        .filter(([, action]) => action !== "customer-settings" || can("settings.customer"))
         .map(
           ([label, action]) =>
             `<div><span>${label}</span><button ${["settings", "customer-settings"].includes(action) ? "data-action" : "data-feature"}="${action}">设置</button></div>`,
@@ -4213,18 +4389,25 @@
       "table-popover",
     );
   }
+  // 客户设置里的页签：没有对应权限的页签不显示。
+  const csHiddenTabs = () => [
+    ...(can("settings.dedupe") ? [] : ["dedupe"]),
+    ...(can("settings.source") ? [] : ["sources"]),
+  ];
   function customerSettings() {
     window.LaiActivityCategoryNavigation.mount(null);
     rememberCustomerListViewport();
     closeModal();
+    if (screenBlocked("customer-settings")) return;
     customerScreen = "customer-settings";
     currentName = "";
     selected.clear();
+    if (csHiddenTabs().includes(csTab)) csTab = "groups";
     // 同一个页签里保存后重新画页面，保持原来的滚动位置（公海管理很长）。
     const sameTab = document.querySelector(`.cs-panel[data-cs-panel="${csTab}"]`);
     const scrolled = sameTab ? sameTab.closest("main")?.scrollTop || 0 : 0;
     $("#app").innerHTML = shell(
-      window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing, dedupeSub: csDedupeSub }, E, ownerChoices()),
+      window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing, dedupeSub: csDedupeSub, hiddenTabs: csHiddenTabs(), canOpenSettings: R.canOpen(state, "route", "settings") }, E, ownerChoices()),
     );
     if (scrolled) {
       const main = document.querySelector(".cs-panel")?.closest("main");
@@ -4288,6 +4471,11 @@
   }
   function csClick(el, e) {
     const d = el.dataset;
+    // 客户设置页上的按钮：没有权限就不动（页面本身没权限时根本打不开，这里防的是过期的页面或键盘操作）。
+    if (el.closest(".cs-page") && !allow("settings.customer")) return true;
+    if ((d.csSourceMove || d.csSourceHide || d.csSourceSub || d.csDelete === "source") && !allow("settings.source")) return true;
+    if ((d.csDedupeSub || d.csTab === "dedupe") && !allow("settings.dedupe")) return true;
+    if (d.csTab === "sources" && !allow("settings.source")) return true;
     if (d.csRuleToggle) {
       const id = d.csRuleToggle, enabled = el.checked;
       const rule = CT.poolRules(state).rules.find((r) => r.id === id);
@@ -4456,6 +4644,9 @@
     const kind = form.dataset?.csForm;
     if (!kind && !["cs-group-form", "cs-rule-form", "cs-tpl-form"].includes(form.id)) return;
     e.preventDefault();
+    if (!allow("settings.customer")) return;
+    if (["dedupe", "lead-dedupe"].includes(kind) && !allow("settings.dedupe")) return;
+    if (["add-source", "rename-source"].includes(kind) && !allow("settings.source")) return;
     const data = new FormData(form);
     if (form.id === "cs-rule-form") {
       const rule = {
@@ -4556,6 +4747,7 @@
       const fromList = !!el.closest(".replica-batch"), name = currentName;
       return mail.composeFor(fromList ? [...selected] : name ? [name] : [], e.detail > 0, () => navigateApp("customers", fromList ? "" : name, false));
     }
+    if ((d.feature === "添加商机" || d.feature === "新建商机") && !allow("opp.create")) return;
     if (d.feature && customerOpportunityFeature(d.feature)) return;
     if (d.feature) return featureNotice(d.feature, e.detail > 0);
     if (d.groupTab) {
@@ -4598,7 +4790,10 @@
     if (d.rowMore) {
       popover(
         el,
-        `<button data-open="${E(d.rowMore)}">查看客户</button><button data-follow="${E(d.rowMore)}">${allCustomerRows().find((c) => c.name === d.rowMore)?.followed ? "取消关注" : "关注"}</button><button data-edit-customer="${E(d.rowMore)}">编辑客户</button>`,
+        (() => {
+          const followed = allCustomerRows().find((c) => c.name === d.rowMore)?.followed;
+          return `<button data-open="${E(d.rowMore)}">查看客户</button>${followed && !can("customer.unfollow") ? "" : `<button data-follow="${E(d.rowMore)}">${followed ? "取消关注" : "关注"}</button>`}${showIf("customer.edit", `<button data-edit-customer="${E(d.rowMore)}">编辑客户</button>`)}`;
+        })(),
       );
       return;
     }
@@ -4614,6 +4809,7 @@
       return editForm(false, e.detail > 0, d.editCustomer);
     }
     if (d.newCustomerOrder) {
+      if (!allow("order.create")) return;
       if (d.newCustomerOrder !== currentName || !(await window.flushPendingSave())) return;
       return business.createOrderForCustomer(currentName);
     }
@@ -4646,7 +4842,7 @@
       return;
     }
     if (a === "table-options") return tableOptions(el);
-    if (a === "customer-settings") return customerSettings();
+    if (a === "customer-settings") return allow("settings.customer") && customerSettings();
     if (a === "collapse-groups") {
       if (groupPointerPress === el) { groupPointerPress = null; return; }
       return toggleGroupPanel(el, e.detail > 0);
@@ -4677,20 +4873,17 @@
     if (a === "batch-more")
       return popover(
         el,
-        `<button data-action="batch-merge">合并客户</button><hr><button data-feature="共享给">共享给</button><button data-action="batch-pool">移入公海</button><button data-action="batch-follow">关注</button><button data-action="batch-unfollow">取消关注</button><hr><button data-action="batch-assign-owner">重新分配</button><button data-action="batch-clear-owner">移除跟进人</button><button data-feature="变更公海分组">变更公海分组</button><hr><button data-action="remove-members">移出客群</button><button data-action="batch-trash">移入回收站</button>`,
+        `${showIf("customer.merge", '<button data-action="batch-merge">合并客户</button><hr>')}<button data-feature="共享给">共享给</button>${showIf("customer.toPool", '<button data-action="batch-pool">移入公海</button>')}<button data-action="batch-follow">关注</button>${showIf("customer.unfollow", '<button data-action="batch-unfollow">取消关注</button>')}<hr>${showIf("customer.reassign", '<button data-action="batch-assign-owner">重新分配</button>')}${showIf("customer.removeOwner", '<button data-action="batch-clear-owner">移除跟进人</button>')}<button data-feature="变更公海分组">变更公海分组</button><hr><button data-action="remove-members">移出客群</button>${showIf("customer.trash", '<button data-action="batch-trash">移入回收站</button>')}`,
       );
     if (a === "batch-assign-owner" || a === "batch-clear-owner")
       return batchOwnerDialog(a === "batch-clear-owner", e.detail > 0);
     if (a === "create-menu")
       return popover(
         el,
-        `<button data-action="new">新建客户</button>${importPreviewEnabled ? '<button data-action="import-customers">导入客户</button>' : ''}<button data-action="batch-create">批量建档</button>`,
+        `${showIf("customer.create", '<button data-action="new">新建客户</button>')}${importPreviewEnabled && can("customer.import") ? '<button data-action="import-customers">导入客户</button>' : ''}${showIf("customer.create", '<button data-action="batch-create">批量建档</button>')}`,
       );
     if (a === "profile-menu")
-      return popover(
-        el,
-        `<button data-lai-route="settings">来财设置</button><button data-action="about">关于来财</button>`,
-      );
+      return popover(el, profileMenuMarkup(), "account-menu");
     if (a === "restore-table-defaults") {
       columnDraft = { ...tablePrefs(), ...C.normalizeColumns() };
       return renderColumns();
@@ -5023,6 +5216,10 @@
     openCustomer: (name) => navigateApp("customers", name),
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,
+    // 成员管理页换了账号或角色后，请整个界面按当前账号重画（左侧栏、二级导航、当前页面）。
+    rerenderApp,
+    // 成员管理页的“切换到此账号”：和头像菜单一样，清掉上个账号的筛选再重画。
+    switchAccount,
     // 工作台的未读邮件卡片：邮件页打开过就用它已有的数字，邮件列表向本机邮件服务要。
     mailCounts: () => mail?.counts?.() || null,
     mailSummary: async () => {
@@ -5040,6 +5237,8 @@
     escape: E,
     icon,
     favoriteHeart,
+    // 写信、回复、转发要有“邮件·写信和回复”权限。
+    can: (key) => R.can(state, key),
     // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
     createEditor: (node, bar, html) => window.LaiMailEditor.create(node, bar, html),
     editorToolbar: () => window.LaiMailEditor.toolbar(),
@@ -5074,6 +5273,8 @@
     openMail: (folder) => navigateApp("mail", "", true, false, folder),
     getCustomers: () => state.customers || {},
     isArchived: (profile) => L.bucket(profile) === "trash",
+    // 只看本人客户的账号：群发、收件人、客户匹配里也不出现别人的客户。
+    canSeeCustomer: (name, profile) => R.scopeOf(state) === "all" || customerVisible({ name, owner: profile?.owner }),
     openCustomer: (name) => navigateApp("customers", name),
     toast,
     mount: (html) => {

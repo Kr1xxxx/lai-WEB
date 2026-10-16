@@ -34,7 +34,7 @@
 
   const option = (E, value, title, current) => `<option value="${E(value)}"${String(value) === String(current) ? " selected" : ""}>${E(title)}</option>`;
 
-  function row(o, stages, E) {
+  function row(o, stages, E, can = () => true) {
     const ids = stages.map((s) => s.id);
     const step = ids.indexOf(o.stage) + 1;
     const code = o.currency || "USD";
@@ -54,22 +54,24 @@
       + `<span>${E(day(o.createdAt || o.updated).slice(5) || "—")}</span>`
       + `<span>${E(o.owner || "—")}</span>`
       + `<span class="op-ship"><span>${E(ship)}</span><small>${E(o.next || "—")}</small></span>`
-      + `<span class="op-acts"><button type="button" class="op-mini" data-biz-order="${E(o.id)}">编辑</button><button type="button" class="op-mini" data-biz-action="archive-order" data-id="${E(o.id)}">归档</button></span>`
+      + `<span class="op-acts"><button type="button" class="op-mini" data-biz-order="${E(o.id)}">${can("order.edit") ? "编辑" : "查看"}</button>${can("order.delete") ? `<button type="button" class="op-mini" data-biz-action="archive-order" data-id="${E(o.id)}">归档</button>` : ""}</span>`
       + `</div>`;
   }
 
-  // input：{ items（当前页的订单）, all（全部订单，用来算汇总）, total（筛选后的订单数）, filters:{search,stage,currency,period}, stages, currencies, page, pages, trash }
+  // input：{ items（当前页的订单）, all（全部订单，用来算汇总）, total（筛选后的订单数）, filters:{search,stage,currency,period}, stages, currencies, page, pages, trash, can }
+  // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
   function markup(input, escape) {
     const E = escape || ((s) => String(s));
     const { items, all, total, filters, stages, currencies, page, pages, trash } = input;
+    const can = typeof input.can === "function" ? input.can : () => true;
     const sum = summary(all);
     const stageLine = stages.map((s) => E(s.label)).join(" → ");
-    const rows = items.map((o) => row(o, stages, E)).join("")
-      || '<div class="op-empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>';
-    const trashRows = trash.map((t) => `<div class="op-trash-row"><b>${E(t.num)}</b><span>${E(t.client)}</span><span class="op-money op-bold">${E(money(t.amount, t.currency || "USD"))}</span><span>${E(stages.find((s) => s.id === t.stage)?.label || t.stage || "—")}</span><small>归档时间 ${E(day(t.trashedAt) || "—")}</small><button type="button" class="op-mini op-restore" data-biz-action="restore-order" data-id="${E(t.id)}">恢复订单</button></div>`).join("")
+    const rows = items.map((o) => row(o, stages, E, can)).join("")
+      || `<div class="op-empty"><strong>没有符合条件的订单</strong><span>${can("order.create") ? "调整筛选条件，或新建一笔订单。" : "调整筛选条件再看。"}</span></div>`;
+    const trashRows = trash.map((t) => `<div class="op-trash-row"><b>${E(t.num)}</b><span>${E(t.client)}</span><span class="op-money op-bold">${E(money(t.amount, t.currency || "USD"))}</span><span>${E(stages.find((s) => s.id === t.stage)?.label || t.stage || "—")}</span><small>归档时间 ${E(day(t.trashedAt) || "—")}</small>${can("order.edit") ? `<button type="button" class="op-mini op-restore" data-biz-action="restore-order" data-id="${E(t.id)}">恢复订单</button>` : ""}</div>`).join("")
       || '<div class="op-empty op-empty-small"><span>回收站是空的。</span></div>';
     return `<div class="op-page">`
-      + `<div class="op-top"><h1>全部订单</h1><span class="op-sub">有效订单 ${sum.valid} 笔 · 草稿 ${sum.drafts} 笔 · 未完成 ${sum.open} 笔</span><div class="op-top-actions"><button type="button" class="op-btn" data-lai-route="analysis">经营统计</button><button type="button" class="op-btn op-primary" data-biz-action="new-order"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新建订单</button></div></div>`
+      + `<div class="op-top"><h1>全部订单</h1><span class="op-sub">有效订单 ${sum.valid} 笔 · 草稿 ${sum.drafts} 笔 · 未完成 ${sum.open} 笔</span><div class="op-top-actions">${can("team.view") ? '<button type="button" class="op-btn" data-lai-route="analysis">经营统计</button>' : ""}${can("order.create") ? '<button type="button" class="op-btn op-primary" data-biz-action="new-order"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新建订单</button>' : ""}</div></div>`
       + `<section class="op-card op-list"><div class="op-filters"><input class="op-input op-search" id="biz-search" type="search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(filters.search)}">`
       + `<select class="op-input" id="biz-stage" aria-label="订单阶段">${option(E, "", "全部阶段", filters.stage)}${stages.map((s) => option(E, s.id, s.label, filters.stage)).join("")}</select>`
       + `<select class="op-input" id="biz-currency" aria-label="订单币种">${option(E, "", "全部币种", filters.currency)}${currencies.map((c) => option(E, c, c, filters.currency)).join("")}</select>`

@@ -663,6 +663,12 @@
     "商机 menu → 生成单据 → 形式发票 → 保存单据; open the opportunity: the document is listed"
    ],
    "e2e": "doc-numbering.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
    "id": "ui-fonts",
    "area": "ui",
    "description": "One interface font: Inter for English and digits, MiSans for Chinese, embedded in the page (no network)",
@@ -672,6 +678,22 @@
     "帮助 → 关于来财Lai names MiSans and Inter"
    ],
    "e2e": "fonts.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "roles",
+   "area": "settings",
+   "description": "企业管理: 角色权限 (系统管理员 view-only, 业务, add roles, grouped permission checkboxes, scope 本人/全公司) and 成员管理 (test accounts); switch account in the avatar menu; lists, buttons and pages follow the account's role",
+   "steps": [
+    "企业管理 → 角色权限: 系统管理员 row only has 查看; edit 业务, tick 线索·删除, save",
+    "成员管理: 测试业务 (or another owner) is 业务; avatar menu → 切换测试账号 → that member",
+    "客户列表, 线索, 商机, 订单 show only that member's records; 导入 / 删除 buttons are gone; 企业管理 is hidden",
+    "Avatar menu → switch back to the admin: everything is back"
+   ],
+   "e2e": "roles.e2e.mjs, roles-customers.e2e.mjs, roles-business.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false

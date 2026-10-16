@@ -161,6 +161,9 @@
   function create(ctx) {
     const E = ctx.escape,
       icon = ctx.icon;
+    // 写信、回复、转发、群发都要“邮件·写信和回复”权限（角色预览用）。ctx.can(key) 没传时都允许。
+    const canSend = () => typeof ctx.can !== "function" || ctx.can("mail.send") !== false;
+    const noSend = () => ctx.toast((root.LaiRoleModel && root.LaiRoleModel.denied("mail.send")) || "你的角色没有写信和回复的权限，请找系统管理员开通");
     let view = "mail",
       folder = DEFAULT_FOLDER,
       // 绑定状态：idle｜loading｜ready｜error；available=false 表示当前环境（网页试用版）无法连接邮箱。
@@ -230,6 +233,8 @@
       const rows = [];
       for (const name of Object.keys(all)) {
         if (ctx.isArchived && ctx.isArchived(all[name])) continue;
+        // 只看本人客户的账号：群发、收件人、客户匹配里也不出现别人的客户（客户列表已经按账号筛过）。
+        if (ctx.canSeeCustomer && !ctx.canSeeCustomer(name, all[name])) continue;
         const addresses = customerAddresses(all[name]);
         if (!addresses.length) continue;
         // 群发时用的称呼：邮箱对应的联系人姓名，其次主要联系人。
@@ -477,7 +482,7 @@
         `<div class="mail-views" role="tablist" aria-label="邮件视图">` +
         views.map((item) => `<button type="button" role="tab" class="mail-view ${item.id === view ? "active" : ""}" data-mail-view="${item.id}" aria-selected="${item.id === view}">${E(item.label)}</button>`).join("") +
         `</div>` +
-        `<button type="button" class="primary mail-compose" data-mail-action="compose">写 信</button>` +
+        (canSend() ? `<button type="button" class="primary mail-compose" data-mail-action="compose">写 信</button>` : "") +
         below
       );
     }
@@ -624,9 +629,9 @@
         ? `<span class="mail-avatar large" style="background:hsl(${hue(who.name)} 45% 46%)">${E(initial({ name: who.name }))}</span><strong>${E(who.name)}</strong>` +
           (who.contact ? `<span class="mail-contact-line">${E(who.contact)}</span>` : "") +
           who.addresses.slice(0, 3).map((address) => `<span class="mail-contact-line">${E(address)}</span>`).join("") +
-          `<div class="mail-contact-actions"><button type="button" data-mail-action="customer-open" data-name="${E(who.name)}">客户资料</button><button type="button" data-mail-action="contact-compose" data-to="${E(who.contact ? `${who.contact} <${who.addresses[0]}>` : who.addresses[0])}">写信</button>${recordButton(who.name, m)}</div>`
+          `<div class="mail-contact-actions"><button type="button" data-mail-action="customer-open" data-name="${E(who.name)}">客户资料</button>${canSend() ? `<button type="button" data-mail-action="contact-compose" data-to="${E(who.contact ? `${who.contact} <${who.addresses[0]}>` : who.addresses[0])}">写信</button>` : ""}${recordButton(who.name, m)}</div>`
         : `<span class="mail-avatar large" style="background:hsl(${hue(who.person.address)} 45% 46%)">${E(initial(who.person))}</span><strong>${E(person(who.person))}</strong><span class="mail-contact-line">${E(who.person.address)}</span><span class="mail-contact-note">这个邮箱还不在客户资料里。</span>` +
-          `<div class="mail-contact-actions"><button type="button" data-mail-action="contact-compose" data-to="${E(who.person.name ? `${who.person.name} <${who.person.address}>` : who.person.address)}">写信</button></div>`;
+          (canSend() ? `<div class="mail-contact-actions"><button type="button" data-mail-action="contact-compose" data-to="${E(who.person.name ? `${who.person.name} <${who.person.address}>` : who.person.address)}">写信</button></div>` : "");
       const others = related.key === who.addresses.join(",") ? related.items.filter((item) => !sameRef(item, m)).slice(0, 8) : [];
       const recent = related.key !== who.addresses.join(",") || related.loading
         ? `<span class="mail-contact-note">正在查找…</span>`
@@ -666,7 +671,7 @@
       const tool = (action, iconName, label, attrs = "", compact = false) => `<button type="button" class="mail-tool${compact ? " compact" : ""}" data-mail-action="${action}" ${attrs} title="${label}"${compact ? ` aria-label="${label}"` : ""}>${icon(iconName)}${compact ? "" : `<span>${label}</span>`}</button>`;
       const panel = contactPanel(m);
       const bar =
-        `<div class="mail-reader-bar" role="toolbar" aria-label="邮件操作">${back}${tool("reply", "reply", "回复")}${tool("reply-all", "replyAll", "回复全部")}${tool("forward", "forward", "转发")}<span class="mail-bar-gap"></span>` +
+        `<div class="mail-reader-bar" role="toolbar" aria-label="邮件操作">${back}${canSend() ? tool("reply", "reply", "回复") + tool("reply-all", "replyAll", "回复全部") + tool("forward", "forward", "转发") : ""}<span class="mail-bar-gap"></span>` +
         (sent ? "" : tool("toggle-pending", "star", m.pending ? "取消待处理" : "标为待处理", `${ref} data-single="1" aria-pressed="${!!m.pending}"`, true) + tool("mark-unread", "mail", "标为未读", "", true)) +
         tool("delete", "trash", "删除", "", true) +
         (panel ? tool("contact-toggle", "people", "显示或收起联系人栏", `aria-pressed="${contactMode !== "off"}"`, true) : "") +
@@ -696,7 +701,7 @@
         attachments +
         content +
         later +
-        `</div><div class="mail-quick"><button type="button" class="mail-quick-reply" data-mail-action="reply">${icon("reply")}<span>回复 ${E(person(target) || "发件人")}…</span></button><button type="button" data-mail-action="forward">转发</button></div></div>` +
+        `</div>${canSend() ? `<div class="mail-quick"><button type="button" class="mail-quick-reply" data-mail-action="reply">${icon("reply")}<span>回复 ${E(person(target) || "发件人")}…</span></button><button type="button" data-mail-action="forward">转发</button></div>` : ""}</div>` +
         panel
       );
     }
@@ -705,7 +710,7 @@
       if (!rows.length) return pagebar("客户邮件", accountButton()) + `<section class="module-page mail-page">${empty("people", "还没有填写了邮箱的客户", "在客户资料里填上公司邮箱或联系人邮箱后，这里会按客户归集往来邮件。")}</section>`;
       const row = rows.find((item) => item.name === customerName);
       if (!row) return pagebar("客户邮件", accountButton()) + `<section class="module-page mail-page">${empty("people", "选择一个客户", `左侧列出了 ${rows.length} 个填写了邮箱的客户，点一个查看与它的往来邮件。`)}</section>`;
-      const actions = `<button type="button" class="primary" data-mail-action="customer-compose">写信给该客户</button><button type="button" data-mail-action="customer-open" data-name="${E(row.name)}">查看客户资料</button>${threadButton()}<button type="button" data-mail-action="refresh" ${thread.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
+      const actions = (canSend() ? `<button type="button" class="primary" data-mail-action="customer-compose">写信给该客户</button>` : "") + `<button type="button" data-mail-action="customer-open" data-name="${E(row.name)}">查看客户资料</button>${threadButton()}<button type="button" data-mail-action="refresh" ${thread.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
       let body;
       if (thread.loading) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在查找往来邮件…</span></div>`;
       else if (thread.error) body = empty("mail", "读取往来邮件失败", thread.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
@@ -716,7 +721,7 @@
     const bulkProgress = (b) => `已发 ${b.sent} / 共 ${b.total}${b.failed ? ` · 失败 ${b.failed}` : ""}${b.skipped ? ` · 未发 ${b.skipped}` : ""}`;
     const bulkTag = (b) => `<span class="mail-bulk-tag ${E(b.status)}">${E(BULK_STATUS[b.status] || b.status)}</span>`;
     function bulkPage() {
-      const actions = `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button><button type="button" data-mail-action="refresh" ${bulk.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
+      const actions = (canSend() ? `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button>` : "") + `<button type="button" data-mail-action="refresh" ${bulk.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
       let body;
       if (bulk.loading && !bulk.items.length) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在读取群发记录…</span></div>`;
       else if (bulk.error) body = empty("people", "读取群发记录失败", bulk.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
@@ -1305,6 +1310,7 @@
     }
     // 打开写信页。已有一封在写时先把它存成草稿。
     async function openCompose(initial = {}) {
+      if (!canSend()) return noSend();
       if (status !== "ready" || !account) {
         ctx.toast(available && status === "ready" ? "请先绑定邮箱" : available ? "无法读取邮箱绑定状态，请到邮件页重试" : "网页试用版无法收发邮件");
         return status === "ready" ? bindDialog(false) : undefined;

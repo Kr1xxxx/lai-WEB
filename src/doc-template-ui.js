@@ -1,7 +1,8 @@
 (function(root){
   'use strict';
   // 单据模板页的页面文字（HTML）：每种单据一个页签（左边改，右边预览），再加“公司信息”页签。只生成字符串，不读写数据。
-  function create(E,M){
+  // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
+  function create(E,M,can=()=>true){
     const TABS=[...M.TYPES.map(([id,label])=>[id,label]),['numbering','编号规则'],['records','单据记录'],['company','公司信息']];
     const typeLabel=type=>(M.TYPES.find(item=>item[0]===type)||[])[1]||'';
     const empty=text=>`<span class="dt-blank">${text}</span>`;
@@ -59,7 +60,7 @@
       const rows=docs.map(doc=>{
         const voided=doc.status==='已作废',armed=view.armedVoid===doc.id;
         const source=doc.source&&doc.source.id?`<button type="button" class="company-link" data-doc-action="source" data-kind="${E(doc.source.kind)}" data-id="${E(doc.source.id)}">${E(sourceText(doc))}</button>`:'—';
-        return `<tr class="${voided?'is-void':''}"><td><b>${E(doc.number)}</b>${voided?' <span class="dt-void-chip">已作废</span>':''}</td><td>${E(typeLabel(doc.type))}</td><td>${E(doc.client)}</td><td class="num">${E(doc.currency)} ${E(M.money(doc.total))}</td><td>${E(doc.date||'—')}</td><td>${source}</td><td class="dt-row-actions"><button type="button" data-doc-action="view" data-id="${E(doc.id)}">查看</button>${voided?'':`<button type="button" class="${armed?'team-danger':''}" data-doc-action="void" data-id="${E(doc.id)}">${armed?'确定作废':'作废'}</button>`}</td></tr>`;
+        return `<tr class="${voided?'is-void':''}"><td><b>${E(doc.number)}</b>${voided?' <span class="dt-void-chip">已作废</span>':''}</td><td>${E(typeLabel(doc.type))}</td><td>${E(doc.client)}</td><td class="num">${E(doc.currency)} ${E(M.money(doc.total))}</td><td>${E(doc.date||'—')}</td><td>${source}</td><td class="dt-row-actions"><button type="button" data-doc-action="view" data-id="${E(doc.id)}">查看</button>${voided||!can('doc.void')?'':`<button type="button" class="${armed?'team-danger':''}" data-doc-action="void" data-id="${E(doc.id)}">${armed?'确定作废':'作废'}</button>`}</td></tr>`;
       }).join('');
       return `${bar}<table class="cs-table dt-records"><thead><tr><th>编号</th><th>类型</th><th>客户</th><th class="num">金额</th><th>日期</th><th>来源</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table><p class="cs-hint">共 ${docs.length} 张。作废后单据留在这里，编号不会再用。</p>`;
     }
