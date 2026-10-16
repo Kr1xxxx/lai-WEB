@@ -136,3 +136,12 @@ test('secondary address-only array slot remains editable at its original contact
  assert.match(second,/name="contactIdExtra" value="legacy-1"/);
  assert.match(second,/name="addressExtra"[^>]*>Berlin<\/textarea>/);
 });
+
+test('a new customer starts with the settings default currency; an existing one keeps its stored currency',()=>{
+ const selected=html=>(html.match(/<select id="ce-currency"[\s\S]*?<\/select>/)||[''])[0].match(/<option value="([^"]*)"[^>]*selected/)?.[1];
+ const state=extra=>({customers:{},laiSettings:{defaultCurrency:'EUR'},...extra});
+ assert.equal(selected(Editor.render({},{isNew:true,state:state()}).body),'EUR');
+ assert.equal(selected(Editor.render({},{isNew:true,state:{customers:{},orderSettings:{defaultCurrency:'GBP'}}}).body),'GBP','falls back to the order settings');
+ assert.equal(selected(Editor.render({},{isNew:true,state:{customers:{}}}).body),'USD','and then to USD');
+ assert.equal(selected(Editor.render({name:'Acme',currency:'CNY'},{state:state()}).body),'CNY','a stored value is kept');
+});

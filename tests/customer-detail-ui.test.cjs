@@ -723,3 +723,35 @@ test('sales-order create button is actionable and identifies the current company
  assert.match(html,/data-new-customer-order="Company &lt;A&gt;"/);
  assert.doesNotMatch(html,/data-feature="新建销售订单"/);
 });
+
+test('商机和订单 tab and the side order card are hidden for a role without opp.view / order.view',()=>{
+ const R=require('../src/role-model.js');
+ const admin={laiSettings:{defaultOwner:'Kris'},customers:{Acme:{owner:'Amy',history:[]}},orders:[{id:'o1',num:'L-1',client:'Acme',owner:'Amy',amount:'10',currency:'USD',stage:'quote',createdAt:'2026-10-01',attachments:[{name:'inv.pdf'}]}]};
+ const members=R.settings(admin).members;
+ const amyMember=members.find(m=>m.roleId==='sales'),adminMember=members.find(m=>m.roleId==='admin');
+ const asAmy=R.switchTo(admin,amyMember.id);
+ const render=(state,extra={})=>D.render(M.buildCustomers(state)[0],{state,tab:'trade',sideColumn:true,escape:M.escapeHtml,...extra});
+ global.LaiRoleModel=R;
+ try{
+  const full=render(asAmy);
+  assert.match(full,/data-tab="trade"/);
+  assert.match(full,/data-lai-order="o1"/);
+  assert.match(full,/inv\.pdf/);
+  const keys=Object.keys(R.roleOf(asAmy).perms).filter(k=>R.roleOf(asAmy).perms[k]);
+  assert.ok(keys.includes('order.view')&&keys.includes('opp.view'));
+  const base=Object.fromEntries(keys.filter(k=>k!=='order.view'&&k!=='opp.view').map(k=>[k,true]));
+  const asAdmin=R.switchTo(admin,adminMember.id);
+  const edit=perms=>R.switchTo(R.updateRole(asAdmin,amyMember.roleId,{perms}),amyMember.id);
+  const hidden=render(edit(base));
+  assert.doesNotMatch(hidden,/data-tab="trade"/,'the tab is gone');
+  assert.doesNotMatch(hidden,/data-lai-order=/,'no order links, in the tab or the side card');
+  assert.doesNotMatch(hidden,/inv\.pdf/,'order attachments are not listed either');
+  assert.doesNotMatch(hidden,/进行中的商机/,'the in-progress opportunity card is gone');
+  const stale=render(edit(base),{tab:'trade'});
+  assert.match(stale,/你的角色不能查看商机和订单/);
+  const onlyOpp=render(edit({...base,'opp.view':true}));
+  assert.match(onlyOpp,/data-tab="trade"/);
+  assert.match(onlyOpp,/lcd-opportunity-table/);
+  assert.doesNotMatch(onlyOpp,/data-lai-order=|销售订单 \(/);
+ }finally{delete global.LaiRoleModel;}
+});
