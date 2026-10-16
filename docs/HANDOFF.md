@@ -51,7 +51,6 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 
 - 合并 for #15.
 - Whether `claude/theme-pink-orange` and `claude/order-lines` (1–2 unmerged commits each, superseded by later work) may go.
-- 沟通 module: which chat tool. Company sharing: where it runs, accounts and permissions.
 
 ## Known risks
 
