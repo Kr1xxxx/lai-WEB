@@ -1,6 +1,8 @@
 (function(root) {
   'use strict';
   const CS=root.LaiCustomerSettings||(typeof require==='function'?require('./customer-settings-model.js'):null);
+  // 汇率（rate-model.js）：外币的首单按订单记下的汇率或汇率设置折成美元；没有汇率时照旧为空。
+  const RT=()=>root.LaiRateModel||(typeof require==='function'?require('./rate-model.js'):null);
   const definitions = [
     ['name','公司名称','text',230,'基本信息'],['contact','主要联系人','text',160,'基本信息'],['country','国家地区','text',120,'基本信息'],['tags','客户标签','text',160,'基本信息'],['owner','跟进人','text',110,'基本信息'],
     ['lastWonDate','最近赢单日期','date',140,'商机信息'],['lastFollowup','最近跟进时间','date',150,'跟进信息'],['latestActivity','最近动态','text',220,'跟进信息'],['total','成交订单金额 (USD)','number',170,'订单信息'],['average','成交订单均价 (USD)','number',170,'订单信息'],['orderCount','成交订单数','number',110,'订单信息'],
@@ -65,7 +67,7 @@
         .sort((a,b)=>timestamp(b.date)-timestamp(a.date));
       const firstOrder=settled.at(-1);
       const firstOrderTotal=firstOrder
-        ? (firstOrder.order.currency||'USD').toUpperCase()==='USD'?Number(firstOrder.order.amount):null
+        ? (firstOrder.order.currency||'USD').toUpperCase()==='USD'?Number(firstOrder.order.amount):RT()?RT().orderUsd(state,firstOrder.order):null
         : profile.firstOrderTotal??row.firstOrderTotal??null;
       const legacyGroups=Array.isArray(row.group)?row.group:row.group?[row.group]:[];
       const manualGroups=manualSets.filter(item=>item.members.has(row.name)).map(item=>item.name);

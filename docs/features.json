@@ -762,6 +762,24 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "rates",
+   "area": "orders",
+   "description": "交易 → 汇率设置 (R1): manual rates per 100 units in USD; foreign orders convert into the customer total and level; orders keep the rate they were saved with",
+   "steps": [
+    "With no rates: a customer with only a 48,000 EUR order shows no level badge; 交易 → 汇率设置 lists only USD (100) and EUR as 未设置",
+    "Add EUR 110: the customer list shows B级翡翠客户 for that customer",
+    "Create a new 1,000 EUR order for the same customer: it is saved with usdRate 110",
+    "修改 EUR to 90: the new order keeps 110, the old order follows 90, the level becomes C级白金客户",
+    "删除 EUR while orders use it: the page says 还有…在用 EUR，不能删除",
+    "Switch to a 业务 account: 汇率设置 is not in the 交易 menu and #rates says the role has no 汇率设置 permission"
+   ],
+   "e2e": "rates.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

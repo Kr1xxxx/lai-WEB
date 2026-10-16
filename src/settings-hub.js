@@ -27,6 +27,7 @@
     { id: "product", title: "产品和单据", items: [
       { id: "product-settings", title: "产品设置", note: "产品分组、字段、规格和布局；打开产品页后点上方的设置页签", open: ["route", "products"], perm: ["product.view", "settings.product"] },
       { id: "doc-templates", title: "单据模板", note: "报价单、形式发票、销售订单、发货通知的样式，并可预览", open: ["route", "doc-templates"], perm: "settings.docTemplate" },
+      { id: "rates", title: "汇率设置", note: "每 100 外币折合多少美元，用来把外币订单折成美元", open: ["route", "rates"], perm: "settings.rate" },
     ] },
     { id: "chat", title: "沟通", items: [
       { id: "chat-templates", title: "聊天模板", note: "WhatsApp 常用话术：新建、编辑、停用", open: ["route", "chat-templates"], perm: "chat.template" },
