@@ -86,14 +86,17 @@
       }
     }
     if(!members.length){
-      const owners=ownersOf(state);
-      members=(owners.length?owners:['管理员']).map((name,i)=>({id:`m-${i}`,name,roleId:i===0?ADMIN:SALES}));
+      // 管理员是“默认跟进人”；没填默认跟进人时叫“管理员”，不拿某个业务的名字顶上。
+      const me=trim(state?.laiSettings?.defaultOwner)||trim(state?.orderSettings?.defaultOwner)||'管理员';
+      const owners=ownersOf(state).filter(name=>norm(name)!==norm(me));
+      members=[me,...owners].map((name,i)=>({id:`m-${i}`,name,roleId:i===0?ADMIN:SALES}));
       // 第一次打开时备一个“业务”测试账号，切过去就能看业务看到什么。
       if(!members.some(m=>m.roleId===SALES)&&!members.some(m=>norm(m.name)===norm(TEST_SALES)))members.push({id:'m-test-sales',name:TEST_SALES,roleId:SALES});
     }
     // 至少要有一个系统管理员，不然没人能改权限。
     if(!members.some(m=>m.roleId===ADMIN))members[0]={...members[0],roleId:ADMIN};
-    const current=members.some(m=>m.id===stored?.current)?stored.current:members[0].id;
+    const wanted=trim(stored?.current);
+    const current=members.some(m=>m.id===wanted)?wanted:members[0].id;
     return {roles,members,current};
   }
   const cache=new WeakMap();
@@ -105,10 +108,13 @@
     return hit;
   }
   // 只存可改的部分；系统管理员的权限固定，不存。
-  function put(state,next){
+  // “默认跟进人”只在换账号（或给当前账号改名）时跟着变，其他改动不碰你在设置里填的值。
+  function put(state,next,{owner=false}={}){
     const roles=next.roles.filter(r=>r.id!==ADMIN).map(r=>({id:r.id,name:r.name,scope:r.scope,perms:cleanPerms(r.perms)}));
     const members=next.members.map(m=>({id:m.id,name:m.name,roleId:m.roleId}));
-    return {...state,laiSettings:{...(state.laiSettings||{}),roles:{roles,members,current:next.current},defaultOwner:(next.members.find(m=>m.id===next.current)||{}).name||state.laiSettings?.defaultOwner}};
+    const laiSettings={...(state.laiSettings||{}),roles:{roles,members,current:next.current}};
+    if(owner)laiSettings.defaultOwner=(next.members.find(m=>m.id===next.current)||{}).name||state.laiSettings?.defaultOwner;
+    return {...state,laiSettings};
   }
   const copy=state=>{const s=settings(state);return {roles:s.roles.map(r=>({...r,perms:{...r.perms}})),members:s.members.map(m=>({...m})),current:s.current};};
 
@@ -202,7 +208,7 @@
     const value=cleanName(name,'成员名字');
     if(next.members.some(m=>m.id!==id&&norm(m.name)===norm(value)))throw new Error('已有同名成员');
     member.name=value;
-    return put(state,next);
+    return put(state,next,{owner:member.id===next.current});
   }
   function removeMember(state,id){
     guard(state);
@@ -219,7 +225,7 @@
     const next=copy(state);
     if(!next.members.some(m=>m.id===id))throw new Error('没有找到这个账号');
     next.current=id;
-    return put(state,next);
+    return put(state,next,{owner:true});
   }
   // 每个页面要什么权限才能打开。kind 同 rail-menu.js：route／screen／mail。没列的页面谁都能开（工作台、日历、设置中心）。
   const PAGE_PERMS=Object.freeze({

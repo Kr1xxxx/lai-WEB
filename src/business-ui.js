@@ -1525,7 +1525,7 @@
       );
     }
     function renderCalendar() {
-      const events = B.calendarEvents(state(), month),
+      const events = B.calendarEvents(dashState(), month),
         [year, mo] = month.split("-").map(Number),
         offset = (new Date(year, mo - 1, 1).getDay() + 6) % 7,
         days = new Date(year, mo, 0).getDate();
@@ -1649,10 +1649,10 @@
         return saveNext(() => RM().removeMember(state(), d.id), "member-list-error", () => undefined);
       }
       if (action === "switch") {
-        // 切换后整个界面按新账号重画（菜单里没权限的入口会收起来）。
-        return saveNext(() => RM().switchTo(state(), d.id), "member-list-error", () => {
-          roleView.edit = "";
-        });
+        // 切换后整个界面按新账号重画（菜单里没权限的入口会收起来）；和头像菜单走同一条路。
+        roleView.edit = "";
+        if (ctx.switchAccount) return ctx.switchAccount(d.id);
+        return saveNext(() => RM().switchTo(state(), d.id), "member-list-error", () => undefined);
       }
     }
     function roleSubmit(form) {

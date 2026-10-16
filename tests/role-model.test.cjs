@@ -111,3 +111,20 @@ test('every page perm is a real permission key', () => {
     for (const key of typeof table === 'string' ? [table] : Object.values(table)) assert.ok(R.KEYS.includes(key), key);
   }
 });
+
+test('role and member changes keep the default owner; only switching (or renaming yourself) changes it', () => {
+  let state = { laiSettings: { defaultOwner: 'Kris Wang' }, customers: { a: { owner: 'Amy' } } };
+  state = R.addRole(state, { name: '经理' });
+  state = R.addMember(state, { name: 'Bob' });
+  assert.equal(state.laiSettings.defaultOwner, 'Kris Wang');
+  const me = R.currentMember(state);
+  state = R.renameMember(state, me.id, 'Kris');
+  assert.equal(state.laiSettings.defaultOwner, 'Kris');
+});
+
+test('without a default owner the admin is 管理员, not a sales owner; a stored numeric current still matches', () => {
+  const s = R.settings({ customers: { a: { owner: 'Amy' }, b: { owner: 'Bob' } } });
+  assert.deepEqual(s.members.map(m => [m.name, m.roleId]), [['管理员', 'admin'], ['Amy', 'sales'], ['Bob', 'sales']]);
+  const t = R.settings({ laiSettings: { roles: { members: [{ id: '1', name: 'A', roleId: 'admin' }, { id: '5', name: 'B' }], current: 5 } } });
+  assert.equal(t.current, '5');
+});

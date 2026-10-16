@@ -233,6 +233,8 @@
       const rows = [];
       for (const name of Object.keys(all)) {
         if (ctx.isArchived && ctx.isArchived(all[name])) continue;
+        // 只看本人客户的账号：群发、收件人、客户匹配里也不出现别人的客户（客户列表已经按账号筛过）。
+        if (ctx.canSeeCustomer && !ctx.canSeeCustomer(name, all[name])) continue;
         const addresses = customerAddresses(all[name]);
         if (!addresses.length) continue;
         // 群发时用的称呼：邮箱对应的联系人姓名，其次主要联系人。

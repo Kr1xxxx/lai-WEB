@@ -5218,6 +5218,8 @@
     navigate: navigateApp,
     // 成员管理页换了账号或角色后，请整个界面按当前账号重画（左侧栏、二级导航、当前页面）。
     rerenderApp,
+    // 成员管理页的“切换到此账号”：和头像菜单一样，清掉上个账号的筛选再重画。
+    switchAccount,
     // 工作台的未读邮件卡片：邮件页打开过就用它已有的数字，邮件列表向本机邮件服务要。
     mailCounts: () => mail?.counts?.() || null,
     mailSummary: async () => {
@@ -5271,6 +5273,8 @@
     openMail: (folder) => navigateApp("mail", "", true, false, folder),
     getCustomers: () => state.customers || {},
     isArchived: (profile) => L.bucket(profile) === "trash",
+    // 只看本人客户的账号：群发、收件人、客户匹配里也不出现别人的客户。
+    canSeeCustomer: (name, profile) => R.scopeOf(state) === "all" || customerVisible({ name, owner: profile?.owner }),
     openCustomer: (name) => navigateApp("customers", name),
     toast,
     mount: (html) => {
