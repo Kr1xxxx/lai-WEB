@@ -3260,3 +3260,31 @@ button.subnav-restore {
 .subnav-group .nav-entry .icon {
   flex: 0 0 auto;
 }
+/* 头像菜单：当前账号和切换测试账号 */
+.popover.account-menu {
+  width: 248px;
+  padding: 6px 0;
+}
+.popover.account-menu .account-head {
+  padding: 8px 14px 6px;
+  font-size: 13px;
+  color: var(--ink-700);
+}
+.popover.account-menu .account-head strong {
+  font-size: 15px;
+  color: var(--ink-900);
+}
+.popover.account-menu .account-label {
+  padding: 6px 14px 2px;
+  font-size: 12px;
+  color: var(--ink-500);
+}
+.popover.account-menu > button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 打不开的页面：只显示原因 */
+.empty.role-blocked {
+  min-height: 220px;
+}

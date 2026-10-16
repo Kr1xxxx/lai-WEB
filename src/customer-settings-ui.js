@@ -22,8 +22,8 @@ const TABS = Object.freeze([
   { id: "layout", label: "布局设置", note: "客户详情页左右两栏哪边宽。" },
 ]);
 
-function nav(tab, E) {
-  return `<nav class="cs-nav" aria-label="客户设置">${TABS.map((t) => `<button type="button" data-cs-tab="${t.id}" class="${t.id === tab ? "active" : ""}"${t.id === tab ? ' aria-current="page"' : ""}>${E(t.label)}</button>`).join("")}</nav>`;
+function nav(tab, E, hidden = []) {
+  return `<nav class="cs-nav" aria-label="客户设置">${TABS.filter((t) => !hidden.includes(t.id)).map((t) => `<button type="button" data-cs-tab="${t.id}" class="${t.id === tab ? "active" : ""}"${t.id === tab ? ' aria-current="page"' : ""}>${E(t.label)}</button>`).join("")}</nav>`;
 }
 // 新规则默认从今天起算，免得一打开就把老客户整批移走。
 const todayLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -278,14 +278,16 @@ function body(tab, state, ui, owners, E) {
 // ui：{tab, editing:{kind,key}|null}；owners：所有出现过的跟进人。
 function markup(state, ui = {}, escape = identity, owners = []) {
   const E = escape;
-  const tab = TABS.some((t) => t.id === ui.tab) ? ui.tab : TABS[0].id;
+  // hiddenTabs：当前账号没有权限的页签（判重设置、来源设置）。
+  const hidden = Array.isArray(ui.hiddenTabs) ? ui.hiddenTabs : [];
+  const tab = TABS.some((t) => t.id === ui.tab && !hidden.includes(t.id)) ? ui.tab : TABS.find((t) => !hidden.includes(t.id)).id;
   const meta = TABS.find((t) => t.id === tab);
   const shortcuts = [
     ["列表字段设置", 'data-action="settings"'], ["客群管理", 'data-action="manage-segments"'], ["标签管理", 'data-action="tag-manager"'],
     ["客户回收站", 'data-lai-screen="trash"'], ["来财设置", 'data-lai-route="settings"'],
     ["恢复默认字段", 'data-action="restore-table-defaults"'],
-  ].map(([label, attr]) => `<button type="button" ${attr}>${E(label)}</button>`).join("");
-  return `<div class="pagebar"><div class="page-tabs"><h1>客户设置</h1></div></div><section class="cs-shortcuts" aria-label="常用入口">${shortcuts}</section><section class="cs-page">${nav(tab, E)}<div class="cs-panel" data-cs-panel="${tab}"><h2>${E(meta.label)}</h2><p class="cs-note">${E(meta.note)}</p><div class="cs-error error" id="cs-error" role="alert"></div>${body(tab, state, ui, owners, E)}</div></section>`;
+  ].filter(([label]) => label !== "来财设置" || ui.canOpenSettings !== false).map(([label, attr]) => `<button type="button" ${attr}>${E(label)}</button>`).join("");
+  return `<div class="pagebar"><div class="page-tabs"><h1>客户设置</h1></div></div><section class="cs-shortcuts" aria-label="常用入口">${shortcuts}</section><section class="cs-page">${nav(tab, E, hidden)}<div class="cs-panel" data-cs-panel="${tab}"><h2>${E(meta.label)}</h2><p class="cs-note">${E(meta.note)}</p><div class="cs-error error" id="cs-error" role="alert"></div>${body(tab, state, ui, owners, E)}</div></section>`;
 }
 
 const api = { TABS, markup, groupForm, ruleForm, tplForm };

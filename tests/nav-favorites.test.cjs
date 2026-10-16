@@ -212,7 +212,7 @@ function harness({settings, flush = true, failSave = null, route = 'customers', 
   let flyout = null;
   const mailState = {...mail};
   const boundary = {
-    NF: F, RM, E: escapeHtml, icons: {heart: 'M0 0h24v24z'}, icon: name => `<i:${name}>`, menuIcon: name => `<i:${name}>`,
+    NF: F, RM, R: require('../src/role-model.js'), E: escapeHtml, icons: {heart: 'M0 0h24v24z'}, icon: name => `<i:${name}>`, menuIcon: name => `<i:${name}>`,
     state: {customers: {}, orders: [], laiSettings: settings},
     activeRoute: route, favoritesMode, customerScreen, currentName: '', failSave, flush,
     mail: {view: () => mailState.view, folder: () => mailState.folder, subnav: () => '<MAIL-SUBNAV/>', composing: () => false, leave: async () => true, select: folder => { mailState.view = 'mail'; mailState.folder = folder || 'inbox'; calls.mailSelect.push(folder); boundary.shell('<MAIL-PAGE/>'); }},
