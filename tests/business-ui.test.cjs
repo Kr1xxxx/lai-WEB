@@ -198,8 +198,18 @@ test('new order date and generated number use the same local calendar day', asyn
   const h = harness({ clock: midnightClock }); h.controller.navigate('order-list'); await h.click('new-order');
   const form = h.document.getElementById('biz-order-form');
   assert.equal(form.elements.createdAt.value, '2026-10-01');
-  assert.equal(form.elements.num.value, 'L20261001-002');
+  // The only saved order has another style of number, so today's first number is free (it used to be count + 1).
+  assert.equal(form.elements.num.value, 'L20261001-001');
   await h.click('close-editor'); assert.equal(h.saveCalls, 0);
+});
+
+test('the suggested order number follows the highest number used today, including archived orders', async () => {
+  const common = { client: 'Synthetic Customer', createdAt: '2026-10-01', orderMonth: '2026-10', currency: 'USD', stage: 'quote', amount: 10, paidAmount: 0, isDraft: false };
+  const h = harness({ clock: midnightClock, orders: [{ ...common, id: 'a', num: 'L20261001-001' }] });
+  h.replaceState({ ...h.state, trashOrders: [{ ...common, id: 'b', num: 'L20261001-002', trashedAt: '2026-10-01T00:00:00.000Z' }] });
+  h.controller.navigate('order-list'); await h.click('new-order');
+  assert.equal(h.document.getElementById('biz-order-form').elements.num.value, 'L20261001-003');
+  await h.click('close-editor');
 });
 
 test('new task defaults to today locally and retains an explicitly selected calendar date', async () => {

@@ -7,8 +7,9 @@
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     const empty=text=>`<div class="cs-empty">${text}</div>`;
     const section=(title,note,content)=>`<section class="cs-section"><h3>${E(title)}</h3>${note?`<p class="cs-hint">${note}</p>`:''}${content}</section>`;
-    const day=value=>String(value||'').slice(0,10)||'—';
     const pad=n=>String(n).padStart(2,'0');
+    // 完整的时间（带 Z 或时区）按本机日历日显示，不按 UTC 日；只有日期的原样显示。
+    const day=value=>{const source=String(value||'').trim();if(!/^\d{4}-\d{2}-\d{2}[T ]/.test(source))return source.slice(0,10)||'—';const d=new Date(source.replace(' ','T'));return Number.isNaN(d.getTime())?source.slice(0,10):`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
     // 同步时间按本机时间显示到分钟。
     const stamp=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?'—':`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;};
 
@@ -212,7 +213,7 @@
         +`<label class="cs-field"><span>选择文件</span><input type="file" id="prod-sync-file" accept=".xls,.xlsx,.csv" aria-label="选择要同步的表格文件"></label>`
         +(draft.fileName?`<p class="cs-hint">已选：${E(draft.fileName)}</p>`:'')
         +`<fieldset class="cs-field"><legend>匹配方式</legend>${radios}</fieldset>`
-        +`<p class="cs-hint">支持 XLS、XLSX、UTF-8 CSV，不超过 5 MB、${M.LIMITS.syncRows} 行。表头用字段名称，比如“产品名称”“产品编号”“离岸价”。 <button type="button" class="text-button" data-prod-action="sync-template">下载模板</button></p>`
+        +`<p class="cs-hint">支持 Excel 或 CSV 文件，不超过 5 MB、${M.LIMITS.syncRows} 行。表头用字段名称，比如“产品名称”“产品编号”“离岸价”。 <button type="button" class="text-button" data-prod-action="sync-template">下载模板</button></p>`
         +preview+`</div>`;
     }
     function syncFooter(draft){

@@ -71,7 +71,7 @@ test('validation: every required field and each relationship rule', () => {
   bad({stage: 'nope'}, /销售阶段/); bad({stage: 'lost'}, /输单原因/); bad({stage: 'lost', lostReason: '随便'}, /输单原因/);
   bad({nameMode: 'custom', name: '  '}, /商机名称/);
   bad({products: '螺丝, x'}, /数量/);
-  assert.throws(() => O.upsert(base, ' ', input()), /ID 无效/);
+  assert.throws(() => O.upsert(base, ' ', input()), /找不到这条商机/);
   assert.throws(() => O.upsert({...base, laiOpportunities: {a: 1}}, 'x', input()), /格式异常/);
   // 允许的情况
   assert.equal(get(add(base, 'x', {amount: '0'}), 'x').amount, 0);
@@ -364,7 +364,7 @@ test('flows: create, rename and delete, with the rules that protect existing opp
   assert.deepEqual(flowLabels(s, 'fs'), flowLabels(base), 'a new flow starts as a copy of the default stages');
   assert.throws(() => O.addFlow(s, {label: '样品单'}), /同名/); assert.throws(() => O.addFlow(s, {label: '默认销售流程'}), /同名/);
   assert.throws(() => O.addFlow(s, {label: ''}), /请填写销售流程名称/); assert.throws(() => O.addFlow(s, {label: 'x'.repeat(21)}), /不能超过 20 个字/);
-  assert.throws(() => O.addFlow(s, {label: '另一个'}, {id: 'fs'}), /ID 重复/);
+  assert.throws(() => O.addFlow(s, {label: '另一个'}, {id: 'fs'}), /这个销售流程已经存在/);
   assert.match(O.addFlow(s, {label: '自动编号'}).laiOpportunityFlows[1].id, /^f[a-z0-9]+$/);
   s = O.renameFlow(s, 'fs', '样品流程');
   assert.equal(O.flowOf(s, 'fs').label, '样品流程');
@@ -388,7 +388,7 @@ test('stages: add, rename, reorder within a kind, and the limits', () => {
   assert.deepEqual(flowLabels(s).slice(3), ['待付尾款:won', '已完成:won', '已发货:won', '输单:lost']);
   assert.throws(() => O.addFlowStage(s, 'default', {label: '又一个输单', kind: 'lost'}), /固定只有一个输单阶段/);
   assert.throws(() => O.addFlowStage(s, 'default', {label: ' 已报价 ', kind: 'won'}), /同名的阶段/);
-  assert.throws(() => O.addFlowStage(s, 'default', {label: 'x', kind: 'open'}, {id: 'lost'}), /ID 重复/);
+  assert.throws(() => O.addFlowStage(s, 'default', {label: 'x', kind: 'open'}, {id: 'lost'}), /这个阶段已经存在/);
   assert.throws(() => O.addFlowStage(s, 'nope', {label: 'x', kind: 'open'}), /销售流程不存在/);
   s = O.moveFlowStage(s, 'default', 'quoted', -1);
   assert.deepEqual(flowLabels(s).slice(0, 3), ['未成单:open', '已报价:open', '付款未到账:open']);

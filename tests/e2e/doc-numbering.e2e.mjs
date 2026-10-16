@@ -68,7 +68,19 @@ test('an order makes two saved quotations with running numbers and lists them', 
   await draft.waitFor();
   assert.match(await draft.locator('.dt-meta').innerText(), /保存后生成编号/);
   assert.match(await draft.locator('.dt-meta').innerText(), /订单号/);
+  // The order is not saved yet, so a document cannot be recorded against it: ask to save the order first.
   await draft.locator('[data-biz-action="order-doc-save"]').click();
+  await page.locator('#toast.show', { hasText: '请先保存订单' }).waitFor();
+  assert.equal(await form().locator('[data-order-doc-saved]').count(), 0);
+  assert.equal((await app.readData()).laiDocuments?.length ?? 0, 0);
+  // Save the order, open it again, and make the documents from there.
+  await page.locator('button[type=submit][form="biz-order-form"]').click();
+  await form().waitFor({ state: 'detached' });
+  const order0 = (await app.readData()).orders.find((o) => o.client === 'Lumen Lash Lab');
+  await page.locator(`[data-biz-order="${order0.id}"]`).first().click();
+  await form().waitFor();
+  await form().locator('[data-biz-action="order-doc"][data-type="quote"]').click();
+  await form().locator('[data-order-doc="quote"] [data-biz-action="order-doc-save"]').click();
   const saved = form().locator('[data-order-doc-saved]');
   await saved.waitFor();
   assert.match(await saved.locator('.dt-meta').innerText(), new RegExp(`BJ-${TODAY}-001`));
