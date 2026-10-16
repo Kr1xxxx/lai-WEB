@@ -201,3 +201,41 @@ test('roles saved before the permission split keep what they could do', () => {
   assert.equal(saved.laiSettings.roles.roles.find(r => r.id === 'sales').v, 2);
   assert.deepEqual(R.settings(saved).roles.find(r => r.id === 'sales').perms, { 'lead.view': true }, 'v2 roles are not upgraded again');
 });
+
+test('renaming a member renames their records everywhere (case-insensitive), in one state', () => {
+  const state0 = {
+    laiSettings: { defaultOwner: 'Kris' }, orderSettings: { defaultOwner: 'amy' },
+    customers: { a: { owner: 'Kris' }, b: { owner: 'AMY' }, c: { owner: 'Amy', laiBucket: 'trash' } },
+    laiLeads: [{ id: 'l1', owner: 'amy' }, { id: 'l2', owner: 'Kris' }],
+    orders: [{ id: 'o1', owner: 'Amy' }, { id: 'o2', owner: 'Kris' }], trashOrders: [{ id: 'o3', owner: 'Amy' }],
+    laiOpportunities: [{ id: 'p1', owner: 'Kris', collaborators: ['amy', 'Bob'] }, { id: 'p2', owner: 'Amy', collaborators: [] }],
+    laiTasks: [{ id: 't1', title: 'x', customer: 'a' }],
+    laiTargets: [{ metric: 'orders', owner: 'Amy', value: 5 }, { metric: 'orders', owner: null, value: 9 }],
+  };
+  const amy = R.settings(state0).members.find(m => m.name.toLowerCase() === 'amy');
+  const next = R.renameMember(state0, amy.id, 'Amelia');
+  assert.ok(R.settings(next).members.some(m => m.name === 'Amelia') && !R.settings(next).members.some(m => m.name.toLowerCase() === 'amy'));
+  assert.deepEqual(Object.values(next.customers).map(c => c.owner), ['Kris', 'Amelia', 'Amelia']);
+  assert.deepEqual(next.laiLeads.map(l => l.owner), ['Amelia', 'Kris']);
+  assert.deepEqual([...next.orders, ...next.trashOrders].map(o => o.owner), ['Amelia', 'Kris', 'Amelia']);
+  assert.deepEqual(next.laiOpportunities.map(o => [o.owner, o.collaborators]), [['Kris', ['Amelia', 'Bob']], ['Amelia', []]]);
+  assert.deepEqual(next.laiTargets.map(t => t.owner), ['Amelia', null]);
+  assert.equal(next.orderSettings.defaultOwner, 'Amelia');
+  assert.equal(next.laiSettings.defaultOwner, 'Kris', 'someone else is the default owner');
+  assert.equal(state0.customers.b.owner, 'AMY', 'the input state is untouched');
+  assert.equal(next.laiTasks, state0.laiTasks, 'untouched lists keep their identity');
+});
+
+test('renameOwnerEverywhere: no-ops, and the current account renaming carries the default owner', () => {
+  const state0 = { laiSettings: { defaultOwner: 'Kris' }, customers: { a: { owner: 'Kris' } }, orders: [] };
+  assert.equal(R.renameOwnerEverywhere(state0, 'Nobody', 'X'), state0);
+  assert.equal(R.renameOwnerEverywhere(state0, 'Kris', 'Kris'), state0);
+  assert.equal(R.renameOwnerEverywhere(state0, '', 'X'), state0);
+  const kris = R.settings(state0).members.find(m => m.name === 'Kris');
+  const next = R.renameMember(state0, kris.id, 'Chris');
+  assert.equal(next.laiSettings.defaultOwner, 'Chris');
+  assert.equal(next.customers.a.owner, 'Chris');
+  // case-only rename
+  const cased = R.renameMember(state0, kris.id, 'KRIS');
+  assert.equal(cased.customers.a.owner, 'KRIS');
+});
