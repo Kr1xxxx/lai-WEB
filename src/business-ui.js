@@ -1500,6 +1500,127 @@
         `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">公司名称<input name="companyName" value="${E(settings.companyName || "来财Lai")}"></label><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${["USD", "EUR", "GBP", "CNY", "CAD", "AUD"].map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"></label></div><div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、客群和日历任务保存在同一个来财数据库。原 TOS 数据不与来财互相覆盖。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="section-rule"></div><h3>来财Lai</h3><p class="settings-copy">统一客户与经营界面。没有旧页面跳转，不自动连接外部服务。</p></section></div>`
       );
     }
+    // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
+    const RM = () => root.LaiRoleModel;
+    let roleUI = null;
+    const RU = () => roleUI || (roleUI = root.LaiRoleUI.create(E, RM()));
+    const roleView = { edit: "", armed: "", armedMember: "", filter: "", nextFilter: "" };
+    const onRolePage = () => route === "roles" || route === "members";
+    // 换页面时回到列表；从“角色权限”点“成员”过来时带上要看的角色。
+    function roleReset(next) {
+      roleView.filter = next === "members" ? roleView.nextFilter : "";
+      roleView.nextFilter = "";
+      roleView.edit = "";
+      roleView.armed = "";
+      roleView.armedMember = "";
+    }
+    function renderRoles() {
+      const title = roleView.edit ? (RM().settings(state()).roles.find((r) => r.id === roleView.edit)?.locked ? "查看角色" : "编辑角色") : "角色权限";
+      const description = roleView.edit ? "勾选这个角色能做的事" : "设置每个角色能看什么、能做什么";
+      if (!RM().can(state(), "settings.roles")) return header("角色权限", description) + RU().deniedMarkup();
+      if (roleView.edit) return header(title, description) + RU().editMarkup(state(), roleView.edit);
+      return header(title, description, '<button type="button" class="primary" data-role-action="add">新增角色</button>') + RU().rolesMarkup(state(), { armed: roleView.armed });
+    }
+    function renderMembers() {
+      const description = "测试账号：切换后看到的就是这个角色能看的内容";
+      if (!RM().can(state(), "settings.roles")) return header("成员管理", description) + RU().deniedMarkup();
+      return header("成员管理", description, '<button type="button" class="primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter });
+    }
+    function roleClick(d) {
+      const action = d.roleAction;
+      if (action !== "delete") roleView.armed = "";
+      if (action !== "member-delete") roleView.armedMember = "";
+      const cancel = '<button type="button" data-action="close-modal">取消</button>';
+      if (action === "add") return ctx.dialog("新增角色", RU().addRoleMarkup(state()), cancel + '<button class="primary" type="submit" form="role-add-form">新增</button>', "role-add");
+      if (action === "member-add") return ctx.dialog("添加成员", RU().addMemberMarkup(state()), cancel + '<button class="primary" type="submit" form="member-add-form">添加</button>', "member-add");
+      if (action === "rename") {
+        const member = RM().settings(state()).members.find((m) => m.id === d.id);
+        if (!member) return ctx.toast("没有找到这位成员，请刷新后重试");
+        return ctx.dialog("改名", RU().renameMarkup(member), cancel + '<button class="primary" type="submit" form="member-rename-form">保存</button>', "member-rename");
+      }
+      if (action === "edit") {
+        roleView.edit = d.id;
+        return render();
+      }
+      if (action === "back") {
+        roleView.edit = "";
+        return render();
+      }
+      if (action === "members") {
+        roleView.nextFilter = d.id;
+        return ctx.navigate("members");
+      }
+      if (action === "members-all") {
+        roleView.filter = "";
+        return render();
+      }
+      if (action === "delete") {
+        if (roleView.armed !== d.id) {
+          roleView.armed = d.id;
+          return render();
+        }
+        roleView.armed = "";
+        return saveNext(() => RM().deleteRole(state(), d.id), "role-list-error", () => undefined);
+      }
+      if (action === "member-delete") {
+        if (roleView.armedMember !== d.id) {
+          roleView.armedMember = d.id;
+          return render();
+        }
+        roleView.armedMember = "";
+        return saveNext(() => RM().removeMember(state(), d.id), "member-list-error", () => undefined);
+      }
+      if (action === "switch") {
+        // 切换后整个界面按新账号重画（菜单里没权限的入口会收起来）。
+        return saveNext(() => RM().switchTo(state(), d.id), "member-list-error", () => {
+          roleView.edit = "";
+        });
+      }
+    }
+    function roleSubmit(form) {
+      const kind = form.dataset.roleForm;
+      const data = Object.fromEntries(new FormData(form));
+      if (kind === "add") {
+        const before = new Set(RM().settings(state()).roles.map((r) => r.id));
+        return saveNext(() => RM().addRole(state(), { name: data.name, copyFrom: data.copyFrom }), "role-add-error", () => {
+          ctx.closeDialog();
+          // 建好后直接打开新角色的编辑页。
+          roleView.edit = RM().settings(state()).roles.find((r) => !before.has(r.id))?.id || "";
+        });
+      }
+      if (kind === "edit") {
+        const perms = {};
+        form.querySelectorAll('input[name="perm"]:checked').forEach((box) => (perms[box.value] = true));
+        return saveNext(() => RM().updateRole(state(), form.dataset.id, { name: data.name, scope: data.scope, perms }), "role-error", () => {
+          roleView.edit = "";
+        });
+      }
+      if (kind === "member-add") return saveNext(() => RM().addMember(state(), { name: data.name, roleId: data.roleId }), "member-add-error", () => ctx.closeDialog());
+      if (kind === "member-rename") return saveNext(() => RM().renameMember(state(), form.dataset.id, data.name), "member-rename-error", () => ctx.closeDialog());
+    }
+    // 编辑角色里的勾选：“全选”带动整组；整组都勾上时“全选”自己也勾上。成员表里换角色马上保存。
+    function roleChange(e) {
+      const target = e.target;
+      if (target.dataset?.roleAll !== undefined) {
+        target.closest("[data-role-group]")?.querySelectorAll("[data-role-perm]").forEach((box) => (box.checked = target.checked));
+        return true;
+      }
+      if (target.dataset?.rolePerm !== undefined) {
+        const group = target.closest("[data-role-group]");
+        const all = group?.querySelector("[data-role-all]");
+        if (all) all.checked = [...group.querySelectorAll("[data-role-perm]")].every((box) => box.checked);
+        return true;
+      }
+      if (target.dataset?.roleMemberRole !== undefined) {
+        const id = target.dataset.id;
+        const previous = RM().settings(state()).members.find((m) => m.id === id)?.roleId;
+        saveNext(() => RM().setMemberRole(state(), id, target.value), "member-list-error", () => undefined).then((saved) => {
+          if (!saved && previous) target.value = previous;
+        });
+        return true;
+      }
+      return false;
+    }
     function render(preserveOrderScroll = false) {
       const previous = preserveOrderScroll && route === "order-list"
         ? document.getElementById("biz-order-scroll") : null;
@@ -1529,6 +1650,8 @@
         "lead-trash": renderLeadTrash,
         products: renderProducts,
         "doc-templates": renderDocTemplates,
+        roles: renderRoles,
+        members: renderMembers,
         calendar: renderCalendar,
         settings: renderSettings,
         "settings-hub": renderSettingsHub,
@@ -1873,6 +1996,7 @@
       const el = e.target.closest("button");
       if (!el || el.disabled) return;
       const d = el.dataset;
+      if (d.roleAction && onRolePage()) return roleClick(d);
       if (d.attachAction && onOppPage() && attachView.id) return attachAction(d);
       if (d.oppAction && onOppPage()) return oppAction(d);
       if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
@@ -2092,6 +2216,7 @@
     });
     document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
+      if (onRolePage() && roleChange(e)) return;
       if (docInput(e, "change")) return;
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
         const i = Number(e.target.dataset.itemProduct), old = draft.items[i], value = e.target.value;
@@ -2198,6 +2323,10 @@
     });
     document.addEventListener("submit", (e) => {
       const form = e.target;
+      if (onRolePage() && form.dataset?.roleForm) {
+        e.preventDefault();
+        return roleSubmit(form);
+      }
       if (route === "doc-templates" && form.dataset?.docForm) {
         e.preventDefault();
         return docSubmit(form);
@@ -2370,6 +2499,7 @@
         return ctx.navigate("opportunities");
       },
       navigate(next) {
+        roleReset(next);
         oppReturn = "";
         armedTarget = "";
         flowView.armed = "";
