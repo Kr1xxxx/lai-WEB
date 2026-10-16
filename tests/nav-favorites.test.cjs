@@ -816,3 +816,22 @@ test('the Leads rail entry has no OKKI in its name and a 设置 option that is a
   assert.match(app, /\["search", "Leads", null\]/);
   assert.doesNotMatch(app, /\["search", "OKKI/);
 });
+
+test('管理常用: ↑ ↓ step over entries the account cannot see instead of swapping with them', () => {
+  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/app.js'), 'utf8');
+  const body = app.slice(app.indexOf('  function moveFavoriteVisible('), app.indexOf('  const FAVORITE_HINT ='));
+  const NF = require('../src/nav-favorites.js');
+  const ids = ['screen:active', 'route:order-list', 'screen:pool', 'mail:inbox'];
+  const hidden = new Set(['route:order-list']);
+  const sandbox = { NF, favoriteEntries: () => ids.filter((id) => !hidden.has(id)).map((id) => ({ id })) };
+  require('node:vm').createContext(sandbox);
+  require('node:vm').runInContext(body, sandbox);
+  const move = (list, id, direction) => sandbox.moveFavoriteVisible({ favoriteNav: list }, id, direction).favoriteNav;
+  // screen:pool is the visible neighbour below screen:active, even though a hidden entry sits between them.
+  assert.deepEqual(move(ids, 'screen:pool', -1), ['screen:pool', 'screen:active', 'route:order-list', 'mail:inbox']);
+  assert.deepEqual(move(ids, 'screen:active', 1), ['route:order-list', 'screen:pool', 'screen:active', 'mail:inbox']);
+  assert.deepEqual(move(ids, 'mail:inbox', -1), ['screen:active', 'route:order-list', 'mail:inbox', 'screen:pool']);
+  // At the edge of the visible list nothing changes.
+  assert.deepEqual(move(ids, 'screen:active', -1), ids);
+  assert.deepEqual(move(ids, 'mail:inbox', 1), ids);
+});

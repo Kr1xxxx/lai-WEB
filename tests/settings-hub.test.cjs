@@ -54,3 +54,20 @@ test('the 测试数据 entry shows only in the web trial, once, and opens the tr
   assert.match(read('src/business-ui.js'), /testData: Boolean\(root\.LaiWebTrial\)/);
   assert.match(read('scripts/web-trial/data-panel.js'), /web-trial-data/);
 });
+
+test('产品设置 needs both product.view and settings.product, 单据模板 needs settings.docTemplate, 客户设置 opens with any of its three permissions', () => {
+  const has = (...keys) => (key) => keys.includes(key);
+  const ids = (can) => [...Hub.markup({ can }, E).matchAll(/data-sh-item="([\w-]+)"/g)].map((m) => m[1]);
+  assert.ok(!ids(has('settings.product')).includes('product-settings'), 'the products page itself would be closed');
+  assert.ok(!ids(has('product.view')).includes('product-settings'));
+  assert.ok(ids(has('product.view', 'settings.product')).includes('product-settings'));
+  assert.ok(ids(has('settings.docTemplate')).includes('doc-templates'));
+  assert.ok(!ids(has()).includes('doc-templates'));
+  for (const key of ['settings.customer', 'settings.dedupe', 'settings.source']) assert.ok(ids(has(key)).includes('customer-settings'), key);
+  assert.ok(!ids(has('settings.opportunity')).includes('customer-settings'));
+  const html = Hub.markup({}, E);
+  assert.match(html, /data-sh-item="product-settings"[\s\S]*?data-lai-route="products"/);
+  assert.match(html, /data-sh-item="doc-templates"[\s\S]*?data-lai-route="doc-templates"/);
+  assert.match(html, /月度和季度目标/);
+  assert.doesNotMatch(html, /来财里能设置的内容都在这里/, 'some settings still live on their own pages, so the subtitle must not promise everything');
+});
