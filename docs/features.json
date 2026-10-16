@@ -816,6 +816,24 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "task-rules",
+   "area": "calendar",
+   "description": "协同 → 任务设置 (T1): four rules (客户没跟进, 订单到了某个阶段, 商机快到结束日期, 复购提醒), all off by default, that create tasks for the record's owner once a day; preview count, at most 50 per rule per run, never repeated, deleted ones never come back",
+   "steps": [
+    "As the administrator open 协同 → 任务设置: four rules, every switch is 未开启, each shows 现在会生成 N 个任务, the footer says 还没有运行过, no task exists on the calendar",
+    "With a customer owned by Amy whose last follow-up is long ago, tick 客户没跟进: the preview drops to 0, the footer shows today as 上次运行, 跟进 客户名 is listed under 自动生成的待办 with Amy as the owner and appears on the calendar today",
+    "Reload the page: no second copy of the task is created",
+    "Switch to 业务 Amy (本人): the calendar shows her 跟进 task and not Kris's; opening #task-settings says the role has no 任务设置 permission",
+    "As the administrator click 删除 twice on an auto task: it disappears, and reloading on a later day does not bring it back",
+    "Set 订单到了某个阶段 to a stage an order is in, 商机快到结束日期 to 7 days, or give a customer a 复购周期 and an old last order: each rule's preview counts them and ticking it creates the tasks for the order / opportunity / customer owner; records with no owner get nothing"
+   ],
+   "e2e": "task-rules.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

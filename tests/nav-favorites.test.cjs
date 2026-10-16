@@ -23,7 +23,7 @@ const ALL = [
   'route:chats', 'route:chat-templates',
   'route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates', 'route:rates',
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
-  'route:calendar', 'route:settings', 'route:settings-hub',
+  'route:calendar', 'route:task-settings', 'route:settings', 'route:settings-hub',
   'route:roles', 'route:members'
 ];
 const MENUS = ['客户', '线索', '商机', '工作台', 'Leads', '邮件', '沟通', '交易', '团队数据', '协同', '设置', '企业管理'];
@@ -57,7 +57,7 @@ test('a page added to a menu becomes favoritable without touching nav-favorites.
   const sandbox = {};
   vm.createContext(sandbox);
   sandbox.window = sandbox;
-  const patched = source('rail-menu.js').replace("'协同':menu('协同',['日历与待办','route','calendar'])", "'协同':menu('协同',['日历与待办','route','calendar'],['新页面','route','brand-new'])");
+  const patched = source('rail-menu.js').replace("['任务设置','route','task-settings'])", "['任务设置','route','task-settings'],['新页面','route','brand-new'])");
   assert.notEqual(patched, source('rail-menu.js'), 'the fixture edit applied');
   vm.runInContext(patched, sandbox);
   vm.runInContext(source('nav-favorites.js'), sandbox);
@@ -157,14 +157,14 @@ test('rail menus list only existing destinations; callers cannot alter the menu 
   for (const unknown of ['不存在', '__proto__', 'constructor', ...RESERVED]) assert.equal(RM.menuFor(unknown), null, unknown);
   RM.menuFor('客户').pop(); RM.menuFor('客户')[0].label = 'x'; RM.favoritable()[0].label = 'x'; RM.sectionFor('calendar').entries.pop();
   assert.equal(RM.menuFor('客户').length, 4);
-  assert.deepEqual([RM.menuFor('客户')[0].label, RM.favoritable()[0].label, RM.sectionFor('calendar').entries.length], ['客户列表', '客户列表', 1], 'callers get copies and cannot alter the menu definition');
+  assert.deepEqual([RM.menuFor('客户')[0].label, RM.favoritable()[0].label, RM.sectionFor('calendar').entries.length], ['客户列表', '客户列表', 2], 'callers get copies and cannot alter the menu definition');
 });
 
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'rates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings', 'settings-hub', 'roles', 'members'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'rates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'task-settings', 'settings', 'settings-hub', 'roles', 'members'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '设置', '设置', '企业管理', '企业管理']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '协同', '设置', '设置', '企业管理', '企业管理']);
   assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站', '产品', '单据模板', '汇率设置']);
   const labels = ['工作台', '交易', '团队数据', '协同', '设置', '企业管理'];
   const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label)[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
