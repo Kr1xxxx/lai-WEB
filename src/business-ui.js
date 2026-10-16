@@ -445,7 +445,11 @@
     // ---------- 商机：看板、表单、阶段流转、归档删除、生成订单、分析 ----------
     const OM = () => root.LaiOpportunityModel;
     let oppUI = null;
-    const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM(), can));
+    // 字段权限：商机字段当前账号是 edit｜read｜hidden（系统管理员都是 edit）；oppLocked 是改不了的字段名（含 custom.字段ID），oppHidden 是看不到的。
+    const oppLevel = (key) => (RM() ? RM().fieldLevel(state(), "opp", key) : "edit");
+    const oppLocked = () => (RM() ? RM().lockedFields(state(), "opp") : []);
+    const oppHidden = () => oppLocked().filter((key) => oppLevel(key) === "hidden");
+    const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM(), can, oppLevel));
     const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "", analysisFlow: "" };
     // 商机设置页：当前页签、销售流程页当前看的流程，以及等待再次确认删除的那一项（"flow:ID"、"stage:ID"、"reasons:名称"、"types:名称" 或 "cf:ID"）。
     const flowView = { tab: "flows", flow: "default", armed: "" };
@@ -468,7 +472,7 @@
     };
     function renderOpportunities() {
       const today = B.localDate();
-      const board = OM().board(scoped(), oppView.filters, today);
+      const board = OM().board(scoped(), { ...oppView.filters, hidden: oppHidden() }, today);
       const context = { owners: OM().ownerNames(scoped()).filter(sees), today };
       return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
     }
@@ -698,6 +702,7 @@
         if (note) note.hidden = custom;
       } else if (name === "currency") {
         const rate = el.exchangeRate;
+        if (!rate) return;
         const usd = String(el.currency.value || "").trim().toUpperCase() === "USD";
         if (usd && !rate.readOnly) {
           rate.dataset.rate = rate.value;
@@ -739,7 +744,9 @@
     // 赢单商机生成订单：打开现有的订单表单并预填，保存订单时同时把订单记到商机上。
     function orderFromOpp(id) {
       if (!need("order.create") || oppBlocked(id)) return;
-      const item = oppItem(id);
+      // 看不到“关联产品”的账号：不把商机里的产品带进订单。
+      const found = oppItem(id);
+      const item = found && oppHidden().includes("products") ? { ...found, products: [] } : found;
       if (!item) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       const card = oppCard(id);
       if (card.kind !== "won") return ctx.toast("只有赢单阶段的商机可以生成订单");
@@ -1030,7 +1037,10 @@
     // ---------- 线索：列表、新建／编辑、写跟进、转为客户、标记无效、回收站 ----------
     const LD = () => root.LaiLeadModel;
     let leadUI = null;
-    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD(), can));
+    // 字段权限：线索字段当前账号是 edit｜read｜hidden（系统管理员都是 edit）；leadHidden 是看不到的字段名。
+    const leadLevel = (key) => (RM() ? RM().fieldLevel(state(), "lead", key) : "edit");
+    const leadHidden = () => (RM() ? RM().lockedFields(state(), "lead").filter((key) => leadLevel(key) === "hidden") : []);
+    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD(), can, leadLevel));
     const leadView = { filters: {}, limit: 0 };
     // leadDraft：正在新建或编辑的线索；leadArmed：回收站里等待再次确认彻底删除的那一条。
     let leadDraft = null,
@@ -1038,7 +1048,7 @@
     const onLeadPage = () => route === "leads" || route === "lead-trash";
     function renderLeads() {
       const today = B.localDate();
-      const page = LD().page(scoped(), leadView.filters, today);
+      const page = LD().page(scoped(), leadView.filters, today, leadHidden());
       return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
     }
     function renderLeadTrash() {
@@ -1048,7 +1058,7 @@
     // 线索不归当前账号负责（角色只看本人时）：提示一句，什么也不做。
     const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
     // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
-    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.delete" };
+    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge" };
     const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(state()) });
     function openLeadForm(id) {
       if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
@@ -2476,8 +2486,10 @@
         const lowered = (name) => String(name || "").trim().toLowerCase();
         const was = isNew ? LD().defaults(state()).owner : LD().list(state()).find((entry) => entry.id === id)?.owner;
         if (!can("lead.reassign") && lowered(data.owner) !== lowered(was)) return ctx.toast(RM().denied("lead.reassign"));
+        // 字段权限：只读和隐藏的字段不能改。编辑时用原来的值，新建时不许填（表单里漏掉的字段也不会被清空）。
+        const lead = RM().keepLocked(state(), "lead", isNew ? null : LD().list(state()).find((entry) => entry.id === id), data);
         // 和客户相同但设为「允许保存」：第一次点保存先提醒，内容没变再点一次才保存。
-        const warn = LD().saveWarnings(state(), id, data, { mustExist: !isNew });
+        const warn = LD().saveWarnings(state(), id, lead, { mustExist: !isNew });
         if (warn.message && leadDraft.warned !== warn.message) {
           leadDraft.warned = warn.message;
           const box = document.getElementById("lead-warn");
@@ -2487,7 +2499,7 @@
           return;
         }
         return saveNext(
-          () => LD().upsert(state(), id, data, { mustExist: !isNew }),
+          () => LD().upsert(state(), id, lead, { mustExist: !isNew }),
           "lead-error",
           () => {
             leadDraft = null;
@@ -2518,8 +2530,11 @@
         const owner = (name) => String(name || "").trim().toLowerCase();
         const was = oppDraft.isNew ? OM().defaults(state(), B.localDate()).owner : oppItem(oppDraft.id)?.owner;
         if (!can("opp.transfer") && owner(data.owner) !== owner(was)) return ctx.toast(RM().denied("opp.transfer"));
+        // 字段权限：只读和隐藏的字段不能改。编辑时沿用原来的值，新建时不许填（用默认值），表单里漏掉的字段也不会被清空。
+        const locked = oppLocked();
+        const input = OM().lockInput(locked, oppDraft.isNew ? null : oppItem(oppDraft.id), data, OM().defaults(state(), B.localDate()));
         return saveNext(
-          () => OM().upsert(state(), oppDraft.id, data, { mustExist: !oppDraft.isNew }),
+          () => OM().upsert(state(), oppDraft.id, input, { mustExist: !oppDraft.isNew, locked }),
           "opp-error",
           () => {
             oppDraft = null;

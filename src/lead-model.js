@@ -307,12 +307,14 @@
     'name-asc':(a,b)=>a.name.localeCompare(b.name,'zh')
   };
   // 线索列表：先按搜索、跟进人、来源、「只看该跟进的」筛，再数各状态的数量，最后按所选状态显示。
-  function page(state,filters={},today=isoDay(new Date())){
-    const f={status:['all',...STATUS_IDS].includes(filters.status)?filters.status:'all',search:trim(filters.search),owner:cleanName(filters.owner),source:cleanName(filters.source),
+  // hidden：当前账号看不到的字段名（字段权限）；这些字段不参与搜索，也不能按它筛选。
+  function page(state,filters={},today=isoDay(new Date()),hidden=[]){
+    const gone=new Set(Array.isArray(hidden)?hidden:[]);
+    const f={status:['all',...STATUS_IDS].includes(filters.status)?filters.status:'all',search:trim(filters.search),owner:cleanName(filters.owner),source:gone.has('source')?'':cleanName(filters.source),
       due:filters.due===true||filters.due==='1',sort:Object.hasOwn(compare,filters.sort)?filters.sort:'createdAt-desc'};
     const all=list(state).filter(item=>!item.trashed).map(item=>row(state,item,today));
     const needle=f.search.toLowerCase();
-    const matched=all.filter(item=>(!needle||[item.name,item.contact,item.email,item.phone,item.country,item.source,item.product,item.note,item.convertedTo].some(text=>text.toLowerCase().includes(needle)))
+    const matched=all.filter(item=>(!needle||[item.name,...['contact','email','phone','country','source','product','note'].filter(name=>!gone.has(name)).map(name=>item[name]),item.convertedTo].some(text=>text.toLowerCase().includes(needle)))
       &&(!f.owner||(f.owner==='未分配'?!item.owner:item.owner.toLowerCase()===f.owner.toLowerCase()))
       &&(!f.source||item.source.toLowerCase()===f.source.toLowerCase())
       &&(!f.due||item.overdue||item.dueToday));
@@ -320,11 +322,15 @@
     for(const id of STATUS_IDS)counts[id]=matched.filter(item=>item.status===id).length;
     const rows=matched.filter(item=>f.status==='all'||item.status===f.status).sort((a,b)=>compare[f.sort](a,b)||b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
     return {filters:f,rows,counts,total:all.length,dueCount:all.filter(item=>item.overdue||item.dueToday).length,trashCount:list(state).filter(item=>item.trashed).length,
-      owners:distinct(all.map(item=>item.owner)),hasUnassigned:all.some(item=>!item.owner),sources:distinct(all.map(item=>item.source))};
+      owners:distinct(all.map(item=>item.owner)),hasUnassigned:all.some(item=>!item.owner),sources:gone.has('source')?[]:distinct(all.map(item=>item.source))};
   }
+  // 字段权限（角色权限 → 设置字段权限）能设的线索字段：键就是线索上保存的字段名。
+  // 线索名称、跟进人、状态、时间是线索必须有或自动生成的，不在清单里。
+  const ROLE_GROUPS={contact:'基本信息',email:'基本信息',phone:'基本信息',country:'基本信息',website:'基本信息',source:'跟进信息',product:'跟进信息',note:'跟进信息'};
+  const roleFieldList=()=>['contact','email','phone','country','website','source','product','note'].map(name=>({key:name,label:LABELS[name],group:ROLE_GROUPS[name]}));
   const trash=(state,today=isoDay(new Date()))=>list(state).filter(item=>item.trashed).map(item=>row(state,item,today)).sort((a,b)=>String(b.trashedDay).localeCompare(String(a.trashedDay))||a.name.localeCompare(b.name,'zh'));
 
   const api={STATUSES,INVALID_REASONS,SORTS,list,statusOf,statusLabel,upsert,addFollowup,markInvalid,reopen,setTrashed,remove,convert,convertDefaults,duplicatesOf,customerConflicts,saveWarnings,websiteHost,defaults,ownerNames,sourceNames,customerNames,
-    detail,page,trash,localDay,validDate};
+    detail,page,trash,localDay,validDate,roleFieldList};
   if(node)module.exports=api;else root.LaiLeadModel=api;
 })(typeof window!=='undefined'?window:globalThis);
