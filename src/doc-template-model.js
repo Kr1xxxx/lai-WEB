@@ -230,10 +230,10 @@
     const q=trim(query).toLowerCase(),only=Array.isArray(state&&state.laiVisibleDocIds)?new Set(state.laiVisibleDocIds):null;
     return docList(state).filter(item=>item&&(!only||only.has(item.id))&&(!type||item.type===type)&&(!q||[item.number,item.client].some(v=>String(v||'').toLowerCase().includes(q))));
   }
-  // 商机生成单据用的明细：关联产品逐行列出（名称在产品库里有同名产品就带上编号、型号、单位）；没有关联产品就用商机本身一行。
-  function linesFromOpportunity(state,opp){
+  // 商机生成单据用的明细：关联产品逐行列出（名称在产品库里有同名产品就带上编号、型号、单位）；没有关联产品就用商机本身一行。hideProducts（当前账号看不到“关联产品”）时同样不列产品，只用商机本身一行。
+  function linesFromOpportunity(state,opp,{hideProducts=false}={}){
     const library=Array.isArray(state&&state.laiProducts)?state.laiProducts:[];
-    const rows=(Array.isArray(opp&&opp.products)?opp.products:[]).filter(row=>row&&typeof row==='object'&&trim(row.name));
+    const rows=(!hideProducts&&Array.isArray(opp&&opp.products)?opp.products:[]).filter(row=>row&&typeof row==='object'&&trim(row.name));
     if(!rows.length)return [{code:'',name:trim(opp&&opp.name)||'商机',model:'',unit:'',qty:1,price:number(opp&&opp.amount)}];
     return rows.map(row=>{
       const name=trim(row.name),hit=library.find(p=>p&&trim(p.name).toLowerCase()===name.toLowerCase());

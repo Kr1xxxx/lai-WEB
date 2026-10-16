@@ -524,6 +524,10 @@
   font-size: 12px;
   color: var(--text-muted, #8c8c8c);
 }
+.ce-contact-remove[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .ce-body .ce-contact-card .ce-field {
   margin-bottom: 20px;
 }
@@ -783,3 +787,6 @@
 .ce-plus {
   min-height: 28px;
 }
+/* 角色字段权限：只读字段看得出不能改 */
+#customer-form [data-role-readonly] :is(input, select, textarea, button):disabled,
+#customer-form :is(input, textarea)[readonly] { background: var(--ink-50); color: var(--ink-600); cursor: not-allowed; }

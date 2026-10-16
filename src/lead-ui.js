@@ -3,7 +3,13 @@
   // 线索页面的纯标记生成：列表、回收站、新建／编辑表单、详情（含写跟进）、转客户、标记无效。不读写数据。
   const PAGE=50;
   // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
-  function create(E,model,can=()=>true){
+  // level(key)：字段权限，'edit'｜'read'｜'hidden'（线索的 contact、email 等字段名）；没传时都可编辑。
+  const SEARCH_FIELDS=[['contact','联系人'],['email','邮箱'],['phone','电话'],['product','产品']];
+  function create(E,model,can=()=>true,level=()=>'edit'){
+    const vis=name=>level(name)!=='hidden';
+    const dis=name=>level(name)==='read'?' disabled title="你的角色只能查看，不能修改"':'';
+    // 看不到的字段：值直接清空，后面的标记就当它没填。
+    const strip=row=>{const out={...row};for(const name of ['contact','email','phone','country','source','website','product','note'])if(!vis(name))out[name]='';return out;};
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     const shortDate=(day,today)=>day?(String(day).slice(0,4)===String(today).slice(0,4)?String(day).slice(5):String(day)):'—';
     const chip=row=>`<span class="opp-chip lead-status lead-status-${E(row.status)}">${E(row.statusLabel)}</span>`;
@@ -30,9 +36,9 @@
       const f=page.filters;
       const owners=page.owners.map(name=>option(name,name,f.owner&&name.toLowerCase()===f.owner.toLowerCase()?name:'')).join('')+(page.hasUnassigned?option('未分配','未分配',f.owner):'');
       const sources=page.sources.map(name=>option(name,name,f.source&&name.toLowerCase()===f.source.toLowerCase()?name:'')).join('');
-      return `<div class="opp-toolbar lead-toolbar"><input type="search" id="lead-search" value="${E(f.search)}" placeholder="搜索名称、联系人、邮箱、电话、产品" aria-label="搜索线索">`
+      return `<div class="opp-toolbar lead-toolbar"><input type="search" id="lead-search" value="${E(f.search)}" placeholder="搜索${['名称',...SEARCH_FIELDS.filter(([name])=>vis(name)).map(([,label])=>label)].join('、')}" aria-label="搜索线索">`
         +`<select id="lead-owner" aria-label="跟进人"><option value="">全部跟进人</option>${owners}</select>`
-        +`<select id="lead-source" aria-label="线索来源"><option value="">全部来源</option>${sources}</select>`
+        +(vis('source')?`<select id="lead-source" aria-label="线索来源"><option value="">全部来源</option>${sources}</select>`:'')
         +`<button type="button" class="lead-due-toggle" data-lead-action="due" aria-pressed="${f.due}">该跟进的<b>${page.dueCount}</b></button>`
         +`<select id="lead-sort" class="opp-sort" aria-label="排序">${model.SORTS.map(([id,label])=>option(id,label,f.sort)).join('')}</select></div>`;
     }
@@ -46,16 +52,18 @@
       const shown=page.rows.slice(0,limit),rest=page.rows.length-shown.length;
       if(!page.total)return `<section class="business-section lead-empty"><strong>还没有线索</strong><p>线索是还没成为客户的潜在买家：展会上拿到的名片、官网的询盘、别人介绍的联系人。先记在这里跟进，谈成了再一键转为客户。</p>${can('lead.create')?'<button type="button" class="primary" data-lead-action="new">新建线索</button>':''}</section>`;
       if(!page.rows.length)return '<section class="business-section lead-empty"><strong>没有符合条件的线索</strong><p>换一个状态，或清空搜索和筛选条件再看。</p></section>';
-      const body=shown.map(row=>{
+      const showContact=vis('contact')||vis('email')||vis('phone');
+      const body=shown.map(source=>{
+        const row=strip(source);
         const dup=duplicateNote(row);
         return `<tr${row.overdue?' class="lead-row-overdue"':''}><td><button type="button" class="company-link" data-lead-action="open" data-id="${E(row.id)}">${E(row.name)}</button>${dup?`<span class="opp-chip lead-dup" title="${E(dup)}">可能重复</span>`:''}${row.product?`<small class="lead-sub">${E(row.product)}</small>`:''}</td>`
-          +`<td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:row.phone?`<small class="lead-sub">${E(row.phone)}</small>`:''}</td>`
-          +`<td class="lead-nowrap">${E(row.country||'—')}</td><td class="lead-nowrap">${E(row.source||'—')}</td><td class="lead-nowrap">${E(row.owner||'未分配')}</td>`
+          +(showContact?`<td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:row.phone?`<small class="lead-sub">${E(row.phone)}</small>`:''}</td>`:'')
+          +(vis('country')?`<td class="lead-nowrap">${E(row.country||'—')}</td>`:'')+(vis('source')?`<td class="lead-nowrap">${E(row.source||'—')}</td>`:'')+`<td class="lead-nowrap">${E(row.owner||'未分配')}</td>`
           +`<td>${chip(row)}${row.status==='converted'?`<small class="lead-sub">${customerLink(row)}</small>`:row.status==='invalid'&&row.invalidReason?`<small class="lead-sub">${E(row.invalidReason)}</small>`:''}</td>`
           +`<td>${row.lastFollowDay?`<span class="lead-nowrap">${E(shortDate(row.lastFollowDay,today))}</span><small class="lead-sub lead-clip" title="${E(row.lastFollowText)}">${E(row.lastFollowText)}</small>`:'<span class="lead-muted">未跟进</span>'}</td>`
           +`<td class="lead-nowrap">${nextFollowCell(row,today)}</td><td class="lead-nowrap">${E(shortDate(row.createdDay,today))}</td><td class="lead-actions">${rowActions(row)}</td></tr>`;
       }).join('');
-      return `<section class="business-section opp-list lead-list"><div class="team-table-scroll"><table class="order-table team-table lead-table"><thead><tr><th>线索名称</th><th>联系人</th><th>国家地区</th><th>来源</th><th>跟进人</th><th>状态</th><th>最近跟进</th><th>下次跟进</th><th>创建</th><th>操作</th></tr></thead><tbody>${body}</tbody></table></div>`
+      return `<section class="business-section opp-list lead-list"><div class="team-table-scroll"><table class="order-table team-table lead-table"><thead><tr><th>线索名称</th>${showContact?'<th>联系人</th>':''}${vis('country')?'<th>国家地区</th>':''}${vis('source')?'<th>来源</th>':''}<th>跟进人</th><th>状态</th><th>最近跟进</th><th>下次跟进</th><th>创建</th><th>操作</th></tr></thead><tbody>${body}</tbody></table></div>`
         +(rest>0?`<button type="button" class="opp-more" data-lead-action="more">再显示 ${Math.min(PAGE,rest)} 条（还有 ${rest} 条）</button>`:'')+'</section>';
     }
     const pageMarkup=(page,view={},today='')=>`<div class="business-scroll opp-page lead-page">${tabs(page)}${toolbar(page)}${table(page,view,today)}</div>`;
@@ -63,9 +71,8 @@
 
     function trashMarkup(rows,armed='',today=''){
       if(!rows.length)return '<div class="business-scroll opp-page lead-page"><section class="business-section lead-empty"><strong>回收站是空的</strong><p>移入回收站的线索会放在这里，可以恢复，也可以彻底删除。</p></section></div>';
-      return `<div class="business-scroll opp-page lead-page"><div class="error" id="lead-trash-error" role="alert"></div><section class="business-section opp-list lead-list"><div class="team-table-scroll"><table class="order-table team-table lead-table"><thead><tr><th>线索名称</th><th>联系人</th><th>来源</th><th>跟进人</th><th>状态</th><th>移入时间</th><th>操作</th></tr></thead><tbody>${rows.map(row=>
-        `<tr><td>${E(row.name)}</td><td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:''}</td><td>${E(row.source||'—')}</td><td>${E(row.owner||'未分配')}</td><td>${chip(row)}</td><td>${E(shortDate(row.trashedDay,today))}</td>`
-        +`<td class="lead-actions">${can('lead.edit')?`<button type="button" data-lead-action="restore" data-id="${E(row.id)}">恢复</button>`:''}${can('lead.delete')?`<button type="button" class="lead-danger" data-lead-action="delete" data-id="${E(row.id)}">${armed===row.id?'再点一次，彻底删除':'彻底删除'}</button>`:''}</td></tr>`).join('')}</tbody></table></div></section></div>`;
+      return `<div class="business-scroll opp-page lead-page"><div class="error" id="lead-trash-error" role="alert"></div><section class="business-section opp-list lead-list"><div class="team-table-scroll"><table class="order-table team-table lead-table"><thead><tr><th>线索名称</th>${vis('contact')||vis('email')?'<th>联系人</th>':''}${vis('source')?'<th>来源</th>':''}<th>跟进人</th><th>状态</th><th>移入时间</th><th>操作</th></tr></thead><tbody>${rows.map(source=>{const row=strip(source);return `<tr><td>${E(row.name)}</td>${vis('contact')||vis('email')?`<td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:''}</td>`:''}${vis('source')?`<td>${E(row.source||'—')}</td>`:''}<td>${E(row.owner||'未分配')}</td><td>${chip(row)}</td><td>${E(shortDate(row.trashedDay,today))}</td>`
+        +`<td class="lead-actions">${can('lead.edit')?`<button type="button" data-lead-action="restore" data-id="${E(row.id)}">恢复</button>`:''}${can('lead.purge')?`<button type="button" class="lead-danger" data-lead-action="delete" data-id="${E(row.id)}">${armed===row.id?'再点一次，彻底删除':'彻底删除'}</button>`:''}</td></tr>`}).join('')}</tbody></table></div></section></div>`;
     }
 
     const req='<i class="opp-req" aria-hidden="true">*</i>';
@@ -76,22 +83,23 @@
       return `<form class="drawer-body opp-form lead-form" id="lead-form"><div class="error" id="lead-error" role="alert"></div><p class="lead-banner is-dup" id="lead-warn" role="status" hidden></p>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
         +field('线索名称',`<input name="name" value="${E(v.name||'')}" placeholder="公司名称；个人买家填姓名" maxlength="120" autocomplete="off" required>`,{required:true,wide:true})
-        +field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off">`)
-        +field('邮箱',`<input name="email" type="email" value="${E(v.email||'')}" maxlength="120" autocomplete="off">`)
-        +field('电话',`<input name="phone" value="${E(v.phone||'')}" maxlength="40" autocomplete="off" placeholder="含国家区号">`)
-        +field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off">`,{hint:'转为客户时必填，现在可以先空着'})
-        +field('网址',`<input name="website" value="${E(v.website||'')}" maxlength="200" autocomplete="off">`,{wide:true})
+        +(vis('contact')?field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off"${dis('contact')}>`):'')
+        +(vis('email')?field('邮箱',`<input name="email" type="email" value="${E(v.email||'')}" maxlength="120" autocomplete="off"${dis('email')}>`):'')
+        +(vis('phone')?field('电话',`<input name="phone" value="${E(v.phone||'')}" maxlength="40" autocomplete="off" placeholder="含国家区号"${dis('phone')}>`):'')
+        +(vis('country')?field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off"${dis('country')}>`,{hint:'转为客户时必填，现在可以先空着'}):'')
+        +(vis('website')?field('网址',`<input name="website" value="${E(v.website||'')}" maxlength="200" autocomplete="off"${dis('website')}>`,{wide:true}):'')
         +`</div><div class="form-section">跟进安排</div><div class="opp-grid">`
-        +field('线索来源',`<input name="source" value="${E(v.source||'')}" list="lead-source-list" maxlength="40" autocomplete="off" placeholder="输入或选择">${datalist('lead-source-list',context.sources)}`)
+        +(vis('source')?field('线索来源',`<input name="source" value="${E(v.source||'')}" list="lead-source-list" maxlength="40" autocomplete="off" placeholder="输入或选择"${dis('source')}>${datalist('lead-source-list',context.sources)}`):'')
         +field('跟进人',`<input name="owner" value="${E(v.owner||'')}" list="lead-owner-list" maxlength="40" autocomplete="off" placeholder="留空表示未分配"${can('lead.reassign')?'':' readonly'}>${datalist('lead-owner-list',context.owners)}`)
         +field('下次跟进日期',`<input name="nextFollow" type="date" value="${E(v.nextFollow||'')}">`)
-        +field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off">`)
-        +field('备注',`<textarea name="note" rows="4" maxlength="2000">${E(v.note||'')}</textarea>`,{wide:true})
+        +(vis('product')?field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off"${dis('product')}>`):'')
+        +(vis('note')?field('备注',`<textarea name="note" rows="4" maxlength="2000"${dis('note')}>${E(v.note||'')}</textarea>`,{wide:true}):'')
         +`</div></form>`;
     }
 
     // 详情：上面是资料和可做的操作，中间是写跟进，下面是全部记录（新的在前）。
-    function detailMarkup(row,today=''){
+    function detailMarkup(source,today=''){
+      const row=strip(source);
       const open=['new','following'].includes(row.status);
       const info=(label,value)=>`<div class="lead-info"><dt>${label}</dt><dd>${value||'<span class="lead-muted">—</span>'}</dd></div>`;
       const dup=duplicateNote(row);
@@ -109,7 +117,7 @@
       return `<div class="drawer-body opp-form lead-detail"><div class="error" id="lead-detail-error" role="alert"></div>`
         +`<div class="lead-detail-head">${chip(row)}${row.overdue?`<span class="opp-due is-overdue">跟进逾期 ${E(shortDate(row.nextFollow,today))}</span>`:row.dueToday?'<span class="opp-due lead-today">今天该跟进</span>':''}${dup?`<span class="opp-chip lead-dup">可能重复</span>`:''}</div>`
         +(dup?`<p class="lead-banner is-dup">${E(dup)}。转为客户时可以选择关联到已有客户。</p>`:'')+banner
-        +`<dl class="lead-infos">${info('联系人',E(row.contact))}${info('邮箱',E(row.email))}${info('电话',E(row.phone))}${info('国家地区',E(row.country))}${info('线索来源',E(row.source))}${info('跟进人',E(row.owner||'未分配'))}${info('意向产品',E(row.product))}${info('网址',E(row.website))}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
+        +`<dl class="lead-infos">${(vis('contact')?info('联系人',E(row.contact)):'')+(vis('email')?info('邮箱',E(row.email)):'')+(vis('phone')?info('电话',E(row.phone)):'')+(vis('country')?info('国家地区',E(row.country)):'')+(vis('source')?info('线索来源',E(row.source)):'')}${info('跟进人',E(row.owner||'未分配'))}${(vis('product')?info('意向产品',E(row.product)):'')+(vis('website')?info('网址',E(row.website)):'')}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
         +(row.note?`<p class="lead-note">${E(row.note)}</p>`:'')
         +(actions?`<div class="lead-detail-actions">${actions}</div>`:'')+`${follow}<div class="form-section">记录</div>${timeline}</div>`;
     }

@@ -129,8 +129,10 @@
     const show=visible===undefined?current[key].visible:!!visible;
     const need=show&&(required===undefined?current[key].required:!!required);
     if(need&&!current[key].required){
-      const form=layoutById(state,settings(state).layoutUse.form);
-      if(form&&!form.sections.some(sec=>sec.fields.includes(key)))throw new Error(`“${labelOf(key)}”被新建/编辑用的布局隐藏了，先在布局里把它显示出来`);
+      for(const id of formLayoutIds(state)){
+        const form=layoutById(state,id);
+        if(form&&!form.sections.some(sec=>sec.fields.includes(key)))throw new Error(`“${labelOf(key)}”被新建/编辑用的布局隐藏了，先在布局里把它显示出来`);
+      }
     }
     return put(state,{fields:{...current,[key]:{visible:show,required:need}}});
   }
@@ -259,6 +261,38 @@
   }
   // ---------- 产品 ----------
   const visibleFields=state=>FIELDS.filter(([key])=>settings(state).fields[key].visible);
+  // ---------- 角色：字段权限和产品编号权限（要有 role-model.js；没有就当没有限制）----------
+  const RM=()=>root.LaiRoleModel||null;
+  // 产品字段权限里能设的字段：当前显示着的、不是必填的，不含产品名称和产品编号（编号由“编辑产品编号”两项权限管）。
+  // key 就是产品上存的名字；规格存在 specs 里，有规格类型时也能设。
+  function roleFieldList(state){
+    const config=settings(state).fields;
+    const rows=FIELDS.filter(([key])=>!FIXED.includes(key)&&key!=='code'&&config[key].visible&&!config[key].required).map(([key,label,group])=>({key,label,group}));
+    if(settings(state).specs.length)rows.push({key:'specs',label:'规格',group:'规格'});
+    return rows;
+  }
+  // 当前账号不能改的产品字段（只读和隐藏）。existing：是改已有的产品，还是新建；产品编号看 product.codeEdit / product.codeNew。
+  function lockedKeys(state,existing=true){
+    const role=RM();
+    if(!role)return new Set();
+    const out=new Set(role.lockedFields(state,'product'));
+    if(!role.can(state,existing?'product.codeEdit':'product.codeNew'))out.add('code');
+    return out;
+  }
+  // 当前账号看不到的产品字段。
+  function hiddenKeys(state){
+    const role=RM();
+    return new Set(role?role.lockedFields(state,'product').filter(key=>!role.fieldVisible(state,'product',key)):[]);
+  }
+  // 给订单明细等“拿产品字段用”的地方：看不到的字段清空，免得绕过字段权限。
+  function forRole(state,product){
+    if(!product)return product;
+    const hidden=hiddenKeys(state);
+    if(!hidden.size)return product;
+    const out={...product};
+    for(const key of hidden)if(Object.hasOwn(out,key))out[key]=key==='specs'?[]:'';
+    return out;
+  }
   function emptyValues(state){
     const values={specs:[]};
     for(const key of FIELD_KEYS)values[key]='';
@@ -285,9 +319,12 @@
     assertReadable(state);
     const config=settings(state).fields;
     const previous=raw(state).find(p=>p.id===id);
+    // 角色不能改的字段：保留原来的值（新建就留空），也不检查必填，免得挡住保存。
+    const locked=lockedKeys(state,!!previous);
     const next={...(previous||{}),id:id||newId(),updatedAt:at};
     if(!previous)next.createdAt=at;
     for(const [key,label,,type] of FIELDS){
+      if(locked.has(key)){next[key]=previous?previous[key]??'':'';continue;}
       if(!config[key].visible){next[key]=previous?trim(previous[key]):'';continue;}
       let value=trim(input[key]);
       if(config[key].required&&!value)throw new Error(`请填写${label}`);
@@ -300,8 +337,8 @@
       next[key]=value;
     }
     if(!trim(next.name))throw new Error('请填写产品名称');
-    if(trim(next.code)&&raw(state).some(p=>p.id!==next.id&&norm(p.code)===norm(next.code)))throw new Error('产品编号已经有了，请换一个');
-    next.specs=Object.hasOwn(input,'specs')?cleanSpecs(state,input.specs):(previous&&Array.isArray(previous.specs)?previous.specs:[]);
+    if(!locked.has('code')&&trim(next.code)&&raw(state).some(p=>p.id!==next.id&&norm(p.code)===norm(next.code)))throw new Error('产品编号已经有了，请换一个');
+    next.specs=Object.hasOwn(input,'specs')&&!locked.has('specs')?cleanSpecs(state,input.specs):(previous&&Array.isArray(previous.specs)?previous.specs:[]);
     if(!previous&&raw(state).length>=LIMITS.products)throw new Error(`产品最多 ${LIMITS.products} 个`);
     const list=raw(state);
     return {...state,laiProducts:previous?list.map(p=>p.id===next.id?next:p):[next,...list]};
@@ -312,11 +349,12 @@
     return {...state,laiProducts:raw(state).filter(p=>p.id!==id)};
   }
   function list(state,filters={}){
-    const search=norm(filters.search),group=trim(filters.group);
+    const search=norm(filters.search),group=trim(filters.group),hidden=hiddenKeys(state);
     return raw(state).filter(p=>{
-      if(group&&!(trim(p.group)===group||trim(p.group).startsWith(group+SEP)))return false;
+      if(group&&!hidden.has('group')&&!(trim(p.group)===group||trim(p.group).startsWith(group+SEP)))return false;
       if(!search)return true;
-      return [p.name,p.nameCn,p.code,p.model,p.remark].some(v=>norm(v).includes(search));
+      // 看不到的字段不参与搜索，免得搜出它的内容。
+      return [['name',p.name],['nameCn',p.nameCn],['code',p.code],['model',p.model],['remark',p.remark]].some(([key,v])=>!hidden.has(key)&&norm(v).includes(search));
     }).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))||trim(a.name).localeCompare(trim(b.name),'zh'));
   }
   const find=(state,id)=>raw(state).find(p=>p.id===id)||null;
@@ -327,6 +365,27 @@
   const defaultLayout=()=>({id:DEFAULT_LAYOUT,name:'默认布局',builtin:true,sections:SECTIONS.map(name=>({name,fields:FIELDS.filter(item=>item[2]===name).map(item=>item[0])}))});
   const layoutList=state=>[defaultLayout(),...settings(state).layouts];
   function layoutById(state,id){return layoutList(state).find(l=>l.id===id)||null;}
+  // 角色选了哪个布局：[{roleId,roleName,form,detail}]，只算布局还在的；没有角色模块就是空。
+  function roleLayouts(state){
+    const role=RM();
+    if(!role)return [];
+    return role.settings(state).roles.map(r=>({roleId:r.id,roleName:r.name,form:r.layouts?.product?.form||'',detail:r.layouts?.product?.detail||''}))
+      .filter(r=>r.form||r.detail);
+  }
+  // 哪些角色在用这个布局：[{roleId,roleName,places:['新建/编辑产品',…]}]
+  function rolesUsing(state,id){
+    return roleLayouts(state).map(r=>({roleId:r.roleId,roleName:r.roleName,places:PLACES.filter(([place])=>r[place]===id).map(item=>item[1])})).filter(r=>r.places.length);
+  }
+  // 新建/编辑实际会用到的布局：默认分配的，加上有角色选了的。
+  function formLayoutIds(state){
+    return [...new Set([settings(state).layoutUse.form,...roleLayouts(state).map(r=>r.form).filter(Boolean)])];
+  }
+  // 当前账号在这个位置用的布局：角色选了并且布局还在就用它，不然用“产品 → 布局”里的默认分配。
+  function layoutForPlace(state,place){
+    const role=RM();
+    const mine=role&&role.productLayoutOf?role.productLayoutOf(state)[place]:'';
+    return (mine&&layoutById(state,mine))||layoutById(state,settings(state).layoutUse[place])||defaultLayout();
+  }
   const placeLabel=place=>(PLACES.find(item=>item[0]===place)||[place,place])[1];
   const placesOf=(state,id)=>PLACES.filter(([place])=>settings(state).layoutUse[place]===id).map(item=>item[1]);
   function cleanLabel(value,label){
@@ -347,7 +406,7 @@
     if(!layout)throw new Error(id===DEFAULT_LAYOUT?'默认布局不能改，请先复制为新布局':'没有找到这个布局');
     const copy={...layout,sections:layout.sections.map(sec=>({...sec,fields:sec.fields.slice()}))};
     change(copy);
-    if(s.layoutUse.form===id)assertFormLayout(state,copy);
+    if(formLayoutIds(state).includes(id))assertFormLayout(state,copy);
     return put(state,{layouts:s.layouts.map(l=>l.id===id?copy:l)});
   }
   // 从已有布局（默认是「默认布局」）复制出一个新的可编辑布局。
@@ -379,6 +438,8 @@
     if(!layout)throw new Error('没有找到这个布局');
     const places=placesOf(state,id);
     if(places.length)throw new Error(`“${layout.name}”正在用于${places.join('、')}，先把用到它的地方换成别的布局`);
+    const roles=rolesUsing(state,id);
+    if(roles.length)throw new Error(`角色“${roles.map(r=>r.roleName).join('”“')}”正在用这个布局，先到角色里换成别的布局`);
     return put(state,{layouts:settings(state).layouts.filter(l=>l.id!==id)});
   }
   function setLayoutUse(state,place,layoutId){
@@ -387,6 +448,15 @@
     if(!layout)throw new Error('没有找到这个布局');
     if(place==='form')assertFormLayout(state,layout);
     return put(state,{layoutUse:{...settings(state).layoutUse,[place]:layoutId}});
+  }
+  // 给角色选产品布局前检查：布局要还在；新建/编辑用的布局不能藏起必填字段。出错时抛出提示。
+  function checkRoleLayout(state,place,layoutId){
+    if(!PLACES.some(item=>item[0]===place))throw new Error('没有这个位置');
+    if(!layoutId)return true;
+    const layout=layoutById(state,layoutId);
+    if(!layout)throw new Error('没有找到这个布局');
+    if(place==='form')assertFormLayout(state,layout);
+    return true;
   }
   const secAt=(layout,index)=>{
     const sec=layout.sections[index];
@@ -450,12 +520,13 @@
   // 按布局排好的信息区；产品字段里整体隐藏的字段不出现；空的信息区不出现。
   function sectionsFor(state,place){
     const s=settings(state);
-    const layout=layoutById(state,s.layoutUse[place])||defaultLayout();
+    const layout=layoutForPlace(state,place);
+    const hidden=hiddenKeys(state);
     const field=key=>FIELDS.find(item=>item[0]===key);
-    const out=layout.sections.map(sec=>({name:sec.name,fields:sec.fields.filter(key=>s.fields[key].visible).map(field)})).filter(sec=>sec.fields.length);
+    const out=layout.sections.map(sec=>({name:sec.name,fields:sec.fields.filter(key=>s.fields[key].visible&&!hidden.has(key)).map(field)})).filter(sec=>sec.fields.length);
     if(place==='form'){
       const shown=new Set(out.flatMap(sec=>sec.fields.map(item=>item[0])));
-      const missing=FIELD_KEYS.filter(key=>s.fields[key].visible&&s.fields[key].required&&!shown.has(key)).map(field);
+      const missing=FIELD_KEYS.filter(key=>s.fields[key].visible&&s.fields[key].required&&!hidden.has(key)&&!shown.has(key)).map(field);
       if(missing.length)out.push({name:'其他',fields:missing});
     }
     return out;
@@ -476,10 +547,16 @@
     if(state&&state.laiProductSyncTasks!==undefined&&state.laiProductSyncTasks!==null&&!Array.isArray(state.laiProductSyncTasks))throw new Error('已保存的导入记录格式异常，为避免覆盖，未做任何修改');
   }
   // 模板的表头：所有显示着的产品字段。
-  const templateHeaders=state=>visibleFields(state).map(item=>item[1]);
+  // 角色不能改的字段（编号除外，同步要靠它对上）不在模板里。
+  const templateHeaders=state=>{
+    const locked=lockedKeys(state,false);
+    const hidden=hiddenKeys(state);
+    return visibleFields(state).filter(([key])=>!hidden.has(key)&&(key==='code'||!locked.has(key))).map(item=>item[1]);
+  };
   // 把表格（表头 + 每行的格子）按字段名称对上产品字段。隐藏的字段、认不得的列都不用。
   function readTable(state,headers,rows,lineNumbers){
     const config=settings(state).fields;
+    const roleHidden=hiddenKeys(state);
     const lookup=new Map();
     for(const [key,label] of FIELDS){lookup.set(norm(label),key);if(!lookup.has(bare(label)))lookup.set(bare(label),key);lookup.set(norm(key),key);}
     const cols=[],ignored=[],hidden=[],seen=new Set();
@@ -487,7 +564,7 @@
       const text=trim(head);
       if(!text)return;
       const key=lookup.get(norm(text))||lookup.get(bare(text));
-      if(!key){ignored.push(text);return;}
+      if(!key||roleHidden.has(key)){ignored.push(text);return;}
       if(!config[key].visible){hidden.push(labelOf(key));return;}
       if(seen.has(key)){ignored.push(text);return;}
       seen.add(key);cols.push([key,index]);
@@ -512,6 +589,8 @@
     if(list.length>LIMITS.syncRows)throw new Error(`一次最多导入 ${LIMITS.syncRows} 行，这个文件有 ${list.length} 行`);
     const byMode=mode==='new'?'new':'code';
     const config=settings(state).fields,groups=groupChoices(state);
+    // 角色不能改的字段：新建的产品不能填，更新时不改；编号只在新建时看“编辑产品编号（新建产品）”，更新从来不改编号。
+    const lockedNew=lockedKeys(state,false),lockedOld=lockedKeys(state,true);
     const existing=raw(state);
     const byCode=new Map();
     for(const p of existing)if(trim(p.code)&&!byCode.has(norm(p.code)))byCode.set(norm(p.code),p);
@@ -544,10 +623,14 @@
           if(byMode==='code')target=byCode.get(codeKey);else skip('产品编号已经有了');
         }
       }
+      const drop=target?lockedOld:lockedNew;
+      const dropped=Object.keys(values).filter(key=>drop.has(key)&&!(target&&key==='code'));
+      for(const key of dropped)delete values[key];
+      if(dropped.length)warnings.push(`${dropped.map(labelOf).map(name=>`“${name}”`).join('')}你没有权限修改，已忽略`);
       const merged={...(target||{}),...values};
       let changes=Object.keys(values);
       if(!reason)for(const [key,label] of FIELDS){
-        if(config[key].required&&!trim(merged[key])){skip(key==='name'?'缺产品名称':`缺少“${label}”`);break;}
+        if(config[key].required&&!trim(merged[key])&&!drop.has(key)){skip(key==='name'?'缺产品名称':`缺少“${label}”`);break;}
       }
       if(!reason&&target){
         changes=changes.filter(key=>key!=='code'&&values[key]!==trim(target[key]));
@@ -607,7 +690,7 @@
     return {state:{...state,laiProducts:list,laiProductSyncTasks:tasks.map(t=>t.id===task.id?done:t)},task:done,result:done.result};
   }
 
-  const api={LIMITS,SEP,SECTIONS,FIELDS,FIXED,labelOf,typeOf,settings,setField,addGroup,renameGroup,moveGroup,deleteGroup,groupChoices,groupUse,
+  const api={LIMITS,SEP,SECTIONS,FIELDS,FIXED,roleFieldList,lockedKeys,hiddenKeys,forRole,roleLayouts,rolesUsing,layoutForPlace,checkRoleLayout,labelOf,typeOf,settings,setField,addGroup,renameGroup,moveGroup,deleteGroup,groupChoices,groupUse,
     addSpec,renameSpec,deleteSpec,addSpecValue,removeSpecValue,specUse,visibleFields,emptyValues,upsert,remove,list,find,names,
     PLACES,DEFAULT_LAYOUT,layoutList,layoutById,placeLabel,placesOf,addLayout,suggestLayoutName,renameLayout,deleteLayout,setLayoutUse,renameSection,moveSection,moveLayoutField,moveFieldToSection,hideLayoutField,showLayoutField,formSections,detailSections,
     SYNC_MODES,SYNC_SOURCE,syncTasks,undoableTask,templateHeaders,readTable,planSync,syncProducts,undoSync};

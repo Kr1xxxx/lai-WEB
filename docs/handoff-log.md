@@ -21,6 +21,10 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   回款 columns and ~20 placeholder entries removed per D-003/D-006), D (UI audit fixes, audit false positive). Data-safety
   batch kept on local `data-safety-pr2` for a separate needs-owner PR. Closed duplicate PR #16 (owner agreed). Branch deletion
   was blocked by the session's safety rules. Next: owner 合并, then the data-safety PR, then publish the web trial.
+- 2026-10-16 — Claude — #14 merged. Owner asked for 部门, 按角色分配产品布局 and 按字段控制权限. Built on
+  `claude/project-thread-5ob5ux` (PR #15) in four worktrees: role model v2 (departments, 本部门, 部门管理员, field levels,
+  `keepLocked`, product layouts, split perms), role/member pages, products + team data, leads + opportunities, customers.
+  Known gap: hidden opportunity fields may still show on the customer detail opportunity list, the workbench and quote/PI generation.
 - 2026-10-16 — Claude — Merged lai-WEB #11 (owner said 合并). Owner asked for 角色分配 with test accounts, roles 管理员 and 业务
   (screenshots of 小满 角色权限 / 编辑角色). Built on `claude/project-thread-5ob5ux` in three parallel worktrees: `src/role-model.js`
   (`laiSettings.roles`; 系统管理员 locked with all perms; 业务 defaults from 小满 普通用户; scope self/all; `can`, `canSee`,
