@@ -90,9 +90,9 @@ test('permission keys map to modules; settings.switch and the other keys belong 
 
 test('effective access is role AND module: off wins for everyone including the admin, and the role matrix still lists the permissions', () => {
   const base = { laiSettings: {} };
-  assert.equal(FS.install(R), true);
-  assert.equal(FS.install(R), false, 'installing twice does nothing');
-  try {
+  // the role model checks the switch itself: nothing is installed or patched at load time
+  for (const gone of ['install', 'uninstall', 'patchDealDate', 'unpatchDealDate']) assert.equal(FS[gone], undefined, `FS.${gone} is gone`);
+  {
     const admin = R.settings(base);
     assert.equal(R.roleOf(base).id, 'admin', 'the default account is the admin');
     const adminOn = (state, key) => R.can(state, key);
@@ -117,10 +117,33 @@ test('effective access is role AND module: off wins for everyone including the a
     assert.ok(R.KEYS.includes('opp.create') && R.KEYS.includes('settings.switch'));
     assert.equal(admin.roles.find((role) => role.id === 'admin').perms['opp.create'], true, 'the stored permission is untouched');
     assert.equal(adminOn(FS.set(noOpp, 'opp', true), 'opp.create'), true, 'turning it back on restores everything');
-  } finally {
-    FS.uninstall(R);
+    // the role model reads state.laiSettings.featureSwitch.off by itself, no feature-switch-model needed
+    assert.equal(R.can({ laiSettings: { featureSwitch: { off: ['opp'] } } }, 'opp.view'), false);
+    assert.equal(R.canOpen({ laiSettings: { featureSwitch: { off: ['mail'] } } }, 'mail', 'inbox'), false);
+    for (const junk of [undefined, {}, { laiSettings: {} }, { laiSettings: { featureSwitch: { off: 'opp' } } }, { laiSettings: { featureSwitch: 5 } }]) assert.equal(R.can(junk, 'opp.view'), true, JSON.stringify(junk));
   }
-  assert.equal(R.can({ laiSettings: { featureSwitch: { off: ['opp'] } } }, 'opp.view'), true, 'uninstalled: the plain role answer again');
+});
+
+test('the key/route/entry → module tables live in role-model.js and feature-switch-model.js exposes the same answers', () => {
+  const keys = [...R.KEYS, 'lead.view', 'settings.lead', 'settings.opportunity', 'settings.product', 'settings.docTemplate', 'settings.switch', 'customer.view', '', 'toString.x', 'mail'];
+  for (const key of keys) assert.equal(FS.moduleOfKey(key), R.moduleOfKey(key), String(key));
+  for (const route of [...Object.keys(FS.ROUTE_MODULE), 'customers', 'dashboard', 'toString']) assert.equal(FS.moduleOfRoute(route), R.moduleOfRoute(route), route);
+  assert.equal(R.moduleOfEntry('mail', 'inbox'), 'mail');
+  assert.equal(R.moduleOfEntry('route', 'leads'), 'lead');
+  assert.equal(R.moduleOfEntry('screen', 'active'), '');
+  // every route the page table ties to a switchable permission is also mapped to the module that permission belongs to
+  for (const [route, key] of Object.entries(R.PAGE_PERMS.route)) {
+    const byKey = R.moduleOfKey(key);
+    if (byKey) assert.equal(R.moduleOfRoute(route), byKey, route);
+  }
+  // role-model.js alone (fresh vm, nothing else loaded) answers the switch
+  const vm = require('node:vm');
+  const sandbox = { window: undefined };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(read('src/role-model.js'), sandbox);
+  assert.equal(sandbox.LaiRoleModel.can({ laiSettings: { featureSwitch: { off: ['chat'] } } }, 'chat.view'), false);
+  assert.equal(sandbox.LaiRoleModel.can({ laiSettings: {} }, 'chat.view'), true);
 });
 
 test('entryAllowed in app.js is the module check AND the role check; menus, flyouts, sub-navigation and 常用 all read it', () => {
@@ -129,8 +152,7 @@ test('entryAllowed in app.js is the module check AND the role check; menus, flyo
   for (const reader of ['menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed)', 'favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed)', 'const railHidden', 'const railRoute']) assert.ok(app.includes(reader), reader);
   assert.match(app, /section\.entries = section\.entries\.filter\(entryAllowed\)/, 'sub-navigation');
   // the same rule, evaluated here against the real menus
-  FS.install(R);
-  try {
+  {
     const open = (state) => (row) => row.kind === 'feature' || (FS.entryOn(state, row.kind, row.target) && R.canOpen(state, row.kind, row.target));
     const rail = (state) => ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户'].filter((label) => RM.menuFor(label).some(open(state)));
     assert.deepEqual(rail({}), ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户']);
@@ -150,8 +172,8 @@ test('entryAllowed in app.js is the module check AND the role check; menus, flyo
     assert.deepEqual(RM.menuFor('设置').filter(open(none)).map((row) => row.target), ['settings', 'settings-hub', 'feature-switch']);
     assert.deepEqual(RM.menuFor('客户').filter(open(none)).length, 4);
     assert.deepEqual(RM.menuFor('工作台').filter(open(none)).map((row) => row.target), ['dashboard']);
-  } finally {
-    FS.uninstall(R);
+    // canOpen alone already hides the entries of a switched-off module
+    assert.equal(RM.menuFor('线索').filter((row) => R.canOpen(FS.set({}, 'lead', false), row.kind, row.target)).length, 0);
   }
 });
 
@@ -196,13 +218,12 @@ test('the 设置中心 hides items of a module that is off, shows the switch pag
   const nothing = hub(off(...FS.IDS));
   for (const keep of ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'rates', 'task-settings']) assert.ok(nothing.includes(keep), keep);
   assert.ok(!ids({ can: (key) => key !== 'settings.switch' }).includes('feature-switch'), 'permission settings.switch is required');
-  // through the role model wrapper the same thing happens without moduleOn
-  FS.install(R);
-  try {
-    const wrapped = (state) => ids({ can: (key) => R.can(state, key) });
-    assert.ok(!wrapped(off('opp')).includes('flows'));
-    assert.ok(wrapped(off('lead')).includes('feature-switch'));
-  } finally { FS.uninstall(R); }
+  // through the role model the same thing happens without moduleOn
+  {
+    const viaRoles = (state) => ids({ can: (key) => R.can(state, key) });
+    assert.ok(!viaRoles(off('opp')).includes('flows'));
+    assert.ok(viaRoles(off('lead')).includes('feature-switch'));
+  }
 });
 
 test('the switch page: one switch per module, the fixed sentence, switches disabled without settings.switch, and a note when 成交 follows 商机', () => {
@@ -269,21 +290,16 @@ test('成交 follows the order rule while 商机 is off, and goes back to the sa
     orders: [{ client: 'Acme', stage: 'shipment', createdAt: '2026-02-01', shippedAt: '2026-03-03' }],
   });
   const byOpp = CS.setDealRule(dealState(), 'opportunity');
-  assert.equal(CS.lastDealDate(byOpp, 'Acme'), '2026-05-05', 'before the patch: the saved rule');
-  assert.equal(FS.patchDealDate(CS), true);
-  assert.equal(FS.patchDealDate(CS), false, 'patching twice does nothing');
-  try {
-    assert.equal(CS.lastDealDate(byOpp, 'Acme'), '2026-05-05', 'opp on: unchanged');
-    const closed = FS.set(byOpp, 'opp', false);
-    assert.equal(CS.lastDealDate(closed, 'Acme'), '2026-03-03', 'opp off: read as 按订单');
-    assert.equal(CS.get(closed).dealRule.by, 'opportunity', 'the saved choice is not changed');
-    assert.equal(FS.dealBasis(closed, CS), 'order');
-    assert.equal(FS.dealBasis(byOpp, CS), 'opportunity');
-    assert.equal(CS.lastDealDate(FS.set(closed, 'opp', true), 'Acme'), '2026-05-05', 'back on: back to 按商机');
-    assert.equal(CS.lastDealDate(FS.set(CS.setDealRule(dealState(), 'order'), 'opp', false), 'Acme'), '2026-03-03', 'order rule: same either way');
-  } finally { FS.unpatchDealDate(CS); }
-  assert.equal(CS.lastDealDate(FS.set(byOpp, 'opp', false), 'Acme'), '2026-05-05', 'unpatched again');
-  assert.match(read('src/feature-switch-model.js'), /patchDealDate\(root\.LaiCustomerSettings\)/, 'the browser installs it when the script loads');
+  assert.equal(CS.lastDealDate(byOpp, 'Acme'), '2026-05-05', 'opp on: the saved rule');
+  const closed = FS.set(byOpp, 'opp', false);
+  assert.equal(CS.lastDealDate(closed, 'Acme'), '2026-03-03', 'opp off: read as 按订单');
+  assert.equal(CS.get(closed).dealRule.by, 'opportunity', 'the saved choice is not changed');
+  assert.equal(FS.dealBasis(closed, CS), 'order');
+  assert.equal(FS.dealBasis(byOpp, CS), 'opportunity');
+  assert.equal(CS.lastDealDate(FS.set(closed, 'opp', true), 'Acme'), '2026-05-05', 'back on: back to 按商机');
+  assert.equal(CS.lastDealDate(FS.set(CS.setDealRule(dealState(), 'order'), 'opp', false), 'Acme'), '2026-03-03', 'order rule: same either way');
+  assert.equal(CS.lastDealDate(FS.set(byOpp, 'mail', false), 'Acme'), '2026-05-05', 'another module off: unchanged');
+  assert.doesNotMatch(read('src/feature-switch-model.js'), /patchDealDate|\.lastDealDate\s*=/, 'nothing is patched at load time');
 });
 
 test('task rules: 商机快到结束日期 does not run while 商机 is off; the rule keeps its switch and runs again later', () => {

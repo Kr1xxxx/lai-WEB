@@ -13,3 +13,4 @@
 .tr-page .tr-table th, .tr-page .tr-table td { text-align: left; vertical-align: top; }
 .tr-page .tr-table button.danger { color: var(--color-danger); border-color: var(--color-danger); }
 .tr-page .tr-note { max-width: 860px; }
+.tr-page .tr-blocked .tr-switch { cursor: not-allowed; color: var(--color-muted, inherit); }

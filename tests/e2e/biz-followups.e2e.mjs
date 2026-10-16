@@ -59,13 +59,15 @@ before(async () => {
   await app.open('customers');
   await save((d) => {
     d.customers[CLIENT] = { client: CLIENT, owner: 'Kris', country: '英国', contact: 'Ann Lee', phone: '7700 900123', phoneCountryCode: '+44', contacts: ['Ann Lee'], history: [] };
-    d.laiSettings = { ...(d.laiSettings || {}), defaultOwner: 'Kris', rates: { list: [{ code: 'EUR', usd100: 108.5, updatedAt: '2026-10-01' }, { code: 'GBP', usd100: 127, updatedAt: '2026-10-01' }] } };
+    d.laiSettings = { ...(d.laiSettings || {}), defaultOwner: 'Kris', whatsapp: { templates: [{ id: 'g1', name: '报价', items: [{ id: 't1', text: '你好 {{姓名}}，{{公司}} 的报价来了' }] }] }, rates: { list: [{ code: 'EUR', usd100: 108.5, updatedAt: '2026-10-01' }, { code: 'GBP', usd100: 127, updatedAt: '2026-10-01' }] } };
     const opt = { now: '2026-10-10T04:00:00.000Z', today: '2026-10-10' };
     const fields = { client: CLIENT, contact: 'Ann Lee', amount: '1000', endDate: '2030-01-31', owner: 'Kris' };
     let next = O.upsert(d, 'o-hundred', { ...fields, currency: 'EUR', exchangeRate: '100' }, opt);
     next = O.upsert(next, 'o-own', { ...fields, currency: 'EUR', exchangeRate: '99' }, opt);
     next = O.upsert(next, 'o-usd', { ...fields, currency: 'USD' }, opt);
     next = L.upsert(next, 'lead-wa', { name: 'Phone Lead GmbH', contact: 'Hans', phone: '0151 2345 6789', country: '德国', owner: 'Kris' }, { now: '2026-10-10T04:00:00.000Z' });
+    next = L.upsert(next, 'lead-done', { name: 'Closed Lead GmbH', contact: 'Eva', phone: '0151 2345 6700', country: '德国', owner: 'Kris' }, { now: '2026-10-10T04:30:00.000Z' });
+    next = { ...next, laiLeads: next.laiLeads.map((x) => (x.id === 'lead-done' ? { ...x, status: 'invalid', invalidReason: 'test' } : x)) };
     next = L.upsert(next, 'lead-bad', { name: 'No Number Lead', phone: 'ask the office' }, { now: '2026-10-10T05:00:00.000Z' });
     return next;
   });
@@ -124,16 +126,16 @@ test('lead detail: a WhatsApp button for a phone that can be dialled; the chat i
   await page.locator('.lead-detail').waitFor();
   await stubOpen();
   await page.locator('.lead-detail [data-lead-action="wa"]').click();
-  await page.locator('#biz-wa-form').waitFor();
-  assert.match(await page.locator('#biz-wa-note').innerText(), /\+4915123456789/, 'the lead country supplies the code');
-  await page.locator('#biz-wa-text').fill('Hallo, wir senden das Angebot.');
-  await page.locator('[data-biz-action="wa-open"]').click();
+  await page.locator('#wa-dlg-form').waitFor();
+  assert.match(await page.locator('#wa-dlg-note').innerText(), /\+4915123456789/, 'the lead country supplies the code');
+  await page.locator('#wa-dlg-text').fill('Hallo, wir senden das Angebot.');
+  await page.locator('[data-chat-action="dlg-open"]').click();
   await settle();
   const urls = await opened();
   assert.equal(urls.length, 1);
   assert.match(urls[0], /^https:\/\/wa\.me\/4915123456789\?text=/);
   assert.match(await page.locator('.wa-ask').innerText(), /发出去了吗/);
-  await page.locator('[data-biz-action="wa-log"]').click();
+  await page.locator('[data-chat-action="dlg-log"]').click();
   await page.locator('.lead-detail').waitFor();
   await settle();
   assert.match(await page.locator('.lead-timeline').innerText(), /WhatsApp 聊天：Hallo, wir senden das Angebot\./);
@@ -141,6 +143,35 @@ test('lead detail: a WhatsApp button for a phone that can be dialled; the chat i
   assert.equal(lead.history[0].type, 'followup');
   assert.equal(lead.status, 'following');
   await closeDialog();
+});
+
+test('lead and opportunity WhatsApp use the same dialog as customers: templates are offered, and an invalid lead is not asked 发出去了吗', async () => {
+  const { page } = app;
+  await go('leads');
+  await page.locator('[data-lead-action="open"][data-id="lead-wa"]').first().click();
+  await page.locator('.lead-detail').waitFor();
+  await page.locator('.lead-detail [data-lead-action="wa"]').click();
+  await page.locator('#wa-dlg-form').waitFor();
+  assert.match(await page.locator('.wa-dlg-who').innerText(), /Phone Lead GmbH · Hans/);
+  assert.equal(await page.locator('#wa-dlg-customer').count(), 0, 'the lead is fixed, no customer picker');
+  const options = await page.locator('#wa-dlg-template option').count();
+  assert.ok(options > 1, 'the chat templates are listed');
+  await page.locator('#wa-dlg-template').selectOption({ index: 1 });
+  assert.equal(await page.locator('#wa-dlg-text').inputValue(), '你好 Hans，Phone Lead GmbH 的报价来了', 'the template takes the lead contact and name');
+  await closeDialog();
+  await closeDialog().catch(() => {});
+  await go('leads');
+  await page.locator('[data-lead-action="open"][data-id="lead-done"]').first().click();
+  await page.locator('.lead-detail').waitFor();
+  await stubOpen();
+  await page.locator('.lead-detail [data-lead-action="wa"]').click();
+  await page.locator('#wa-dlg-form').waitFor();
+  await page.locator('#wa-dlg-text').fill('Hello Eva');
+  await page.locator('[data-chat-action="dlg-open"]').click();
+  await settle();
+  assert.equal((await opened()).length, 1);
+  assert.equal(await page.locator('.wa-ask').count(), 0, 'an invalid lead is not asked, nothing is recorded');
+  assert.deepEqual(pageErrors(), []);
 });
 
 test('opportunity detail: WhatsApp for the linked contact\'s phone; the chat is recorded in the customer 动态', async () => {
@@ -152,13 +183,13 @@ test('opportunity detail: WhatsApp for the linked contact\'s phone; the chat is 
   assert.equal(await button.count(), 1);
   await stubOpen();
   await button.click();
-  await page.locator('#biz-wa-form').waitFor();
-  assert.match(await page.locator('#biz-wa-note').innerText(), /\+447700900123/);
-  await page.locator('#biz-wa-text').fill('Quote sent.');
-  await page.locator('[data-biz-action="wa-open"]').click();
+  await page.locator('#wa-dlg-form').waitFor();
+  assert.match(await page.locator('#wa-dlg-note').innerText(), /\+447700900123/);
+  await page.locator('#wa-dlg-text').fill('Quote sent.');
+  await page.locator('[data-chat-action="dlg-open"]').click();
   await settle();
   assert.match((await opened())[0], /^https:\/\/wa\.me\/447700900123\?text=Quote/);
-  await page.locator('[data-biz-action="wa-log"]').click();
+  await page.locator('[data-chat-action="dlg-log"]').click();
   await settle(600);
   const chats = ((await app.readData()).customers[CLIENT].history || []).filter((h) => h.type === 'chat');
   assert.equal(chats.length, 1);

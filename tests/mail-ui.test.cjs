@@ -771,6 +771,22 @@ test('the background check updates counts, announces new mail and refreshes the 
   try { assert.equal(await unbound.mail.start(), false); assert.deepEqual(unbound.requests.map(r => r.route), ['/api/mail-account']); } finally { unbound.dispose(); }
 });
 
+test('the background check does nothing while 邮件 is switched off (ctx.mailOn), and works again when it is back on', async () => {
+  let on = true;
+  const h = harness({ routes: { '/api/mail/status': ({ reply }) => reply(200, { ok: true, unread: 2, pending: 0, total: 2, uidNext: 14 }) }, ctx: { mailOn: () => on } });
+  try {
+    assert.equal(await h.mail.start(), true);
+    const before = h.requests.length;
+    on = false;
+    assert.equal(await h.mail.check(), false);
+    assert.equal(h.requests.length, before, 'no request at all while it is off');
+    on = true;
+    assert.equal(await h.mail.check(), true);
+    assert.equal(h.requests.length, before + 1);
+  } finally { h.dispose(); }
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src/app.js'), 'utf8'), /mailOn: \(\) => modOn\("mail"\)/, 'app.js passes mailOn');
+});
+
 test('templates can be saved from the message, inserted with the customer filled in, and deleted after a second click', async () => {
   let stored = [];
   const h = harness({ routes: {

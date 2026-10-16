@@ -861,8 +861,13 @@ function lastWonDate(state, name) {
   const saved = localDayOf(savedRaw);
   return saved && saved >= best ? savedRaw : best;
 }
+// 功能开关里把“商机”关了：成交退回按订单算（存下来的规则不改，商机重新打开就恢复）。直接读设置，不依赖别的模型。
+function opportunityOff(state) {
+  const raw = state && state.laiSettings && state.laiSettings.featureSwitch;
+  return !!raw && typeof raw === "object" && Array.isArray(raw.off) && raw.off.includes("opp");
+}
 function lastDealDate(state, name) {
-  if (get(state).dealRule.by === "opportunity") return lastWonDate(state, name);
+  if (get(state).dealRule.by === "opportunity" && !opportunityOff(state)) return lastWonDate(state, name);
   return latestOf(ordersOf(state, name)
     .filter((o) => !o.isDraft && ["shipment", "done"].includes(o.stage))
     .map((o) => o.shippedAt || o.createdAt));

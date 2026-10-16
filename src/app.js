@@ -175,7 +175,7 @@
   }
   // ---- 角色权限（测试账号）：当前账号能看哪些客户、能做哪些操作。规则都在 role-model.js，这里只在界面上用上。 ----
   const R = window.LaiRoleModel;
-  // 功能开关（feature-switch-model.js）：模块关了，对所有账号（包括管理员）都算没有这个权限；它在装载时已把 R.can / R.canOpen 包了一层。
+  // 功能开关（feature-switch-model.js）：模块关了，对所有账号（包括管理员）都算没有这个权限；role-model.js 的 R.can / R.canOpen 自己就看功能开关。
   const FS = window.LaiFeatureSwitch;
   const modOn = (module) => FS.enabled(state, module);
   const can = (key) => R.can(state, key);
@@ -5656,6 +5656,8 @@
       const counts = data.counts || { unread: data.total || 0, pending: 0 };
       return { items: data.items || [], unread: counts.unread, pending: counts.pending };
     },
+    // 线索、商机里的 WhatsApp 按钮：和客户资料用同一个对话框，对象（客户或线索）由按钮所在的页面明确传进来，不看“最近打开的客户”。
+    openWhatsApp: (options) => wa.openDialog(options),
     toast,
     dialog: drawer,
     closeDialog: closeModal,
@@ -5669,7 +5671,8 @@
     // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
     createEditor: (node, bar, html) => window.LaiMailEditor.create(node, bar, html),
     editorToolbar: () => window.LaiMailEditor.toolbar(),
-    // 邮件功能关了就不向邮件服务发任何请求（定时检查、读取状态都在这里挡住）。
+    // 邮件功能关了：定时检查直接跳过（mailOn），其余请求在 request 里挡住，都不向邮件服务发请求。
+    mailOn: () => modOn("mail"),
     request: (path, payload) =>
       !modOn("mail")
         ? Promise.reject(new Error("这个功能已关闭"))

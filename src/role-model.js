@@ -217,8 +217,37 @@
   // ---------- 当前账号和权限判断 ----------
   function currentMember(state){const s=settings(state);return s.members.find(m=>m.id===s.current)||s.members[0];}
   function roleOf(state,member=currentMember(state)){const s=settings(state);return s.roles.find(r=>r.id===member?.roleId)||s.roles.find(r=>r.id===SALES);}
+  // ---------- 功能开关：权限、页面属于哪个模块 ----------
+  // 开关存在 state.laiSettings.featureSwitch.off（模块 id 列表）；这里直接读它，不依赖功能开关模型先装载。
+  // 可以关的模块：lead 线索、opp 商机、product 产品、doc 单据、mail 邮件、chat 沟通、team 团队数据（名单在 feature-switch-model.js）。
+  const KEY_MODULE=Object.freeze({lead:'lead',opp:'opp',product:'product',doc:'doc',mail:'mail',chat:'chat',team:'team'});
+  const SETTINGS_MODULE=Object.freeze({'settings.lead':'lead','settings.opportunity':'opp','settings.product':'product','settings.docTemplate':'doc'});
+  const ROUTE_MODULE=Object.freeze({
+    leads:'lead','lead-trash':'lead','lead-settings':'lead',
+    opportunities:'opp','opp-analysis':'opp','opp-flows':'opp',
+    products:'product','doc-templates':'doc',mail:'mail',
+    chats:'chat','chat-templates':'chat',
+    'team-goals':'team','team-targets':'team','team-wall':'team',analysis:'team','team-assets':'team','team-followups':'team','team-tasks':'team','team-orders':'team'});
+  // 权限 key → 模块：lead.*、opp.*、product.*、doc.*、mail.*、chat.*、team.* 和对应的设置项；其它（客户、订单、设置……）返回 ''。
+  function moduleOfKey(key){
+    const text=String(key||'');
+    if(Object.hasOwn(SETTINGS_MODULE,text))return SETTINGS_MODULE[text];
+    const head=text.split('.')[0];
+    return text.includes('.')&&Object.hasOwn(KEY_MODULE,head)?KEY_MODULE[head]:'';
+  }
+  const moduleOfRoute=route=>Object.hasOwn(ROUTE_MODULE,route)?ROUTE_MODULE[route]:'';
+  // 菜单行（kind 同 rail-menu.js）：邮件文件夹属于邮件，业务页面按路由；客户页面不受影响。
+  function moduleOfEntry(kind,target){return kind==='mail'?'mail':kind==='route'?moduleOfRoute(target):'';}
+  // 这个模块开着吗？没写（或不是可以关的模块）就是开着。
+  function moduleOnFor(state,module){
+    if(!module)return true;
+    const raw=state&&state.laiSettings&&state.laiSettings.featureSwitch;
+    return !(raw&&typeof raw==='object'&&!Array.isArray(raw)&&Array.isArray(raw.off)&&raw.off.includes(module));
+  }
   // can(state,'customer.edit')：当前账号有没有这个权限。系统管理员什么都能做。
+  // 功能开关（设置 → 功能开关）：模块关了，对所有账号（包括系统管理员）都算没有这个权限；角色里存的权限不变，模块打开就恢复。
   function can(state,key){
+    if(!moduleOnFor(state,moduleOfKey(key)))return false;
     const role=roleOf(state);
     if(!role)return false;
     if(role.id===ADMIN)return true;
@@ -446,7 +475,7 @@
     return table&&Object.hasOwn(table,target)?table[target]:null;
   }
   // canOpen(state,'route','leads')：当前账号能不能打开这个页面。
-  function canOpen(state,kind,target){const key=pagePerm(kind,target);return !key||can(state,key);}
+  function canOpen(state,kind,target){if(!moduleOnFor(state,moduleOfEntry(kind,target)))return false;const key=pagePerm(kind,target);return !key||can(state,key);}
   // ---------- 修改：部门 ----------
   function requireDept(next,id){const dept=next.departments.find(d=>d.id===id);if(!dept)throw new Error('没有找到这个部门');return dept;}
   function depthOf(next,id){let n=0,p=id;while(p){const d=next.departments.find(x=>x.id===p);if(!d)break;p=d.parentId;n++;}return n;}
@@ -502,7 +531,7 @@
   function memberCount(state,roleId){return settings(state).members.filter(m=>m.roleId===roleId).length;}
 
   const api={LIMITS,SCOPES,GROUPS,KEYS,ADMIN,SALES,DEPT_ADMIN,TEST_SALES,SALES_DEFAULT,DEPT_ADMIN_DEFAULT,PAGE_PERMS,FIELD_MODULES,FIELD_LEVELS,
-    pagePerm,canOpen,labelOf,settings,currentMember,roleOf,can,isAdmin,scopeOf,meName,canSee,denied,assert,
+    pagePerm,canOpen,moduleOfKey,moduleOfRoute,moduleOfEntry,moduleOnFor,ROUTE_MODULE,labelOf,settings,currentMember,roleOf,can,isAdmin,scopeOf,meName,canSee,denied,assert,
     fieldLevel,fieldVisible,fieldEditable,lockedFields,keepLocked,productLayoutOf,
     addRole,updateRole,deleteRole,addMember,setMemberRole,renameMember,renameOwnerEverywhere,removeMember,switchTo,memberCount,
     addDepartment,renameDepartment,deleteDepartment,setMemberDept,deptTree,deptAndBelow,deptCount};

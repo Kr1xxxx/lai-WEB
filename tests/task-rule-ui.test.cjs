@@ -12,7 +12,7 @@ const { escapeHtml } = require('../src/model.js');
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
 // The 任务设置 page, registered as LaiExtraPages['task-settings'] and driven through the real business-ui.js registry.
-function setup(state, { withRoles = false } = {}) {
+function setup(state, { withRoles = false, withSwitch = false } = {}) {
   const calls = { mount: [], toast: [], saved: [] };
   const listeners = new Map();
   const document = {
@@ -21,7 +21,7 @@ function setup(state, { withRoles = false } = {}) {
     querySelectorAll() { return []; },
     querySelector(sel) { return sel === '.tr-page' && calls.mount.some((html) => html.includes('tr-page')) ? {} : null; },
   };
-  const window = { LaiBusinessModel: B, LaiModules: L, LaiTaskRuleModel: T, ...(withRoles ? { LaiRoleModel: R } : {}) };
+  const window = { LaiBusinessModel: B, LaiModules: L, LaiTaskRuleModel: T, ...(withRoles ? { LaiRoleModel: R } : {}), ...(withSwitch ? { LaiFeatureSwitch: require('../src/feature-switch-model.js') } : {}) };
   const context = { window, document, FormData: class {}, crypto: require('node:crypto').webcrypto };
   vm.createContext(context);
   vm.runInContext(read('src/business-ui.js'), context);
@@ -147,4 +147,47 @@ test('the files are wired into the build, the rail, the settings center, and the
   assert.match(run, /await persist\(result\.state\);/, 'customers are untouched, so the default field guard stays on');
   assert.doesNotMatch(run, /toast\(/, 'the daily run never toasts');
   assert.match(app, /poolAutoRunning = false;\s*[^\n]*\n\s*await autoRunTaskRules\(\);/, 'runs after the 公海 run on boot, focus and the 30-minute timer');
+});
+
+test('商机 switched off: the 商机快到结束日期 rule shows 商机已关闭, is locked, and nothing runs for it; the other rules still work', async () => {
+  const FS = require('../src/feature-switch-model.js');
+  const NOW = T.todayOf(new Date());
+  const withOpp = () => ({
+    ...seed(),
+    laiOpportunities: [{ id: 'p1', name: 'Big deal', client: 'Stale', owner: 'Kris', endDate: NOW, flow: 'default', stage: 'open' }],
+  });
+  // opp on: the rule card is normal
+  const on = setup(withOpp(), { withSwitch: true });
+  on.controller.navigate('task-settings');
+  assert.doesNotMatch(on.last(), /商机已关闭|data-tr-blocked/);
+  // opp off, rule saved as on: card is locked and labelled, the saved switch is not touched
+  let state = T.setRule(withOpp(), 'oppClose', { enabled: true, days: 7 });
+  state = FS.set(state, 'opp', false);
+  const h = setup(state, { withSwitch: true });
+  h.controller.navigate('task-settings');
+  const card = h.last().match(/<section[^>]*data-tr-rule="oppClose"[\s\S]*?<\/section>/)[0];
+  assert.match(card, /data-tr-blocked="1"/);
+  assert.match(card, /商机已关闭/);
+  assert.match(card, /data-tr-toggle="oppClose"[^>]*disabled/);
+  assert.match(card, /data-tr-field="days"[^>]*disabled/);
+  assert.doesNotMatch(card, /data-tr-toggle="oppClose" checked/);
+  assert.doesNotMatch(card, /现在会生成/);
+  const noFollow = h.last().match(/<section[^>]*data-tr-rule="noFollow"[\s\S]*?<\/section>/)[0];
+  assert.doesNotMatch(noFollow, /disabled|tr-blocked/, 'other rules are normal');
+  // a forged change event for the locked rule does nothing
+  h.emit('change', h.toggle('oppClose', false));
+  await h.flush();
+  assert.equal(h.calls.saved.length, 0);
+  assert.equal(T.rules(h.getState()).find((rule) => rule.type === 'oppClose').enabled, true);
+  // switching another rule on runs it right away but leaves the blocked rule alone (no 商机 task, rule still on)
+  h.emit('change', h.toggle('noFollow', true));
+  await h.flush();
+  const after = h.getState();
+  const autos = after.laiTasks.filter((task) => task.auto).map((task) => task.auto.rule);
+  assert.ok(autos.length > 0 && autos.every((rule) => rule === 'noFollow'), JSON.stringify(autos));
+  assert.equal(T.rules(after).find((rule) => rule.type === 'oppClose').enabled, true, 'the saved switch stays on');
+  // 商机 on again: the rule is live and runs when its turn comes
+  const back = FS.set(after, 'opp', true);
+  const run = FS.runTaskRules(T, { ...back, laiSettings: { ...back.laiSettings, taskRules: { ...back.laiSettings.taskRules, lastRun: '' } } });
+  assert.ok(run.state.laiTasks.some((task) => task.auto && task.auto.rule === 'oppClose'));
 });

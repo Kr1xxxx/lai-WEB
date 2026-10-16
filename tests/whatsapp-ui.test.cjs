@@ -33,6 +33,13 @@ const state = () => ({
 });
 
 // 模型替身：记录调用，按需返回固定结果。
+// like the real model: no code given, the country name supplies it
+const withCountry = (raw, { code, country } = {}) => {
+  const digits = String(raw || '').replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) return digits.length >= 9 ? digits : null;
+  const prefix = code || ({ 德国: '+49' }[country] || '');
+  return digits && prefix ? prefix + digits.replace(/^0/, '') : null;
+};
 function fakeModel(overrides = {}) {
   const calls = [];
   const model = {
@@ -311,6 +318,62 @@ test('dialog: builds the link from number and text, copies, then asks to log wit
   assert.equal(log[2].owner, '小王');
   assert.equal(h.persisted[0].logged, 'Nordic Lamps <AB>');
   assert.deepEqual(h.toasts.at(-1), '已记到客户动态');
+  h.dispose();
+});
+
+test('dialog for a lead: its own country fills the code, templates work, and 记一笔 goes to onLog instead of a customer', async () => {
+  const logged = [];
+  const h = harness({ model: fakeModel({ toE164: withCountry }) });
+  h.ui.openDialog({ lead: { id: 'L1', name: 'Berlin <GmbH>', country: '德国' }, contact: 'Hans', phone: '0151 23456789', onLog: async (text) => { logged.push(text); return '已记到线索跟进'; } });
+  assert.equal(h.dialog.title, '打开 WhatsApp');
+  assert.match(h.dialog.body, /class="wa-dlg-who">Berlin &lt;GmbH&gt; · Hans/);
+  assert.doesNotMatch(h.dialog.body, /wa-dlg-customer/, 'the target is fixed: no customer picker');
+  assert.match(h.dialog.body, /id="wa-dlg-template"/, 'templates are offered for leads too');
+  assert.match(h.dialog.body, /将打开 \+4915123456789/);
+  await h.fire('wa-dlg-form', 'change', { target: { id: 'wa-dlg-template', value: 'g1|t1' } });
+  assert.equal(h.node('wa-dlg-text').value, '你好 Hans，Berlin <GmbH> 的报价来了');
+  h.act('dlg-open');
+  assert.match(h.externals[0], /^https:\/\/wa\.me\/4915123456789\?text=/);
+  assert.equal(h.dialog.title, '发出去了吗？');
+  assert.match(h.dialog.body, /记到这条线索的跟进里/);
+  await h.act('dlg-log');
+  assert.deepEqual(logged, ['你好 Hans，Berlin <GmbH> 的报价来了']);
+  assert.equal(h.model.calls.some((c) => c[0] === 'log'), false, 'never written to a customer');
+  assert.equal(h.persisted.length, 0);
+  assert.equal(h.toasts.at(-1), '已记到线索跟进');
+  h.dispose();
+});
+
+test('dialog for a lead: without onLog it does not ask 发出去了吗; a failing onLog shows the error and keeps the dialog', async () => {
+  const h = harness({ model: fakeModel({ toE164: withCountry }) });
+  h.ui.openDialog({ lead: { name: 'Berlin', country: '德国' }, contact: 'Hans', phone: '0151 23456789' });
+  h.node('wa-dlg-text').value = '你好';
+  h.act('dlg-open');
+  assert.equal(h.externals.length, 1);
+  assert.equal(h.model.calls.some((c) => c[0] === 'log'), false);
+  h.dispose();
+  const g = harness({ model: fakeModel({ toE164: withCountry }) });
+  g.ui.openDialog({ lead: { name: 'Berlin', country: '德国' }, contact: 'Hans', phone: '0151 23456789', onLog: async () => { throw new Error('线索已被删除'); } });
+  g.node('wa-dlg-text').value = '你好';
+  g.act('dlg-open');
+  await g.act('dlg-log');
+  assert.equal(g.node('wa-ask-error').textContent, '线索已被删除');
+  assert.equal(g.dialog.title, '发出去了吗？');
+  g.dispose();
+});
+
+test('dialog for an opportunity: the customer is passed explicitly and the chat is logged to that customer', async () => {
+  const h = harness();
+  h.ui.openDialog({ customer: '深圳配件', contact: 'Amy', phone: '+447700900999' });
+  assert.match(h.dialog.body, /class="wa-dlg-who">深圳配件 · Amy/);
+  assert.match(h.dialog.body, /将打开 \+447700900999/);
+  h.node('wa-dlg-text').value = 'Quote sent.';
+  h.act('dlg-open');
+  await h.act('dlg-log');
+  const log = h.model.calls.find((c) => c[0] === 'log');
+  assert.equal(log[1], '深圳配件');
+  assert.equal(log[2].peer, '+447700900999');
+  assert.equal(log[2].contact, 'Amy');
   h.dispose();
 });
 

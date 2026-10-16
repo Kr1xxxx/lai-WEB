@@ -198,9 +198,13 @@ test('business-ui wires the lead rules, the WhatsApp buttons and the opportunity
   const code = read('src/business-ui.js');
   assert.match(code, /leadContext = \(\) => \(\{[^\n]*rules: LD\(\)\.fieldRules\(state\(\)\)/);
   assert.match(code, /LEAD_NEED = \{[^\n]*wa: "chat\.send"/);
-  assert.match(code, /if \(action === "wa"\) \{\s*const row = LD\(\)\.detail/);
-  assert.match(code, /if \(action === "wa"\) \{\s*const detail = OM\(\)\.detailOf/);
-  assert.match(code, /if \(action\.startsWith\("wa-"\)\) return waAction\(action\)/);
+  // one WhatsApp dialog (whatsapp-ui.js): leads and opportunities hand it their target explicitly and no longer own a dialog
+  assert.match(code, /if \(action === "wa"\) \{\s*const row = LD\(\)\.detail[^]*?ctx\.openWhatsApp\(\{ lead: \{ id: row\.id, name: row\.name, country: row\.country \}, contact: row\.contact, phone: row\.phone, onLog: leadWaLog\(row\) \}\)/);
+  assert.match(code, /if \(action === "wa"\) \{\s*const detail = OM\(\)\.detailOf[^]*?ctx\.openWhatsApp\(\{ customer: detail\.client, contact: hit\.contact, phone: hit\.phone, code: hit\.code, country: hit\.country \}\)/);
+  assert.match(code, /const leadWaLog = \(row\) =>\s*can\("lead\.edit"\) && \["new", "following"\]\.includes\(row\.status\)/);
+  assert.match(code, /text: `WhatsApp 聊天：\$\{message\}`/);
+  assert.doesNotMatch(code, /biz-wa-form|waDraft|openWaDialog|waAction|business-wa/, 'the duplicate dialog is gone');
+  assert.match(read('src/app.js'), /openWhatsApp: \(options\) => wa\.openDialog\(options\)/);
   assert.match(code, /OM\(\)\.prefillRate\(state\(\), values\.currency, values\.exchangeRate\)/);
   assert.match(code, /OM\(\)\.prefillRate\(state\(\), el\.currency\.value, rate\.value, oppDraft\.prefilled\)/);
 });

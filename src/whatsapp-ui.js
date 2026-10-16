@@ -400,17 +400,20 @@
       const groups = tplGroups(((st().laiSettings || {}).whatsapp || {}).templates);
       return `<option value="">不用模板</option>` + groups.filter((g) => g.items.length).map((g) => `<optgroup label="${E(g.name)}">${g.items.map((i) => `<option value="${E(g.id + "|" + i.id)}">${E(i.text.replace(/\s+/g, " ").slice(0, 40))}</option>`).join("")}</optgroup>`).join("");
     }
-    function templateVars(customer, contact) {
-      const profile = profileOf(customer) || {};
-      return { 姓名: plain(contact) || profilePhone(profile).contact, 公司: customer, 我的名字: me(), 国家: plain(profile.country) };
+    // 号码缺区号时按国家补：线索自己带国家；客户用资料里的国家。
+    const countryOfDialog = (d) => plain(d.country) || plain((profileOf(d.customer) || {}).country);
+    // 这条消息发出去后能不能记一笔：线索要调用方给 onLog；客户要在客户资料里找得到。
+    const canLogDialog = (d) => (d.lead ? !!d.onLog : !!(d.customer && profileOf(d.customer)));
+    function templateVars(d) {
+      const profile = profileOf(d.customer) || {};
+      return { 姓名: plain(d.contact) || profilePhone(profile).contact, 公司: d.customer || plain(d.label), 我的名字: me(), 国家: countryOfDialog(d) };
     }
     function dialogBody() {
       const d = dialogState;
-      const profile = profileOf(d.customer);
-      const e164 = numberOf(d.phone, d.code, profile && profile.country);
+      const e164 = numberOf(d.phone, d.code, countryOfDialog(d));
       return (
         `<form class="drawer-body wa-dialog" id="wa-dlg-form" autocomplete="off" novalidate>` +
-        (d.fixedCustomer ? `<p class="wa-dlg-who">${E(d.customer)}${d.contact ? ` · ${E(d.contact)}` : ""}</p>` : `<label class="field wide"><span>客户</span>${customerSelect("wa-dlg-customer", d.customer)}</label>`) +
+        (d.fixed ? `<p class="wa-dlg-who">${E(d.customer || d.label)}${d.contact ? ` · ${E(d.contact)}` : ""}</p>` : `<label class="field wide"><span>客户</span>${customerSelect("wa-dlg-customer", d.customer)}</label>`) +
         `<div class="form-grid"><label class="field wide"><span>号码</span><input id="wa-dlg-phone" value="${E(d.phone)}" maxlength="40" placeholder="例如 +44 7700 900123" inputmode="tel"></label>` +
         `<label class="field wide" id="wa-dlg-fix"${e164 ? " hidden" : ""}><span>号码前面缺国家区号，请选一个</span><select id="wa-dlg-code"><option value="">选择国家或区号</option>${COUNTRY_CODES.map(([code, name]) => `<option value="${code}"${code === d.code ? " selected" : ""}>${E(name)} ${code}</option>`).join("")}</select></label>` +
         `<p class="wa-dlg-note wide" id="wa-dlg-note">${E(e164 ? `将打开 ${e164}` : "号码还不能用，请检查或选区号")}</p>` +
@@ -419,18 +422,28 @@
         `<div class="error" id="wa-dlg-error" role="alert"></div></form>`
       );
     }
+    // 打开 WhatsApp 对话框（聊天页、客户资料、线索、商机都用这一个）。
+    // options：customer（客户名，对象固定）或 lead（{name, country}，线索没有客户资料）；contact、phone、code 是要打的号码；
+    // onLog(消息)：发出去以后“记一笔”由调用方决定记到哪里（线索记进线索跟进），可以返回一句提示；
+    // 线索没给 onLog 就不问“发出去了吗”；客户不给 onLog 就记进客户动态。
     function openDialog(options = {}) {
       if (!guard("chat.send")) return;
-      const customer = options.customer || selected || "";
+      const lead = options.lead && typeof options.lead === "object" ? options.lead : null;
+      const customer = lead ? "" : options.customer || selected || "";
       const profile = profileOf(customer);
       const phone = profilePhone(profile);
+      const onLog = typeof options.onLog === "function" ? options.onLog : null;
       dialogState = {
         customer,
-        fixedCustomer: !!options.customer,
+        lead: !!lead,
+        label: lead ? plain(lead.name) : customer,
+        fixed: !!(lead || options.customer),
+        country: lead ? plain(lead.country) : plain(options.country),
         contact: plain(options.contact) || phone.contact,
         phone: plain(options.phone) || phone.raw,
         code: plain(options.code) || phone.code,
         text: text(options.text),
+        onLog,
       };
       ctx.dialog("打开 WhatsApp", dialogBody(), `${CANCEL}${btn("dlg-copy-text", "复制消息")}${btn("dlg-copy-link", "复制链接")}${btn("dlg-open", "打开 WhatsApp", "", "primary")}`, "whatsapp");
       const form = $("wa-dlg-form");
@@ -446,8 +459,7 @@
     }
     function refreshNumber() {
       if (!dialogState) return;
-      const profile = profileOf(dialogState.customer);
-      const e164 = numberOf(value("wa-dlg-phone"), value("wa-dlg-code") || dialogState.code, profile && profile.country);
+      const e164 = numberOf(value("wa-dlg-phone"), value("wa-dlg-code") || dialogState.code, countryOfDialog(dialogState));
       const note = $("wa-dlg-note");
       if (note) note.textContent = e164 ? `将打开 ${e164}` : "号码还不能用，请检查或选区号";
       const fix = $("wa-dlg-fix");
@@ -472,7 +484,7 @@
       const group = tplGroups(((st().laiSettings || {}).whatsapp || {}).templates).find((g) => g.id === gid);
       const item = group && group.items.find((i) => i.id === tid);
       if (!item) return;
-      const done = M.renderTemplate(item.text, templateVars(dialogState.customer, dialogState.contact));
+      const done = M.renderTemplate(item.text, templateVars(dialogState));
       const area = $("wa-dlg-text");
       if (area) area.value = done && typeof done === "object" ? done.text : text(done);
       if (done && done.missing && done.missing.length) showError("wa-dlg-error", `还有没填的内容：${done.missing.map((v) => `{{${v}}}`).join("、")}。请在客户资料里补上，或直接改消息。`);
@@ -482,9 +494,8 @@
     function readDialog() {
       const d = dialogState;
       if (!d) return null;
-      const profile = profileOf(d.customer);
       const body = text(value("wa-dlg-text"));
-      const e164 = numberOf(value("wa-dlg-phone"), value("wa-dlg-code") || d.code, profile && profile.country);
+      const e164 = numberOf(value("wa-dlg-phone"), value("wa-dlg-code") || d.code, countryOfDialog(d));
       if (!e164) {
         showError("wa-dlg-error", "号码不对，请检查，或选一个国家区号");
         return null;
@@ -503,27 +514,34 @@
       ctx.openExternal(read.link);
       dialogState.peer = read.e164;
       dialogState.sent = read.body;
-      if (!plain(read.body) || !dialogState.customer) return ctx.closeDialog();
+      if (!plain(read.body) || !canLogDialog(dialogState)) return ctx.closeDialog();
       ctx.dialog(
         "发出去了吗？",
-        `<div class="drawer-body wa-ask"><p>发出去了吗？记到动态，之后在客户资料里能看到。</p><div class="wa-ask-text">${lineHtml(E, read.body)}</div><div class="error" id="wa-ask-error" role="alert"></div></div>`,
+        `<div class="drawer-body wa-ask"><p>${dialogState.lead ? "发出去了吗？记到这条线索的跟进里。" : "发出去了吗？记到动态，之后在客户资料里能看到。"}</p><div class="wa-ask-text">${lineHtml(E, read.body)}</div><div class="error" id="wa-ask-error" role="alert"></div></div>`,
         `${btn("dlg-skip", "不用")}${btn("dlg-log", "记一笔", "", "primary")}`,
         "whatsapp",
       );
     }
     async function logLink() {
       const d = dialogState;
-      if (!d || !d.customer) return;
-      const profile = profileOf(d.customer);
-      if (!profile || !guard("chat.send")) return;
+      if (!d || !canLogDialog(d) || !guard("chat.send")) return;
+      let note = "已记到客户动态";
       try {
-        const next = stateOf(M.logChat(st(), d.customer, { text: d.sent, contact: d.contact, peer: d.peer, owner: plain(profile.owner) || me(), src: "link", at: now().toISOString() }));
-        await ctx.persist(next);
+        if (d.onLog) {
+          // 调用方自己记（线索：记进线索跟进）。
+          const said = await d.onLog(d.sent);
+          if (typeof said === "string" && said) note = said;
+        } else {
+          const profile = profileOf(d.customer);
+          if (!profile) return;
+          const next = stateOf(M.logChat(st(), d.customer, { text: d.sent, contact: d.contact, peer: d.peer, owner: plain(profile.owner) || me(), src: "link", at: now().toISOString() }));
+          await ctx.persist(next);
+        }
       } catch (error) {
         return showError("wa-ask-error", error.message);
       }
       ctx.closeDialog();
-      ctx.toast("已记到客户动态");
+      ctx.toast(note);
       if (onPage()) render();
     }
     async function copyFrom(kind) {
