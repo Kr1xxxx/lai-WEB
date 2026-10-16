@@ -745,6 +745,23 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "lead-settings",
+   "area": "leads",
+   "description": "线索设置 (Leads → 设置): 无效原因 add/rename/move/delete (in-use reasons cannot be deleted), 线索字段 show/required for the lead form, links to 客户设置 for 来源 and 判重",
+   "steps": [
+    "Hover Leads in the left rail, click 设置: the 线索设置 page opens with 无效原因 (6 default reasons), 线索字段 and the two links to 客户设置",
+    "Add the reason 价格太高; 线索 → open a lead → 标记无效: 价格太高 is in the list; mark it",
+    "Back in 线索设置 delete 价格太高 (click twice): refused with 还有 1 条线索用了这个原因; rename it to 报价太高: the lead shows the new reason",
+    "Untick 显示 for 网址 and tick 必填 for 邮箱; 线索 → 新建线索: no 网址 box, saving without 邮箱 says 请填写邮箱",
+    "Switch to a 业务 account: 线索设置 is blocked"
+   ],
+   "e2e": "lead-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

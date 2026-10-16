@@ -5,6 +5,8 @@
   const node=typeof module!=='undefined'&&module.exports;
   const CM=node?require('./model.js'):root.PreviewModel;
   const LM=node?require('./modules.js'):root.LaiModules;
+  const LS=node?require('./lead-settings-model.js'):root.LaiLeadSettings;
+  const RMODEL=()=>node?require('./role-model.js'):root.LaiRoleModel;
   const trim=value=>String(value??'').trim();
   const cleanName=name=>trim(name).normalize('NFKC').replace(/\s+/g,' ').trim();
   const key=value=>cleanName(value).toLowerCase();
@@ -81,6 +83,12 @@
     next.owner=owner==='未分配'?'':limited(owner,MAX.owner,'跟进人');
     next.nextFollow=trim(value('nextFollow'));
     if(next.nextFollow&&!validDate(next.nextFollow))throw new Error('请选择有效的下次跟进日期');
+    // 线索设置里「显示且必填」的字段必须填；当前账号不能改的字段（只读、隐藏）不检查。转为客户有它自己的规则。
+    const levels=RMODEL();
+    for(const name of LS.requiredFields(state)){
+      if(name!=='nextFollow'&&levels&&levels.fieldLevel(state,'lead',name)!=='edit')continue;
+      if(!trim(next[name]))throw new Error(`请填写${LS.FIELDS.find(field=>field.id===name).label}`);
+    }
     const checked=checkedFields(previous,next);
     const blocked=customerConflicts(state,next).filter(item=>item.mode==='block'&&checked.includes(item.field));
     if(blocked.length)throw new Error(conflictMessage(blocked));
@@ -307,9 +315,14 @@
     for(const value of values){const text=cleanName(value);if(text&&text!=='未分配'&&!seen.has(text.toLowerCase()))seen.set(text.toLowerCase(),text);}
     return [...seen.values()].sort((a,b)=>a.localeCompare(b,'zh'));
   }
-  const ownerNames=state=>distinct([defaultOwner(state),...list(state).map(item=>item.owner),...Object.values(profilesOf(state)).map(profile=>profile?.owner)]);
+  // 名单数组上带一个看不见的 rules（线索设置里的字段显示和必填），表单据此隐藏和标星；不影响数组本身的内容。
+  const withRules=(names,state)=>Object.defineProperty([...names],'rules',{value:fieldRules(state),enumerable:false});
+  const ownerNames=state=>withRules(distinct([defaultOwner(state),...list(state).map(item=>item.owner),...Object.values(profilesOf(state)).map(profile=>profile?.owner)]),state);
   const CSM=node?require('./customer-settings-model.js'):root.LaiCustomerSettings;
-  const sourceNames=state=>(CSM&&CSM.sourceChoices(state))||distinct([...list(state).map(item=>item.source),...Object.values(profilesOf(state)).map(profile=>profile?.source),...SOURCE_HINTS]);
+  const sourceNames=state=>withRules((CSM&&CSM.sourceChoices(state))||distinct([...list(state).map(item=>item.source),...Object.values(profilesOf(state)).map(profile=>profile?.source),...SOURCE_HINTS]),state);
+  // 线索设置：无效原因、字段显示与必填（见 lead-settings-model.js）。
+  const reasons=state=>LS.reasonsOf(state);
+  const fieldRules=state=>LS.get(state).fields;
 
   function row(state,item,today){
     const status=statusOf(item),history=historyOf(item);
@@ -321,7 +334,8 @@
       invalidReason:trim(item.invalidReason),invalidNote:trim(item.invalidNote),convertedTo:trim(item.convertedTo),convertedExists:!!trim(item.convertedTo)&&customerNames(state).includes(trim(item.convertedTo)),convertedDay:localDay(item.convertedAt),trashed:!!item.trashed,trashedDay:localDay(item.trashedAt),
       history:history.map(entry=>({time:trim(entry.time),day:localDay(entry.time),text:trim(entry.text),type:entry.type==='followup'?'followup':'operation'})),duplicate:duplicatesOf(state,item)};
   }
-  const detail=(state,id,today=isoDay(new Date()))=>{const item=list(state).find(entry=>entry.id===id);return item?row(state,item,today):null;};
+  // 详情里带上当前的无效原因名单，「标记无效」窗口用它。
+  const detail=(state,id,today=isoDay(new Date()))=>{const item=list(state).find(entry=>entry.id===id);return item?{...row(state,item,today),reasons:reasons(state)}:null;};
   const compare={
     'createdAt-desc':(a,b)=>b.createdAt.localeCompare(a.createdAt),
     'createdAt-asc':(a,b)=>a.createdAt.localeCompare(b.createdAt),
@@ -354,7 +368,7 @@
   const roleFieldList=()=>['contact','email','phone','country','website','source','product','note'].map(name=>({key:name,label:LABELS[name],group:ROLE_GROUPS[name]}));
   const trash=(state,today=isoDay(new Date()))=>list(state).filter(item=>item.trashed).map(item=>row(state,item,today)).sort((a,b)=>String(b.trashedDay).localeCompare(String(a.trashedDay))||a.name.localeCompare(b.name,'zh'));
 
-  const api={STATUSES,INVALID_REASONS,SORTS,list,statusOf,statusLabel,upsert,addFollowup,markInvalid,reopen,setTrashed,remove,convert,convertDefaults,duplicatesOf,customerConflicts,saveWarnings,websiteHost,defaults,ownerNames,sourceNames,customerNames,
+  const api={STATUSES,INVALID_REASONS,reasons,fieldRules,SORTS,list,statusOf,statusLabel,upsert,addFollowup,markInvalid,reopen,setTrashed,remove,convert,convertDefaults,duplicatesOf,customerConflicts,saveWarnings,websiteHost,defaults,ownerNames,sourceNames,customerNames,
     detail,page,trash,localDay,validDate,roleFieldList};
   if(node)module.exports=api;else root.LaiLeadModel=api;
 })(typeof window!=='undefined'?window:globalThis);

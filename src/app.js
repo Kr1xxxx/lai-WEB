@@ -3711,7 +3711,7 @@
       ["lead", "线索", "leads"],
       ["people", "客户", "customers"],
       ["globe", "商机", "opportunities"],
-      ["search", "Leads", null],
+      ["search", "Leads", "lead-settings"],
       ["note", "交易", "order-list"],
       ["chart", "团队数据", "team-goals"],
       ["folder", "协同", "calendar", "calendar"],

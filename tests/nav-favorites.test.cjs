@@ -12,12 +12,13 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + 邮件 6 + 沟通 2 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + Leads 1（线索设置）+ 邮件 6 + 沟通 2 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
   'route:leads', 'route:lead-trash',
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
   'route:dashboard',
+  'route:lead-settings',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
   'route:chats', 'route:chat-templates',
   'route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates',
@@ -25,8 +26,8 @@ const ALL = [
   'route:calendar', 'route:settings', 'route:settings-hub',
   'route:roles', 'route:members'
 ];
-const MENUS = ['客户', '线索', '商机', '工作台', '邮件', '沟通', '交易', '团队数据', '协同', '设置', '企业管理'];
-// 沟通 became a real menu (WhatsApp, D-023); no menu is a pure placeholder any more. Leads keeps one reserved row.
+const MENUS = ['客户', '线索', '商机', '工作台', 'Leads', '邮件', '沟通', '交易', '团队数据', '协同', '设置', '企业管理'];
+// 沟通 became a real menu (WhatsApp, D-023); no menu is a pure placeholder any more. Leads' 设置 is a real route now (线索设置).
 const RESERVED = [];
 
 // ---------------- 清单只有一份来源 ----------------
@@ -451,7 +452,7 @@ test('沟通 is a real menu (WhatsApp): the rail icon opens 聊天记录, the fl
   assert.doesNotMatch(h.flyout.innerHTML, /功能入口已保留/);
   assert.deepEqual(h.hearts('flyout').map(b => b.dataset.navFavorite), ['route:chats', 'route:chat-templates']);
   assert.equal(RM.menuFor('线索').length, 2);
-  assert.deepEqual(RM.menuFor('Leads').map(r => r.kind), ['feature'], 'only Leads keeps a reserved row until its settings page lands');
+  assert.deepEqual(RM.menuFor('Leads').map(r => r.kind), ['route'], 'Leads 设置 is the real 线索设置 page, no reserved row is left');
 });
 
 test('the 常用 flyout lists the favorites of every kind, each with a lit heart', () => {
@@ -822,13 +823,14 @@ test('the old star and "收藏" wording is gone and the real handlers are wired'
   assert.ok(app.indexOf('d.navFavorite') < app.indexOf('d.laiScreen'), 'the heart is handled before the screen routing');
 });
 
-test('the Leads rail entry has no OKKI in its name and a 设置 option that is a reserved entry, not a favorite', () => {
+test('the Leads rail entry has no OKKI in its name and a 设置 option that opens the real 线索设置 page and can be a favorite', () => {
   const rows = RM.menuFor('Leads');
-  assert.deepEqual(rows.map(r => [r.label, r.kind, r.target]), [['设置', 'feature', 'Leads 设置']]);
-  assert.equal(rows[0].id, undefined, 'a reserved entry cannot be a favorite');
-  assert.equal(RM.favoritable().some(r => r.menu === 'Leads'), false);
+  assert.deepEqual(rows.map(r => [r.label, r.kind, r.target]), [['设置', 'route', 'lead-settings']]);
+  assert.equal(rows[0].id, 'route:lead-settings', 'a real entry can be a favorite');
+  assert.deepEqual(RM.favoritable().filter(r => r.menu === 'Leads').map(r => r.id), ['route:lead-settings']);
+  assert.equal(RM.sectionFor('lead-settings').label, 'Leads');
   const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src/app.js'), 'utf8');
-  assert.match(app, /\["search", "Leads", null\]/);
+  assert.match(app, /\["search", "Leads", "lead-settings"\]/);
   assert.doesNotMatch(app, /\["search", "OKKI/);
 });
 
