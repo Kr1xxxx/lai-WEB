@@ -4,6 +4,11 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-16 — Claude — Owner said 合并: merged lai-WEB #12 (fonts), `main` ea17189. The live web trial was already v1.03,
+  published by another thread from the unmerged branch `claude/project-thread-5ob5ux` (opportunity settings, document numbering,
+  product sync, lead dedupe). To keep that, v1.04 was built from that branch merged with `main` (only docs conflicted) and
+  published (Artifact Version 49); checked in the browser: MiSans and Inter loaded, 关于来财Lai names them, no console errors.
+  `version.json` set to 1.04 here (that branch merged as #11 with 1.03; this PR takes 1.04).
 - 2026-10-15 — Claude — Owner asked for four 小满 gaps; built in parallel worktrees and merged on `claude/project-thread-5ob5ux`:
   商机设置 (route `opp-flows` renamed 商机设置: tabs 销售流程/输单原因/商机字段; `laiSettings.opportunitySettings`; new opportunity fields
   sources/type/leadId/number/custom), 判重 新线索与已有客户 (`customerSettings.leadDedupe`, default all block), 产品 同步 from xls/xlsx/csv
