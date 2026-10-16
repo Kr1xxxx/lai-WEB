@@ -1264,7 +1264,7 @@
         `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB${bulkMode ? "，每封都会带上" : ""}</span><ul id="mail-compose-file-list"></ul>` +
         (compose.forwardOf && compose.forwardCount ? (compose.sourceUnavailable ? `<p class="mail-forward-attachments">原邮件不在现在绑定的邮箱里，不能附带它的 ${compose.forwardCount} 个附件</p>` : `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" ${v.forwardAttachments ? "checked" : ""}> 附带原邮件的 ${compose.forwardCount} 个附件</label>`) : "") +
         `</div>` +
-        `<div class="mail-compose-from">${row("发件人名称", "fromName", v.fromName, 'maxlength="80" placeholder="收件人看到的名字"')}<span class="mail-compose-address">${E(account ? account.email : "")}</span></div>` +
+        `<div class="mail-compose-from">${row("发件人名称", "fromName", v.fromName, 'maxlength="80" placeholder="收件人看到的名字"')}<span class="mail-compose-address" data-compose-name-hint>发信后会记住这个名字</span><span class="mail-compose-address">${E(account ? account.email : "")}</span></div>` +
         `</form></section>`
       );
     }
