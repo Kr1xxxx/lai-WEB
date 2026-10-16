@@ -1,6 +1,9 @@
 (function (root) {
   'use strict';
   const CS = typeof module !== 'undefined' && module.exports ? require('./customer-settings-model.js') : root.LaiCustomerSettings;
+  // 汇率（rate-model.js）：没载入时外币订单照旧不折算。
+  const RT = typeof module !== 'undefined' && module.exports ? require('./rate-model.js') : null;
+  const rates = () => RT || root.LaiRateModel || null;
   const norm = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   // 客户名称查重用：全角半角、大小写、空格多少都算同一个名字（D-003）。存的仍是用户填的原样。
   const nameKey = value => String(value ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -73,6 +76,7 @@
       if (!ordersByClient.has(order.client)) ordersByClient.set(order.client, []);
       ordersByClient.get(order.client).push(order);
     }
+    const RTM = rates();
     return names.map(name => {
       const own = ordersByClient.get(name) || [];
       const related = own.filter(o => !o.isDraft && amount(o.amount)>0).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
@@ -80,13 +84,18 @@
       const history = Array.isArray(profile.history) ? profile.history : [];
       const recent = related[0] || own[0] || {};
       const values = {...recent,...profile};
-      let total=0,paid=0,missingRates=0;
+      let total=0,paid=0,missingRates=0,converted=false;
       for (const order of related) {
-        if ((order.currency || 'USD').toUpperCase() !== 'USD') { missingRates++; continue; }
-        const full = amount(order.amount);
+        const usd = (order.currency || 'USD').toUpperCase() === 'USD';
+        // 外币订单按汇率折成美元（订单保存时记下的汇率优先，没有就用汇率设置里的）；没有汇率的照旧不算，客户金额显示为空。
+        const rate = usd ? 100 : RTM ? RTM.orderRate(state, order) : null;
+        if (rate === null) { missingRates++; continue; }
+        if (!usd) converted = true;
+        const full = usd ? amount(order.amount) : RTM.orderUsd(state, order, order.amount);
         total += full;
-        paid += ['shipment','done'].includes(order.stage) ? full : Math.min(full,amount(order.paidAmount));
+        paid += ['shipment','done'].includes(order.stage) ? full : Math.min(full, usd ? amount(order.paidAmount) : RTM.orderUsd(state, order, order.paidAmount));
       }
+      if (converted) { total = Math.round(total * 100) / 100; paid = Math.round(paid * 100) / 100; }
       const contact=profile.contacts?.[0]??values.contact??'';
       const email=profile.emails?.[0]??values.email??'';
       const phone=profile.phones?.[0]??values.phone??'';

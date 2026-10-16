@@ -114,6 +114,13 @@
     if(next.paidAmount>next.amount)throw new Error('已收款不能超过订单金额');
     next.currency=trim(next.currency||'USD').toUpperCase();
     if(!/^[A-Z]{3}$/.test(next.currency))throw new Error('请填写三位币种代码');
+    // 汇率快照：新订单或改了币种时，记下汇率设置里这个币种当时的汇率（每 100 外币折合美元）；以后改汇率不影响这笔订单。
+    // 美元、或还没设置汇率的币种不记；改了币种又没有新汇率时，去掉旧币种的汇率。
+    if(!previous||trim(previous.currency||'USD').toUpperCase()!==next.currency){
+      const RT=root.LaiRateModel||(typeof module!=='undefined'&&module.exports?require('./rate-model.js'):null);
+      const rate=next.currency==='USD'||!RT?null:RT.rateFor(state,next.currency);
+      if(rate!==null)next.usdRate=rate;else delete next.usdRate;
+    }
     next.stage=next.stage||'quote';
     if(!stages.some(stage=>stage.id===next.stage))throw new Error('请选择有效订单阶段');
     if(Object.hasOwn(input,'isDraft')&&typeof input.isDraft!=='boolean')throw new Error('草稿状态无效');
