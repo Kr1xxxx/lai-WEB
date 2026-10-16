@@ -42,7 +42,7 @@ export function sampleCustomers() {
   }]));
 }
 
-export async function startApp({ seed = true } = {}) {
+export async function startApp({ seed = true, env = {} } = {}) {
   const temp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-e2e-'));
   const resources = path.join(temp, 'resources');
   fs.mkdirSync(path.join(resources, 'vendor'), { recursive: true });
@@ -55,7 +55,7 @@ export async function startApp({ seed = true } = {}) {
   const dataDir = path.join(temp, 'data');
   let stderr = '';
   const server = spawn(process.execPath, [path.join(resources, 'server.js')], {
-    env: { ...process.env, LAI_DATA_DIR: dataDir, LAI_APP_PORT: String(port), LAI_API_TOKEN: token, LAI_INSTANCE_NONCE: 'lai-test-e2e', LAI_APP_NO_OPEN: '1' },
+    env: { ...process.env, LAI_DATA_DIR: dataDir, LAI_APP_PORT: String(port), LAI_API_TOKEN: token, LAI_INSTANCE_NONCE: 'lai-test-e2e', LAI_APP_NO_OPEN: '1', ...env },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
   server.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(-8192); });
@@ -86,6 +86,12 @@ export async function startApp({ seed = true } = {}) {
   page.on('response', (response) => { if (response.status() >= 400 && !response.url().endsWith('/favicon.ico')) errors.push(`HTTP ${response.status()}: ${response.url()}`); });
   const open = async (hash = 'customers') => {
     await page.goto(`${base}/trade-order-system.html?token=${encodeURIComponent(token)}#${hash}`);
+    // The first request is answered with a redirect to #customers (it sets the session cookie), so any other
+    // start page is reached by switching the hash and booting the page again.
+    if (hash !== 'customers') {
+      await page.evaluate((h) => { location.hash = h; }, hash);
+      await page.reload();
+    }
     await page.waitForLoadState('networkidle');
   };
   const readData = async () => (await (await api('/api/data')).json()).data;
@@ -95,5 +101,5 @@ export async function startApp({ seed = true } = {}) {
     if (server.exitCode === null) await new Promise((resolve) => { server.once('exit', resolve); server.kill('SIGTERM'); });
     fs.rmSync(temp, { recursive: true, force: true });
   }
-  return { page, open, readData, errors, close, base };
+  return { page, open, readData, errors, close, base, api };
 }
