@@ -22,11 +22,11 @@
 
 | What | Where | State |
 | --- | --- | --- |
-| Polish pass: tests, bug fixes, placeholder removal, UI audit fixes | `claude/gallant-bell-0m7uzb` | PR open; >500 `src/` lines and removed entries, so `needs-owner` + `major` |
-| Data safety: incomplete-save guard, backup queue + tiered retention, before-delete backups, 409 rebase, mail forward/bulk/draft fixes | local `data-safety-pr2` (782b5f0, from e5eab44) | Opus-reviewed, fixes applied; becomes a second PR (touches `backend/`, `needs-owner`) after the first merges |
+| Polish pass: tests, bug fixes, placeholder removal, UI audit fixes | PR #17 | Merged 2026-10-16 (owner said 合并), `main` 9df7d37 |
+| Data safety: incomplete-save guard, backup queue + tiered retention, before-delete backups, 409 rebase, mail forward/bulk/draft fixes; 待收款客户 group removed | `claude/gallant-bell-0m7uzb` (restarted from `main` 9df7d37) | PR open; touches `backend/`, so `needs-owner` |
 | Roles: departments, field permissions, layouts by role | PR #15 (`claude/project-thread-5ob5ux`) | Waiting for 合并; duplicate #16 closed 2026-10-16 |
 | 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Backend parts ported into `data-safety-pr2`; its numbering/finance `src/` changes were not ported (15 conflicts in `business-ui.js`) — re-evaluate against current code or drop |
-| Old branches | ~60 merged or obsolete remote branches | Owner agreed to delete (2026-10-16); the session's safety rules blocked `git push --delete`, needs the owner to allow it |
+| Old branches | 62 merged or obsolete remote branches | Owner agreed to delete (2026-10-16). The cloud session's GitHub proxy refuses branch deletion (`git push --delete` hangs up, API returns 403); needs a session or tool with delete rights |
 
 ## Task board
 
@@ -42,16 +42,14 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
 | 9 | 沟通 module — which chat tool | Blocked (owner) | Rail entry and flyout kept as the only placeholder besides Leads → 设置 (D-009) |
 | 10 | Company-wide sharing (accounts, server) | Blocked (owner) | Roles are a local preview only: anyone can switch back to admin |
-| 24 | Polish pass (this session) | In progress | PR from `claude/gallant-bell-0m7uzb`; then data-safety PR; then publish web trial |
+| 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
 | 25 | Split `src/app.js` (~5300 lines) and `business-ui.js` (~2700) by page | Todo | Many `tests/*.test.cjs` read source text; move them to behaviour tests while splitting |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
 | 27 | 新建商机: 客户 / 负责人 as real dropdowns | Todo | Now styled like dropdowns but still inputs with a datalist; needs controller changes in `business-ui.js` |
 
 ## Waiting on the owner
 
-- 合并 for the polish PR, the data-safety PR (after it opens) and #15.
-- Allow deleting old remote branches (blocked by this session's safety rules).
-- Whether 待收款客户 (customer list, 成交客户分层) stays — it is close to 回款, which D-006 ruled out.
+- 合并 for the data-safety PR and #15.
 - Whether `claude/theme-pink-orange` and `claude/order-lines` (1–2 unmerged commits each, superseded by later work) may go.
 - 沟通 module: which chat tool. Company sharing: where it runs, accounts and permissions.
 

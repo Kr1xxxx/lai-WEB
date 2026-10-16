@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-16 — Claude — Owner said 合并: merged #17 (polish pass), `main` 9df7d37. Restarted `claude/gallant-bell-0m7uzb` from it and
+  merged the Opus-reviewed data-safety branch (conflicts only in the `model.js` export list and `VALIDATION.md`); owner said to
+  remove the 待收款客户 group (done). model 1067 / e2e 171 green. Owner allowed deleting old branches, but the cloud GitHub proxy
+  refuses deletes (push hangs up, API 403). Web trial v1.06 published from `main` 9df7d37.
 - 2026-10-16 — Claude — Owner asked to review the repo, then "hand every task to subagents; polish the app, fix problems,
   keep improving features". Opus coordinated 15 subagents: four read-only audits (customer pages, business pages, data safety
   + 1.4.127 branch, UI audit), three e2e slices (orders/opportunities, mail/settings against fake mail servers, walkthrough of

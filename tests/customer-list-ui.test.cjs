@@ -113,3 +113,4 @@ test('pagination keeps the current page visible across first, middle and last cu
  for(const number of [1,2,3,4])assert.match(short,new RegExp(`data-page="${number}"`));
  assert.doesNotMatch(short,/>…<\/span>/);
 });
+test('the 待收款客户 group is gone (owner decision, D-006); 成交客户 stays',()=>{const html=render();assert.ok(!html.includes('待收款客户'));assert.ok(html.includes('成交客户'));});

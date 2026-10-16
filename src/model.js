@@ -132,7 +132,7 @@
         &&(!filters.tag||c.tags.some(t=>norm(t).includes(norm(filters.tag))))
         &&(!filters.stage||c.stage===filters.stage)
         &&(!filters.group||filters.group==='all'||filters.group==='won'&&c.orderCount>0||filters.group==='new'&&c.orderCount===0
-        ||filters.group==='followed'&&c.followed||filters.group==='due'&&c.due>0||filters.group==='followup'&&c.nextFollow&&c.nextFollow<=today
+        ||filters.group==='followed'&&c.followed||filters.group==='followup'&&c.nextFollow&&c.nextFollow<=today
         ||filters.group.startsWith('country:')&&c.orderCount>0&&c.country===filters.group.slice(8));
     }).sort((a,b)=>filters.sort==='name'?a.name.localeCompare(b.name):filters.sort==='amount'?(b.total??-1)-(a.total??-1):dateValue(b.sortUpdated||b.updated)-dateValue(a.sortUpdated||a.updated)||a.name.localeCompare(b.name));
   }
