@@ -87,6 +87,8 @@
     const textarea = (name, value, placeholder = "请输入") =>
       `<textarea id="ce-${name}" name="${name}" rows="3" placeholder="${E(placeholder)}">${E(value || "")}</textarea>`;
     const countryOptions = values(list("country"), c.country);
+    // 角色没有“重新分配”权限时，跟进人只读。
+    const canReassign = !root.LaiRoleModel || root.LaiRoleModel.can(state, "customer.reassign");
     const ownerOptions = values(
       [
         ...(Array.isArray(state.owners) ? state.owners : []),
@@ -224,7 +226,7 @@
         ${field("paymentEmail", "付款邮箱", input("paymentEmail", c.paymentEmail, "paypal@example.com", { type: "email" }))}
         ${field("repurchaseCycle", "复购周期", `<div class="ce-select"><select id="ce-repurchaseCycle" name="repurchaseCycle">${option("", "不提醒", String(c.repurchaseCycle || ""))}${values(["30", "60", "90", "180"], String(c.repurchaseCycle || "")).map((cycle) => option(cycle, `${cycle} 天`, String(c.repurchaseCycle || ""))).join("")}</select>${glyph("down")}</div>`)}
         <div class="ce-existing-fields">
-          ${field("owner", "跟进人", combo("owner", c.owner, "请选择", ownerOptions))}
+          ${field("owner", "跟进人", canReassign ? combo("owner", c.owner, "请选择", ownerOptions) : `<div class="ce-select">${input("owner", c.owner, "—", { attrs: 'readonly title="你的角色不能更换跟进人"' })}</div>`)}
           ${field("level", "客户等级", combo("level", c.level, "选填", [...(Array.isArray(state.customerLevels) ? state.customerLevels : []).filter((value) => typeof value === "string"), ...list("level")]))}
           ${field("nextFollow", "下次跟进", input("nextFollow", c.nextFollow, "请选择", { type: "date" }))}
         </div><button class="ce-collapse" type="button" data-editor-action="collapse">收起 ${glyph("up")}</button>
