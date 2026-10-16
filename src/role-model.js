@@ -60,6 +60,9 @@
     if(out['product.edit'])out['product.codeEdit']=true;
     return out;
   }
+  // 存下来的角色带着“存的时候权限清单里有哪些”（known）。之后新加的权限，内置角色（业务、部门管理员）按默认值补上，
+  // 不然老账号永远拿不到新功能；已经知道的权限（不管勾没勾）不动。没带 known 的旧数据，按下面这份当时的清单算。
+  const LEGACY_KNOWN=Object.freeze(['lead.view','lead.create','lead.edit','lead.delete','lead.purge','lead.reassign','lead.convert','opp.view','opp.create','opp.edit','opp.delete','opp.transfer','opp.archive','opp.fileDownload','opp.fileDelete','customer.view','customer.create','customer.edit','customer.reassign','customer.removeOwner','customer.unfollow','customer.toPool','customer.merge','customer.batchFollow','customer.duplicates','customer.trash','customer.import','pool.view','pool.claim','pool.assign','pool.edit','pool.delete','order.view','order.create','order.edit','order.delete','product.view','product.create','product.edit','product.delete','product.sync','product.codeNew','product.codeEdit','doc.create','doc.void','team.view','team.wall','team.goalEdit','team.targets','team.export','activity.view','mail.view','mail.send','settings.customer','settings.dedupe','settings.source','settings.opportunity','settings.product','settings.docTemplate','settings.general','settings.roles']);
   let counter=0;
   const newId=prefix=>`${prefix}${Date.now().toString(36)}${(counter++).toString(36)}`;
   function cleanName(value,label){
@@ -91,7 +94,12 @@
     return form||detail?{product:{form,detail}}:{};
   }
   function readRole(r,base){
-    const perms=r?upgrade(cleanPerms(r.perms),Number(r.v)||1):Object.fromEntries(base.defaults.map(key=>[key,true]));
+    let perms=r?upgrade(cleanPerms(r.perms),Number(r.v)||1):Object.fromEntries(base.defaults.map(key=>[key,true]));
+    if(r&&base.defaults.length){
+      const known=new Set(Array.isArray(r.known)?r.known:LEGACY_KNOWN);
+      perms={...perms};
+      for(const key of base.defaults)if(!known.has(key))perms[key]=true;
+    }
     return {...base,perms:cleanPerms(perms),fields:cleanFields(r?.fields),layouts:cleanLayouts(r?.layouts)};
   }
 
@@ -188,7 +196,7 @@
   // “默认跟进人”只在换账号（或给当前账号改名）时跟着变，其他改动不碰你在设置里填的值。
   function put(state,next,{owner=false}={}){
     const roles=next.roles.filter(r=>r.id!==ADMIN).map(r=>{
-      const row={id:r.id,name:r.name,scope:r.scope,perms:cleanPerms(r.perms),v:VERSION};
+      const row={id:r.id,name:r.name,scope:r.scope,perms:cleanPerms(r.perms),v:VERSION,known:[...KEYS]};
       const fields=cleanFields(r.fields),layouts=cleanLayouts(r.layouts);
       if(Object.keys(fields).length)row.fields=fields;
       if(Object.keys(layouts).length)row.layouts=layouts;
@@ -347,6 +355,50 @@
     if(!next.members.some(m=>m.roleId===ADMIN))throw new Error('至少要留一位系统管理员');
     return put(state,next);
   }
+  // 成员改名后，他负责的记录跟着改名（记录里存的是名字，不是成员编号）。不分大小写匹配，纯函数，不碰没变的记录。
+  // 改的地方：客户的负责人、线索、订单（含订单回收站）、商机的负责人和协同跟进人、任务、目标里的成员，以及默认跟进人。
+  function renameOwnerEverywhere(state,oldName,newName){
+    const from=norm(oldName),to=trim(newName);
+    if(!from||!to||!state||typeof state!=='object')return state;
+    const hit=value=>typeof value==='string'&&norm(value)===from&&value!==to;
+    let changed=false;
+    const mark=item=>{changed=true;return item;};
+    const field=(item,key)=>item&&typeof item==='object'&&hit(item[key])?mark({...item,[key]:to}):item;
+    const rows=(list,keys)=>{
+      if(!Array.isArray(list))return list;
+      let touched=false;
+      const out=list.map(item=>{let cur=item;for(const key of keys)cur=field(cur,key);if(cur!==item)touched=true;return cur;});
+      return touched?out:list;
+    };
+    const next={...state};
+    if(state.customers&&typeof state.customers==='object'&&!Array.isArray(state.customers)){
+      let touched=false;
+      const customers={};
+      for(const [name,profile] of Object.entries(state.customers)){const cur=field(profile,'owner');if(cur!==profile)touched=true;customers[name]=cur;}
+      if(touched)next.customers=customers;
+    }
+    for(const key of ['laiLeads','orders','trashOrders','laiTasks','laiTargets']){
+      const out=rows(state[key],['owner']);
+      if(out!==state[key])next[key]=out;
+    }
+    if(Array.isArray(state.laiOpportunities)){
+      let touched=false;
+      const out=state.laiOpportunities.map(item=>{
+        let cur=field(item,'owner');
+        if(cur&&Array.isArray(cur.collaborators)&&cur.collaborators.some(hit)){
+          cur={...cur,collaborators:cur.collaborators.map(name=>hit(name)?to:name)};
+        }
+        if(cur!==item)touched=true;
+        return cur;
+      });
+      if(touched)next.laiOpportunities=out;
+    }
+    for(const key of ['laiSettings','orderSettings']){
+      const cur=field(state[key],'defaultOwner');
+      if(cur!==state[key])next[key]=cur;
+    }
+    return changed?next:state;
+  }
   function renameMember(state,id,name){
     guard(state);
     const next=copy(state);
@@ -354,8 +406,10 @@
     if(!member)throw new Error('没有找到这位成员');
     const value=cleanName(name,'成员名字');
     if(next.members.some(m=>m.id!==id&&norm(m.name)===norm(value)))throw new Error('已有同名成员');
+    const before=member.name;
     member.name=value;
-    return put(state,next,{owner:member.id===next.current});
+    // 名字只是大小写或空格不同的话，记录也照样改成新写法。
+    return renameOwnerEverywhere(put(state,next,{owner:member.id===next.current}),before,value);
   }
   function removeMember(state,id){
     guard(state);
@@ -447,7 +501,7 @@
   const api={LIMITS,SCOPES,GROUPS,KEYS,ADMIN,SALES,DEPT_ADMIN,TEST_SALES,SALES_DEFAULT,DEPT_ADMIN_DEFAULT,PAGE_PERMS,FIELD_MODULES,FIELD_LEVELS,
     pagePerm,canOpen,labelOf,settings,currentMember,roleOf,can,isAdmin,scopeOf,meName,canSee,denied,assert,
     fieldLevel,fieldVisible,fieldEditable,lockedFields,keepLocked,productLayoutOf,
-    addRole,updateRole,deleteRole,addMember,setMemberRole,renameMember,removeMember,switchTo,memberCount,
+    addRole,updateRole,deleteRole,addMember,setMemberRole,renameMember,renameOwnerEverywhere,removeMember,switchTo,memberCount,
     addDepartment,renameDepartment,deleteDepartment,setMemberDept,deptTree,deptAndBelow,deptCount};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiRoleModel=api;
 })(typeof window!=='undefined'?window:globalThis);

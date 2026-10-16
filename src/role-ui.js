@@ -171,6 +171,7 @@
     }
     function renameMarkup(member){
       return `<form id="member-rename-form" class="drawer-body" data-role-form="member-rename" data-id="${E(member.id)}" novalidate><label class="field">名字<input name="name" value="${E(member.name)}" maxlength="${M.LIMITS.name}" autocomplete="off" required></label>`
+        +`<p class="cs-hint" id="member-rename-warn">会把这个人负责的客户、线索、订单、商机一起改名。</p>`
         +`<div class="error" id="member-rename-error" role="alert"></div></form>`;
     }
     function deptAddMarkup(state,parentId=''){

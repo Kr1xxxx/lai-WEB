@@ -144,6 +144,7 @@ test('member dialogs', () => {
   assert.match(add, /<option value="sales" selected>业务<\/option>/);
   const rename = ui.renameMarkup({ id: 'm1', name: 'Amy' });
   assert.ok(rename.includes('value="Amy"') && rename.includes('data-id="m1"'));
+  assert.ok(rename.includes('会把这个人负责的客户、线索、订单、商机一起改名'), 'renaming warns about the records that follow');
 });
 
 test('no permission: the notice replaces the page content', () => {

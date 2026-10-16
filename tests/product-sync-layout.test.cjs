@@ -391,3 +391,64 @@ test('the product form follows the form layout; the detail follows the detail la
   assert.ok(ui.detailMarkup(sp, { ...p, specs: [{ type: '颜色', value: '黑' }] }).includes('颜色'));
   assert.ok(ui.detailMarkup(s, { ...p, name: '<b>' }).includes('&lt;b&gt;'));
 });
+
+// ---------- 产品编号隐藏、分组改名后撤销、列表列 ----------
+test('sync by code still matches on 产品编号 when the field is hidden, without writing it', () => {
+  let s = make({}, '旧名字', { code: 'A-1', fob: '1.5' });
+  s = P.setField(s, 'code', { visible: false });
+  const table = P.readTable(s, ['产品编号', '产品名称', '离岸价'], [['A-1', '新名字', '2'], ['B-2', '胶水', '3']]);
+  assert.deepEqual(table.columns, ['name', 'fob'], 'the hidden code column is not a shown column');
+  assert.deepEqual(table.matchOnly, ['code']);
+  assert.deepEqual(table.hidden, [], 'code is not reported as ignored');
+  const first = P.syncProducts(s, table.records, { mode: 'code', at: T2 });
+  assert.deepEqual([first.plan.counts.new, first.plan.counts.update], [1, 1]);
+  assert.equal(first.state.laiProducts.length, 2);
+  assert.equal(first.state.laiProducts.find((p) => p.name === '新名字').code, 'A-1', 'the existing code stays');
+  assert.equal(first.state.laiProducts.find((p) => p.name === '胶水').code, '', 'a new product does not get the hidden code');
+  // Importing the same file again: the updated one has no change; the new one has no code to match, so the file duplicates only products without a stored code.
+  const again = P.planSync(first.state, table.records, { mode: 'code' });
+  assert.equal(again.counts.update, 0);
+  assert.equal(again.rows[0].reason, '内容没变');
+});
+
+test('hidden code: duplicate codes inside one file are still caught', () => {
+  const s = P.setField(make({}, 'X', { code: 'Z-1' }), 'code', { visible: false });
+  const plan = P.planSync(s, [rec({ name: 'A', code: 'N-1' }, 2), rec({ name: 'B', code: 'n-1' }, 3)], { mode: 'code' });
+  assert.deepEqual(plan.rows.map((r) => r.status), ['new', 'skip']);
+  assert.match(plan.rows[1].reason, /重复/);
+});
+
+test('undo after a group rename restores the renamed group; after a group removal it clears the group', () => {
+  let s = P.addGroup({}, { name: '睫毛' });
+  s = make(s, '甲', { code: 'A-1', group: '睫毛' });
+  const first = P.syncProducts(s, [rec({ name: '甲2', code: 'A-1', group: '睫毛' }, 2)], { mode: 'code', at: T2 });
+  assert.equal(first.plan.counts.update, 1);
+  // rename the group (the product follows, and so does the saved "before" copy)
+  const top = P.settings(first.state).groups[0];
+  const renamed = P.renameGroup(first.state, top.id, '假睫毛');
+  assert.equal(renamed.laiProducts[0].group, '假睫毛');
+  const back = P.undoSync(renamed, first.task.id, T3);
+  assert.equal(back.state.laiProducts[0].group, '假睫毛', 'not the old name that no longer exists');
+  assert.equal(back.state.laiProducts[0].name, '甲');
+  // removal: move the product away, delete the group, undo
+  const moved = { ...renamed, laiProducts: renamed.laiProducts.map((p) => ({ ...p, group: '' })) };
+  const gone = P.deleteGroup(moved, top.id);
+  const back2 = P.undoSync(gone, first.task.id, T3);
+  assert.equal(back2.state.laiProducts[0].group, '');
+  assert.equal(back2.state.laiProducts[0].name, '甲');
+  assert.equal(back2.result.groupCleared, 1);
+});
+
+test('product list hides the columns of fields hidden in 产品字段', () => {
+  let s = make({}, '甲', { code: 'A-1', model: 'M1', unit: 'pcs', fob: '3' });
+  const view = { tab: 'list', search: '', group: '' };
+  const render = (state) => ui.pageMarkup(state, view);
+  const full = render(s);
+  assert.match(full, /<th>产品编号<\/th>/);
+  assert.match(full, /<th>离岸价<\/th>/);
+  let t = P.setField(P.setField(s, 'code', { visible: false }), 'fob', { visible: false });
+  const cut = render(t);
+  assert.doesNotMatch(cut, /<th>产品编号<\/th>/);
+  assert.doesNotMatch(cut, /<th>离岸价<\/th>/);
+  assert.match(cut, /<th>产品型号<\/th>/);
+});
