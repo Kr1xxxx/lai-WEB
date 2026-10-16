@@ -90,10 +90,14 @@ test('the order shows on the customer detail, and the detail opens it again', as
   await form().waitFor();
   assert.equal(await form().locator('[name="num"]').inputValue(), 'E2E-001');
   assert.equal(await form().locator('[name="client"]').inputValue(), 'Northwind Lash Studio');
-  // Opening an order always goes to the order list; closing it leaves you there.
+  // The order opened from the customer detail remembers the customer: closing it goes back to that customer.
   await page.locator('[data-biz-action="close-editor"]').first().click();
   await form().waitFor({ state: 'detached' });
-  await page.locator('.op-page').waitFor();
+  await page.getByText('客户详情', { exact: true }).first().waitFor({ timeout: 5000 });
+  await page.locator('.lcd-side-order').filter({ hasText: 'E2E-001' }).waitFor();
+  assert.equal(await page.locator('.op-page').count(), 0);
+  // Back to the order list for the next steps.
+  await openOrders();
   assert.deepEqual(app.errors, []);
 });
 
