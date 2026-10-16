@@ -2,7 +2,8 @@
   'use strict';
   // 线索页面的纯标记生成：列表、回收站、新建／编辑表单、详情（含写跟进）、转客户、标记无效。不读写数据。
   const PAGE=50;
-  function create(E,model){
+  // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
+  function create(E,model,can=()=>true){
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     const shortDate=(day,today)=>day?(String(day).slice(0,4)===String(today).slice(0,4)?String(day).slice(5):String(day)):'—';
     const chip=row=>`<span class="opp-chip lead-status lead-status-${E(row.status)}">${E(row.statusLabel)}</span>`;
@@ -37,13 +38,13 @@
     }
     function rowActions(row){
       if(row.status==='converted')return `<button type="button" data-lead-action="open" data-id="${E(row.id)}">查看</button>`;
-      if(row.status==='invalid')return `<button type="button" data-lead-action="reopen" data-id="${E(row.id)}">重新跟进</button>`;
-      return `<button type="button" data-lead-action="follow" data-id="${E(row.id)}">写跟进</button><button type="button" class="lead-convert" data-lead-action="convert" data-id="${E(row.id)}">转为客户</button>`;
+      if(row.status==='invalid')return can('lead.edit')?`<button type="button" data-lead-action="reopen" data-id="${E(row.id)}">重新跟进</button>`:`<button type="button" data-lead-action="open" data-id="${E(row.id)}">查看</button>`;
+      return (can('lead.edit')?`<button type="button" data-lead-action="follow" data-id="${E(row.id)}">写跟进</button>`:`<button type="button" data-lead-action="open" data-id="${E(row.id)}">查看</button>`)+(can('lead.convert')?`<button type="button" class="lead-convert" data-lead-action="convert" data-id="${E(row.id)}">转为客户</button>`:'');
     }
     function table(page,view,today){
       const limit=Math.max(PAGE,Number(view.limit)||PAGE);
       const shown=page.rows.slice(0,limit),rest=page.rows.length-shown.length;
-      if(!page.total)return `<section class="business-section lead-empty"><strong>还没有线索</strong><p>线索是还没成为客户的潜在买家：展会上拿到的名片、官网的询盘、别人介绍的联系人。先记在这里跟进，谈成了再一键转为客户。</p><button type="button" class="primary" data-lead-action="new">新建线索</button></section>`;
+      if(!page.total)return `<section class="business-section lead-empty"><strong>还没有线索</strong><p>线索是还没成为客户的潜在买家：展会上拿到的名片、官网的询盘、别人介绍的联系人。先记在这里跟进，谈成了再一键转为客户。</p>${can('lead.create')?'<button type="button" class="primary" data-lead-action="new">新建线索</button>':''}</section>`;
       if(!page.rows.length)return '<section class="business-section lead-empty"><strong>没有符合条件的线索</strong><p>换一个状态，或清空搜索和筛选条件再看。</p></section>';
       const body=shown.map(row=>{
         const dup=duplicateNote(row);
@@ -58,13 +59,13 @@
         +(rest>0?`<button type="button" class="opp-more" data-lead-action="more">再显示 ${Math.min(PAGE,rest)} 条（还有 ${rest} 条）</button>`:'')+'</section>';
     }
     const pageMarkup=(page,view={},today='')=>`<div class="business-scroll opp-page lead-page">${tabs(page)}${toolbar(page)}${table(page,view,today)}</div>`;
-    const headerActions=page=>`<button type="button" data-lead-action="trash-page">回收站${page.trashCount?`（${page.trashCount}）`:''}</button><button type="button" class="primary" data-lead-action="new">新建线索</button>`;
+    const headerActions=page=>`<button type="button" data-lead-action="trash-page">回收站${page.trashCount?`（${page.trashCount}）`:''}</button>${can('lead.create')?'<button type="button" class="primary" data-lead-action="new">新建线索</button>':''}`;
 
     function trashMarkup(rows,armed='',today=''){
       if(!rows.length)return '<div class="business-scroll opp-page lead-page"><section class="business-section lead-empty"><strong>回收站是空的</strong><p>移入回收站的线索会放在这里，可以恢复，也可以彻底删除。</p></section></div>';
       return `<div class="business-scroll opp-page lead-page"><div class="error" id="lead-trash-error" role="alert"></div><section class="business-section opp-list lead-list"><div class="team-table-scroll"><table class="order-table team-table lead-table"><thead><tr><th>线索名称</th><th>联系人</th><th>来源</th><th>跟进人</th><th>状态</th><th>移入时间</th><th>操作</th></tr></thead><tbody>${rows.map(row=>
         `<tr><td>${E(row.name)}</td><td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:''}</td><td>${E(row.source||'—')}</td><td>${E(row.owner||'未分配')}</td><td>${chip(row)}</td><td>${E(shortDate(row.trashedDay,today))}</td>`
-        +`<td class="lead-actions"><button type="button" data-lead-action="restore" data-id="${E(row.id)}">恢复</button><button type="button" class="lead-danger" data-lead-action="delete" data-id="${E(row.id)}">${armed===row.id?'再点一次，彻底删除':'彻底删除'}</button></td></tr>`).join('')}</tbody></table></div></section></div>`;
+        +`<td class="lead-actions">${can('lead.edit')?`<button type="button" data-lead-action="restore" data-id="${E(row.id)}">恢复</button>`:''}${can('lead.delete')?`<button type="button" class="lead-danger" data-lead-action="delete" data-id="${E(row.id)}">${armed===row.id?'再点一次，彻底删除':'彻底删除'}</button>`:''}</td></tr>`).join('')}</tbody></table></div></section></div>`;
     }
 
     const req='<i class="opp-req" aria-hidden="true">*</i>';
@@ -82,7 +83,7 @@
         +field('网址',`<input name="website" value="${E(v.website||'')}" maxlength="200" autocomplete="off">`,{wide:true})
         +`</div><div class="form-section">跟进安排</div><div class="opp-grid">`
         +field('线索来源',`<input name="source" value="${E(v.source||'')}" list="lead-source-list" maxlength="40" autocomplete="off" placeholder="输入或选择">${datalist('lead-source-list',context.sources)}`)
-        +field('跟进人',`<input name="owner" value="${E(v.owner||'')}" list="lead-owner-list" maxlength="40" autocomplete="off" placeholder="留空表示未分配">${datalist('lead-owner-list',context.owners)}`)
+        +field('跟进人',`<input name="owner" value="${E(v.owner||'')}" list="lead-owner-list" maxlength="40" autocomplete="off" placeholder="留空表示未分配"${can('lead.reassign')?'':' readonly'}>${datalist('lead-owner-list',context.owners)}`)
         +field('下次跟进日期',`<input name="nextFollow" type="date" value="${E(v.nextFollow||'')}">`)
         +field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off">`)
         +field('备注',`<textarea name="note" rows="4" maxlength="2000">${E(v.note||'')}</textarea>`,{wide:true})
@@ -94,14 +95,14 @@
       const open=['new','following'].includes(row.status);
       const info=(label,value)=>`<div class="lead-info"><dt>${label}</dt><dd>${value||'<span class="lead-muted">—</span>'}</dd></div>`;
       const dup=duplicateNote(row);
-      const actions=row.trashed?`<button type="button" data-lead-action="restore" data-id="${E(row.id)}">从回收站恢复</button>`
-        :`<button type="button" data-lead-action="edit" data-id="${E(row.id)}">编辑资料</button>`
-          +(open?`<button type="button" class="primary" data-lead-action="convert" data-id="${E(row.id)}">转为客户</button><button type="button" data-lead-action="invalid" data-id="${E(row.id)}">标记无效</button>`:'')
-          +(row.status==='invalid'?`<button type="button" class="primary" data-lead-action="reopen" data-id="${E(row.id)}">重新跟进</button>`:'')
-          +`<button type="button" class="lead-danger" data-lead-action="trash" data-id="${E(row.id)}">移入回收站</button>`;
+      const actions=row.trashed?(can('lead.edit')?`<button type="button" data-lead-action="restore" data-id="${E(row.id)}">从回收站恢复</button>`:'')
+        :(can('lead.edit')?`<button type="button" data-lead-action="edit" data-id="${E(row.id)}">编辑资料</button>`:'')
+          +(open?(can('lead.convert')?`<button type="button" class="primary" data-lead-action="convert" data-id="${E(row.id)}">转为客户</button>`:'')+(can('lead.edit')?`<button type="button" data-lead-action="invalid" data-id="${E(row.id)}">标记无效</button>`:''):'')
+          +(row.status==='invalid'&&can('lead.edit')?`<button type="button" class="primary" data-lead-action="reopen" data-id="${E(row.id)}">重新跟进</button>`:'')
+          +(can('lead.delete')?`<button type="button" class="lead-danger" data-lead-action="trash" data-id="${E(row.id)}">移入回收站</button>`:'');
       const banner=row.status==='converted'?`<p class="lead-banner is-converted">已于 ${E(row.convertedDay||'—')} 转为客户 ${customerLink(row)}。之后的跟进请写在客户资料里。</p>`
         :row.status==='invalid'?`<p class="lead-banner is-invalid">已标记为无效：${E(row.invalidReason||'未填原因')}${row.invalidNote?`（${E(row.invalidNote)}）`:''}</p>`:'';
-      const follow=open&&!row.trashed?`<form class="lead-follow" id="lead-follow-form" data-id="${E(row.id)}"><div class="error" id="lead-follow-error" role="alert"></div>`
+      const follow=open&&!row.trashed&&can('lead.edit')?`<form class="lead-follow" id="lead-follow-form" data-id="${E(row.id)}"><div class="error" id="lead-follow-error" role="alert"></div>`
         +`<label class="opp-field is-wide"><span class="opp-field-label">写跟进</span><textarea name="text" rows="3" maxlength="2000" placeholder="这次联系了什么、对方怎么说、下一步做什么" required></textarea></label>`
         +`<div class="lead-follow-row"><label class="opp-field"><span class="opp-field-label">下次跟进日期</span><input name="nextFollow" type="date" value="${E(row.nextFollow||'')}"></label><button class="primary" type="submit">保存跟进</button></div></form>`:'';
       const timeline=row.history.length?`<ol class="lead-timeline">${row.history.map(entry=>`<li class="is-${entry.type}"><time>${E(entry.day||'—')}</time><span class="lead-entry-kind">${entry.type==='followup'?'跟进':'操作'}</span><p>${E(entry.text)}</p></li>`).join('')}</ol>`:'<p class="lead-muted lead-no-history">还没有记录</p>';
@@ -110,7 +111,7 @@
         +(dup?`<p class="lead-banner is-dup">${E(dup)}。转为客户时可以选择关联到已有客户。</p>`:'')+banner
         +`<dl class="lead-infos">${info('联系人',E(row.contact))}${info('邮箱',E(row.email))}${info('电话',E(row.phone))}${info('国家地区',E(row.country))}${info('线索来源',E(row.source))}${info('跟进人',E(row.owner||'未分配'))}${info('意向产品',E(row.product))}${info('网址',E(row.website))}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
         +(row.note?`<p class="lead-note">${E(row.note)}</p>`:'')
-        +`<div class="lead-detail-actions">${actions}</div>${follow}<div class="form-section">记录</div>${timeline}</div>`;
+        +(actions?`<div class="lead-detail-actions">${actions}</div>`:'')+`${follow}<div class="form-section">记录</div>${timeline}</div>`;
     }
 
     // 转为客户：新建客户档案（名称、国家地区、客户来源必填），或关联到已有客户。

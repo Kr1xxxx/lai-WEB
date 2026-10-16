@@ -53,6 +53,9 @@
 
   function markup(input, E) {
     const { state, today, B, OM, TM, bucket, mail } = input;
+    // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。没有查看权限的模块，卡片和数字都不显示。
+    const can = typeof input.can === "function" ? input.can : () => true;
+    const seeOrders = can("order.view"), seeOpp = can("opp.view"), seeTeam = can("team.view"), seeMail = can("mail.view");
     const orders = state.orders || [];
     const metrics = B.orderMetrics(orders);
     const live = orders.filter((o) => !o.isDraft && o.stage !== "done");
@@ -80,13 +83,13 @@
     const stat = (cls, label, value, note, go, extra = "") =>
       `<button type="button" class="wb-stat ${cls}" data-biz-go="${go}"><span>${label}</span><strong class="wb-num"${extra}>${value}</strong><small${extra ? extra.replace("data-wb-mail-count", "data-wb-mail-note") : ""}>${note}</small></button>`;
     const stats = [
-      stat("", "有效订单", metrics.count, "全部订单 · 不含草稿", "order-list"),
-      stat("wb-gold", "未完成订单", metrics.activeCount, `${shipped} 笔已发货待完成`, "order-list"),
+      seeOrders && stat("", "有效订单", metrics.count, "全部订单 · 不含草稿", "order-list"),
+      seeOrders && stat("wb-gold", "未完成订单", metrics.activeCount, `${shipped} 笔已发货待完成`, "order-list"),
       stat("wb-brand", "待跟进客户", follow.length, `${overdue} 位已逾期`, "customers"),
       stat("", "待办任务", tasks.length, `今天到期 ${dueToday} 项`, "calendar"),
-      stat("", "进行中商机", openCount, E(oppNote), "opportunities"),
-      stat("", "未读邮件", unread === null ? "—" : unread, pending === null ? "收件箱" : `待处理 ${pending} 封`, "mail:unread", ' data-wb-mail-count="1"'),
-    ].join("");
+      seeOpp && stat("", "进行中商机", openCount, E(oppNote), "opportunities"),
+      seeMail && stat("", "未读邮件", unread === null ? "—" : unread, pending === null ? "收件箱" : `待处理 ${pending} 封`, "mail:unread", ' data-wb-mail-count="1"'),
+    ].filter(Boolean).join("");
 
     // 订单进度：每笔订单 6 格进度条，已到达的阶段点亮。
     const stageIds = B.stages.map((s) => s.id);
@@ -109,7 +112,7 @@
         return `<div class="wb-money"><b>${E(c.currency)}</b><span>${c.count} 笔</span><span class="wb-num">${E(symbolMoney(c.total, c.currency))}</span><span class="wb-num wb-paid">${E(symbolMoney(c.paid, c.currency))}</span><span class="wb-num wb-due">${E(symbolMoney(c.due, c.currency))}</span><span class="wb-pct"><span class="wb-track"><i style="width:${pct}%"></i></span><small>${pct}%</small></span></div>`;
       })
       .join("");
-    const moneyCard = `<section class="wb-card"><div class="wb-head"><h2>金额概览 <small>按币种分别统计，不折算 · 不含草稿</small></h2><button type="button" class="wb-link" data-biz-go="analysis">经营统计 ›</button></div>${moneyRows ? `<div class="wb-scroll"><div class="wb-moneys"><div class="wb-money wb-money-head"><span>币种</span><span>订单数</span><span>订单金额</span><span>已收款</span><span>待收款</span><span>已收款占比</span></div>${moneyRows}</div></div>` : '<p class="wb-empty">暂无订单金额。</p>'}<p class="wb-foot">已发货、已完成的订单按全额计入已收款。</p></section>`;
+    const moneyCard = `<section class="wb-card"><div class="wb-head"><h2>金额概览 <small>按币种分别统计，不折算 · 不含草稿</small></h2>${seeTeam ? '<button type="button" class="wb-link" data-biz-go="analysis">经营统计 ›</button>' : ""}</div>${moneyRows ? `<div class="wb-scroll"><div class="wb-moneys"><div class="wb-money wb-money-head"><span>币种</span><span>订单数</span><span>订单金额</span><span>已收款</span><span>待收款</span><span>已收款占比</span></div>${moneyRows}</div></div>` : '<p class="wb-empty">暂无订单金额。</p>'}<p class="wb-foot">已发货、已完成的订单按全额计入已收款。</p></section>`;
 
     const tiles = board
       ? board.columns
@@ -168,7 +171,7 @@
     const mailBody = mail && Array.isArray(mail.items) ? mailRows(mail.items, today, E) || '<p class="wb-empty">没有未读邮件。</p>' : '<p class="wb-empty">正在读取邮件…</p>';
     const mailCard = `<section class="wb-card"><div class="wb-head"><h2>未读邮件 <small data-wb-mail-title>${unread === null ? "" : unread + " 封"}</small></h2><button type="button" class="wb-link" data-biz-go="mail:inbox">收件箱 ›</button></div><div data-wb-mails>${mailBody}</div></section>`;
 
-    return `<div class="wb"><div class="wb-top"><h1>工作台</h1><span>查看客户跟进与订单进度 · 截至今天 ${longToday(today)}</span><div><button type="button" data-biz-action="new-task">添加任务</button><button type="button" data-biz-go="opp-new">新建商机</button><button type="button" class="wb-primary" data-biz-action="new-order">新建订单</button></div></div><section class="wb-stats">${stats}</section><div class="wb-cols"><div class="wb-left">${orderCard}${moneyCard}${oppCard}</div><div class="wb-right">${followCard}${taskCard}${goalCard}${mailCard}</div></div></div>`;
+    return `<div class="wb"><div class="wb-top"><h1>工作台</h1><span>查看客户跟进与订单进度 · 截至今天 ${longToday(today)}</span><div><button type="button" data-biz-action="new-task">添加任务</button>${can("opp.create") ? '<button type="button" data-biz-go="opp-new">新建商机</button>' : ""}${can("order.create") ? '<button type="button" class="wb-primary" data-biz-action="new-order">新建订单</button>' : ""}</div></div><section class="wb-stats">${stats}</section><div class="wb-cols"><div class="wb-left">${seeOrders ? orderCard + moneyCard : ""}${seeOpp ? oppCard : ""}</div><div class="wb-right">${followCard}${taskCard}${seeTeam ? goalCard : ""}${seeMail ? mailCard : ""}</div></div></div>`;
   }
 
   return { markup, mailRows };

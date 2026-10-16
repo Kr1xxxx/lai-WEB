@@ -2,7 +2,8 @@
   'use strict';
   // 产品页的页面文字（HTML）：产品列表、分组、同步、字段、规格、布局六个页签，以及新建／编辑表单、产品详情、同步对话框。只生成字符串，不读写数据。
   const TABS=Object.freeze([['list','产品列表'],['groups','产品分组'],['sync','同步'],['fields','产品字段'],['specs','规格管理'],['layouts','布局']]);
-  function create(E,M){
+  // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
+  function create(E,M,can=()=>true){
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     const empty=text=>`<div class="cs-empty">${text}</div>`;
     const section=(title,note,content)=>`<section class="cs-section"><h3>${E(title)}</h3>${note?`<p class="cs-hint">${note}</p>`:''}${content}</section>`;
@@ -11,8 +12,10 @@
     // 同步时间按本机时间显示到分钟。
     const stamp=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?'—':`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;};
 
+    // 产品列表看产品权限；“同步”看 product.sync；分组、字段、规格、布局是产品设置，看 settings.product。
+    const tabAllowed=id=>id==='list'||(id==='sync'?can('product.sync'):can('settings.product'));
     function nav(view){
-      return `<nav class="cs-nav" aria-label="产品">${TABS.map(([id,label])=>`<button type="button" data-prod-tab="${id}" class="${id===view.tab?'active':''}"${id===view.tab?' aria-current="page"':''}>${E(label)}</button>`).join('')}</nav>`;
+      return `<nav class="cs-nav" aria-label="产品">${TABS.filter(([id])=>tabAllowed(id)).map(([id,label])=>`<button type="button" data-prod-tab="${id}" class="${id===view.tab?'active':''}"${id===view.tab?' aria-current="page"':''}>${E(label)}</button>`).join('')}</nav>`;
     }
     // ---- 产品列表 ----
     function listTab(state,view){
@@ -21,16 +24,16 @@
       const groups=M.groupChoices(state);
       const toolbar=`<div class="opp-toolbar lead-toolbar"><input type="search" id="prod-search" value="${E(view.search||'')}" placeholder="搜索名称、编号、型号、备注" aria-label="搜索产品">`
         +`<select id="prod-group" aria-label="产品分组"><option value="">全部分组</option>${groups.map(g=>option(g,g,view.group)).join('')}</select>`
-        +`<button type="button" class="primary" data-prod-action="new">新建产品</button></div>`;
-      if(!total)return toolbar+empty('还没有产品。点“新建产品”添加；字段、分组、规格可以先在其他页签里设置。');
+        +`${can('product.create')?'<button type="button" class="primary" data-prod-action="new">新建产品</button>':''}</div>`;
+      if(!total)return toolbar+empty(can('product.create')?'还没有产品。点“新建产品”添加；字段、分组、规格可以先在其他页签里设置。':'还没有产品。');
       if(!rows.length)return toolbar+empty('没有符合条件的产品，换个关键词或分组再看。');
       const body=rows.map(p=>{
         const armed=view.armed===p.id;
         return `<tr><td><button type="button" class="company-link" data-prod-action="view" data-id="${E(p.id)}">${E(p.name)}</button>${p.nameCn?`<div class="cs-use">${E(p.nameCn)}</div>`:''}</td><td>${E(p.code||'—')}</td><td>${E(p.model||'—')}</td><td>${E(p.group||'未分组')}</td><td>${p.fob?E(p.fob):'—'}</td><td>${E(p.unit||'—')}</td><td>${E(day(p.updatedAt))}</td>`
-          +`<td><span class="cs-row-actions"><button type="button" data-prod-action="edit" data-id="${E(p.id)}">编辑</button><button type="button" data-prod-action="delete" data-id="${E(p.id)}">${armed?'确定删除':'删除'}</button></span></td></tr>`;
+          +`<td><span class="cs-row-actions">${can('product.edit')?`<button type="button" data-prod-action="edit" data-id="${E(p.id)}">编辑</button>`:''}${can('product.delete')?`<button type="button" data-prod-action="delete" data-id="${E(p.id)}">${armed?'确定删除':'删除'}</button>`:''}</span></td></tr>`;
       }).join('');
       return toolbar+`<table class="cs-table cs-prod"><thead><tr><th>产品名称</th><th>产品编号</th><th>产品型号</th><th>产品分组</th><th>离岸价</th><th>计量单位</th><th>更新</th><th>操作</th></tr></thead><tbody>${body}</tbody></table>`
-        +`<p class="cs-hint">共 ${rows.length} 个产品${rows.length!==total?`（全部 ${total} 个）`:''}。删除后不能恢复。</p>`;
+        +`<p class="cs-hint">共 ${rows.length} 个产品${rows.length!==total?`（全部 ${total} 个）`:''}。${can('product.delete')?'删除后不能恢复。':''}</p>`;
     }
     // ---- 产品分组 ----
     function groupsTab(state,view){
@@ -147,6 +150,8 @@
     }
     function pageMarkup(state,view){
       const tabs={groups:groupsTab,sync:syncTab,fields:fieldsTab,specs:specsTab,layouts:layoutsTab};
+      // 没有权限的页签回到产品列表。
+      if(!tabAllowed(view.tab))view={...view,tab:'list'};
       const body=(tabs[view.tab]||listTab)(state,view);
       const notes={list:'管理你卖的产品。',groups:'最多两级。新建产品时可以选分组；有产品在用的分组不能删除。',sync:'用 Excel 或 CSV 文件批量新建、更新产品。先预览，确认后才写入，每次同步都可以撤销。',fields:'决定新建和编辑产品时有哪些字段、哪些必填。',specs:'规格类型和它的规格值，如 颜色：黑、棕。产品可以选用。',layouts:'决定新建/编辑产品和产品详情里，字段按什么顺序、分在哪个信息区。'};
       return `<section class="cs-page">${nav(view)}<div class="cs-panel" data-prod-panel="${E(view.tab)}"><h2>${E((TABS.find(t=>t[0]===view.tab)||TABS[0])[1])}</h2><p class="cs-note">${E(notes[view.tab]||notes.list)}</p><div class="cs-error error" id="prod-error" role="alert"></div>${body}</div></section>`;
