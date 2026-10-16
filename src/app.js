@@ -1072,9 +1072,9 @@
     if (!isNew && L.bucket(state.customers?.[customerName] || {}) === "trash")
       return toast("请先恢复回收站客户");
     if (!isNew && poolEditBlocked(customerName)) return toast(POOL_EDIT_BLOCKED);
-    // 本人范围的账号新建客户，跟进人默认是自己，否则建完在自己的列表里就看不到了。
+    // 本人、本部门范围的账号新建客户，跟进人默认是自己，否则建完在自己的列表里就看不到了。
     const c = isNew
-      ? R.scopeOf(state) === "self" && R.meName(state) ? { owner: R.meName(state) } : {}
+      ? R.scopeOf(state) !== "all" && R.meName(state) ? { owner: R.meName(state) } : {}
       : allCustomerRows().find((c) => c.name === customerName) || {};
     const form = window.LaiCustomerEditor.render(c, {
       isNew,
@@ -1877,7 +1877,7 @@
       if (form.id === "customer-form") {
         const oldName = form.dataset.oldName;
         R.assert(state, !oldName ? "customer.create" : L.bucket(state.customers?.[oldName] || {}) === "pool" ? "pool.edit" : "customer.edit");
-        if (!oldName && R.scopeOf(state) === "self" && (!can("customer.reassign") || !String(data.owner || "").trim()))
+        if (!oldName && R.scopeOf(state) !== "all" && (!can("customer.reassign") || !String(data.owner || "").trim()))
           data.owner = R.meName(state);
         if (oldName && !can("customer.reassign")) {
           const before = String(allCustomerRows().find((row) => row.name === oldName)?.owner || "").trim();

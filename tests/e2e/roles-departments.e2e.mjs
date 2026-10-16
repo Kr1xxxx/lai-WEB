@@ -337,6 +337,36 @@ test('a module without fields says so in the dialog', async () => {
   await page.locator('[data-role-action="back"]').click();
 });
 
+test('a 部门管理员 (本部门) creating a customer becomes its owner and still sees it', async () => {
+  const { page } = app;
+  const admin = (await stored()).current;
+  await page.locator('[data-action="profile-menu"]').click();
+  await page.locator('.popover.account-menu [data-lai-switch-member]', { hasText: 'Mia' }).click();
+  await page.locator('#toast.show', { hasText: '已切换到' }).waitFor();
+  await app.open('customers');
+  await page.getByRole('button', { name: '新建客户' }).first().click();
+  assert.equal(await page.locator('#ce-owner').inputValue(), 'Mia', 'the owner starts as the current account');
+  await page.locator('#ce-name').fill('Dept Scope Beauty');
+  await page.locator('#ce-country').fill('美国');
+  await page.getByRole('option', { name: '美国', exact: true }).click();
+  await page.locator('#ce-source').fill('官网');
+  await page.keyboard.press('Enter');
+  await page.locator('#ce-contact-0').fill('Iris Monroe');
+  await page.locator('#ce-email-0').fill('iris@dept.example');
+  await page.locator('#ce-phone-0').fill('2125550198');
+  await page.getByRole('button', { name: '确 定' }).click();
+  await settle(1000);
+  assert.equal((await app.readData()).customers['Dept Scope Beauty'].owner, 'Mia');
+  await page.reload();
+  await page.getByText('Dept Scope Beauty').first().waitFor();
+  // back to the administrator for the rest of the run
+  const data = await app.readData();
+  const name = (data.laiSettings.roles.members || []).find((m) => m.id === admin)?.name;
+  await page.locator('[data-action="profile-menu"]').click();
+  await page.locator('.popover.account-menu [data-lai-switch-member]', { hasText: name }).click();
+  await page.locator('#toast.show', { hasText: '已切换到' }).waitFor();
+});
+
 test('no page errors in the whole run', () => {
   assert.deepEqual(app.errors.filter((error) => !error.includes('/api/mail/messages')), []);
 });
