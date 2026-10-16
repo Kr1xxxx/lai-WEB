@@ -48,3 +48,24 @@ test('customer detail render: hidden opportunity fields are not rendered', () =>
     assert.ok(admin.includes('结束日期') && admin.includes('secret'));
   } finally { delete global.LaiRoleModel; }
 });
+
+test('customer detail 商机和订单 tab: the opportunity table drops 结束日期 when it is hidden for the role', () => {
+  global.LaiRoleModel = R;
+  try {
+    const UI = require('../src/customer-detail-ui.js');
+    const c = { name: 'A', owner: 'Amy', opportunityAllCount: 1, opportunities: [{ id: 'o', number: 'OP-1', name: 'N', stageLabel: '报价', amount: 5, currency: 'USD', endDate: '2031-12-24', owner: 'Amy' }] };
+    const render = (state, opportunities = c.opportunities) => UI.render({ ...c, opportunities }, { state, escape: (v) => String(v), money: String, date: String, icon: () => '', tab: 'trade' });
+    const table = (html) => {
+      const start = html.indexOf('lcd-opportunity-table');
+      assert.ok(start > 0, 'opportunity table rendered');
+      return html.slice(start, html.indexOf('</table>', start));
+    };
+    const hidden = table(render(roleState('b')));
+    assert.ok(hidden.includes('OP-1') && hidden.includes('负责人'));
+    assert.ok(!hidden.includes('结束日期') && !hidden.includes('2031-12-24'));
+    assert.match(table(render(roleState('b'), [])), /colspan="5"/);
+    const admin = table(render(roleState('a')));
+    assert.ok(admin.includes('结束日期') && admin.includes('2031-12-24'));
+    assert.match(table(render(roleState('a'), [])), /colspan="6"/);
+  } finally { delete global.LaiRoleModel; }
+});

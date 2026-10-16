@@ -16,7 +16,8 @@
     if(source.length>10&&!Number.isFinite(Date.parse(source.replace(' ','T'))))return '';
     return match[0].slice(0,10);
   }
-  function requireId(id){if(typeof id!=='string'||!id.trim())throw new Error('记录 ID 无效');}
+  const customerKey=name=>trim(name).normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
+  function requireId(id){if(typeof id!=='string'||!id.trim())throw new Error('找不到这条记录');}
   function numericInput(value,label){
     if(value===null||value===undefined||typeof value==='boolean'||!String(value).trim()||!Number.isFinite(Number(value))||Number(value)<0)throw new Error(`${label}必须为不小于 0 的有效数字`);
     return Number(value);
@@ -52,7 +53,7 @@
     for(const bucket of buckets){
       for(const order of state[bucket]||[]){
         if(bucket===excludeBucket&&order.id===id)continue;
-        if(order.id===id)throw new Error('订单 ID 已存在于其他记录中');
+        if(order.id===id)throw new Error('这个订单已经存在');
         if(normalized(order.num)===normalized(num))throw new Error('订单号已存在（包含垃圾箱或已删除订单），请使用其他订单号');
       }
     }
@@ -119,11 +120,27 @@
     next.isDraft=Object.hasOwn(input,'isDraft')?input.isDraft:previous?.isDraft===true;
     if(!Object.hasOwn(input,'createdAt')&&!next.createdAt)next.createdAt=localDate();
     if(!datePart(next.createdAt))throw new Error('订单日期无效');
-    if(!Object.hasOwn(input,'orderMonth')&&!next.orderMonth)next.orderMonth=datePart(next.createdAt).slice(0,7);
+    if(!Object.hasOwn(input,'orderMonth')){
+      const oldMonth=previous?datePart(previous.createdAt).slice(0,7):'';
+      // 订单月份原来跟着创建日期走（或没填）时，改创建日期就一起改月份；手动改过的月份不动。
+      if(!next.orderMonth||(Object.hasOwn(input,'createdAt')&&(!previous?.orderMonth||previous.orderMonth===oldMonth)))next.orderMonth=datePart(next.createdAt).slice(0,7);
+    }
     if(!validMonth(next.orderMonth))throw new Error('订单月份无效');
     assertUnique(state,id,next.num,previous?'orders':undefined);
     const customers={...(state.customers||{})};
-    if(!Object.hasOwn(customers,next.client))customers[next.client]={client:next.client,country:next.country||'',owner:next.owner||''};
+    const clientKey=customerKey(next.client);
+    // 回收站里的客户：只拦新订单和改到这个客户名下的订单，原有订单照常能改。
+    const sameClient=Boolean(previous)&&customerKey(previous.client)===clientKey;
+    const existing=Object.keys(customers).find(name=>customerKey(name)===clientKey);
+    if(existing!==undefined){
+      if(!sameClient&&customers[existing]&&customers[existing].laiBucket==='trash')throw new Error('客户在回收站里，请先恢复');
+      next.client=existing;
+    }else{
+      // 只在订单里出现过的客户（没有客户档案）也算已有客户，沿用订单里的写法。
+      const known=[...orders,...(state.trashOrders||[]),...(state.deletedOrders||[])].map(order=>order&&order.client).find(name=>typeof name==='string'&&name&&customerKey(name)===clientKey);
+      if(known!==undefined)next.client=known;
+      customers[next.client]={client:next.client,country:next.country||'',owner:next.owner||''};
+    }
     return {...state,customers,orders:previous?orders.map(order=>order.id===id?next:order):[next,...orders]};
   }
   function archiveOrder(state,id,now=new Date().toISOString()){
@@ -174,6 +191,20 @@
     if(typeof next.done!=='boolean')throw new Error('任务完成状态无效');
     return {...state,laiTasks:previous?state.laiTasks.map(task=>task.id===id?next:task):[next,...(state.laiTasks||[])]};
   }
-  const api={stages,localDate,orderMetrics,monthlyAnalysis,ITEM_LIMIT,cleanItems,itemsTotal,itemsSummary,itemFromProduct,linkItems,docLines,upsertOrder,archiveOrder,restoreOrder,calendarEvents,setTask};
+  // 建议的新订单号：前缀＋日期＋三位序号。序号取现有订单、回收站、已删除订单里同前缀同日期的最大序号加 1，并保证整个库里没人用过。
+  function nextOrderNumber(state,prefix,date){
+    const base=`${trim(prefix)||'L'}${trim(date||localDate()).replaceAll('-','')}-`,head=base.toLowerCase();
+    const used=new Set();let max=0;
+    for(const bucket of buckets)for(const order of (state&&state[bucket])||[]){
+      const num=normalized(order&&order.num);
+      if(!num)continue;
+      used.add(num);
+      if(num.startsWith(head)&&/^\d+$/.test(num.slice(head.length)))max=Math.max(max,Number(num.slice(head.length)));
+    }
+    let seq=max+1,next=base+String(seq).padStart(3,'0');
+    while(used.has(next.toLowerCase())){seq++;next=base+String(seq).padStart(3,'0');}
+    return next;
+  }
+  const api={stages,localDate,orderMetrics,monthlyAnalysis,ITEM_LIMIT,cleanItems,itemsTotal,itemsSummary,itemFromProduct,linkItems,docLines,upsertOrder,nextOrderNumber,archiveOrder,restoreOrder,calendarEvents,setTask};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiBusinessModel=api;
 })(typeof window!=='undefined'?window:globalThis);

@@ -64,7 +64,7 @@
   // 新建或编辑线索的基本资料。状态、跟进记录、转客户不在这里改。
   function upsert(state,id,input,options={}){
     requireList(state);
-    if(typeof id!=='string'||!id.trim())throw new Error('线索 ID 无效');
+    if(typeof id!=='string'||!id.trim())throw new Error('找不到这条线索');
     const now=options.now||new Date().toISOString();
     const previous=list(state).find(item=>item.id===id);
     if(options.mustExist&&!previous)throw new Error('线索不存在，可能已被删除，未保存');
@@ -165,6 +165,30 @@
     return index;
   }
   const customerNames=state=>customerIndex(state).active;
+  // 线索重名索引：按线索数组缓存（保存时数组会换成新的），避免每条线索都扫一遍全部线索。
+  const leadIndexCache=new WeakMap();
+  function leadIndex(state){
+    const source=raw(state);
+    const cached=leadIndexCache.get(source);
+    if(cached&&cached.length===source.length)return cached;
+    const names=new Map(),emails=new Map();
+    const push=(map,k,entry)=>{const bucket=map.get(k);if(bucket)bucket.push(entry);else map.set(k,[entry]);};
+    list(state).forEach((other,pos)=>{
+      if(other.trashed||statusOf(other)==='converted')return;
+      const entry={pos,id:other.id,name:other.name};
+      push(names,key(other.name),entry);
+      if(trim(other.email))push(emails,key(other.email),entry);
+    });
+    const index={names,emails,length:source.length};
+    leadIndexCache.set(source,index);
+    return index;
+  }
+  function otherLeads(state,item){
+    const index=leadIndex(state),found=new Map();
+    for(const entry of index.names.get(key(item.name))||[])if(entry.id!==item.id)found.set(entry.pos,entry);
+    if(trim(item.email))for(const entry of index.emails.get(key(item.email))||[])if(entry.id!==item.id)found.set(entry.pos,entry);
+    return [...found.values()].sort((a,b)=>a.pos-b.pos).map(entry=>entry.name);
+  }
   // 可能重复：名称或邮箱与已有客户相同，或与另一条未删除的线索相同。只提示，不拦截。
   function duplicatesOf(state,item){
     // 已转客户的线索不再提示；别的线索已转客户的，由「与客户相同」这一条覆盖。
@@ -172,7 +196,7 @@
     const index=customerIndex(state);
     const modes=leadModes(state);
     const byName=modes.name==='off'?null:index.names.get(key(item.name)),byEmail=modes.email!=='off'&&trim(item.email)?index.emails.get(key(item.email)):'';
-    const leads=list(state).filter(other=>other.id!==item.id&&!other.trashed&&statusOf(other)!=='converted'&&(key(other.name)===key(item.name)||(trim(item.email)&&key(other.email)===key(item.email)))).map(other=>other.name);
+    const leads=otherLeads(state,item);
     return {customer:byName?.name||byEmail||'',leads};
   }
 

@@ -27,6 +27,8 @@
     return Number.isFinite(parsed.getTime())?parsed.getFullYear()*10000+(parsed.getMonth()+1)*100+parsed.getDate():NaN;
   }
   function enrich(rows,state={}) {
+    const manualSets=(Array.isArray(state.previewSegments)?state.previewSegments:[]).filter(segment=>segment&&!segment.archived&&segment.kind==='manual')
+      .map(segment=>({name:segment.name,members:new Set(Array.isArray(segment.members)?segment.members:[])}));
     const enriched=rows.map(row=>{
       const profile=state.customers?.[row.name]||{};
       const history=Array.isArray(profile.history)?profile.history:[];
@@ -49,12 +51,16 @@
         ? (firstOrder.order.currency||'USD').toUpperCase()==='USD'?Number(firstOrder.order.amount):null
         : profile.firstOrderTotal??row.firstOrderTotal??null;
       const legacyGroups=Array.isArray(row.group)?row.group:row.group?[row.group]:[];
-      const manualGroups=(state.previewSegments||[]).filter(segment=>!segment.archived&&segment.kind==='manual'&&(segment.members||[]).includes(row.name)).map(segment=>segment.name);
+      const manualGroups=manualSets.filter(item=>item.members.has(row.name)).map(item=>item.name);
       return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
     });
     const memberships=(Array.isArray(state.previewSegments)?state.previewSegments:[])
       .filter(segment=>segment&&!segment.archived&&String(segment.name||'').trim())
-      .map(segment=>({name:String(segment.name).trim(),members:new Set(resolveMembers(enriched,segment).map(row=>row.name))}));
+      .map(segment=>{
+        // 某个客群的条件有问题时，只跳过它，不影响其他客群和客户列表。
+        try{return {name:String(segment.name).trim(),members:new Set(resolveMembers(enriched,segment).map(row=>row.name))};}
+        catch{return null;}
+      }).filter(Boolean);
     return enriched.map(row=>{
       const saved=Array.isArray(row.segments)?row.segments:typeof row.segments==='string'?[row.segments]:[];
       const labels=[...saved,...memberships.filter(item=>item.members.has(row.name)).map(item=>item.name)]
@@ -76,7 +82,7 @@
         if(type==='number'&&!Number.isFinite(Number(rule.value)))throw new Error('请填写有效数字');
         if(type==='date'&&rule.op!=='olderDays'&&!Number.isFinite(timestamp(rule.value)))throw new Error('请填写有效日期');
         if(rule.op==='olderDays'&&(!Number.isFinite(Number(rule.value))||Number(rule.value)<0))throw new Error('天数必须为非负数字');
-        if(type==='boolean'&&![true,false,'true','false'].includes(rule.value))throw new Error('布尔条件值无效');
+        if(type==='boolean'&&![true,false,'true','false'].includes(rule.value))throw new Error('请选择是或否');
       }
       return {...rule};
     });
@@ -134,7 +140,7 @@
     return segment;
   }
   function upsertSegment(state,id,input) {
-    if(typeof id!=='string'||!id.trim())throw new Error('客群 ID 无效');
+    if(typeof id!=='string'||!id.trim())throw new Error('找不到这个客群');
     const name=String(input.name||'').trim();
     if(!name)throw new Error('请输入客群名称');
     const current=state.previewSegments||[];

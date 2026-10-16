@@ -400,6 +400,8 @@ test('customer page: detail shows the current in-progress opportunity, real coun
   const sandbox = {state: s, currentName: 'Alpha <b>Co</b>', activeRoute: 'customers', toast: t => calls.push(['toast', t]), detail: (...a) => calls.push(['detail', ...a]),
     business: {newOpportunity: n => calls.push(['new', n]), showOpportunities: n => calls.push(['all', n]), opportunityMenu: (...a) => calls.push(['menu', ...a]), moveOpportunity: (...a) => calls.push(['move', ...a])}};
   sandbox.window = {LaiOpportunityModel: O};
+  // customerOpportunities 按角色范围筛商机（本人／本部门只算自己能看到的）。
+  sandbox.R = require('../src/role-model.js');
   vm.createContext(sandbox); vm.runInContext(body, sandbox);
   const run = code => vm.runInContext(code, sandbox);
   const stats = run('customerOpportunities(currentName)');
@@ -415,7 +417,7 @@ test('customer page: detail shows the current in-progress opportunity, real coun
   assert.deepEqual(calls.at(-1), ['menu', 'p2', 'Alpha <b>Co</b>'], 'actions apply to the opportunity currently shown');
   run('customerOpportunityFeature("下一个商机")');
   assert.equal(run('customerOpportunities(currentName).activeOpportunityIndex'), 0, 'wraps around');
-  assert.equal(run('customerOpportunityFeature("合并客户")'), false, 'other reserved buttons are not touched');
+  assert.equal(run('customerOpportunityFeature("写邮件")'), false, 'buttons handled elsewhere are not touched');
   sandbox.currentName = 'Beta Ltd';
   assert.equal(run('customerOpportunities(currentName).activeOpportunityIndex'), 0, 'a different customer starts at the first opportunity');
   sandbox.activeRoute = 'mail';

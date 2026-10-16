@@ -108,7 +108,9 @@ test('first completed order date and USD amount reach their visible customer col
 test('catalog retains every captured field and the exact 18 default columns', () => {
   const capture = fs.readFileSync(path.join(__dirname, 'fixtures/cus-list-003-fields.txt'), 'utf8');
   const modal = capture.slice(capture.indexOf('602 container 设置'));
-  const labels = [...modal.matchAll(/checkbox .*Description: (.*?)\s*, Value/g)].map(m => m[1].trim());
+  // The capture has two fields called 主营产品 and 主营产品. (stray dot); the second is shown as 主营产品类型 so users can tell them apart.
+  const shownAs = {'主营产品.': '主营产品类型'};
+  const labels = [...modal.matchAll(/checkbox .*Description: (.*?)\s*, Value/g)].map(m => shownAs[m[1].trim()] || m[1].trim());
   assert.ok(labels.length > 80);
   for (const label of labels) assert.ok(F.catalog.some(f => f.label === label), `Missing captured field: ${label}`);
   assert.equal(new Set(F.catalog.map(f => f.id)).size, F.catalog.length);
@@ -224,7 +226,7 @@ test('module loads without CommonJS as window.LaiCustomerFields', () => {
 });
 
 test('company and custom product fields remain distinct, and persisted aliases retain columns', () => {
-  for (const [id,label] of [['companyProducts','主营产品'],['productType','主营产品.'],['cardStock','卡纸']]) assert.equal(F.catalog.find(f=>f.id===id)?.label,label);
+  for (const [id,label] of [['companyProducts','主营产品'],['productType','主营产品类型'],['cardStock','卡纸']]) assert.equal(F.catalog.find(f=>f.id===id)?.label,label);
   assert.deepEqual(F.normalizeColumns({order:['name','customMainProduct','cardPaper'],frozen:['customMainProduct','cardPaper']}), {order:['name','productType','cardStock'],frozen:['name','productType','cardStock']});
   const input=[{name:'A',customerStars:5,level:'A'},{name:'B',customerStars:1,level:'5'}];
   assert.deepEqual(F.filter(input,{customerStars:'5'}),[input[0]]);
@@ -256,7 +258,7 @@ function appHarness() {
   let draft=false,opened=0,navigated=0;
   const business={hasDraft:()=>draft,navigate(){navigated++;},openOrder(){opened++;}};
   const M=require('../src/model.js'), S=require('../src/segments.js');
-  const context={window:{addEventListener(event,fn){(callbacks[event]||=[]).push(fn);},PreviewModel:M,PreviewSegments:S,LaiCustomerFields:F,LaiModules:require('../src/modules.js'),LaiBusinessUI:{create:()=>business},LaiRailMenu:require('../src/rail-menu.js'),LaiRoleModel:require('../src/role-model.js'),LaiNavFavorites:require('../src/nav-favorites.js'),LaiMailUI:(require('../src/mail-ui.js'),globalThis.LaiMailUI)},document,FormData,structuredClone,Intl,crypto:require('node:crypto').webcrypto,history:{replaceState(){}},setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){}};
+  const context={window:{addEventListener(event,fn){(callbacks[event]||=[]).push(fn);},PreviewModel:M,PreviewSegments:S,LaiCustomerFields:F,LaiModules:require('../src/modules.js'),LaiBusinessUI:{create:()=>business},LaiRailMenu:require('../src/rail-menu.js'),LaiRoleModel:require('../src/role-model.js'),LaiNavFavorites:require('../src/nav-favorites.js'),LaiCustomerSettings:require('../src/customer-settings-model.js'),LaiMailUI:(require('../src/mail-ui.js'),globalThis.LaiMailUI)},document,FormData,structuredClone,Intl,crypto:require('node:crypto').webcrypto,history:{replaceState(){}},setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){}};
   vm.createContext(context);
   const source=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8').replace('  boot();','  window.testApp={filterForm,drawer,navigateApp,displayCell,snapshot:()=>({filters,advancedSpec,modal,segmentDraft}), setRows:value=>{rows=value;}};');
   vm.runInContext(source,context);
@@ -404,7 +406,7 @@ test('drawer initial focus is the dialog and editor headers retain the heart ent
   h.api.filterForm();
   assert.match(h.html,/type="radio" name="tagMode" value="包含任一"/);
   assert.match(h.html,/包含全部标签/);
-  assert.match(h.html,/今年成交订单金额Top10客户/);
+  assert.doesNotMatch(h.html,/AI 数据助理|Top10客户|设置筛选条件/,'filter drawer placeholders were removed (D-003)');
 });
 
 
@@ -427,4 +429,15 @@ test('clearing tag mode selects the default without changing choice values', asy
   const h=appHarness(), controls=[{type:'radio',name:'tagMode',value:'包含任一',checked:false},{type:'radio',name:'tagMode',value:'包含全部',checked:true}];
   h.elements['#filter-form']={elements:controls};await h.click({action:'reset-filter-form'});
   assert.deepEqual(controls.map(c=>[c.value,c.checked]),[['包含任一',true],['包含全部',false]]);
+});
+
+test('the stage filter offers the 客户设置 stages plus the two derived values; boolean fields use a 是/否 select', async () => {
+  const h=appHarness();h.api.filterForm();
+  const stage=h.html.match(/<select name="stage">([\s\S]*?)<\/select>/)[1];
+  for(const name of ['未成单','输单','已成交','未成交'])assert.ok(stage.includes('>'+name+'<'),name);
+  assert.equal((stage.match(/>已成交</g)||[]).length,1,'no duplicate when a stage is already named 已成交');
+  h.form([]);await h.click({filterMode:'advanced'});
+  h.advanced('all',[{field:'followed',op:'eq',value:'true'}]);
+  await h.click({action:'add-advanced'});
+  assert.match(h.html,/<select data-advanced-prop="value"[^>]*><option value="true" selected>是<\/option><option value="false" >否<\/option><\/select>/);
 });

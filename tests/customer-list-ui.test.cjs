@@ -12,22 +12,35 @@ test('future-only followup group displays zero rather than the number of planned
  const rows=[{...row,nextFollow:'9999-01-01'}];
  assert.match(render({rows,followupCount:0}),/data-group="followup"[^>]*><span>待跟进客户<\/span><small>0<\/small>/);
 });
-test('reference list retains global customer controls and live table without legacy navigation',()=>{const html=render();for(const label of ['客户列表','我的客户','团队客户','选择部门或业务员','AI 客群','新建客户','国家地区'])assert.ok(html.includes(label),label);assert.doesNotMatch(html,/客群新特性|class="banner/,'AI 客群新特性横幅已删除');assert.ok(html.includes('data-live-customer-table'));assert.ok(!html.includes('orders.html'));assert.ok(!html.includes('6,862'));});
-test('top customer search has its captured onboarding empty state without changing quick-filter empty state',()=>{
+test('reference list retains global customer controls and live table without legacy navigation',()=>{const html=render();for(const label of ['客户列表','我的客户','团队客户','选择部门或业务员','客群','新建客户','国家地区'])assert.ok(html.includes(label),label);for(const gone of ['AI 客群','WhatsApp','客户助手','平均大额商机','2022年成交客户','data-feature="客群帮助"'])assert.ok(!html.includes(gone),gone+' placeholder was removed (D-003)');assert.doesNotMatch(html,/客群新特性|class="banner/,'AI 客群新特性横幅已删除');assert.ok(html.includes('data-live-customer-table'));assert.ok(!html.includes('orders.html'));assert.ok(!html.includes('6,862'));});
+test('an empty search or filter says nothing was found; the welcome shows only for a customer list with no customers',()=>{
  const p={items:[],total:0,page:1,pageCount:1};
  const global=render({p,globalSearch:{field:'customerCode',query:'NO_MATCH'}});
- assert.match(global,/Hi~ 马上添加客户，体验先进的客户管理系统吧/);
- assert.match(global,/class="global-search-empty"/);
- assert.match(global,/data-action="new"[^>]*>新建客户<\/button>/);
- assert.doesNotMatch(global,/data-action="import-customers"/);
- assert.match(render({p,globalSearch:{field:'customerCode',query:'NO_MATCH'},importEnabled:true}),/data-action="import-customers"[^>]*>导入客户<\/button>/);
- assert.doesNotMatch(global,/class="empty-box"/);
+ assert.match(global,/没有找到客户/);
+ assert.doesNotMatch(global,/Hi~ 马上添加客户|global-search-empty/);
  const quick=render({p,filters:{group:'all',field:'name',query:'NO_MATCH',owner:''},globalSearch:{field:'all',query:''}});
  assert.match(quick,/class="empty-box"/);
- assert.match(quick,/>暂无数据<\/span>/);
+ assert.match(quick,/没有找到客户/);
  assert.doesNotMatch(quick,/Hi~ 马上添加客户/);
+ const group=render({p,filters:{group:'followed',field:'name',query:'',owner:''}});
+ assert.match(group,/没有找到客户/);
+ const welcome=render({rows:[],p});
+ assert.match(welcome,/Hi~ 马上添加客户，体验先进的客户管理系统吧/);
+ assert.match(welcome,/class="global-search-empty"/);
+ assert.match(welcome,/data-action="new"[^>]*>新建客户<\/button>/);
+ assert.doesNotMatch(welcome,/data-action="import-customers"/);
+ assert.match(render({rows:[],p,importEnabled:true}),/data-action="import-customers"[^>]*>导入客户<\/button>/);
 });
-test('selecting customers replaces standard toolbar with all reference batch actions',()=>{const html=render({selected:new Set(['A <B>'])});for(const label of ['跨页全选','写邮件','一键营销','设置标签','编辑字段','发送WhatsApp','写跟进','新建日程','移动至分组','更多'])assert.ok(html.includes(label),label);assert.ok(!html.includes('id="search-field"'));});
+test('the 是否关注 quick filter is a 是/否 select, not a free-text box',()=>{
+ const html=render({filters:{group:'all',field:'followed',query:'true',owner:''}});
+ const control=html.match(/<div class="quick-value">([\s\S]*?)<\/div>/)[1];
+ assert.match(control,/<select id="search"/);
+ assert.match(control,/<option value="true" selected>是<\/option>/);
+ assert.match(control,/<option value="false" >否<\/option>/);
+ assert.doesNotMatch(control,/<input id="search"/);
+ assert.match(render({filters:{group:'all',field:'name',query:'',owner:''}}),/<input id="search"/);
+});
+test('selecting customers replaces standard toolbar with all reference batch actions',()=>{const html=render({selected:new Set(['A <B>'])});for(const label of ['跨页全选','写邮件','设置标签','编辑字段','写跟进','新建日程','移动至分组','更多'])assert.ok(html.includes(label),label);for(const gone of ['一键营销','发送WhatsApp'])assert.ok(!html.includes(gone),gone+' placeholder was removed (D-003)');assert.ok(!html.includes('id="search-field"'));});
 test('batch tag control opens the local tag editor',()=>{const html=render({selected:new Set(['A <B>'])});assert.match(html,/<button[^>]*data-action="batch-tags"[^>]*>设置标签<\/button>/);assert.doesNotMatch(html,/data-feature="设置标签"/);});
 test('batch field control opens the local customer field editor',()=>{const html=render({selected:new Set(['A <B>'])});assert.match(html,/<button[^>]*data-action="batch-edit-field"[^>]*>编辑字段<\/button>/);assert.doesNotMatch(html,/data-feature="编辑字段"/);});
 test('batch followup remains a real local action with multiple customers selected',()=>{const html=render({selected:new Set(['Alpha','Beta'])});assert.match(html,/<button[^>]*data-action="batch-followup"[^>]*>写跟进<\/button>/);assert.doesNotMatch(html,/data-feature="写跟进"/);});
@@ -100,3 +113,4 @@ test('pagination keeps the current page visible across first, middle and last cu
  for(const number of [1,2,3,4])assert.match(short,new RegExp(`data-page="${number}"`));
  assert.doesNotMatch(short,/>…<\/span>/);
 });
+test('the 待收款客户 group is gone (owner decision, D-006); 成交客户 stays',()=>{const html=render();assert.ok(!html.includes('待收款客户'));assert.ok(html.includes('成交客户'));});

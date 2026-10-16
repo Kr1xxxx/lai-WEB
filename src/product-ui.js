@@ -1,18 +1,19 @@
 (function(root){
   'use strict';
-  // 产品页的页面文字（HTML）：产品列表、分组、同步、字段、规格、布局六个页签，以及新建／编辑表单、产品详情、同步对话框。只生成字符串，不读写数据。
-  const TABS=Object.freeze([['list','产品列表'],['groups','产品分组'],['sync','同步'],['fields','产品字段'],['specs','规格管理'],['layouts','布局']]);
+  // 产品页的页面文字（HTML）：产品列表、分组、导入、字段、规格、布局六个页签，以及新建／编辑表单、产品详情、导入对话框。只生成字符串，不读写数据。
+  const TABS=Object.freeze([['list','产品列表'],['groups','产品分组'],['sync','导入产品'],['fields','产品字段'],['specs','规格管理'],['layouts','布局']]);
   // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
   function create(E,M,can=()=>true){
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     const empty=text=>`<div class="cs-empty">${text}</div>`;
     const section=(title,note,content)=>`<section class="cs-section"><h3>${E(title)}</h3>${note?`<p class="cs-hint">${note}</p>`:''}${content}</section>`;
-    const day=value=>String(value||'').slice(0,10)||'—';
     const pad=n=>String(n).padStart(2,'0');
-    // 同步时间按本机时间显示到分钟。
+    // 完整的时间（带 Z 或时区）按本机日历日显示，不按 UTC 日；只有日期的原样显示。
+    const day=value=>{const source=String(value||'').trim();if(!/^\d{4}-\d{2}-\d{2}[T ]/.test(source))return source.slice(0,10)||'—';const d=new Date(source.replace(' ','T'));return Number.isNaN(d.getTime())?source.slice(0,10):`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
+    // 导入时间按本机时间显示到分钟。
     const stamp=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?'—':`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;};
 
-    // 产品列表看产品权限；“同步”看 product.sync；分组、字段、规格、布局是产品设置，看 settings.product。
+    // 产品列表看产品权限；“导入”看 product.sync；分组、字段、规格、布局是产品设置，看 settings.product。
     const tabAllowed=id=>id==='list'||(id==='sync'?can('product.sync'):can('settings.product'));
     function nav(view){
       return `<nav class="cs-nav" aria-label="产品">${TABS.filter(([id])=>tabAllowed(id)).map(([id,label])=>`<button type="button" data-prod-tab="${id}" class="${id===view.tab?'active':''}"${id===view.tab?' aria-current="page"':''}>${E(label)}</button>`).join('')}</nav>`;
@@ -93,21 +94,21 @@
       return `<form class="cs-add" data-prod-form="spec-add"><input name="name" placeholder="新规格类型，如 颜色、尺码" maxlength="20" aria-label="新规格类型" autocomplete="off"><button type="submit" class="primary">添加</button></form>`
         +(specs.length?`<ul class="cs-list cs-tree">${rows}</ul>`:empty('还没有规格类型。添加后，新建产品时可以给产品选规格。'));
     }
-    // ---- 同步 ----
+    // ---- 导入 ----
     function syncTab(state,view){
       const tasks=M.syncTasks(state);
       const latest=M.undoableTask(state);
-      const toolbar=`<div class="opp-toolbar lead-toolbar"><button type="button" class="primary" data-prod-action="sync-open">从表格同步产品</button></div>`;
-      if(!tasks.length)return toolbar+empty('还没有同步过。点“从表格同步产品”，选一个 Excel 或 CSV 文件，先看预览，确认后才会写入。');
+      const toolbar=`<div class="opp-toolbar lead-toolbar"><button type="button" class="primary" data-prod-action="sync-open">从表格导入产品</button></div>`;
+      if(!tasks.length)return toolbar+empty('还没有导入过。点“从表格导入产品”，选一个 Excel 或 CSV 文件，先看预览，确认后才会写入。');
       const body=tasks.map(t=>{
         const r=t.result;
-        const note=t.status==='已撤销'&&r?`<div class="cs-use">删除新建 ${r.removed} 个，还原更新 ${r.restored} 个${r.kept?`；${r.kept} 个产品同步后又改过，没有撤销`:''}</div>`:'';
+        const note=t.status==='已撤销'&&r?`<div class="cs-use">删除新建 ${r.removed} 个，还原更新 ${r.restored} 个${r.kept?`；${r.kept} 个产品导入后又改过，没有撤销`:''}</div>`:'';
         const armed=view.armed===`undo:${t.id}`;
         const action=latest&&latest.id===t.id?`<button type="button" data-prod-action="sync-undo" data-id="${E(t.id)}">${armed?'确定撤销':'撤销'}</button>`:'—';
         return `<tr><td>${E(t.name)}</td><td>${E(stamp(t.at))}</td><td>${E(t.status)}${note}</td><td class="num">${t.total}</td><td class="num">${t.created}</td><td class="num">${t.updated}</td><td class="num">${t.skipped}</td><td>${E(t.source)}</td><td><span class="cs-row-actions">${action}</span></td></tr>`;
       }).join('');
-      return toolbar+`<table class="cs-table cs-sync"><thead><tr><th>任务名称</th><th>同步时间</th><th>状态</th><th>产品数</th><th>新建数</th><th>更新数</th><th>跳过数</th><th>来源</th><th>操作</th></tr></thead><tbody>${body}</tbody></table>`
-        +`<p class="cs-hint">只能撤销最近一次同步：新建的产品会删除，更新的产品会还原；同步之后又改过的产品不动。</p>`;
+      return toolbar+`<table class="cs-table cs-sync"><thead><tr><th>任务名称</th><th>导入时间</th><th>状态</th><th>产品数</th><th>新建数</th><th>更新数</th><th>跳过数</th><th>来源</th><th>操作</th></tr></thead><tbody>${body}</tbody></table>`
+        +`<p class="cs-hint">只能撤销最近一次导入：新建的产品会删除，更新的产品会还原；导入之后又改过的产品不动。</p>`;
     }
     // ---- 布局 ----
     function layoutsTab(state,view){
@@ -159,8 +160,8 @@
       // 没有权限的页签回到产品列表。
       if(!tabAllowed(view.tab))view={...view,tab:'list'};
       const body=(tabs[view.tab]||listTab)(state,view);
-      const notes={list:'管理你卖的产品。',groups:'最多两级。新建产品时可以选分组；有产品在用的分组不能删除。',sync:'用 Excel 或 CSV 文件批量新建、更新产品。先预览，确认后才写入，每次同步都可以撤销。',fields:'决定新建和编辑产品时有哪些字段、哪些必填。',specs:'规格类型和它的规格值，如 颜色：黑、棕。产品可以选用。',layouts:'决定新建/编辑产品和产品详情里，字段按什么顺序、分在哪个信息区。'};
-      return `<section class="cs-page">${nav(view)}<div class="cs-panel" data-prod-panel="${E(view.tab)}"><h2>${E((TABS.find(t=>t[0]===view.tab)||TABS[0])[1])}</h2><p class="cs-note">${E(notes[view.tab]||notes.list)}</p><div class="cs-error error" id="prod-error" role="alert"></div>${body}</div></section>`;
+      const notes={list:'管理你卖的产品。',groups:'最多两级。新建产品时可以选分组；有产品在用的分组不能删除。',sync:'用 Excel 或 CSV 文件批量新建、更新产品。先预览，确认后才写入，每次导入都可以撤销。',fields:'决定新建和编辑产品时有哪些字段、哪些必填。',specs:'规格类型和它的规格值，如 颜色：黑、棕。产品可以选用。',layouts:'决定新建/编辑产品和产品详情里，字段按什么顺序、分在哪个信息区。'};
+      return `<section class="cs-page">${nav(view)}<div class="cs-panel" data-prod-panel="${E(view.tab)}"><h2>${E(view.tab==='sync'?'从表格导入产品':(TABS.find(t=>t[0]===view.tab)||TABS[0])[1])}</h2><p class="cs-note">${E(notes[view.tab]||notes.list)}</p><div class="cs-error error" id="prod-error" role="alert"></div>${body}</div></section>`;
     }
     // ---- 新建／编辑产品 ----
     function formMarkup(state,values,isNew){
@@ -202,7 +203,7 @@
       const specBlock=specs.length?`<section class="pd-section"><h3>规格</h3><dl class="pd-list">${specs.map(s=>`<div class="pd-item"><dt>${E(s.type)}</dt><dd>${E(s.value)}</dd></div>`).join('')}</dl></section>`:'';
       return `<div class="drawer-body pd-body" data-prod-detail="${E(product.id)}">${sections}${specBlock}<p class="cs-hint">更新于 ${E(day(product.updatedAt))}</p></div>`;
     }
-    // ---- 从表格同步的对话框 ----
+    // ---- 从表格导入的对话框 ----
     function syncMarkup(state,draft){
       const plan=draft.plan;
       const radios=M.SYNC_MODES.map(([id,label])=>`<label class="check-row"><input type="radio" name="prod-sync-mode" value="${id}"${id===draft.mode?' checked':''}> ${E(label)}</label>`).join('');
@@ -217,19 +218,19 @@
           +notes.map(n=>`<p class="cs-hint">${E(n)}</p>`).join('')
           +`<div class="ps-table"><table class="cs-table"><thead><tr><th>行</th><th>处理</th><th>产品名称</th><th>产品编号</th><th>说明</th></tr></thead><tbody>${rows}</tbody></table></div>`
           +(plan.rows.length>shown.length?`<p class="cs-hint">只显示前 ${shown.length} 行，其余按同样规则处理。</p>`:'')
-          +`<p class="cs-hint">点“确认同步”才会写入。更新时只改文件里有的列，空格子不会清空原来的内容。</p>`;
+          +`<p class="cs-hint">点“确认导入”才会写入。更新时只改文件里有的列，空格子不会清空原来的内容。</p>`;
       }
       return `<div class="drawer-body prod-sync"><div class="error${draft.error?' visible':''}" id="prod-sync-error" role="alert">${E(draft.error||'')}</div>`
-        +`<label class="cs-field"><span>选择文件</span><input type="file" id="prod-sync-file" accept=".xls,.xlsx,.csv" aria-label="选择要同步的表格文件"></label>`
+        +`<label class="cs-field"><span>选择文件</span><input type="file" id="prod-sync-file" accept=".xls,.xlsx,.csv" aria-label="选择要导入的表格文件"></label>`
         +(draft.fileName?`<p class="cs-hint">已选：${E(draft.fileName)}</p>`:'')
         +`<fieldset class="cs-field"><legend>匹配方式</legend>${radios}</fieldset>`
-        +`<p class="cs-hint">支持 XLS、XLSX、UTF-8 CSV，不超过 5 MB、${M.LIMITS.syncRows} 行。表头用字段名称，比如“产品名称”“产品编号”“离岸价”。 <button type="button" class="text-button" data-prod-action="sync-template">下载模板</button></p>`
+        +`<p class="cs-hint">支持 Excel 或 CSV 文件，不超过 5 MB、${M.LIMITS.syncRows} 行。表头用字段名称，比如“产品名称”“产品编号”“离岸价”。 <button type="button" class="text-button" data-prod-action="sync-template">下载模板</button></p>`
         +preview+`</div>`;
     }
     function syncFooter(draft){
       const c=draft.plan&&draft.plan.counts;
       const ready=!!c&&(c.new+c.update)>0;
-      return `<button type="button" data-action="close-modal">取消</button><button class="primary" type="button" data-prod-action="sync-commit"${ready?'':' disabled'}>${ready?`确认同步（新建 ${c.new}、更新 ${c.update}）`:'确认同步'}</button>`;
+      return `<button type="button" data-action="close-modal">取消</button><button class="primary" type="button" data-prod-action="sync-commit"${ready?'':' disabled'}>${ready?`确认导入（新建 ${c.new}、更新 ${c.update}）`:'确认导入'}</button>`;
     }
     return {pageMarkup,formMarkup,detailMarkup,syncMarkup,syncFooter};
   }

@@ -51,7 +51,8 @@ test('delta saves give the same stored data as full saves, over many kinds of ed
       (d) => { d.orders.push(d.trashOrders.shift()); },
       (d) => { d.orders[0].attachments = [{ fileUrl: '/attachments/y/b.txt', name: 'b' }]; d.orders[0].logs = []; },
       (d) => { d.laiSettings.companyName = 'Changed'; d.newSettingsKey = { a: 1 }; },
-      (d) => { delete d.newSettingsKey; },
+      // A full save may no longer drop a top-level key the server has (see the next test), so this edit changes it instead.
+      (d) => { d.newSettingsKey = { a: 2 }; },
       (d) => { d.trackingLookups.push({ id: 'l1', trackingNumber: 'T', carrier: 'DHL' }); },
       (d) => { d.customers.C1.history.unshift({ type: 'followup', time: '2026-10-02T09:00:00', text: 'again' }); d.orders.splice(3, 0, { id: 'mid', num: 'MID', client: 'C1' }); },
     ];
@@ -108,4 +109,20 @@ test('changes whose counts do not match are rolled back completely', () => {
     assert.equal(after.data.customers.Extra, undefined);
     assert.equal(after.data.customers.C0.note, undefined);
   } finally { fs.rmSync(t.dir, { recursive: true, force: true }); }
+});
+
+test('save-changes can remove a settings key, while a full save that drops it is refused and changes nothing', () => {
+  const t = openTemp();
+  try {
+    const snap = t.store.readSnapshot();
+    t.store.save({ app: 'laicai-lai', version: 'test', data: { ...clone(baseData()), extraKey: { a: 1 } } }, { baseRevision: snap.revision });
+    const before = t.store.readSnapshot();
+    const dropped = clone(before.data); delete dropped.extraKey;
+    assert.throws(() => t.store.save({ app: 'laicai-lai', version: 'test', data: dropped }, { baseRevision: before.revision }), (error) => error.status === 400 && /不完整/.test(error.message));
+    assert.deepEqual(t.store.readSnapshot(), before);
+    const { changes } = M.diffState(M.snapshotState(before.data), dropped);
+    assert.deepEqual(changes.removeAppState, ['extraKey']);
+    t.store.saveChanges(changes, { baseRevision: before.revision });
+    assert.equal(Object.hasOwn(t.store.readSnapshot().data, 'extraKey'), false);
+  } finally { t.store.close(); fs.rmSync(t.dir, { recursive: true, force: true }); }
 });

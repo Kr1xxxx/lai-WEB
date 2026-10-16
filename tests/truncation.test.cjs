@@ -55,6 +55,19 @@ test("窗口变宽、不再截断后，自动加的 title 会撤掉", () => {
   assert.equal("title" in e.attrs, false);
 });
 
+test("鼠标进入行里没被碰到的文字，也会补上 title（邮件主题、预览、订单格等）", () => {
+  const cutNode = el({ scrollWidth: 300, clientWidth: 100, text: "很长的预览文字" });
+  const shortNode = el({ scrollWidth: 50, clientWidth: 100, text: "短" });
+  const scope = { querySelectorAll: () => [shortNode, cutNode] };
+  const target = el({});
+  target.closest = (sel) => (sel === T.SCOPES ? scope : null);
+  assert.equal(T.applyWithin(target, () => ellipsis), cutNode);
+  assert.equal(cutNode.attrs.title, "很长的预览文字");
+  assert.equal("title" in shortNode.attrs, false);
+  for (const name of ["op-row", "wb-row", "calendar-day", "mail-row", "group-row"]) assert.ok(T.SCOPES.includes(name));
+  for (const name of [".wb-next", ".calendar-event", ".mail-row-subject", ".mail-row-snippet"]) assert.ok(T.TEXTS.includes(name));
+});
+
 test("订单编号列不加省略号，并且全局截断提示已接入构建", () => {
   const css = fs.readFileSync(path.join(__dirname, "../src/business.css"), "utf8");
   assert.match(css, /\.unified-orders td:first-child \.company-link\s*\{[^}]*text-overflow:\s*clip/);

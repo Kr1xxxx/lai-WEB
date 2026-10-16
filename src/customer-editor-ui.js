@@ -198,11 +198,11 @@
         }),
       );
     const companyFields = {
-      website: field("website", "公司网址", `${input("website", c.website)}<div class="ce-helper">可通过输入的公司网址/名称自动匹配客户信息 <button type="button" data-feature="公司信息自动匹配" aria-label="公司信息自动匹配">${glyph("plus")}</button></div>`, { extra: "ce-website" }),
+      website: field("website", "公司网址", `${input("website", c.website)}`, { extra: "ce-website" }),
       name: field("name", "公司名称", input("name", c.name, "客户品牌名", { required: true }), { star: true }),
       country: field("country", "国家地区", combo("country", c.country, "可以搜索", countryOptions, isNew), { star: true }),
       source: field("source", "客户来源", combo("source", c.source, "请选择", (CS && CS.sourceChoices(state)) || list("source"), isNew), { star: true }),
-      productType: field("productType", "主营产品.", select("productType", c.productType, "请选择", list("productType"))),
+      productType: field("productType", "主营产品类型", select("productType", c.productType, "请选择", list("productType"))),
       tags: field("tags", "客户标签", input("tags", Array.isArray(c.tags) ? c.tags.join("，") : c.tags, "选填")),
       previewGroup: field("previewGroup", "客户分组", select("previewGroup", groupName, "默认未分组", groups)),
       customerStage: field("customerStage", "客户阶段", select("customerStage", originalStage, "选填", stageOptions)),

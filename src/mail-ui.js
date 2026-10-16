@@ -8,10 +8,13 @@
     { id: "pending", label: "待处理邮件", icon: "check" },
     { id: "unread", label: "未读邮件", icon: "bell" },
     { id: "drafts", label: "草稿箱", icon: "note" },
-    { id: "sent", label: "发件箱", icon: "next" },
+    { id: "sent", label: "发件箱", icon: "send" },
     { id: "bulk", label: "群发箱", icon: "people" },
   ];
   const DEFAULT_FOLDER = folders[0].id;
+  // 发件箱用纸飞机；公共图标表里没有，就在这里画一个。
+  const sendIcon = `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M21 3L10 14 M21 3l-7 18-4-7-7-4z"/></svg>`;
+  const folderIcon = (name, draw) => (name === "send" ? sendIcon : draw(name));
   const views = [
     { id: "mail", label: "邮件" },
     { id: "customer", label: "客户" },
@@ -461,7 +464,7 @@
             .map(
               (item) =>
                 // 右侧的心形由页面外壳提供（设为常用）；没提供时（例如单独测试）这一行就没有心形。
-                `<div class="nav-row" role="listitem"><button type="button" class="nav-entry ${item.id === folder ? "active" : ""}" data-mail-folder="${item.id}" ${item.id === folder ? 'aria-current="page"' : ""}>${icon(item.icon)}<span class="mail-folder-label">${E(item.label)}</span>${badge(item.id)}</button>${ctx.favoriteHeart ? ctx.favoriteHeart("mail:" + item.id, item.label) : ""}</div>`,
+                `<div class="nav-row" role="listitem"><button type="button" class="nav-entry ${item.id === folder ? "active" : ""}" data-mail-folder="${item.id}" ${item.id === folder ? 'aria-current="page"' : ""}>${folderIcon(item.icon, icon)}<span class="mail-folder-label">${E(item.label)}</span>${badge(item.id)}</button>${ctx.favoriteHeart ? ctx.favoriteHeart("mail:" + item.id, item.label) : ""}</div>`,
             )
             .join("") +
           `</div>`;
@@ -659,7 +662,7 @@
       `<button type="button" class="mail-thread-item" data-mail-action="open" data-box="${item.box}" data-uid="${item.uid}"><span class="mail-avatar small" style="background:hsl(${hue(item.from && item.from.address)} 45% 46%)">${E(item.box === "sent" ? "我" : initial(item.from))}</span><span class="mail-thread-who">${E(item.box === "sent" ? "我" : person(item.from) || "（未知发件人）")}</span><span class="mail-thread-snippet">${E(item.snippet || item.subject || "")}</span><span class="mail-row-time">${E(shortTime(item.date))}</span></button>`;
     function readerPane() {
       if (!reading)
-        return `<div class="empty mail-unbound mail-reader-empty"><div class="mail-unbound-art">${icon("mail")}</div><strong>选择一封邮件</strong><span>在左边的列表里点一封，内容会显示在这里。</span><span class="mail-keys">↑ ↓ 上一封／下一封 · R 回复 · A 回复全部 · F 转发 · S 待处理 · U 标为未读 · Delete 删除 · C 写信 · / 搜索</span></div>`;
+        return `<div class="empty mail-unbound mail-reader-empty"><div class="mail-unbound-art">${icon("mail")}</div><strong>选择一封邮件</strong><span>在左边的列表里点一封，内容会显示在这里。</span><span class="mail-keys">快捷键：↑ ↓ 上一封／下一封，R 回复，A 回复全部，F 转发，S 待处理，U 标为未读，Delete 删除，C 写信，/ 搜索</span></div>`;
       const back = `<button type="button" class="mail-back" data-mail-action="back" title="返回列表">${icon("back")}返回</button>`;
       if (reading.loading) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div><div class="empty mail-unbound" aria-busy="true"><span>正在读取邮件内容…</span></div></div>`;
       if (reading.error) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div>${empty("mail", "无法打开这封邮件", reading.error, `<button type="button" class="primary" data-mail-action="back">返回列表</button>`)}</div>`;
@@ -1259,7 +1262,7 @@
         `<div class="mail-editor" id="mail-compose-editor" role="textbox" aria-multiline="true" aria-label="正文"></div>` +
         (bulkMode ? `<div class="mail-body-text mail-bulk-preview" id="mail-bulk-preview" hidden></div>` : "") +
         `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB${bulkMode ? "，每封都会带上" : ""}</span><ul id="mail-compose-file-list"></ul>` +
-        (compose.forwardOf && compose.forwardCount ? `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" ${v.forwardAttachments ? "checked" : ""}> 附带原邮件的 ${compose.forwardCount} 个附件</label>` : "") +
+        (compose.forwardOf && compose.forwardCount ? (compose.sourceUnavailable ? `<p class="mail-forward-attachments">原邮件不在现在绑定的邮箱里，不能附带它的 ${compose.forwardCount} 个附件</p>` : `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" ${v.forwardAttachments ? "checked" : ""}> 附带原邮件的 ${compose.forwardCount} 个附件</label>`) : "") +
         `</div>` +
         `<div class="mail-compose-from">${row("发件人名称", "fromName", v.fromName, 'maxlength="80" placeholder="收件人看到的名字"')}<span class="mail-compose-address">${E(account ? account.email : "")}</span></div>` +
         `</form></section>`
@@ -1321,11 +1324,11 @@
       const html = initial.id ? initial.html || textToHtml(initial.text) : `<div><br></div>${signatureHtml()}${initial.html || ""}`;
       compose = {
         mode: bulkMode ? "bulk" : "mail", title: initial.title || (bulkMode ? "新建群发" : "写信"), draftId: initial.id || "", inReplyTo: initial.inReplyTo || "", references: initial.references || "",
-        forwardOf: initial.forwardOf || null, forwardCount: initial.forwardCount || 0, sending: false,
+        forwardOf: initial.forwardOf || null, forwardCount: initial.forwardCount || 0, sourceUnavailable: !!initial.sourceUnavailable, sending: false,
         // 继续写草稿时把存着的附件带回来。
         files: (initial.files || []).filter((file) => file && typeof file.contentBase64 === "string").map((file) => ({ name: String(file.filename || "attachment"), type: String(file.contentType || "application/octet-stream"), size: base64Size(file.contentBase64), base64: file.contentBase64, ready: true })), force: false, snapshot: "", editor: null, origin: initial.origin || null,
         showCc: !!(initial.cc || initial.bcc), confirm: false, all: initial.all || [], selected: new Set(initial.selected || []), facts: initial.facts || new Map(), filter: { group: "", stage: "", country: "", text: "" },
-        values: { to: initial.to || "", cc: initial.cc || "", bcc: initial.bcc || "", subject: initial.subject || "", fromName: account.senderName || "", forwardAttachments: true, html, text: "" },
+        values: { to: initial.to || "", cc: initial.cc || "", bcc: initial.bcc || "", subject: initial.subject || "", fromName: account.senderName || "", forwardAttachments: initial.sourceUnavailable ? false : initial.forwardAttachments ?? true, html, text: "" },
       };
       if (!onMailPage() && ctx.openMail) {
         compose.fresh = true;
@@ -1338,7 +1341,9 @@
       if (origin) return origin();
       if (onMailPage()) return loadCurrent();
     }
-    const draftPayload = () => ({ id: compose.draftId || undefined, to: compose.values.to, cc: compose.values.cc, bcc: compose.values.bcc, subject: compose.values.subject, text: compose.values.text, html: compose.values.html, inReplyTo: compose.inReplyTo, references: compose.references, forwardOf: compose.forwardOf });
+    const draftPayload = () => ({ id: compose.draftId || undefined, to: compose.values.to, cc: compose.values.cc, bcc: compose.values.bcc, subject: compose.values.subject, text: compose.values.text, html: compose.values.html, inReplyTo: compose.inReplyTo, references: compose.references, forwardOf: compose.forwardOf,
+      // 转发草稿记住“带不带原附件”和原附件个数，重新打开时勾选框还在。
+      ...(compose.forwardOf ? { forwardAttachments: !compose.sourceUnavailable && !!compose.values.forwardAttachments, forwardCount: compose.forwardCount } : {}) });
     // 只算读完了的附件；还在读的那些读完后会让这封信重新变成“有改动”，下次保存时带上。
     const filePayload = () => compose.files.filter((file) => file.ready).map((file) => ({ filename: file.name, contentType: file.type, contentBase64: file.base64 }));
     async function saveDraft(close) {
@@ -1427,7 +1432,7 @@
       const original = m.html || textToHtml(m.text);
       const ids = { inReplyTo: m.messageId || "", references: [m.references, m.messageId].filter(Boolean).join(" ") };
       if (mode === "forward")
-        return openCompose({ title: "转发", subject: replySubject(m.subject, "Fwd"), html: `<div><br></div><div>---------- 转发的邮件 ----------</div><div>发件人：${E(addressLine([m.from]))}</div><div>时间：${E(fullTime(m.date))}</div><div>主题：${E(m.subject || "")}</div><div>收件人：${E(addressLine(m.to))}</div><div><br></div>${original}`, forwardOf: { box: m.box, uid: m.uid }, forwardCount: (m.attachments || []).length });
+        return openCompose({ title: "转发", subject: replySubject(m.subject, "Fwd"), html: `<div><br></div><div>---------- 转发的邮件 ----------</div><div>发件人：${E(addressLine([m.from]))}</div><div>时间：${E(fullTime(m.date))}</div><div>主题：${E(m.subject || "")}</div><div>收件人：${E(addressLine(m.to))}</div><div><br></div>${original}`, forwardOf: { box: m.box, uid: m.uid, accountIdentity: m.accountIdentity }, forwardCount: (m.attachments || []).length });
       const target = m.box === "sent" ? m.to || [] : (m.replyTo && m.replyTo.length ? m.replyTo : [m.from]).filter(Boolean);
       const others = mode === "all" ? [...(m.box === "sent" ? [] : m.to || []), ...(m.cc || [])].filter((item) => item.address !== me && !target.some((t) => t.address === item.address)) : [];
       return openCompose({ title: mode === "all" ? "回复全部" : "回复", to: addressLine(target), cc: addressLine(others), subject: replySubject(m.subject, "Re"), html: `<div><br></div><div>在 ${E(fullTime(m.date))}，${E(addressLine([m.from]))} 写道：</div><blockquote>${original}</blockquote>`, ...ids });

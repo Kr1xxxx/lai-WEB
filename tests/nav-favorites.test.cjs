@@ -330,7 +330,7 @@ test('hearts appear beside the real entries of the customer sub-navigation (four
   assert.ok(h.hearts('subnav').every(b => !b.classList.contains('is-favorite')), 'nothing lit for a user who never set favorites');
   assert.ok(h.hearts('subnav').every(b => /^设为常用：/.test(b.attrs['aria-label'])));
   assert.deepEqual(h.active('subnav'), ['客户列表']);
-  assert.match(h.ui.subnav, /<div class="nav-row"><button type="button" class="nav-entry active" data-lai-screen="active" aria-current="page"><span class="nav-label">客户列表<\/span><\/button><button type="button" class="nav-heart"/, 'the heart sits beside the entry button, not inside it');
+  assert.match(h.ui.subnav, /<div class="nav-row"><button type="button" class="nav-entry active" data-lai-screen="active" aria-current="page"><i:people><span class="nav-label">客户列表<\/span><\/button><button type="button" class="nav-heart"/, 'the heart sits beside the entry button, not inside it');
 });
 
 test('every business menu\'s sub-navigation has a heart on each of its entries, grouped menus included', () => {

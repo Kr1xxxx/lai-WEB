@@ -12,7 +12,7 @@ const TODAY = '2026-10-01';
 const PERMS = Object.fromEntries(['opp.view', 'opp.create', 'opp.edit', 'customer.view', 'order.view', 'order.create', 'doc.create'].map((key) => [key, true]));
 const members = [{ id: 'm-kris', name: 'Kris', roleId: 'admin' }, { id: 'm-amy', name: 'Amy', roleId: 'sales' }];
 
-async function start(current, fields) {
+async function start(current, fields, extra = (data) => data) {
   const app = await startApp();
   await app.open('customers');
   const request = app.page.context().request;
@@ -22,6 +22,7 @@ async function start(current, fields) {
   data.laiSettings = { ...(data.laiSettings || {}), defaultOwner: 'Amy', roles: { roles, departments: [], members, current } };
   data.customers = { ...data.customers, 'Amy Buyer': { client: 'Amy Buyer', country: 'US', owner: 'Amy', contacts: [] } };
   data = O.upsert(data, 'opp-a', { client: 'Amy Buyer', amount: '10', currency: 'USD', owner: 'Amy', stage: 'open', endDate: '2026-11-05', note: 'secret opp note', products: 'Cloud Lash, 20, 2.5' }, { now: '2026-10-01T00:00:00.000Z', today: TODAY });
+  data = extra(data);
   const res = await request.post(app.base + '/api/save', { data: { state: { ...loaded, data }, baseRevision: loaded.revision } });
   assert.equal(res.status(), 200, await res.text());
   await app.open('customers');
@@ -59,6 +60,31 @@ test('customer detail 进行中的商机 row keeps read-only fields; admin sees 
     await openAmy(admin);
     const row = await admin.page.locator('.lcd-opportunity-row').innerText();
     assert.ok(row.includes('2026-11-05') && row.includes('secret opp note'));
+  } finally { await admin.close(); }
+});
+
+test('customer detail 商机和订单 tab: hidden 结束日期 column, and only opportunities the account may see', async () => {
+  // Kris 负责的商机也挂在 Amy 的客户上：本人范围的 Amy 在客户详情里不该看到它。
+  const withKrisOpp = (data) => O.upsert(data, 'opp-k', { client: 'Amy Buyer', amount: '77', currency: 'USD', owner: 'Kris', stage: 'open', endDate: '2026-12-09', note: '', products: '' }, { now: '2026-10-02T00:00:00.000Z', today: TODAY });
+  const tradeTable = async (app) => {
+    await openAmy(app);
+    await app.page.locator('[data-tab="trade"]').first().click();
+    const table = app.page.locator('.lcd-opportunity-table');
+    await table.waitFor();
+    return table.innerText();
+  };
+  const app = await start('m-amy', hide, withKrisOpp);
+  try {
+    const text = await tradeTable(app);
+    assert.ok(text.includes('负责人') && text.includes('Amy'), '自己的商机在');
+    assert.ok(!text.includes('结束日期') && !text.includes('2026-11-05'), '没有结束日期');
+    assert.ok(!text.includes('Kris') && !text.includes('2026-12-09'), '看不到别人负责的商机');
+    assert.deepEqual(app.errors.filter((error) => !error.includes('/api/mail/')), []);
+  } finally { await app.close(); }
+  const admin = await start('m-kris', hide, withKrisOpp);
+  try {
+    const text = await tradeTable(admin);
+    assert.ok(text.includes('结束日期') && text.includes('2026-11-05') && text.includes('Kris'), '管理员看到全部');
   } finally { await admin.close(); }
 });
 

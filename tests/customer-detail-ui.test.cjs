@@ -133,19 +133,20 @@ test('customer info groups expose accessible collapse controls without changing 
  assert.match(html,/最近发件时间/);
 });
 
-test('left detail cards expose their analysis and contact content as collapsible regions',()=>{
+test('left detail cards expose their contact content as a collapsible region',()=>{
  const state={orders:[],customers:{Acme:{contact:'Ada',email:'ada@example.test'}}};
  const row=M.buildCustomers(state)[0];
  const expanded=D.render(row,{state,escape:M.escapeHtml});
- const collapsed=D.render(row,{state,escape:M.escapeHtml,collapsedDetailCards:['analysis','contacts']});
- for(const id of ['analysis','contacts']){
+ const collapsed=D.render(row,{state,escape:M.escapeHtml,collapsedDetailCards:['contacts']});
+ for(const id of ['contacts']){
   assert.match(expanded,new RegExp(`data-detail-card="${id}"[^>]*data-collapsed="false"`));
   assert.match(expanded,new RegExp(`data-action="toggle-detail-card"[^>]*data-card-id="${id}"[^>]*aria-expanded="true"`));
   assert.match(collapsed,new RegExp(`data-detail-card="${id}"[^>]*data-collapsed="true"`));
   assert.match(collapsed,new RegExp(`id="lcd-card-panel-${id}"[^>]*aria-hidden="true"[^>]*inert`));
  }
  assert.match(collapsed,/ada@example\.test/);
- assert.match(collapsed,/暂无客户分析报告/);
+ // The AI analysis placeholder card was removed (D-003): nothing is offered until it can really work.
+ assert.doesNotMatch(expanded,/data-detail-card="analysis"|AI 客户分析/);
 });
 
 test('detail summary fields follow saved local selection and keep list field meanings',()=>{
@@ -162,7 +163,7 @@ test('detail summary fields follow saved local selection and keep list field mea
  assert.match(summary,/<dt>客户等级:<\/dt><dd>B级翡翠客户<\/dd>/);
  assert.match(summary,/<dt>客户来源:<\/dt><dd>Trade fair<\/dd>/);
  assert.match(summary,/<dt>最近联系时间:<\/dt><dd>—<\/dd>/);
- assert.doesNotMatch(summary,/客户阶段:|公司网址:|主营产品\.:/);
+ assert.doesNotMatch(summary,/客户阶段:|公司网址:|主营产品类型:/);
  const otherRow=S.enrich(M.buildCustomers(state),state).find(customer=>customer.name==='Beta');
  const other=D.render(otherRow,{state:chosenState,escape:M.escapeHtml});
  const otherSummary=other.match(/<div class="lcd-summary-fields"><dl>([\s\S]*?)<\/dl>/)?.[1]||'';
@@ -239,12 +240,12 @@ test('customer payment preferences stay outside contact cards in detail',()=>{
  assert.match(html,/<dt>默认币种<\/dt><dd>EUR<\/dd>/);
  assert.match(html,/<dt>复购周期<\/dt><dd>60 天<\/dd>/);
 });
-test('customer detail keeps the AI empty state honest until an analysis exists',()=>{
+test('customer detail offers no AI analysis, tips, background or data-analysis entries',()=>{
  const state={orders:[],customers:{Acme:{contact:'Main'}}};
  const html=D.render(M.buildCustomers(state)[0],{state,tab:'info',escape:M.escapeHtml});
- assert.match(html,/暂无客户分析报告/);
- assert.match(html,/生成客户分析/);
- assert.doesNotMatch(html,/外贸客户分析报告|一\. 核心摘要/);
+ assert.doesNotMatch(html,/暂无客户分析报告|生成客户分析|AI 客户分析|AI写跟进|AI聊天旅程|AI 谈单卡点|入口已保留/);
+ assert.doesNotMatch(html,/data-tab="(tips|ai|analytics)"/);
+ assert.match(html,/data-tab="activity"/);
 });
 
 test('a nameless primary contact keeps saved email and phone in the detail card',()=>{
@@ -619,8 +620,9 @@ test('customer document names fall back to the source attachment type without fa
  const row=M.buildCustomers(state)[0];
  const all=D.render(row,{state,tab:'documents',escape:M.escapeHtml});
  assert.match(all,/选择文档 图片附件/);
- assert.match(all,/预览文档[^>]*>图片附件<\/button>/);
- assert.match(all,/<td>—<\/td><td>销售订单 SO-1<\/td><td>—<\/td>/);
+ assert.match(all,/<td>图片附件<\/td>/);
+ assert.doesNotMatch(all,/data-feature="(预览文档|文档操作|筛选文档|添加文档|文档更多操作)"/);
+ assert.match(all,/<td>—<\/td><td>销售订单 SO-1<\/td><td>—<\/td><\/tr>/);
  const matched=D.render(row,{state,tab:'documents',documentQuery:'图片',escape:M.escapeHtml});
  assert.match(matched,/共 1 条/);
  assert.doesNotMatch(matched,/未找到文档/);

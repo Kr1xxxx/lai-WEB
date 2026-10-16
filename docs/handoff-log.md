@@ -4,6 +4,21 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-16 — Claude — Owner said 合并: merged #17 (polish pass), `main` 9df7d37. Restarted `claude/gallant-bell-0m7uzb` from it and
+  merged the Opus-reviewed data-safety branch (conflicts only in the `model.js` export list and `VALIDATION.md`); owner said to
+  remove the 待收款客户 group (done). model 1067 / e2e 171 green. Owner allowed deleting old branches, but the cloud GitHub proxy
+  refuses deletes (push hangs up, API 403). Web trial v1.06 published from `main` 9df7d37.
+- 2026-10-16 — Claude — Owner asked to review the repo, then "hand every task to subagents; polish the app, fix problems,
+  keep improving features". Opus coordinated 15 subagents: four read-only audits (customer pages, business pages, data safety
+  + 1.4.127 branch, UI audit), three e2e slices (orders/opportunities, mail/settings against fake mail servers, walkthrough of
+  the 17 unverified features → all 46 now browser-verified), fix batches A (lead duplicate index, order month follows date,
+  order client matching), B (decimal prices, order numbers never reused, opp detail buttons from 单据记录, workbench open-opp
+  count, local dates, calendar order permission, prefix check, live opp search, 同步→导入), C1 (batch speed on 10k
+  customers, NFKC name dedupe, rename repoints opps/tasks, merge keeps all fields, bad segment skipped, dedupe junk), C2
+  (draft no longer blocks navigation, row cache, stage/boolean filters, tag permissions, merge picker, real opps in 商机和订单,
+  回款 columns and ~20 placeholder entries removed per D-003/D-006), D (UI audit fixes, audit false positive). Data-safety
+  batch kept on local `data-safety-pr2` for a separate needs-owner PR. Closed duplicate PR #16 (owner agreed). Branch deletion
+  was blocked by the session's safety rules. Next: owner 合并, then the data-safety PR, then publish the web trial.
 - 2026-10-16 — Claude — #14 merged. Owner asked for 部门, 按角色分配产品布局 and 按字段控制权限. Built on
   `claude/project-thread-5ob5ux` (PR #15) in four worktrees: role model v2 (departments, 本部门, 部门管理员, field levels,
   `keepLocked`, product layouts, split perms), role/member pages, products + team data, leads + opportunities, customers.

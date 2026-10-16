@@ -116,3 +116,54 @@ test('order items helpers: from a product, linking by name, and document lines',
  assert.equal(B.docLines({amount:0})[0].name,'订单货款');
  assert.equal(B.itemsTotal([{qty:3,price:0.1}]),0.3);
 });
+
+test('editing the order date moves orderMonth unless it was set by hand',()=>{
+ let s=B.upsertOrder({customers:{},orders:[]},'n',{num:'N1',client:'Zed',amount:10,createdAt:'2026-09-30'});
+ assert.equal(s.orders[0].orderMonth,'2026-09');
+ s=B.upsertOrder(s,'n',{num:'N1',client:'Zed',createdAt:'2026-10-02'});
+ assert.equal(s.orders[0].orderMonth,'2026-10');
+ s=B.upsertOrder(s,'n',{orderMonth:'2026-12'});
+ s=B.upsertOrder(s,'n',{createdAt:'2026-11-05'});
+ assert.equal(s.orders[0].orderMonth,'2026-12');
+});
+test('order client matches existing customer by normalised name and refuses trashed ones',()=>{
+ const s0={customers:{'ABC Co':{client:'ABC Co'},'Old Co':{client:'Old Co',laiBucket:'trash'}},orders:[]};
+ const s=B.upsertOrder(s0,'x',{num:'X1',client:'  abc   co ',amount:5});
+ assert.equal(s.orders[0].client,'ABC Co');
+ assert.deepEqual(Object.keys(s.customers),['ABC Co','Old Co']);
+ assert.throws(()=>B.upsertOrder(s0,'y',{num:'Y1',client:'old co',amount:5}),/客户在回收站里，请先恢复/);
+ const n=B.upsertOrder(s0,'z',{num:'Z1',client:'New Co',amount:5});
+ assert.ok(Object.hasOwn(n.customers,'New Co'));
+});
+test('nextOrderNumber: first number, max+1 (not count+1), and the archive/deleted cases',()=>{
+ assert.equal(B.nextOrderNumber({},'L','2026-10-16'),'L20261016-001');
+ assert.equal(B.nextOrderNumber({},'','2026-10-16'),'L20261016-001');
+ // Count would give 003, but the highest sequence is 005.
+ const gap={orders:[{id:'a',num:'L20261016-001'},{id:'b',num:'L20261016-005'}]};
+ assert.equal(B.nextOrderNumber(gap,'L','2026-10-16'),'L20261016-006');
+ // Other dates and prefixes do not count.
+ const other={orders:[{id:'a',num:'L20261015-009'},{id:'b',num:'X20261016-007'},{id:'c',num:'SO1'}]};
+ assert.equal(B.nextOrderNumber(other,'L','2026-10-16'),'L20261016-001');
+ // Archived (trash) and deleted orders keep their numbers: an order archived today must not be reused.
+ const archived=B.archiveOrder({orders:[{id:'a',num:'L20261016-001',client:'A'},{id:'b',num:'L20261016-002',client:'A'}]},'b');
+ assert.equal(archived.orders.length,1);
+ assert.equal(B.nextOrderNumber(archived,'L','2026-10-16'),'L20261016-003');
+ const deleted={orders:[],trashOrders:[{id:'t',num:'L20261016-004'}],deletedOrders:[{id:'d',num:'l20261016-007'}]};
+ assert.equal(B.nextOrderNumber(deleted,'L','2026-10-16'),'L20261016-008');
+ // The suggestion can be saved.
+ const state=B.upsertOrder(archived,'new',{num:B.nextOrderNumber(archived,'L','2026-10-16'),client:'A',amount:1});
+ assert.ok(state.orders.some(o=>o.num==='L20261016-003'));
+ // Sequences past 999 keep growing.
+ assert.equal(B.nextOrderNumber({orders:[{id:'z',num:'L20261016-999'}]},'L','2026-10-16'),'L20261016-1000');
+});
+
+test('orders of a trashed customer stay editable, and order-only customers are matched',()=>{
+ const s0={customers:{'Old Co':{client:'Old Co',laiBucket:'trash'}},orders:[{id:'o1',num:'N9',client:'Old Co',amount:5,currency:'USD',stage:'quote',createdAt:'2026-10-01',orderMonth:'2026-10'}]};
+ const s1=B.upsertOrder(s0,'o1',{stage:'done'});
+ assert.equal(s1.orders[0].stage,'done');
+ assert.throws(()=>B.upsertOrder(s0,'o2',{num:'N10',client:'old co',amount:5}),/客户在回收站里，请先恢复/);
+ const legacy={customers:{},orders:[{id:'a',num:'A1',client:'Acme',amount:1,currency:'USD',stage:'quote',createdAt:'2026-10-01',orderMonth:'2026-10'}]};
+ const s2=B.upsertOrder(legacy,'b',{num:'A2',client:' acme ',amount:2});
+ assert.deepEqual(s2.orders.map(o=>o.client),['Acme','Acme']);
+ assert.deepEqual(Object.keys(s2.customers),['Acme']);
+});

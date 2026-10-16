@@ -71,7 +71,7 @@ test('validation: every required field and each relationship rule', () => {
   bad({stage: 'nope'}, /销售阶段/); bad({stage: 'lost'}, /输单原因/); bad({stage: 'lost', lostReason: '随便'}, /输单原因/);
   bad({nameMode: 'custom', name: '  '}, /商机名称/);
   bad({products: '螺丝, x'}, /数量/);
-  assert.throws(() => O.upsert(base, ' ', input()), /ID 无效/);
+  assert.throws(() => O.upsert(base, ' ', input()), /找不到这条商机/);
   assert.throws(() => O.upsert({...base, laiOpportunities: {a: 1}}, 'x', input()), /格式异常/);
   // 允许的情况
   assert.equal(get(add(base, 'x', {amount: '0'}), 'x').amount, 0);
@@ -321,10 +321,15 @@ test('customer stats: active list, won count and USD amount, win rate, cycle', (
   s = add(s, 'other', {client: 'Beta Ltd', contact: '', amount: '999'}, '2026-10-05T04:00:00.000Z');
   const stats = O.customerStats(s, 'Alpha Co', TODAY);
   assert.deepEqual(stats.activeOpportunities.map(c => [c.id, c.amount, c.note]), [['a2', 50, '第二个'], ['a1', 100, '']], 'newest first; archived and other customers are left out');
-  assert.deepEqual({...stats, activeOpportunities: null}, {opportunityAllCount: 7, activeOpportunityCount: 2, opportunityCount: 3, opportunityTotal: 600, opportunityAverage: 300,
-    opportunityWinRate: 75, opportunityCycle: 5, activeOpportunities: null}, 'USD figures ignore the EUR win; win rate 3 of 4; cycle (10 + 4 + 1) / 3');
-  assert.deepEqual({...O.customerStats(s, 'Nobody', TODAY), activeOpportunities: null}, {opportunityAllCount: 0, activeOpportunityCount: 0, opportunityCount: 0, opportunityTotal: null, opportunityAverage: null,
-    opportunityWinRate: null, opportunityCycle: null, activeOpportunities: null});
+  // The detail page's 商机 table lists every opportunity of the customer (won, lost and archived too), newest first.
+  assert.equal(stats.opportunities.length, 7);
+  assert.deepEqual(stats.opportunities.map(c => c.id).sort(), ['a1', 'a2', 'arch', 'l1', 'w1', 'w2', 'w3']);
+  assert.ok(stats.opportunities.every(c => c.stageLabel && c.name && c.currency && 'endDate' in c && 'owner' in c));
+  assert.deepEqual({...stats, activeOpportunities: null, opportunities: null}, {opportunityAllCount: 7, activeOpportunityCount: 2, opportunityCount: 3, opportunityTotal: 600, opportunityAverage: 300,
+    opportunityWinRate: 75, opportunityCycle: 5, activeOpportunities: null, opportunities: null}, 'USD figures ignore the EUR win; win rate 3 of 4; cycle (10 + 4 + 1) / 3');
+  assert.deepEqual(O.customerStats(s, 'Nobody', TODAY).opportunities, []);
+  assert.deepEqual({...O.customerStats(s, 'Nobody', TODAY), activeOpportunities: null, opportunities: null}, {opportunityAllCount: 0, activeOpportunityCount: 0, opportunityCount: 0, opportunityTotal: null, opportunityAverage: null,
+    opportunityWinRate: null, opportunityCycle: null, activeOpportunities: null, opportunities: null});
 });
 
 
@@ -364,7 +369,7 @@ test('flows: create, rename and delete, with the rules that protect existing opp
   assert.deepEqual(flowLabels(s, 'fs'), flowLabels(base), 'a new flow starts as a copy of the default stages');
   assert.throws(() => O.addFlow(s, {label: '样品单'}), /同名/); assert.throws(() => O.addFlow(s, {label: '默认销售流程'}), /同名/);
   assert.throws(() => O.addFlow(s, {label: ''}), /请填写销售流程名称/); assert.throws(() => O.addFlow(s, {label: 'x'.repeat(21)}), /不能超过 20 个字/);
-  assert.throws(() => O.addFlow(s, {label: '另一个'}, {id: 'fs'}), /ID 重复/);
+  assert.throws(() => O.addFlow(s, {label: '另一个'}, {id: 'fs'}), /这个销售流程已经存在/);
   assert.match(O.addFlow(s, {label: '自动编号'}).laiOpportunityFlows[1].id, /^f[a-z0-9]+$/);
   s = O.renameFlow(s, 'fs', '样品流程');
   assert.equal(O.flowOf(s, 'fs').label, '样品流程');
@@ -388,7 +393,7 @@ test('stages: add, rename, reorder within a kind, and the limits', () => {
   assert.deepEqual(flowLabels(s).slice(3), ['待付尾款:won', '已完成:won', '已发货:won', '输单:lost']);
   assert.throws(() => O.addFlowStage(s, 'default', {label: '又一个输单', kind: 'lost'}), /固定只有一个输单阶段/);
   assert.throws(() => O.addFlowStage(s, 'default', {label: ' 已报价 ', kind: 'won'}), /同名的阶段/);
-  assert.throws(() => O.addFlowStage(s, 'default', {label: 'x', kind: 'open'}, {id: 'lost'}), /ID 重复/);
+  assert.throws(() => O.addFlowStage(s, 'default', {label: 'x', kind: 'open'}, {id: 'lost'}), /这个阶段已经存在/);
   assert.throws(() => O.addFlowStage(s, 'nope', {label: 'x', kind: 'open'}), /销售流程不存在/);
   s = O.moveFlowStage(s, 'default', 'quoted', -1);
   assert.deepEqual(flowLabels(s).slice(0, 3), ['未成单:open', '已报价:open', '付款未到账:open']);

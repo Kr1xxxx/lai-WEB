@@ -339,7 +339,7 @@
   overflow-wrap: anywhere;
 }
 .settings-layout {
-  max-width: 1000px;
+  max-width: none;
 }
 .settings-actions {
   display: flex;
@@ -358,6 +358,11 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
+}
+/* 添加待办：「已完成」和日期输入框在同一水平线上（贴着输入框那一行的中间） */
+#biz-task-form .business-check {
+  align-self: end;
+  min-height: 36px;
 }
 .settings-layout h3 {
   font-size: 14px;
@@ -1319,13 +1324,13 @@ td.team-reached {
   box-sizing: border-box;
   width: 100%;
   height: 36px;
-  padding: 0 11px;
-  border: 1px solid var(--ink-300);
-  border-radius: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius);
   background-color: #fff;
   font: inherit;
   font-size: 13px;
-  color: var(--opp-ink);
+  color: var(--dd-ink);
 }
 .opp-form textarea {
   height: auto;
@@ -1418,8 +1423,8 @@ td.team-reached {
 .opp-form .opp-group .opp-group-currency {
   flex: 0 0 74px;
   width: 74px;
-  border-radius: 6px 0 0 6px;
-  background: var(--ink-50);
+  border-radius: var(--dd-radius) 0 0 var(--dd-radius);
+  background: #fff;
   font-weight: 600;
   text-align: center;
   text-transform: uppercase;
@@ -1427,7 +1432,7 @@ td.team-reached {
 .opp-form .opp-group input[name="amount"] {
   flex: 1 1 auto;
   margin-left: -1px;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--dd-radius) var(--dd-radius) 0;
   font-variant-numeric: tabular-nums;
 }
 .opp-form .opp-group input:focus {
@@ -1558,10 +1563,16 @@ td.team-reached {
 /* 目标卡片：目标说明和进度条固定在卡片底部，同一行的卡片底边对齐。 */
 .team-goal-foot {
   align-items: flex-end;
+  flex-wrap: wrap;
   margin-top: auto;
+}
+/* 说明文字不折行；放不下时「修改目标值 »」换到下一行靠右，不挤断说明 */
+.team-goal-foot > span {
+  white-space: nowrap;
 }
 .team-goal-foot .team-link {
   flex: 0 0 auto;
+  margin-left: auto;
   white-space: nowrap;
 }
 /* 团队墙金额卡片：完成值独占一行不折行，目标值、完成率并排在下面。 */
@@ -1597,8 +1608,11 @@ td.team-reached {
   gap: 12px;
   min-width: 0;
 }
-.team-rank-empty {
-  justify-content: center;
+.team-rank-list li.team-rank-empty {
+  width: 100%;
+  display: block;
+  text-align: center;
+  white-space: nowrap;
   padding: 28px 0;
 }
 
@@ -1701,6 +1715,7 @@ td.team-reached {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 34px; /* 和左边流程名称输入框同高，文字和按钮跟它上下对齐 */
 }
 .opp-flow-note {
   margin: 12px 0 4px;
@@ -1792,13 +1807,21 @@ td.team-reached {
 }
 /* 搜索框可以收窄，给销售流程选择让出位置，整条筛选尽量保持一行。 */
 .opp-toolbar input[type="search"] {
-  flex: 1 1 140px;
-  min-width: 140px;
+  flex: 1 1 110px;
+  min-width: 110px;
   max-width: 260px;
+}
+/* 1440 宽也要一行放下：日期框收窄一点，排序不换行。 */
+.opp-toolbar .opp-range input[type="date"],
+.opp-toolbar .opp-range input.lai-date-trigger {
+  width: 118px;
+}
+.opp-toolbar .opp-sort {
+  flex: none;
 }
 
 /* 设置中心：每组一张卡片，每行是“名称＋说明＋当前值＋设置按钮” */
-.sh-page { max-width: 1000px; display: flex; flex-direction: column; gap: 14px; }
+.sh-page { max-width: none; display: flex; flex-direction: column; gap: 14px; }
 .sh-group { margin: 0; flex: 0 0 auto; }
 .sh-group .section-head { margin-bottom: 2px; }
 .sh-list { display: flex; flex-direction: column; }
@@ -2389,6 +2412,8 @@ td.team-reached {
 .theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }
 
 /* 订单产品明细和由订单生成的单据。订单表单是右侧一张窄卡，明细一行一张小卡；打开单据预览时卡片变宽。 */
+/* 抽屉底部的按钮栏高 64，表单底部留出同样的空白，滚到底时最后一项不会被压住。 */
+#biz-order-form.drawer-body, #opp-form.drawer-body { padding-bottom: 64px; }
 #biz-order-form .order-items { display: grid; gap: 8px; }
 #biz-order-form .order-item { border: 1px solid var(--line, #e5e7eb); border-radius: 10px; padding: 8px; display: grid; gap: 6px; }
 #biz-order-form .order-item-top { display: flex; align-items: center; gap: 8px; }
@@ -2779,6 +2804,8 @@ td.team-reached {
 
 /* ---------- 单据：编号规则、单据记录、保存过的单据 ---------- */
 .cs-panel.dt-wide { max-width: none; }
+/* 产品页、单据模板页：和其他页面一样用满页面宽度，右边不留空 */
+.cs-page > .cs-panel[data-prod-panel], .cs-page > .cs-panel[data-doc-panel] { max-width: none; }
 .dt-num-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
 .dt-num-card { padding: 14px 16px; border: 1px solid var(--line, #e5e5e5); border-radius: 8px; display: grid; gap: 8px; align-content: start; }
 .dt-num-card h3 { margin: 0; font-size: 14px; }

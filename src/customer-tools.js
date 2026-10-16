@@ -20,6 +20,19 @@ const digits=v=>String(v??'').replace(/\D/g,'');
 // - 标签取并集；动态记录全部保留并按时间排序；下次跟进取最早的一个；备注不一致时追加。
 // - 订单（含回收站）、任务、商机、客群成员里的客户名一并改成保留客户；被合并的客户档案删除。
 const FILL_KEYS=['country','owner','website','source','customerStage','productType','paymentMethod','paymentEmail','currency','level','previewGroup','alibabaId','socialPlatform','socialAccount'];
+// 合并时哪些资料会补上：保留客户里空着的，凡是文字/数字/开关类的资料都从被合并客户里补（按所选顺序，第一个有值的）。
+// 不补的：动态 history、标签 tags、联系人相关（联系人另有合并规则）、公海/回收站相关、系统记账用的 lai* 字段、
+// 日期类（下次跟进、最近跟进、创建/更新时间）、备注（另有追加规则）、mergedFrom。
+const SKIP_FILL=new Set(['client','history','tags','mergedFrom','updated','createdAt','nextFollow','lastFollowup','lastWrittenFollowup','note','permanentNote','previewFollowed',
+  'contact','email','phone','address','contacts','emails','phones','addresses','extraContacts','additionalPhones','phoneCountryCode','alternateEmail','birthday','contactPaymentMethod','contactNote','contactTitle','contactGender','primaryContactMethod',
+  'previousOwner','ownerUpdatedAt','lastPoolEntry','lastPrivatePoolEntry','poolEntryCount','poolReason','poolClaims']);
+const isScalar=v=>typeof v==='string'||typeof v==='number'||typeof v==='boolean';
+function fillKeys(base,srcs){
+  const keys=new Set(FILL_KEYS);
+  for(const p of [base,...srcs.map(s=>s.p)])for(const [k,v] of Object.entries(p))
+    if(!SKIP_FILL.has(k)&&!/^lai/.test(k)&&isScalar(v))keys.add(k);
+  return keys;
+}
 const NOTE_KEYS=[['note','备注'],['permanentNote','长期备注']];
 const CONTACT_KEYS=['contact','email','phone','address','alibabaId','contactPaymentMethod','contactNote','contactTitle','contactGender','socialPlatform','socialAccount','phoneCountryCode','alternateEmail','birthday'];
 
@@ -66,7 +79,7 @@ function mergeCustomers(state,primary,others,at=new Date().toISOString()){
   const base={...(all[primary]||{}),client:primary};
   const srcs=list.map(n=>({name:n,p:all[n]||{}}));
   // 1. 空着的资料用被合并客户补上
-  for(const key of FILL_KEYS){
+  for(const key of fillKeys(base,srcs)){
     if(trim(base[key]))continue;
     const hit=srcs.find(s=>trim(s.p[key]));
     if(hit)base[key]=hit.p[key];

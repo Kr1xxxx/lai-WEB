@@ -1032,3 +1032,54 @@ test('a loaded list goes to the auto-record hook; a recording redraws the page a
   const none = harness();
   try { await none.mail.select(); assert.match(none.page, /样品寄送确认/); } finally { none.dispose(); }
 });
+
+test('a forwarded draft keeps the attach-original choice and the count after saving and reopening', async () => {
+  const { createMailService } = require('../backend/mail-service.js');
+  const { accountIdentity } = require('../backend/mail-imap.js');
+  const drafts = new Map(), files = new Map();
+  let account = ACCOUNT;
+  const service = createMailService({ store: {
+    readMailAccount: () => account, listMailDrafts: () => [...drafts.values()],
+    writeMailDraft: (d, f) => { drafts.set(d.id, d); if (f !== undefined) files.set(d.id, f); }, readMailDraftFiles: id => files.get(id) || [],
+  } });
+  const message = { ...MESSAGE, accountIdentity: accountIdentity(ACCOUNT) };
+  const h = harness({ routes: {
+    '/api/mail/message': ({ reply }) => reply(200, { ok: true, message }),
+    '/api/mail/drafts/save': ({ payload, reply }) => reply(200, service.saveDraft(payload)),
+    '/api/mail/drafts': ({ reply }) => reply(200, service.drafts()),
+    '/api/mail/draft': ({ query, reply }) => reply(200, service.getDraft(query)),
+    '/api/mail/send': ({ reply }) => reply(200, { ok: true, recipients: ['boss@example.invalid'], rejected: [] }),
+  } });
+  try {
+    await h.mail.select(); await h.act('open', { box: 'inbox', uid: '4' }); await h.act('forward');
+    const form = h.form('mail-compose-form').elements;
+    form.to.value = 'boss@example.invalid'; form.forwardAttachments.checked = false;
+    await h.act('compose-draft');
+    const saved = h.calls('/api/mail/drafts/save').at(-1).payload;
+    assert.deepEqual([saved.forwardOf, saved.forwardAttachments, saved.forwardCount], [{ box: 'inbox', uid: 4, accountIdentity: message.accountIdentity }, false, 1]);
+    const id = [...drafts.keys()][0];
+    await h.act('compose-close'); await h.mail.select('drafts'); await h.act('draft-open', { id });
+    const reopened = h.form('mail-compose-form').elements;
+    assert.ok(reopened.forwardAttachments, 'the checkbox is still there after reopening');
+    assert.equal(reopened.forwardAttachments.checked, false);
+    reopened.forwardAttachments.checked = true;
+    await h.submit('mail-compose-form');
+    const sent = h.calls('/api/mail/send').at(-1).payload;
+    assert.equal(sent.forwardAttachments, true); assert.equal(sent.forwardOf.accountIdentity, message.accountIdentity);
+  } finally { h.dispose(); }
+  // 换了邮箱后打开同一份草稿：不再提供“附带原附件”，发出的请求也不带原附件。
+  account = { ...ACCOUNT, email: 'other@example-trade.com' };
+  const draftId = service.saveDraft({ to: 'boss@example.invalid', subject: 'Fwd', text: 'x', forwardOf: { box: 'inbox', uid: 4, accountIdentity: accountIdentity(ACCOUNT) }, forwardAttachments: true, forwardCount: 1 }).draft.id;
+  const other = harness({ account, routes: {
+    '/api/mail/drafts': ({ reply }) => reply(200, service.drafts()),
+    '/api/mail/draft': ({ query, reply }) => reply(200, service.getDraft(query)),
+    '/api/mail/send': ({ reply }) => reply(200, { ok: true, recipients: ['boss@example.invalid'], rejected: [] }),
+  } });
+  try {
+    await other.mail.select('drafts'); await other.act('draft-open', { id: draftId });
+    assert.equal(other.form('mail-compose-form').elements.forwardAttachments, undefined);
+    assert.match(other.page, /原邮件不在现在绑定的邮箱里/);
+    await other.submit('mail-compose-form');
+    assert.equal(other.calls('/api/mail/send').at(-1).payload.forwardAttachments, false);
+  } finally { other.dispose(); }
+});

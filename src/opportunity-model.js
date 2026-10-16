@@ -329,7 +329,7 @@
     const name=customName(state,input.name),type=CUSTOM_TYPES.find(item=>item[0]===trim(input.type))?.[0];
     if(!type)throw new Error('请选择字段类型');
     const id=trim(options.id)||newId('c',new Set(fields.map(field=>field.id)));
-    if(fields.some(field=>field.id===id))throw new Error('字段 ID 重复');
+    if(fields.some(field=>field.id===id))throw new Error('这个字段已经存在');
     const field={id,name,type,options:type==='select'||type==='multi'?customOptions(input.options):[],required:truthy(input.required)};
     return saveCustomFields(state,[...fields,field]);
   }
@@ -513,7 +513,7 @@
 
   function upsert(state,id,input,options={}){
     requireList(state);
-    if(typeof id!=='string'||!id.trim())throw new Error('商机 ID 无效');
+    if(typeof id!=='string'||!id.trim())throw new Error('找不到这条商机');
     const now=options.now||new Date().toISOString(),today=options.today||isoDay(new Date());
     const previous=list(state).find(item=>item.id===id);
     if(options.mustExist&&!previous)throw new Error('商机不存在，可能已被删除，未保存');
@@ -759,7 +759,9 @@
       opportunityTotal:usd.length?total:null,opportunityAverage:usd.length?total/usd.length:null,
       opportunityWinRate:won.length+lost.length?Math.floor(won.length/(won.length+lost.length)*100):null,
       opportunityCycle:days.length?Math.round(days.reduce((a,b)=>a+b,0)/days.length*10)/10:null,
-      activeOpportunities:active
+      activeOpportunities:active,
+      // 该客户的全部商机（含赢单、输单、已归档），新的在前；客户详情「商机和订单」页签的表格用。
+      opportunities:sortCards(all.map(item=>({...card(state,item,today,orderIds),createdAt:trim(item.createdAt)})),'createdAt-desc')
     };
   }
   // 新建表单的默认值。
@@ -808,7 +810,7 @@
     const label=labelOf(input.label,'销售流程');
     if(flows.some(flow=>sameLabel(flow.label,label)))throw new Error('已经有同名的销售流程');
     const taken=new Set(flows.map(flow=>flow.id)),id=trim(options.id)||newId('f',taken);
-    if(taken.has(id))throw new Error('销售流程 ID 重复');
+    if(taken.has(id))throw new Error('这个销售流程已经存在');
     // 新流程从所选流程复制一份阶段（默认复制默认流程），之后各改各的。
     return saveFlow(state,{id,label,stages:flowOf(state,input.copyFrom).stages.map(stage=>({...stage}))});
   }
@@ -834,7 +836,7 @@
     if(flow.stages.length>=MAX_STAGES)throw new Error(`一个流程最多 ${MAX_STAGES} 个阶段`);
     if(flow.stages.some(stage=>sameLabel(stage.label,label)))throw new Error('这个流程里已经有同名的阶段');
     const taken=new Set(flow.stages.map(stage=>stage.id)),id=trim(options.id)||newId('s',taken);
-    if(taken.has(id)||id==='lost')throw new Error('阶段 ID 重复');
+    if(taken.has(id)||id==='lost')throw new Error('这个阶段已经存在');
     const stages=[...flow.stages];
     // 放在同类阶段的最后。
     stages.splice(stages.findLastIndex(stage=>stage.kind===kind)+1,0,{id,label,kind});

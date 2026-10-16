@@ -198,8 +198,18 @@ test('new order date and generated number use the same local calendar day', asyn
   const h = harness({ clock: midnightClock }); h.controller.navigate('order-list'); await h.click('new-order');
   const form = h.document.getElementById('biz-order-form');
   assert.equal(form.elements.createdAt.value, '2026-10-01');
-  assert.equal(form.elements.num.value, 'L20261001-002');
+  // The only saved order has another style of number, so today's first number is free (it used to be count + 1).
+  assert.equal(form.elements.num.value, 'L20261001-001');
   await h.click('close-editor'); assert.equal(h.saveCalls, 0);
+});
+
+test('the suggested order number follows the highest number used today, including archived orders', async () => {
+  const common = { client: 'Synthetic Customer', createdAt: '2026-10-01', orderMonth: '2026-10', currency: 'USD', stage: 'quote', amount: 10, paidAmount: 0, isDraft: false };
+  const h = harness({ clock: midnightClock, orders: [{ ...common, id: 'a', num: 'L20261001-001' }] });
+  h.replaceState({ ...h.state, trashOrders: [{ ...common, id: 'b', num: 'L20261001-002', trashedAt: '2026-10-01T00:00:00.000Z' }] });
+  h.controller.navigate('order-list'); await h.click('new-order');
+  assert.equal(h.document.getElementById('biz-order-form').elements.num.value, 'L20261001-003');
+  await h.click('close-editor');
 });
 
 test('new task defaults to today locally and retains an explicitly selected calendar date', async () => {
@@ -376,4 +386,18 @@ test('analysis customer contributions merge legacy currency spelling the same wa
   assert.equal(rows.length,1);
   assert.match(rows[0],/<td>2<\/td><td>150\.00 USD<\/td><\/tr>$/);
   assert.equal(h.saveCalls,0);
+});
+
+test('the settings form refuses an order prefix with other characters and keeps the old value', async () => {
+  const h = harness(); h.controller.navigate('settings');
+  assert.match(h.pageHtml, /pattern="\[A-Za-z0-9\\-\]\+"/, 'the hyphen is escaped so the v-flag accepts the pattern');
+  const form = h.document.getElementById('biz-settings-form');
+  form.elements.orderPrefix.value = 'A_B';
+  await h.emit('submit', form);
+  assert.equal(h.saveCalls, 0);
+  assert.equal(h.state.laiSettings.orderPrefix, undefined);
+  form.elements.orderPrefix.value = ' AB-1 ';
+  await h.emit('submit', form);
+  assert.equal(h.saveCalls, 1);
+  assert.equal(h.state.laiSettings.orderPrefix, 'AB-1');
 });

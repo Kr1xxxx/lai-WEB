@@ -69,9 +69,9 @@
     "Change website and a contact phone, save",
     "Reload: changes kept, nothing else lost"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -84,9 +84,9 @@
     "Write a follow-up, save",
     "List and detail show the new date"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -98,9 +98,9 @@
     "客群 → new segment with a country rule",
     "Count equals the filtered list"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -112,9 +112,9 @@
     "Move a customer to 公海客户, restore it",
     "Create two customers with one email; 客户查重 lists them"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -126,9 +126,9 @@
     "Merge two sample customers",
     "Rename a tag in 标签管理"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -156,11 +156,12 @@
     "Filter by stage and currency",
     "Archive, then restore"
    ],
-   "e2e": null,
+   "e2e": "orders.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
-   }
+   },
+   "note": "归档 asks for a second click (确认) before the order moves to 订单回收站."
   },
   {
    "id": "workbench",
@@ -170,9 +171,9 @@
     "Create one order and one task",
     "工作台 counts change accordingly"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -184,9 +185,9 @@
     "Open the calendar, switch month",
     "Create a task, mark it done"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -198,9 +199,9 @@
     "Create two orders in different currencies",
     "Totals per currency are correct"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -213,11 +214,12 @@
     "Drag to the next stage",
     "Mark as won"
    ],
-   "e2e": null,
+   "e2e": "opportunities.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
-   }
+   },
+   "note": "Win = menu 移到「已完成」 (待付尾款 and 已完成 are both 赢单 stages)."
   },
   {
    "id": "sales-flows",
@@ -227,11 +229,12 @@
     "Settings → 销售流程 → add a stage",
     "New opportunities use it"
    ],
-   "e2e": null,
+   "e2e": "opportunity-settings.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
-   }
+   },
+   "note": "UI path: 商机 → 商机设置 → 销售流程."
   },
   {
    "id": "team-data",
@@ -241,9 +244,9 @@
     "团队数据 → set a monthly target",
     "Completion updates after an order"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -256,11 +259,12 @@
     "Enter address and app password",
     "Verification succeeds; password not shown again"
    ],
-   "e2e": null,
+   "e2e": "mail.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
-   }
+   },
+   "note": "Browser check against the fake IMAP/SMTP servers (tests/fixtures/fake-mail-servers.cjs); a real Zoho mailbox is still unchecked (task 4)."
   },
   {
    "id": "mail-read-send",
@@ -271,11 +275,12 @@
     "Reply with an attachment",
     "Draft is kept after reload"
    ],
-   "e2e": null,
+   "e2e": "mail.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
-   }
+   },
+   "note": "Browser check against the fake IMAP/SMTP servers; a real Zoho mailbox is still unchecked (task 4)."
   },
   {
    "id": "themes",
@@ -285,11 +290,12 @@
     "设置 → 外观 → 粉色",
     "Whole app recolours; text stays readable"
    ],
-   "e2e": null,
+   "e2e": "settings-hub.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
-   }
+   },
+   "note": "UI names: the section is 设置 → 设置 → 界面配色 (not 外观); pink is the default."
   },
   {
    "id": "settings-hub",
@@ -299,9 +305,9 @@
     "设置 → 设置中心",
     "Each item opens its page"
    ],
-   "e2e": null,
+   "e2e": "settings-hub.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   },
@@ -313,11 +319,12 @@
     "Settings → 备份",
     "Quit and reopen: data unchanged"
    ],
-   "e2e": null,
+   "e2e": "features-walkthrough.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
-   }
+   },
+   "note": "Quit-and-reopen is Mac-only; the browser test covers backup plus reload."
   },
   {
    "id": "date-picker",
