@@ -162,6 +162,41 @@ test('opening 商机 from the left rail clears an old search', async () => {
   assert.deepEqual(app.errors, []);
 });
 
+test('the opportunity search filters while typing', async () => {
+  const { page } = app;
+  await page.locator('.rail-item[data-rail-menu="商机"]').click();
+  await settle(700);
+  await page.locator('#opp-search').click();
+  await page.keyboard.type('zzz', { delay: 30 });
+  await settle(600);
+  assert.equal(await page.locator('.opp-card').count(), 0, 'filtered without leaving the field');
+  assert.equal(await page.locator('#opp-search').inputValue(), 'zzz');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'opp-search');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Backspace');
+  await settle(600);
+  assert.equal(await page.locator('.opp-card').count(), 1);
+  assert.deepEqual(app.errors, []);
+});
+
+test('the order prefix only takes letters, digits and a hyphen, and the page raises no pattern error', async () => {
+  const { page } = app;
+  await page.evaluate(() => { const b = document.createElement('button'); b.dataset.laiRoute = 'settings'; document.body.appendChild(b); b.click(); b.remove(); });
+  await settle(700);
+  const input = page.locator('#biz-settings-form [name="orderPrefix"]');
+  await input.waitFor();
+  assert.equal(await input.evaluate((el) => el.validity.patternMismatch), false);
+  await input.fill('AB-1');
+  assert.equal(await input.evaluate((el) => el.checkValidity()), true);
+  await input.fill('A_B');
+  assert.equal(await input.evaluate((el) => el.validity.patternMismatch), true);
+  await page.locator('#biz-settings-form button[type=submit]').click();
+  await settle(500);
+  const saved = (await app.readData()).laiSettings || {};
+  assert.notEqual(saved.orderPrefix, 'A_B');
+  assert.deepEqual(app.errors, []);
+});
+
 test('the 小满 order list has a 时间 filter that works', async () => {
   const classic = await startApp();
   try {

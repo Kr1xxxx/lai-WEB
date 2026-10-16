@@ -457,7 +457,8 @@
     // 商机设置页：当前页签、销售流程页当前看的流程，以及等待再次确认删除的那一项（"flow:ID"、"stage:ID"、"reasons:名称"、"types:名称" 或 "cf:ID"）。
     const flowView = { tab: "flows", flow: "default", armed: "" };
     const cssEscape = (value) => (root.CSS?.escape ? root.CSS.escape(String(value)) : String(value).replace(/["\\]/g, "\\$&"));
-    let keepOppFilters = false;
+    let keepOppFilters = false,
+      oppSearchTimer = 0;
     let oppDraft = null,
       oppArmed = "",
       oppDrag = "",
@@ -1586,7 +1587,7 @@
         currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : "pink";
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">公司名称<input name="companyName" value="${E(settings.companyName || "来财Lai")}"></label><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${["USD", "EUR", "GBP", "CNY", "CAD", "AUD"].map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"></label></div><div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、客群和日历任务保存在同一个来财数据库。原 TOS 数据不与来财互相覆盖。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="section-rule"></div><h3>来财Lai</h3><p class="settings-copy">统一客户与经营界面。没有旧页面跳转，不自动连接外部服务。</p></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">公司名称<input name="companyName" value="${E(settings.companyName || "来财Lai")}"></label><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${["USD", "EUR", "GBP", "CNY", "CAD", "AUD"].map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"></label></div><div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、客群和日历任务保存在同一个来财数据库。原 TOS 数据不与来财互相覆盖。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="section-rule"></div><h3>来财Lai</h3><p class="settings-copy">统一客户与经营界面。没有旧页面跳转，不自动连接外部服务。</p></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2252,6 +2253,21 @@
         input.focus();
         input.setSelectionRange(pos, pos);
       }
+      if (route === "opportunities" && e.target.id === "opp-search" && !e.isComposing) {
+        // 边打字边筛选：停下 150 毫秒后再画一次，光标留在原处。
+        const pos = e.target.selectionStart;
+        root.clearTimeout?.(oppSearchTimer);
+        oppSearchTimer = root.setTimeout?.(() => {
+          const input = document.getElementById("opp-search");
+          if (route !== "opportunities" || !input) return;
+          oppView.filters = { ...oppView.filters, search: input.value };
+          oppView.limits = {};
+          render();
+          const next = document.getElementById("opp-search");
+          next?.focus?.({ preventScroll: true });
+          next?.setSelectionRange?.(pos, pos);
+        }, 150);
+      }
       if (e.target.closest("#biz-settings-form")) settingsDirty = true;
       const itemField = e.target.dataset?.itemField;
       if (itemField && draft?.items?.[e.target.dataset.itemIndex]) {
@@ -2577,6 +2593,11 @@
         );
       }
       if (!need("settings.general")) return;
+      // 订单前缀只能是字母、数字和短横线；不合格就不保存，原来的值保留。
+      if (Object.hasOwn(data, "orderPrefix")) {
+        data.orderPrefix = String(data.orderPrefix || "").trim();
+        if (!/^[A-Za-z0-9-]+$/.test(data.orderPrefix)) return setText("biz-settings-error", "订单前缀只能用字母、数字和-", true);
+      }
       return saveNext(
         () => ({
           ...state(),

@@ -387,3 +387,17 @@ test('analysis customer contributions merge legacy currency spelling the same wa
   assert.match(rows[0],/<td>2<\/td><td>150\.00 USD<\/td><\/tr>$/);
   assert.equal(h.saveCalls,0);
 });
+
+test('the settings form refuses an order prefix with other characters and keeps the old value', async () => {
+  const h = harness(); h.controller.navigate('settings');
+  assert.match(h.pageHtml, /pattern="\[A-Za-z0-9\\-\]\+"/, 'the hyphen is escaped so the v-flag accepts the pattern');
+  const form = h.document.getElementById('biz-settings-form');
+  form.elements.orderPrefix.value = 'A_B';
+  await h.emit('submit', form);
+  assert.equal(h.saveCalls, 0);
+  assert.equal(h.state.laiSettings.orderPrefix, undefined);
+  form.elements.orderPrefix.value = ' AB-1 ';
+  await h.emit('submit', form);
+  assert.equal(h.saveCalls, 1);
+  assert.equal(h.state.laiSettings.orderPrefix, 'AB-1');
+});
