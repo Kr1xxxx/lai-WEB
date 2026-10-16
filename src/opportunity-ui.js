@@ -196,7 +196,7 @@
       };
       const section=(title,html)=>html?`<div class="form-section">${title}</div><div class="opp-grid">${html}</div>`:'';
       const classify=[
-        `<div class="opp-field"><span class="opp-field-label">商机编号</span><span class="opp-static" id="opp-number">${E(v.number||(context.isNew?'保存后自动生成':'—'))}</span>${context.isNew?'<span class="opp-field-hint">格式：OPP-日期-当天序号</span>':''}</div>`,
+        `<div class="opp-field"><span class="opp-field-label">商机编号</span><span class="opp-static" id="opp-number">${E(v.number||(context.isNew?'保存后自动生成':'—'))}</span>${context.isNew?'<span class="opp-field-hint">编号格式：OPP-日期-当天序号</span>':''}</div>`,
         cfg.type.show?field('商机类型',choose('type',setup.types||[],String(v.type||''),'请选择'),{required:cfg.type.required}):'',
         cfg.leadId.show?field('来源线索',`<select name="leadId"><option value="">不选</option>${leadOptions}</select>`,{required:cfg.leadId.required}):'',
         cfg.sources.show?multi('sources','商机来源',sourceChoices,chosenSources,{required:cfg.sources.required,hint:sourceChoices.length?'':'先在 客户设置 → 来源设置 里添加来源'}):''

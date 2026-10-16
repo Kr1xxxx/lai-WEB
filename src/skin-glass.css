@@ -400,7 +400,7 @@
 :root[data-skin="glass"] .opp-page select,
 :root[data-skin="glass"] .opp-page input[type="search"],
 :root[data-skin="glass"] .opp-page input[type="date"] { height: 32px; border-radius: 8px; border-color: var(--ink-200); font-size: 13px; }
-:root[data-skin="glass"] .opp-toolbar input[type="search"] { flex: 1 1 200px; width: auto; max-width: 260px; }
+:root[data-skin="glass"] .opp-toolbar input[type="search"] { flex: 1 1 130px; min-width: 120px; width: auto; max-width: 260px; }
 :root[data-skin="glass"] .opp-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 8px; margin-bottom: 10px; border: 0; border-radius: 0; background: transparent; }
 :root[data-skin="glass"] .opp-summary-note { grid-column: 1 / -1; padding: 0 2px; border: 0; }
 :root[data-skin="glass"] .opp-currency { flex-direction: row; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 11px; background: rgba(255,255,255,.96); }

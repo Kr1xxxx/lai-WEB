@@ -1319,13 +1319,13 @@ td.team-reached {
   box-sizing: border-box;
   width: 100%;
   height: 36px;
-  padding: 0 11px;
-  border: 1px solid var(--ink-300);
-  border-radius: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius);
   background-color: #fff;
   font: inherit;
   font-size: 13px;
-  color: var(--opp-ink);
+  color: var(--dd-ink);
 }
 .opp-form textarea {
   height: auto;
@@ -1418,8 +1418,8 @@ td.team-reached {
 .opp-form .opp-group .opp-group-currency {
   flex: 0 0 74px;
   width: 74px;
-  border-radius: 6px 0 0 6px;
-  background: var(--ink-50);
+  border-radius: var(--dd-radius) 0 0 var(--dd-radius);
+  background: #fff;
   font-weight: 600;
   text-align: center;
   text-transform: uppercase;
@@ -1427,7 +1427,7 @@ td.team-reached {
 .opp-form .opp-group input[name="amount"] {
   flex: 1 1 auto;
   margin-left: -1px;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--dd-radius) var(--dd-radius) 0;
   font-variant-numeric: tabular-nums;
 }
 .opp-form .opp-group input:focus {
@@ -1795,9 +1795,17 @@ td.team-reached {
 }
 /* 搜索框可以收窄，给销售流程选择让出位置，整条筛选尽量保持一行。 */
 .opp-toolbar input[type="search"] {
-  flex: 1 1 140px;
-  min-width: 140px;
+  flex: 1 1 110px;
+  min-width: 110px;
   max-width: 260px;
+}
+/* 1440 宽也要一行放下：日期框收窄一点，排序不换行。 */
+.opp-toolbar .opp-range input[type="date"],
+.opp-toolbar .opp-range input.lai-date-trigger {
+  width: 118px;
+}
+.opp-toolbar .opp-sort {
+  flex: none;
 }
 
 /* 设置中心：每组一张卡片，每行是“名称＋说明＋当前值＋设置按钮” */
