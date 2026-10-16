@@ -975,3 +975,14 @@ test('review fixes: an error shown after a failed save survives the list refresh
   assert.equal(await d.key({closest: sel => sel === '.opp-card' ? card : null}, {key: 'ArrowRight', repeat: true}), false);
   assert.equal(d.state(), before);
 });
+
+
+test('detail: the 电话 line with a WhatsApp button appears only when the page passes a number for the linked contact', () => {
+  const s = add(base, 'w1', {contact: 'Ann'});
+  const detail = O.detailOf(s, 'w1', TODAY);
+  const html = ui.detailMarkup(detail, {today: TODAY, whatsapp: {phone: '+44 7700 900123', contact: 'Ann'}}, {});
+  assert.match(html, /<dt>电话<\/dt><dd>\+44 7700 900123 <button type="button" class="text-button opp-wa" data-opp-action="wa" data-id="w1"/);
+  assert.doesNotMatch(html, /data-chat-action/);
+  assert.doesNotMatch(ui.detailMarkup(detail, {today: TODAY}, {}), /data-opp-action="wa"|<dt>电话<\/dt>/);
+  assert.match(ui.detailMarkup(detail, {today: TODAY, whatsapp: {phone: '<i>1', contact: ''}}, {}), /&lt;i&gt;1/, 'the number is escaped');
+});

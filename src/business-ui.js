@@ -733,6 +733,9 @@
       }
       // 表单里显示的是商机实际归属的流程（原来的流程读不到时按默认流程）。
       const values = { ...next.values, flow: OM().flowOf(state(), next.values.flow).id };
+      // 汇率设置里有这个币种的汇率时，汇率框先填上它（外币正好是 100 当作没填；用户自己存的其他值不动）。
+      const prefilled = OM().prefillRate(state(), values.currency, values.exchangeRate);
+      if (prefilled !== null) values.exchangeRate = prefilled;
       try {
         ctx.dialog(
           next.isNew ? "新建商机" : "编辑商机",
@@ -753,7 +756,7 @@
         return ctx.toast(`无法打开商机表单：${error.message}`);
       }
       // 只有表单真的打开了才算进入编辑；记下原来的客户和联系人，换回原客户时能恢复原联系人。
-      oppDraft = { id: next.id, isNew: next.isNew, client: String(values.client || "").trim(), contact: String(values.contact || ""), flow: OM().flowOf(state(), values.flow).id, stage: String(values.stage || "") };
+      oppDraft = { id: next.id, isNew: next.isNew, client: String(values.client || "").trim(), contact: String(values.contact || ""), flow: OM().flowOf(state(), values.flow).id, stage: String(values.stage || ""), prefilled };
     }
     // 客户、阶段、命名方式、币种变化时，只就地更新表单里受影响的那几处，不重画，不打断正在输入的内容。
     function syncOppForm(name) {
@@ -803,6 +806,14 @@
           rate.dataset.rate = rate.value;
           rate.value = "100";
         } else if (!usd && rate.readOnly) rate.value = rate.dataset.rate || "100";
+        // 换币种时，汇率框是 100、空着或还是上次自动填的值，就换成汇率设置里这个币种的汇率；用户自己改过的不动。
+        if (!usd) {
+          const next = OM().prefillRate(state(), el.currency.value, rate.value, oppDraft.prefilled);
+          if (next !== null) {
+            rate.value = String(next);
+            oppDraft.prefilled = next === 100 ? null : next;
+          }
+        }
         rate.readOnly = usd;
         const label = rate.closest("label");
         if (label) label.hidden = usd;
@@ -856,6 +867,12 @@
       if (action === "detail") return showOppDetail(d.id);
       if (action === "undo") return undoMove();
       if (action === "edit") return openOppForm(d.id);
+      if (action === "wa") {
+        const detail = OM().detailOf(state(), d.id, B.localDate()),
+          hit = detail && OM().contactPhone(state(), detail.client, detail.contact);
+        if (!hit) return ctx.toast("这个联系人没有可用的电话");
+        return openWaDialog({ kind: "opportunity", id: detail.id, name: detail.client, client: detail.client, contact: hit.contact, phone: hit.phone, code: hit.code, country: hit.country });
+      }
       if (action === "menu") return showOppMenu(d.id);
       if (action === "more") {
         oppView.limits[d.stage] = Math.max(root.LaiOpportunityUI.PAGE, Number(oppView.limits[d.stage]) || 0) + root.LaiOpportunityUI.PAGE;
@@ -901,7 +918,10 @@
       const detail = OM().detailOf(state(), id, B.localDate());
       if (!detail) return "";
       const documents = DM() ? DM().docsFor(state(), { kind: "opportunity", id }).map((doc) => ({ id: doc.id, number: doc.number, typeName: doc.snapshot?.typeName || "", date: doc.date, voided: doc.status === "已作废" })) : [];
-      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents }, attachView);
+      // 联系人有能打开的号码、账号又能开聊天时，详情里多一个 WhatsApp 按钮。
+      const hit = can("chat.send") ? OM().contactPhone(state(), detail.client, detail.contact) : null,
+        whatsapp = hit && waE164(hit.phone, hit.code, hit.country) ? { phone: hit.phone, contact: hit.contact } : null;
+      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents, whatsapp }, attachView);
     }
     function showOppDetail(id) {
       if (oppBlocked(id)) return;
@@ -1152,8 +1172,8 @@
     // 线索不归当前账号负责（角色只看本人或本部门时）：提示一句，什么也不做。
     const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
     // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
-    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge" };
-    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()) });
+    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge", wa: "chat.send" };
+    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()), rules: LD().fieldRules(state()) });
     function openLeadForm(id) {
       if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
       let next;
@@ -1182,6 +1202,86 @@
       if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
       ctx.dialog(E(row.name), LU().detailMarkup(row, B.localDate()), '<button type="button" data-action="close-modal">关闭</button>', "business-lead-detail");
       if (focusFollow) document.querySelector?.('#lead-follow-form textarea[name="text"]')?.focus?.({ preventScroll: true });
+    }
+    // ---- WhatsApp（线索、商机详情里的按钮）----
+    // 填消息 → 打开 WhatsApp 或复制 → 问一句发出去了吗，和客户资料里的流程一样。线索没有客户资料，记进线索自己的跟进；商机记进客户动态。
+    let waDraft = null;
+    function waE164(phone, code, country) {
+      try {
+        return root.LaiWhatsAppModel?.toE164(phone, { code: code || "", country: country || "" }) || "";
+      } catch {
+        return "";
+      }
+    }
+    function waFormMarkup() {
+      const d = waDraft;
+      return `<form class="drawer-body wa-dialog" id="biz-wa-form" autocomplete="off" novalidate><p class="wa-dlg-who">${E(d.name)}${d.contact ? ` · ${E(d.contact)}` : ""}</p><div class="form-grid"><p class="wa-dlg-note wide" id="biz-wa-note">将打开 ${E(d.e164)}</p><label class="field wide"><span>消息</span><textarea id="biz-wa-text" rows="6" maxlength="2000" placeholder="想发给对方的话"></textarea></label></div><div class="error" id="biz-wa-error" role="alert"></div></form>`;
+    }
+    function openWaDialog(target) {
+      if (!need("chat.send")) return;
+      const e164 = waE164(target.phone, target.code, target.country);
+      if (!e164) return ctx.toast("这个号码打不开 WhatsApp，请检查号码和国家");
+      waDraft = { ...target, e164 };
+      const wa = (action, label, primary) => `<button type="button"${primary ? ' class="primary"' : ""} data-biz-action="${action}">${label}</button>`;
+      ctx.dialog("打开 WhatsApp", waFormMarkup(), `<button type="button" data-action="close-modal">取消</button>${wa("wa-copy-text", "复制消息")}${wa("wa-copy-link", "复制链接")}${wa("wa-open", "打开 WhatsApp", true)}`, "business-wa");
+    }
+    // 这次聊天能不能记下来：线索要还在跟进中、账号能改线索；商机记到客户动态，客户要还在。
+    function waCanLog() {
+      const d = waDraft;
+      if (!d) return false;
+      if (d.kind === "lead") {
+        const row = LD().detail(state(), d.id, B.localDate());
+        return !!row && can("lead.edit") && ["new", "following"].includes(row.status);
+      }
+      return !!(state().customers && Object.hasOwn(state().customers, d.client));
+    }
+    const waText = () => String(document.getElementById("biz-wa-text")?.value ?? "").trim();
+    const waError = (text) => setText("biz-wa-error", text, true);
+    async function waCopy(kind) {
+      const value = kind === "link" ? root.LaiWhatsAppModel.waLink(waDraft.e164, waText()) : waText();
+      try {
+        await root.navigator.clipboard.writeText(value);
+        ctx.toast(kind === "link" ? "已复制链接" : "已复制消息");
+      } catch {
+        waError("复制没成功，请手动选中复制");
+      }
+    }
+    function waOpen() {
+      const body = waText(),
+        link = root.LaiWhatsAppModel.waLink(waDraft.e164, body);
+      try {
+        root.open(link, "_blank", "noopener,noreferrer");
+      } catch {
+        return waError("没能打开，请用“复制链接”");
+      }
+      if (!body || !waCanLog()) return ctx.closeDialog();
+      waDraft.sent = body;
+      const where = waDraft.kind === "lead" ? "记到这条线索的跟进里" : "记到客户动态，之后在客户资料里能看到";
+      ctx.dialog(
+        "发出去了吗？",
+        `<div class="drawer-body wa-ask"><p>发出去了吗？${where}。</p><div class="wa-ask-text">${E(body).replace(/\n/g, "<br>")}</div><div class="error" id="biz-wa-ask-error" role="alert"></div></div>`,
+        '<button type="button" data-biz-action="wa-skip">不用</button><button type="button" class="primary" data-biz-action="wa-log">记一笔</button>',
+        "business-wa",
+      );
+    }
+    function waAction(action) {
+      if (!waDraft) return;
+      if (action === "wa-copy-text") return waCopy("text");
+      if (action === "wa-copy-link") return waCopy("link");
+      if (action === "wa-open") return waOpen();
+      if (action === "wa-skip") return ctx.closeDialog();
+      if (action !== "wa-log" || !need("chat.send")) return;
+      const d = waDraft;
+      if (d.kind === "lead") return saveNext(() => LD().addFollowup(state(), d.id, { text: `WhatsApp 聊天：${d.sent}` }), "biz-wa-ask-error", leadSaved(d.id));
+      const profile = state().customers?.[d.client] || {};
+      return saveNext(
+        () => root.LaiWhatsAppModel.logChat(state(), d.client, { text: d.sent, contact: d.contact, peer: d.e164, owner: String(profile.owner || "").trim() || RM()?.meName(state()) || "", src: "link", at: new Date().toISOString() }),
+        "biz-wa-ask-error",
+        () => {
+          ctx.closeDialog();
+          return false;
+        },
+      );
     }
     function openLeadConvert(id) {
       if (!need("lead.convert") || leadBlocked(id)) return;
@@ -1224,6 +1324,11 @@
       if (action === "open") return showLead(d.id);
       if (action === "follow") return showLead(d.id, true);
       if (action === "convert") return openLeadConvert(d.id);
+      if (action === "wa") {
+        const row = LD().detail(state(), d.id, B.localDate());
+        if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
+        return openWaDialog({ kind: "lead", id: row.id, name: row.name, contact: row.contact, phone: row.phone, country: row.country });
+      }
       if (action === "trash-page") return ctx.navigate("lead-trash");
       if (action === "list-page") return ctx.navigate("leads");
       if (action === "more") {
@@ -2495,6 +2600,7 @@
       }
       const action = d.bizAction;
       if (!action) return;
+      if (action.startsWith("wa-")) return waAction(action);
       if (action === "new-order") return orderEditor();
       if (action === "orders") return ctx.navigate("order-list");
       if (action === "order-trash") return ctx.navigate("order-trash");

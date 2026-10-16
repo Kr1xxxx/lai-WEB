@@ -651,3 +651,36 @@ test('review fixes: ".." inside a file name is fine, real traversal is not; rena
   assert.equal(get(removed, 'a').stage, 'unpaid'); assert.equal(Object.hasOwn(get(removed, 'a'), 'sortRank'), false);
   assert.equal(O.reorder(two, 'a', {before: 'a'}), two, 'dropping a card before itself changes nothing');
 });
+
+
+test('prefillRate: the rates table fills a foreign currency rate that is still 100 or empty, and never overwrites a value the user entered', () => {
+  const withRates = {...base, laiSettings: {...base.laiSettings, rates: {list: [{code: 'EUR', usd100: 108.5, updatedAt: '2026-10-01'}, {code: 'GBP', usd100: 127, updatedAt: '2026-10-01'}]}}};
+  assert.equal(O.prefillRate(withRates, 'EUR', 100), 108.5, 'a new opportunity (100) takes the table rate');
+  assert.equal(O.prefillRate(withRates, 'eur', ''), 108.5, 'blank and lower case also work');
+  assert.equal(O.prefillRate(withRates, 'EUR', '100'), 108.5, 'text 100 counts as no rate');
+  assert.equal(O.prefillRate(withRates, 'EUR', 105), null, 'a value the user entered is kept');
+  assert.equal(O.prefillRate(withRates, 'EUR', 108.5), null, 'nothing to change');
+  assert.equal(O.prefillRate(withRates, 'GBP', 108.5, 108.5), 127, 'a value we filled ourselves is replaced when the currency changes again');
+  assert.equal(O.prefillRate(withRates, 'GBP', 105, 108.5), null, 'a value the user changed after our fill is kept');
+  assert.equal(O.prefillRate(withRates, 'USD', 100), null, 'USD stays 100');
+  assert.equal(O.prefillRate(withRates, 'EU', 100), null, 'a half-typed currency is ignored');
+  assert.equal(O.prefillRate(withRates, 'JPY', 100), null, 'no table rate: left as it is');
+  assert.equal(O.prefillRate(withRates, 'JPY', 108.5, 108.5), 100, 'no table rate: our own earlier fill goes back to 100');
+  assert.equal(O.prefillRate(base, 'EUR', 100), null, 'an empty table keeps today\'s behaviour');
+  assert.equal(O.prefillRate({}, 'EUR', ''), null);
+});
+
+test('contactPhone finds the linked contact\'s number: the contact itself first, then their other numbers; none gives null', () => {
+  const state = {customers: {
+    Acme: {contact: 'Ann', phone: '+44 7700 900123', phoneCountryCode: '+44', country: '英国', additionalPhones: [{phone: '020 7946 0000'}],
+      extraContacts: [{contact: 'Bo', phone: '', additionalPhones: [{phone: '7700 900999', phoneCountryCode: '+44'}]}, {contact: 'Cy', phone: '555'}]},
+    Bare: {contact: 'Dee'}, Mixed: {contacts: ['Eve'], phone: '12345678'}}};
+  assert.deepEqual(O.contactPhone(state, 'Acme', 'Ann'), {phone: '+44 7700 900123', code: '+44', contact: 'Ann', country: '英国'});
+  assert.deepEqual(O.contactPhone(state, 'Acme', 'Bo'), {phone: '7700 900999', code: '+44', contact: 'Bo', country: '英国'}, 'falls back to the contact\'s other numbers');
+  assert.equal(O.contactPhone(state, 'Acme', 'Cy').phone, '555');
+  assert.equal(O.contactPhone(state, 'Acme', '').contact, 'Ann', 'no contact on the opportunity: the first contact with a number');
+  assert.equal(O.contactPhone(state, 'Acme', 'Nobody'), null, 'a contact that is not on the customer');
+  assert.equal(O.contactPhone(state, 'Bare', 'Dee'), null, 'no number');
+  assert.equal(O.contactPhone(state, 'Mixed', '').contact, 'Eve', 'legacy contacts array');
+  assert.equal(O.contactPhone(state, 'Missing', 'Ann'), null);
+});

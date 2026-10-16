@@ -163,9 +163,10 @@ test('the lead form hides hidden fields and marks required ones; context lists k
   let state = S.setField(S.setField(S.setField(base(), 'website', { show: false }), 'nextFollow', { show: false }), 'email', { required: true });
   state = S.setField(state, 'country', { required: true });
   const ui = LU.create(escapeHtml, L);
-  const context = { owners: L.ownerNames(state), sources: L.sourceNames(state) };
+  const context = { owners: L.ownerNames(state), sources: L.sourceNames(state), rules: L.fieldRules(state) };
   assert.ok(Array.isArray(context.sources) && context.sources.includes('展会'));
-  assert.deepEqual(Object.keys(context.sources), context.sources.map((_, i) => String(i)), 'rules do not show up as list entries');
+  assert.deepEqual(Object.keys(context.sources), context.sources.map((_, i) => String(i)), 'no hidden properties on the list');
+  assert.equal(Object.getOwnPropertyNames(context.sources).includes('rules'), false);
   const html = ui.formMarkup({ name: '' }, context);
   assert.doesNotMatch(html, /name="website"|name="nextFollow"/);
   assert.match(html, /name="email"[^>]*required/);
@@ -182,7 +183,7 @@ test('the lead form hides hidden fields and marks required ones; context lists k
 test('a read-only account does not get a required mark on a field it cannot fill', () => {
   const state = roleState(S.setField(base(), 'phone', { required: true }), { lead: { phone: 'read' } });
   const ui = LU.create(escapeHtml, L, () => true, key => R.fieldLevel(state, 'lead', key));
-  const html = ui.formMarkup({ name: '' }, { owners: L.ownerNames(state), sources: L.sourceNames(state) });
+  const html = ui.formMarkup({ name: '' }, { owners: L.ownerNames(state), sources: L.sourceNames(state), rules: L.fieldRules(state) });
   assert.match(html, /name="phone"[^>]*disabled/);
   assert.doesNotMatch(html, /name="phone"[^>]*required/);
 });
