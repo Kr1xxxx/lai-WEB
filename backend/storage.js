@@ -9,7 +9,8 @@ const { httpError } = require('./errors.js');
 // not enabled integration services. No migrations delete or rewrite user records.
 function openStorage({ seedFile }) {
   const seedDataFile = seedFile;
-  const supportDir = laiDataDirectory();
+  // 启动时把整个数据目录查一遍（有没有符号链接、硬链接）；之后每次保存只查路径本身。
+  const supportDir = laiDataDirectory({ scan: true });
   const backupDir = path.join(supportDir, 'backups');
   const attachmentsDir = path.join(supportDir, 'attachments');
   const dataFile = path.join(supportDir, 'lai-data.json');
@@ -21,9 +22,10 @@ function openStorage({ seedFile }) {
   let storageMode = 'initializing';
   let storageError = '';
   let storageRevision = 0;
+  let startupIntegrity = { ok: false, message: 'not checked' };
 
   function ensureStorage() {
-    laiDataDirectory();
+    laiDataDirectory({ scan: false });
     fs.mkdirSync(backupDir, { recursive: true });
     fs.mkdirSync(attachmentsDir, { recursive: true });
     fs.mkdirSync(migrationArchiveDir, { recursive: true });
@@ -269,11 +271,29 @@ function openStorage({ seedFile }) {
     `);
   }
 
+  // 整包保存（/api/save）会用页面发来的数据替换全部数据。页面出错时发来的数据可能缺块：
+  // 服务器已有的顶层字段（客户、订单、各模块设置）在新数据里缺了或类型不对，就整个拒绝，原数据不动。
+  // 在写事务里读当前数据再比较，保证比较的就是即将被替换的那一份。迁移（首次建库）不做这个检查。
+  function validateReplacement(raw, previous) {
+    const data = raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object' ? raw.data : raw;
+    const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    const invalid = key => { throw httpError(400, '保存的内容不完整，原数据没有改动。请刷新页面后再试。', { code: 'incomplete_save', field: String(key).slice(0, 80) }); };
+    if (!object(data)) invalid('data');
+    if (!Array.isArray(data.orders)) invalid('orders');
+    if (!object(data.customers)) invalid('customers');
+    for (const key of ['trashOrders', 'deletedOrders', 'trackingLookups']) {
+      if (Object.hasOwn(data, key) && !Array.isArray(data[key])) invalid(key);
+    }
+    for (const [name, customer] of Object.entries(data.customers)) if (!object(customer)) invalid(`customers.${name}`);
+    for (const key of Object.keys(previous)) {
+      if (!Object.hasOwn(data, key) || data[key] === undefined) invalid(key);
+      if (Array.isArray(previous[key]) && !Array.isArray(data[key])) invalid(key);
+      if (object(previous[key]) && !object(data[key])) invalid(key);
+    }
+  }
+
   function writeStateToDatabase(rawPayload, { migration = false, baseRevision, importLog } = {}) {
     if (!database) throw new Error('SQLite database is not available');
-    const payload = normalizeDataPayload(rawPayload);
-    const data = payload.data;
-    const validatedImportLog = normalizeImportLog(importLog, data);
     const orderInsert = database.prepare(`
       INSERT INTO orders(
         id, bucket, position, num, client, country, order_month, stage,
@@ -342,7 +362,12 @@ function openStorage({ seedFile }) {
         if (requestedRevision !== currentRevision) {
           throw httpError(409, 'state revision conflict', { currentRevision });
         }
+        validateReplacement(rawPayload, readStateFromDatabase().data);
       }
+      // normalizeDataPayload 会补空字段，所以先做上面的检查，再处理一份拷贝。
+      const payload = normalizeDataPayload(structuredClone(rawPayload));
+      const data = payload.data;
+      const validatedImportLog = normalizeImportLog(importLog, data);
       const nextRevision = currentRevision + 1;
       const existingOrders = new Map(database.prepare('SELECT id, bucket, position, data_json FROM orders').all().map(row => [row.id, row]));
       const desiredOrderIds = new Set();
@@ -455,6 +480,8 @@ function openStorage({ seedFile }) {
       setMetadata('exported_at', payload.exportedAt);
       setMetadata('revision', String(nextRevision));
       setMetadata('last_saved_at', new Date().toISOString());
+      // 业务数据有新改动、还没进备份：备份队列看这个记号（存在数据库里，异常退出后也不会丢）。
+      setMetadata('business_backup_revision', migration ? '0' : String(nextRevision));
       if (migration) setMetadata('migrated_at', new Date().toISOString());
 
       const expected = stateCounts(payload);
@@ -470,6 +497,7 @@ function openStorage({ seedFile }) {
       }
       database.exec('COMMIT');
       storageRevision = nextRevision;
+      if (!migration) queueBackup();
       return { revision: nextRevision, counts: actual };
     } catch (error) {
       try { database.exec('ROLLBACK'); } catch (_) {}
@@ -598,6 +626,7 @@ function openStorage({ seedFile }) {
         .run(validatedImportLog.id, JSON.stringify(validatedImportLog.issues));
       setMetadata('revision', String(nextRevision));
       setMetadata('last_saved_at', new Date().toISOString());
+      setMetadata('business_backup_revision', String(nextRevision));
 
       const count = sql => Number(database.prepare(sql).get().count);
       const actual = {
@@ -619,6 +648,7 @@ function openStorage({ seedFile }) {
       }
       database.exec('COMMIT');
       storageRevision = nextRevision;
+      queueBackup();
       return { revision: nextRevision, counts: actual };
     } catch (error) {
       try { database.exec('ROLLBACK'); } catch (_) {}
@@ -749,6 +779,7 @@ function openStorage({ seedFile }) {
       }
       const integrity = databaseIntegrity();
       if (!integrity.ok) throw new Error(`SQLite integrity check failed: ${integrity.message}`);
+      startupIntegrity = integrity;
       verifyStorageMarker();
       writeStorageMarker();
       storageRevision = Number(metadataValue('revision', '0'));
@@ -772,18 +803,64 @@ function openStorage({ seedFile }) {
   }
 
   function availableFileName(dir, base, ext) {
-    let index = 1;
-    let name = `${base}.${ext}`;
-    while (fs.existsSync(path.join(dir, name))) {
-      index += 1;
-      name = `${base}-${index}.${ext}`;
+    // 同一秒里的多份备份按 -2、-3… 编号；删掉的编号不再复用，排序才能保持创建先后。
+    const ending = `.${ext}`, prefix = base + '-';
+    let last = 0;
+    for (const name of fs.readdirSync(dir)) {
+      if (name === base + ending) last = Math.max(last, 1);
+      else if (name.startsWith(prefix) && name.endsWith(ending)) {
+        const suffix = name.slice(prefix.length, -ending.length);
+        if (/^\d+$/.test(suffix) && Number.isSafeInteger(Number(suffix))) last = Math.max(last, Number(suffix));
+      }
     }
-    return name;
+    return last ? `${base}-${last + 1}.${ext}` : `${base}.${ext}`;
   }
 
+  // 备份文件名：自动 lai-data-时间.sqlite，大量删除前 before-delete-时间.sqlite，手动 manual-时间.sqlite。
+  const BACKUP_NAME = /^(lai-data|before-delete|manual)-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-(\d+))?\.sqlite$/;
+  function parseBackupName(name) {
+    const match = BACKUP_NAME.exec(name);
+    if (!match) return null;
+    const [, kind, y, mo, d, h, mi, s, seq] = match.map((part, index) => index > 1 && part !== undefined ? Number(part) : part);
+    return { name, kind, time: new Date(y, mo - 1, d, h, mi, s).getTime(), day: `${match[2]}${match[3]}${match[4]}`,
+      week: Math.floor((Math.floor(Date.UTC(y, mo - 1, d) / 86400000) + 3) / 7), stamp: match.slice(2, 8).join(''), seq: Number(seq || 1) };
+  }
+  function compareBackupNames(a, b) {
+    const left = parseBackupName(a), right = parseBackupName(b);
+    if (left && right) return right.stamp.localeCompare(left.stamp) || right.seq - left.seq || b.localeCompare(a);
+    if (left || right) return left ? -1 : 1;
+    return b.localeCompare(a);
+  }
+  // 分层保留自动备份：最新 24 份全留；最近 14 天每天留最新一份；最近 8 周每周留最新一份；
+  // 刚做好的那份和最新一份总是留着。手动备份（manual-*）和旧的 .json 备份从不自动删除。
+  function pruneBackups(keepName) {
+    const now = Date.now(), DAY = 86400000;
+    const entries = fs.readdirSync(backupDir).map(parseBackupName).filter(entry => entry && entry.kind !== 'manual')
+      .sort((a, b) => compareBackupNames(a.name, b.name));
+    const keep = new Set([keepName]);
+    entries.slice(0, 24).forEach(entry => keep.add(entry.name));
+    const days = new Set(), weeks = new Set();
+    for (const entry of entries) {
+      const age = now - entry.time;
+      if (age < 14 * DAY && !days.has(entry.day)) { days.add(entry.day); keep.add(entry.name); }
+      if (age < 56 * DAY && !weeks.has(entry.week)) { weeks.add(entry.week); keep.add(entry.name); }
+    }
+    let removed = 0;
+    for (const entry of entries) {
+      if (keep.has(entry.name)) continue;
+      fs.rmSync(path.join(backupDir, entry.name), { force: true });
+      fs.rmSync(path.join(backupDir, entry.name) + '.attachments', { recursive: true, force: true });
+      removed += 1;
+    }
+    return removed;
+  }
+
+  // 只认本机的相对地址 /attachments/...；https://别的网站/attachments/x.pdf 这类外部链接不是本机文件。
   function attachmentTargetFromUrl(fileUrl = '') {
-    const parsed = new URL(String(fileUrl || ''), 'http://127.0.0.1');
-    if (!parsed.pathname.startsWith('/attachments/')) throw new Error('unsupported attachment url');
+    const text = String(fileUrl || '');
+    if (!text.startsWith('/attachments/') || text.includes('\\')) throw new Error('unsupported attachment url');
+    const parsed = new URL(text, 'http://127.0.0.1');
+    if (parsed.origin !== 'http://127.0.0.1' || !parsed.pathname.startsWith('/attachments/')) throw new Error('unsupported attachment url');
     const relative = decodeURIComponent(parsed.pathname.replace(/^\/attachments\//, ''));
     const target = path.resolve(attachmentsDir, relative);
     const root = path.resolve(attachmentsDir);
@@ -814,26 +891,29 @@ function openStorage({ seedFile }) {
     try {
       const refs = new Set();
       const tables = new Set(backup.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map(row => row.name));
-      for (const table of ['orders', 'customers', 'tracking_lookups', 'app_state']) {
+      for (const table of ['orders', 'customers', 'tracking_lookups', 'app_state', 'mail_account', 'mail_drafts', 'mail_draft_files', 'mail_templates', 'mail_bulk']) {
         if (!tables.has(table)) continue;
         for (const row of backup.prepare(`SELECT data_json FROM ${table}`).all()) {
-          collectAttachmentRefs(JSON.parse(row.data_json), refs);
+          let data;
+          try { data = JSON.parse(row.data_json); }
+          catch (_) { throw new Error(table.startsWith('mail_') ? 'Backup contains invalid stored mail data' : 'Backup contains invalid stored business data'); }
+          collectAttachmentRefs(data, refs);
         }
       }
       return refs;
     } finally { backup.close(); }
   }
-  let backupMissing = 0;
+  // 复制备份引用到的附件。文件已经不在（被移走、删掉）时跳过并计数，不让整个备份失败。
   function copyBackupAttachments(backupFile) {
-    backupMissing = 0;
     const dir = backupFile + '.attachments';
     fs.mkdirSync(dir, { recursive:true, mode:0o700 });
-    let count = 0;
+    let count = 0, missing = 0;
     for (const source of backupAttachmentRefs(backupFile)) {
       const relative = path.relative(attachmentsDir, source);
       if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid backup attachment path');
-      // 商机附件的文件如果已经不在（被手动移走、删除时没删成功的反例等），不让整个备份失败：跳过并计数。
-      if (relative.split(path.sep)[0] === 'opportunities' && !(fs.existsSync(source) && fs.statSync(source).isFile())) { backupMissing += 1; continue; }
+      let stat = null;
+      try { stat = fs.lstatSync(source); } catch (_) {}
+      if (!stat || !stat.isFile()) { missing += 1; continue; }
       const target = path.join(dir, relative);
       fs.mkdirSync(path.dirname(target), { recursive:true, mode:0o700 });
       // Independent copy (APFS may share immutable blocks), never a hard link.
@@ -841,30 +921,40 @@ function openStorage({ seedFile }) {
       fs.chmodSync(target, 0o600);
       count += 1;
     }
-    return count;
+    return { count, missing };
   }
-  function createBackup(force = false) {
+
+  const BACKUP_INTERVAL_MS = 60 * 60 * 1000, BACKUP_RETRY_MS = 60 * 1000;
+  function backupMeta() {
+    try { return fs.existsSync(backupMetaFile) ? readJson(backupMetaFile) : {}; } catch (_) { return {}; }
+  }
+  function performBackup(force = false, kind = 'auto') {
     ensureStorage();
     if (storageMode !== 'sqlite' || !database) return { ok: false, message: storageError || 'SQLite unavailable' };
-    let meta = {};
-    if (fs.existsSync(backupMetaFile)) {
-      try { meta = readJson(backupMetaFile); } catch (_) {}
-    }
+    const meta = backupMeta();
     const now = Date.now();
-    if (!force && meta.lastBackupAt && now - meta.lastBackupAt < 60 * 60 * 1000) {
+    // 上次备份的时间比现在还晚（电脑时间被往回调过）时，当作该备份了。
+    const last = Number(meta.lastBackupAt || 0);
+    if (!force && last && now >= last && now - last < BACKUP_INTERVAL_MS) {
       return { ok: true, skipped: true };
     }
     const extension = 'sqlite';
-    const backupName = availableFileName(backupDir, `lai-data-${timestamp()}`, extension);
+    const prefix = kind === 'manual' ? 'manual' : kind === 'before-delete' ? 'before-delete' : 'lai-data';
+    const backupName = availableFileName(backupDir, `${prefix}-${timestamp()}`, extension);
     const backupFile = path.join(backupDir, backupName);
     const stagingFile = backupFile + '.partial';
     database.exec('PRAGMA wal_checkpoint(FULL)');
     const quoted = stagingFile.replaceAll("'", "''");
-    let attachmentCount;
+    let copied, coveredMailRevision = 0, coveredBusinessRevision = 0;
     try {
       database.exec(`VACUUM INTO '${quoted}'`);
       fs.chmodSync(stagingFile, 0o600);
-      attachmentCount = copyBackupAttachments(stagingFile);
+      const snapshot = new DatabaseSync(stagingFile, { readOnly:true });
+      try {
+        coveredMailRevision = Number(snapshot.prepare("SELECT value FROM metadata WHERE key = 'mail_backup_revision'").get()?.value || 0);
+        coveredBusinessRevision = Number(snapshot.prepare("SELECT value FROM metadata WHERE key = 'business_backup_revision'").get()?.value || 0);
+      } finally { snapshot.close(); }
+      copied = copyBackupAttachments(stagingFile);
       fs.renameSync(stagingFile + '.attachments', backupFile + '.attachments');
       fs.renameSync(stagingFile, backupFile);
     } catch (error) {
@@ -873,32 +963,125 @@ function openStorage({ seedFile }) {
       fs.rmSync(backupFile + '.attachments', { recursive:true, force:true });
       throw error;
     }
-    const backups = fs.readdirSync(backupDir)
-      .filter(name => name.endsWith(`.${extension}`))
-      .sort()
-      .reverse();
-    backups.slice(30).forEach(name => {
-      fs.rmSync(path.join(backupDir, name), { force:true });
-      fs.rmSync(path.join(backupDir, name) + '.attachments', { recursive:true, force:true });
-    });
-    atomicWrite(backupMetaFile, JSON.stringify({ lastBackupAt: now, lastBackupFile: backupFile }, null, 2));
-    return { ok:true, file:backupFile, attachmentsDir:backupFile + '.attachments', attachmentCount, missingAttachments:backupMissing };
+    pruneBackups(backupName);
+    atomicWrite(backupMetaFile, JSON.stringify({ lastBackupAt: now, lastBackupFile: backupFile, lastMailRevision: coveredMailRevision, lastBusinessRevision: coveredBusinessRevision, missingAttachments: copied.missing }, null, 2));
+    return { ok:true, file:backupFile, kind, attachmentsDir:backupFile + '.attachments', attachmentCount: copied.count, missingAttachments: copied.missing };
+  }
+
+  // 备份队列：保存成功后不马上复制整个数据库，而是在上次备份满一小时时做一份（期间的改动合在一起）；
+  // 失败后一分钟重试；正常关闭时把还没备份的改动补上。“有没有没备份的改动”记在数据库的 metadata 里。
+  let backupFailure = '', backupTimer = null, backupTimerAt = 0;
+  function backupPending(meta = backupMeta()) {
+    return !!database && (Number(metadataValue('mail_backup_revision', '0')) > Number(meta.lastMailRevision || 0)
+      || Number(metadataValue('business_backup_revision', '0')) > Number(meta.lastBusinessRevision || 0));
+  }
+  function backupStatus() {
+    const meta = backupMeta();
+    return { ok: !(backupFailure || meta.lastError), message: backupFailure || meta.lastError || '', lastSuccessfulAt: meta.lastBackupAt || 0,
+      pending: backupPending(meta), nextAttemptAt: backupTimerAt, missingAttachments: Number(meta.missingAttachments || 0) };
+  }
+  function cancelBackupTimer() {
+    if (backupTimer) clearTimeout(backupTimer);
+    backupTimer = null; backupTimerAt = 0;
+  }
+  // 截止时间定下来后，后面的保存不会把它往后推，最后一次改动最晚一小时内进备份。
+  function queueBackup() {
+    try {
+      const meta = backupMeta();
+      if (!backupPending(meta)) { cancelBackupTimer(); return; }
+      if (backupTimer) return;
+      const now = Date.now(), last = Number(meta.lastBackupAt || 0);
+      const earliest = backupFailure || meta.lastError ? Number(meta.failedAt || now) + BACKUP_RETRY_MS
+        : last > now ? now : last + BACKUP_INTERVAL_MS;
+      backupTimerAt = Math.max(now + 2000, earliest);
+      backupTimer = setTimeout(() => {
+        backupTimer = null; backupTimerAt = 0;
+        if (!database) return;
+        const latest = backupMeta();
+        createBackup(!!(backupFailure || latest.lastError));
+      }, backupTimerAt - now);
+      backupTimer.unref?.();
+    } catch (_) {
+      // 排队失败不影响已经保存好的数据，只在页面上提示。
+      backupTimer = null; backupTimerAt = 0;
+      backupFailure = '自动备份排队失败，请手动重试';
+    }
+  }
+  function createBackup(force = false, kind = 'auto') {
+    let result;
+    try {
+      result = performBackup(force, kind);
+      if (result.ok && !result.skipped) backupFailure = '';
+    } catch (error) {
+      cancelBackupTimer();
+      backupFailure = error.message || 'automatic backup failed';
+      try {
+        atomicWrite(backupMetaFile, JSON.stringify({ ...backupMeta(), lastError: backupFailure, failedAt: Date.now() }, null, 2));
+      } catch (_) { /* 磁盘满时失败记录也可能写不进去。 */ }
+      result = { ok:false, message:backupFailure };
+    }
+    queueBackup();
+    return { ...result, ...backupStatus(), ...(result.ok === false ? { ok:false, message:result.message } : {}) };
+  }
+  // 一次删掉 5 个以上客户或订单前，先做一份备份；备份没成功就不删。
+  const LARGE_DELETE = 5;
+  function backupBeforeLargeDelete(removedCustomers, removedOrders) {
+    if (removedCustomers <= LARGE_DELETE && removedOrders <= LARGE_DELETE) return null;
+    const result = createBackup(true, 'before-delete');
+    if (!result.ok) throw httpError(503, '删除前的备份没有成功，这次改动没有保存。请稍后再试。', { code: 'backup_before_delete_failed' });
+    return result;
+  }
+  function existingKeys() {
+    return {
+      customers: new Set(database.prepare('SELECT name FROM customers').all().map(row => row.name)),
+      orders: new Set(database.prepare('SELECT id FROM orders').all().map(row => row.id)),
+    };
+  }
+  function removalsInReplacement(raw) {
+    const data = raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object' ? raw.data : raw;
+    const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    if (!object(data) || !object(data.customers) || !Array.isArray(data.orders)) return { customers: 0, orders: 0 };
+    const existing = existingKeys();
+    const wantedOrders = new Set(orderBuckets.flatMap(bucket => Array.isArray(data[bucket]) ? data[bucket] : []).map(order => String(order?.id || '').trim()));
+    return {
+      customers: [...existing.customers].filter(name => !Object.hasOwn(data.customers, name)).length,
+      orders: [...existing.orders].filter(id => !wantedOrders.has(id)).length,
+    };
+  }
+  function removalsInChanges(changes) {
+    const existing = existingKeys();
+    const list = value => Array.isArray(value) ? [...new Set(value.map(String))] : [];
+    return {
+      customers: list(changes?.customers?.remove).filter(name => existing.customers.has(name)).length,
+      orders: list(changes?.orders?.remove).filter(id => existing.orders.has(id)).length,
+    };
+  }
+
+  function commitMailWrite(write) {
+    requireDatabase();
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      write();
+      setMetadata('mail_backup_revision', String(Number(metadataValue('mail_backup_revision', '0')) + 1));
+      database.exec('COMMIT');
+    } catch (error) { try { database.exec('ROLLBACK'); } catch (_) {} throw error; }
+    queueBackup();
   }
 
   function backupSummary() {
     ensureStorage();
     const backups = fs.readdirSync(backupDir)
       .filter(name => name.endsWith('.json') || name.endsWith('.sqlite'))
-      .sort()
-      .reverse();
+      .sort(compareBackupNames);
+    const lastFile = path.basename(backupMeta().lastBackupFile || '');
     return {
       count: backups.length,
       sqliteCount: backups.filter(name => name.endsWith('.sqlite')).length,
       jsonCount: backups.filter(name => name.endsWith('.json')).length,
-      latest: backups[0] || null
+      manualCount: backups.filter(name => name.startsWith('manual-')).length,
+      latest: backups.includes(lastFile) ? lastFile : backups[0] || null
     };
   }
-
 
   function readSnapshot() {
     ensureStorage();
@@ -915,15 +1098,25 @@ function openStorage({ seedFile }) {
     }
   }
 
-  function save(payload, options) {
+  // 版本号对不上的保存会被拒绝（409），这种情况不用先备份。
+  const revisionMatches = baseRevision => Number(baseRevision) === Number(metadataValue('revision', '0'));
+  function save(payload, options = {}) {
     ensureStorage();
     if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+    if (revisionMatches(options.baseRevision)) {
+      const removed = removalsInReplacement(payload);
+      backupBeforeLargeDelete(removed.customers, removed.orders);
+    }
     return writeStateToDatabase(payload, options);
   }
 
-  function saveChanges(changes, options) {
+  function saveChanges(changes, options = {}) {
     ensureStorage();
     if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+    if (revisionMatches(options.baseRevision)) {
+      const removed = removalsInChanges(changes);
+      backupBeforeLargeDelete(removed.customers, removed.orders);
+    }
     return applyChanges(changes, options);
   }
 
@@ -948,15 +1141,17 @@ function openStorage({ seedFile }) {
     try { return JSON.parse(row.data_json); } catch (_) { return null; }
   }
   function writeMailAccount(account) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_account(id, data_json) VALUES(1, ?)
-      ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
-    `).run(JSON.stringify(account));
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_account(id, data_json) VALUES(1, ?)
+        ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
+      `).run(JSON.stringify(account));
+    });
   }
   function deleteMailAccount() {
-    requireDatabase();
-    database.prepare('DELETE FROM mail_account WHERE id = 1').run();
+    commitMailWrite(() => {
+      database.prepare('DELETE FROM mail_account WHERE id = 1').run();
+    });
   }
 
   // 本机草稿：只存在这台电脑上，不同步到邮箱服务器的草稿箱。
@@ -965,17 +1160,21 @@ function openStorage({ seedFile }) {
     return database.prepare('SELECT data_json FROM mail_drafts ORDER BY updated_at DESC, id').all()
       .map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } }).filter(Boolean);
   }
-  function writeMailDraft(draft) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_drafts(id, updated_at, data_json) VALUES(?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
-    `).run(String(draft.id), String(draft.updatedAt), JSON.stringify(draft));
+  // files 不是 undefined 时，草稿和它的附件在同一个事务里写，不会一个成功一个失败。
+  function writeMailDraft(draft, files) {
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_drafts(id, updated_at, data_json) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
+      `).run(String(draft.id), String(draft.updatedAt), JSON.stringify(draft));
+      if (files !== undefined) replaceMailDraftFiles(draft.id, files);
+    });
   }
   function deleteMailDraft(id) {
-    requireDatabase();
-    database.prepare('DELETE FROM mail_drafts WHERE id = ?').run(String(id));
-    database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id));
+    commitMailWrite(() => {
+      database.prepare('DELETE FROM mail_drafts WHERE id = ?').run(String(id));
+      database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id));
+    });
   }
   // 草稿的附件单独存一张表：列草稿箱时不用把附件内容读出来。
   function readMailDraftFiles(id) {
@@ -985,7 +1184,9 @@ function openStorage({ seedFile }) {
     try { const files = JSON.parse(row.data_json); return Array.isArray(files) ? files : []; } catch (_) { return []; }
   }
   function writeMailDraftFiles(id, files) {
-    requireDatabase();
+    commitMailWrite(() => replaceMailDraftFiles(id, files));
+  }
+  function replaceMailDraftFiles(id, files) {
     if (!Array.isArray(files) || !files.length) { database.prepare('DELETE FROM mail_draft_files WHERE draft_id = ?').run(String(id)); return; }
     database.prepare(`
       INSERT INTO mail_draft_files(draft_id, data_json) VALUES(?, ?)
@@ -1000,15 +1201,17 @@ function openStorage({ seedFile }) {
       .map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } }).filter(Boolean);
   }
   function writeMailTemplate(template) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_templates(id, updated_at, data_json) VALUES(?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
-    `).run(String(template.id), String(template.updatedAt), JSON.stringify(template));
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_templates(id, updated_at, data_json) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, data_json = excluded.data_json
+      `).run(String(template.id), String(template.updatedAt), JSON.stringify(template));
+    });
   }
   function deleteMailTemplate(id) {
-    requireDatabase();
-    database.prepare('DELETE FROM mail_templates WHERE id = ?').run(String(id));
+    commitMailWrite(() => {
+      database.prepare('DELETE FROM mail_templates WHERE id = ?').run(String(id));
+    });
   }
 
   // 群发批次记录：每批的主题、正文、收件人及各自的发送结果。
@@ -1024,33 +1227,60 @@ function openStorage({ seedFile }) {
     try { return JSON.parse(row.data_json); } catch (_) { return null; }
   }
   function writeMailBulk(batch) {
-    requireDatabase();
-    database.prepare(`
-      INSERT INTO mail_bulk(id, created_at, data_json) VALUES(?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
-    `).run(String(batch.id), String(batch.createdAt), JSON.stringify(batch));
+    commitMailWrite(() => {
+      database.prepare(`
+        INSERT INTO mail_bulk(id, created_at, data_json) VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json
+      `).run(String(batch.id), String(batch.createdAt), JSON.stringify(batch));
+    });
   }
 
+  // 页面会经常调用 /api/health：这里只做便宜的检查（数据库能不能查询、各表条数），
+  // 完整性检查（PRAGMA integrity_check）只在启动时做一次，结果记在 startupIntegrity 里。
   function health() {
-    const integrity = storageMode === 'sqlite' ? databaseIntegrity() : { ok: false, message: storageError || storageMode };
-    storageRevision = Number(metadataValue('revision', '0'));
+    let integrity = storageMode === 'sqlite' ? startupIntegrity : { ok: false, message: storageError || storageMode };
+    let counts = null;
+    if (integrity.ok) {
+      try {
+        storageRevision = Number(metadataValue('revision', '0'));
+        const count = sql => Number(database.prepare(sql).get().count);
+        counts = {
+          orders: count("SELECT COUNT(*) AS count FROM orders WHERE bucket = 'orders'"),
+          trashOrders: count("SELECT COUNT(*) AS count FROM orders WHERE bucket = 'trashOrders'"),
+          deletedOrders: count("SELECT COUNT(*) AS count FROM orders WHERE bucket = 'deletedOrders'"),
+          customers: count('SELECT COUNT(*) AS count FROM customers'),
+          trackingLookups: count('SELECT COUNT(*) AS count FROM tracking_lookups')
+        };
+      } catch (error) { integrity = { ok: false, message: error.message || 'storage unavailable' }; }
+    }
     return {
       ok: integrity.ok, storageMode, storageRevision, storageError, integrity,
       dataFile: storageMode === 'sqlite' ? databaseFile : dataFile,
       legacyJsonFile: fs.existsSync(dataFile) ? dataFile : '',
-      backupDir, backups: backupSummary(),
-      counts: integrity.ok ? stateCounts(readCurrentPayload()) : null
+      backupDir, backups: backupSummary(), backup: backupStatus(),
+      counts
     };
   }
 
   function close() {
     if (!database) return;
+    // 正常关闭时，把还没进备份的改动补一份备份（失败只记下来，不影响关闭）。
+    if (backupPending()) createBackup(true);
+    cancelBackupTimer();
     database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
     database.close();
     database = null;
   }
 
   initializeStorage();
-  return { readSnapshot, save, saveChanges, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, health, close, directory: supportDir };
+  if (database && storageMode === 'sqlite') {
+    // 旧数据库还没有“业务改动已备份到哪个版本”的记号：把当前版本记上，排一次备份覆盖它（只改备份记号，不动业务数据）。
+    if (!metadataValue('business_backup_revision', '')) setMetadata('business_backup_revision', metadataValue('revision', '0'));
+    // 邮件数据同理：已有邮件数据而没有记号时，记一次待备份。
+    if (!metadataValue('mail_backup_revision', '') && ['mail_account', 'mail_drafts', 'mail_draft_files', 'mail_templates', 'mail_bulk']
+      .some(table => database.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get())) setMetadata('mail_backup_revision', '1');
+    queueBackup();
+  }
+  return { readSnapshot, save, saveChanges, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, backupStatus, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

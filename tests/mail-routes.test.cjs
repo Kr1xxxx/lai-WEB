@@ -93,13 +93,14 @@ test('the whole mail flow works over the local HTTP routes against fake mail ser
     const inbox = await request('/api/mail/messages?folder=inbox&query=' + encodeURIComponent('样品'));
     assert.deepEqual(inbox.body.items.map(i => [i.uid, i.subject]), [[4, '样品寄送确认 — 10月批次']]); assert.deepEqual(inbox.body.counts, { unread: 3, pending: 1 });
     const message = await request('/api/mail/message?box=inbox&uid=4');
+    assert.match(message.body.message.accountIdentity, /^[0-9a-f]{64}$/);
     assert.equal(message.body.message.from.name, '李伟'); assert.equal(message.body.message.attachments.length, 2);
     assert.equal((await post('/api/mail/flags', { box: 'inbox', uid: 4, pending: true })).status, 200); assert.ok(imap.state.message('INBOX', 4).flags.has('\\Flagged'));
     const saved = await post('/api/mail/attachment/save', { box: 'inbox', uid: 4, index: 0 });
     assert.equal(saved.body.file, path.join(data, 'downloads', '装箱单 2026-10.pdf'), 'test runs save inside the isolated data folder, never the real Downloads'); assert.ok(fs.existsSync(saved.body.file));
     const draft = await post('/api/mail/drafts/save', { to: 'anna@nordic-lamps.example', subject: 'PI' });
     assert.equal((await request('/api/mail/drafts')).body.items.length, 1);
-    const sent = await post('/api/mail/send', { to: 'anna@nordic-lamps.example', subject: 'PI-1001', text: 'attached', draftId: draft.body.draft.id, fromName: 'Kris', forwardOf: { box: 'inbox', uid: 4 } });
+    const sent = await post('/api/mail/send', { to: 'anna@nordic-lamps.example', subject: 'PI-1001', text: 'attached', draftId: draft.body.draft.id, fromName: 'Kris', forwardOf: { box: 'inbox', uid: 4, accountIdentity: message.body.message.accountIdentity }, forwardAttachments: true });
     assert.equal(sent.status, 200); assert.deepEqual(sent.body.recipients, ['anna@nordic-lamps.example']); assert.equal(smtp.state.sent.length, 1); assert.equal(smtp.state.sent[0].parsed.attachments.length, 2);
     assert.equal((await request('/api/mail/drafts')).body.items.length, 0); assert.equal((await request('/api/mail-account')).body.account.senderName, 'Kris');
     assert.equal((await post('/api/mail/send', { to: '', subject: 'x', text: 'y' })).status, 400); assert.equal(smtp.state.sent.length, 1);

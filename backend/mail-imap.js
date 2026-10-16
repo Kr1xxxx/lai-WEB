@@ -81,4 +81,7 @@ async function verifyLogin(account, { endpoint } = {}) {
   return { ...server };
 }
 
-module.exports = { verifyLogin, clientOptions, translate, resolveServer, normalizeEmail, normalizePassword, serverText, mailError, SITES, ACCOUNT_TYPES, PORT };
+// 邮箱身份：同一邮箱地址、站点、账号类型和服务器算出同一个值（不含密码）。转发草稿用它确认原邮件属于哪个邮箱。
+const accountIdentity = account => require('node:crypto').createHash('sha256').update(JSON.stringify([String(account?.email || '').toLowerCase(), account?.site || '', account?.accountType || '', account?.host || ''])).digest('hex');
+
+module.exports = { accountIdentity, verifyLogin, clientOptions, translate, resolveServer, normalizeEmail, normalizePassword, serverText, mailError, SITES, ACCOUNT_TYPES, PORT };

@@ -8,6 +8,7 @@ const sample = require('./fixtures/mail-sample.cjs');
 const { createMailService } = require('../backend/mail-service.js');
 const smtpClient = require('../backend/mail-smtp.js');
 const mime = require('../backend/mail-mime.js');
+const imapClient = require('../backend/mail-imap.js');
 
 // 邮件服务对接本机假 IMAP／SMTP 服务器；存储用内存替身。不连接任何真实邮箱。
 const me = { name: '', address: 'sales@example-trade.com' };
@@ -18,7 +19,7 @@ async function harness(options = {}) {
   let account = options.unbound ? null : { provider: 'zoho', email: me.address, password: SECRET, site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993 };
   const drafts = new Map(); let clock = 0; const revealed = [];
   const draftFiles = new Map(), templates = new Map();
-  const store = { listMailBulk: () => [], readMailBulk: () => null, writeMailBulk() {}, readMailAccount: () => account, writeMailAccount: (next) => { account = next; }, listMailDrafts: () => [...drafts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailDraft: draft => drafts.set(draft.id, draft), deleteMailDraft: (id) => { drafts.delete(id); draftFiles.delete(id); },
+  const store = { listMailBulk: () => [], readMailBulk: () => null, writeMailBulk() {}, readMailAccount: () => account, writeMailAccount: (next) => { account = next; }, listMailDrafts: () => [...drafts.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailDraft: (draft, files) => { drafts.set(draft.id, draft); if (files !== undefined) { if (files.length) draftFiles.set(draft.id, files); else draftFiles.delete(draft.id); } }, deleteMailDraft: (id) => { drafts.delete(id); draftFiles.delete(id); },
     readMailDraftFiles: id => draftFiles.get(id) || [], writeMailDraftFiles: (id, files) => { if (files.length) draftFiles.set(id, files); else draftFiles.delete(id); },
     listMailTemplates: () => [...templates.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), writeMailTemplate: t => templates.set(t.id, t), deleteMailTemplate: id => templates.delete(id) };
   const downloads = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-dl-'));
@@ -80,7 +81,8 @@ test('reading returns decoded content, marks the message read, and hides nothing
   const h = await harness();
   try {
     const { message } = await h.service.read({ box: 'inbox', uid: '4' });
-    assert.deepEqual({ ...message, text: undefined }, { box: 'inbox', uid: 4, from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', inReplyTo: '', references: '', text: undefined, html: '',
+    assert.match(message.accountIdentity, /^[0-9a-f]{64}$/); assert.equal(message.accountIdentity, imapClient.accountIdentity(h.account), 'the message says which mailbox it came from');
+    assert.deepEqual({ ...message, text: undefined, accountIdentity: undefined }, { box: 'inbox', uid: 4, accountIdentity: undefined, from: { name: '李伟', address: 'liwei@shenzhen-parts.example' }, to: [me], cc: [{ name: '', address: 'purchasing@shenzhen-parts.example' }], replyTo: [], subject: '样品寄送确认 — 10月批次', date: '2026-10-06T02:10:00.000Z', messageId: '<s-9@shenzhen-parts.example>', inReplyTo: '', references: '', text: undefined, html: '',
       attachments: [{ index: 0, filename: '装箱单 2026-10.pdf', contentType: 'application/pdf', size: 31 }, { index: 1, filename: 'photo.png', contentType: 'image/png', size: sample.png.length }], seen: true, pending: false });
     assert.equal(message.text, '您好，\n\n样品已于今天寄出，附件是装箱单。\n\n李伟');
     assert.ok(h.imap.state.message('INBOX', 4).flags.has('\\Seen')); assert.deepEqual((await h.service.list({ folder: 'inbox' })).counts, { unread: 2, pending: 1 });
@@ -182,16 +184,68 @@ test('sending delivers to every recipient, hides Bcc, threads replies and rememb
   } finally { await h.close(); }
 });
 
-test('forwarding re-attaches the original files unless switched off', async () => {
+test('forwarding re-attaches the original files only when asked and only from the same mailbox', async () => {
   const h = await harness();
   try {
-    await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf: { box: 'inbox', uid: 4 }, attachments: [{ filename: 'note.txt', contentBase64: Buffer.from('n').toString('base64') }] });
+    const { accountIdentity } = (await h.service.read({ box: 'inbox', uid: 4 })).message;
+    const forwardOf = { box: 'inbox', uid: 4, accountIdentity };
+    await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf, forwardAttachments: true, attachments: [{ filename: 'note.txt', contentBase64: Buffer.from('n').toString('base64') }] });
     assert.deepEqual((await h.sentMail(0)).attachments.map(a => [a.filename, a.size]), [['note.txt', 1], ['装箱单 2026-10.pdf', 31], ['photo.png', sample.png.length]]);
-    await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf: { box: 'inbox', uid: 4 }, forwardAttachments: false });
+    await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf, forwardAttachments: false });
     assert.deepEqual((await h.sentMail(1)).attachments, []);
-    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { box: 'inbox', uid: 999 } }), 404, 'not_found'); assert.equal(h.smtp.state.sent.length, 2);
-    await h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { box: 'elsewhere', uid: 4 } });
-    assert.deepEqual((await h.sentMail(2)).attachments, [], 'an invalid reference is ignored, not trusted');
+    await h.service.send({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf });
+    assert.deepEqual((await h.sentMail(2)).attachments, [], 'without an explicit yes the original files stay out');
+    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { ...forwardOf, uid: 999 }, forwardAttachments: true }), 404, 'not_found'); assert.equal(h.smtp.state.sent.length, 3);
+    await h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { box: 'elsewhere', uid: 4 }, forwardAttachments: true });
+    assert.deepEqual((await h.sentMail(3)).attachments, [], 'an invalid reference is ignored, not trusted');
+    // 来源不明（旧草稿）或属于别的邮箱：拒绝发送，不会把别的邮箱的附件发出去。
+    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { box: 'inbox', uid: 4 }, forwardAttachments: true }), 409, 'forward_source_changed', /别的邮箱/);
+    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'x', text: 'y', forwardOf: { ...forwardOf, accountIdentity: 'a'.repeat(64) }, forwardAttachments: true }), 409, 'forward_source_changed');
+    assert.equal(h.smtp.state.sent.length, 4);
+  } finally { await h.close(); }
+});
+
+test('a forwarded draft keeps its source mailbox, its choice and the file count; another mailbox cannot use it', async () => {
+  const h = await harness();
+  try {
+    const { accountIdentity } = (await h.service.read({ box: 'inbox', uid: 4 })).message;
+    const saved = h.service.saveDraft({ to: 'boss@example-trade.com', subject: 'Fwd: 样品', text: 'fyi', forwardOf: { box: 'inbox', uid: 4, accountIdentity }, forwardAttachments: true, forwardCount: 2 }).draft;
+    assert.deepEqual([saved.forwardOf, saved.forwardAttachments, saved.forwardCount], [{ box: 'inbox', uid: 4, accountIdentity }, true, 2]);
+    let opened = h.service.getDraft({ id: saved.id }).draft;
+    assert.deepEqual([opened.forwardAttachments, opened.forwardCount, opened.sourceUnavailable], [true, 2, false]);
+    await h.service.send({ ...opened, draftId: saved.id }); await h.smtp.state.parsing;
+    assert.equal((await h.sentMail(0)).attachments.length, 2);
+    const again = h.service.saveDraft({ to: 'boss@example-trade.com', subject: 'Fwd again', text: 'fyi', forwardOf: { box: 'inbox', uid: 4, accountIdentity }, forwardAttachments: true, forwardCount: 2 }).draft;
+    h.account = { ...h.account, email: 'other@example-trade.com' };
+    opened = h.service.getDraft({ id: again.id }).draft;
+    assert.deepEqual([opened.forwardAttachments, opened.forwardCount, opened.sourceUnavailable], [false, 2, true]);
+    await rejects(h.service.send({ ...opened, forwardAttachments: true }), 409, 'forward_source_changed');
+    assert.equal(h.smtp.state.sent.length, 1, 'nothing left for the other mailbox');
+  } finally { await h.close(); }
+});
+
+test('attachments that are programs are not saved to Downloads', async () => {
+  const mailboxes = { INBOX: [{ message: { from: { name: '', address: 'x@x.example' }, to: [me], subject: 'Run me', date: '2026-10-01T00:00:00Z', text: 'x', attachments: [{ filename: 'invoice.PDF.exe', contentType: 'application/octet-stream', content: Buffer.from('MZ') }, { filename: 'setup.sh', contentType: 'text/plain', content: Buffer.from('echo') }, { filename: 'ok.pdf', contentType: 'application/pdf', content: Buffer.from('%PDF') }] }, flags: [] }] };
+  const h = await harness({ mailboxes });
+  try {
+    await h.service.read({ box: 'inbox', uid: 1 });
+    await rejects(h.service.saveAttachment({ box: 'inbox', uid: 1, index: 0 }), 400, 'blocked_type', /可执行文件/);
+    await rejects(h.service.saveAttachment({ box: 'inbox', uid: 1, index: 1 }), 400, 'blocked_type');
+    assert.deepEqual(fs.readdirSync(h.downloads), [], 'nothing was written');
+    assert.equal((await h.service.saveAttachment({ box: 'inbox', uid: 1, index: 2 })).filename, 'ok.pdf');
+  } finally { await h.close(); }
+});
+
+test('oversize text or html is refused with 413 instead of being cut short', async () => {
+  const h = await harness();
+  try {
+    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'S', text: 'x'.repeat(1024 * 1024 + 1) }), 413, 'too_large', /1 MB/);
+    await rejects(h.service.send({ to: 'boss@example-trade.com', subject: 'S', html: '中'.repeat(800000) }), 413, 'too_large', /2 MB/);
+    assert.throws(() => h.service.saveDraft({ subject: 'S', html: '中'.repeat(800000) }), e => e.status === 413);
+    assert.throws(() => h.service.saveTemplate({ name: 'T', text: 'x'.repeat(1024 * 1024 + 1) }), e => e.status === 413);
+    assert.equal(h.drafts.size, 0); assert.equal(h.templates.size, 0); assert.equal(h.smtp.state.sent.length, 0);
+    const exact = h.service.saveDraft({ subject: 'S', text: 'x'.repeat(1024 * 1024) }).draft;
+    assert.equal(exact.text.length, 1024 * 1024, 'exactly 1 MB is kept whole');
   } finally { await h.close(); }
 });
 
@@ -257,7 +311,7 @@ test('local drafts are created, updated, listed newest first and deleted', async
     assert.deepEqual(h.service.drafts(), { ok: true, items: [] });
     const first = h.service.saveDraft({ to: 'a@b.example\r\nX: y', cc: '', subject: 'One\nTwo', text: 'body\u0000 text', inReplyTo: '<m@x>', forwardOf: { box: 'inbox', uid: '4' }, password: 'nope', extra: 1 }).draft;
     assert.match(first.id, /^[0-9a-f]{32}$/);
-    assert.deepEqual(first, { id: first.id, to: 'a@b.example X: y', cc: '', bcc: '', subject: 'One Two', text: 'body text', html: '', inReplyTo: '<m@x>', references: '', forwardOf: { box: 'inbox', uid: 4 }, updatedAt: '2026-10-06T10:00:00.000Z', attachments: [] });
+    assert.deepEqual(first, { id: first.id, to: 'a@b.example X: y', cc: '', bcc: '', subject: 'One Two', text: 'body text', html: '', inReplyTo: '<m@x>', references: '', forwardOf: { box: 'inbox', uid: 4, accountIdentity: '' }, forwardAttachments: false, forwardCount: 0, updatedAt: '2026-10-06T10:00:00.000Z', attachments: [] });
     const second = h.service.saveDraft({ subject: 'Second' }).draft;
     const updated = h.service.saveDraft({ id: first.id, subject: 'One (edited)' }).draft;
     assert.equal(updated.id, first.id); assert.deepEqual(h.service.drafts().items.map(d => d.subject), ['One (edited)', 'Second']);
@@ -311,7 +365,7 @@ test('bulk mail sends one personalised message per recipient and records each re
     assert.equal(smtp.state.sent.length, 0); assert.equal(batches.size, 0, 'a refused request leaves no batch behind');
     const started = service.bulkStart(ok);
     assert.match(started.batch.id, /^[0-9a-f]{32}$/); assert.match(started.batch.createdAt, /^2026-10-06T10:00:\d\d\.000Z$/);
-    assert.deepEqual({ ...started.batch, id: undefined, createdAt: undefined }, { id: undefined, createdAt: undefined, finishedAt: '', subject: '{{公司}} 新品目录', status: 'sending', stopReason: '', total: 3, sent: 0, failed: 0, pending: 3, skipped: 0 });
+    assert.deepEqual({ ...started.batch, id: undefined, createdAt: undefined }, { id: undefined, createdAt: undefined, finishedAt: '', subject: '{{公司}} 新品目录', status: 'sending', stopReason: '', total: 3, sent: 0, failed: 0, pending: 3, uncertain: 0, skipped: 0 });
     assert.throws(() => service.bulkStart(ok), error => error.status === 409 && error.code === 'busy');
     await service.bulkIdle();
     const done = service.bulkGet({ id: started.batch.id }).batch;
@@ -362,13 +416,21 @@ test('bulk mail stops on a login failure or repeated failures, can be cancelled,
     const result = service.bulkGet({ id: batch.id }).batch;
     assert.equal(result.status, 'cancelled'); assert.equal(result.stopReason, '已手动停止'); assert.ok(result.sent >= 1 && result.sent < 8); assert.equal(result.sent + result.skipped, 8); assert.equal(cancel.smtp.state.sent.length, result.sent);
     // 模拟应用在发送途中关闭：库里留着一批「发送中」，新启动的服务不续发，只标为中断。
-    const stale = { id: 'e'.repeat(32), createdAt: '2026-10-06T08:00:00.000Z', finishedAt: '', subject: 'half', text: 't', status: 'sending', stopReason: '', items: [{ address: 'a@x.example', name: '', customer: '', status: 'sent', error: '' }, { address: 'b@x.example', name: '', customer: '', status: 'pending', error: '' }] };
+    // 旧版本留下的批次没有「发送中」记号：第一封待发的可能正在发，标为待核对，后面的标为没有发送。
+    const stale = { id: 'e'.repeat(32), createdAt: '2026-10-06T08:00:00.000Z', finishedAt: '', subject: 'half', text: 't', status: 'sending', stopReason: '', items: [{ address: 'a@x.example', name: '', customer: '', status: 'sent', error: '' }, { address: 'b@x.example', name: '', customer: '', status: 'pending', error: '' }, { address: 'c@x.example', name: '', customer: '', status: 'pending', error: '' }] };
     cancel.batches.set(stale.id, JSON.stringify(stale));
+    // 新版本的批次：记着「发送中」的那封是待核对，「待发送」的确实没有发。
+    const marked = { ...stale, checkpointVersion: 1, id: 'd'.repeat(32), items: [{ ...stale.items[0] }, { ...stale.items[1], status: 'sending' }, { ...stale.items[2] }] };
+    cancel.batches.set(marked.id, JSON.stringify(marked));
     const restarted = cancel.make(); const before = cancel.smtp.state.sent.length;
-    const listed = restarted.bulkList().items.find(item => item.id === stale.id);
-    assert.deepEqual([listed.status, listed.sent, listed.skipped, listed.pending, listed.stopReason], ['interrupted', 1, 1, 0, '应用在发送过程中关闭']);
-    assert.match(restarted.bulkGet({ id: stale.id }).batch.items[1].error, /没有发送/); await restarted.bulkIdle(); assert.equal(cancel.smtp.state.sent.length, before, 'nothing is re-sent');
-    assert.equal(JSON.parse(cancel.batches.get(stale.id)).status, 'interrupted');
+    for (const id of [stale.id, marked.id]) {
+      const listed = restarted.bulkList().items.find(item => item.id === id);
+      assert.deepEqual([listed.status, listed.sent, listed.uncertain, listed.skipped, listed.pending], ['interrupted', 1, 1, 1, 0]); assert.match(listed.stopReason, /核对/);
+      const items = restarted.bulkGet({ id }).batch.items;
+      assert.deepEqual(items.map(i => i.status), ['sent', 'uncertain', 'skipped']); assert.match(items[1].error, /核对/); assert.match(items[2].error, /没有发送/);
+      assert.equal(JSON.parse(cancel.batches.get(id)).status, 'interrupted');
+    }
+    await restarted.bulkIdle(); assert.equal(cancel.smtp.state.sent.length, before, 'nothing is re-sent');
   } finally { await cancel.smtp.close(); }
 });
 
@@ -531,4 +593,50 @@ test('templates are saved by name, updated in place, listed newest first and del
     for (const bad of [{}, { id: 'x' }, undefined]) assert.throws(() => h.service.deleteTemplate(bad), e => e.status === 400);
     assert.equal(h.imap.state.logins + h.smtp.state.commands.length, 0, 'templates never leave this computer');
   } finally { await h.close(); }
+});
+
+test('bulk stops before handing a message to SMTP when its sending mark cannot be saved', async () => {
+  const originalSend = smtpClient.send;
+  let accepted = 0, serialized, writes = 0;
+  smtpClient.send = async () => { accepted++; return { messageId: '<fake@example.invalid>', accepted: ['x@example.invalid'], rejected: [] }; };
+  const store = {
+    readMailAccount: () => ({ email: 'account-a@example.invalid' }),
+    writeMailBulk: batch => { writes++; if (writes > 1) throw Object.assign(new Error('Synthetic disk full'), { code: 'SQLITE_FULL' }); serialized = JSON.stringify(batch); },
+    readMailBulk: () => JSON.parse(serialized), listMailBulk: () => [JSON.parse(serialized)],
+  };
+  const service = createMailService({ store, bulkPauseMs: 0 });
+  try {
+    const start = service.bulkStart({ subject: 'Synthetic bulk', text: 'Hello', recipients: [1, 2, 3].map(n => ({ address: `recipient-${n}@example.invalid` })) });
+    await service.bulkIdle();
+    const batch = service.bulkGet({ id: start.batch.id }).batch;
+    assert.equal(accepted, 0, 'nothing reached the sending server');
+    assert.equal(batch.status, 'stopped'); assert.match(batch.stopReason, /记录保存失败/);
+    assert.deepEqual(batch.items.map(i => i.status), ['skipped', 'skipped', 'skipped']);
+    assert.equal(service.bulkList().items[0].status, 'stopped', 'the list shows the failure even though it could not be written');
+  } finally { smtpClient.send = originalSend; await service.shutdown(); }
+});
+
+test('a message accepted by SMTP whose record cannot be saved is marked for checking, also after a restart', async () => {
+  const originalSend = smtpClient.send;
+  let accepted = 0, writes = 0, serialized;
+  const store = {
+    readMailAccount: () => ({ email: 'a@example.invalid' }),
+    writeMailBulk: b => { if (++writes > 2) throw Error('Synthetic full disk'); serialized = JSON.stringify(b); },
+    readMailBulk: () => JSON.parse(serialized), listMailBulk: () => [JSON.parse(serialized)],
+  };
+  smtpClient.send = async () => { accepted++; return { accepted: ['q@example.invalid'], rejected: [] }; };
+  let service = createMailService({ store, bulkPauseMs: 0 });
+  try {
+    const result = service.bulkStart({ subject: 'S', text: 'T', recipients: [1, 2, 3].map(n => ({ address: `r${n}@example.invalid` })) });
+    await service.bulkIdle();
+    const batch = service.bulkGet({ id: result.batch.id }).batch;
+    assert.equal(accepted, 1); assert.equal(batch.status, 'stopped'); assert.equal(batch.uncertain, 1); assert.equal(batch.items[0].status, 'uncertain'); assert.equal(batch.skipped, 2);
+    await service.shutdown();
+    // 重启：库里最后存下的是「发送中」那一刻，那封标为待核对，不会被当成没发。
+    service = createMailService({ store });
+    const restarted = service.bulkGet({ id: result.batch.id }).batch;
+    assert.equal(restarted.items[0].status, 'uncertain'); assert.match(restarted.items[0].error, /核对/);
+    assert.deepEqual(restarted.items.slice(1).map(i => i.status), ['skipped', 'skipped']);
+    assert.equal(accepted, 1, 'nothing is re-sent');
+  } finally { smtpClient.send = originalSend; await service.shutdown(); }
 });
