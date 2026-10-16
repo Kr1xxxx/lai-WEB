@@ -1030,7 +1030,15 @@ const addCustomField = (state, input) => fieldModel().addField(state, "customer"
 const renameCustomField = (state, id, name) => fieldModel().renameField(state, "customer", id, name, { reserved: RESERVED_FIELD_NAMES });
 const moveCustomField = (state, id, delta) => fieldModel().moveField(state, "customer", id, Number(delta) < 0 ? -1 : 1);
 // 删除只去掉设置；客户身上已填的值原样保留，只是不再显示。
-const deleteCustomField = (state, id) => fieldModel().deleteField(state, "customer", id);
+// 客群的条件用到了这个字段（包括已归档的客群，恢复后还会用）就不能删：先改掉那些条件。
+function deleteCustomField(state, id) {
+  const key = `custom:${id}`;
+  const used = (Array.isArray(state.previewSegments) ? state.previewSegments : [])
+    .filter((segment) => segment && Array.isArray(segment.rules) && segment.rules.some((rule) => rule && rule.field === key))
+    .map((segment) => trim(segment.name) || "未命名");
+  if (used.length) throw new Error(`客群「${[...new Set(used)].join("」「")}」的条件用到了这个字段，请先改掉或删除这些条件，再删除字段`);
+  return fieldModel().deleteField(state, "customer", id);
+}
 function setCustomRequired(state, id, on) {
   if (on === true || on === "true" || on === "on" || on === "1") {
     const lock = fieldLockedBy(state, customRoleKey(id))[0];

@@ -445,7 +445,7 @@
     const counts = Object.fromEntries(
       segmentList()
         .filter((g) => g.kind === "rules" && !g.archived)
-        .map((g) => [g.id, S.resolveMembers(rows, g).length]),
+        .map((g) => [g.id, S.resolveMembers(rows, g, undefined, state).length]),
     );
     $("#app").innerHTML = shell(
       window.LaiCustomerList.render({
@@ -472,6 +472,8 @@
         exportEnabled: !!window.LaiExportUI,
         can,
         hiddenFilterFields: C.gate(state, "customer").hiddenFilters(),
+        // 快捷筛选里多出来的自定义字段（单选、多选带选项）。
+        extraQuickFields: C.customColumns(state).map((f) => ({ id: f.id, label: f.label, options: f.fieldType === "select" || f.fieldType === "multi" ? f.options : null })),
         ownerOptions: C.ownerFilterOptions(state, rows),
         batchTags: C.gate(state, "customer").editable("tags"),
         batchField: batchEditableFields().length > 0,
@@ -1291,17 +1293,17 @@
     const advanced = `<div class="advanced-filter"><p><select name="match">${opt("all", "满足全部条件", spec.match)}${opt("any", "满足任一条件", spec.match)}</select></p><div id="advanced-rules">${spec.rules
       .map(
         (r, i) =>
-          `<div class="advanced-row" data-advanced-rule="${i}"><select data-advanced-prop="field">${S.catalog.filter((f) => f.id === r.field || !hiddenFilterColumns.has(f.id)).map((f) => opt(f.id, C.catalog.find((c) => c.id === f.id)?.label || f.label, r.field)).join("")}</select><select data-advanced-prop="op">${ops(
+          `<div class="advanced-row" data-advanced-rule="${i}"><select data-advanced-prop="field">${S.catalogFor(state).filter((f) => f.id === r.field || !hiddenFilterColumns.has(f.id)).map((f) => opt(f.id, C.fieldFor(state, f.id)?.label || f.label, r.field)).join("")}</select><select data-advanced-prop="op">${ops(
             r.field,
           )
-            .map((op) => opt(op, opLabels[op], r.op))
+            .map((op) => opt(op, opLabel(r.field, op), r.op))
             .join(
               "",
-            )}</select>${fieldById.get(r.field)?.type === "boolean" ? `<select data-advanced-prop="value" aria-label="条件${i + 1}值" ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>` : `<input data-advanced-prop="value" value="${E(r.value ?? "")}" type="${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? "number" : fieldById.get(r.field)?.type === "date" ? "date" : "text"}" ${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? 'step="any"' : ""} ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>`}<button class="text-button" type="button" data-remove-advanced="${i}" aria-label="移除条件">⊖</button></div>`,
+            )}</select>${fieldById.get(r.field)?.type === "boolean" ? `<select data-advanced-prop="value" aria-label="条件${i + 1}值" ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>` : `<input data-advanced-prop="value" ${choiceListAttr(r.field)} value="${E(r.value ?? "")}" type="${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? "number" : fieldById.get(r.field)?.type === "date" ? "date" : "text"}" ${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? 'step="any"' : ""} ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>`}<button class="text-button" type="button" data-remove-advanced="${i}" aria-label="移除条件">⊖</button></div>`,
       )
       .join(
         "",
-      )}</div><button type="button" class="text-button" data-action="add-advanced">＋ 添加条件</button></div>`;
+      )}</div>${choiceDatalists(spec.rules)}<button type="button" class="text-button" data-action="add-advanced">＋ 添加条件</button></div>`;
     drawer(
       "筛选条件",
       `<form id="filter-form" class="drawer-body filter-body"><div class="filter-switch"><button type="button" data-filter-mode="normal" class="${filterMode === "normal" ? "active" : ""}">普通筛选</button><button type="button" data-filter-mode="advanced" class="${filterMode === "advanced" ? "active" : ""}">高级筛选</button></div>${filterMode === "normal" ? normal : advanced}<div id="filter-error" class="error" role="alert"></div></form>`,
@@ -1957,7 +1959,7 @@
       if (filterMode === "advanced") {
         try {
           const spec = readAdvanced();
-          S.filterByRules(rows, spec);
+          S.filterByRules(rows, spec, undefined, state);
           advancedSpec = spec;
         } catch (error) {
           const el = $("#filter-error");
@@ -2271,7 +2273,8 @@
     }
   }
   // Customer segments and persistent horizontal table preferences.
-  const fieldById = new Map(C.catalog.map((f) => [f.id, f]));
+  // 列和条件字段：系统字段 + 客户设置里配置的自定义字段（custom:<字段ID>）。设置一改，下次读就是新的。
+  const fieldById = { get: (id) => C.fieldFor(state, id), has: (id) => C.fieldFor(state, id) !== undefined };
   const segmentOriginalDateValues = new WeakMap();
   let expanded = new Set(),
     columnDraft = null,
@@ -2282,7 +2285,7 @@
   const tablePrefs = () => ({
     ...{ striped: true, compact: true, verticalLines: true },
     ...state.previewTable,
-    ...C.normalizeColumns(state.previewTable),
+    ...C.normalizeColumns(state.previewTable, state),
   });
   // 导出客户：行是列表现在显示的（已按账号范围和筛选处理过的）客户，列走字段权限。
   function exportCustomers() {
@@ -2299,6 +2302,8 @@
       return S.resolveMembers(
         rows,
         segmentList().find((s) => s.id === id.slice(8)),
+        undefined,
+        state,
       );
     if (id.startsWith("country:"))
       return rows.filter((row) => row.orderCount > 0 && C.countryLabel(row.country) === id.slice(8));
@@ -2313,17 +2318,17 @@
     const gate = C.gate(state, "customer");
     const f = C.sanitizeFilters(state, filters);
     const deptMatch = C.ownerDeptMatcher(state, f.owner);
-    let result = C.filter(groupRows(f.group), deptMatch ? { ...f, owner: "" } : f);
+    let result = C.filter(groupRows(f.group), deptMatch ? { ...f, owner: "" } : f, state);
     if (deptMatch) result = result.filter((row) => deptMatch(row.owner));
     result = C.globalCustomerSearch(result, gate.plain ? globalSearch : { ...globalSearch, hidden: gate.hiddenSearch() });
     if (advancedSpec) {
       const hiddenColumns = gate.plain ? null : gate.hiddenColumns();
       const rules = hiddenColumns ? (advancedSpec.rules || []).filter((rule) => !hiddenColumns.has(rule.field)) : advancedSpec.rules;
-      result = S.filterByRules(result, rules === advancedSpec.rules ? advancedSpec : { ...advancedSpec, rules });
+      result = S.filterByRules(result, rules === advancedSpec.rules ? advancedSpec : { ...advancedSpec, rules }, undefined, state);
     }
     result = M.filterCustomers(result, { sort: f.sort, group: "all" });
     return f.sortField
-      ? C.sortRows(result, f.sortField, f.sortDirection)
+      ? C.sortRows(result, f.sortField, f.sortDirection, state)
       : result;
   }
 
@@ -2366,6 +2371,8 @@
         c.tags.map((t) => `<span class="tag">${E(t)}</span>`).join("") || "—"
       );
     if (f.id === "country") return E(C.countryLabel(c.country));
+    // 自定义字段：按字段类型显示（数字不加金额符号，多选用“、”隔开）。
+    if (f.custom) return E(window.LaiFieldModel.formatValue(f, c[f.id]) || "—");
     if (f.type === "boolean") return booleanLabel(c[f.id]);
     if (f.type === "date") return E(date(c[f.id]));
     if (f.type === "number") {
@@ -2424,7 +2431,7 @@
     const d = columnDraft;
     // 看不到的字段不列出来（它们在已存的列设置里原样保留）。
     const hiddenColumns = C.gate(state, "customer").hiddenColumns();
-    const columnCatalog = C.catalog.filter((f) => !hiddenColumns.has(f.id));
+    const columnCatalog = C.catalogFor(state).filter((f) => !hiddenColumns.has(f.id));
     drawer(
       "设置显示字段（所有客户列表通用）",
       `<div class="drawer-body columns-body"><div class="columns-layout"><section><div class="column-search-wrap">${icon("search")}<input id="column-search" aria-label="搜索字段名称" placeholder="可输入字段搜索"></div><h3>可选字段</h3><div class="available-fields">${[
@@ -2467,6 +2474,8 @@
     eq: "等于",
     neq: "不等于",
     contains: "包含",
+    in: "是其中之一",
+    notIn: "不是其中之一",
     containsAny: "包含任一标签",
     containsAll: "包含全部标签",
     notContains: "不包含",
@@ -2478,7 +2487,19 @@
     after: "晚于",
     olderDays: "距今超过（天）",
   };
+  // 单选、多选的自定义字段有自己的条件：是其中之一 / 不是其中之一，包含任一 / 包含全部。
+  // 单选、多选字段的值框：输入时提示选项（多个用逗号隔开）。
+  const choiceListAttr = (field) => {
+    const f = fieldById.get(field);
+    return f?.custom && f.options?.length ? `list="opts-${E(f.customId)}" placeholder="多个用逗号隔开"` : "";
+  };
+  const choiceDatalists = (rules = []) => [...new Set(rules.map((r) => r.field))]
+    .map((id) => fieldById.get(id)).filter((f) => f?.custom && f.options?.length)
+    .map((f) => `<datalist id="opts-${E(f.customId)}">${f.options.map((o) => `<option value="${E(o)}">`).join("")}</datalist>`).join("");
+  const choiceOpLabels = { in: "是其中之一", notIn: "不是其中之一", containsAny: "包含任一选项", containsAll: "包含全部选项" };
+  const opLabel = (field, op) => (fieldById.get(field)?.custom ? choiceOpLabels[op] : undefined) || opLabels[op];
   function ops(field) {
+    if (fieldById.get(field)?.custom) return S.operatorsFor(state, field);
     return field === "tags"
       ? ["eq", "neq", "contains", "containsAny", "containsAll", "notContains", "empty", "notEmpty"]
       : fieldById.get(field)?.type === "boolean"
@@ -2560,18 +2581,18 @@
                 const disabled = ["empty", "notEmpty"].includes(r.op) ? "disabled" : "";
                 const valueControl = f.type === "boolean"
                   ? `<select data-rule-prop="value" aria-label="条件${i + 1}值" ${disabled}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>`
-                  : `<input data-rule-prop="value" aria-label="条件${i + 1}值" type="${segmentRuleInputType(f, r)}" value="${E(r.value ?? "")}" ${r.op === "olderDays" || f.type === "number" ? 'step="any"' : ""} ${disabled}>`;
-                return `<div class="rule-row" data-rule="${i}"><span class="rule-index" aria-hidden="true">${i + 1}</span><select data-rule-prop="field" aria-label="条件${i + 1}字段">${S.catalog.filter((f) => f.id === r.field || !hiddenRuleFields.has(f.id)).map((f) => opt(f.id, f.label, r.field)).join("")}</select><select data-rule-prop="op" aria-label="条件${i + 1}运算">${ops(
+                  : `<input data-rule-prop="value" ${choiceListAttr(r.field)} aria-label="条件${i + 1}值" type="${segmentRuleInputType(f, r)}" value="${E(r.value ?? "")}" ${r.op === "olderDays" || f.type === "number" ? 'step="any"' : ""} ${disabled}>`;
+                return `<div class="rule-row" data-rule="${i}"><span class="rule-index" aria-hidden="true">${i + 1}</span><select data-rule-prop="field" aria-label="条件${i + 1}字段">${S.catalogFor(state).filter((f) => f.id === r.field || !hiddenRuleFields.has(f.id)).map((f) => opt(f.id, f.label, r.field)).join("")}</select><select data-rule-prop="op" aria-label="条件${i + 1}运算">${ops(
                   r.field,
                 )
-                  .map((op) => opt(op, opLabels[op], r.op))
+                  .map((op) => opt(op, opLabel(r.field, op), r.op))
                   .join(
                     "",
                   )}</select>${valueControl}<button type="button" class="text-button rule-remove" data-remove-rule="${i}" aria-label="删除条件${i + 1}">${icon("minusCircle")}</button></div>`;
               })
               .join(
                 "",
-              )}</div><button type="button" class="text-button segment-add-rule" data-action="add-rule">${icon("plusCircle")}添加条件</button><div class="match-preview" id="match-preview"></div>`
+              )}</div>${choiceDatalists(d.rules)}<button type="button" class="text-button segment-add-rule" data-action="add-rule">${icon("plusCircle")}添加条件</button><div class="match-preview" id="match-preview"></div>`
           : `<div class="drawer-note rule-title">创建后，在客户列表勾选客户，通过“加入客群”添加成员。已有 ${d.members.length} 位成员。</div>`
       }<div class="error" id="workspace-error" role="alert"></div></form>`,
       `<button data-action="close-modal">取消</button><button class="primary" type="submit" form="segment-form">保存客群</button>`,
@@ -2618,7 +2639,7 @@
     const el = $("#match-preview");
     if (!el) return;
     try {
-      el.textContent = `当前匹配 ${S.filterByRules(rows, segmentDraft).length} 个客户 · 保存后随资料变化自动更新`;
+      el.textContent = `当前匹配 ${S.filterByRules(rows, segmentDraft, undefined, state).length} 个客户 · 保存后随资料变化自动更新`;
     } catch {
       el.textContent = "填写完整条件后显示匹配人数";
     }
@@ -2630,7 +2651,7 @@
         segmentList()
           .map(
             (s) =>
-              `<div><span><strong>${E(s.name)}</strong><small>${s.kind === "rules" ? "条件客群" : "手动分组"} · ${s.archived ? "已归档" : S.resolveMembers(rows, s).length + " 位客户"}</small></span>${s.archived ? `<button data-restore-segment="${E(s.id)}">恢复</button>` : `<button data-edit-segment="${E(s.id)}">编辑</button><button data-archive-segment="${E(s.id)}">归档</button>`}</div>`,
+              `<div><span><strong>${E(s.name)}</strong><small>${s.kind === "rules" ? "条件客群" : "手动分组"} · ${s.archived ? "已归档" : S.resolveMembers(rows, s, undefined, state).length + " 位客户"}</small></span>${s.archived ? `<button data-restore-segment="${E(s.id)}">恢复</button>` : `<button data-edit-segment="${E(s.id)}">编辑</button><button data-archive-segment="${E(s.id)}">归档</button>`}</div>`,
           )
           .join("") || '<div class="empty">暂无自定义客群，点击下方新建。</div>'
       }</div><div class="error" id="workspace-error" role="alert"></div></div>`,
@@ -3413,7 +3434,7 @@
     const focusAttribute = ["data-column-toggle", "data-column-move", "data-column-freeze", "data-column-remove"]
       .find((attribute) => focused?.hasAttribute?.(attribute));
     const focusValue = focusAttribute && focused.getAttribute(focusAttribute);
-    Object.assign(columnDraft, C.normalizeColumns(columnDraft));
+    Object.assign(columnDraft, C.normalizeColumns(columnDraft, state));
     renderColumns();
     const search = $("#column-search");
     if (searchValue) {
@@ -3499,11 +3520,11 @@
     if (a === "save-columns")
       return workspaceSave(() => ({
         ...state,
-        previewTable: { ...columnDraft, ...C.normalizeColumns(columnDraft) },
+        previewTable: { ...columnDraft, ...C.normalizeColumns(columnDraft, state) },
       }));
     if (a === "reset-columns") {
       columnDraft = {
-        ...C.normalizeColumns(),
+        ...C.normalizeColumns(undefined, state),
         striped: true,
         compact: true,
         verticalLines: true,
@@ -3532,7 +3553,7 @@
                         : key === "customerGroup"
                           ? "group"
                           : key;
-                    if (!S.catalog.some((f) => f.id === field))
+                    if (!S.fieldFor(state, field))
                       throw new Error(
                         `“${C.catalog.find((f) => f.id === field)?.label || key}”暂不支持生成客群，请保留普通筛选或移除此条件。`,
                       );
@@ -3547,7 +3568,7 @@
                     };
                   }),
               };
-        S.filterByRules(rows, spec);
+        S.filterByRules(rows, spec, undefined, state);
         if (!spec.rules.length) throw new Error("请先填写至少一个筛选条件");
         return segmentEditor(null, "rules", spec.rules, spec.match, e.detail > 0);
       } catch (error) {
@@ -5245,7 +5266,7 @@
     if (a === "profile-menu")
       return popover(el, profileMenuMarkup(), "account-menu");
     if (a === "restore-table-defaults") {
-      columnDraft = { ...tablePrefs(), ...C.normalizeColumns() };
+      columnDraft = { ...tablePrefs(), ...C.normalizeColumns(undefined, state) };
       return renderColumns();
     }
     if (a === "add-advanced") {

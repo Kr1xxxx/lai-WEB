@@ -10,8 +10,26 @@
     ['stage','客户阶段','text',120,'基本信息'],['level','客户等级','text',110,'基本信息'],['website','网站','text',230,'联系方式'],['address','地址','text',260,'联系方式'],['nextFollow','下次跟进','date',140,'跟进信息'],['due','待收款 (USD)','number',140,'订单信息'],['group','客户分组','text',140,'基本信息'],['latestOrderDate','最近成交订单日期','date',140,'订单信息'],
     ['alibabaIdentity','阿里买家身份','text',140,'基本信息'],['customerStars','客户星级','number',110,'基本信息'],['followed','是否关注','boolean',110,'基本信息']
   ];
+  // 自定义字段（客户设置 → 字段设置）：每个字段一个条件字段 custom:<字段ID>，定义由 customer-fields.js 按当前数据给出。
+  const CFD=()=>root.LaiCustomerFields||(typeof require==='function'?require('./customer-fields.js'):null);
+  const customDefs=state=>{try{return CFD()?.customColumns(state)||[];}catch{return [];}};
   const catalog = definitions.map(([id,label,type,width,category])=>Object.freeze({id,label,type,width,category}));
   const fields = new Map(catalog.map(field=>[field.id,field]));
+  const staticCatalog=catalog;
+  const fieldCache=new WeakMap();
+  // 全部条件字段（系统 + 自定义），按自定义字段的定义缓存。
+  function registryFor(state){
+    const custom=customDefs(state);
+    if(!custom.length)return {list:staticCatalog,byId:fields};
+    let hit=fieldCache.get(custom);
+    if(!hit){const byId=new Map(fields);for(const def of custom)byId.set(def.id,def);hit={list:[...staticCatalog,...custom],byId};fieldCache.set(custom,hit);}
+    return hit;
+  }
+  const catalogFor=state=>registryFor(state).list;
+  const fieldFor=(state,id)=>registryFor(state).byId.get(id);
+  const isChoice=def=>!!def&&def.custom===true&&(def.fieldType==='select'||def.fieldType==='multi');
+  // 单选：是其中之一 / 不是其中之一；多选：包含任一 / 包含全部。值是用逗号隔开的几个选项。
+  const choiceTerms=value=>(Array.isArray(value)?value:String(value??'').split(/[,，、;；\n]/)).map(term=>norm(text(term))).filter(Boolean);
   const norm=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
   const empty=value=>value===null||value===undefined||value===''||(Array.isArray(value)&&value.length===0);
   const text=value=>Array.isArray(value)?value.join(' '):String(value??'');
@@ -46,6 +64,7 @@
     return {lastWhatsAppContact:day(both),lastWhatsAppSent:day(sent),lastWhatsAppReceived:day(received)};
   }
   function enrich(rows,state={}) {
+    const customs=customDefs(state);
     const manualSets=(Array.isArray(state.previewSegments)?state.previewSegments:[]).filter(segment=>segment&&!segment.archived&&segment.kind==='manual')
       .map(segment=>({name:segment.name,members:new Set(Array.isArray(segment.members)?segment.members:[])}));
     const enriched=rows.map(row=>{
@@ -71,13 +90,18 @@
         : profile.firstOrderTotal??row.firstOrderTotal??null;
       const legacyGroups=Array.isArray(row.group)?row.group:row.group?[row.group]:[];
       const manualGroups=manualSets.filter(item=>item.members.has(row.name)).map(item=>item.name);
-      return {...row,...whatsAppTimes(history),group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:CS&&CS.lastWonDate?CS.lastWonDate(state,row.name):profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
+      // 自定义字段的值放到行上（键 custom:<字段ID>），列表、筛选、排序、客群、导出都读这个键。
+      let customValues=null;
+      if(customs.length&&profile.custom&&typeof profile.custom==='object'){
+        for(const def of customs)if(Object.hasOwn(profile.custom,def.customId))(customValues||={})[def.id]=profile.custom[def.customId];
+      }
+      return {...row,...customValues,...whatsAppTimes(history),group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:CS&&CS.lastWonDate?CS.lastWonDate(state,row.name):profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
     });
     const memberships=(Array.isArray(state.previewSegments)?state.previewSegments:[])
       .filter(segment=>segment&&!segment.archived&&String(segment.name||'').trim())
       .map(segment=>{
         // 某个客群的条件有问题时，只跳过它，不影响其他客群和客户列表。
-        try{return {name:String(segment.name).trim(),members:new Set(resolveMembers(enriched,segment).map(row=>row.name))};}
+        try{return {name:String(segment.name).trim(),members:new Set(resolveMembers(enriched,segment,undefined,state).map(row=>row.name))};}
         catch{return null;}
       }).filter(Boolean);
     return enriched.map(row=>{
@@ -87,17 +111,25 @@
       return {...row,segments:[...new Set(labels)]};
     });
   }
+  function operatorsFor(state,fieldId){
+    const def=fieldFor(state,fieldId);
+    if(!def)return [];
+    if(isChoice(def))return def.fieldType==='select'?['in','notIn','empty','notEmpty']:['containsAny','containsAll','empty','notEmpty'];
+    return operators[def.type];
+  }
   const operators = {text:['eq','neq','contains','notContains','empty','notEmpty'],number:['eq','neq','gte','lte','empty','notEmpty'],date:['eq','neq','before','after','olderDays','empty','notEmpty'],boolean:['eq','neq','empty','notEmpty']};
-  function validateRules(spec={}) {
+  function validateRules(spec={},state) {
     if(spec.match!==undefined&&!['all','any'].includes(spec.match))throw new Error('请选择全部或任一条件');
     if(spec.rules!==undefined&&!Array.isArray(spec.rules))throw new Error('客群条件格式无效');
     return (spec.rules||[]).map(rule=>{
-      if(!rule||!fields.has(rule.field))throw new Error('未知的客群条件字段');
-      const type=fields.get(rule.field).type;
-      if(!operators[type].includes(rule.op)&&!(rule.field==='tags'&&['containsAny','containsAll'].includes(rule.op)))throw new Error('该字段不支持此条件运算');
+      const def=rule&&fieldFor(state,rule.field);
+      if(!def)throw new Error('未知的客群条件字段');
+      const type=def.type;
+      if(!(isChoice(def)?operatorsFor(state,rule.field):operators[type]).includes(rule.op)&&!(rule.field==='tags'&&['containsAny','containsAll'].includes(rule.op)))throw new Error('该字段不支持此条件运算');
       if(!['empty','notEmpty'].includes(rule.op)){
         if(empty(rule.value)||!text(rule.value).trim())throw new Error('请填写条件值');
-        if(['containsAny','containsAll'].includes(rule.op)&&!tagTerms(rule.value).length)throw new Error('请填写条件值');
+        if(['containsAny','containsAll'].includes(rule.op)&&!(isChoice(def)?choiceTerms(rule.value):tagTerms(rule.value)).length)throw new Error('请填写条件值');
+        if(isChoice(def)&&['in','notIn'].includes(rule.op)&&!choiceTerms(rule.value).length)throw new Error('请填写条件值');
         if(type==='number'&&!Number.isFinite(Number(rule.value)))throw new Error('请填写有效数字');
         if(type==='date'&&rule.op!=='olderDays'&&!Number.isFinite(timestamp(rule.value)))throw new Error('请填写有效日期');
         if(rule.op==='olderDays'&&(!Number.isFinite(Number(rule.value))||Number(rule.value)<0))throw new Error('天数必须为非负数字');
@@ -106,14 +138,28 @@
       return {...rule};
     });
   }
-  function filterByRules(rows,spec={},today=new Date()) {
-    const rules=validateRules(spec);
+  function filterByRules(rows,spec={},today=new Date(),state) {
+    const rules=validateRules(spec,state);
+    const prepared=new Map(rules.map(rule=>{const def=fieldFor(state,rule.field);return [rule,{def,terms:isChoice(def)?choiceTerms(rule.value):null}];}));
     const clock=today instanceof Date?today.getTime():timestamp(today);
     if(!Number.isFinite(clock))throw new Error('当前日期无效');
     const matches=(row,rule)=>{
+      const {def,terms:picked}=prepared.get(rule);
+      if(picked){
+        // 单选、多选的自定义字段：选项整个匹配，不区分大小写。
+        const raw=row[rule.field];
+        const have=(Array.isArray(raw)?raw:[raw]).filter(value=>!empty(value)).map(value=>norm(text(value)));
+        if(rule.op==='empty')return !have.length;
+        if(rule.op==='notEmpty')return have.length>0;
+        if(!have.length)return false;
+        if(rule.op==='in'||rule.op==='containsAny')return have.some(value=>picked.includes(value));
+        if(rule.op==='notIn')return have.every(value=>!picked.includes(value));
+        if(rule.op==='containsAll')return picked.every(value=>have.includes(value));
+        return false;
+      }
       const raw=rule.field==='email'
         ? [row.email,...(Array.isArray(row.emails)?row.emails:[]),...(Array.isArray(row.extraContacts)?row.extraContacts.map(contact=>contact?.email):[])]
-        : rule.field==='level'?row.displayLevel??row.level:row[rule.field],type=fields.get(rule.field).type;
+        : rule.field==='level'?row.displayLevel??row.level:row[rule.field],type=def.type;
       const values=type==='text'&&Array.isArray(raw)?raw.filter(value=>!empty(value)).map(norm):null;
       const missing=values?!values.length:empty(raw);
       if(rule.op==='empty')return missing;
@@ -170,7 +216,7 @@
     // 手动客群和“客户设置”里的客户分组共用一个分组下拉，重名会分不清选的是哪个。
     if(input.kind==='manual'&&CS&&previous?.name!==name&&CS.groupPaths(CS.get(state).groups).some(path=>norm(path)===norm(name)))
       throw new Error('客户设置里已有同名的客户分组，请换个客群名称');
-    const rules=validateRules({match:input.match,rules:input.kind==='rules'?input.rules:[]});
+    const rules=validateRules({match:input.match,rules:input.kind==='rules'?input.rules:[]},state);
     if(input.kind==='rules'&&!rules.length)throw new Error('条件客群至少需要一条条件');
     const members=[...new Set(input.members||previous?.members||[])];
     if(members.some(name=>!knownNames(state).has(name)))throw new Error('客群包含不存在的客户');
@@ -198,9 +244,9 @@
     const members=mode==='add'?[...new Set([...(segment.members||[]),...names])]:(segment.members||[]).filter(name=>!names.includes(name));
     return {...state,previewSegments:state.previewSegments.map(item=>item.id===id?{...item,members}:item)};
   }
-  function resolveMembers(rows,segment,today=new Date()) {
+  function resolveMembers(rows,segment,today=new Date(),state) {
     if(!segment||segment.archived)return [];
-    if(segment.kind==='rules')return filterByRules(rows,segment,today);
+    if(segment.kind==='rules')return filterByRules(rows,segment,today,state);
     if(segment.kind!=='manual')throw new Error('未知的客群类型');
     const members=new Set(segment.members||[]);
     return rows.filter(row=>members.has(row.name));
@@ -234,6 +280,6 @@
     const frozen=['name',...order.filter(id=>id!=='name'&&requestedFrozen.has(id)).slice(0,2)];
     return {order:[...frozen,...order.filter(id=>!frozen.includes(id))],frozen};
   }
-  const api={catalog,enrich,filterByRules,upsertSegment,archiveSegment,restoreSegment,assignMembers,resolveMembers,renameMember,setEditorGroup,normalizeColumns};
+  const api={catalog,catalogFor,fieldFor,operatorsFor,enrich,filterByRules,upsertSegment,archiveSegment,restoreSegment,assignMembers,resolveMembers,renameMember,setEditorGroup,normalizeColumns};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PreviewSegments=api;
 })(typeof window!=='undefined'?window:globalThis);

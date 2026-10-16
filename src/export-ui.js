@@ -47,7 +47,7 @@
     const gate = ctx.gate;
     if (kind === 'customer') {
       const columns = choice.columns === 'all' ? undefined : ctx.columns;
-      return [{ name: '客户', ...EM.customerRows(rows, { gate, columns }) }];
+      return [{ name: '客户', ...EM.customerRows(rows, { gate, columns, state: ctx.state }) }];
     }
     if (kind === 'order') {
       const sheets = [{ name: '订单', ...EM.orderRows(rows, { gate }) }];

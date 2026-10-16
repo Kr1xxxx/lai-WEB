@@ -63,8 +63,10 @@
     const source = list(rows);
     cap(source.length);
     const visible = visibleFn(options.gate);
-    const known = new Map(CF.catalog.map(def => [def.id, def]));
-    const ids = (Array.isArray(options.columns) && options.columns.length ? options.columns : CF.catalog.map(def => def.id))
+    // 自定义字段列要看数据里的设置（options.state）；没传就只有系统列。
+    const all = CF.catalogFor(options.state);
+    const known = new Map(all.map(def => [def.id, def]));
+    const ids = (Array.isArray(options.columns) && options.columns.length ? options.columns : all.map(def => def.id))
       .filter((id, i, all) => known.has(id) && all.indexOf(id) === i && visible(id));
     const defs = ids.map(id => known.get(id));
     const withContacts = options.contactsCell !== false;
