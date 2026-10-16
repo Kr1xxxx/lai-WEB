@@ -695,7 +695,7 @@
    ],
    "e2e": "roles.e2e.mjs, roles-customers.e2e.mjs, roles-business.e2e.mjs",
    "verified": {
-    "browser": false,
+    "browser": true,
     "mac": false
    }
   }
