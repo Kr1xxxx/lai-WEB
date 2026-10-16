@@ -2891,3 +2891,5 @@ td.team-reached {
 .role-dept-bar .role-danger { color: var(--color-danger, #e45656); }
 .role-org-main { min-width: 0; }
 @media (max-width: 860px) { .role-org-layout { grid-template-columns: 1fr; } }
+/* 角色字段权限：只读字段看得出不能改 */
+:is(.opp-form, #product-form) :is(input, select, textarea):is(:disabled, [readonly]), .opp-form fieldset:disabled { background: var(--ink-50); color: var(--ink-600); cursor: not-allowed; }
