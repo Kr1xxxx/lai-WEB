@@ -1581,36 +1581,51 @@
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
     let roleUI = null;
-    const RU = () => roleUI || (roleUI = root.LaiRoleUI.create(E, RM()));
-    const roleView = { edit: "", armed: "", armedMember: "", filter: "", nextFilter: "" };
+    // 字段清单来自 LaiRoleFields，产品布局清单来自 LaiProductModel。
+    const RU = () => roleUI || (roleUI = root.LaiRoleUI.create(E, RM(), { fields: root.LaiRoleFields, layouts: (s) => root.LaiProductModel?.layoutList?.(s) || [] }));
+    // draft：编辑角色时在窗口里选的字段权限和布局，点“保存”才写进角色；取消就丢掉。dept：成员管理左边选中的部门（""＝我的企业）。
+    const roleView = { edit: "", armed: "", armedMember: "", armedDept: "", filter: "", nextFilter: "", dept: "", draft: null };
+    const cloneJSON = (value) => JSON.parse(JSON.stringify(value || {}));
+    function roleDraft(id) {
+      if (roleView.draft?.id !== id) {
+        const role = RM().settings(state()).roles.find((r) => r.id === id);
+        roleView.draft = { id, fields: cloneJSON(role?.fields), layouts: cloneJSON(role?.layouts) };
+      }
+      return roleView.draft;
+    }
+    const pickedDept = () => (RM().deptTree(state()).some((d) => d.id === roleView.dept) ? roleView.dept : "");
     const onRolePage = () => route === "roles" || route === "members";
     // 换页面时回到列表；从“角色权限”点“成员”过来时带上要看的角色。
     function roleReset(next) {
       roleView.filter = next === "members" ? roleView.nextFilter : "";
       roleView.nextFilter = "";
       roleView.edit = "";
+      roleView.draft = null;
       roleView.armed = "";
       roleView.armedMember = "";
+      roleView.armedDept = "";
+      roleView.dept = "";
     }
     function renderRoles() {
       const title = roleView.edit ? (RM().settings(state()).roles.find((r) => r.id === roleView.edit)?.locked ? "查看角色" : "编辑角色") : "角色权限";
       const description = roleView.edit ? "勾选这个角色能做的事" : "设置每个角色能看什么、能做什么";
       if (!RM().can(state(), "settings.roles")) return header("角色权限", description) + RU().deniedMarkup();
-      if (roleView.edit) return header(title, description) + RU().editMarkup(state(), roleView.edit);
+      if (roleView.edit) return header(title, description) + RU().editMarkup(state(), roleView.edit, roleDraft(roleView.edit));
       return header(title, description, '<button type="button" class="primary" data-role-action="add">新增角色</button>') + RU().rolesMarkup(state(), { armed: roleView.armed });
     }
     function renderMembers() {
       const description = "测试账号：切换后看到的就是这个角色能看的内容";
       if (!RM().can(state(), "settings.roles")) return header("成员管理", description) + RU().deniedMarkup();
-      return header("成员管理", description, '<button type="button" class="primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter });
+      return header("成员管理", description, '<button type="button" class="primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter, dept: roleView.dept, armedDept: roleView.armedDept });
     }
     function roleClick(d) {
       const action = d.roleAction;
       if (action !== "delete") roleView.armed = "";
       if (action !== "member-delete") roleView.armedMember = "";
+      if (action !== "dept-delete") roleView.armedDept = "";
       const cancel = '<button type="button" data-action="close-modal">取消</button>';
       if (action === "add") return ctx.dialog("新增角色", RU().addRoleMarkup(state()), cancel + '<button class="primary" type="submit" form="role-add-form">新增</button>', "role-add");
-      if (action === "member-add") return ctx.dialog("添加成员", RU().addMemberMarkup(state()), cancel + '<button class="primary" type="submit" form="member-add-form">添加</button>', "member-add");
+      if (action === "member-add") return ctx.dialog("添加成员", RU().addMemberMarkup(state(), { deptId: pickedDept() }), cancel + '<button class="primary" type="submit" form="member-add-form">添加</button>', "member-add");
       if (action === "rename") {
         const member = RM().settings(state()).members.find((m) => m.id === d.id);
         if (!member) return ctx.toast("没有找到这位成员，请刷新后重试");
@@ -1618,11 +1633,41 @@
       }
       if (action === "edit") {
         roleView.edit = d.id;
+        roleView.draft = null;
         return render();
       }
       if (action === "back") {
         roleView.edit = "";
+        roleView.draft = null;
         return render();
+      }
+      if (action === "fields" || action === "layouts") return roleFieldsDialog(action, d.module, cancel);
+      if (action === "fields-all") {
+        document.querySelectorAll("#role-fields-form [data-field-row]").forEach((row) => {
+          const box = row.querySelector(`input[type="radio"][value="${d.level}"]`);
+          if (box) box.checked = true;
+        });
+        return;
+      }
+      if (action === "dept-pick") {
+        roleView.dept = d.id || "";
+        return render();
+      }
+      if (action === "dept-add") return ctx.dialog("新建部门", RU().deptAddMarkup(state(), pickedDept()), cancel + '<button class="primary" type="submit" form="dept-add-form">新建</button>', "dept-add");
+      if (action === "dept-rename") {
+        const dept = RM().deptTree(state()).find((x) => x.id === d.id);
+        if (!dept) return ctx.toast("没有找到这个部门，请刷新后重试");
+        return ctx.dialog("部门改名", RU().deptRenameMarkup(dept), cancel + '<button class="primary" type="submit" form="dept-rename-form">保存</button>', "dept-rename");
+      }
+      if (action === "dept-delete") {
+        if (roleView.armedDept !== d.id) {
+          roleView.armedDept = d.id;
+          return render();
+        }
+        roleView.armedDept = "";
+        return saveNext(() => RM().deleteDepartment(state(), d.id), "member-list-error", () => {
+          roleView.dept = "";
+        });
       }
       if (action === "members") {
         roleView.nextFilter = d.id;
@@ -1655,6 +1700,32 @@
         return saveNext(() => RM().switchTo(state(), d.id), "member-list-error", () => undefined);
       }
     }
+    // 设置字段权限／布局权限的窗口：只改编辑页里的草稿，点角色的“保存”才真正存下来。
+    function roleFieldsDialog(action, module, cancel) {
+      const role = RM().settings(state()).roles.find((r) => r.id === roleView.edit);
+      if (!role) return;
+      const readOnly = !!role.locked,
+        draft = roleDraft(role.id),
+        close = '<button type="button" data-action="close-modal">关闭</button>';
+      if (action === "layouts") {
+        const body = RU().layoutMarkup(state(), draft.layouts.product || {}, { readOnly });
+        return ctx.dialog("设置布局权限", body, readOnly ? close : cancel + '<button class="primary" type="submit" form="role-layout-form">确定</button>', "role-layouts");
+      }
+      const name = (RM().FIELD_MODULES.find(([id]) => id === module) || [])[1] || "";
+      const has = (root.LaiRoleFields?.list?.(state(), module) || []).length > 0;
+      ctx.dialog(`${name}字段权限`, RU().fieldsMarkup(state(), module, draft.fields[module] || {}, { readOnly }), readOnly || !has ? close : cancel + '<button class="primary" type="submit" form="role-fields-form">确定</button>', "role-fields");
+    }
+    function showLimitTags() {
+      const draft = roleView.draft;
+      if (!draft) return;
+      document.querySelectorAll("[data-role-limit]").forEach((el) => {
+        const count = RU().limitCount(state(), el.dataset.roleLimit, draft.fields);
+        el.textContent = RU().limitText(count);
+        el.hidden = !count;
+      });
+      const tag = document.querySelector("[data-role-layout-tag]");
+      if (tag) tag.hidden = !RU().layoutSet(draft.layouts);
+    }
     function roleSubmit(form) {
       const kind = form.dataset.roleForm;
       const data = Object.fromEntries(new FormData(form));
@@ -1664,16 +1735,46 @@
           ctx.closeDialog();
           // 建好后直接打开新角色的编辑页。
           roleView.edit = RM().settings(state()).roles.find((r) => !before.has(r.id))?.id || "";
+          roleView.draft = null;
         });
       }
       if (kind === "edit") {
         const perms = {};
         form.querySelectorAll('input[name="perm"]:checked').forEach((box) => (perms[box.value] = true));
-        return saveNext(() => RM().updateRole(state(), form.dataset.id, { name: data.name, scope: data.scope, perms }), "role-error", () => {
+        const draft = roleDraft(form.dataset.id);
+        return saveNext(() => RM().updateRole(state(), form.dataset.id, { name: data.name, scope: data.scope, perms, fields: draft.fields, layouts: draft.layouts }), "role-error", () => {
           roleView.edit = "";
+          roleView.draft = null;
         });
       }
-      if (kind === "member-add") return saveNext(() => RM().addMember(state(), { name: data.name, roleId: data.roleId }), "member-add-error", () => ctx.closeDialog());
+      if (kind === "fields") {
+        const module = form.dataset.module,
+          draft = roleDraft(roleView.edit),
+          rows = [...form.querySelectorAll("[data-field-row]")];
+        if (rows.length) {
+          const listed = new Set(rows.map((row) => row.dataset.fieldKey)),
+            // 清单里已经没有的字段，原来的限制照样留着。
+            rules = Object.fromEntries(Object.entries(draft.fields[module] || {}).filter(([key]) => !listed.has(key)));
+          for (const row of rows) {
+            const level = row.querySelector('input[type="radio"]:checked')?.value;
+            if (level === "read" || level === "hidden") rules[row.dataset.fieldKey] = level;
+          }
+          if (Object.keys(rules).length) draft.fields[module] = rules;
+          else delete draft.fields[module];
+        }
+        ctx.closeDialog();
+        return showLimitTags();
+      }
+      if (kind === "layouts") {
+        const draft = roleDraft(roleView.edit),
+          pick = { form: data.form || "", detail: data.detail || "" };
+        draft.layouts = pick.form || pick.detail ? { product: pick } : {};
+        ctx.closeDialog();
+        return showLimitTags();
+      }
+      if (kind === "dept-add") return saveNext(() => RM().addDepartment(state(), { name: data.name, parentId: data.parentId }), "dept-add-error", () => ctx.closeDialog());
+      if (kind === "dept-rename") return saveNext(() => RM().renameDepartment(state(), form.dataset.id, data.name), "dept-rename-error", () => ctx.closeDialog());
+      if (kind === "member-add") return saveNext(() => RM().addMember(state(), { name: data.name, roleId: data.roleId, deptId: data.deptId }), "member-add-error", () => ctx.closeDialog());
       if (kind === "member-rename") return saveNext(() => RM().renameMember(state(), form.dataset.id, data.name), "member-rename-error", () => ctx.closeDialog());
     }
     // 编辑角色里的勾选：“全选”带动整组；整组都勾上时“全选”自己也勾上。成员表里换角色马上保存。
@@ -1687,6 +1788,19 @@
         const group = target.closest("[data-role-group]");
         const all = group?.querySelector("[data-role-all]");
         if (all) all.checked = [...group.querySelectorAll("[data-role-perm]")].every((box) => box.checked);
+        return true;
+      }
+      if (target.id === "role-scope") {
+        const hint = document.getElementById("role-scope-hint");
+        if (hint) hint.textContent = RU().scopeHint(target.value);
+        return true;
+      }
+      if (target.dataset?.roleMemberDept !== undefined) {
+        const id = target.dataset.id;
+        const previous = RM().settings(state()).members.find((m) => m.id === id)?.deptId || "";
+        saveNext(() => RM().setMemberDept(state(), id, target.value), "member-list-error", () => undefined).then((saved) => {
+          if (!saved) target.value = previous;
+        });
         return true;
       }
       if (target.dataset?.roleMemberRole !== undefined) {
