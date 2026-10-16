@@ -17,7 +17,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-005 | Synthetic data only; formal import stays disabled until complete | Accepted |
 | D-006 | No 回款 (payment collection) and no 海关数据 (customs data) | Accepted |
 | D-007 | Mail: Zoho Mail with an app-specific password | Accepted |
-| D-008 | Colour themes: 小满 blue by default, pink and orange as options | Accepted |
+| D-008 | Colour themes: pink by default; orange and 小满 blue as options | Accepted (default changed 2026-10-16) |
 | D-009 | Left rail and entries | Accepted |
 | D-010 | Look and feel | Accepted |
 | D-011 | Prefer mature open-source code over hand-written code | Accepted |
@@ -28,6 +28,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-016 | Mac build cadence: Claude every 10th merge, others every PR | Paused by D-019 |
 | D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Accepted |
 | D-019 | Desktop builds (Mac, Windows) paused; web version only for now | Accepted |
+| D-022 | Company details live in one place; 本人 scope also limits 团队数据; tasks belong to a person | Accepted |
 
 ---
 
@@ -69,8 +70,10 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   in the local database. The mail module follows the reference product (D-002).
 
 ### D-008 Colour themes (2026-10-08)
-- Decision: the UI is a colour template switchable in 设置. Default is the 小满 style (the original blue look); rose
-  pink and warm orange are optional templates. No green.
+- Decision: the UI is a colour template switchable in 设置. Default is rose pink; warm orange and the 小满 style
+  (the original blue look) are optional templates. No green.
+- 2026-10-16: the owner confirmed pink as the default (it had been the app's default since task 17; the decision text
+  still said 小满 blue).
 
 ### D-009 Left rail and entries (2026-10-08)
 - Decision: removed the 客服 (customer service) button and AI批量质检 (AI batch quality check). The rail entry
@@ -165,3 +168,8 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   and need no network. Styles use `var(--font-ui)` or `inherit`, never their own stack (test: `tests/ui-fonts.test.cjs`);
   the 来财 wordmark keeps its rounded font. MiSans's license requires naming it in the software (关于来财Lai).
 
+### D-022 Company details, team data scope, personal tasks (2026-10-16)
+- Company name, address, phone and bank are kept in one place; documents (报价单, PI, 销售订单, 发货通知) read them
+  from there. The separate 公司名称 field in 设置 no longer stands on its own.
+- An account with the 本人 scope sees only its own figures in 团队数据 (rankings, goals, drill-downs).
+- Calendar tasks belong to the person who owns them; a 本人 account sees only its own tasks.
