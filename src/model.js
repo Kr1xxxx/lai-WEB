@@ -58,7 +58,7 @@
     {id:'level',label:'客户等级'},
     {id:'customerStars',label:'客户星级'},
     {id:'website',label:'公司网址'},
-    {id:'productType',label:'主营产品.'},
+    {id:'productType',label:'主营产品类型'},
     {id:'companyProducts',label:'主营产品'},
     {id:'timezone',label:'时区'},
     {id:'cardStock',label:'卡纸'},
