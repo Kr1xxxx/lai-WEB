@@ -170,7 +170,9 @@
     return wb;
   }
   // A text cell that starts with = + - @ or a tab/CR could run as a formula in a spreadsheet: prefix an apostrophe.
-  const guard = value => typeof value === 'string' && /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
+  // 表格公式注入防护：=、+、-、@、制表符开头的文字前加 '。只含数字、空格、括号和连字符的电话号码（如 +44 7700 900123）不算公式，不加。
+  const PHONE = /^\+[\d\s().-]+$/;
+  const guard = value => typeof value === 'string' && /^[=+\-@\t\r]/.test(value) && !PHONE.test(value) ? "'" + value : value;
   function cellText(value) {
     if (value === null || value === undefined) return '';
     return typeof value === 'number' ? (Number.isFinite(value) ? String(value) : '') : String(guard(value));

@@ -45,7 +45,7 @@ test('formula-injection guard and CSV/TSV quoting', () => {
   const tsv = tsvText.split('\n');
   assert.equal(tsv[0], 'a\tb');
   assert.equal(tsv[1], "'=1+1\tx");
-  assert.equal(tsv[2], "'+86 1\t'@a");
+  assert.equal(tsv[2], "+86 1\t'@a");
   assert.equal(tsv[4], '-5\t"say ""hi"""');
   assert.ok(tsvText.includes('"p\tq"\t'));
   assert.ok(tsvText.includes('"l1\nl2"'));
@@ -116,4 +116,12 @@ test('leads: trash excluded unless includeTrash; labels and blanks', () => {
   assert.equal(out.data[1][11], '');
   assert.equal(E.leadRows(leads, {}, { includeTrash: true }).data.length, 3);
   assert.ok(!E.leadRows(leads, {}, { gate: hide('email', 'phone') }).header.includes('邮箱'));
+});
+
+test('phone numbers starting with + are not given the formula guard; formulas still are', () => {
+  assert.equal(E.guard('+44 7700 900123'), '+44 7700 900123');
+  assert.equal(E.guard('+1 (555) 010-2000'), '+1 (555) 010-2000');
+  assert.equal(E.guard('+1+cmd|calc'), "'+1+cmd|calc");
+  assert.equal(E.guard('=SUM(A1)'), "'=SUM(A1)");
+  assert.equal(E.guard('-2+3'), "'-2+3");
 });
