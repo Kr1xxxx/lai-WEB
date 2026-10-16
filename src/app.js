@@ -2344,8 +2344,10 @@
     result = C.globalCustomerSearch(result, gate.plain ? globalSearch : { ...globalSearch, hidden: gate.hiddenSearch() });
     if (advancedSpec) {
       const hiddenColumns = gate.plain ? null : gate.hiddenColumns();
-      const rules = hiddenColumns ? (advancedSpec.rules || []).filter((rule) => !hiddenColumns.has(rule.field)) : advancedSpec.rules;
-      result = S.filterByRules(result, rules === advancedSpec.rules ? advancedSpec : { ...advancedSpec, rules }, undefined, state);
+      // 条件里的自定义字段后来被删掉了：那一条不再起作用（不然整个列表会报错）。
+      const known = (advancedSpec.rules || []).filter((rule) => S.fieldFor(state, rule.field));
+      const rules = hiddenColumns ? known.filter((rule) => !hiddenColumns.has(rule.field)) : known;
+      result = S.filterByRules(result, rules.length === (advancedSpec.rules || []).length ? advancedSpec : { ...advancedSpec, rules }, undefined, state);
     }
     result = M.filterCustomers(result, { sort: f.sort, group: "all" });
     return f.sortField
