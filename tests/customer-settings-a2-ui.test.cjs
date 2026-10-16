@@ -88,9 +88,9 @@ test('the rule form fills in a rule, offers groups and their children, and keeps
 });
 
 test('follow, deal, activity and followup tabs show the saved values', () => {
-  let s = CS.setFollowRules(base(), { contact: ['followup'], followup: ['mailSent', 'chat'] });
+  let s = CS.setFollowRules(base(), { contact: ['followup'], followup: ['mailSent', 'chatSent'] });
   let html = UI.markup(s, { tab: 'follow' }, E, []);
-  assert.equal([...html.matchAll(/name="contact"/g)].length, 7);
+  assert.equal([...html.matchAll(/name="contact"/g)].length, 8);
   assert.equal([...html.matchAll(/name="contact" value="[a-zA-Z]+" checked/g)].length, 1);
   assert.equal([...html.matchAll(/name="followup" value="[a-zA-Z]+" checked/g)].length, 2);
   assert.match(html, /最近联系时间决定公海规则里“多少天没有联系”/);

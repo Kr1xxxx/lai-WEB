@@ -26,6 +26,23 @@
     const parsed=new Date(timestamp(value));
     return Number.isFinite(parsed.getTime())?parsed.getFullYear()*10000+(parsed.getMonth()+1)*100+parsed.getDate():NaN;
   }
+  const pad2=n=>String(n).padStart(2,'0');
+  const localDay=ms=>{const d=new Date(ms);return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;};
+  // WhatsApp 最近沟通 / 发送 / 接收：从聊天记录算出来，不存；历史只走一遍，按本地日期显示。
+  function whatsAppTimes(history) {
+    let sent=NaN,received=NaN;
+    for(const item of history){
+      if(!item||item.type!=='chat'||(item.subtype!=='whatsapp'&&item.subtype!=='whatsappgroup'))continue;
+      const hasDir=item.lastSentAt||item.lastReceivedAt;
+      const s=timestamp(hasDir?item.lastSentAt:(item.time||item.date));
+      const r=timestamp(item.lastReceivedAt);
+      if(Number.isFinite(s)&&!(s<=sent))sent=s;
+      if(Number.isFinite(r)&&!(r<=received))received=r;
+    }
+    const both=Number.isFinite(sent)&&Number.isFinite(received)?Math.max(sent,received):Number.isFinite(sent)?sent:received;
+    const day=ms=>Number.isFinite(ms)?localDay(ms):'';
+    return {lastWhatsAppContact:day(both),lastWhatsAppSent:day(sent),lastWhatsAppReceived:day(received)};
+  }
   function enrich(rows,state={}) {
     const manualSets=(Array.isArray(state.previewSegments)?state.previewSegments:[]).filter(segment=>segment&&!segment.archived&&segment.kind==='manual')
       .map(segment=>({name:segment.name,members:new Set(Array.isArray(segment.members)?segment.members:[])}));
@@ -52,7 +69,7 @@
         : profile.firstOrderTotal??row.firstOrderTotal??null;
       const legacyGroups=Array.isArray(row.group)?row.group:row.group?[row.group]:[];
       const manualGroups=manualSets.filter(item=>item.members.has(row.name)).map(item=>item.name);
-      return {...row,group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:CS&&CS.lastWonDate?CS.lastWonDate(state,row.name):profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
+      return {...row,...whatsAppTimes(history),group:[...new Set([...legacyGroups,...manualGroups])],firstWonDate:profile.opportunityFirstWonDate||'',lastWonDate:CS&&CS.lastWonDate?CS.lastWonDate(state,row.name):profile.opportunityLastWonDate||'',latestOrderDate:settled[0]?.date||'',firstOrderDate:firstOrder?.date||profile.firstOrderDate||row.firstOrderDate||'',firstOrderTotal,lastFollowup:times?(times.lastFollowup||row.lastFollowup||''):followup?.time||followup?.date||profile.lastFollowup||row.lastFollowup||'',lastDealDate:CS&&CS.lastDealDate?CS.lastDealDate(state,row.name):'',latestActivity:activity?.text||activity?.content||activity?.note||profile.latestActivity||row.latestActivity||'',average:row.total===null||!row.orderCount?null:row.total/row.orderCount,lastContact,createdAt:profile.createdAt||'',customerCode:profile.customerCode||''};
     });
     const memberships=(Array.isArray(state.previewSegments)?state.previewSegments:[])
       .filter(segment=>segment&&!segment.archived&&String(segment.name||'').trim())

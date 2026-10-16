@@ -32,11 +32,11 @@ const LIMITS = Object.freeze({ sources: 100, sourceChildren: 30, stages: 30, typ
 
 // 哪些动作算“最近联系 / 最近跟进”。
 const FOLLOW_ACTIONS = Object.freeze([
-  ["followup", "写跟进"], ["mailSent", "发出邮件"], ["mailReceived", "收到邮件"], ["chat", "聊天或电话记录"],
+  ["followup", "写跟进"], ["mailSent", "发出邮件"], ["mailReceived", "收到邮件"], ["chatSent", "发出聊天或电话"], ["chatReceived", "收到聊天"],
   ["order", "新建或修改订单"], ["opportunity", "新建或修改商机"], ["claim", "从公海领回"],
 ].map((item) => Object.freeze(item)));
 const FOLLOW_KEYS = FOLLOW_ACTIONS.map(([key]) => key);
-const DEFAULT_FOLLOW_RULES = Object.freeze({ contact: FOLLOW_KEYS, followup: Object.freeze(["followup", "mailSent", "chat"]) });
+const DEFAULT_FOLLOW_RULES = Object.freeze({ contact: FOLLOW_KEYS, followup: Object.freeze(["followup", "mailSent", "chatSent"]) });
 const TEMPLATE_LIMITS = Object.freeze({ groups: 30, items: 100, name: 20, text: 500 });
 
 const DEFAULTS = Object.freeze({
@@ -157,7 +157,10 @@ function normalizeBlacklist(list) {
   return out;
 }
 
+// 老版本存的是一个 "chat"（聊天或电话记录），读出来当作“发出”和“收到”两项都勾了，保存过的算法结果不变。
+const expandLegacyChat = (list) => (Array.isArray(list) && list.includes("chat") ? [...list, "chatSent", "chatReceived"] : list);
 function normalizeFollowList(list, fallback) {
+  list = expandLegacyChat(list);
   const out = Array.isArray(list) ? FOLLOW_KEYS.filter((key) => list.includes(key)) : [];
   return out.length ? out : fallback.slice();
 }
@@ -728,7 +731,7 @@ function setFollowRules(state, { contact, followup } = {}) {
   const current = get(state).followRules;
   const pick = (list, label) => {
     if (list === undefined) return null;
-    const out = Array.isArray(list) ? FOLLOW_KEYS.filter((key) => list.includes(key)) : [];
+    const out = Array.isArray(list) ? FOLLOW_KEYS.filter((key) => expandLegacyChat(list).includes(key)) : [];
     if (!out.length) throw new Error(`请至少选一项“算作${label}”的动作`);
     return out;
   };
@@ -778,13 +781,19 @@ function latestOf(values) {
 function latestByAction(state, name) {
   const profile = profiles(state)[name] || {};
   const history = Array.isArray(profile.history) ? profile.history : [];
-  const lists = { followup: [], mailSent: [], mailReceived: [], chat: [] };
+  const lists = { followup: [], mailSent: [], mailReceived: [], chatSent: [], chatReceived: [] };
   for (const h of history) {
     if (!h) continue;
     const at = h.time || h.date;
     if (h.type === "followup") lists.followup.push(at);
     else if (h.type === "email") (h.subtype === "sent" ? lists.mailSent : lists.mailReceived).push(at);
-    else if (h.type === "chat" || h.type === "call") lists.chat.push(at);
+    else if (h.type === "chat" || h.type === "call") {
+      // 有方向的聊天分开记发出 / 收到；老的聊天、电话记录没有方向，算发出。
+      if (h.type === "chat" && (h.lastSentAt || h.lastReceivedAt)) {
+        if (h.lastSentAt) lists.chatSent.push(h.lastSentAt);
+        if (h.lastReceivedAt) lists.chatReceived.push(h.lastReceivedAt);
+      } else lists.chatSent.push(at);
+    }
   }
   // 资料上存的跟进时间也算（导入的老客户可能只有它，没有跟进记录）。
   lists.followup.push(profile.lastFollowup, profile.lastWrittenFollowup);
@@ -796,7 +805,8 @@ function latestByAction(state, name) {
     followup: latestOf(lists.followup),
     mailSent: latestOf(lists.mailSent),
     mailReceived: latestOf(lists.mailReceived),
-    chat: latestOf(lists.chat),
+    chatSent: latestOf(lists.chatSent),
+    chatReceived: latestOf(lists.chatReceived),
     order: latestOf(order),
     opportunity: latestOf(opportunity),
     claim: latestOf([profile.lastPrivatePoolEntry]),

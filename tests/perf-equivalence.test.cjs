@@ -35,6 +35,10 @@ function dataset() {
       if (type === null) { history.push(null); continue; }
       const item = { type, subtype: pick(["sent", "received", undefined]), text: "x" };
       if (rnd() < 0.7) item.time = stamp(); else item.date = stamp();
+      if (type === "chat" && rnd() < 0.5) {
+        if (rnd() < 0.7) item.lastSentAt = stamp();
+        if (rnd() < 0.7) item.lastReceivedAt = stamp();
+      }
       history.push(item);
     }
     const p = { owner: pick(["Kris", "Mia", "", "Zed"]), history, previewGroup: pick(["A", "A / 子", "B", ""]), createdAt: stamp() };
@@ -81,7 +85,9 @@ function refActionTimes(state, name, key) {
   if (key === "followup") return [...pickBy((h) => h.type === "followup"), profile.lastFollowup, profile.lastWrittenFollowup];
   if (key === "mailSent") return pickBy((h) => h.type === "email" && h.subtype === "sent");
   if (key === "mailReceived") return pickBy((h) => h.type === "email" && h.subtype !== "sent");
-  if (key === "chat") return pickBy((h) => h.type === "chat" || h.type === "call");
+  const dir = (h) => h.type === "chat" && (h.lastSentAt || h.lastReceivedAt);
+  if (key === "chatSent") return history.filter((h) => h && (h.type === "chat" || h.type === "call")).flatMap((h) => (dir(h) ? [h.lastSentAt] : [h.time || h.date]));
+  if (key === "chatReceived") return history.filter((h) => h && h.type === "chat").map((h) => h.lastReceivedAt);
   if (key === "order") return (state.orders || []).filter((o) => o && o.client === name && !o.isDraft).flatMap((o) => [o.createdAt, o.updated]);
   if (key === "opportunity") return (state.laiOpportunities || []).filter((i) => i && trim(i.client) === name).flatMap((i) => [i.createdAt, i.updatedAt]);
   if (key === "claim") return [profile.lastPrivatePoolEntry];
@@ -148,8 +154,8 @@ function refEvaluate(state, now, only) {
 
 const withSettings = (state, settings) => ({ ...state, laiSettings: { ...(state.laiSettings || {}), customerSettings: settings } });
 const COMBOS = [
-  { followRules: { contact: ["followup", "mailSent", "mailReceived", "chat"], followup: ["followup"] }, dealRule: { by: "order" } },
-  { followRules: { contact: ["order", "opportunity", "claim"], followup: ["chat", "mailSent"] }, dealRule: { by: "opportunity" } },
+  { followRules: { contact: ["followup", "mailSent", "mailReceived", "chatSent", "chatReceived"], followup: ["followup"] }, dealRule: { by: "order" } },
+  { followRules: { contact: ["order", "opportunity", "claim"], followup: ["chatSent", "mailSent"] }, dealRule: { by: "opportunity" } },
   { followRules: { contact: ["followup", "order", "mailReceived", "opportunity"], followup: ["followup", "claim", "order"] }, dealRule: { by: "order" } },
   undefined,
 ];
@@ -172,9 +178,9 @@ test("设置缓存：同一份设置得到同一结果，换设置立刻生效�
   const changed = CS.setDealRule(base, "opportunity");
   assert.equal(CS.get(changed).dealRule.by, "opportunity");
   assert.equal(CS.get(base).dealRule.by, "order");
-  const after = CS.setFollowRules(changed, { contact: ["chat"] });
-  assert.deepEqual(CS.get(after).followRules.contact, ["chat"]);
-  assert.notDeepEqual(CS.get(changed).followRules.contact, ["chat"]);
+  const after = CS.setFollowRules(changed, { contact: ["chatSent"] });
+  assert.deepEqual(CS.get(after).followRules.contact, ["chatSent"]);
+  assert.notDeepEqual(CS.get(changed).followRules.contact, ["chatSent"]);
   assert.deepEqual(CS.get({}).stages, CS.get(undefined).stages);
 });
 

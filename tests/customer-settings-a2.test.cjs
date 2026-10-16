@@ -8,7 +8,7 @@ const withSettings = (patch, extra = {}) => ({ orders: [], customers: {}, ...ext
 const ALL = CS.FOLLOW_ACTIONS.map(([key]) => key);
 
 test('FOLLOW_ACTIONS lists the seven actions in order', () => {
-  assert.deepEqual(ALL, ['followup', 'mailSent', 'mailReceived', 'chat', 'order', 'opportunity', 'claim']);
+  assert.deepEqual(ALL, ['followup', 'mailSent', 'mailReceived', 'chatSent', 'chatReceived', 'order', 'opportunity', 'claim']);
   assert.equal(CS.FOLLOW_ACTIONS[0][1], '写跟进');
   assert.ok(Object.isFrozen(CS.FOLLOW_ACTIONS));
 });
@@ -16,7 +16,7 @@ test('FOLLOW_ACTIONS lists the seven actions in order', () => {
 test('defaults for every new key, also from missing or broken data', () => {
   for (const state of [{}, null, withSettings(null), withSettings({ followRules: 5, dealRule: 'x', activity: [], followup: 'bad' })]) {
     const s = CS.get(state);
-    assert.deepEqual(s.followRules, { contact: ALL, followup: ['followup', 'mailSent', 'chat'] });
+    assert.deepEqual(s.followRules, { contact: ALL, followup: ['followup', 'mailSent', 'chatSent'] });
     assert.deepEqual(s.dealRule, { by: 'order' });
     assert.deepEqual(s.activity, { autoMail: false, since: '' });
     assert.deepEqual(s.followup, { allowPastTime: false, templates: [] });
@@ -37,7 +37,7 @@ test('normalization drops unknown keys, keeps order, and falls back when empty',
     ] },
   }));
   assert.deepEqual(s.followRules.contact, ['followup', 'claim']);
-  assert.deepEqual(s.followRules.followup, ['followup', 'mailSent', 'chat']);
+  assert.deepEqual(s.followRules.followup, ['followup', 'mailSent', 'chatSent']);
   assert.equal(s.dealRule.by, 'order');
   assert.deepEqual(s.activity, { autoMail: true, since: '' });
   assert.equal(s.followup.allowPastTime, false);
@@ -47,11 +47,11 @@ test('normalization drops unknown keys, keeps order, and falls back when empty',
 
 test('setFollowRules validates each list and does not touch the other', () => {
   const state = CS.setFollowRules({}, { contact: ['mailSent'], followup: ['chat', 'followup', 'zzz'] });
-  assert.deepEqual(CS.get(state).followRules, { contact: ['mailSent'], followup: ['followup', 'chat'] });
+  assert.deepEqual(CS.get(state).followRules, { contact: ['mailSent'], followup: ['followup', 'chatSent', 'chatReceived'] });
   assert.throws(() => CS.setFollowRules({}, { contact: [], followup: ['chat'] }), /请至少选一项“算作最近联系”的动作/);
   assert.throws(() => CS.setFollowRules({}, { contact: ['chat'], followup: ['zzz'] }), /请至少选一项“算作最近跟进”的动作/);
   const only = CS.setFollowRules(state, { contact: ['chat'] });
-  assert.deepEqual(CS.get(only).followRules.followup, ['followup', 'chat']);
+  assert.deepEqual(CS.get(only).followRules.followup, ['followup', 'chatSent', 'chatReceived']);
 });
 
 const customerState = (rules, extra = {}) => ({
@@ -94,7 +94,8 @@ test('contactTimes: each action on its own', () => {
   assert.equal(only('followup'), '2026-09-01T00:00:00Z');
   assert.equal(only('mailSent'), '2026-09-02T00:00:00Z');
   assert.equal(only('mailReceived'), '2026-09-03T00:00:00Z');
-  assert.equal(only('chat'), '2026-09-05T00:00:00Z');
+  assert.equal(only('chatSent'), '2026-09-05T00:00:00Z');
+  assert.equal(only('chatReceived'), '');
   assert.equal(only('order'), '2026-09-08T00:00:00Z');
   assert.equal(only('opportunity'), '2026-09-10T00:00:00Z');
   assert.equal(only('claim'), '2026-09-06T00:00:00Z');
@@ -235,4 +236,51 @@ test('a follow-up time saved on the profile (imported customers without history)
   assert.equal(CS.contactTimes(state, 'Old').lastContact, '2026-10-01T00:00:00.000Z');
   const off = { ...state, laiSettings: { customerSettings: { followRules: { contact: ['mailSent'] } } } };
   assert.equal(CS.contactTimes(off, 'Old').lastContact, '');
+});
+
+// ---------- WhatsApp: chat split into sent / received ----------
+const waState = (history, rules) => ({
+  orders: [], customers: { Acme: { history } },
+  ...(rules ? { laiSettings: { customerSettings: { followRules: rules } } } : {}),
+});
+const waEntry = (o) => ({ type: 'chat', subtype: 'whatsapp', channel: 'WhatsApp', lines: [], ...o });
+
+test('saved rule lists with the old chat key are read as both new keys', () => {
+  const s = CS.get({ laiSettings: { customerSettings: { followRules: { contact: ['chat'], followup: ['followup', 'chat'] } } } });
+  assert.deepEqual(s.followRules.contact, ['chatSent', 'chatReceived']);
+  assert.deepEqual(s.followRules.followup, ['followup', 'chatSent', 'chatReceived']);
+  assert.deepEqual(CS.get({}).followRules.followup, ['followup', 'mailSent', 'chatSent']);
+  assert.deepEqual(CS.get({}).followRules.contact, ALL);
+});
+
+test('direction-aware chat times; old chat and call entries count as sent', () => {
+  const history = [
+    waEntry({ time: '2026-09-05T10:00:00Z', lastSentAt: '2026-09-04T10:00:00Z', lastReceivedAt: '2026-09-05T10:00:00Z' }),
+    { type: 'chat', time: '2026-09-02T00:00:00Z' },
+    { type: 'call', date: '2026-09-03T00:00:00Z' },
+  ];
+  const only = (key) => CS.contactTimes(waState(history, { contact: [key], followup: [key] }), 'Acme').lastContact;
+  assert.equal(only('chatSent'), '2026-09-04T10:00:00Z');
+  assert.equal(only('chatReceived'), '2026-09-05T10:00:00Z');
+});
+
+test('received-only chat does not reset 最近跟进 but resets 最近联系', () => {
+  const state = waState([
+    { type: 'followup', time: '2026-09-01T00:00:00Z' },
+    waEntry({ time: '2026-09-09T00:00:00Z', lastReceivedAt: '2026-09-09T00:00:00Z' }),
+  ]);
+  assert.deepEqual(CS.contactTimes(state, 'Acme'), { lastContact: '2026-09-09T00:00:00Z', lastFollowup: '2026-09-01T00:00:00Z' });
+});
+
+test('segments derive WhatsApp dates from whatsapp chat entries only', () => {
+  const state = waState([
+    waEntry({ time: '2026-09-05T10:00:00Z', lastSentAt: '2026-09-04T10:00:00Z', lastReceivedAt: '2026-09-05T10:00:00Z' }),
+    waEntry({ subtype: 'whatsappgroup', time: '2026-09-07T10:00:00Z', lastSentAt: '2026-09-07T10:00:00Z' }),
+    { type: 'chat', time: '2026-09-20T10:00:00Z' },
+  ]);
+  const row = S.enrich(M.buildCustomers(state), state).find((r) => r.name === 'Acme');
+  const local = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  assert.equal(row.lastWhatsAppSent, local('2026-09-07T10:00:00Z'));
+  assert.equal(row.lastWhatsAppReceived, local('2026-09-05T10:00:00Z'));
+  assert.equal(row.lastWhatsAppContact, local('2026-09-07T10:00:00Z'));
 });
