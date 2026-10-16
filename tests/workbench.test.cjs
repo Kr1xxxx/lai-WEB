@@ -98,3 +98,29 @@ test('every dashboard button the workbench draws is handled by the controller', 
   }
   for (const action of new Set([...html.matchAll(/data-biz-action="([^"]+)"/g)].map((m) => m[1]))) assert.ok(ui.includes(`action === "${action}"`), action);
 });
+
+test('进行中商机 counts open opportunities in every flow and currency, skipping archived, won and lost ones', () => {
+  let state = base();
+  state = OM.addFlow(state, { label: '样品单' }, { id: 'fs' });
+  const opp = (id, extra) => ({ id, name: 'Opp ' + id, client: 'C', amount: 100, currency: 'USD', stage: 'open', ...extra });
+  state.laiOpportunities = [
+    opp('a', { amount: 1000 }),
+    opp('b', { stage: 'unpaid', amount: 500 }),
+    opp('c', { currency: 'EUR', amount: 300 }),
+    opp('d', { flow: 'fs', amount: 200 }),
+    opp('e', { flow: 'fs', currency: 'CNY', stage: 'unpaid', amount: 700 }),
+    opp('f', { stage: 'lost' }),
+    opp('g', { stage: 'done' }),
+    opp('h', { archived: true }),
+  ];
+  const pick = (html) => /<span>进行中商机<\/span><strong class="wb-num"[^>]*>(\d+)<\/strong><small[^>]*>([^<]*)<\/small>/.exec(html);
+  const m = pick(build(state, null));
+  assert.equal(m[1], '5', 'a, b, c, d, e are open and not archived');
+  assert.match(m[2], /USD 1,700/);
+  assert.match(m[2], /EUR 300/);
+  assert.match(m[2], /CNY 700/);
+  // No opportunities at all: zero and a dash, no crash.
+  const none = pick(build(base(), null));
+  assert.equal(none[1], '0');
+  assert.equal(none[2], '—');
+});

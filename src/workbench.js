@@ -73,9 +73,21 @@
     } catch {
       board = null;
     }
-    const openColumns = board ? board.columns.filter((c) => c.kind === "open") : [];
-    const openCount = openColumns.reduce((n, c) => n + c.count, 0);
-    const oppNote = board ? `${board.currency} ${symbolMoney(board.totals.open, board.currency).replace(board.currency + " ", "")}` : "—";
+    // 进行中商机：所有销售流程、所有币种里没归档、阶段属于「进行中」的商机；金额按币种分别写，不折算。
+    let openItems = [];
+    try {
+      openItems = OM.list(state).filter((item) => item.archived !== true && OM.stageOf(state, item).kind === "open");
+    } catch {
+      openItems = [];
+    }
+    const openCount = openItems.length;
+    const openByCurrency = new Map();
+    for (const item of openItems) {
+      const code = OM.currencyOf(item);
+      const amount = Number(item.amount);
+      openByCurrency.set(code, (openByCurrency.get(code) || 0) + (Number.isFinite(amount) && amount > 0 ? amount : 0));
+    }
+    const oppNote = openByCurrency.size ? [...openByCurrency].map(([code, total]) => `${code} ${num(total)}`).join(" · ") : "—";
 
     const unread = mail && Number.isFinite(mail.unread) ? mail.unread : null;
     const pending = mail && Number.isFinite(mail.pending) ? mail.pending : null;

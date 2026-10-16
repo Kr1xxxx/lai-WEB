@@ -29,7 +29,7 @@ const settings = async () => (await app.readData()).laiSettings.productSettings;
 const csv = (name, text) => { const file = path.join(temp, name); fs.writeFileSync(file, text); return file; };
 
 test('the product page has six tabs in the 小满 order', async () => {
-  assert.deepEqual(await app.page.locator('[data-prod-tab]').allInnerTexts(), ['产品列表', '产品分组', '同步', '产品字段', '规格管理', '布局']);
+  assert.deepEqual(await app.page.locator('[data-prod-tab]').allInnerTexts(), ['产品列表', '产品分组', '导入产品', '产品字段', '规格管理', '布局']);
 });
 
 test('sync from a CSV: preview shows 新建 2 / 更新 1, confirm writes, the task is listed, undo restores', async () => {
@@ -46,7 +46,7 @@ test('sync from a CSV: preview shows 新建 2 / 更新 1, confirm writes, the ta
   assert.equal((await products()).length, 1);
 
   await tab('sync');
-  assert.match(await page.locator('.cs-empty').innerText(), /还没有同步过/);
+  assert.match(await page.locator('.cs-empty').innerText(), /还没有导入过/);
   await page.locator('[data-prod-action="sync-open"]').click();
   await page.locator('#prod-sync-file').waitFor();
   const file = csv('products.csv', '产品名称,产品编号,离岸价,没用的列\n新睫毛,N-1,2.5,x\n新胶水,N-2,,x\n胶水新名,E-1,3,x\n,N-3,4,x\n');

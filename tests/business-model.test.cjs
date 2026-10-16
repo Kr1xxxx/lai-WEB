@@ -135,3 +135,24 @@ test('order client matches existing customer by normalised name and refuses tras
  const n=B.upsertOrder(s0,'z',{num:'Z1',client:'New Co',amount:5});
  assert.ok(Object.hasOwn(n.customers,'New Co'));
 });
+test('nextOrderNumber: first number, max+1 (not count+1), and the archive/deleted cases',()=>{
+ assert.equal(B.nextOrderNumber({},'L','2026-10-16'),'L20261016-001');
+ assert.equal(B.nextOrderNumber({},'','2026-10-16'),'L20261016-001');
+ // Count would give 003, but the highest sequence is 005.
+ const gap={orders:[{id:'a',num:'L20261016-001'},{id:'b',num:'L20261016-005'}]};
+ assert.equal(B.nextOrderNumber(gap,'L','2026-10-16'),'L20261016-006');
+ // Other dates and prefixes do not count.
+ const other={orders:[{id:'a',num:'L20261015-009'},{id:'b',num:'X20261016-007'},{id:'c',num:'SO1'}]};
+ assert.equal(B.nextOrderNumber(other,'L','2026-10-16'),'L20261016-001');
+ // Archived (trash) and deleted orders keep their numbers: an order archived today must not be reused.
+ const archived=B.archiveOrder({orders:[{id:'a',num:'L20261016-001',client:'A'},{id:'b',num:'L20261016-002',client:'A'}]},'b');
+ assert.equal(archived.orders.length,1);
+ assert.equal(B.nextOrderNumber(archived,'L','2026-10-16'),'L20261016-003');
+ const deleted={orders:[],trashOrders:[{id:'t',num:'L20261016-004'}],deletedOrders:[{id:'d',num:'l20261016-007'}]};
+ assert.equal(B.nextOrderNumber(deleted,'L','2026-10-16'),'L20261016-008');
+ // The suggestion can be saved.
+ const state=B.upsertOrder(archived,'new',{num:B.nextOrderNumber(archived,'L','2026-10-16'),client:'A',amount:1});
+ assert.ok(state.orders.some(o=>o.num==='L20261016-003'));
+ // Sequences past 999 keep growing.
+ assert.equal(B.nextOrderNumber({orders:[{id:'z',num:'L20261016-999'}]},'L','2026-10-16'),'L20261016-1000');
+});

@@ -116,10 +116,10 @@ test('readTable: headers match by label, label without unit, or key; template he
 
 test('sync limits: 2000 rows at most, nothing to sync is an error, the product cap is respected', () => {
   const many = Array.from({ length: 2001 }, (_, i) => rec({ name: `P${i}` }, i + 2));
-  assert.throws(() => P.planSync({}, many, {}), /最多同步 2000 行/);
-  assert.throws(() => P.readTable({}, ['产品名称'], many.map((r) => [r.values.name])), /最多同步 2000 行/);
+  assert.throws(() => P.planSync({}, many, {}), /最多导入 2000 行/);
+  assert.throws(() => P.readTable({}, ['产品名称'], many.map((r) => [r.values.name])), /最多导入 2000 行/);
   assert.equal(P.planSync({}, many.slice(0, 2000), {}).counts.new, 2000);
-  assert.throws(() => P.syncProducts({}, [rec({ code: 'x' }, 2)], {}), /没有能同步的产品/);
+  assert.throws(() => P.syncProducts({}, [rec({ code: 'x' }, 2)], {}), /没有能导入的产品/);
   const full = { laiProducts: Array.from({ length: P.LIMITS.products }, (_, i) => ({ id: `x${i}`, name: `n${i}`, code: `c${i}` })) };
   const plan = P.planSync(full, [rec({ name: 'new' }, 2), rec({ name: 'n1x', code: 'c1' }, 3)], {});
   assert.deepEqual(plan.rows.map((r) => r.status), ['skip', 'update']);
@@ -305,8 +305,8 @@ test('layout settings survive other settings changes', () => {
 });
 
 // ---------- 页面文字 ----------
-test('tabs: 产品列表 | 产品分组 | 同步 | 产品字段 | 规格管理 | 布局, all render without placeholders', () => {
-  assert.deepEqual(UI.TABS.map((t) => t[1]), ['产品列表', '产品分组', '同步', '产品字段', '规格管理', '布局']);
+test('tabs: 产品列表 | 产品分组 | 导入产品 | 产品字段 | 规格管理 | 布局, all render without placeholders', () => {
+  assert.deepEqual(UI.TABS.map((t) => t[1]), ['产品列表', '产品分组', '导入产品', '产品字段', '规格管理', '布局']);
   let s = make({}, '<b>x</b>', { code: 'A' });
   s = P.syncProducts(s, [rec({ name: '<i>y</i>', code: 'B' }, 2)], { fileName: '<f>.csv', at: T2 }).state;
   s = P.addLayout(s, { name: '<u>布局</u>', id: 'L' });
@@ -319,12 +319,12 @@ test('tabs: 产品列表 | 产品分组 | 同步 | 产品字段 | 规格管理 |
 });
 
 test('sync tab: empty hint, task table, undo only on the newest task and it asks twice', () => {
-  assert.ok(ui.pageMarkup({}, { tab: 'sync' }).includes('还没有同步过'));
+  assert.ok(ui.pageMarkup({}, { tab: 'sync' }).includes('还没有导入过'));
   assert.ok(ui.pageMarkup({}, { tab: 'sync' }).includes('data-prod-action="sync-open"'));
   let s = P.syncProducts({}, [rec({ name: 'A' }, 2)], { fileName: 'one.csv', at: T2 }).state;
   s = P.syncProducts(s, [rec({ name: 'B' }, 2)], { fileName: 'two.csv', at: T3 }).state;
   const html = ui.pageMarkup(s, { tab: 'sync', armed: '' });
-  for (const head of ['任务名称', '同步时间', '状态', '产品数', '新建数', '更新数', '跳过数', '来源', '操作']) assert.ok(html.includes(`<th>${head}</th>`), head);
+  for (const head of ['任务名称', '导入时间', '状态', '产品数', '新建数', '更新数', '跳过数', '来源', '操作']) assert.ok(html.includes(`<th>${head}</th>`), head);
   assert.equal((html.match(/data-prod-action="sync-undo"/g) || []).length, 1, 'only the newest');
   const id = s.laiProductSyncTasks[0].id;
   assert.ok(html.includes(`data-id="${id}"`));
@@ -344,8 +344,8 @@ test('sync dialog: preview counts, skip reasons, ignored columns; confirm is off
   assert.ok(html.includes('新建 2') && html.includes('更新 1') && html.includes('跳过 0'));
   assert.ok(html.includes('备注列') && html.includes('type="file"') && html.includes('下载模板'));
   assert.ok(html.includes('按产品编号匹配：有就更新，没有就新建') && html.includes('全部新建'));
-  assert.ok(ui.syncFooter(draft).includes('确认同步（新建 2、更新 1）'));
-  assert.ok(!ui.syncFooter({ plan: null }).includes('确认同步（') && ui.syncFooter({ plan: null }).includes('disabled'));
+  assert.ok(ui.syncFooter(draft).includes('确认导入（新建 2、更新 1）'));
+  assert.ok(!ui.syncFooter({ plan: null }).includes('确认导入（') && ui.syncFooter({ plan: null }).includes('disabled'));
   const bad = { fileName: '', mode: 'code', records: null, plan: null, ignored: [], hidden: [], error: '文件不能超过 5 MB' };
   assert.ok(ui.syncMarkup(s, bad).includes('文件不能超过 5 MB'));
 });
