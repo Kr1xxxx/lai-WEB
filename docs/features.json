@@ -780,6 +780,23 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "custom-fields",
+   "area": "customers",
+   "description": "客户设置 → 字段设置: custom customer fields (文本/多行文本/数字/日期/单选/多选) and required switches for common system fields; role field permissions per custom field",
+   "steps": [
+    "客户设置 → 字段设置: add a text field and a multi-select field with options",
+    "Open a customer's editor: fill both fields, save; the detail 资料 tab shows them",
+    "Make 联系人邮箱 required: clearing it in the editor fails with 请填写联系人邮箱; an old customer without email can still save another edit",
+    "批量建档 still creates customers without the required fields",
+    "As 业务 with a custom field set to 隐藏: the field is not in the editor or detail and its value is kept"
+   ],
+   "e2e": "custom-fields.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

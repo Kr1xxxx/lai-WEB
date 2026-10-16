@@ -451,12 +451,19 @@
   };
   // 字段权限分“客户”和“公海客户”两套：档案在公海里按公海的，其余按客户的。
   const moduleOf = (target) => target === "pool" || target === "customer" ? target : target && target.laiBucket === "pool" ? "pool" : "customer";
+  const fieldModel = () => {
+    if (root.LaiFieldModel) return root.LaiFieldModel;
+    try { return typeof require === "function" ? require("./field-model.js") : null; } catch (_) { return null; }
+  };
+  const customFieldsOf = (state) => { try { return fieldModel()?.get(state, "customer").customFields || []; } catch (_) { return []; } };
   function roleFieldList(state, module) {
     if (module !== "customer" && module !== "pool") return [];
     return [
       ...roleCompanyFields.map(([key, label]) => ({ key, label, group: "公司信息" })),
       ...roleTradeFields.map(([key, label]) => ({ key, label, group: "交易偏好" })),
       ...roleContactFields.map(([key, label]) => ({ key: "contact." + key, label, group: "联系人" })),
+      // 自定义字段（客户设置 → 字段设置）：键是 custom.<字段ID>，值在档案的 custom 里。
+      ...customFieldsOf(state).map((field) => ({ key: "custom." + field.id, label: field.name, group: "自定义字段" })),
     ];
   }
   // 列表列（id）→ 字段权限的键。没列出的列（公司名称、国家、跟进人、各种时间……）始终可见。
@@ -535,9 +542,23 @@
     module = module || moduleOf(before || after);
     const locked = R.lockedFields(state, module);
     if (!locked.length) return after;
-    const company = locked.filter((key) => !key.startsWith("contact."));
+    const company = locked.filter((key) => !key.startsWith("contact.") && !key.startsWith("custom."));
+    const customIds = locked.filter((key) => key.startsWith("custom.")).map((key) => key.slice(7));
     const contact = lockedContactKeys(state, module);
     let out = company.length ? R.keepLocked(state, module, before, after, company) : after;
+    // 自定义字段的值在档案的 custom 里：锁住的那几项用原来的值（原来没有就去掉）。
+    if (customIds.length) {
+      const plainObject = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+      const old = plainObject(before?.custom), now = plainObject(out.custom);
+      if (old || now) {
+        const custom = { ...(now || {}) };
+        for (const id of customIds) {
+          if (old && Object.hasOwn(old, id)) custom[id] = old[id];
+          else delete custom[id];
+        }
+        out = { ...out, custom };
+      }
+    }
     if (!contact.length) return out;
     out = { ...out };
     const restore = (target, source, props) => {

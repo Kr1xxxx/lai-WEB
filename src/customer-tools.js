@@ -84,6 +84,14 @@ function mergeCustomers(state,primary,others,at=new Date().toISOString()){
     const hit=srcs.find(s=>trim(s.p[key]));
     if(hit)base[key]=hit.p[key];
   }
+  // 自定义字段：保留客户已填的优先；空着的用被合并客户补上（按所选顺序，第一个有值的）。设置里已删的字段的值也一样带上。
+  const customOf=p=>p&&p.custom&&typeof p.custom==='object'&&!Array.isArray(p.custom)?p.custom:{};
+  const filledValue=v=>Array.isArray(v)?v.length>0:v!==undefined&&v!==null&&trim(v)!=='';
+  if(srcs.some(s=>Object.keys(customOf(s.p)).length)){
+    const custom={...customOf(base)};
+    for(const s of srcs)for(const [id,v] of Object.entries(customOf(s.p)))if(!filledValue(custom[id])&&filledValue(v))custom[id]=Array.isArray(v)?[...v]:v;
+    base.custom=custom;
+  }
   if(!trim(base.country)){const row=M.buildCustomers(state).find(c=>c.name===primary);if(row&&trim(row.country))base.country=row.country;}
   if(srcs.some(s=>s.p.previewFollowed===true))base.previewFollowed=true;
   for(const [key,label] of NOTE_KEYS){
