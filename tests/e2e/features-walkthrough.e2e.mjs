@@ -320,7 +320,9 @@ test('workbench: the numbers follow a new order and a new task', async () => {
     await page.locator('.wb-task', { hasText: '寄样品给 Northwind' }).waitFor();
     await shot(app, 'workbench-after');
     // Completing the task from the workbench lowers the count again.
-    await page.locator('.wb-task', { hasText: '寄样品给 Northwind' }).locator('input[type=checkbox]').check({ force: true });
+    // click, not check(): the saved task leaves the list at once, so check() could not read the box back; the save is
+  // asserted right below.
+  await page.locator('.wb-task', { hasText: '寄样品给 Northwind' }).locator('input[type=checkbox]').click({ force: true });
     await until(app, (d) => (d.laiTasks || []).some((t) => t.done), 'task done saved');
     await page.waitForTimeout(300);
     assert.equal(await statValue(app, '待办任务'), '0');

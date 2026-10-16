@@ -4347,6 +4347,7 @@
     box.innerHTML = html;
     document.body.append(box);
     positionPopover(box, anchor);
+    box._anchorBounds = anchor.getBoundingClientRect();
     return box;
   }
   function positionPopover(box, anchor) {
@@ -5244,7 +5245,9 @@
     "scroll",
     (e) => {
       if (!e.target.closest?.(".lai-select-menu,.lai-suggestions,.popover")) {
-        const filter = $(".activity-filter-popover");
+        // A scroll can arrive just after a popup opens (layout settling, scroll into view): close it only when
+        // its anchor really moved.
+        const filter = $(".activity-filter-popover") || $(".popover");
         const origin = filter?._anchorBounds;
         if (origin && !filter.inert && filter._trigger?.isConnected) {
           const current = filter._trigger.getBoundingClientRect();
