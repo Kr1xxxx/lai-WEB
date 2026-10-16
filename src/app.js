@@ -175,9 +175,12 @@
   }
   // ---- 角色权限（测试账号）：当前账号能看哪些客户、能做哪些操作。规则都在 role-model.js，这里只在界面上用上。 ----
   const R = window.LaiRoleModel;
+  // 功能开关（feature-switch-model.js）：模块关了，对所有账号（包括管理员）都算没有这个权限；它在装载时已把 R.can / R.canOpen 包了一层。
+  const FS = window.LaiFeatureSwitch;
+  const modOn = (module) => FS.enabled(state, module);
   const can = (key) => R.can(state, key);
-  // 有权限返回 true；没有就提示原因并返回 false，调用处直接 return。
-  const allow = (key) => can(key) || (toast(R.denied(key)), false);
+  // 有权限返回 true；没有就提示原因并返回 false，调用处直接 return。模块关了的，提示“这个功能已关闭”。
+  const allow = (key) => can(key) || (toast(FS.keyOn(state, key) ? R.denied(key) : "这个功能已关闭"), false);
   // 没权限的按钮不画出来。
   const showIf = (key, html) => (can(key) ? html : "");
   function status(text, error = false) {
@@ -2216,7 +2219,9 @@
     taskAutoRunning = true;
     try {
       if (separateCustomerWindow || pending || hasUnsavedWork() || !TR.due(state)) return;
-      const result = TR.run(state);
+      // 用到关着的模块的规则（商机快到结束日期）这次不跑；规则的开关不动，模块重新打开后接着跑。
+      const result = FS.runTaskRules(TR, state);
+      if (!result) return;
       // 只加待办和改规则的运行记录，不动客户资料，所以走默认的字段保护也不会改到什么。
       await persist(result.state);
       if (result.created.length && ["calendar", "dashboard", "task-settings"].includes(activeRoute)) refresh();
@@ -2243,7 +2248,7 @@
   let autoRecordingMail = false;
   async function autoRecordMails(items) {
     const since = CS.autoMailSince(state);
-    if (!since || autoRecordingMail || hasUnsavedWork()) return 0;
+    if (!since || autoRecordingMail || hasUnsavedWork() || !modOn("mail")) return 0;
     const plan = window.LaiMailUI.autoRecordPlan({
       customers: state.customers,
       messages: items,
@@ -2268,6 +2273,13 @@
       autoRecordingMail = false;
     }
   }
+  // 邮件功能开着才定时检查新邮件；关着就一次也不向邮件服务发请求。只开始一次，之后开关多少次都不重复。
+  let mailChecksStarted = false;
+  function startMailChecks() {
+    if (mailChecksStarted || !modOn("mail")) return;
+    mailChecksStarted = true;
+    mail?.start().catch(() => {});
+  }
   async function boot() {
     try {
       const response = await fetch("/api/data", { cache: "no-store" });
@@ -2287,7 +2299,7 @@
       await autoRunPoolRules();
       startPoolAutoRun();
       // 绑定了邮箱就开始定时检查新邮件（没绑定或关掉了自动检查时什么也不做）。
-      mail?.start().catch(() => {});
+      startMailChecks();
     } catch (err) {
       $("#app").innerHTML =
         `<div class="boot"><div><h3>暂时无法载入客户</h3><p>${E(err.message)}</p><p class="muted tiny">请关闭后重新打开来财Lai。</p></div></div>`;
@@ -3801,8 +3813,9 @@
   // 客户设置页：有「客户设置」「判重设置」「来源设置」任意一项权限就能打开，页里只显示有权限的页签。
   const csCanOpen = () => ["settings.customer", "settings.dedupe", "settings.source"].some((key) => R.can(state, key));
   const isCustomerSettings = (kind, target) => kind === "screen" && target === "customer-settings";
+  // 能打开 = 角色有权限 并且 模块开着（功能开关）。
   const entryAllowed = (row) =>
-    row.kind === "feature" || (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target));
+    row.kind === "feature" || (FS.entryOn(state, row.kind, row.target) && (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target)));
   const menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed) ?? null;
   const favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed);
   // 整个菜单里的入口都打不开：左侧栏不显示这个菜单。
@@ -4061,7 +4074,7 @@
     if (!section) return "";
     section.entries = section.entries.filter(entryAllowed);
     if (!section.entries.length) return "";
-    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", chats: "chat", "chat-templates": "folder" };
+    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", "feature-switch": "settings", chats: "chat", "chat-templates": "folder" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
@@ -4083,6 +4096,12 @@
   // 其他模块登记的页面（window.LaiExtraPages，见 business-ui.js）：不在左侧栏里，但地址栏和页面内的链接可以打开。
   const isBusinessRoute = (route) => businessRoutes.has(route) || (!!route && Object.hasOwn(window.LaiExtraPages || {}, route));
   async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
+    // 功能开关关掉的模块：地址栏、链接直接打开也不行，提示一下回工作台。
+    if (!FS.routeOn(state, route)) {
+      toast("这个功能已关闭");
+      if (route === "dashboard") return false;
+      return navigateApp("dashboard");
+    }
     // 离开邮件页时，正在写的信自动存成草稿；存不下来就留在原地。
     if (activeRoute === "mail" && mail?.composing() && !(await mail.leave())) return false;
     if (!(await window.flushPendingSave())) return false;
@@ -4198,6 +4217,10 @@
     hideRailFlyout();
     removePopover();
     rebuildRows();
+    // 邮件功能刚打开：开始定时检查新邮件。
+    startMailChecks();
+    // 邮件关了：客户动态不停在“往来邮件”上。
+    if (!modOn("mail") && activityFilter === "email") activityFilter = "all";
     if (!currentPageAllowed()) {
       favoritesMode = false;
       return navigateApp("dashboard");
@@ -5136,6 +5159,7 @@
     }
     // 客户列表批量栏与客户详情里的「写邮件」：一位客户直接写信，多位走群发。
     if (d.feature === "写邮件") {
+      if (!modOn("mail")) return toast("这个功能已关闭");
       const fromList = !!el.closest(".replica-batch"), name = currentName;
       return mail.composeFor(fromList ? [...selected] : name ? [name] : [], e.detail > 0, () => navigateApp("customers", fromList ? "" : name, false));
     }
@@ -5625,6 +5649,7 @@
     // 工作台的未读邮件卡片：邮件页打开过就用它已有的数字，邮件列表向本机邮件服务要。
     mailCounts: () => mail?.counts?.() || null,
     mailSummary: async () => {
+      if (!modOn("mail")) return null;
       const response = await fetch("/api/mail/messages?folder=unread&page=1", { cache: "no-store" });
       const data = await response.json();
       if (!data?.ok) return null;
@@ -5644,10 +5669,13 @@
     // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
     createEditor: (node, bar, html) => window.LaiMailEditor.create(node, bar, html),
     editorToolbar: () => window.LaiMailEditor.toolbar(),
+    // 邮件功能关了就不向邮件服务发任何请求（定时检查、读取状态都在这里挡住）。
     request: (path, payload) =>
-      fetch(path, payload === undefined
-        ? { cache: "no-store" }
-        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+      !modOn("mail")
+        ? Promise.reject(new Error("这个功能已关闭"))
+        : fetch(path, payload === undefined
+          ? { cache: "no-store" }
+          : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
     isActive: () => activeRoute === "mail",
     hasDialog: () => !!modal,
     customerRows: () => allCustomerRows(),

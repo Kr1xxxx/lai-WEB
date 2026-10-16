@@ -3,6 +3,9 @@
 // 客户设置页的页面文字（HTML）。只生成字符串，不碰页面、不保存；点击和保存在 app.js 里接。
 const CS = typeof module !== "undefined" && module.exports ? require("./customer-settings-model.js") : root.LaiCustomerSettings;
 const identity = (v) => String(v ?? "");
+// 功能开关：线索关了，判重页签里不显示“新线索与已有客户”；商机关了，成交规则页提示现在按订单算。
+const FSW = typeof module !== "undefined" && module.exports ? require("./feature-switch-model.js") : root.LaiFeatureSwitch;
+const switchOn = (state, module) => !FSW || FSW.enabled(state, module);
 
 // 页签顺序跟小满一致；每个页签都是真能用的设置。
 const TABS = Object.freeze([
@@ -123,12 +126,13 @@ function sourcesTab(state, ui, E) {
   return `<form class="cs-add" data-cs-form="add-source"><input name="name" placeholder="新一级来源名称" maxlength="20" aria-label="新来源名称" autocomplete="off"><button type="submit" class="primary">添加</button></form>${subForm}${list.length ? `<ul class="cs-list cs-tree">${rows}</ul><p class="cs-hint">隐藏后，新建时选不到，但已经在用的客户不受影响。名单里没有的来源仍可以手填。</p>` : empty("还没有来源名单。现在下拉里列的是已经用过的来源；添加后只列这里的。")}`;
 }
 function dedupeTab(state, ui, E) {
-  const sub = ui && ui.dedupeSub === "lead" ? "lead" : "customer";
+  const leadOn = switchOn(state, "lead");
+  const sub = ui && ui.dedupeSub === "lead" && leadOn ? "lead" : "customer";
   const modes = CS.get(state)[sub === "lead" ? "leadDedupe" : "dedupe"];
   const radio = (key, value, text) => `<label class="check-row"><input type="radio" name="dedupe:${key}" value="${value}"${modes[key] === value ? " checked" : ""}> ${text}</label>`;
   const rowsOf = (fields) => fields.map(([key, label]) => `<tr><td>${E(label)}</td><td>${radio(key, "allow", "判重，允许保存")}</td><td>${radio(key, "block", "判重，不允许保存")}</td><td>${radio(key, "off", "不判重")}</td></tr>`).join("");
   const subTab = (id, text) => `<button type="button" role="tab" data-cs-dedupe-sub="${id}" aria-selected="${sub === id}" class="${sub === id ? "active" : ""}">${text}</button>`;
-  const tabs = `<div class="cs-subtabs" role="tablist" aria-label="判重对象">${subTab("customer", "新客户与已有客户")}${subTab("lead", "新线索与已有客户")}</div>`;
+  const tabs = `<div class="cs-subtabs" role="tablist" aria-label="判重对象">${subTab("customer", "新客户与已有客户")}${leadOn ? subTab("lead", "新线索与已有客户") : ""}</div>`;
   const head = '<thead><tr><th>资料</th><th colspan="3">重复时</th></tr></thead>';
   if (sub === "lead") {
     return `${tabs}<form class="cs-dup" data-cs-form="lead-dedupe"><table class="cs-table cs-dedupe">${head}<tbody>${rowsOf(CS.LEAD_DEDUPE_FIELDS)}</tbody></table><p class="cs-hint">新建或修改线索时，按这里的规则和已有客户比对。</p>${saveRow()}</form>`;
@@ -224,7 +228,7 @@ function followTab(state, E) {
 function dealTab(state) {
   const by = CS.get(state).dealRule.by;
   const radio = (value, text) => `<label class="check-row"><input type="radio" name="dealBy" data-cs-deal="${value}"${by === value ? " checked" : ""}> ${text}</label>`;
-  return `<div class="cs-dup">${radio("order", "按订单（发货或完成的订单）")}${radio("opportunity", "按商机（赢单的商机）")}</div><p class="cs-hint">决定公海规则里“多少天没有成交”和客户详情里的“最近成交时间”。选中后马上生效。</p>`;
+  return `<div class="cs-dup">${radio("order", "按订单（发货或完成的订单）")}${radio("opportunity", "按商机（赢单的商机）")}</div><p class="cs-hint">决定公海规则里“多少天没有成交”和客户详情里的“最近成交时间”。选中后马上生效。</p>${by === "opportunity" && !switchOn(state, "opp") ? '<p class="cs-hint" data-cs-deal-off>商机功能已关闭，现在先按订单算；重新打开商机后恢复按商机算。</p>' : ""}`;
 }
 const stamp = (iso) => {
   const d = new Date(iso);

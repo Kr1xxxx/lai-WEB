@@ -834,6 +834,26 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "feature-switch",
+   "area": "settings",
+   "description": "设置 → 功能开关 (FS): switch 线索, 商机, 产品, 单据, 邮件, 沟通, 团队数据 off; they leave the rail, flyouts, 设置中心, 常用 (read time), workbench and customer detail; direct links say 这个功能已关闭; no mail requests while 邮件 is off; data is kept",
+   "steps": [
+    "As the administrator open 设置 → 功能开关: seven switches, all 已开启, the sentence 关掉后，这个功能不再显示；数据都保留，重新打开就能用。 and a note that 客户、订单、工作台、协同、设置、企业管理不能关闭",
+    "Switch 商机 off: 商机 leaves the left rail at once; 商机设置 is gone from 设置中心; the workbench has no 商机阶段 / 进行中商机 / 新建商机; a customer's detail has no 进行中的商机 card; opening #opportunities shows 这个功能已关闭 and lands on the workbench",
+    "Mark 线索, 产品 and 邮件 entries as 常用, then switch each off: they disappear from 常用 but come back, in the same order, when switched on again",
+    "Switch 产品 off: 交易 keeps 全部订单, 订单回收站, 单据模板, 汇率设置 but not 产品; the order form takes the product as free text. Switch 单据 off: 生成单据 is gone from the order form",
+    "Switch 邮件 off and reload: no request to /api/mail is made, the workbench has no 未读邮件, the customer detail has no 写邮件 or 往来邮件; switch it on and the mail checks start again",
+    "Switch 线索 off: Leads and 线索 leave the rail and 客户设置 → 判重设置 shows no 新线索与已有客户 tab. Switch 商机 off with 客户设置 → 成交规则 set to 按商机: 最近成交时间 follows the orders until 商机 is on again",
+    "Turn the task rule 商机快到结束日期 on, switch 商机 off: reloading creates no task for it and the rule stays switched on; switch 商机 on and reload: the task is created",
+    "Switch everything off and on again: leads, opportunities, products, customers, orders and 常用 are the same as before"
+   ],
+   "e2e": "feature-switch.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

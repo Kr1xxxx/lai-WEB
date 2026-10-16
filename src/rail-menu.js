@@ -27,7 +27,7 @@
       ['经营统计','route','analysis','统计报表'],['客户资产','route','team-assets','统计报表'],['跟进情况','route','team-followups','统计报表'],['任务完成','route','team-tasks','统计报表'],['订单业绩','route','team-orders','统计报表']),
     '协同':menu('协同',['日历与待办','route','calendar'],['任务设置','route','task-settings']),
     // 设置和企业管理是两个独立入口：设置放配置（设置、设置中心），企业管理放角色权限和成员（测试账号）。
-    '设置':menu('设置',['设置','route','settings'],['设置中心','route','settings-hub']),
+    '设置':menu('设置',['设置','route','settings'],['设置中心','route','settings-hub'],['功能开关','route','feature-switch']),
     '企业管理':menu('企业管理',['角色权限','route','roles'],['成员管理','route','members'])
   };
   // 返回条目数组；null 表示不是固定菜单（常用有自己的清单，见 nav-favorites.js）。Leads 里还有一个保留入口（kind 为 feature）。
