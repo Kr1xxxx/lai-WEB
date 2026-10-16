@@ -469,6 +469,7 @@
         countryLabel: C.countryLabel,
         tableMarkup,
         importEnabled: importPreviewEnabled,
+        exportEnabled: !!window.LaiExportUI,
         can,
         hiddenFilterFields: C.gate(state, "customer").hiddenFilters(),
         ownerOptions: C.ownerFilterOptions(state, rows),
@@ -2283,6 +2284,16 @@
     ...state.previewTable,
     ...C.normalizeColumns(state.previewTable),
   });
+  // 导出客户：行是列表现在显示的（已按账号范围和筛选处理过的）客户，列走字段权限。
+  function exportCustomers() {
+    if (!allow("customer.export")) return;
+    window.LaiExportUI?.open("customer", {
+      state, can, toast, dialog: drawer, closeDialog: closeModal, denied: R.denied,
+      scopes: { filtered: filteredRows, selected: () => rows.filter((row) => selected.has(row.name)), all: () => rows },
+      gate: C.gate(state, "customer"),
+      columns: tablePrefs().order,
+    });
+  }
   function groupRows(id) {
     if (id.startsWith("segment:"))
       return S.resolveMembers(
@@ -5047,6 +5058,7 @@
     const d = el.dataset,
       a = d.action;
     if (a === "refresh-app") return refreshApplication();
+    if (d.exportKind === "customer") return exportCustomers();
     if (csClick(el, e)) return;
     if (a === "global-search-scope") {
       const box = $(".global-search-scope-menu");
