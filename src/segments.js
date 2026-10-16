@@ -140,7 +140,7 @@
     return segment;
   }
   function upsertSegment(state,id,input) {
-    if(typeof id!=='string'||!id.trim())throw new Error('客群 ID 无效');
+    if(typeof id!=='string'||!id.trim())throw new Error('找不到这个客群');
     const name=String(input.name||'').trim();
     if(!name)throw new Error('请输入客群名称');
     const current=state.previewSegments||[];

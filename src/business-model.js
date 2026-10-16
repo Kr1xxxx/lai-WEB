@@ -17,7 +17,7 @@
     return match[0].slice(0,10);
   }
   const customerKey=name=>trim(name).normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
-  function requireId(id){if(typeof id!=='string'||!id.trim())throw new Error('记录 ID 无效');}
+  function requireId(id){if(typeof id!=='string'||!id.trim())throw new Error('找不到这条记录');}
   function numericInput(value,label){
     if(value===null||value===undefined||typeof value==='boolean'||!String(value).trim()||!Number.isFinite(Number(value))||Number(value)<0)throw new Error(`${label}必须为不小于 0 的有效数字`);
     return Number(value);
@@ -53,7 +53,7 @@
     for(const bucket of buckets){
       for(const order of state[bucket]||[]){
         if(bucket===excludeBucket&&order.id===id)continue;
-        if(order.id===id)throw new Error('订单 ID 已存在于其他记录中');
+        if(order.id===id)throw new Error('这个订单已经存在');
         if(normalized(order.num)===normalized(num))throw new Error('订单号已存在（包含垃圾箱或已删除订单），请使用其他订单号');
       }
     }

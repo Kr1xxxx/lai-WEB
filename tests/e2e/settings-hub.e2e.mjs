@@ -12,11 +12,7 @@ const settle = (ms = 400) => app.page.waitForTimeout(ms);
 const openHub = async () => { await app.open('settings-hub'); await app.page.locator('.sh-page').waitFor(); };
 const entry = (id) => app.page.locator(`[data-sh-item="${id}"] button`);
 const laiSettings = async () => (await app.readData()).laiSettings || {};
-// KNOWN APP BUG (src/business-ui.js:1579): the 订单编号前缀 input in 设置 has pattern="[A-Za-z0-9-]+", which Chrome
-// (regex flag v) rejects, so it logs this console error every time the form is drawn and the pattern is never
-// enforced (an invalid prefix like "订单 #1" is saved). Remove this filter and add a test once it is fixed.
-const knownPatternBug = /Pattern attribute value \[A-Za-z0-9-\]\+ is not a valid regular expression/;
-const unexpectedErrors = () => app.errors.filter((e) => !knownPatternBug.test(e));
+const unexpectedErrors = () => app.errors;
 const htmlTheme = () => app.page.evaluate(() => document.documentElement.getAttribute('data-theme'));
 
 test('the settings centre lists every group, and its theme entry shows the current theme', async () => {
@@ -141,5 +137,17 @@ test('取消修改 throws away unsaved changes in the default entry form', async
   await settle(400);
   assert.equal(await form.locator('[name=defaultOwner]').inputValue(), '王小明');
   assert.equal((await laiSettings()).defaultOwner, '王小明');
+  assert.deepEqual(unexpectedErrors(), []);
+});
+
+test('an order prefix with illegal characters is not saved', async () => {
+  const { page } = app;
+  const before = (await laiSettings()).orderPrefix;
+  await app.open('settings');
+  const form = page.locator('#biz-settings-form');
+  await form.locator('[name=orderPrefix]').fill('订单 #1');
+  await form.locator('button[type=submit]').click();
+  await settle(700);
+  assert.equal((await laiSettings()).orderPrefix, before, 'the invalid prefix was not stored');
   assert.deepEqual(unexpectedErrors(), []);
 });

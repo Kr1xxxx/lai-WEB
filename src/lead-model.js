@@ -64,7 +64,7 @@
   // 新建或编辑线索的基本资料。状态、跟进记录、转客户不在这里改。
   function upsert(state,id,input,options={}){
     requireList(state);
-    if(typeof id!=='string'||!id.trim())throw new Error('线索 ID 无效');
+    if(typeof id!=='string'||!id.trim())throw new Error('找不到这条线索');
     const now=options.now||new Date().toISOString();
     const previous=list(state).find(item=>item.id===id);
     if(options.mustExist&&!previous)throw new Error('线索不存在，可能已被删除，未保存');

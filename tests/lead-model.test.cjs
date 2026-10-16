@@ -43,7 +43,7 @@ test('saving is refused with a reason for a missing name, a bad email, a bad dat
   assert.throws(() => L.upsert(state, 'b', { name: 'X', phone: '1'.repeat(41) }), /电话最多 40 个字/);
   assert.throws(() => L.upsert(state, 'a', { name: 'X' }), /线索已存在/);
   assert.throws(() => L.upsert(state, 'zz', { name: 'X' }, { mustExist: true }), /线索不存在/);
-  assert.throws(() => L.upsert(state, '', { name: 'X' }), /线索 ID 无效/);
+  assert.throws(() => L.upsert(state, '', { name: 'X' }), /找不到这条线索/);
   assert.throws(() => L.upsert({ laiLeads: 'broken' }, 'b', { name: 'X' }), /格式异常/);
 });
 
