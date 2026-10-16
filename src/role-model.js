@@ -134,10 +134,18 @@
     }
     for(const r of roles)delete r.defaults;
     const names=new Set(roles.map(r=>norm(r.name)));
+    // 存着的自建角色名字先占住，改名时不和它们撞。
+    const reserved=new Set(storedRoles.filter(r=>r&&!BUILTIN[r.id]).map(r=>norm(trim(r.name))));
     for(const r of storedRoles){
       if(!r||BUILTIN[r.id]||roles.length>=LIMITS.roles)continue;
-      const name=trim(r.name);
-      if(!name||names.has(norm(name)))continue;
+      let name=trim(r.name);
+      if(!name)continue;
+      // 和内置角色（比如后来加的“部门管理员”）或别的角色重名：不丢掉这个角色，改个名字留着，成员也还在这个角色里。
+      if(names.has(norm(name))){
+        const base=`${[...name].slice(0,LIMITS.name-6).join("")}（自建）`;
+        let n=1;name=base;
+        while(names.has(norm(name))||reserved.has(norm(name)))name=`${base}${++n}`;
+      }
       names.add(norm(name));
       roles.push({...readRole(r,{defaults:[]}),id:trim(r.id)||newId('r'),name,scope:cleanScope(r.scope),builtin:false,locked:false});
       delete roles[roles.length-1].defaults;
@@ -243,7 +251,9 @@
   function fieldLevel(state,module,key){
     const role=roleOf(state);
     if(!role||role.id===ADMIN)return 'edit';
-    return role.fields?.[module]?.[key]||'edit';
+    const levels=role.fields?.[module];
+    const level=levels&&typeof levels==='object'&&Object.hasOwn(levels,key)?levels[key]:'';
+    return level==='read'||level==='hidden'?level:'edit';
   }
   const fieldVisible=(state,module,key)=>fieldLevel(state,module,key)!=='hidden';
   const fieldEditable=(state,module,key)=>fieldLevel(state,module,key)==='edit';

@@ -514,8 +514,21 @@
     if (g.hiddenColumns().has(out.sortField)) { out.sortField = ""; out.sortDirection = ""; }
     return out;
   }
+  // 当前账号锁住（只读或隐藏）的联系人字段（不带 contact. 前缀，只含 contactStore 里有的）。
+  function lockedContactKeys(state, module) {
+    const R = roleModel();
+    if (!R || R.isAdmin(state)) return [];
+    return R.lockedFields(state, module).filter((key) => key.startsWith("contact.")).map((key) => key.slice(8)).filter((key) => contactStore[key]);
+  }
+  const filled = (value) => Array.isArray(value) ? value.some(filled) : value && typeof value === "object" ? Object.values(value).some(filled) : String(value ?? "").trim() !== "";
+  // 这位（非主）联系人在锁住的联系人字段里有没有内容：有的话，当前账号不能把他移除（移除会把这些内容一起删掉）。
+  function contactHasLocked(state, target, record) {
+    if (!record || typeof record !== "object") return false;
+    return lockedContactKeys(state, moduleOf(target)).some((key) => contactStore[key].extra.some((prop) => filled(record[prop])));
+  }
   // 客户档案里被锁住（只读或隐藏）的字段，保存时一律还原成原来的样子。
   // before 是保存前的档案（新建时为空），after 是要保存的档案；联系人按 id 对应。
+  // 只用在“用户自己填写或修改”的保存上；合并客户、设置里改名这类搬动已有资料的操作不走这里（见 app.js 的 persist）。
   function guardProfile(state, before, after, module) {
     const R = roleModel();
     if (!R || !after || typeof after !== "object" || R.isAdmin(state)) return after;
@@ -523,7 +536,7 @@
     const locked = R.lockedFields(state, module);
     if (!locked.length) return after;
     const company = locked.filter((key) => !key.startsWith("contact."));
-    const contact = locked.filter((key) => key.startsWith("contact.")).map((key) => key.slice(8)).filter((key) => contactStore[key]);
+    const contact = lockedContactKeys(state, module);
     let out = company.length ? R.keepLocked(state, module, before, after, company) : after;
     if (!contact.length) return out;
     out = { ...out };
@@ -536,19 +549,27 @@
     for (const key of contact) restore(out, before, contactStore[key].primary);
     const oldExtras = (Array.isArray(before?.extraContacts) ? before.extraContacts : []).map((item, index) =>
       item && typeof item === "object" ? { ...item, id: String(item.id || "").trim() || "legacy-" + (index + 1) } : item);
-    if (Array.isArray(out.extraContacts)) {
-      out.extraContacts = out.extraContacts.map((item) => {
+    const hasLocked = (item) => item && typeof item === "object" && contact.some((key) => contactStore[key].extra.some((prop) => filled(item[prop])));
+    if (Array.isArray(out.extraContacts) || oldExtras.some(hasLocked)) {
+      const kept = (Array.isArray(out.extraContacts) ? out.extraContacts : []).map((item) => {
         const old = oldExtras.find((entry) => entry && entry.id === item?.id);
         const copy = { ...item };
         for (const key of contact) restore(copy, old, contactStore[key].extra);
         return copy;
       });
+      // 被移除的联系人如果有锁住字段的内容，放回去：当前账号删不掉这些内容。
+      const ids = new Set(kept.map((item) => item?.id).filter(Boolean));
+      for (const old of oldExtras) if (hasLocked(old) && !ids.has(old.id)) kept.push({ ...old });
+      out.extraContacts = kept;
     }
-    // 邮箱、电话、地址在档案里还有一份按顺序排的清单（第一项是主联系人），一起对齐。
+    // 邮箱、电话、地址在档案里还有一份按顺序排的清单（第一项是主联系人）。锁住时整份清单保持原样，
+    // 不按联系人重新拼（老资料可能没有顶层 email，或者清单比联系人多），免得丢掉内容。
     for (const key of contact) {
       const list = contactStore[key].list;
-      if (!list || !Array.isArray(out[list])) continue;
-      out[list] = [out[key] ?? "", ...(Array.isArray(out.extraContacts) ? out.extraContacts.map((item) => item?.[key] ?? "") : out[list].slice(1))];
+      if (!list) continue;
+      if (Array.isArray(before?.[list])) out[list] = [...before[list]];
+      else if (before && Object.hasOwn(before, list)) out[list] = before[list];
+      else delete out[list];
     }
     return out;
   }
@@ -604,7 +625,7 @@
   }
 
   const api = { catalog, globalSearchFields, globalCustomerSearch, filter, sortRows, normalizeColumns, countryLabel,
-    companyDisplayFields, normalizeCompanyDisplayLayout, roleFieldList, gate, sanitizeFilters, guardProfile, guardState,
+    companyDisplayFields, normalizeCompanyDisplayLayout, roleFieldList, gate, sanitizeFilters, guardProfile, guardState, contactHasLocked,
     ownerFilterOptions, ownerDeptMatcher,
     columnRoleKeys, filterRoleKeys, searchRoleKeys, dupTypeRoleKeys };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

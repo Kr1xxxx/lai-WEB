@@ -207,10 +207,12 @@
     });
     return { res, result: await res.json().catch(() => ({})) };
   }
-  async function persist(next, importLog = null) {
+  // guard：把角色锁住的客户字段（只读、隐藏）还原成原来的值。默认开着，用户自己填写、修改客户资料的保存都要走它。
+  // 只有“搬动已有资料、不是用户填新值”的操作传 guard:false：合并客户、客户设置页（阶段/类型/分组/来源改名或删除、公海规则）、
+  // 标签管理（改名、合并、删除标签）、每天自动跑的公海规则。这些操作走字段还原会把资料改回旧名字，合并时甚至会丢资料。
+  async function persist(next, importLog = null, { guard = true } = {}) {
     if (pending) throw new Error("上一项修改正在保存，请稍候");
-    // 角色锁住的客户字段（只读、隐藏）不管从哪条路径来，都还原成原来的值。
-    next = C.guardState(state, next);
+    if (guard) next = C.guardState(state, next);
     status("正在保存…");
     pending = (async () => {
       const diff = savedSnapshot ? M.diffState(savedSnapshot, next) : null;
@@ -2066,7 +2068,7 @@
     try {
       if (separateCustomerWindow || hasUnsavedWork() || !CT.autoRunDue(state)) return;
       const result = CT.applyPoolRules(state);
-      await persist(CT.markAutoRun(result.state));
+      await persist(CT.markAutoRun(result.state), null, { guard: false });
       if (result.moved.length) {
         if (activeRoute === "customers") refresh();
         toast(`按公海规则移入 ${result.moved.length} 位客户`);
@@ -2865,9 +2867,11 @@
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const primary = form.elements.primary.value;
+      // 合并是把被并入客户的已有资料搬过来（被并入的客户随后删掉），不是填新值：不走字段还原，否则锁住字段的内容会丢。
       workspaceSave(
         () => CT.mergeCustomers(state, primary, names.filter((n) => n !== primary)),
         () => { selected.clear(); currentName = ""; customerScreen = "active"; },
+        { guard: false },
       );
     });
   }
@@ -2901,7 +2905,8 @@
       };
       if (!result.created.length) { report(); err.textContent = "没有可建档的客户"; err.classList.add("visible"); return; }
       try {
-        await persist(result.state);
+        // 批量建档是用户自己粘贴的内容：新客户也不能填角色锁住的字段（和导入一样）。
+        await persist(C.guardState(state, result.state, { includeNew: true }));
         form.elements.text.value = result.skipped.map((x) => x.raw).join("\n");
         report();
         refresh();
@@ -2929,7 +2934,8 @@
     const redraw = () => { const old = root(); if (old) old.outerHTML = body(); root()?.querySelector(".tag-rename-input")?.focus(); };
     const run = async (fn) => {
       if (pending) return;
-      try { await persist(fn().state); message = ""; editing = ""; confirmDelete = ""; refresh(); toast("已保存到来财"); }
+      // 标签管理改的是所有客户身上的标签名，不是某位客户的资料，不走字段还原。
+      try { await persist(fn().state, null, { guard: false }); message = ""; editing = ""; confirmDelete = ""; refresh(); toast("已保存到来财"); }
       catch (error) { message = error.message; }
       redraw();
     };
@@ -3136,7 +3142,7 @@
     link.href = url; link.download = '来财客户导入模板.xlsx'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  async function workspaceSave(makeNext, after) {
+  async function workspaceSave(makeNext, after, options) {
     if (pending) return;
     const controls = [
         ...document.querySelectorAll("button,input,select,textarea"),
@@ -3144,7 +3150,7 @@
       disabled = controls.map((c) => c.disabled);
     controls.forEach((c) => (c.disabled = true));
     try {
-      await persist(makeNext());
+      await persist(makeNext(), null, options);
       controls.forEach((c, i) => (c.disabled = disabled[i]));
       closeModal(false, modal === "company-display" || modal === "segment");
       after?.();
@@ -4470,12 +4476,13 @@
   // ---- 客户设置页：页签、改名、删除、排序、分组抽屉 ----
   const CSM = window.LaiCustomerSettings;
   // 保存设置：成功后刷新页面；出错时把原因显示在页面（或抽屉）里，不关窗口。
+  // 客户设置改的是名单（阶段、类型、分组、来源改名会顺带改客户身上的值）和规则，不是用户在填某位客户的字段，不走字段还原。
   async function csSave(makeNext, errorSelector, closeDrawer, doneMessage) {
     if (pending) return false;
     const box = $(errorSelector || "#cs-error");
     box?.classList.remove("visible");
     try {
-      await persist(makeNext());
+      await persist(makeNext(), null, { guard: false });
       if (closeDrawer) closeModal();
       csEditing = null;
       refresh();
