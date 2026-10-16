@@ -116,6 +116,8 @@
     const roles = root.LaiRoleModel;
     const can = (key) => !roles || roles.can(state, key);
     const canEdit = can(profile.laiBucket === "pool" ? "pool.edit" : "customer.edit");
+    // 商机字段权限：结束日期、备注被设成看不到的角色，进行中的商机这一行不显示它们。
+    const oppShown = (key) => !roles || !roles.fieldVisible || roles.fieldVisible(state, "opp", key);
     // 字段权限：看不到的字段不显示，也不能拿它搜；只能看的字段没有编辑入口。
     let fieldTools = root.LaiCustomerFields;
     if (!fieldTools && typeof require === "function") { try { fieldTools = require("./customer-fields.js"); } catch (_) { fieldTools = null; } }
@@ -212,7 +214,7 @@
     // 当前显示的那一个进行中商机（由页面决定是第几个）；没有传入时保持原来的占位显示。
     const activeOpportunity = hasActiveOpportunity && Array.isArray(c.activeOpportunities) ? c.activeOpportunities[Math.min(Math.max(0, Number(c.activeOpportunityIndex) || 0), c.activeOpportunities.length - 1)] : null;
     const opportunityDetails = hasActiveOpportunity
-      ? `<div class="lcd-opportunity-row"><div>${mini("上一个商机", "back")}<span>${activeOpportunity ? E(activeOpportunity.name) : "—"}</span>${mini("下一个商机", "next")}</div><div>销售金额 <b>${activeOpportunity ? `${E(activeOpportunity.currency)} ${numeric(activeOpportunity.amount, true)}` : "—"}</b></div><div>结束日期 <b>${activeOpportunity ? E(activeOpportunity.endDate || "—") : "—"}</b></div><div>备注 <b>${activeOpportunity?.note ? E(activeOpportunity.note) : "—"}</b></div>${mini("商机更多操作", "more")}</div><div class="lcd-phases">${(Array.isArray(activeOpportunity?.stages) ? activeOpportunity.stages : phases.map((phase, i) => ({ id: phaseIds[i], label: phase }))).map((phase, i) => feature(`商机阶段：${phase.label}`, E(phase.label), `lcd-phase phase-${i}${activeOpportunity && phase.id === activeOpportunity.stage ? " is-current" : ""}`)).join("")}</div>`
+      ? `<div class="lcd-opportunity-row"><div>${mini("上一个商机", "back")}<span>${activeOpportunity ? E(activeOpportunity.name) : "—"}</span>${mini("下一个商机", "next")}</div><div>销售金额 <b>${activeOpportunity ? `${E(activeOpportunity.currency)} ${numeric(activeOpportunity.amount, true)}` : "—"}</b></div>${oppShown("endDate") ? `<div>结束日期 <b>${activeOpportunity ? E(activeOpportunity.endDate || "—") : "—"}</b></div>` : ""}${oppShown("note") ? `<div>备注 <b>${activeOpportunity?.note ? E(activeOpportunity.note) : "—"}</b></div>` : ""}${mini("商机更多操作", "more")}</div><div class="lcd-phases">${(Array.isArray(activeOpportunity?.stages) ? activeOpportunity.stages : phases.map((phase, i) => ({ id: phaseIds[i], label: phase }))).map((phase, i) => feature(`商机阶段：${phase.label}`, E(phase.label), `lcd-phase phase-${i}${activeOpportunity && phase.id === activeOpportunity.stage ? " is-current" : ""}`)).join("")}</div>`
       : "";
     const opportunity = `<section class="lcd-card lcd-opportunity${hasActiveOpportunity ? "" : " is-empty"}">${heading(`进行中的商机 （${numeric(c.activeOpportunityCount)}）`, feature("添加商机", "添加"))}${opportunityDetails}</section>`;
     function info() {

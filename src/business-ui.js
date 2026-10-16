@@ -2039,7 +2039,8 @@
       if (!detail) return null;
       return {
         type: oppDoc.type,
-        lines: DM().linesFromOpportunity(state(), detail),
+        // 看不到“关联产品”的账号：单据里不列商机里的产品，只用商机本身一行。
+        lines: DM().linesFromOpportunity(state(), detail, { hideProducts: oppHidden().includes("products") }),
         currency: detail.currency,
         client: detail.client,
         date: docToday(),
