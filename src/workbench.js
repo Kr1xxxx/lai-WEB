@@ -154,7 +154,9 @@
         const d = day(t.date);
         const label = !d ? "" : d === today ? "今天" : shortDate(d);
         const cls = d && d < today ? "late" : d === today ? "today" : "";
-        return `<label class="wb-task"><input type="checkbox" data-biz-task="${E(t.id)}"><span>${E(t.title)}</span><small class="${cls}">${label}</small></label>`;
+        // 看得到别人的待办时（本部门／全公司）标出负责人；只看自己的账号不用标。
+        const who = input.showOwner ? B.taskOwner(state, t) || "未分配" : "";
+        return `<label class="wb-task"><input type="checkbox" data-biz-task="${E(t.id)}"><span>${E(t.title)}${who ? ` · ${E(who)}` : ""}</span><small class="${cls}">${label}</small></label>`;
       })
       .join("");
     const taskCard = `<section class="wb-card"><div class="wb-head"><h2>我的待办 <small>${tasks.length} 项未完成</small></h2><button type="button" class="wb-link" data-biz-action="new-task">添加任务 ›</button></div>${taskRows || '<p class="wb-empty">暂无待办任务。</p>'}</section>`;
