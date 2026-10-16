@@ -1953,7 +1953,7 @@ td.team-reached {
 }
 .lead-status-following {
   background: #e6f5ec;
-  color: #136c41;
+  color: var(--brand-700);
 }
 .lead-status-converted {
   background: #ede9fb;
@@ -2115,8 +2115,36 @@ td.team-reached {
   margin-left: auto;
   padding: 0 16px;
 }
-.lead-timeline {
-
+/* ---- 产品：同步、布局、产品详情（放在这里，因为下面的 .lead-timeline 规则没有闭合，放到文件末尾不生效）---- */
+.cs-sync .num, .ps-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cs-sync td:first-child { max-width: 220px; overflow-wrap: anywhere; }
+.pl-assign { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.pl-assign .cs-field { flex: 0 0 260px; margin: 0; }
+.pl-assign select { height: 32px; min-width: 200px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
+.pl-open { background: var(--color-primary-50); }
+.pl-editor h4 { margin: 16px 0 8px; font-size: 13px; font-weight: 600; }
+.pl-section { margin: 0 0 14px; }
+.pl-head { padding-left: 0; font-size: 14px; }
+.pl-field .cs-row-actions select { height: 28px; padding: 0 6px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
+.pl-field .cs-row-actions button:disabled { opacity: 0.4; }
+.prod-sync-dialog { width: min(720px, 100vw); }
+.prod-sync .cs-field { margin: 0 0 12px; }
+.prod-sync .cs-hint { margin: 0 0 10px; }
+.prod-sync .check-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; font-weight: 400; }
+.prod-sync input[type="radio"] { width: auto; height: auto; }
+.ps-summary { margin: 14px 0 6px; font-size: 14px; }
+.ps-table { max-height: 320px; overflow: auto; border: 1px solid var(--ink-100, #eff0f3); border-radius: 6px; }
+.ps-table .cs-table { margin: 0; }
+.ps-table td, .ps-table th { white-space: normal; }
+.ps-skip td { color: var(--ink-500, #8c8c8c); }
+.pd-body { padding: 8px 24px 20px; }
+.pd-section { margin: 0 0 18px; }
+.pd-section h3 { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--ink-100, #eff0f3); font-size: 14px; font-weight: 600; }
+.pd-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin: 0; }
+.pd-item { min-width: 0; }
+.pd-item.pd-wide { grid-column: 1 / -1; }
+.pd-item dt { font-size: 12px; color: var(--ink-500, #8c8c8c); }
+.pd-item dd { margin: 2px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 /* ---------- 商机详情、附件、拖动 ---------- */
 .opp-card-amount:has(.opp-clip) {
   display: flex;
@@ -2201,7 +2229,7 @@ td.team-reached {
   --opp-muted: #6b7a90;
   --opp-line: #e3e7ee;
   --opp-won: var(--brand-500);
-  --opp-won-soft: #e8f0ff;
+  --opp-won-soft: var(--brand-50);
   --opp-danger: #c9363f;
 }
 .opp-detail {
@@ -2282,6 +2310,11 @@ td.team-reached {
   padding: 0;
   list-style: none;
 }
+.lead-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 .lead-timeline li {
   display: grid;
   grid-template-columns: 92px 36px 1fr;
@@ -2300,7 +2333,7 @@ td.team-reached {
   color: #9aa5b5;
 }
 .lead-timeline .is-followup .lead-entry-kind {
-  color: #136c41;
+  color: var(--brand-700);
 }
 .lead-timeline p {
   margin: 0;
@@ -2384,7 +2417,7 @@ td.team-reached {
   background: #c5ccd8;
 }
 .opp-history .opp-kind-open i {
-  background: #1f9d60;
+  background: var(--opp-open);
 }
 .opp-history .opp-kind-won i {
   background: var(--brand-500);
@@ -2576,3 +2609,204 @@ td.team-reached {
   background: var(--opp-won);
   color: #fff;
 }
+
+/* ---------- 商机设置（页签：销售流程｜输单原因｜商机字段）和商机表单里新增的字段 ---------- */
+.opp-set-tabs.cs-nav {
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 14px;
+  position: static;
+}
+.opp-set-tabs.cs-nav button {
+  height: 34px;
+  padding: 0 18px;
+  text-align: center;
+}
+.opp-set-panel.cs-panel {
+  max-width: 960px;
+}
+.opp-set .check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+}
+.opp-set .check-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.opp-set .cs-row {
+  flex-wrap: wrap;
+}
+.opp-set-name {
+  box-sizing: border-box;
+  flex: 0 1 240px;
+  min-width: 140px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.opp-set-name:hover {
+  border-color: var(--ink-300);
+}
+.opp-set-name:focus {
+  outline: 0;
+  border-color: var(--brand-500);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.14);
+}
+.opp-set-note {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+.opp-set .cs-add {
+  align-items: center;
+}
+.opp-cf-type {
+  min-width: 56px;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+.opp-cf-options {
+  display: grid;
+  gap: 4px;
+  padding: 0 12px 10px;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+.opp-cf-options textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  padding: 6px 10px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.opp-cf-warn {
+  margin: 0;
+  padding: 0 12px 10px;
+  font-size: 12px;
+  color: #c9363f;
+}
+.opp-cf-add {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 120px auto;
+  gap: 8px 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.opp-cf-add input[name="name"],
+.opp-cf-add select {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+}
+.opp-cf-add textarea {
+  box-sizing: border-box;
+  grid-column: 1 / -2;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.opp-cf-add button[type="submit"] {
+  grid-column: -2 / -1;
+  height: 32px;
+  padding: 0 14px;
+}
+/* 表单：商机编号（只读文字）和多选勾选框。 */
+.opp-static {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-800);
+}
+.opp-multi-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  max-height: 148px;
+  overflow: auto;
+  padding: 8px 11px;
+  border: 1px solid var(--ink-300);
+  border-radius: 6px;
+  background: #fff;
+}
+.opp-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-800);
+}
+.opp-form .opp-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.opp-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 单据：编号规则、单据记录、保存过的单据 ---------- */
+.cs-panel.dt-wide { max-width: none; }
+.dt-num-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.dt-num-card { padding: 14px 16px; border: 1px solid var(--line, #e5e5e5); border-radius: 8px; display: grid; gap: 8px; align-content: start; }
+.dt-num-card h3 { margin: 0; font-size: 14px; }
+.dt-num-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.dt-num-fields .cs-field { margin: 0 0 10px; }
+.dt-num-fields .cs-field input, .dt-num-fields .cs-field select { width: 100%; max-width: none; height: 32px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); background: #fff; font: inherit; box-sizing: border-box; }
+.dt-example { margin: 0; font-size: 13px; color: var(--ink-500, #8c8c8c); font-variant-numeric: tabular-nums; }
+.dt-example strong { color: var(--ink-900, #1f1f1f); }
+.dt-example-error { color: #d4380d; }
+.dt-records-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.dt-records-bar select, .dt-records-bar input { height: 32px; padding: 0 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); background: #fff; font: inherit; }
+.dt-records-bar input { width: 240px; }
+.dt-records td.num, .dt-records th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dt-records td:nth-child(2), .dt-records td:nth-child(5) { white-space: nowrap; }
+.dt-records .dt-row-actions { white-space: nowrap; display: flex; gap: 6px; }
+.dt-records .dt-row-actions button { height: 28px; padding: 0 10px; }
+.dt-records tr.is-void td { color: var(--ink-400, #a6a6a6); }
+.dt-records tr.is-void td b { text-decoration: line-through; }
+.dt-void-chip { display: inline-block; padding: 0 6px; border-radius: 10px; background: #f0f0f0; color: #8c8c8c; font-size: 11px; line-height: 18px; vertical-align: middle; }
+.dt-empty { margin: 24px 0; color: var(--ink-500, #8c8c8c); font-size: 13px; }
+.dt-void-note { margin: 0 0 8px; color: #d4380d; font-size: 13px; }
+.dt-paper.is-void { opacity: 0.55; filter: grayscale(1); }
+.dt-saved { margin-top: 10px; }
+.dt-saved ul, .opp-docs { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.dt-saved li, .opp-docs li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.dt-saved li.is-void, .opp-docs li.is-void { color: var(--ink-400, #a6a6a6); }
+.dt-saved li.is-void b, .opp-docs li.is-void b { text-decoration: line-through; }
+#biz-order-form .order-doc-preview .error { margin-top: 8px; }
+.opp-doc .order-doc-buttons, .doc-view .order-doc-buttons { display: flex; gap: 8px; }
+.overlay:has(.opp-doc, .doc-view) .drawer { width: min(760px, calc(100vw - 24px)) !important; }
+@media (max-width: 700px) { .dt-num-fields { grid-template-columns: 1fr; } }

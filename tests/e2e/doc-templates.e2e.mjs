@@ -17,7 +17,7 @@ const tab = async (id) => { await app.page.locator(`[data-doc-tab="${id}"]`).cli
 
 test('the 单据模板 entry shows five tabs and a preview', async () => {
   const { page } = app;
-  assert.deepEqual(await page.locator('[data-doc-tab]').allInnerTexts(), ['报价单', '形式发票', '销售订单', '发货通知', '公司信息']);
+  assert.deepEqual(await page.locator('[data-doc-tab]').allInnerTexts(), ['报价单', '形式发票', '销售订单', '发货通知', '编号规则', '单据记录', '公司信息']);
   assert.match(await page.locator('.dt-title h2').innerText(), /报价单/);
 });
 

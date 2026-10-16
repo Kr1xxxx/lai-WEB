@@ -20,7 +20,7 @@
       { id: "customer-settings", title: "客户设置", note: "客户相关设置的入口页", open: ["screen", "customer-settings"] },
     ] },
     { id: "opportunity", title: "商机", items: [
-      { id: "flows", title: "销售流程设置", note: "商机的销售流程与阶段", open: ["route", "opp-flows"] },
+      { id: "flows", title: "商机设置", note: "销售流程、输单原因和商机字段", open: ["route", "opp-flows"] },
     ] },
     { id: "team", title: "团队", items: [
       { id: "targets", title: "目标管理", note: "团队和个人的月度目标", open: ["route", "team-targets"] },

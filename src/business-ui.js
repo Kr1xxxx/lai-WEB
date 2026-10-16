@@ -405,8 +405,8 @@
     let oppUI = null;
     const OU = () => oppUI || (oppUI = root.LaiOpportunityUI.create(E, OM()));
     const oppView = { mode: "board", limits: {}, filters: {}, range: "all", analysisCurrency: "", analysisFlow: "" };
-    // 销售流程设置页：当前看的流程，以及等待再次确认删除的那一项（"flow:ID" 或 "stage:ID"）。
-    const flowView = { flow: "default", armed: "" };
+    // 商机设置页：当前页签、销售流程页当前看的流程，以及等待再次确认删除的那一项（"flow:ID"、"stage:ID"、"reasons:名称"、"types:名称" 或 "cf:ID"）。
+    const flowView = { tab: "flows", flow: "default", armed: "" };
     const cssEscape = (value) => (root.CSS?.escape ? root.CSS.escape(String(value)) : String(value).replace(/["\\]/g, "\\$&"));
     let oppDraft = null,
       oppArmed = "",
@@ -447,7 +447,89 @@
     function renderOppFlows() {
       const summary = OM().flowSummary(state());
       if (!summary.some((flow) => flow.id === flowView.flow)) flowView.flow = summary[0].id;
-      return header("销售流程设置", "每个流程有自己的一组阶段；看板的列、表单里的阶段都跟着这里走") + OU().flowsMarkup(summary, flowView);
+      const now = state(), named = (kind, names) => names.map((name) => ({ name, count: OM().choiceUse(now, kind, name) }));
+      const data = {
+        summary,
+        reasons: named("reasons", OM().lostReasons(now)),
+        types: named("types", OM().typeChoices(now)),
+        fields: OM().fieldRows(now),
+        customFields: OM().customFields(now).map((field) => ({ ...field, count: OM().customUse(now, field.id) })),
+      };
+      return header("商机设置", "销售流程、输单原因和商机字段") + OU().settingsMarkup(data, flowView);
+    }
+    // 输单原因、商机类型、字段、自定义字段的每个动作各自保存；保存后停在原页面，出错时提示写在页面上方。
+    const saveSet = (makeNext, focus) =>
+      saveNext(makeNext, "opp-set-error", () => {
+        flowView.armed = "";
+        render();
+        if (focus) document.querySelector?.(focus)?.focus?.({ preventScroll: true });
+        return false;
+      });
+    function setAction(d) {
+      const action = d.setAction, key = d.key, kind = d.list;
+      const here = `[data-set-action="${action}"][data-key="${cssEscape(key)}"]`;
+      if (action === "up" || action === "down") {
+        flowView.armed = "";
+        return saveSet(() => OM().moveChoice(state(), kind, key, action === "up" ? -1 : 1), here);
+      }
+      if (action === "cf-up" || action === "cf-down") {
+        flowView.armed = "";
+        return saveSet(() => OM().moveCustomField(state(), key, action === "cf-up" ? -1 : 1), here);
+      }
+      if (action === "remove") {
+        // 还有商机在用的直接试删，让提示说明原因；没人用的要再点一次确认。
+        const armKey = `${kind}:${key}`;
+        if (flowView.armed !== armKey && !OM().choiceUse(state(), kind, key)) {
+          flowView.armed = armKey;
+          render();
+          return document.querySelector?.(here)?.focus?.({ preventScroll: true });
+        }
+        return saveSet(() => OM().removeChoice(state(), kind, key));
+      }
+      if (action === "cf-remove") {
+        const armKey = `cf:${key}`;
+        if (flowView.armed !== armKey && OM().customUse(state(), key)) {
+          flowView.armed = armKey;
+          render();
+          return document.querySelector?.(here)?.focus?.({ preventScroll: true });
+        }
+        return saveSet(() => OM().removeCustomField(state(), key));
+      }
+    }
+    // 设置页里输入框、勾选框、选项框的修改：改完马上保存；没保存成功就把控件恢复成已保存的样子。
+    function setChange(input) {
+      const d = input.dataset;
+      if (d.setRename) {
+        const kind = d.setRename, key = d.key;
+        return saveSet(() => OM().renameChoice(state(), kind, key, input.value), `[data-set-rename="${kind}"]`).then((ok) => {
+          if (!ok) input.value = key;
+        });
+      }
+      if (d.setField) {
+        const id = d.setField, prop = d.prop;
+        return saveSet(() => OM().setField(state(), id, { [prop]: input.checked }), `[data-set-field="${id}"][data-prop="${prop}"]`).then((ok) => {
+          if (!ok) input.checked = !input.checked;
+        });
+      }
+      const field = (id) => OM().customFields(state()).find((item) => item.id === id);
+      if (d.cfRename !== undefined) {
+        const id = d.cfRename, before = field(id)?.name ?? input.value;
+        return saveSet(() => OM().updateCustomField(state(), id, { name: input.value }), `[data-cf-rename="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.value = before;
+        });
+      }
+      if (d.cfRequired !== undefined) {
+        const id = d.cfRequired;
+        return saveSet(() => OM().updateCustomField(state(), id, { required: input.checked }), `[data-cf-required="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.checked = !input.checked;
+        });
+      }
+      if (d.cfOptions !== undefined) {
+        const id = d.cfOptions, before = (field(id)?.options || []).join("\n");
+        return saveSet(() => OM().updateCustomField(state(), id, { options: input.value }), `[data-cf-options="${cssEscape(id)}"]`).then((ok) => {
+          if (!ok) input.value = before;
+        });
+      }
     }
     // 流程设置页的每个动作各自保存；保存后停在原页面，出错时提示写在页面上方。
     const saveFlow = (makeNext, focus) =>
@@ -494,7 +576,8 @@
       if (id === undefined) {
         // 新建时默认放进看板当前正在看的那个流程的第一个阶段。
         const flow = OM().flowOf(state(), oppView.filters.flow);
-        next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client, flow: flow.id, stage: flow.stages[0].id } };
+        // 从客户那里新建时，客户的来源在来源名单里就带过来。
+        next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client, flow: flow.id, stage: flow.stages[0].id, sources: client ? OM().sourcesFromCustomer(state(), client) : [] } };
       }
       else {
         const item = oppItem(id);
@@ -512,6 +595,7 @@
             owners: OM().ownerNames(state()),
             flows: OM().flowsOf(state()),
             stages: OM().flowOf(state(), values.flow).stages,
+            setup: OM().formSetup(state()),
             isNew: next.isNew,
           }),
           '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>',
@@ -532,8 +616,16 @@
       if (name === "client") {
         const client = String(el.client.value || "").trim();
         const contacts = OM().contactsOf(state(), client);
-        el.contact.innerHTML = OU().contactOptions(contacts, client === oppDraft.client ? oppDraft.contact : "", client);
-        el.contact.required = contacts.length > 0;
+        // 关联联系人可以在商机设置里隐藏；显示时，客户有联系人且设为必填才算必填。
+        if (el.contact) {
+          el.contact.innerHTML = OU().contactOptions(contacts, client === oppDraft.client ? oppDraft.contact : "", client);
+          const must = contacts.length > 0 && OM().fieldMap(state()).contact.required;
+          el.contact.required = must;
+          const head = el.contact.closest?.("label")?.querySelector?.(".opp-field-label");
+          const star = head?.querySelector?.(".opp-req");
+          if (head && must && !star) head.insertAdjacentHTML?.("beforeend", '<i class="opp-req" aria-hidden="true">*</i>');
+          else if (star && !must) star.remove?.();
+        }
       } else if (name === "flow") {
         // 换流程：阶段选项换成新流程的；换回原流程时恢复原来的阶段，否则落在第一个阶段。
         const flow = OM().flowOf(state(), el.flow.value);
@@ -588,7 +680,7 @@
     function showOppLost(id) {
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-      ctx.dialog("移到输单", OU().lostMarkup(card), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
+      ctx.dialog("移到输单", OU().lostMarkup(card, OM().lostReasons(state())), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-lost-form">移到输单</button>', "opp-lost");
     }
     const nextOrderNumber = () => {
       const defaults = state().laiSettings || state().orderSettings || {};
@@ -652,7 +744,8 @@
     function detailBody(id) {
       const detail = OM().detailOf(state(), id, B.localDate());
       if (!detail) return "";
-      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1 }, attachView);
+      const documents = DM() ? DM().docsFor(state(), { kind: "opportunity", id }).map((doc) => ({ id: doc.id, number: doc.number, typeName: doc.snapshot?.typeName || "", date: doc.date, voided: doc.status === "已作废" })) : [];
+      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents }, attachView);
     }
     function showOppDetail(id) {
       const detail = OM().detailOf(state(), id, B.localDate());
@@ -989,12 +1082,13 @@
         return saveNext(() => LD().remove(state(), d.id), errorId, leadSaved(""));
       }
     }
-    // ---------- 产品：列表、分组、字段、规格 ----------
+    // ---------- 产品：列表、分组、同步、字段、规格、布局 ----------
     const PM = () => root.LaiProductModel;
     let productUI = null;
     const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM()));
-    const prodView = { tab: "list", search: "", group: "", editing: null, armed: "" };
+    const prodView = { tab: "list", search: "", group: "", editing: null, armed: "", layoutEdit: "" };
     let prodDraft = null;
+    let syncDraft = null;
     function renderProducts() {
       return header("产品", "你卖的产品：分组、字段、规格都在这里设置", "") + `<div class="business-scroll">${PU().pageMarkup(state(), prodView)}</div>`;
     }
@@ -1013,11 +1107,140 @@
       prodDraft = { id: old ? old.id : undefined };
       ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="product-form">保存产品</button>', "business-product");
     }
+    function openProductDetail(id) {
+      const product = PM().find(state(), id);
+      if (!product) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
+      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" data-action="close-modal">关闭</button><button class="primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>`, "business-product");
+    }
+    // ---- 从表格同步：选文件 → 预览 → 确认 → 记一条任务（可撤销）----
+    function syncRefresh() {
+      const box = document.querySelector("#overlay-root .drawer");
+      if (!box || !syncDraft) return;
+      box.querySelector(".drawer-body")?.replaceWith(Object.assign(document.createElement("div"), { innerHTML: PU().syncMarkup(state(), syncDraft) }).firstElementChild);
+      const foot = box.querySelector(".drawer-footer");
+      if (foot) foot.innerHTML = PU().syncFooter(syncDraft);
+    }
+    function openSyncDialog() {
+      syncDraft = { fileName: "", mode: "code", records: null, plan: null, ignored: [], hidden: [], error: "" };
+      ctx.dialog("从表格同步产品", PU().syncMarkup(state(), syncDraft), PU().syncFooter(syncDraft), "business-product-sync");
+      document.querySelector("#overlay-root .drawer")?.classList.add("prod-sync-dialog");
+    }
+    async function readSyncFile(file) {
+      if (!syncDraft) return;
+      const draft = syncDraft;
+      try {
+        if (!file || !/\.(csv|xls|xlsx)$/i.test(file.name)) throw new Error("请选择 XLS、XLSX 或 UTF-8 CSV 文件");
+        if (file.size > 5 * 1024 * 1024) throw new Error("文件不能超过 5 MB");
+        const I = root.LaiCustomerImport;
+        let parsed;
+        try {
+          parsed = /\.csv$/i.test(file.name) ? I.parseCsv(await file.text()) : I.parseExcel(await file.arrayBuffer(), root.XLSX);
+        } catch (error) {
+          throw new Error(String(error.message).replace(/客户/g, "产品"));
+        }
+        const table = PM().readTable(state(), parsed.headers, parsed.rows, parsed.lineNumbers);
+        if (syncDraft !== draft) return;
+        Object.assign(draft, { fileName: file.name, records: table.records, ignored: table.ignored, hidden: table.hidden, error: "" });
+        draft.plan = PM().planSync(state(), draft.records, { mode: draft.mode });
+      } catch (error) {
+        if (syncDraft !== draft) return;
+        Object.assign(draft, { fileName: "", records: null, plan: null, ignored: [], hidden: [], error: error.message });
+      }
+      syncRefresh();
+    }
+    function syncMode(mode) {
+      if (!syncDraft) return;
+      syncDraft.mode = mode;
+      try {
+        if (syncDraft.records) syncDraft.plan = PM().planSync(state(), syncDraft.records, { mode });
+      } catch (error) {
+        syncDraft.error = error.message;
+      }
+      syncRefresh();
+    }
+    function commitSync() {
+      const draft = syncDraft;
+      if (!draft?.plan) return;
+      return saveNext(
+        () => PM().syncProducts(state(), draft.records, { mode: draft.mode, fileName: draft.fileName }).state,
+        "prod-sync-error",
+        () => {
+          syncDraft = null;
+          prodView.tab = "sync";
+          ctx.closeDialog();
+        },
+      );
+    }
+    function downloadSyncTemplate() {
+      const X = root.XLSX;
+      if (!X) return ctx.toast("Excel 模板组件未加载，请重新打开来财");
+      const book = X.utils.book_new();
+      X.utils.book_append_sheet(book, X.utils.aoa_to_sheet([PM().templateHeaders(state())]), "产品");
+      const bytes = X.write(book, { type: "array", bookType: "xlsx" });
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "来财产品同步模板.xlsx";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    // ---- 布局 ----
+    function layoutClick(d) {
+      const kind = d.prodLay, id = d.layout;
+      if (kind === "open") {
+        prodView.layoutEdit = prodView.layoutEdit === id ? "" : id;
+        prodView.editing = null;
+        return render();
+      }
+      if (kind === "copy") {
+        const from = PM().layoutById(state(), id);
+        const newId = "l" + crypto.randomUUID().slice(0, 8);
+        return prodSave(
+          () => PM().addLayout(state(), { name: PM().suggestLayoutName(state(), from ? from.name : "布局"), fromId: id, id: newId }),
+          () => {
+            prodView.layoutEdit = newId;
+          },
+        );
+      }
+      if (kind === "delete")
+        return prodSave(
+          () => PM().deleteLayout(state(), id),
+          () => {
+            if (prodView.layoutEdit === id) prodView.layoutEdit = "";
+          },
+        );
+      if (kind === "section-move") return prodSave(() => PM().moveSection(state(), id, Number(d.index), Number(d.delta)));
+      if (kind === "field-move") return prodSave(() => PM().moveLayoutField(state(), id, d.key, Number(d.delta)));
+      if (kind === "field-hide") return prodSave(() => PM().hideLayoutField(state(), id, d.key));
+    }
+    function layoutSelect(el) {
+      const d = el.dataset;
+      if (!el.value) return;
+      const value = el.value;
+      const done = (ok) => {
+        if (!ok) el.value = d.prodSel === "use" ? PM().settings(state()).layoutUse[d.place] : "";
+      };
+      if (d.prodSel === "use") return prodSave(() => PM().setLayoutUse(state(), d.place, value)).then(done);
+      if (d.prodSel === "move") return prodSave(() => PM().moveFieldToSection(state(), d.layout, d.key, Number(value))).then(done);
+      if (d.prodSel === "show") return prodSave(() => PM().showLayoutField(state(), d.layout, d.key, Number(value))).then(done);
+    }
     function productAction(d) {
       const action = d.prodAction;
-      if (action !== "delete") prodView.armed = "";
+      if (action !== "delete" && action !== "sync-undo") prodView.armed = "";
       if (action === "new") return openProductForm();
       if (action === "edit") return openProductForm(d.id);
+      if (action === "view") return openProductDetail(d.id);
+      if (action === "sync-open") return openSyncDialog();
+      if (action === "sync-template") return downloadSyncTemplate();
+      if (action === "sync-commit") return commitSync();
+      if (action === "sync-undo") {
+        if (prodView.armed !== `undo:${d.id}`) {
+          prodView.armed = `undo:${d.id}`;
+          render();
+          return document.querySelector?.(`[data-prod-action="sync-undo"][data-id="${cssEscape(d.id)}"]`)?.focus?.({ preventScroll: true });
+        }
+        return prodSave(() => PM().undoSync(state(), d.id).state);
+      }
       if (action === "delete") {
         if (prodView.armed !== d.id) {
           prodView.armed = d.id;
@@ -1035,6 +1258,7 @@
         return render();
       }
       if (d.prodAction) return productAction(d);
+      if (d.prodLay) return layoutClick(d);
       if (d.prodCancel !== undefined) {
         prodView.editing = null;
         return render();
@@ -1062,6 +1286,9 @@
         if (kind === "spec-add") return PM().addSpec(state(), text("name"));
         if (kind === "spec-rename") return PM().renameSpec(state(), form.dataset.id, text("name"));
         if (kind === "value-add") return PM().addSpecValue(state(), form.dataset.id, text("value"));
+        if (kind === "layout-add") return PM().addLayout(state(), { name: text("name") });
+        if (kind === "layout-rename") return PM().renameLayout(state(), form.dataset.id, text("name"));
+        if (kind === "section-rename") return PM().renameSection(state(), form.dataset.layout, Number(form.dataset.index), text("name"));
         throw new Error("无法保存");
       });
     }
@@ -1070,8 +1297,12 @@
       const data = Object.fromEntries(new FormData(form));
       const specs = Object.entries(data).filter(([key, value]) => key.startsWith("spec:") && value).map(([key, value]) => ({ type: key.slice(5), value }));
       const { id } = prodDraft;
+      // 布局里没放进表单的字段，保留原来的内容，不当成清空。
+      const previous = id === undefined ? null : PM().find(state(), id);
+      const shown = new Set(PM().formSections(state()).flatMap((sec) => sec.fields.map((item) => item[0])));
+      const kept = previous ? Object.fromEntries(PM().FIELDS.map((item) => item[0]).filter((key) => !shown.has(key)).map((key) => [key, previous[key] ?? ""])) : {};
       return saveNext(
-        () => PM().upsert(state(), id, { ...data, specs }),
+        () => PM().upsert(state(), id, { ...kept, ...data, specs }),
         "product-error",
         () => {
           prodDraft = null;
@@ -1083,9 +1314,10 @@
     const DM = () => root.LaiDocTemplateModel;
     let docUI = null;
     const DU = () => docUI || (docUI = root.LaiDocTemplateUI.create(E, DM()));
-    const docView = { tab: "quote", armed: "" };
+    const docView = { tab: "quote", armed: "", armedVoid: "", rec: { type: "", query: "" } };
+    const docToday = () => (B.localDate ? B.localDate() : "");
     function renderDocTemplates() {
-      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: B.localDate ? B.localDate() : "" })}</div>`;
+      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: docToday() })}</div>`;
     }
     function docPrint(type) {
       return printDocument(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
@@ -1108,11 +1340,78 @@
         setTimeout(() => frame.remove(), 60000);
       };
     }
+    // 保存过的单据：在抽屉里看（用保存时那一份内容，改了模板也不变），可以重新打印。
+    function viewDoc(id) {
+      const doc = DM().getDocument(state(), id);
+      if (!doc) return ctx.toast("找不到这张单据");
+      const voided = doc.status === "已作废";
+      ctx.dialog(
+        E(`${doc.snapshot.typeName} ${doc.number}`),
+        `<div class="drawer-body doc-view">${DU().paperMarkup(doc)}</div>`,
+        `<button type="button" data-action="close-modal">关闭</button>${voided ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, true)}`,
+        "doc-view",
+      );
+    }
+    function docRecAction(action, d) {
+      if (action === "docrec-print") {
+        const doc = DM().getDocument(state(), d.id);
+        if (!doc) return ctx.toast("找不到这张单据");
+        if (doc.status === "已作废") return ctx.toast("这张单据已作废，不能打印");
+        return printDocument(doc.snapshot);
+      }
+      // 订单表单里直接在下面看，不关掉正在填的表单。
+      if (action === "docrec-view") return orderForm() && draft?.items ? showOrderSaved(d.id) : viewDoc(d.id);
+    }
+    // 编号规则表单：边改边显示“下一张”的编号；填得不对就在那里说明原因。
+    function docNumberingExample(form) {
+      const data = Object.fromEntries(new FormData(form)), box = form.querySelector("[data-doc-example]");
+      if (!box) return;
+      try {
+        box.innerHTML = DU().exampleMarkup(DM().nextNumber(state(), form.dataset.type, docToday(), { prefix: data.prefix, dateMode: data.dateMode, digits: data.digits, reset: data.reset }).number);
+      } catch (error) {
+        box.innerHTML = DU().exampleMarkup("", error.message);
+      }
+    }
+    // 返回 true 表示这个输入事件是单据页的，别处不用再处理。
+    function docInput(e, kind) {
+      if (route !== "doc-templates") return false;
+      const name = e.target.dataset?.docFilter;
+      if (name && (kind === "change") === (e.target.tagName === "SELECT")) {
+        if (e.isComposing) return true;
+        docView.rec = { ...docView.rec, [name]: e.target.value };
+        docView.armedVoid = "";
+        const pos = e.target.selectionStart;
+        render();
+        const again = document.querySelector?.(`[data-doc-filter="${name}"]`);
+        again?.focus?.({ preventScroll: true });
+        if (name === "query" && again?.setSelectionRange) again.setSelectionRange(pos, pos);
+        return true;
+      }
+      const form = e.target.closest?.('[data-doc-form="numbering"]');
+      if (form) {
+        // 换了日期部分：重置方式回到“跟日期部分一致”，免得选出互相矛盾的组合。
+        if (kind === "change" && e.target.name === "dateMode" && form.elements.reset) form.elements.reset.value = "";
+        docNumberingExample(form);
+        return true;
+      }
+      return false;
+    }
     function docClick(d) {
+      if (d.docAction !== "void") docView.armedVoid = "";
       if (d.docTab) {
         docView.tab = d.docTab;
         docView.armed = "";
         return render();
+      }
+      if (d.docAction === "view") return viewDoc(d.id);
+      if (d.docAction === "source") return d.kind === "opportunity" ? showOppDetail(d.id) : orderEditor(d.id);
+      if (d.docAction === "void") {
+        if (docView.armedVoid !== d.id) {
+          docView.armedVoid = d.id;
+          return render();
+        }
+        docView.armedVoid = "";
+        return saveNext(() => DM().voidDocument(state(), d.id), "doc-error");
       }
       if (d.docAction === "print") return docPrint(d.type);
       if (d.docAction === "reset") {
@@ -1131,6 +1430,7 @@
         const pick = (kind, fields) => Object.fromEntries(fields.map(([key]) => [key, data[`${kind}:${key}`] || ""]));
         return saveNext(() => DM().setBank(DM().setCompany(state(), pick("company", DM().COMPANY_FIELDS)), pick("bank", DM().BANK_FIELDS)), "doc-error");
       }
+      if (form.dataset.docForm === "numbering") return saveNext(() => DM().setNumbering(state(), form.dataset.type, { prefix: data.prefix, dateMode: data.dateMode, digits: data.digits, reset: data.reset }), "doc-error");
       const columns = Object.fromEntries(DM().COLUMNS.map(([key]) => [key, `col:${key}` in data]));
       return saveNext(() => DM().setTemplate(state(), form.dataset.type, { title: data.title, terms: data.terms, footer: data.footer, columns, showBank: "showBank" in data, showSignature: "showSignature" in data }), "doc-error");
     }
@@ -1277,7 +1577,7 @@
         `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? String(shown[name] || "").slice(0, 10) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="0.01"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
       ctx.dialog(
         old ? "编辑订单" : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div><div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
+        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div><div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div><div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
           state().customers || {},
         )
           .filter(
@@ -1338,23 +1638,116 @@
       if (total) total.textContent = plain(B.itemsTotal(draft.items));
       if (draft.doc) showOrderDoc(draft.doc);
     }
-    function orderDocData(type) {
+    // 订单表单里现在填的内容，整理成生成单据要用的样子（单据编号要等保存单据时才有，订单号只作参考）。
+    function orderDocInput() {
       const form = orderForm();
       const f = form ? Object.fromEntries(new FormData(form)) : {};
-      return DM().preview(state(), type, {
+      return {
         lines: B.docLines({ items: draft?.items || [], productType: f.productType, amount: f.amount }),
         currency: f.currency || "USD",
         client: f.client || "",
-        number: f.num || "",
         date: String(f.createdAt || "").slice(0, 10),
-      });
+        reference: { label: "订单号", value: f.num || "" },
+        source: { kind: "order", id: draft?.id || "", label: f.num || "" },
+      };
     }
+    function orderDocData(type) {
+      return DM().preview(state(), type, { ...orderDocInput(), number: "", numberNote: "保存后生成编号" });
+    }
+    const orderSavedMarkup = () => (draft?.id && DM() ? DU().savedListMarkup(DM().docsFor(state(), { kind: "order", id: draft.id })) : "");
     function showOrderDoc(type) {
       const box = document.getElementById("biz-order-doc");
       if (!box || !DM()) return;
       draft.doc = type;
+      draft.docView = "";
       const doc = orderDocData(type);
-      box.innerHTML = `<div class="order-doc-preview" data-order-doc="${E(type)}"><div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("order-doc-print", "打印 / 存为 PDF", `data-type="${E(type)}"`, true)}${button("order-doc-close", "收起")}</span></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这张表里现在填的内容，不用先保存订单。公司信息、银行和条款在 交易 → 单据模板 里改。</p></div>`;
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc="${E(type)}"><div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("order-doc-save", "保存单据", `data-type="${E(type)}"`, true)}${button("order-doc-print", "打印 / 存为 PDF", `data-type="${E(type)}"`)}${button("order-doc-close", "收起")}</span></div><div class="error" id="biz-order-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这张表里现在填的内容，不用先保存订单。点“保存单据”才会生成单据编号并记下来；公司信息、银行和条款在 交易 → 单据模板 里改。</p></div>`;
+    }
+    // 保存过的单据显示在订单表单下面（用保存时的内容，订单后来改了也不变）。
+    function showOrderSaved(id) {
+      const box = document.getElementById("biz-order-doc"), doc = DM().getDocument(state(), id);
+      if (!box || !doc || !draft) return;
+      draft.doc = "";
+      draft.docView = id;
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc-saved="${E(id)}"><div class="dt-side-head"><strong>${E(doc.snapshot.typeName)} ${E(doc.number)}</strong><span class="order-doc-buttons">${doc.status === "已作废" ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(id)}"`, true)}${button("order-doc-close", "收起")}</span></div>${DU().paperMarkup(doc)}</div>`;
+    }
+    function saveOrderDoc(type) {
+      // 先取表单里的内容：保存时整个页面的输入框会暂时停用，那时读不到。
+      const input = orderDocInput();
+      let saved = null;
+      return saveNext(
+        () => {
+          const result = DM().saveDocument(state(), { ...input, type, today: docToday() });
+          saved = result.doc;
+          return result.state;
+        },
+        "biz-order-doc-error",
+        () => {
+          showOrderSaved(saved.id);
+          const list = document.getElementById("biz-order-saved");
+          if (list) list.innerHTML = orderSavedMarkup();
+          return false;
+        },
+      );
+    }
+    // ---------- 由商机生成报价单、形式发票 ----------
+    let oppDoc = null;
+    function oppDocInput() {
+      const detail = OM().detailOf(state(), oppDoc.id, docToday());
+      if (!detail) return null;
+      return {
+        type: oppDoc.type,
+        lines: DM().linesFromOpportunity(state(), detail),
+        currency: detail.currency,
+        client: detail.client,
+        date: docToday(),
+        reference: { label: "商机", value: detail.name },
+        source: { kind: "opportunity", id: detail.id, label: detail.name },
+      };
+    }
+    const oppDocPreview = (input) => DM().preview(state(), oppDoc.type, { ...input, number: "", numberNote: "保存后生成编号" });
+    function oppDocMarkup() {
+      const saved = oppDoc.saved && DM().getDocument(state(), oppDoc.saved);
+      if (saved) {
+        return `<div class="dt-side-head"><strong>${E(saved.snapshot.typeName)} ${E(saved.number)}</strong><span class="order-doc-buttons">${button("oppdoc-print", "打印 / 存为 PDF", "", true)}</span></div>${DU().paperMarkup(saved)}<p class="muted tiny">已保存。以后可以在 交易 → 单据模板 → 单据记录 里找到它，也能在这个商机的详情里看到。</p>`;
+      }
+      const input = oppDocInput();
+      if (!input) return '<p class="muted">商机不存在，可能已被删除。</p>';
+      const doc = oppDocPreview(input);
+      return `<div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("oppdoc-save", "保存单据", "", true)}${button("oppdoc-print", "打印 / 存为 PDF")}</span></div><div class="error" id="opp-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这个商机的客户、币种和关联产品（没有关联产品就用商机金额）。点“保存单据”才会生成单据编号并记下来。</p>`;
+    }
+    function showOppDoc(id, type) {
+      if (!DM() || !DM().TYPES.some(([t]) => t === type)) return;
+      oppDoc = { id, type, saved: "" };
+      if (!oppDocInput()) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
+      ctx.dialog(E(`生成${DU().typeLabel(type)}`), `<div class="drawer-body opp-doc" id="opp-doc-box">${oppDocMarkup()}</div>`, '<button type="button" data-action="close-modal">关闭</button>', "opp-doc");
+    }
+    function oppDocAction(action) {
+      if (!oppDoc) return;
+      if (action === "oppdoc-print") {
+        const saved = oppDoc.saved && DM().getDocument(state(), oppDoc.saved);
+        const input = saved ? null : oppDocInput();
+        if (!saved && !input) return;
+        return printDocument(saved ? saved.snapshot : oppDocPreview(input));
+      }
+      if (action === "oppdoc-save") {
+        let result = null;
+        return saveNext(
+          () => {
+            const input = oppDocInput();
+            if (!input) throw new Error("商机不存在，可能已被删除");
+            result = DM().saveDocument(state(), { ...input, today: docToday() });
+            return result.state;
+          },
+          "opp-doc-error",
+          () => {
+            oppDoc.saved = result.doc.id;
+            const box = document.getElementById("opp-doc-box");
+            if (box) box.innerHTML = oppDocMarkup();
+            return false;
+          },
+        );
+      }
     }
     function orderItemAction(action, d) {
       if (!draft?.items) return;
@@ -1373,8 +1766,10 @@
         showOrderDoc(d.type);
         return document.querySelector("#biz-order-doc .order-doc-preview")?.scrollIntoView({ block: "start", behavior: "smooth" });
       }
+      if (action === "order-doc-save") return saveOrderDoc(d.type);
       if (action === "order-doc-close") {
         draft.doc = "";
+        draft.docView = "";
         const box = document.getElementById("biz-order-doc");
         if (box) box.innerHTML = "";
         return;
@@ -1481,7 +1876,8 @@
       if (d.attachAction && onOppPage() && attachView.id) return attachAction(d);
       if (d.oppAction && onOppPage()) return oppAction(d);
       if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
-      if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove)) return productClick(d);
+      if (d.oppDoc) return showOppDoc(d.id, d.oppDoc);
+      if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove || d.prodLay)) return productClick(d);
       if (d.leadAction && onLeadPage()) return leadAction(d);
       if (d.leadStatus && route === "leads") {
         leadView.filters = { ...leadView.filters, status: d.leadStatus };
@@ -1489,6 +1885,13 @@
         render();
         return document.querySelector?.(`[data-lead-status="${cssEscape(d.leadStatus)}"]`)?.focus?.({ preventScroll: true });
       }
+      if (route === "opp-flows" && d.oppSetTab) {
+        flowView.tab = d.oppSetTab;
+        flowView.armed = "";
+        render();
+        return document.querySelector?.(`[data-opp-set-tab="${cssEscape(flowView.tab)}"]`)?.focus?.({ preventScroll: true });
+      }
+      if (route === "opp-flows" && d.setAction) return setAction(d);
       if (route === "opp-flows" && d.flowAction) return flowAction(d);
       if (route === "opp-flows" && d.flowSelect) {
         flowView.flow = d.flowSelect;
@@ -1545,6 +1948,8 @@
       if (action === "new-task") return taskEditor();
       if (action === "close-editor") return finishEditor();
       if (action === "archive-order") return archiveOrder(d.id);
+      if (action.startsWith("oppdoc-")) return oppDocAction(action);
+      if (action.startsWith("docrec-")) return docRecAction(action, d);
       if (action.startsWith("order-item-") || action.startsWith("order-doc")) return orderItemAction(action, d);
       if (action === "cancel-archive") return orderEditor(d.id, archiveDraft);
       if (action === "confirm-archive")
@@ -1607,6 +2012,7 @@
         return localAction(action);
     });
     document.addEventListener("input", (e) => {
+      if (docInput(e, "input")) return;
       if (e.target.id === "biz-search") {
         search = e.target.value;
         if (e.isComposing) return;
@@ -1626,6 +2032,7 @@
       else if (draft?.doc && e.target.closest?.("#biz-order-form")) showOrderDoc(draft.doc);
     });
     document.addEventListener("compositionend", (e) => {
+      if (e.target.dataset?.docFilter === "query" && route === "doc-templates") return docInput({ target: e.target }, "input");
       if (e.target.id === "biz-search") {
         search = e.target.value;
         page = 1;
@@ -1685,6 +2092,7 @@
     });
     document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
+      if (docInput(e, "change")) return;
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
         const i = Number(e.target.dataset.itemProduct), old = draft.items[i], value = e.target.value;
         if (value === "__keep") return;
@@ -1704,6 +2112,7 @@
       }
       if (e.target.closest?.("#biz-target-form") && ["metric", "scope"].includes(e.target.name)) return syncTargetForm(e.target.closest("#biz-target-form"));
       if (onOppPage() && e.target.closest?.("#opp-form") && ["client", "flow", "stage", "nameMode", "currency"].includes(e.target.name)) return syncOppForm(e.target.name);
+      if (route === "opp-flows" && ["setRename", "setField", "cfRename", "cfRequired", "cfOptions"].some((key) => e.target.dataset?.[key] !== undefined)) return setChange(e.target);
       // 改名没保存成功（空名、重名）时，输入框恢复成已保存的名称，提示留在页面上方。
       if (route === "opp-flows" && e.target.dataset?.flowRename) {
         const input = e.target, id = input.dataset.flowRename;
@@ -1723,6 +2132,9 @@
         render();
         return document.getElementById(e.target.id)?.focus?.({ preventScroll: true });
       }
+      if (route === "products" && e.target.id === "prod-sync-file") return void readSyncFile(e.target.files?.[0]);
+      if (route === "products" && e.target.name === "prod-sync-mode") return syncMode(e.target.value);
+      if (route === "products" && e.target.dataset?.prodSel) return layoutSelect(e.target);
       if (route === "products" && e.target.dataset?.prodField) {
         const input = e.target, key = input.dataset.prodField;
         return saveNext(() => PM().setField(state(), key, { [input.dataset.prop]: input.checked }), "prod-error", () => undefined).then((ok) => {
@@ -1795,7 +2207,7 @@
         return productSubmit(form);
       }
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form"].includes(
+        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form", "opp-reasons-add", "opp-types-add", "opp-cf-add"].includes(
           form.id,
         )
       )
@@ -1808,6 +2220,8 @@
           "opp-attach-error",
           () => { attachView.renaming = ""; refreshAttach(); },
         );
+      if (form.id === "opp-reasons-add" || form.id === "opp-types-add") return saveSet(() => OM().addChoice(state(), form.dataset.list, data.text), `#${form.id} input`);
+      if (form.id === "opp-cf-add") return saveSet(() => OM().addCustomField(state(), data, { id: "c" + crypto.randomUUID().slice(0, 8) }), "#opp-cf-add input");
       if (form.id === "opp-flow-add") {
         const id = "f" + crypto.randomUUID().slice(0, 8);
         return saveFlow(() => {
@@ -1828,6 +2242,16 @@
       if (form.id === "lead-form") {
         if (!leadDraft) return;
         const { id, isNew } = leadDraft;
+        // 和客户相同但设为「允许保存」：第一次点保存先提醒，内容没变再点一次才保存。
+        const warn = LD().saveWarnings(state(), id, data, { mustExist: !isNew });
+        if (warn.message && leadDraft.warned !== warn.message) {
+          leadDraft.warned = warn.message;
+          const box = document.getElementById("lead-warn");
+          if (box) { box.textContent = warn.message; box.hidden = false; }
+          const submit = document.querySelector('button[form="lead-form"]');
+          if (submit) submit.textContent = "仍然保存";
+          return;
+        }
         return saveNext(
           () => LD().upsert(state(), id, data, { mustExist: !isNew }),
           "lead-error",
@@ -1843,6 +2267,15 @@
       if (form.id === "lead-invalid-form") return saveNext(() => LD().markInvalid(state(), form.dataset.id, data), "lead-invalid-error", leadSaved(form.dataset.id));
       if (form.id === "opp-form") {
         if (!oppDraft) return;
+        // 多选（商机来源、多选的自定义字段）和自定义字段的值：表单里的名字是 custom:字段ID，这里收成 data.custom。
+        const custom = { ...(data.custom || {}) };
+        for (const key of Object.keys(data)) if (key.startsWith("custom:")) { custom[key.slice(7)] = data[key]; delete data[key]; }
+        for (const group of form.querySelectorAll?.("[data-multi]") || []) {
+          const picked = [...group.querySelectorAll('input[type="checkbox"]')].filter((box) => box.checked).map((box) => box.value);
+          if (group.dataset.multi.startsWith("custom:")) custom[group.dataset.multi.slice(7)] = picked;
+          else data[group.dataset.multi] = picked;
+        }
+        if (Object.keys(custom).length) data.custom = custom;
         return saveNext(
           () => OM().upsert(state(), oppDraft.id, data, { mustExist: !oppDraft.isNew }),
           "opp-error",

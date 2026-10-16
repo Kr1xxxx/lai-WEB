@@ -12,7 +12,8 @@ const base = () => ({
     'Old Co': { client: 'Old Co', laiBucket: 'trash' }
   },
   orders: [{ id: 'o1', client: 'Order Only Ltd' }],
-  laiSettings: { defaultOwner: 'Amy' },
+  // 旧的重复提示测试要能建出同名线索，所以这里先设为「判重但允许保存」；拦截规则在后面单独测。
+  laiSettings: { defaultOwner: 'Amy', customerSettings: { leadDedupe: { name: 'allow', website: 'allow', email: 'allow', phone: 'allow' } } },
   untouched: { keep: true }
 });
 const add = (state, id, fields, now = NOW) => L.upsert(state, id, { name: 'Lead ' + id, ...fields }, { now });

@@ -605,6 +605,64 @@
    }
   },
   {
+   "id": "opportunity-settings",
+   "area": "opportunities",
+   "description": "商机设置: tabs 销售流程 / 输单原因 (editable) / 商机字段 (system fields show/required, 商机类型 list, custom fields); opportunity form gains 商机来源 (shared source list), 商机类型, 来源线索, OPP-YYYYMMDD-NNN 编号 and custom fields; analysis by 商机来源",
+   "steps": [
+    "商机 → 商机设置 → 输单原因: add one, move it up",
+    "商机字段: add a 单选 custom field with two options",
+    "客户设置 → 来源设置: add a source",
+    "商机看板 → 新建商机: fill 商机来源, 商机类型, the custom field; save",
+    "Open the opportunity: values and an OPP- number are shown"
+   ],
+   "e2e": "opportunity-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "lead-dedupe",
+   "area": "leads",
+   "description": "判重设置 → 新线索与已有客户: 公司名称/公司网址/邮箱/联系电话 each allow/block/off; lead save blocks or warns",
+   "steps": [
+    "客户设置 → 判重设置 → 新线索与已有客户: 邮箱 = 判重，不允许保存; save",
+    "线索 → 新建线索 with an existing customer's email: refused",
+    "Set 邮箱 = 判重，允许保存: first save warns, 仍然保存 saves"
+   ],
+   "e2e": "lead-dedupe.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "product-sync-layout",
+   "area": "trade",
+   "description": "产品 → 同步 (from xls/xlsx/csv: preview, confirm, task list, undo newest) and 布局 (layouts for 新建/编辑 and 产品详情; read-only product detail drawer)",
+   "steps": [
+    "产品 → 同步 → 从表格同步产品: pick a CSV with 2 new rows and 1 existing code: preview 新建 2 / 更新 1",
+    "确认同步: products appear, task listed; 撤销 twice: products restored",
+    "布局: copy 默认布局, move 离岸价 to the top, assign it to 产品详情",
+    "Click a product name: detail drawer shows 离岸价 first"
+   ],
+   "e2e": "product-sync-layout.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "doc-numbering",
+   "area": "trade",
+   "description": "单据: 编号规则 per type (prefix, date part, digits, restart), 保存单据 keeps numbered snapshots, 单据记录 (view, print, 作废), 报价单 / 形式发票 from an opportunity",
+   "steps": [
+    "单据模板 → 编号规则: 报价单 prefix BJ; save",
+    "新建订单 with an item → 报价单 → 保存单据: BJ-<today>-001; again: -002",
+    "单据模板 → 单据记录: both listed; 作废 one",
+    "商机 menu → 生成单据 → 形式发票 → 保存单据; open the opportunity: the document is listed"
+   ],
+   "e2e": "doc-numbering.e2e.mjs",
    "id": "ui-fonts",
    "area": "ui",
    "description": "One interface font: Inter for English and digits, MiSans for Chinese, embedded in the page (no network)",

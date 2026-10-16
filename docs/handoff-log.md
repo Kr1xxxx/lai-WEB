@@ -8,7 +8,14 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   published by another thread from the unmerged branch `claude/project-thread-5ob5ux` (opportunity settings, document numbering,
   product sync, lead dedupe). To keep that, v1.04 was built from that branch merged with `main` (only docs conflicted) and
   published (Artifact Version 49); checked in the browser: MiSans and Inter loaded, 关于来财Lai names them, no console errors.
-  `version.json` set to 1.04 here; that branch's own bump to 1.03 will conflict and should take 1.04.
+  `version.json` set to 1.04 here (that branch merged as #11 with 1.03; this PR takes 1.04).
+- 2026-10-15 — Claude — Owner asked for four 小满 gaps; built in parallel worktrees and merged on `claude/project-thread-5ob5ux`:
+  商机设置 (route `opp-flows` renamed 商机设置: tabs 销售流程/输单原因/商机字段; `laiSettings.opportunitySettings`; new opportunity fields
+  sources/type/leadId/number/custom), 判重 新线索与已有客户 (`customerSettings.leadDedupe`, default all block), 产品 同步 from xls/xlsx/csv
+  (`laiProductSyncTasks`, undo newest) and 布局 (per form/detail, roles wait for accounts), 单据 编号规则 + `laiDocuments` + 单据记录 +
+  报价单/PI from an opportunity. Fixed the unclosed `.lead-timeline {` in `src/business.css` (everything after it was nested and
+  ignored, incl. opportunity detail/attachment styles) and removed two green colours that this exposed. model 952 / e2e 76 green;
+  ui-audit pink 1440×900 passes. Not done: 商机自动化设置, 归属部门, 销售订单/发货通知 from 商机, layout by role.
 - 2026-10-15 — Claude — Owner asked to unify all fonts: MiSans for Chinese, Latin font of Claude's choice (Inter). Vendored
   `vendor/fonts/` (MiSans VF 4.009, 56 official slices from npm `misans@5.0.0`; Inter 4 variable latin + latin-ext from
   `@fontsource-variable/inter@5.3.0`, OFL); `scripts/build.py` `font_faces_css()` inlines them as data URIs at the new
