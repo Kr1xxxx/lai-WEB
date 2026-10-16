@@ -124,6 +124,7 @@ const isRail = (x) => /rail/.test(x.el) || /rail/.test(x.by);
           await openRoute(page, route);
           const n = await page.evaluate(`(${MARK_JS})()`);
           for (let i = 0; i < Math.min(n, 30); i++) {
+            await page.mouse.move(0, 0);
             const before = await page.evaluate(`(${SNAP_JS})(${i})`);
             if (!before) continue;
             try { await page.locator(`[data-fp="${i}"]`).click({ timeout: 1500 }); } catch (_) { continue; }
@@ -132,6 +133,7 @@ const isRail = (x) => /rail/.test(x.el) || /rail/.test(x.by);
             let typed = null;
             if (before.tag === "input") { await page.keyboard.type("Ab"); await page.waitForTimeout(100); typed = await page.evaluate(`(${SNAP_JS})(${i})`); }
             await page.keyboard.press("Escape");
+            await page.mouse.move(0, 0); // 鼠标还停在控件上会显示悬停色，不算变样
             await page.waitForTimeout(150);
             const after = await page.evaluate(`(${SNAP_JS})(${i})`);
             const diff = {};

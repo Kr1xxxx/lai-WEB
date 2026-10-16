@@ -37,13 +37,36 @@
     }
     return null;
   }
+  // 这些地方的文字用省略号截断，但鼠标常落在它们外面的行或按钮上（往外找找不到），所以鼠标进入这些行时，把行里被截断的文字一起补上 title：
+  // 订单列表的各格、工作台的下一步和跟进行、日历事件、邮件列表的主题和预览、客户页客群树的名称。
+  const SCOPES = ".op-row, .wb-row, .wb-follow, .wb-mail, .calendar-day, .mail-row, .group-row, .agenda-item";
+  const TEXTS = ".op-row > span, .op-link, .op-client small, .op-ship span, .op-ship small, .wb-who b, .wb-who small, .wb-fwho small, .wb-next, .wb-mail span, .calendar-event, .mail-row-who, .mail-row-subject, .mail-row-snippet, .group-row span";
+  function applyWithin(target, getStyle) {
+    const found = apply(target, getStyle);
+    if (found || !target || typeof target.closest !== "function") return found;
+    const scope = target.closest(SCOPES);
+    if (!scope) return null;
+    let first = null;
+    for (const node of scope.querySelectorAll(TEXTS)) {
+      if (node.hasAttribute("title") && !node.hasAttribute(MARK)) continue;
+      if (isTruncated(node, getStyle(node))) {
+        const text = fullText(node);
+        if (text && node.getAttribute("title") !== text) {
+          node.setAttribute("title", text);
+          node.setAttribute(MARK, "");
+        }
+        first = first || node;
+      }
+    }
+    return first;
+  }
   function install(doc) {
     const view = doc?.defaultView;
     if (!doc || !view || doc.__laiTruncationTitle) return;
     doc.__laiTruncationTitle = true;
-    doc.addEventListener("pointerover", (event) => apply(event.target, (el) => view.getComputedStyle(el)), true);
+    doc.addEventListener("pointerover", (event) => applyWithin(event.target, (el) => view.getComputedStyle(el)), true);
   }
-  const api = { isTruncated, fullText, apply, install };
+  const api = { isTruncated, fullText, apply, applyWithin, install, SCOPES, TEXTS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {
     root.LaiTruncationTitle = api;
