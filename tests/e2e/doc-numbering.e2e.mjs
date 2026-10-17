@@ -179,12 +179,10 @@ test('a PI is made from an opportunity menu, saved, and listed in its detail', a
   await settle(700);
   await page.locator('[data-opp-action="new"]').first().click();
   await settle();
-  await page.locator('#opp-form [name="client"]').fill('Lumen');
-  await page.locator('.lai-suggestion').first().waitFor();
-  await page.locator('.lai-suggestion').first().click();
+  await page.locator('#opp-form [name="client"]').selectOption('Lumen Lash Lab', { force: true });
   await page.waitForFunction(() => document.querySelector('#opp-form select[name="contact"]')?.options.length > 1);
   await settle(300);
-  await page.locator('#opp-form [name="owner"]').fill('Amy');
+  await page.locator('#opp-form [name="owner"]').selectOption('Kris', { force: true });
   await page.locator('#opp-form [name="amount"]').fill('1200');
   await page.locator('#opp-form [name="products"]').fill('Cloud Lash, 20, 2.5\nBrush, 3, 1');
   await page.locator('#opp-form [name="endDate"]').evaluate((el) => { el.value = '2030-01-31'; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); });

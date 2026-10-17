@@ -807,6 +807,38 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "mail-extra-contacts",
+   "area": "mail",
+   "description": "客户详情: every contact card with an email has its own 写邮件 button; the composer opens addressed to that contact (Name <email>); extra-contact emails count as the customer's addresses for mail matching",
+   "steps": [
+    "Open a customer with a primary contact and an extra contact who has an email",
+    "Click the mail icon on the extra contact's card: 收件人 is that contact's name and address",
+    "Click the mail icon on the primary card: 收件人 is the primary contact",
+    "A role that cannot see the email field sees the button only on the primary card"
+   ],
+   "e2e": "mail.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "opportunity-pick-lists",
+   "area": "opportunities",
+   "description": "新建/编辑商机: 客户 and 负责人 are dropdowns (customer list searchable); values not in the list on old records stay selected; without 转移负责人 only the current owner is offered",
+   "steps": [
+    "商机 → 新建商机: 客户 opens a dropdown with a search box, free typing is not possible",
+    "Pick a customer: 关联联系人 fills with that customer's contacts",
+    "Save: the opportunity has that customer",
+    "负责人 is a dropdown of team members; a role without 转移负责人 sees only the current owner"
+   ],
+   "e2e": "opportunities.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

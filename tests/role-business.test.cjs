@@ -63,7 +63,7 @@ test('商机: the menu only offers what the role may do; no 删除 for 业务; n
   assert.match(ui(canOf(admin)).headerActions({}, {}, {}), /data-opp-action="new"/);
   assert.match(ui(without('opp.edit')).boardMarkup(O.board(admin, {}, TODAY), {}, { today: TODAY, owners: [] }), /draggable="false"/);
   assert.match(ui(canOf(admin)).boardMarkup(O.board(admin, {}, TODAY), {}, { today: TODAY, owners: [] }), /draggable="true"/);
-  assert.match(ui(without('opp.transfer')).formMarkup({ owner: 'Amy' }, { owners: [], flows: O.flowsOf(admin), stages: O.flowOf(admin, 'default').stages, setup: O.formSetup(admin), customers: [], contacts: [] }), /name="owner"[^>]*readonly/);
+  assert.match(ui(without('opp.transfer')).formMarkup({ owner: 'Amy' }, { owners: ['Amy', 'Kris'], flows: O.flowsOf(admin), stages: O.flowOf(admin, 'default').stages, setup: O.formSetup(admin), customers: [], contacts: [] }), /<select[^>]*name="owner"[^>]*><option value="Amy" selected>Amy<\/option><\/select>/, 'no 转移负责人: only the current owner can be chosen');
   const files = [{ id: 'f1', name: 'quote.pdf', size: 10, uploadedAt: NOW, fileUrl: 'x' }];
   const all = ui(canOf(admin)).attachmentsInner(files, {});
   assert.match(all, /data-attach-action="save"/); assert.match(all, /data-attach-action="delete"/); assert.match(all, /data-attach-action="rename"/); assert.match(all, /data-opp-dropzone/);

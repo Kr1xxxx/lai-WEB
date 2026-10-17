@@ -145,7 +145,7 @@ test('new customer: an empty company name shows 请填写公司名称 in the foo
 test('every form that used the browser check still refuses empty required input (opportunity, product)', async () => {
   const { page } = app;
   const cases = [
-    { route: 'opportunities', open: '[data-biz-action="new-opportunity"], [data-opp-action="new"]', form: '#opp-form', slot: '#opp-error', text: '请填写客户', field: 'client' },
+    { route: 'opportunities', open: '[data-biz-action="new-opportunity"], [data-opp-action="new"]', form: '#opp-form', slot: '#opp-error', text: '请选择客户', field: 'client' },
     { route: 'products', open: '[data-prod-action="new"], [data-biz-action="new-product"]', form: '#product-form', slot: '#product-error', text: '请填写产品名称', field: 'name' },
   ];
   for (const c of cases) {
@@ -157,12 +157,16 @@ test('every form that used the browser check still refuses empty required input 
     await form.waitFor();
     assert.equal(await form.evaluate((el) => el.noValidate && el.hasAttribute('data-form-check')), true, c.form);
     const before = JSON.stringify(await app.readData());
-    await form.locator(`[name="${c.field}"]`).fill('');
+    const box = form.locator(`[name="${c.field}"]`);
+    // 商机的客户是下拉：选回「请选择客户」
+    if (await box.evaluate((el) => el.tagName === 'SELECT')) await box.selectOption('', { force: true }); else await box.fill('');
     await page.locator(`button[type=submit][form="${c.form.slice(1)}"]`).click();
     await page.locator(`${c.slot}.visible`).waitFor();
     assert.equal(await page.locator(c.slot).innerText(), c.text, c.form);
     assert.equal(await page.locator(c.slot).evaluate((el) => !!el.closest('.drawer-footer')), true, `${c.form} error in the footer`);
-    assert.equal((await focused()).name, c.field, `${c.form} focus`);
+    // 下拉的光标落在它的触发按钮上（原生 select 是隐藏的）
+    const at = await page.evaluate(() => { const el = document.activeElement; const prev = el?.previousElementSibling; return el?.getAttribute('name') || (el?.classList.contains('lai-select-trigger') && prev?.tagName === 'SELECT' ? prev.name : ''); });
+    assert.equal(at, c.field, `${c.form} focus`);
     assert.equal(JSON.stringify(await app.readData()), before, `${c.form} saved nothing`);
     await page.locator('#overlay-root [data-action="close-modal"], #overlay-root [data-biz-action="close-editor"]').first().click();
     await settle();

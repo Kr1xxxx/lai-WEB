@@ -56,8 +56,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 32 | Remove 小满 theme + classic skin (D-029) | Done (#25) | Themes pink/orange/tech; saved xiaoman shown as tech, rewritten on next settings save; dead base CSS left for S4 |
 | 33 | Full overlap sweep + CI test | Done (#23) | `scripts/ui-audit/overlap-sweep.cjs` + `tests/e2e/overlap-sweep.e2e.mjs`; 0 findings in 4 themes × 9 widths |
 | 34 | Font subset (owner OK) | Done (#23) | MiSans hanzi cut to GB2312 + used chars; page 9.9 → 7.7 MB, pixel-identical; licence note in `vendor/fonts/SUBSET.md` |
-| 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
-| 27 | 新建商机: 客户 / 负责人 as real dropdowns | Todo | Now styled like dropdowns but still inputs with a datalist; needs controller changes in `business-ui.js` |
+| 26 | 写邮件给联系人 for extra contacts | Done (PR) | Button on every contact card with an email; `composeFor(..., pick)`; `customerAddresses` now includes `extraContacts` emails |
+| 27 | 新建商机: 客户 / 负责人 as real dropdowns | Done (PR) | `.k-select-trigger` selects (客户 searchable); old values kept; owners = team members + owners in data |
 
 ## Waiting on the owner
 
