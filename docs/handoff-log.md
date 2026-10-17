@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #26 (写邮件 on every contact card, addressed to that contact; extra-contact emails now count
+  as customer addresses for mail matching) and #27 (商机 客户/负责人 as real dropdowns, old values kept, owner locked
+  without 转移负责人) done by two parallel workers; the #27 worker hit the usage limit before committing, its saved work
+  was reviewed and committed by the coordinator. model 1455 / e2e 301; ui-audit 78 (no new). Rules in VALIDATION.md.
 - 2026-10-17 — Claude — D-032: Fable 5.1 `specialist` agent (medium, edits in a worktree) for complex slices and second
   passes; missing `researcher` agent file added; CLAUDE.md updated. Work otherwise still paused at the owner's request.
 - 2026-10-17 — Claude — #29 merged (`main` be707da); web trial v1.17 published. Then merged on the branch: 线索 removed

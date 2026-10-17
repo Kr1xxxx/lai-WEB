@@ -101,7 +101,7 @@ test('form: reference fields, required marks, and the parts that depend on what 
   assert.match(fresh, /<input type="hidden" name="flow" value="default">/);
   assert.equal((fresh.match(/<i class="opp-req" aria-hidden="true">\*<\/i>/g) || []).length, 8, 'name, customer, owner, amount, stage, end date, and the two hidden conditional ones');
   assert.match(fresh, /<option value="" selected>请先选择客户<\/option>/); assert.doesNotMatch(fresh, /name="contact" required/);
-  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select class="k-select-trigger" name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
+  assert.match(fresh, /<select class="k-select-trigger" name="owner" id="opp-form-owner" style="width:100%" aria-required="true" required><option value="">请选择负责人<\/option><option value="Amy" selected>Amy<\/option><\/select>/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select class="k-select-trigger" name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
   const chosen = ui.formMarkup({...O.defaults(base, TODAY), client: 'Alpha <b>Co</b>', contact: 'Bo', nameMode: 'custom', name: '大单', currency: 'EUR', exchangeRate: 108, stage: 'lost', lostReason: '交期原因',
     collaborators: ['Bob', 'Cara'], tags: ['VIP'], products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B', quantity: 1, unitPrice: 4}]}, {contacts: ['Ann', 'Bo'], isNew: false});
   assert.match(chosen, /name="contact" aria-required="true" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
@@ -118,6 +118,23 @@ test('form: reference fields, required marks, and the parts that depend on what 
   assert.match(ui.formMarkup({stage: 'legacy'}, {}), /<option value="legacy" selected>原阶段：legacy<\/option>/);
   assert.match(ui.formMarkup({stage: 'lost', lostReason: '老原因'}, {}), /<option value="老原因" selected>老原因<\/option>/);
   assert.doesNotThrow(() => ui.formMarkup({products: [null, 'x', {name: 'A'}]}, {}));
+  // 客户、负责人是下拉，只能从名单里选；客户多，带搜索框
+  assert.doesNotMatch(fresh, /<datalist id="opp-(client|owner)-list"|name="(client|owner)" value=/, 'no free typing');
+  assert.match(fresh, /<select class="k-select-trigger" name="client" id="opp-client" data-searchable="true" style="width:100%" aria-required="true" required><option value="" selected>请选择客户<\/option>/);
+  for (const name of O.customerNames(base)) assert.ok(fresh.includes(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`), name);
+  const picked = ui.formMarkup({client: 'Beta Ltd', owner: 'Bob'}, {customers: ['Alpha', 'Beta Ltd'], owners: ['Amy', 'Bob']});
+  assert.match(picked, /<option value="">请选择客户<\/option><option value="Alpha">Alpha<\/option><option value="Beta Ltd" selected>Beta Ltd<\/option><\/select>/);
+  assert.match(picked, /<option value="">请选择负责人<\/option><option value="Amy">Amy<\/option><option value="Bob" selected>Bob<\/option><\/select>/);
+  // 旧数据里的客户、负责人不在名单中：仍然保留并选中，只出现一次
+  const old = ui.formMarkup({client: 'Gone Co', owner: 'Zed'}, {customers: ['Alpha'], owners: ['Amy']});
+  assert.match(old, /<option value="Alpha">Alpha<\/option><option value="Gone Co" selected>Gone Co<\/option><\/select>/);
+  assert.match(old, /<option value="Amy">Amy<\/option><option value="Zed" selected>Zed<\/option><\/select>/);
+  assert.equal((old.match(/value="Gone Co"/g) || []).length, 1);
+  // 没有「转移负责人」权限：负责人下拉只有当前这一位，保存时照常带上
+  const locked = U.create(escapeHtml, O, (key) => key !== 'opp.transfer');
+  const mine = locked.formMarkup({client: 'Alpha', owner: 'Amy'}, {customers: ['Alpha'], owners: ['Amy', 'Bob']});
+  assert.match(mine, /<select class="k-select-trigger" name="owner" id="opp-form-owner" style="width:100%" aria-required="true" required><option value="Amy" selected>Amy<\/option><\/select>/);
+  assert.doesNotMatch(mine, /value="Bob"/);
 });
 
 test('card menu offers the right actions for each state', () => {
@@ -383,7 +400,7 @@ test('customer page: the controller API opens the form for that customer and ret
   c.page.navigate('analysis');
   c.page.newOpportunity('Beta Ltd');
   assert.equal(c.dialogs.at(-1)[0], '新建商机');
-  assert.match(c.dialogs.at(-1)[1], /name="client" id="opp-client" value="Beta Ltd"/);
+  assert.match(c.dialogs.at(-1)[1], /name="client" id="opp-client"[^>]*>[^]*?<option value="Beta Ltd" selected>Beta Ltd<\/option>/);
   const mountedBefore = c.mounted.length;
   await c.submit('opp-form', valid);
   assert.deepEqual(c.refreshed, ['Beta Ltd'], 'goes back to the customer instead of drawing the opportunity board');

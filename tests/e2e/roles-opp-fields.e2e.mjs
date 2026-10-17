@@ -90,7 +90,7 @@ test('业务 with hidden and read-only opportunity fields: absent from board, de
     // A new opportunity: the read-only end date is filled with the default, hidden fields stay empty.
     await page.locator('[data-opp-action="new"]').first().click();
     await settle(app);
-    await page.locator('#opp-form [name="client"]').fill('Amy Buyer');
+    await page.locator('#opp-form [name="client"]').selectOption('Amy Buyer', { force: true });
     await page.locator('#opp-form [name="amount"]').fill('77');
     await page.locator('button[type="submit"][form="opp-form"]').click();
     await settle(app, 700);
