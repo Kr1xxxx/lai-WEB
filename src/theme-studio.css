@@ -529,6 +529,157 @@
 /* ===== /S6 ===== */
 
 /* ===== S7: settings-forms（设置页、设置中心、客户/商机表单） ===== */
+/* 照 Gr8r pages/settings.css：设置中心、功能开关、设置页的分组不装卡片，改成 .sblock 的样子——
+   小节标题 13.5/600 下面一条 border 线、组距 28；设置项是 .srow：上下 14、行线 divider、标题 13.5/500、说明 12.5 text-2。
+   表单字段照 components.css 的 .field/.label/.hint：字段 gap 6、标签 12.5/500 正文色、提示 12 text-3。
+   客户设置/产品设置/单据模板的面板保留卡片（计划 S7），只改内距与行。 */
+
+/* —— 设置中心（settings-hub）—— */
+:root[data-skin="glass"][data-theme="studio"] .sh-page { gap: 28px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-group, .fs-card).k-card {
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible;
+}
+:root[data-skin="glass"][data-theme="studio"] .sh-group > .k-card-head {
+  min-height: 0; margin: 0; padding: 0 0 8px; border-bottom: 1px solid var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .sh-group > .k-card-head .k-card-title {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-head); line-height: var(--studio-lh); letter-spacing: 0; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-list, .fs-list).k-card-body { padding: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-item, .fs-page .fs-item) {
+  gap: 24px; min-height: 0; padding: 14px 0; border-top: 1px solid var(--studio-divider);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-item, .fs-page .fs-item):first-child { border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-item, .fs-page .fs-item):last-child { border-bottom: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-text, .fs-page .fs-text) { gap: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-text strong, .fs-page .fs-text h3) {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); line-height: var(--studio-lh); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-text span, .fs-page .fs-note) {
+  margin-top: 2px; font-size: var(--studio-fs-sm); line-height: var(--studio-lh); color: var(--studio-text-2);
+}
+
+/* —— 功能开关（feature-switch）：同设置中心的行；没有小节标题，用一条 border 线起头 —— */
+:root[data-skin="glass"][data-theme="studio"] .fs-page { gap: 12px; }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-list.k-card-body { border-top: 1px solid var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-item:first-child { border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-switch { font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-switch:has(.k-switch:not(:checked)) { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .fs-page :is(.fs-hint, .fs-fixed) { font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+
+/* —— 设置（settings）：每张 .st-card 是一个 .sblock —— */
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-form { gap: 28px; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-card.k-card {
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible;
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-card > .k-card-head {
+  min-height: 0; margin: 0; padding: 0 0 8px; border-bottom: 1px solid var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-head .k-card-title {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-head); line-height: var(--studio-lh); letter-spacing: 0; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-head .k-card-desc { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-card > .k-card-body { padding: 16px 0 0; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-grid.k-card-body { gap: 16px 24px; padding: 16px 0 0; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-field { gap: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-label {
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-label .required { color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout :is(.st-hint, .st-copy) {
+  font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-actions { gap: 8px; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-actions--start { margin: 14px 0 8px; }
+
+/* —— 界面配色卡（.tcard）：边 border、10 圆角、内距 8；选中 accent 边 + 焦点环；预览 84 高 6 圆角 —— */
+:root[data-skin="glass"][data-theme="studio"] .theme-options { gap: 12px; margin: 0 0 12px; }
+:root[data-skin="glass"][data-theme="studio"] .theme-option {
+  gap: 8px; padding: 8px; border: 1px solid var(--studio-border); border-radius: var(--studio-r-lg);
+  background: var(--studio-surface); box-shadow: none;
+  transition: border-color var(--studio-dur) var(--studio-ease), box-shadow var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .theme-option:hover { border-color: var(--studio-border-strong); background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] :is(.theme-option.selected, .theme-option.selected:hover) {
+  border-color: var(--studio-accent); box-shadow: var(--studio-focus);
+}
+:root[data-skin="glass"][data-theme="studio"] .theme-option .theme-preview {
+  height: 84px; border-radius: var(--studio-r-sm); outline: 1px solid rgba(128, 128, 128, 0.2); outline-offset: -1px;
+}
+:root[data-skin="glass"][data-theme="studio"] .theme-line { min-height: 20px; padding: 0 2px; }
+:root[data-skin="glass"][data-theme="studio"] .theme-line strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); color: var(--studio-text); }
+
+/* —— 客户设置 / 产品设置 / 单据模板（.cs-*）—— */
+:root[data-skin="glass"][data-theme="studio"] .cs-page { gap: 24px; padding: 4px 0 24px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-nav.k-tabs { gap: 0; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .cs-nav :is(.gh, h3, .cs-nav-group) {
+  margin: 0; padding: 14px 8px 4px; font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-head);
+  letter-spacing: var(--studio-ls-eyebrow); line-height: 16px; color: var(--studio-text-3);
+}
+:root[data-skin="glass"][data-theme="studio"] .cs-nav :is(.gh, h3, .cs-nav-group):first-child { padding-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-panel.k-card > .k-card-head { padding: 20px 24px 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-panel.k-card > .k-card-body { padding: 14px 24px 20px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-panel > h2 { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] :is(.cs-note, .cs-hint) { font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .cs-list {
+  border: 0; border-radius: 0; border-top: 1px solid var(--studio-divider); border-bottom: 1px solid var(--studio-divider);
+}
+:root[data-skin="glass"][data-theme="studio"] .cs-list > li { border-top: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .cs-list > li:first-child { border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-row { gap: 12px; min-height: 0; padding: 14px 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-child > .cs-row { padding: 10px 12px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-row strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .cs-row .cs-use { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .cs-section { margin: 0 0 24px; padding-top: 20px; border-top: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .cs-section:first-of-type { padding-top: 0; border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.cs-section h3, .dt-group h3) { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .cs-field { gap: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-field > :is(span, legend) {
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .cs-field em { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .cs-layout-card { border-color: var(--studio-border); border-radius: var(--studio-r-lg); }
+:root[data-skin="glass"][data-theme="studio"] .cs-layout-card:hover { border-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .cs-layout-card.active { border-color: var(--studio-accent); box-shadow: var(--studio-focus); }
+:root[data-skin="glass"][data-theme="studio"] .cs-confirm { border-radius: var(--studio-r); background: var(--studio-surface-2); }
+
+/* —— 客户编辑字段（.ce-*；抽屉壳归 S4）—— */
+:root[data-skin="glass"][data-theme="studio"] .ce-body :is(.ce-field > label, .ce-label) {
+  margin: 0 0 6px; font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .ce-body .ce-required { color: var(--studio-red); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .ce-body :is(h3, .ce-section-heading h3, .ce-contact-heading strong) {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-head); line-height: var(--studio-lh); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .ce-body :is(.ce-hint, .ce-main-hint) { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+
+/* —— 商机表单字段（停靠卡片壳归 S1/S4）—— */
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-field { gap: 6px; font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-field-label {
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-req { color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-field-hint {
+  font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-body); line-height: 18px; color: var(--studio-text-3);
+}
+
+/* —— 角色与成员（非表格部分）—— */
+:root[data-skin="glass"][data-theme="studio"] .role-hint { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .role-foot-note { padding: 12px 14px 14px; border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .role-section-title { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(.role-note, .role-lock-note) {
+  border-color: var(--studio-border); border-radius: var(--studio-r); background: var(--studio-surface-2);
+  font-size: var(--studio-fs-sm); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.role-edit, .role-dialog) .field {
+  gap: 6px; font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .role-basic.k-card { gap: 16px 24px; padding: 14px; }
+:root[data-skin="glass"][data-theme="studio"] .role-group legend { min-height: 44px; padding: 10px 14px; border-bottom-color: var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .role-group-name { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .role-perms { gap: 10px 16px; padding: 14px; }
+:root[data-skin="glass"][data-theme="studio"] .role-check { font-size: var(--studio-fs); }
+:root[data-skin="glass"][data-theme="studio"] :is(.role-members-total, .role-members-none) { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
 /* ===== /S7 ===== */
 
 /* ===== S8: secondary-pages（客户详情、邮件、聊天、订单页细节） ===== */
