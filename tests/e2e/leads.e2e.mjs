@@ -16,13 +16,13 @@ const fill = async (form, values) => { for (const [name, value] of Object.entrie
 const submit = async (form) => { await app.page.locator(`button[type="submit"][form="${form}"], #${form} button[type="submit"]`).first().click(); await settle(); };
 
 test('the 线索 entry opens the real module, empty at first', async () => {
-  await app.page.locator('.lead-empty').waitFor();
-  assert.equal(await text('.lead-empty strong'), '还没有线索');
+  await app.page.locator('.lead-none').waitFor();
+  assert.equal(await text('.lead-none .k-empty-title'), '还没有线索');
 });
 
 test('a new lead is saved, followed up, and becomes 跟进中', async () => {
   const { page } = app;
-  await page.locator('.lead-empty [data-lead-action="new"]').click();
+  await page.locator('.lead-none [data-lead-action="new"]').click();
   await settle();
   await fill('#lead-form', { name: 'Northwind Beauty GmbH', contact: 'Anna Berg', email: 'anna@northwind.example', source: '展会' });
   await submit('lead-form');
