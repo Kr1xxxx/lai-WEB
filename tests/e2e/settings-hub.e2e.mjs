@@ -171,5 +171,6 @@ test('the 设置 page has 立即备份 but no Mac-only 打开数据目录; a 501
   await page.locator('[data-biz-action="backup"]').click();
   await page.locator('#biz-backup-status', { hasText: '试用版不能备份' }).waitFor();
   await page.unroute('**/api/manual-backup');
-  assert.deepEqual(unexpectedErrors(), []);
+  // The faked 501 is the only error the page may log here.
+  assert.deepEqual(unexpectedErrors().filter((e) => !/^HTTP 501: .*\/api\/manual-backup$/.test(e)), []);
 });
