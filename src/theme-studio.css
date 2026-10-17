@@ -536,21 +536,64 @@
 /* ===== /S2 ===== */
 
 /* ===== S3: headers-cards-empty（页头、标题旁页签、工具行、卡片、空状态） ===== */
-/* ---------- 页头：大标题 23px、字距收紧 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .k-pageheader { padding: 0 0 16px; }
-:root[data-skin="glass"][data-theme="studio"] .k-pageheader-title { font-size: var(--studio-fs-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 30px; color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .k-pageheader-desc { font-size: var(--studio-fs-sm); color: var(--ink-700); }
-/* ---------- 卡片 ---------- */
-:root[data-skin="glass"][data-theme="studio"] :is(.k-card, .business-section, .module-page, .duplicate-card) {
-  border: 1px solid var(--ink-200); border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: 0 1px 2px rgba(28, 25, 20, 0.04);
+/* ---------- 页头（Gr8r .ph）：标题 23 一行、说明另起一行、离内容 20、按钮间距 6 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader, .pagebar) { height: auto; min-height: 0; padding: 0; margin: 0 0 var(--studio-ph-gap); align-items: flex-start; gap: 12px; }
+/* 只有标题和说明的页头改成上下两行；标题行里还放着页签、下拉、按钮、搜索的（客户列表、客户详情、邮件）保持一行 */
+:root[data-skin="glass"][data-theme="studio"] .k-pageheader-text:not(:has(> :is(.k-tabs, .k-select-trigger, select, button, label, form))),
+:root[data-skin="glass"][data-theme="studio"] .business-title { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; gap: 4px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader-title, .page-tabs h1, .business-title h1) { margin: 0; font-size: var(--studio-fs-2xl); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-h1); line-height: 1.2; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader-desc, .business-title > span) { margin: 0; font-size: var(--studio-fs); line-height: 20px; color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader-actions, .page-actions) { gap: 6px; }
+/* 页头高度不再固定 60：页头下面那块（.business-scroll / 聊天 / 邮件面板）原来按 calc(100% - 60px) 定高，改成占满剩下的高度 */
+:root[data-skin="glass"][data-theme="studio"] main.main:has(> :is(.k-pageheader, .pagebar) + :is(.business-scroll, .wa-page, .module-page)) { display: flex; flex-direction: column; }
+:root[data-skin="glass"][data-theme="studio"] main.main > :is(.k-pageheader, .pagebar) { flex: none; }
+:root[data-skin="glass"][data-theme="studio"] main.main > :is(.k-pageheader, .pagebar) + :is(.business-scroll, .wa-page, .module-page) { flex: 1 1 0; height: auto; min-height: 0; }
+/* 团队、订单页的外层已有 12 的间距：页头到内容合计仍是 20 */
+:root[data-skin="glass"][data-theme="studio"] :is(.team-page, .op-page) > .k-pageheader { margin-bottom: calc(var(--studio-ph-gap) - 12px); }
+
+/* ---------- 标题旁的页签（商机看板｜商机分析｜商机设置）：Gr8r 的下划线页签 ----------
+   位置由 app.js 决定（标题后面），这里只换样子：有页签的页头底部画一条横线，页签坐在线上，
+   页签文字和说明（没有说明时和标题）对齐在同一条基线上，选中项的 2px 黑线压在页头横线上。 */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader, .pagebar):has(> .section-tabs) { border-bottom: 1px solid var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader, .pagebar):has(> .section-tabs) > :is(.k-pageheader-text, .business-title, .page-tabs) { align-self: last baseline; }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs { align-self: last baseline; gap: 2px; margin: 0 auto -1px var(--studio-gutter); border-bottom: 1px solid var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab {
+  position: relative; height: var(--studio-tab-h); min-height: var(--studio-tab-h); padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text-2); transition: color var(--studio-dur) var(--studio-ease);
 }
-:root[data-skin="glass"][data-theme="studio"] .k-card-title { font-size: var(--studio-fs-md); font-weight: 600; letter-spacing: -0.01em; }
-:root[data-skin="glass"][data-theme="studio"] .k-card-desc { color: var(--ink-600); }
-/* ---------- 标题旁的页签（商机看板｜商机分析｜商机设置 这类）：像 Gr8r 的幽灵按钮，选中浅灰底黑字 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .section-tabs { gap: 2px; }
-:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab { height: 30px; min-height: 30px; padding: 0 10px; border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: 500; color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab:hover { background: var(--studio-surface-2); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab.active { background: var(--studio-surface-3); color: var(--ink-900); font-weight: 500; }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab:hover { background: transparent; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab.active { background: transparent; color: var(--studio-text); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab.active::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: calc(var(--studio-r-xs) / 2); background: var(--studio-text); }
+
+/* ---------- 卡片（Gr8r panel）：1px 边、10 圆角、无阴影；头 12/14/10、标题 13.5/600、体 0 14 14 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-card, .business-section, .module-page, .duplicate-card) {
+  border: 1px solid var(--studio-border); border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: none;
+}
+:root[data-skin="glass"][data-theme="studio"] .k-card-head { gap: 8px; padding: 12px var(--studio-panel-pad) 10px; }
+:root[data-skin="glass"][data-theme="studio"] .k-card-title { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-h2); line-height: 20px; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-card-desc { font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .k-card-body { padding: 0 var(--studio-panel-pad) var(--studio-panel-pad); }
+
+/* ---------- 工具行（Gr8r .toolbar）：不再是卡片，44 高、底线；齐到主区边的负外边距在 S5 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.opp-toolbar, .business-toolbar) {
+  box-sizing: border-box; min-height: var(--studio-toolbar-h); margin: 0; padding: 8px 0; border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; background: transparent; box-shadow: none;
+}
+/* 在卡片里的工具行（客户列表、订单列表）左右留出和表格首列一样的 24 */
+/* 工具行下面直接是内容（商机页的金额格、看板）：留 16，别贴着底线（Gr8r 的看板区也有 16 的上内距） */
+:root[data-skin="glass"][data-theme="studio"] .opp-toolbar { margin-bottom: var(--studio-grid-gap); }
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .op-filters) {
+  box-sizing: border-box; min-height: var(--studio-toolbar-h); margin: 0; padding: 8px var(--studio-gutter); border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; background: transparent; box-shadow: none;
+}
+
+/* ---------- 空状态（Gr8r .empty）：无边框、居中、56/24（卡片里 28/16）、标题 14.5/600、文字 12.5 text-2 ----------
+   :where 让页面自己调过的空状态（看板列、团队排行、客户详情侧栏…）保持原样，只换套件的默认值。 */
+:root[data-skin="glass"][data-theme="studio"] :where(.k-empty) { gap: 4px; padding: 56px 24px; border: 0; font-size: var(--studio-fs-sm); line-height: var(--studio-lh); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .k-card :where(.k-empty) { padding: 28px 16px; border: 0; border-radius: 0; }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-empty > span, .empty > span) { max-width: 340px; }
+:root[data-skin="glass"][data-theme="studio"] .k-empty-title { margin: 0; font-size: var(--studio-fs-md); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .empty { gap: 4px; padding: 56px 24px; font-size: var(--studio-fs-sm); line-height: var(--studio-lh); color: var(--studio-text-2); text-align: center; }
+:root[data-skin="glass"][data-theme="studio"] .empty strong { font-size: var(--studio-fs-md); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .small-empty { padding: 28px 16px; font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
 /* ===== /S3 ===== */
 
 /* ===== S4: overlays（遮罩、弹窗、抽屉、菜单、下拉菜单、日期、提示条、左栏浮层） ===== */
