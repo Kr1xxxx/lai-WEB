@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — Task 29: lead custom fields (线索设置 → 自定义字段, editor, detail, export, conversion copies to
+  same-name same-type customer fields, role field permissions) and top-bar search over customer custom fields (全部 and a
+  single custom field scope). model 1458 / e2e 294 green, UI audit pass (170).
 - 2026-10-17 — Claude — Owner said 合并: merged #19, `main` eb6ba6e; then 后续自动合并. Restarted the branch from it and
   merged the next wave: WhatsApp 沟通 (links, templates, chat import, chat follow-ups), 导出, 线索设置, custom customer
   fields, exchange rates with order snapshots, task rules, feature switches, D-022 (company details in one place, team

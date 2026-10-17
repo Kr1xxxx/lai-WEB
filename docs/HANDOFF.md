@@ -45,7 +45,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
 | 9 | 沟通 module — WhatsApp (D-023) | Done (PR) | wa.me links, chat templates, import of exported chats, chat follow-ups; no receiving without a server (D-024) |
 | 28 | Export, lead settings, custom customer fields, exchange rates, task rules, feature switches | Done (PR) | Settings kept in `laiSettings` (no schema change); see VALIDATION.md |
-| 29 | Custom columns for orders and leads; custom fields in global search | Todo | |
+| 29 | Lead custom fields; custom fields in global search | Done (PR) | Lead list has fixed columns, so lead custom values show in editor, detail and export |
+| 30 | Custom fields for orders | Todo | `field-model.js` ENTITIES has customer and lead only |
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
 | 25 | Split `src/app.js` (~5300 lines) and `business-ui.js` (~2700) by page | Todo | Many `tests/*.test.cjs` read source text; move them to behaviour tests while splitting |
