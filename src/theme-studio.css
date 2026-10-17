@@ -519,13 +519,148 @@
 /* ===== /S5 ===== */
 
 /* ===== S6: dashboard-board-stats（首页、商机看板与统计、团队目标） ===== */
-/* ---------- 商机看板：每列浅米色底、细边、10px 圆角；卡片白底 8px 圆角 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .opp-column { background: var(--studio-surface-2); border: 1px solid var(--ink-200); border-radius: var(--studio-r-lg); }
-:root[data-skin="glass"][data-theme="studio"] .opp-column .opp-stage { background: transparent; }
-:root[data-skin="glass"][data-theme="studio"] .opp-stage-name { font-weight: 600; color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .opp-stage-count { background: transparent; border-color: transparent; color: var(--ink-600); padding: 0 2px; }
-:root[data-skin="glass"][data-theme="studio"] .opp-card { border-radius: var(--studio-r); border-color: var(--ink-200); box-shadow: 0 1px 2px rgba(28, 25, 20, 0.04); }
-:root[data-skin="glass"][data-theme="studio"] .opp-card:hover { border-color: var(--ink-300); }
+/* 对照 Gr8r：panels.css（.panel-h/.stats/.stat）、views/list.css（.mini）、components.css（.prog）、views/board.css（.bcol/.kcard） */
+
+/* ---------- 首页（工作台）：卡片头 12/14/10，卡片体 0/14/14；行 38 起、左右 14、行线 divider ---------- */
+:root[data-skin="glass"][data-theme="studio"] .wb-hello .wb-sum { margin-top: 4px; font-size: var(--studio-fs); line-height: var(--studio-lh); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .wb-sum b { font-weight: 600; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ph.k-card-head { gap: 2px 8px; padding: 12px var(--studio-panel-pad) 10px; }
+:root[data-skin="glass"][data-theme="studio"] .wb-ph .k-card-desc { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ph .wb-link { margin: -4px -6px -4px auto; }
+:root[data-skin="glass"][data-theme="studio"] .wb-list { padding: 0; }
+:root[data-skin="glass"][data-theme="studio"] .wb-row,
+:root[data-skin="glass"][data-theme="studio"] button.wb-row { gap: 10px; min-height: var(--studio-mini-h); padding: 6px var(--studio-panel-pad); border-top: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .wb-row + .wb-row,
+:root[data-skin="glass"][data-theme="studio"] button.wb-row + .wb-row { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] button.wb-row:hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .wb-who b { font-weight: var(--studio-fw-ui); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-who .wb-next { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-m time { font-size: var(--studio-fs-xs); color: var(--studio-text-2); font-variant-numeric: tabular-nums; }
+/* 行首徽标：20 高、0 7px、5 圆角、12/500 */
+:root[data-skin="glass"][data-theme="studio"] .wb-tag.k-badge,
+:root[data-skin="glass"][data-theme="studio"] .wb-ch.k-badge { height: var(--studio-badge-h); padding: 0 7px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); line-height: var(--studio-badge-h); }
+:root[data-skin="glass"][data-theme="studio"] .wb-foot { margin: 0; padding: 10px var(--studio-panel-pad) 12px; border-top: 1px solid var(--studio-divider); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-note { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+/* 卡片体 = Gr8r .panel-b */
+:root[data-skin="glass"][data-theme="studio"] .wb-body { gap: var(--studio-grid-gap); padding: 0 var(--studio-panel-pad) var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fun { padding: 0 var(--studio-panel-pad) var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wb-linescroll { padding: 4px var(--studio-panel-pad) var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wb-meter-top { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+/* 大数字：22/600/-0.02em，等宽数字（Gr8r .stat .v） */
+:root[data-skin="glass"][data-theme="studio"] .wb-big { font-size: var(--studio-fs-stat); font-weight: 600; line-height: 1.1; letter-spacing: var(--studio-ls-stat); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-big .wb-sub { font-size: var(--studio-fs-sm); letter-spacing: 0; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-split > div { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .wb-split b { font-size: var(--studio-fs-lg); letter-spacing: var(--studio-ls-h2); font-variant-numeric: tabular-nums; }
+:root[data-skin="glass"][data-theme="studio"] .wb-split span { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+/* 进度条：4 高、surface-3 底、4 圆角、主色（Gr8r .prog） */
+:root[data-skin="glass"][data-theme="studio"] .wb-bar { height: 4px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-bar i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .wb-mini .wb-bar { height: 4px; }
+:root[data-skin="glass"][data-theme="studio"] .wb-mini { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.wb-mini, .wb-fr) em { color: var(--studio-text); font-variant-numeric: tabular-nums; }
+/* 商机漏斗：条按金额画，6 高（Gr8r .stackbar）；进行中主色、赢单绿、输单灰 */
+:root[data-skin="glass"][data-theme="studio"] .wb-fr { font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr .wb-bar { height: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr .wb-bar i { background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr.won .wb-bar i { background: var(--studio-green); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr.lost .wb-bar i { background: var(--studio-st-backlog); }
+/* 订单阶段线：圆点 22，用 Gr8r 的状态色（空阶段 backlog、有订单 progress、已完成 done） */
+:root[data-skin="glass"][data-theme="studio"] .wb-stn::before,
+:root[data-skin="glass"][data-theme="studio"] .wb-stn::after { top: 11px; border-top-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.fl::before,
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.fr::after { top: 10px; border-top-color: var(--studio-st-progress); }
+:root[data-skin="glass"][data-theme="studio"] .wb-dot { width: var(--studio-h-xs); height: var(--studio-h-xs); border: 1.5px solid var(--studio-st-backlog); background: var(--studio-surface); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.has .wb-dot { border-color: var(--studio-st-progress); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.fin .wb-dot { border-color: var(--studio-st-done); background: var(--studio-st-done); color: var(--studio-text-inv); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn h3 { font-size: var(--studio-fs-sm); font-weight: 600; }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn h3 .wb-num { font-weight: var(--studio-fw-ui); color: var(--studio-text-3); }
+/* 阶段下的订单小卡 = Gr8r .kcard */
+:root[data-skin="glass"][data-theme="studio"] .wb-ocards { gap: 6px; }
+:root[data-skin="glass"][data-theme="studio"] button.wb-ocard { gap: 2px; padding: var(--studio-card-pad) 12px; border: 0; border-radius: var(--studio-r); background: var(--studio-surface); box-shadow: var(--studio-shadow-card); transition: box-shadow var(--studio-dur) var(--studio-ease); }
+:root[data-skin="glass"][data-theme="studio"] button.wb-ocard:hover:not(:disabled) { background: var(--studio-surface); box-shadow: var(--studio-shadow-kcard-hover); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ocard b { font-weight: var(--studio-fw-nav); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ocard .wb-amt { font-weight: 600; letter-spacing: var(--studio-ls-h2); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ocard small { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-doneSum { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+
+/* ---------- 商机：四个金额合成一个框，格间竖线（Gr8r .stats/.stat） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .opp-stats { gap: 0; border: 1px solid var(--studio-border); border-radius: var(--studio-r-lg); background: var(--studio-surface); overflow: hidden; }
+/* 每格都画左线和上线、再往左上挪 1px：第一列/第一行的线被外框裁掉；格子换行（商机分析六格、窄窗口）时格间线也对 */
+:root[data-skin="glass"][data-theme="studio"] .opp-stat.k-card { gap: 6px; margin: -1px 0 0 -1px; padding: 14px 16px; border: 0; border-top: 1px solid var(--studio-border); border-left: 1px solid var(--studio-border); border-radius: 0; background: var(--studio-surface); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat-label { font-size: var(--studio-fs-sm); line-height: 18px; color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat-count { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat b { font-size: var(--studio-fs-stat); font-weight: 600; line-height: 1.1; letter-spacing: var(--studio-ls-stat); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat b small { margin-right: 2px; font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); letter-spacing: 0; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat-note { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+@container (max-width: 230px) { :root[data-skin="glass"][data-theme="studio"] .opp-page .opp-stat b { font-size: var(--studio-fs-xl); } }
+@container (max-width: 170px) { :root[data-skin="glass"][data-theme="studio"] .opp-page .opp-stat b { font-size: var(--studio-fs-lg); } }
+/* 框里的说明行（其他币种 / 其他流程）：整行、上线 */
+:root[data-skin="glass"][data-theme="studio"] .opp-stats > .opp-stats-note { margin: -1px 0 0; padding: 8px 16px; border-top: 1px solid var(--studio-border); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+
+/* ---------- 商机看板：列 ≤284、间距 12；列 sunken 底、divider 边、10 圆角（Gr8r .bcol） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .opp-page > .opp-board { grid-auto-columns: minmax(232px, var(--studio-bcol-w)); gap: var(--studio-board-gap); }
+:root[data-skin="glass"][data-theme="studio"] .opp-column { border: 1px solid var(--studio-divider); border-radius: var(--studio-r-lg); background: var(--studio-sunken); }
+:root[data-skin="glass"][data-theme="studio"] .opp-column.is-drop-target { border-color: var(--studio-accent-line); background: color-mix(in srgb, var(--studio-accent) 6%, var(--studio-sunken)); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .opp-column .opp-stage { gap: 2px 7px; padding: 10px 8px 6px 12px; border-radius: var(--studio-r-lg) var(--studio-r-lg) 0 0; background: inherit; font-size: var(--studio-fs-sm); font-weight: 600; }
+:root[data-skin="glass"][data-theme="studio"] .opp-stage-name { font-weight: 600; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stage .opp-stage-count,
+:root[data-skin="glass"][data-theme="studio"] .opp-stage .opp-stage-count.k-badge--success { min-width: 0; height: auto; padding: 0; border: 0; background: transparent; font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: inherit; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stage-amount { padding-right: 4px; font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-body); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-cards { gap: 6px; padding: var(--studio-bcol-pad); }
+:root[data-skin="glass"][data-theme="studio"] .opp-cards > .opp-drop-hint { border-color: var(--studio-border-strong); border-radius: var(--studio-r); color: var(--studio-text-3); }
+/* 卡片 = Gr8r .kcard：8 圆角、无边、shadow-card、10/12 内距；悬停加深的环 */
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card { padding: var(--studio-card-pad) 12px; border: 0; border-radius: var(--studio-r); background: var(--studio-surface); box-shadow: var(--studio-shadow-card); transition: box-shadow var(--studio-dur) var(--studio-ease); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card:hover { box-shadow: var(--studio-shadow-kcard-hover); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card:focus-within { box-shadow: var(--studio-focus), 0 0 0 1px var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card.is-dragging { box-shadow: 0 0 0 1px var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card.is-archived { background: var(--studio-surface); }
+/* 卡片标题是客户名（Gr8r .kcard .title 13.5/450/1.4）；商机编号一行是 meta（12 text-3） */
+:root[data-skin="glass"][data-theme="studio"] .opp-card-head .opp-card-client { height: auto; min-height: 0; padding: 0; border: 0; box-shadow: none; font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); line-height: 1.4; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-head .opp-card-menu { width: var(--studio-h-xs); height: var(--studio-h-xs); min-height: 0; margin: -2px -6px -2px 0; padding: 0; border: 0; border-radius: var(--studio-r-sm); background: transparent; box-shadow: none; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-head .opp-card-menu:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card > .opp-card-name { margin-top: 2px; font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card > .opp-card-name:hover { color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-amount { font-weight: 600; letter-spacing: var(--studio-ls-h2); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-amount small { font-size: var(--studio-fs-xs); letter-spacing: 0; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-foot { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-foot .opp-owner-name { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .opp-avatar { width: 20px; height: 20px; border-radius: var(--studio-r-full); background: color-mix(in srgb, var(--studio-accent) 17%, var(--studio-surface)); font-size: var(--studio-fs-2xs); font-weight: 600; line-height: 20px; color: var(--studio-accent-ink); }
+
+/* ---------- 商机分析：阶段分布条 6 高、surface-3 底、主色（赢单绿、输单灰） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .opp-bar { padding: 9px 0; border-bottom-color: var(--studio-divider); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-label { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-track { height: 6px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-track i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar.opp-kind-won .opp-bar-track i { background: var(--studio-green); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar.opp-kind-lost .opp-bar-track i { background: var(--studio-st-backlog); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-count { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-amount { letter-spacing: var(--studio-ls-h2); color: var(--studio-text); }
+
+/* ---------- 团队数据：目标卡、统计格 = Gr8r .stat 的字（k 12.5 text-2、v 22/600、d 12 text-3）；条 4/6 高 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .team-goal.k-card,
+:root[data-skin="glass"][data-theme="studio"] .team-tile.k-card { gap: 6px; padding: 14px 16px; }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-head { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-head > span { font-weight: var(--studio-fw-ui); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal > strong,
+:root[data-skin="glass"][data-theme="studio"] .team-tile > strong,
+:root[data-skin="glass"][data-theme="studio"] .team-figures strong,
+:root[data-skin="glass"][data-theme="studio"] .team-card-number > strong { font-size: var(--studio-fs-stat); font-weight: 600; line-height: 1.1; letter-spacing: var(--studio-ls-stat); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .team-tile > span { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.team-goal-note, .team-cap, .team-note, .team-hint, .team-scope-note) { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-foot { font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-bar { height: 4px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-bar i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal.team-goal-new { border: 1px dashed var(--studio-border-strong); border-radius: var(--studio-r-lg); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal.team-goal-new:hover:not(:disabled) { border-color: var(--studio-text-4); background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars > div { font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars span { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars > div > div,
+:root[data-skin="glass"][data-theme="studio"] .team-segbar { height: 6px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars i,
+:root[data-skin="glass"][data-theme="studio"] .team-segbar i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .team-ring-track { stroke: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-block-title,
+:root[data-skin="glass"][data-theme="studio"] .team-trend-title { font-size: var(--studio-fs); font-weight: 600; color: var(--studio-text); }
 /* ===== /S6 ===== */
 
 /* ===== S7: settings-forms（设置页、设置中心、客户/商机表单） ===== */
