@@ -2316,7 +2316,7 @@ td.team-reached {
 
 /* 表单正文：小节标题是一条细分隔线加一行粗体字；字段两列，标签在上（12 号灰字，必填星号紧跟文字）、控件在下 */
 :root[data-skin] :is(#biz-order-form, #opp-form).drawer-body { padding: 16px 16px var(--space-16); color: var(--fg); font-size: var(--text-sm); }
-:root[data-skin] :is(#biz-order-form, #opp-form) .form-section { display: flex; align-items: center; gap: 8px; margin: 20px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
+:root[data-skin] :is(#biz-order-form, #opp-form) .form-section { display: flex; align-items: center; gap: 8px; margin: 24px 0 12px; padding-top: 20px; border-top: 1px solid var(--border); font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
 :root[data-skin] :is(#biz-order-form, #opp-form) .form-section::before { content: none; }
 :root[data-skin] :is(#biz-order-form, #opp-form) > .form-section:not(.form-section ~ .form-section) { margin-top: 0; padding-top: 0; border-top: 0; }
 :root[data-skin] #biz-order-form .form-grid,
