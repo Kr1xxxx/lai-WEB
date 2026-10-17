@@ -262,11 +262,30 @@
         ]
       : field === "level" ? row.displayLevel ?? row.level : row[field];
 
-  function globalCustomerSearch(rows = [], { field = "all", query = "", hidden = null } = {}) {
+  // 全局搜索能搜的自定义字段：文本、多行文本、数字、单选、多选（日期不搜）。
+  const searchableCustomTypes = new Set(["text", "textarea", "number", "select", "multi"]);
+  const globalSearchCustom = (state) => customColumns(state).filter((def) => searchableCustomTypes.has(def.fieldType));
+  // 搜索范围菜单：固定字段在前，自定义字段（id 是 custom:<字段ID>，名称是字段名称）在后。
+  const globalSearchFieldsFor = (state) => [
+    ...globalSearchFields,
+    ...globalSearchCustom(state).map((def) => Object.freeze({ id: def.id, label: def.label, custom: true })),
+  ];
+  function globalCustomerSearch(rows = [], { field = "all", query = "", hidden = null, state = null } = {}) {
     if (!active(query)) return [...rows];
-    if (!globalSearchFields.some((item) => item.id === field)) return [];
+    // 自定义字段的定义只在这里取一次（不是每一行取一次）；角色看不到的、已经删掉的字段都不在里面。
+    const customDefs = state ? globalSearchCustom(state).filter((def) => !(hidden && hidden.has(def.id))) : [];
+    const customIds = customDefs.map((def) => def.id);
+    const customOnly = isCustomColumn(field);
+    if (customOnly) {
+      if (!customIds.includes(field)) return [];
+    } else if (!globalSearchFields.some((item) => item.id === field)) return [];
     // 角色看不到的字段不能拿来搜（选了那个字段就没有结果，搜“全部”时也跳过它）。
     if (hidden && hidden.has(field)) return [];
+    const customOf = (row, def) => row[def.id] ?? row.custom?.[def.customId];
+    if (customOnly) {
+      const def = customDefs.find((item) => item.id === field);
+      return rows.filter((row) => contains(customOf(row, def), query));
+    }
     const fieldValues = (row) => ({
       nameOrShort: [row.name, row.shortName, row.abbreviation],
       note: [row.companyRemark],
@@ -283,7 +302,8 @@
     return rows.filter((row) => {
       const searchable = fieldValues(row);
       const candidates = field === "all"
-        ? Object.entries(searchable).filter(([id]) => !(hidden && hidden.has(id))).flatMap(([, list]) => list)
+        ? [...Object.entries(searchable).filter(([id]) => !(hidden && hidden.has(id))).flatMap(([, list]) => list),
+          ...customDefs.map((def) => customOf(row, def))]
         : searchable[field];
       return contains(candidates, query);
     });
@@ -549,7 +569,7 @@
       contactEditable: (key) => editable("contact." + key),
       hiddenColumns: () => new Set(registry(state).list.map((field) => field.id).filter((id) => !columnVisible(id))),
       hiddenFilters: () => new Set([...idsHidden(filterRoleKeys), ...registry(state).custom.map((field) => field.id).filter((id) => !columnVisible(id))]),
-      hiddenSearch: () => idsHidden(searchRoleKeys),
+      hiddenSearch: () => new Set([...idsHidden(searchRoleKeys), ...registry(state).custom.map((field) => field.id).filter((id) => !columnVisible(id))]),
     };
   }
   // 筛选条件里用到看不到的字段时，去掉那一项（不然能从筛选结果猜出隐藏的内容）。
@@ -693,7 +713,7 @@
     return (owner) => names.has(normalize(owner));
   }
 
-  const api = { catalog, catalogFor, customColumns, fieldFor, isCustomColumn, globalSearchFields, globalCustomerSearch, filter, sortRows, normalizeColumns, countryLabel,
+  const api = { catalog, catalogFor, customColumns, fieldFor, isCustomColumn, globalSearchFields, globalSearchFieldsFor, globalCustomerSearch, filter, sortRows, normalizeColumns, countryLabel,
     companyDisplayFields, normalizeCompanyDisplayLayout, roleFieldList, gate, sanitizeFilters, guardProfile, guardState, contactHasLocked,
     ownerFilterOptions, ownerDeptMatcher,
     columnRoleKeys, filterRoleKeys, searchRoleKeys, dupTypeRoleKeys };
