@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #22 merged (`main` cca83b1); web trial v1.11 published and opened for the owner; 功能一览 page
+  updated. Then: full overlap sweep merged (new detector, fixes, e2e; 0 findings in 4 themes × 9 widths, 2644 views) and
+  the one-time MiSans subset (owner said 可以; 9.9 → 7.7 MB, pixel-identical, coverage test reads the real cmaps).
+  Q1 render-only-main worker started.
 - 2026-10-17 — Claude — After #21: settings-audit fixes (线索设置 hub entry, Mac-only data-folder button removed, customer
   import of custom fields, module-off hides settings, 默认跟进人 no longer overwritten, wording); Mac app removed (D-026);
   科技蓝 theme + rebuilt 工作台 (all themes); top-bar overlap fix + e2e at 1024–1680px; order custom fields (workflow:

@@ -8,6 +8,8 @@
   "pink|1280x720|mail": 2,
   "pink|1440x640|customers": 16,
   "pink|1440x640|mail": 3,
+  "pink|1200x800|customers": 7,
+  "pink|1024x800|customers": 7,
   "orange|1440x900|customers": 17,
   "orange|1440x900|弹窗 新建订单": 2,
   "orange|1440x900|弹窗 新建商机": 1,
@@ -16,6 +18,8 @@
   "orange|1280x720|mail": 2,
   "orange|1440x640|customers": 16,
   "orange|1440x640|mail": 3,
+  "orange|1200x800|customers": 7,
+  "orange|1024x800|customers": 7,
   "xiaoman|1440x900|customers": 16,
   "xiaoman|1440x900|弹窗 新建订单": 2,
   "xiaoman|1440x900|弹窗 新建商机": 2,
@@ -33,7 +37,11 @@
   "tech|1280x720|customers": 7,
   "tech|1280x720|mail": 2,
   "tech|1440x640|customers": 15,
-  "tech|1440x640|mail": 3
+  "tech|1440x640|mail": 3,
+  "xiaoman|1200x800|customers": 7,
+  "xiaoman|1200x800|order-list": 9,
+  "xiaoman|1024x800|customers": 7,
+  "xiaoman|1024x800|order-list": 8
  },
- "note": "已知、可接受的被遮挡项数量（客户表格冻结的操作列、折叠的客群分组等）；扫描结果比它多就算新增问题。"
+ "note": "已知、可接受的被遮挡项数量（客户表格冻结的操作列、折叠的客群分组等）；扫描结果比它多就算新增问题。 1200x800、1024x800 两种窄窗口是 2026-10 加的：客户页是折叠起来的客群子分组，订单列表（小满）是最后一行被翻页栏挡住一部分、滚到底能完整看到，和原有基线同一类，已逐个核对。"
 }
