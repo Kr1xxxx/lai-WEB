@@ -7,3 +7,8 @@
 .ls-check input[disabled] + span { opacity: .5; }
 .ls-lock { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-500, #8c8c8c); }
 .ls-links { margin: 0; padding-left: 18px; line-height: 28px; }
+.ls-section .cf-add input[name="options"] { flex: 1 1 260px; max-width: 360px; }
+.ls-section .cf-field .cs-row { flex-wrap: wrap; }
+.lead-multi { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 0; }
+.lead-multi-option { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; cursor: pointer; }
+.lead-custom-infos { margin-top: 4px; }

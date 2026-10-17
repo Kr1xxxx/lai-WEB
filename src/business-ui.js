@@ -1186,7 +1186,7 @@
     const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
     // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
     const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge", wa: "chat.send" };
-    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()), rules: LD().fieldRules(state()) });
+    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()), rules: LD().fieldRules(state()), customFields: LD().customFields(state()) });
     function openLeadForm(id) {
       if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
       let next;
@@ -2905,6 +2905,16 @@
         if (!can("lead.reassign") && lowered(data.owner) !== lowered(was)) return ctx.toast(RM().denied("lead.reassign"));
         // 字段权限：只读和隐藏的字段不能改。编辑时用原来的值，新建时不许填（表单里漏掉的字段也不会被清空）。
         const lead = RM().keepLocked(state(), "lead", isNew ? null : LD().list(state()).find((entry) => entry.id === id), data);
+        // 自定义字段：表单里名字是 custom.字段ID（多选有好几个）；这里收成 lead.custom。只收账号能改、表单里确实有的字段，其余原样保留。
+        for (const key of Object.keys(lead)) if (key.startsWith("custom.")) delete lead[key];
+        const custom = {};
+        const sent = new FormData(form);
+        for (const def of LD().customFields(state())) {
+          const key = `custom.${def.id}`;
+          if (RM().fieldLevel(state(), "lead", key) !== "edit" || !form.querySelector(`[data-lead-custom="${cssEscape(def.id)}"]`)) continue;
+          custom[def.id] = def.type === "multi" ? sent.getAll(key) : String(sent.get(key) ?? "");
+        }
+        if (Object.keys(custom).length) lead.custom = custom;
         // 和客户相同但设为「允许保存」：第一次点保存先提醒，内容没变再点一次才保存。
         const warn = LD().saveWarnings(state(), id, lead, { mustExist: !isNew });
         if (warn.message && leadDraft.warned !== warn.message) {

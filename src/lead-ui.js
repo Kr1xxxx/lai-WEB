@@ -82,6 +82,37 @@
     const req='<i class="opp-req" aria-hidden="true">*</i>';
     const field=(label,control,{required=false,wide=false,hint=''}={})=>`<label class="opp-field${wide?' is-wide':''}"><span class="opp-field-label">${label}${required?req:''}</span>${control}${hint?`<span class="opp-field-hint">${hint}</span>`:''}</label>`;
     const datalist=(id,values)=>`<datalist id="${id}">${(values||[]).map(value=>`<option value="${E(value)}"></option>`).join('')}</datalist>`;
+    // 自定义字段（线索设置 → 自定义字段）：按设置里的顺序；看不到的不画，只读的画出来但不能改。
+    // 新建时必填的字段带 required；编辑旧线索时不带，旧线索里本来空着的必填字段不拦（见 lead-model.js）。
+    function customControl(def,value,locked,isNew){
+      const name=`custom.${def.id}`,id=`lead-custom-${def.id}`,off=locked?' disabled title="你的角色只能查看，不能修改"':'';
+      const must=def.required&&!locked&&isNew&&def.type!=='multi'?' required':'';
+      if(def.type==='textarea')return `<textarea id="${E(id)}" name="${E(name)}" rows="3" maxlength="2000" placeholder="请输入"${off}${must}>${E(value??'')}</textarea>`;
+      if(def.type==='number')return `<input id="${E(id)}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value??'')}" placeholder="请输入数字" autocomplete="off"${off}${must}>`;
+      if(def.type==='date')return `<input id="${E(id)}" name="${E(name)}" type="date" value="${E(value??'')}"${off}${must}>`;
+      if(def.type==='select'){
+        const current=typeof value==='string'?value:'';
+        return `<select id="${E(id)}" name="${E(name)}"${off}${must}><option value="">请选择</option>${[...new Set([...def.options,...(current?[current]:[])])].map(item=>option(item,item,current)).join('')}</select>`;
+      }
+      if(def.type==='multi'){
+        const picked=Array.isArray(value)?value.map(String):[];
+        return `<span class="lead-multi" id="${E(id)}" role="group" aria-label="${E(def.name)}">${[...new Set([...def.options,...picked])].map(item=>`<label class="lead-multi-option"><input type="checkbox" name="${E(name)}" value="${E(item)}"${picked.includes(item)?' checked':''}${off}> ${E(item)}</label>`).join('')}</span>`;
+      }
+      return `<input id="${E(id)}" name="${E(name)}" type="text" value="${E(value??'')}" maxlength="200" placeholder="请输入" autocomplete="off"${off}${must}>`;
+    }
+    function customSection(v,context){
+      const saved=v.custom&&typeof v.custom==='object'&&!Array.isArray(v.custom)?v.custom:{};
+      const defs=(Array.isArray(context.customFields)?context.customFields:[]).filter(def=>vis(`custom.${def.id}`));
+      if(!defs.length)return '';
+      const isNew=!v.id;
+      return `<div class="form-section">自定义字段</div><div class="opp-grid" data-lead-custom-fields>${defs.map(def=>{
+        const key=`custom.${def.id}`,locked=level(key)==='read',star=def.required&&!locked;
+        const label=`<span class="opp-field-label">${E(def.name)}${star?req:''}</span>`;
+        const wide=def.type==='textarea'||def.type==='multi';
+        return def.type==='multi'?`<div class="opp-field is-wide" data-lead-custom="${E(def.id)}" data-custom-type="${def.type}">${label}${customControl(def,saved[def.id],locked,isNew)}</div>`
+          :`<label class="opp-field${wide?' is-wide':''}" data-lead-custom="${E(def.id)}" data-custom-type="${def.type}">${label}${customControl(def,saved[def.id],locked,isNew)}</label>`;
+      }).join('')}</div>`;
+    }
     function formMarkup(values,context={}){
       const v=values||{};
       // context.rules 是线索设置里的字段规则（L.fieldRules(state)）：不显示的字段不出现；显示且必填、当前账号又能改的字段标星并必填。
@@ -103,9 +134,15 @@
         +(shown('nextFollow')?field('下次跟进日期',`<input name="nextFollow" type="date" value="${E(v.nextFollow||'')}"${star('nextFollow')}>`,{required:must('nextFollow')}):'')
         +(shown('product')?field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off"${dis('product')}${star('product')}>`,{required:must('product')}):'')
         +(shown('note')?field('备注',`<textarea name="note" rows="4" maxlength="2000"${dis('note')}${star('note')}>${E(v.note||'')}</textarea>`,{required:must('note'),wide:true}):'')
-        +`</div></form>`;
+        +`</div>${customSection(v,context)}</form>`;
     }
 
+    // 详情里的自定义字段：只列有值的和必填的（没有值的必填字段显示“—”）；账号看不到的不列。
+    function customInfos(row){
+      const entries=(Array.isArray(row.customView)?row.customView:[]).filter(entry=>vis(`custom.${entry.id}`));
+      if(!entries.length)return '';
+      return `<dl class="lead-infos lead-custom-infos" data-lead-custom-infos>${entries.map(entry=>`<div class="lead-info"><dt>${E(entry.name)}</dt><dd>${entry.text?E(entry.text):'<span class="lead-muted">—</span>'}</dd></div>`).join('')}</dl>`;
+    }
     // 详情：上面是资料和可做的操作，中间是写跟进，下面是全部记录（新的在前）。
     function detailMarkup(source,today=''){
       const row=strip(source);
@@ -127,6 +164,7 @@
         +`<div class="lead-detail-head">${chip(row)}${row.overdue?`<span class="opp-due is-overdue">跟进逾期 ${E(shortDate(row.nextFollow,today))}</span>`:row.dueToday?'<span class="opp-due lead-today">今天该跟进</span>':''}${dup?`<span class="opp-chip lead-dup">可能重复</span>`:''}</div>`
         +(dup?`<p class="lead-banner is-dup">${E(dup)}。转为客户时可以选择关联到已有客户。</p>`:'')+banner
         +`<dl class="lead-infos">${(vis('contact')?info('联系人',E(row.contact)):'')+(vis('email')?info('邮箱',E(row.email)):'')+(vis('phone')?info('电话',row.phone?E(row.phone)+waButton(row):''):'')+(vis('country')?info('国家地区',E(row.country)):'')+(vis('source')?info('线索来源',E(row.source)):'')}${info('跟进人',E(row.owner||'未分配'))}${(vis('product')?info('意向产品',E(row.product)):'')+(vis('website')?info('网址',E(row.website)):'')}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
+        +customInfos(row)
         +(row.note?`<p class="lead-note">${E(row.note)}</p>`:'')
         +(actions?`<div class="lead-detail-actions">${actions}</div>`:'')+`${follow}<div class="form-section">记录</div>${timeline}</div>`;
     }

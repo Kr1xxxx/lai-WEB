@@ -7,6 +7,7 @@
   const LM=node?require('./modules.js'):root.LaiModules;
   const LS=node?require('./lead-settings-model.js'):root.LaiLeadSettings;
   const RMODEL=()=>node?require('./role-model.js'):root.LaiRoleModel;
+  const FM=()=>node?require('./field-model.js'):root.LaiFieldModel;
   const trim=value=>String(value??'').trim();
   const cleanName=name=>trim(name).normalize('NFKC').replace(/\s+/g,' ').trim();
   const key=value=>cleanName(value).toLowerCase();
@@ -61,6 +62,36 @@
   }
   const write=(state,id,next)=>({...state,laiLeads:replaceFirst(state,id,next)});
   const limited=(value,max,label)=>{const text=trim(value);if(text.length>max)throw new Error(`${label}最多 ${max} 个字`);return text;};
+  // ---- 自定义字段（线索设置 → 自定义字段；设置和规则见 field-model.js）----
+  const plain=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  const sameValue=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+  const customDefs=state=>FM()?FM().get(state,'lead').customFields:[];
+  const customKey=id=>`custom.${id}`;
+  // 整理表单传来的自定义字段值并检查必填，返回新的 custom 对象。
+  // 只处理设置里还在的字段；input 里没带的字段（账号不能改的）和已经删掉的字段，原来的值原样保留。
+  // 必填：新建线索全部要填；编辑旧线索时，本来就空、这次也没动的字段不拦；账号不能改（只读、隐藏）的字段不检查。
+  function applyCustom(state,previous,input){
+    const fm=FM();
+    if(!fm)return previous?.custom;
+    const settings=fm.get(state,'lead'),before=plain(previous?.custom),out={...before},sent=Object.hasOwn(input||{},'custom')?plain(input.custom):{},touched=new Set();
+    for(const field of settings.customFields){
+      if(!Object.hasOwn(sent,field.id))continue;
+      const value=fm.cleanValue(field,sent[field.id],before[field.id]);
+      if(value===undefined)delete out[field.id];else out[field.id]=value;
+      if(!sameValue(value,before[field.id]))touched.add(field.id);
+    }
+    const levels=RMODEL();
+    const missing=fm.missingRequired(settings,out,{editable:id=>!levels||levels.fieldLevel(state,'lead',customKey(id))==='edit',previous:previous?before:undefined,touched});
+    if(missing.length)throw new Error(`请填写${missing.join('、')}`);
+    return Object.keys(out).length||previous?.custom!==undefined?out:undefined;
+  }
+  // 详情用：设置里的自定义字段，只留下有值的和必填的。value 是已排好的文字。
+  function customView(state,item){
+    const fm=FM();
+    if(!fm)return [];
+    const values=plain(item?.custom);
+    return fm.get(state,'lead').customFields.map(field=>({id:field.id,name:field.name,type:field.type,required:field.required,text:fm.formatValue(field,values[field.id])})).filter(entry=>entry.text||entry.required);
+  }
   const LABELS={contact:'联系人',email:'邮箱',phone:'电话',country:'国家地区',source:'线索来源',website:'网址',product:'意向产品',note:'备注'};
 
   // 新建或编辑线索的基本资料。状态、跟进记录、转客户不在这里改。
@@ -91,6 +122,8 @@
       if(previous&&!trim(previous[name])&&trim(next[name])===trim(previous[name]))continue;
       if(!trim(next[name]))throw new Error(`请填写${LS.FIELDS.find(field=>field.id===name).label}`);
     }
+    const custom=applyCustom(state,previous,input);
+    if(custom!==undefined)next.custom=custom;else delete next.custom;
     const checked=checkedFields(previous,next);
     const blocked=customerConflicts(state,next).filter(item=>item.mode==='block'&&checked.includes(item.field));
     if(blocked.length)throw new Error(conflictMessage(blocked));
@@ -271,6 +304,22 @@
     return {conflicts:found,message:found.length?conflictMessage(found,'确定还要保存吗？'):''};
   }
 
+  // 线索的自定义字段带到新客户：客户设置里有同名（不分大小写、全半角）同类型的字段才带；值在客户那边不合格（例如选项不存在）的跳过。
+  function convertCustom(state,item){
+    const fm=FM(),out={};
+    if(!fm)return out;
+    const values=plain(item.custom),customer=fm.get(state,'customer').customFields;
+    for(const field of fm.get(state,'lead').customFields){
+      if(!fm.hasValue(values[field.id]))continue;
+      const target=customer.find(entry=>entry.type===field.type&&fm.sameName(entry.name,field.name));
+      if(!target||Object.hasOwn(out,target.id))continue;
+      try{
+        const value=fm.cleanValue(target,values[field.id]);
+        if(value!==undefined)out[target.id]=value;
+      }catch{/* 不合格的值不带 */}
+    }
+    return out;
+  }
   // 转为客户。mode='new'：用线索资料新建客户档案（名称、国家地区、客户来源必填）；mode='existing'：关联到已有客户，不改客户资料。
   // 两种方式都会在客户动态里留一条「由线索转入」，线索本身保留并标记为已转客户。
   function convert(state,id,input,options={}){
@@ -295,6 +344,8 @@
       const fields={name:customer,country:trim(input?.country??item.country),source:trim(input?.source??item.source),owner:cleanName(input?.owner??item.owner)};
       for(const [from,to] of [['contact','contact'],['email','email'],['phone','phone'],['website','website'],['product','productType'],['note','note']])if(trim(item[from]))fields[to]=trim(item[from]);
       if(validDate(item.nextFollow))fields.nextFollow=item.nextFollow;
+      const custom=convertCustom(state,item);
+      if(Object.keys(custom).length)fields.custom=custom;
       next=CM.upsertCustomer(state,'',fields,now);
       const profile=next.customers[customer];
       next={...next,customers:{...next.customers,[customer]:{...profile,history:[{time:now,text:origin,type:'operation'},...(Array.isArray(profile.history)?profile.history:[])]}}};
@@ -332,10 +383,10 @@
       lastFollowAt:trim(item.lastFollowAt),lastFollowDay:localDay(item.lastFollowAt),lastFollowText:history.find(entry=>entry.type==='followup')?.text||'',nextFollow,
       overdue:!!nextFollow&&OPEN.includes(status)&&nextFollow<today,dueToday:!!nextFollow&&OPEN.includes(status)&&nextFollow===today,
       invalidReason:trim(item.invalidReason),invalidNote:trim(item.invalidNote),convertedTo:trim(item.convertedTo),convertedExists:!!trim(item.convertedTo)&&customerNames(state).includes(trim(item.convertedTo)),convertedDay:localDay(item.convertedAt),trashed:!!item.trashed,trashedDay:localDay(item.trashedAt),
-      history:history.map(entry=>({time:trim(entry.time),day:localDay(entry.time),text:trim(entry.text),type:entry.type==='followup'?'followup':'operation'})),duplicate:duplicatesOf(state,item)};
+      history:history.map(entry=>({time:trim(entry.time),day:localDay(entry.time),text:trim(entry.text),type:entry.type==='followup'?'followup':'operation'})),duplicate:duplicatesOf(state,item),custom:{...plain(item.custom)}};
   }
   // 详情里带上当前的无效原因名单，「标记无效」窗口用它。
-  const detail=(state,id,today=isoDay(new Date()))=>{const item=list(state).find(entry=>entry.id===id);return item?{...row(state,item,today),reasons:reasons(state)}:null;};
+  const detail=(state,id,today=isoDay(new Date()))=>{const item=list(state).find(entry=>entry.id===id);return item?{...row(state,item,today),reasons:reasons(state),customView:customView(state,item)}:null;};
   const compare={
     'createdAt-desc':(a,b)=>b.createdAt.localeCompare(a.createdAt),
     'createdAt-asc':(a,b)=>a.createdAt.localeCompare(b.createdAt),
@@ -365,10 +416,12 @@
   // 字段权限（角色权限 → 设置字段权限）能设的线索字段：键就是线索上保存的字段名。
   // 线索名称、跟进人、状态、时间是线索必须有或自动生成的，不在清单里。
   const ROLE_GROUPS={contact:'基本信息',email:'基本信息',phone:'基本信息',country:'基本信息',website:'基本信息',source:'跟进信息',product:'跟进信息',note:'跟进信息'};
-  const roleFieldList=()=>['contact','email','phone','country','website','source','product','note'].map(name=>({key:name,label:LABELS[name],group:ROLE_GROUPS[name]}));
+  // 自定义字段的权限键是 custom.<字段ID>，和客户一样。
+  const roleFieldList=state=>[...['contact','email','phone','country','website','source','product','note'].map(name=>({key:name,label:LABELS[name],group:ROLE_GROUPS[name]})),
+    ...customDefs(state).map(field=>({key:customKey(field.id),label:field.name,group:'自定义字段'}))];
   const trash=(state,today=isoDay(new Date()))=>list(state).filter(item=>item.trashed).map(item=>row(state,item,today)).sort((a,b)=>String(b.trashedDay).localeCompare(String(a.trashedDay))||a.name.localeCompare(b.name,'zh'));
 
-  const api={STATUSES,INVALID_REASONS,reasons,fieldRules,SORTS,list,statusOf,statusLabel,upsert,addFollowup,markInvalid,reopen,setTrashed,remove,convert,convertDefaults,duplicatesOf,customerConflicts,saveWarnings,websiteHost,defaults,ownerNames,sourceNames,customerNames,
+  const api={STATUSES,INVALID_REASONS,reasons,fieldRules,SORTS,list,statusOf,statusLabel,upsert,addFollowup,markInvalid,reopen,setTrashed,remove,convert,convertDefaults,duplicatesOf,customerConflicts,saveWarnings,websiteHost,defaults,ownerNames,sourceNames,customerNames,customFields:customDefs,customView,convertCustom,
     detail,page,trash,localDay,validDate,roleFieldList};
   if(node)module.exports=api;else root.LaiLeadModel=api;
 })(typeof window!=='undefined'?window:globalThis);
