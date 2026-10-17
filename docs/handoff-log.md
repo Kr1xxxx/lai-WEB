@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — Kit migration of 工作台 (k-pageheader, k-card panels, k-badge queue tags, k-empty; census went
+  down: button 107→103, heading 23→21) and 线索 list + 回收站 (k-tabs status, k-table, k-badge status, k-empty) merged
+  from workers. business.css ratchet 180→146 px, 83→69 radius, 185→141 hex. `scripts/web-trial/leads-check.cjs` step 6
+  is stale: it expects a lead named like an existing customer to save and show 可能重复, but the default 判重 rule
+  (客户设置 → 新线索与已有客户) now blocks that save; update the script to expect the block. One full e2e run in the
+  leads worker had `one-toast` "kanban drop shows exactly one toast" fail at 1280 once and pass on re-run — watch it.
 - 2026-10-17 — Claude — #27 merged (`main` 540fc05) after one CI fix: removing the stale tech rule left 20 tech rules
   and `skin-glass.test.cjs` asked for >20; the count is only a "section exists" check (specific rules pinned by name), now
   >10, explained in the PR. Web trial v1.15 published and opened; 功能一览 updated. 线索, 工作台, 客户列表 workers running.
