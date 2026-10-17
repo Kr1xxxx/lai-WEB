@@ -1031,7 +1031,8 @@ td.team-reached {
 .opp-list { padding: 4px 0 8px; overflow: hidden; }
 .opp-table-scroll { overflow-x: auto; }
 .opp-table td { white-space: nowrap; }
-.opp-table .company-link { white-space: nowrap; }
+.opp-table .company-link { max-width: none; font-size: var(--text-sm); font-weight: 500; color: var(--fg); white-space: nowrap; }
+.opp-table .company-link:hover { color: var(--primary); }
 :root[data-skin] .opp-table :is(th, td).opp-table-act { width: 44px; padding: 0 8px; text-align: center; }
 .opp-row-menu { width: 28px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: var(--r-md); background: transparent; font-size: var(--text-lg); line-height: 1; color: var(--muted-fg); }
 :root[data-skin] .opp-row-menu:hover:not(:disabled) { background: var(--muted-bg); border-color: transparent; color: var(--fg); }
