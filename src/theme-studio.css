@@ -676,6 +676,25 @@
   flex: none; height: auto; min-height: 0; padding: 12px 16px; gap: 8px;
   border-top: 1px solid var(--studio-border); background: var(--studio-surface);
 }
+/* 旧抽屉、旧弹窗脚里没有套件类名的按钮（筛选抽屉、列表设置……）：和套件按钮一样 30 高、0 11px、12.5/500、圆角 6；
+   筛选抽屉的按钮包在 .filter-footer 里。普通的是次要按钮（白底、深一档的边、细阴影），.primary 是主按钮，.text-button 是幽灵按钮 */
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn) {
+  height: var(--studio-h-md); min-height: var(--studio-h-md); padding: 0 11px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 1;
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn, .primary, .text-button) {
+  border: 1px solid var(--studio-border-strong); background: var(--studio-surface); color: var(--studio-text); box-shadow: var(--studio-shadow-sm);
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn, .primary, .text-button):hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-border-strong); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn, .primary, .text-button):active:not(:disabled) { background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.primary:not(.k-btn) {
+  border: 1px solid var(--studio-accent); background: var(--studio-accent); color: var(--studio-on-accent); box-shadow: var(--studio-shadow-primary);
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.primary:not(.k-btn):hover:not(:disabled) { background: var(--studio-accent-hover); border-color: var(--studio-accent-hover); color: var(--studio-on-accent); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.primary:not(.k-btn):active:not(:disabled) { background: var(--studio-accent-active); border-color: var(--studio-accent-active); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.text-button:not(.k-btn) { border: 1px solid transparent; background: transparent; color: var(--studio-text-2); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.text-button:not(.k-btn):hover:not(:disabled) { background: var(--studio-surface-2); border-color: transparent; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn):active:not(:disabled) { transform: scale(0.97); }
 /* 条件客群抽屉的头、底原来按 id 定了 66／64 高 */
 :root[data-skin="glass"][data-theme="studio"] .drawer:has(#segment-form [name="match"]) .drawer-head { height: var(--studio-drawer-h); min-height: var(--studio-drawer-h); padding: 0 10px 0 24px; }
 :root[data-skin="glass"][data-theme="studio"] .drawer:has(#segment-form [name="match"]) .drawer-head h2 { font-weight: var(--studio-fw-head); line-height: 1.3; }
@@ -744,6 +763,14 @@
 :root[data-skin="glass"][data-theme="studio"] .lai-select-menu .lai-select-option:is(.is-active, :hover):not([aria-disabled="true"]) { background: var(--studio-surface-2); }
 :root[data-skin="glass"][data-theme="studio"] .lai-select-option[aria-disabled="true"] { color: var(--studio-text-4); }
 :root[data-skin="glass"][data-theme="studio"] .lai-select-empty { color: var(--studio-text-3); }
+/* 菜单里的搜索框：和输入框一样 30 高、13.5、border-strong，聚焦强调色 + 3px 浅色环 */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu input.lai-select-search {
+  height: var(--studio-h-md); min-height: var(--studio-h-md); border-color: var(--studio-border-strong); border-radius: var(--studio-r-sm);
+  background: var(--studio-surface); color: var(--studio-text); font-size: var(--studio-fs);
+}
+/* 客户列表快捷筛选的搜索框盖在 30 高的触发框上：原来 32 高、往上多出 2px，这里下移 2px 正好盖住 */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-inline-search input.lai-select-search { margin-top: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu input.lai-select-search:focus { border-color: var(--studio-accent); box-shadow: var(--studio-focus); outline: none; }
 :root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group .lai-select-option { color: var(--studio-text); }
 :root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group .lai-select-option-label { border-radius: var(--studio-r-sm); }
 :root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group .lai-select-option.is-active .lai-select-option-label { background: var(--studio-surface-2); }
