@@ -1,7 +1,7 @@
 // Starts the real Lai backend with the assembled single-page app in an isolated lai-test-* directory,
 // then opens it in Chromium. Used by tests/e2e/*.e2e.mjs.
 // Needs `playwright` (installed outside package.json, see AGENTS.md) and Node with node:sqlite.
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -14,18 +14,13 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
-const BACKEND_FILES = fs.readdirSync(path.join(root, 'backend')).filter((name) => name.endsWith('.js'));
-const VENDOR_FILES = [
-  ['vendor/sheetjs-0.20.3/xlsx.full.min.js', 'xlsx.full.min.js'],
-  ['vendor/mail-libs/mail-libs.cjs', 'mail-libs.cjs'],
-  ['vendor/squire/squire-raw.js', 'squire-raw.js'],
-  ['vendor/dompurify/purify.min.js', 'purify.min.js'],
-];
+// The file list and page assembly are shared with `npm start` (scripts/app-files.cjs).
+const { VENDOR_FILES, backendFiles, assembleHtml } = require('../../scripts/app-files.cjs');
+const BACKEND_FILES = backendFiles(root);
 
 let cachedHtml;
 function assembledHtml() {
-  // The page is assembled by scripts/build.py (assemble_html), the same as the web trial build.
-  cachedHtml ??= execFileSync('python3', ['-c', 'import sys; sys.path.insert(0, "scripts"); import build; sys.stdout.write(build.assemble_html())'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  cachedHtml ??= assembleHtml(root);
   return cachedHtml;
 }
 
