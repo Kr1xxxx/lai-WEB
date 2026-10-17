@@ -405,6 +405,7 @@
     node.matches("header.topbar") ? "topbar" : node.matches("nav.rail") ? "rail" : node.id === "app-subnav" ? "subnav"
       : node.matches(".subnav-restore") ? "restore" : node.matches("main.main") ? "main" : "";
   // 把页面上的节点就地改成和新标记一样：同类节点只改不同的属性和文字，结构不同的才换掉。
+  // 注意：只同步输入框、文本框的 value；顶栏和侧栏里将来如果放下拉框或勾选框，要另外同步 select 的值和 checked。
   function morphNode(live, next) {
     if (live.nodeType !== next.nodeType || live.nodeName !== next.nodeName) {
       live.replaceWith(next);
