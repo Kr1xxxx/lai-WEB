@@ -440,8 +440,20 @@
       for(const order of Array.isArray(data[bucket])?data[bucket]:[]){orders.set(String(order?.id||''),{bucket,json:JSON.stringify(order)});ids.push(String(order?.id||''));}
       sequence[bucket]=ids.join('\u0001');
     }
-    for(const [key,value] of Object.entries(data))if(!ENTITY_KEYS.has(key))app.set(key,JSON.stringify(value));
+    // 值是 undefined 的块和没有这个块一样（JSON 里本来就带不走）。
+    for(const [key,value] of Object.entries(data))if(!ENTITY_KEYS.has(key)&&value!==undefined)app.set(key,JSON.stringify(value));
     return {customers,orders,sequence,app,lookups:JSON.stringify(data.trackingLookups||[])};
+  }
+  // 保存前先补块：新数据里缺了（或是 undefined）的顶层块，用上次保存的数据里的那块补上。
+  // 页面出错时发来的数据可能缺块；补上后既不会让服务器删掉整块，保存后页面上的数据也和服务器一致
+  // （不补的话页面会按默认值重建这块，下次保存就把服务器上的那份盖掉）。
+  function completeState(saved, data) {
+    if(!saved||typeof saved!=='object'||!data||typeof data!=='object')return data;
+    const missing=Object.keys(saved).filter(key=>data[key]===undefined&&saved[key]!==undefined);
+    if(!missing.length)return data;
+    const result={...data};
+    for(const key of missing)result[key]=saved[key];
+    return result;
   }
   function diffState(saved, data={}) {
     const next=snapshotState(data);
@@ -468,10 +480,12 @@
     }
     changes.orders={set:orderSet,remove:orderRemove,sequence};
     if(next.lookups!==saved.lookups){changes.trackingLookups=data.trackingLookups||[];empty=false;}
-    const appState={},removeAppState=[];
+    const appState={};
     for(const [key,json] of next.app)if(saved.app.get(key)!==json){appState[key]=data[key];empty=false;}
-    for(const key of saved.app.keys())if(!next.app.has(key)){removeAppState.push(key);empty=false;}
-    changes.appState=appState;changes.removeAppState=removeAppState;
+    // 新数据里缺了的设置块不算删除（页面出错时可能缺块，服务器上的那份不能跟着没了）：不发给服务器，
+    // 快照里保留已保存的那份，快照仍和服务器一致。removeAppState 保留为空列表，旧版服务器也认。
+    for(const [key,json] of saved.app)if(!next.app.has(key))next.app.set(key,json);
+    changes.appState=appState;changes.removeAppState=[];
     return {changes,snapshot:next,empty};
   }
   // 保存时版本冲突（别处先保存了）：saved 是这次改动所基于的快照，fresh 是服务器上的最新数据。
@@ -490,7 +504,7 @@
         conflicts.push({kind:'order',id,num:String(freshOrders.get(id)?.num||orderSet[id]?.order?.num||id)});
     if(Object.keys(sequence).some(bucket=>saved.sequence[bucket]!==now.sequence[bucket]))conflicts.push({kind:'orderList'});
     if(changes.trackingLookups!==undefined&&saved.lookups!==now.lookups)conflicts.push({kind:'lookups'});
-    for(const key of [...Object.keys(changes.appState||{}),...(changes.removeAppState||[])])
+    for(const key of Object.keys(changes.appState||{}))
       if(saved.app.get(key)!==now.app.get(key))conflicts.push({kind:'setting',key});
     if(conflicts.length)return {ok:false,conflicts};
     const data={...fresh,customers:{...(fresh.customers||{})}};
@@ -506,11 +520,11 @@
       }else data[bucket]=(Array.isArray(fresh[bucket])?fresh[bucket]:[]).filter(order=>!removed.has(String(order?.id||''))).map(order=>orderSet[String(order?.id||'')]?.order||order);
     }
     if(changes.trackingLookups!==undefined)data.trackingLookups=changes.trackingLookups;
+    // 只套用改了的设置块；最新数据里的其它块（包括这次改动里没有的）都留着，不删任何块。
     for(const [key,value] of Object.entries(changes.appState||{}))data[key]=value;
-    for(const key of changes.removeAppState||[])delete data[key];
     return {ok:true,data};
   }
-  const api={snapshotState,diffState,rebaseChanges,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,nameKey,tags};
+  const api={snapshotState,diffState,rebaseChanges,completeState,contactRecordsWithIds,buildCustomers,filterCustomers,paginate,upsertCustomer,addFollowup,addMailActivity,mailRecorded,setCustomerNextFollow,batchSetCustomerNextFollow,batchAddFollowup,batchSetOwner,batchUpdateCustomerTags,batchEditCustomerField,batchEditableCustomerFields,customerLevelForRow,escapeHtml,norm,nameKey,tags};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.PreviewModel=api;
 })(typeof window!=='undefined'?window:globalThis);

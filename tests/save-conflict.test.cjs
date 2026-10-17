@@ -62,6 +62,12 @@ test('order lists changed on both sides, the same setting, and tracking lookups 
   assert.deepEqual(scenario(d => { d.orders.push({ id: 'a', num: 'A' }); }, d => { d.orders.push({ id: 'b', num: 'B' }); }).result.conflicts.map(c => c.kind), ['orderList']);
   assert.deepEqual(scenario(d => { d.laiSettings.theme = 'orange'; }, d => { d.laiSettings.theme = 'tech'; }).result.conflicts, [{ kind: 'setting', key: 'laiSettings' }]);
   assert.deepEqual(scenario(d => { d.trackingLookups.push({ id: 'l1' }); }, d => { d.trackingLookups.push({ id: 'l2' }); }).result.conflicts, [{ kind: 'lookups' }]);
+  // A key missing from the page's data is never a removal: the diff asks for nothing, and the rebase keeps the server's copy.
   const removed = scenario(d => { delete d.laiTasks; }, d => { d.customers.Bolt.note = 'x'; });
-  assert.equal(removed.result.ok, true); assert.equal(Object.hasOwn(removed.result.data, 'laiTasks'), false);
+  assert.deepEqual(removed.diff.changes.removeAppState, []);
+  assert.equal(Object.hasOwn(removed.diff.changes.appState, 'laiTasks'), false);
+  assert.equal(removed.result.ok, true); assert.deepEqual(removed.result.data.laiTasks, removed.fresh.laiTasks, 'the saved list is kept');
+  const undef = scenario(d => { d.laiTasks = undefined; }, d => {});
+  assert.deepEqual(undef.diff.changes.removeAppState, []); assert.equal(undef.diff.empty, true);
+  assert.deepEqual(undef.result.data.laiTasks, undef.fresh.laiTasks);
 });
