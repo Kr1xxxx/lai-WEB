@@ -182,7 +182,7 @@ test('opportunity markup: hidden fields are gone from card, list, detail, form a
   assert.ok(detail.includes('Ann') && detail.includes('must'));
   const form = ui.formMarkup(O.list(state)[0], { setup: O.formSetup(state), contacts: ['Ann'], customers: ['Alpha'], owners: ['Amy'], stages: O.STAGES, flows: [] });
   for (const name of ['endDate', 'note', 'tags', 'products', 'custom:c1']) assert.ok(!form.includes(`name="${name}"`), name);
-  assert.match(form, /<select name="contact"[^>]*disabled/);
+  assert.match(form, /<select class="k-select-trigger" name="contact"[^>]*disabled/);
   assert.match(form, /name="custom:c2"[^>]*disabled/);
   assert.match(form, /name="amount"(?![^>]*disabled)/);
   const report = O.analysis(state, {}, TODAY);

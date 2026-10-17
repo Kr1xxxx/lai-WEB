@@ -87,17 +87,17 @@ test('form: reference fields, required marks, and the parts that depend on what 
   for (const name of ['nameMode', 'client', 'contact', 'amount', 'endDate', 'flow', 'exchangeRate', 'currency', 'stage', 'owner', 'collaborators', 'tags', 'note', 'products']) assert.ok(fresh.includes(`name="${name}"`), name);
   assert.match(fresh, /value="auto" checked/); assert.match(fresh, /name="name" value=""[^>]* hidden disabled>/, 'the name input is there but off until 自定义 is chosen');
   assert.match(fresh, /name="endDate" type="date" value="2026-11-05"/, 'end date defaults to 30 days ahead');
-  assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="100" data-rate="100" inputmode="decimal" readonly/, 'USD needs no rate, so the field stays out of sight');
+  assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input class="k-input" name="exchangeRate" value="100" data-rate="100" inputmode="decimal" readonly/, 'USD needs no rate, so the field stays out of sight');
   assert.match(fresh, /<input type="hidden" name="flow" value="default">/);
   assert.equal((fresh.match(/<i class="opp-req" aria-hidden="true">\*<\/i>/g) || []).length, 8, 'name, customer, owner, amount, stage, end date, and the two hidden conditional ones');
   assert.match(fresh, /<option value="" selected>请先选择客户<\/option>/); assert.doesNotMatch(fresh, /name="contact" required/);
-  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
+  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select class="k-select-trigger" name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
   const chosen = ui.formMarkup({...O.defaults(base, TODAY), client: 'Alpha <b>Co</b>', contact: 'Bo', nameMode: 'custom', name: '大单', currency: 'EUR', exchangeRate: 108, stage: 'lost', lostReason: '交期原因',
     collaborators: ['Bob', 'Cara'], tags: ['VIP'], products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B', quantity: 1, unitPrice: 4}]}, {contacts: ['Ann', 'Bo'], isNew: false});
   assert.match(chosen, /name="contact" aria-required="true" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
   assert.match(chosen, /value="custom" checked/); assert.match(chosen, /name="name" value="大单"[^>]* required>/);
-  assert.match(chosen, /<select name="lostReason" aria-required="true" required>/);
-  assert.match(chosen, /<label class="opp-field"><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
+  assert.match(chosen, /<select class="k-select-trigger" name="lostReason" aria-required="true" required>/);
+  assert.match(chosen, /<label class="opp-field"><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input class="k-input" name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
   assert.match(chosen, /<option value="交期原因" selected>/); assert.match(chosen, /name="lostNote"/);
   assert.match(chosen, /name="collaborators" value="Bob，Cara"/);
   assert.match(chosen, />A, 10, 2\.5\nB, 1, 4<\/textarea><span class="opp-field-hint">共 2 项，合计 29\.00/);
@@ -119,7 +119,7 @@ test('card menu offers the right actions for each state', () => {
   const linked = ui.menuMarkup({...card('p3'), orderId: 'ord-9'});
   assert.doesNotMatch(linked, /生成订单/); assert.match(linked, /data-biz-order="ord-9">查看关联订单/);
   assert.match(ui.menuMarkup({...card('p1'), archived: true}), /data-archived="0">取消归档/);
-  assert.match(ui.menuMarkup(card('p1'), true), /class="team-danger" data-opp-action="delete" data-id="p1">再点一次确认删除（不可恢复）/);
+  assert.match(ui.menuMarkup(card('p1'), true), /class="k-btn k-btn--ghost opp-menu-item is-danger team-danger" data-opp-action="delete" data-id="p1">再点一次确认删除（不可恢复）/);
   assert.match(ui.lostMarkup(card('p1')), /<form class="drawer-body opp-form" id="opp-lost-form" data-id="p1">/);
 });
 
@@ -513,14 +513,14 @@ test('board and analysis show one sales flow at a time; the flow picker appears 
 test('form and menu offer the stages of the opportunity\'s own flow', () => {
   const s = twoFlows(), flows = O.flowsOf(s);
   const form = ui.formMarkup({...O.list(s).find(i => i.id === 's1')}, {flows, stages: O.flowOf(s, 'fs').stages});
-  assert.match(form, /<select name="flow" id="opp-form-flow"><option value="default">默认销售流程<\/option><option value="fs" selected>样品单<\/option><\/select>/);
-  assert.match(form, /<select name="stage" id="opp-form-stage"><option value="sending" selected>寄样中<\/option><option value="confirmed">已确认<\/option><option value="lost">输单<\/option><\/select>/);
+  assert.match(form, /<select class="k-select-trigger" name="flow" id="opp-form-flow"><option value="default">默认销售流程<\/option><option value="fs" selected>样品单<\/option><\/select>/);
+  assert.match(form, /<select class="k-select-trigger" name="stage" id="opp-form-stage"><option value="sending" selected>寄样中<\/option><option value="confirmed">已确认<\/option><option value="lost">输单<\/option><\/select>/);
   assert.doesNotMatch(form, /type="hidden" name="flow"/);
   assert.match(ui.formMarkup({stage: 'gone'}, {stages: O.flowOf(s, 'fs').stages}), /<option value="gone" selected>原阶段：gone<\/option>/);
   assert.equal(ui.stageOptions(O.flowOf(s, 'fs').stages, ''), '<option value="sending" selected>寄样中</option><option value="confirmed">已确认</option><option value="lost">输单</option>');
   const menu = ui.menuMarkup(O.cardOf(s, 's2', TODAY));
-  assert.deepEqual([...menu.matchAll(/data-opp-action="move" data-id="s2" data-stage="(\w+)">移到「([^」]+)」/g)].map(m => [m[1], m[2]]), [['sending', '寄样中'], ['lost', '输单']]);
-  assert.match(menu, /<span class="opp-chip opp-stage-chip opp-kind-won">已确认<\/span>/); assert.match(menu, /data-opp-action="order" data-id="s2">生成订单/);
+  assert.deepEqual([...menu.matchAll(/data-opp-action="move" data-id="s2" data-stage="(\w+)"><i class="opp-dot" aria-hidden="true"><\/i>移到「([^」]+)」/g)].map(m => [m[1], m[2]]), [['sending', '寄样中'], ['lost', '输单']]);
+  assert.match(menu, /<span class="k-badge k-badge--success">已确认<\/span>/); assert.match(menu, /data-opp-action="order" data-id="s2">生成订单/);
   const detail = require('../src/customer-detail-ui.js');
   assert.deepEqual(O.customerStats(s, 'Alpha <b>Co</b>', TODAY).activeOpportunities.map(c => [c.id, c.stages.map(st => st.label).join('>')]), [['p1', '未成单>付款未到账>待付尾款>已完成>输单'], ['p2', '未成单>付款未到账>待付尾款>已完成>输单'], ['s1', '寄样中>已确认>输单']]);
   // 客户详情页的阶段条：用当前这个商机所在流程的阶段，并标出它所在的那一个
@@ -652,7 +652,7 @@ test('review fixes: matches in other flows are announced, a customer\'s board op
   const e = controller(lostLink);
   e.page.navigate('opportunities');
   await e.click({oppAction: 'edit', id: 'p1'});
-  assert.match(e.dialogs.at(-1)[1], /<select name="flow" id="opp-form-flow"><option value="default" selected>默认销售流程<\/option>/);
+  assert.match(e.dialogs.at(-1)[1], /<select class="k-select-trigger" name="flow" id="opp-form-flow"><option value="default" selected>默认销售流程<\/option>/);
 });
 
 // ---------------- 附件、详情、拖动改进 ----------------
@@ -686,9 +686,9 @@ test('cards show a clip with the count and open the detail; detail markup lists 
   assert.match(ui.boardMarkup(board, {mode: 'list'}, {today: TODAY}), /data-opp-action="detail"/);
   const detail = ui.detailMarkup(O.detailOf(s, 'p1', TODAY), {today: TODAY}, {});
   assert.match(detail, /<dt>客户<\/dt><dd><button type="button" class="company-link" data-biz-customer="Alpha &lt;b&gt;Co&lt;\/b&gt;">/);
-  assert.match(detail, /<span class="opp-chip is-danger">已逾期<\/span>/);
+  assert.match(detail, /<span class="k-badge k-badge--danger">已逾期<\/span>/);
   assert.match(detail, /<div class="form-section">阶段记录<\/div><ol class="opp-history"><li class="opp-kind-open is-current">/);
-  assert.match(detail, /<span class="opp-attach-count">2 \/ 30<\/span>/);
+  assert.match(detail, /<span class="opp-attach-count k-badge k-badge--neutral">2 \/ 30<\/span>/);
   assert.match(detail, /data-attach-action="save" data-att="att0"[^>]*>保存到「下载」/);
   assert.match(detail, /样品&lt;b&gt;\.png/); assert.doesNotMatch(detail, /样品<b>/);
   assert.match(detail, /5\.0 MB · \d{4}-\d{2}-\d{2} \d{2}:\d{2}/); assert.match(detail, /2\.0 KB/);
@@ -697,7 +697,7 @@ test('cards show a clip with the count and open the detail; detail markup lists 
   assert.doesNotMatch(detail, /关联产品|<dt>备注|关联订单/, 'empty facts are left out');
   // 状态：改名、确认删除、预览、已满、上传中
   const inner = view => ui.attachmentsInner(O.detailOf(s, 'p1', TODAY).attachments, view);
-  assert.match(inner({renaming: 'att0'}), /<form class="opp-file-rename" id="opp-attach-rename" data-att="att0"><input name="name" value="报价单\.pdf"/);
+  assert.match(inner({renaming: 'att0'}), /<form class="opp-file-rename" id="opp-attach-rename" data-att="att0"><input class="k-input" name="name" value="报价单\.pdf"/);
   assert.match(inner({armed: 'att1'}), /team-danger" data-attach-action="delete" data-att="att1"[^>]*>再点一次确认删除/);
   assert.match(inner({preview: 'att1'}), /<figure class="opp-preview"><img data-opp-fetch="\/attachments\/opportunities\/p1\/aa00000002-s\.png" alt="样品&lt;b&gt;\.png">/);
   assert.match(inner({preview: 'att1'}), /关闭预览/);
@@ -717,7 +717,7 @@ test('controller: the detail drawer opens from a card name or its blank area, an
   const [title, body, footer, type] = c.dialogs.at(-1);
   assert.deepEqual([title, type], ['26100101-Amy'.length ? title : '', 'opp-detail']);
   assert.match(body, /class="drawer-body opp-detail" data-id="p1"/);
-  assert.match(footer, /data-opp-action="menu" data-id="p1">更多操作<\/button><button class="primary" type="button" data-opp-action="edit" data-id="p1">编辑商机/);
+  assert.match(footer, /data-opp-action="menu" data-id="p1">更多操作<\/button><button class="k-btn k-btn--primary" type="button" data-opp-action="edit" data-id="p1">编辑商机/);
   await c.click({oppAction: 'edit', id: 'p1'});
   assert.equal(c.dialogs.at(-1)[0], '编辑商机');
   c.page.discardDraft();
@@ -989,7 +989,7 @@ test('detail: the 电话 line with a WhatsApp button appears only when the page 
   const s = add(base, 'w1', {contact: 'Ann'});
   const detail = O.detailOf(s, 'w1', TODAY);
   const html = ui.detailMarkup(detail, {today: TODAY, whatsapp: {phone: '+44 7700 900123', contact: 'Ann'}}, {});
-  assert.match(html, /<dt>电话<\/dt><dd>\+44 7700 900123 <button type="button" class="text-button opp-wa" data-opp-action="wa" data-id="w1"/);
+  assert.match(html, /<dt>电话<\/dt><dd>\+44 7700 900123 <button type="button" class="k-btn k-btn--sm opp-wa" data-opp-action="wa" data-id="w1"/);
   assert.doesNotMatch(html, /data-chat-action/);
   assert.doesNotMatch(ui.detailMarkup(detail, {today: TODAY}, {}), /data-opp-action="wa"|<dt>电话<\/dt>/);
   assert.match(ui.detailMarkup(detail, {today: TODAY, whatsapp: {phone: '<i>1', contact: ''}}, {}), /&lt;i&gt;1/, 'the number is escaped');

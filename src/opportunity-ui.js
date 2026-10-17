@@ -98,14 +98,15 @@
       const rows=items.map(entry=>{
         const image=model.previewKind(entry.name)==='image',armed=view.armed===entry.id,renaming=view.renaming===entry.id;
         const main=renaming
-          ?`<form class="opp-file-rename" id="opp-attach-rename" data-att="${E(entry.id)}"><input name="name" value="${E(entry.name)}" maxlength="${limits.maxName}" aria-label="新的文件名" aria-required="true" required><button type="submit" class="primary">保存</button><button type="button" data-attach-action="rename-cancel">取消</button></form>`
+          ?`<form class="opp-file-rename" id="opp-attach-rename" data-att="${E(entry.id)}"><input class="k-input" name="name" value="${E(entry.name)}" maxlength="${limits.maxName}" aria-label="新的文件名" aria-required="true" required><button type="submit" class="k-btn k-btn--primary k-btn--sm">保存</button><button type="button" class="k-btn k-btn--sm" data-attach-action="rename-cancel">取消</button></form>`
           :(image||can('opp.fileDownload')?`<button type="button" class="opp-file-name" data-attach-action="${image?'preview':'save'}" data-att="${E(entry.id)}" title="${image?'点击预览':'保存到「下载」'}">${E(entry.name)}</button>`:`<span class="opp-file-name">${E(entry.name)}</span>`);
-        const tools=renaming?'':`${image?`<button type="button" data-attach-action="${view.preview===entry.id?'preview-close':'preview'}" data-att="${E(entry.id)}">${view.preview===entry.id?'关闭预览':'预览'}</button>`:''}`
-          +(can('opp.fileDownload')?`<button type="button" data-attach-action="save" data-att="${E(entry.id)}">保存到「下载」</button>`:'')+(can('opp.edit')?`<button type="button" data-attach-action="rename" data-att="${E(entry.id)}">重命名</button>`:'')
-          +(can('opp.fileDelete')?`<button type="button" class="${armed?'team-danger':''}" data-attach-action="delete" data-att="${E(entry.id)}" aria-label="${armed?'再点一次确认删除':'删除'}：${E(entry.name)}">${armed?'再点一次确认删除':'删除'}</button>`:'');
+        const tool='k-btn k-btn--ghost k-btn--sm';
+        const tools=renaming?'':`${image?`<button type="button" class="${tool}" data-attach-action="${view.preview===entry.id?'preview-close':'preview'}" data-att="${E(entry.id)}">${view.preview===entry.id?'关闭预览':'预览'}</button>`:''}`
+          +(can('opp.fileDownload')?`<button type="button" class="${tool}" data-attach-action="save" data-att="${E(entry.id)}">保存到「下载」</button>`:'')+(can('opp.edit')?`<button type="button" class="${tool}" data-attach-action="rename" data-att="${E(entry.id)}">重命名</button>`:'')
+          +(can('opp.fileDelete')?`<button type="button" class="${armed?'k-btn k-btn--danger k-btn--sm team-danger':tool}" data-attach-action="delete" data-att="${E(entry.id)}" aria-label="${armed?'再点一次确认删除':'删除'}：${E(entry.name)}">${armed?'再点一次确认删除':'删除'}</button>`:'');
         return `<li class="opp-file"><span class="opp-file-ext" aria-hidden="true">${E(extLabel(entry.name))}</span><span class="opp-file-main">${main}<small>${fileSize(entry.size)} · ${E(stamp(entry.uploadedAt))}</small></span><span class="opp-file-tools">${tools}</span></li>`;
       }).join('');
-      return `<div class="form-section">附件<span class="opp-attach-count">${items.length} / ${limits.maxCount}</span></div>`
+      return `<div class="form-section">附件<span class="opp-attach-count k-badge k-badge--neutral">${items.length} / ${limits.maxCount}</span></div>`
         +(!can('opp.edit')?'':`<label class="opp-dropzone${full?' is-full':''}" data-opp-dropzone><input type="file" id="opp-attach-input" multiple hidden${full||view.busy?' disabled':''}><span class="opp-dropzone-main">${full?`已达到 ${limits.maxCount} 个附件的上限，删除一些再添加`:'把文件拖到这里，或<u>点击选择文件</u>'}</span><small>单个文件不超过 ${Math.round(limits.maxBytes/1024/1024)} MB，每个商机最多 ${limits.maxCount} 个；不收可执行或安装类文件</small></label>`)
         +`<div class="opp-attach-status" id="opp-attach-status" role="status"></div><div class="error" id="opp-attach-error" role="alert"></div>`
         +(previewing?`<figure class="opp-preview"><img data-opp-fetch="${E(previewing.fileUrl)}" alt="${E(previewing.name)}"><figcaption>${E(previewing.name)}</figcaption></figure>`:'')
@@ -114,29 +115,29 @@
     // 商机详情里的“单据”：这个商机已经保存的报价单、形式发票（context.documents：[{id, number, typeName, date, voided}]）。
     function documentsBlock(documents){
       if(!Array.isArray(documents)||!documents.length)return '';
-      return `<div class="form-section">单据</div><ul class="opp-docs">${documents.map(doc=>`<li${doc.voided?' class="is-void"':''}><b>${E(doc.number)}</b><span>${E(doc.typeName)}</span><span>${E(doc.date||'')}</span>${doc.voided?'<span class="opp-chip">已作废</span>':''}<button type="button" class="text-button" data-biz-action="docrec-view" data-id="${E(doc.id)}">查看</button></li>`).join('')}</ul>`;
+      return `<div class="form-section">单据</div><ul class="opp-docs">${documents.map(doc=>`<li${doc.voided?' class="is-void"':''}><b>${E(doc.number)}</b><span>${E(doc.typeName)}</span><span>${E(doc.date||'')}</span>${doc.voided?'<span class="k-badge k-badge--neutral">已作废</span>':''}<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-biz-action="docrec-view" data-id="${E(doc.id)}">查看</button></li>`).join('')}</ul>`;
     }
     // 商机详情：基本信息、阶段记录、附件。context：{today, multiFlow, documents, whatsapp}（whatsapp：{phone, contact}，联系人有能打开的号码、账号能开聊天、看得到这位客户、「联系电话」没被隐藏时才传；不传就不显示电话，详情里就多一个 WhatsApp 按钮）；view：附件区状态。
     function detailMarkup(detail,context={},view={}){
       const fact=(label,value,wide=false)=>label&&(value||value===0)?`<div${wide?' class="is-wide"':''}><dt>${label}</dt><dd>${value}</dd></div>`:'';
       const rate=detail.currency!=='USD'&&Number(detail.exchangeRate)?`每 100 ${E(detail.currency)} ＝ ${E(number(detail.exchangeRate))} USD`:'';
-      const stageChip=`<span class="opp-chip opp-stage-chip opp-kind-${E(detail.kind)}">${E(detail.stageLabel)}</span>`;
-      const products=detail.products.length&&vis('products')?`<div class="form-section">关联产品</div><table class="order-table opp-products"><thead><tr><th>产品</th><th>数量</th><th>单价</th><th>小计</th></tr></thead><tbody>${detail.products.map(row=>`<tr><td>${E(row.name)}</td><td>${E(row.quantity??1)}</td><td>${E(number(row.unitPrice))}</td><td>${E(number((Number(row.quantity)||0)*(Number(row.unitPrice)||0)))}</td></tr>`).join('')}</tbody></table>`:'';
+      const stageChip=stageBadge(detail.kind,E(detail.stageLabel));
+      const products=detail.products.length&&vis('products')?`<div class="form-section">关联产品</div><div class="opp-products-wrap"><table class="k-table opp-products"><thead><tr><th>产品</th><th class="k-num">数量</th><th class="k-num">单价</th><th class="k-num">小计</th></tr></thead><tbody>${detail.products.map(row=>`<tr><td>${E(row.name)}</td><td class="k-num">${E(row.quantity??1)}</td><td class="k-num">${E(number(row.unitPrice))}</td><td class="k-num">${E(number((Number(row.quantity)||0)*(Number(row.unitPrice)||0)))}</td></tr>`).join('')}</tbody></table></div>`:'';
       const history=detail.history.length?`<div class="form-section">阶段记录</div><ol class="opp-history">${detail.history.map((entry,index)=>`<li class="opp-kind-${E(entry.kind)}${index===detail.history.length-1?' is-current':''}"><i aria-hidden="true"></i><span>${E(entry.label)}</span><time>${E(stamp(entry.at))}</time></li>`).join('')}</ol>`:'';
       return `<div class="drawer-body opp-detail" data-id="${E(detail.id)}">`
-        +`<div class="opp-detail-top"><div class="opp-detail-amount"><small>${E(detail.currency)}</small>${number(detail.amount)}</div><div class="opp-detail-chips">${stageChip}${detail.overdue?'<span class="opp-chip is-danger">已逾期</span>':''}${detail.archived?'<span class="opp-chip">已归档</span>':''}</div></div>`
+        +`<div class="opp-detail-top"><div class="opp-detail-amount"><small>${E(detail.currency)}</small>${number(detail.amount)}</div><div class="opp-detail-chips">${stageChip}${detail.overdue?'<span class="k-badge k-badge--danger">已逾期</span>':''}${detail.archived?'<span class="k-badge k-badge--neutral">已归档</span>':''}</div></div>`
         +`<div class="error" id="opp-detail-error" role="alert"></div>`
         +`<dl class="opp-facts">`
         +fact('客户',detail.client?`<button type="button" class="company-link" data-biz-customer="${E(detail.client)}">${E(detail.client)}</button>`:'')
-        +(vis('contact')?fact('联系人',E(detail.contact)):'')+(context.whatsapp&&context.whatsapp.phone?fact('电话',`${E(context.whatsapp.phone)} <button type="button" class="text-button opp-wa" data-opp-action="wa" data-id="${E(detail.id)}" aria-label="用 WhatsApp 联系${E(context.whatsapp.contact||detail.client)}">WhatsApp</button>`):'')+fact('负责人',E(detail.owner))+(vis('collaborators')?fact('协同跟进人',E(detail.collaborators.join('、'))):'')
+        +(vis('contact')?fact('联系人',E(detail.contact)):'')+(context.whatsapp&&context.whatsapp.phone?fact('电话',`${E(context.whatsapp.phone)} <button type="button" class="k-btn k-btn--sm opp-wa" data-opp-action="wa" data-id="${E(detail.id)}" aria-label="用 WhatsApp 联系${E(context.whatsapp.contact||detail.client)}">WhatsApp</button>`):'')+fact('负责人',E(detail.owner))+(vis('collaborators')?fact('协同跟进人',E(detail.collaborators.join('、'))):'')
         +(vis('endDate')?fact('结束日期',E(detail.endDate)):'')+(context.multiFlow?fact('销售流程',E(detail.flowLabel)):'')
         +(vis('exchangeRate')?fact('汇率',E(rate)):'')+fact('创建时间',E(stamp(detail.createdAt)))
         +fact(detail.kind==='won'?'赢单时间':detail.kind==='lost'?'输单时间':'',detail.kind!=='open'&&detail.closedAt?E(stamp(detail.closedAt)):'')
         +fact('输单原因',detail.lostReason?E(detail.lostReason+(detail.lostNote?`（${detail.lostNote}）`:'')):'')
         +fact('商机编号',E(detail.number||'—'))+(vis('type')?fact('商机类型',E(detail.type)):'')
-        +(vis('sources')?fact('商机来源',(detail.sources||[]).length?detail.sources.map(source=>`<span class="opp-chip">${E(source)}</span>`).join(' '):''):'')+(vis('leadId')?fact('来源线索',E(detail.leadName)):'')
+        +(vis('sources')?fact('商机来源',(detail.sources||[]).length?detail.sources.map(source=>`<span class="k-badge k-badge--neutral">${E(source)}</span>`).join(' '):''):'')+(vis('leadId')?fact('来源线索',E(detail.leadName)):'')
         +(detail.custom||[]).filter(row=>vis(`custom.${row.id}`)).map(row=>fact(E(row.name),E(row.value).replace(/\n/g,'<br>'),row.type==='textarea')).join('')
-        +(vis('tags')?fact('标签',detail.tags.length?detail.tags.map(tag=>`<span class="opp-chip">${E(tag)}</span>`).join(' '):''):'')
+        +(vis('tags')?fact('标签',detail.tags.length?detail.tags.map(tag=>`<span class="k-badge k-badge--neutral">${E(tag)}</span>`).join(' '):''):'')
         +fact('关联订单',detail.orderId?`<button type="button" class="company-link" data-biz-order="${E(detail.orderId)}">查看关联订单</button>`:'')
         +(vis('note')?fact('备注',E(detail.note).replace(/\n/g,'<br>'),true):'')
         +`</dl>${products}${documentsBlock(context.documents)}${history}<section class="opp-attach" id="opp-attach" data-id="${E(detail.id)}">${attachmentsInner(detail.attachments,view)}</section></div>`;
@@ -186,10 +187,10 @@
         return `<fieldset class="opp-field is-wide opp-multi" data-multi="${E(key)}"${lock}><legend class="opp-field-label">${label}${required?req:''}</legend>${boxes?`<div class="opp-multi-list">${boxes}</div>`:''}${hint?`<span class="opp-field-hint">${hint}</span>`:''}</fieldset>`;
       };
       // 单选下拉：当前值已不在名单里时仍保留为一个选项。
-      const choose=(name,options,current,blank)=>`<select name="${name}"${dis(name)}><option value="">${blank}</option>${options.map(item=>option(item,item,current)).join('')}${current&&!options.includes(current)?`<option value="${E(current)}" selected>${E(current)}（已不在名单里）</option>`:''}</select>`;
+      const choose=(name,options,current,blank)=>`<select class="k-select-trigger" name="${name}"${dis(name)}><option value="">${blank}</option>${options.map(item=>option(item,item,current)).join('')}${current&&!options.includes(current)?`<option value="${E(current)}" selected>${E(current)}（已不在名单里）</option>`:''}</select>`;
       // 阶段跟着销售流程走；只有一个流程时不显示流程选择。
       const flows=context.flows||[],stages=context.stages||model.STAGES;
-      const flow=flows.length>1?field('销售流程',`<select name="flow" id="opp-form-flow">${flows.map(item=>option(item.id,item.label,v.flow||'default')).join('')}</select>`,{required:true}):`<input type="hidden" name="flow" value="${E(v.flow||'default')}">`;
+      const flow=flows.length>1?field('销售流程',`<select class="k-select-trigger" name="flow" id="opp-form-flow">${flows.map(item=>option(item.id,item.label,v.flow||'default')).join('')}</select>`,{required:true}):`<input type="hidden" name="flow" value="${E(v.flow||'default')}">`;
       const chosenSources=Array.isArray(v.sources)?v.sources.map(String):[];
       const leadOptions=(setup.leads||[]).map(lead=>option(lead.id,lead.name,v.leadId)).join('')+(v.leadId&&!(setup.leads||[]).some(lead=>lead.id===v.leadId)?`<option value="${E(v.leadId)}" selected>（已删除的线索）</option>`:'');
       const sourceChoices=Array.isArray(setup.sources)?setup.sources:[];
@@ -198,55 +199,57 @@
         const name=`custom:${def.id}`,value=customValue(def),text=Array.isArray(value)?'':String(value??''),label=E(def.name),must=(def.required?' aria-required="true" required':'')+dis(`custom.${def.id}`);
         if(!vis(`custom.${def.id}`))return '';
         if(def.type==='multi')return multi(name,label,def.options,Array.isArray(value)?value.map(String):[],{required:def.required,lock:dis(`custom.${def.id}`)});
-        if(def.type==='textarea')return field(label,`<textarea name="${E(name)}" rows="3" maxlength="${model.SET_LIMITS.textarea}"${must}>${E(text)}</textarea>`,{required:def.required,wide:true});
-        if(def.type==='select')return field(label,`<select name="${E(name)}"${must}><option value="">请选择</option>${def.options.map(item=>option(item,item,text)).join('')}${text&&!def.options.includes(text)?`<option value="${E(text)}" selected>${E(text)}（已不在选项里）</option>`:''}</select>`,{required:def.required});
+        if(def.type==='textarea')return field(label,`<textarea class="k-textarea" name="${E(name)}" rows="3" maxlength="${model.SET_LIMITS.textarea}"${must}>${E(text)}</textarea>`,{required:def.required,wide:true});
+        if(def.type==='select')return field(label,`<select class="k-select-trigger" name="${E(name)}"${must}><option value="">请选择</option>${def.options.map(item=>option(item,item,text)).join('')}${text&&!def.options.includes(text)?`<option value="${E(text)}" selected>${E(text)}（已不在选项里）</option>`:''}</select>`,{required:def.required});
         if(def.type==='date')return field(label,`<input name="${E(name)}" type="date" value="${E(text)}"${must}>`,{required:def.required});
-        if(def.type==='number')return field(label,`<input name="${E(name)}" value="${E(text)}" inputmode="decimal" autocomplete="off"${must}>`,{required:def.required});
-        return field(label,`<input name="${E(name)}" value="${E(text)}" maxlength="${model.SET_LIMITS.text}"${must}>`,{required:def.required});
+        if(def.type==='number')return field(label,`<input class="k-input" name="${E(name)}" value="${E(text)}" inputmode="decimal" autocomplete="off"${must}>`,{required:def.required});
+        return field(label,`<input class="k-input" name="${E(name)}" value="${E(text)}" maxlength="${model.SET_LIMITS.text}"${must}>`,{required:def.required});
       };
       const section=(title,html)=>html?`<div class="form-section">${title}</div><div class="opp-grid">${html}</div>`:'';
       const classify=[
         `<div class="opp-field"><span class="opp-field-label">商机编号</span><span class="opp-static" id="opp-number">${E(v.number||(context.isNew?'保存后自动生成':'—'))}</span>${context.isNew?'<span class="opp-field-hint">格式：OPP-日期-当天序号</span>':''}</div>`,
         cfg.type.show&&vis('type')?field('商机类型',choose('type',setup.types||[],String(v.type||''),'请选择'),{required:cfg.type.required}):'',
-        cfg.leadId.show&&vis('leadId')?field('来源线索',`<select name="leadId"${dis('leadId')}><option value="">不选</option>${leadOptions}</select>`,{required:cfg.leadId.required}):'',
+        cfg.leadId.show&&vis('leadId')?field('来源线索',`<select class="k-select-trigger" name="leadId"${dis('leadId')}><option value="">不选</option>${leadOptions}</select>`,{required:cfg.leadId.required}):'',
         cfg.sources.show&&vis('sources')?multi('sources','商机来源',sourceChoices,chosenSources,{lock:dis('sources'),required:cfg.sources.required,hint:sourceChoices.length?'':'先在 客户设置 → 来源设置 里添加来源'}):''
       ].join('');
       const extra=[
-        cfg.tags.show&&vis('tags')?field('商机标签',`<input name="tags" value="${E(list(v.tags))}" placeholder="多个标签用逗号分隔"${dis('tags')}>`,{wide:true,required:cfg.tags.required}):'',
-        cfg.note.show&&vis('note')?field('备注',`<textarea name="note" rows="3"${dis('note')}>${E(v.note||'')}</textarea>`,{wide:true,required:cfg.note.required}):'',
-        cfg.products.show&&vis('products')?field('关联产品',`<textarea name="products" rows="4"${dis('products')} placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal,required:cfg.products.required}):''
+        cfg.tags.show&&vis('tags')?field('商机标签',`<input class="k-input" name="tags" value="${E(list(v.tags))}" placeholder="多个标签用逗号分隔"${dis('tags')}>`,{wide:true,required:cfg.tags.required}):'',
+        cfg.note.show&&vis('note')?field('备注',`<textarea class="k-textarea" name="note" rows="3"${dis('note')}>${E(v.note||'')}</textarea>`,{wide:true,required:cfg.note.required}):'',
+        cfg.products.show&&vis('products')?field('关联产品',`<textarea class="k-textarea" name="products" rows="4"${dis('products')} placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal,required:cfg.products.required}):''
       ].join('');
       const reasons=setup.reasons||model.LOST_REASONS;
-      return `<form class="drawer-body opp-form" id="opp-form" novalidate data-form-check>`
+      return `<form class="drawer-body opp-editor" id="opp-form" novalidate data-form-check>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
-        +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' aria-required="true" required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
-        +field('客户',`<input name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" aria-required="true" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
-        +(cfg.contact.show&&vis('contact')?field('关联联系人',`<select name="contact"${contacts.length&&cfg.contact.required?' aria-required="true" required':''}${dis('contact')}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
-        +field('负责人',`<input name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" aria-required="true" required${can('opp.transfer')?'':' readonly'}><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
-        +(cfg.collaborators.show&&vis('collaborators')?field('协同跟进人',`<input name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔"${dis('collaborators')}>`,{required:cfg.collaborators.required}):'')
+        +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input class="k-input" name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' aria-required="true" required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
+        +field('客户',`<input class="k-input" name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" aria-required="true" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
+        +(cfg.contact.show&&vis('contact')?field('关联联系人',`<select class="k-select-trigger" name="contact"${contacts.length&&cfg.contact.required?' aria-required="true" required':''}${dis('contact')}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
+        +field('负责人',`<input class="k-input" name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" aria-required="true" required${can('opp.transfer')?'':' readonly'}><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
+        +(cfg.collaborators.show&&vis('collaborators')?field('协同跟进人',`<input class="k-input" name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔"${dis('collaborators')}>`,{required:cfg.collaborators.required}):'')
         +`</div><div class="form-section">金额与进度</div><div class="opp-grid">`
-        +`<div class="opp-field"><span class="opp-field-label" id="opp-amount-label">销售金额${req}</span><span class="opp-group"><input name="currency" id="opp-form-currency" class="opp-group-currency" value="${E(v.currency||'USD')}" list="opp-currency-list" maxlength="3" autocomplete="off" aria-label="币种" aria-required="true" required><datalist id="opp-currency-list">${CURRENCIES.map(code=>`<option value="${code}"></option>`).join('')}</datalist><input name="amount" value="${E(v.amount??'')}" inputmode="decimal" autocomplete="off" aria-labelledby="opp-amount-label" placeholder="0.00" aria-required="true" required></span></div>`
+        +`<div class="opp-field"><span class="opp-field-label" id="opp-amount-label">销售金额${req}</span><span class="opp-group"><input name="currency" id="opp-form-currency" class="k-input opp-group-currency" value="${E(v.currency||'USD')}" list="opp-currency-list" maxlength="3" autocomplete="off" aria-label="币种" aria-required="true" required><datalist id="opp-currency-list">${CURRENCIES.map(code=>`<option value="${code}"></option>`).join('')}</datalist><input class="k-input" name="amount" value="${E(v.amount??'')}" inputmode="decimal" autocomplete="off" aria-labelledby="opp-amount-label" placeholder="0.00" aria-required="true" required></span></div>`
         +(flows.length>1?flow:'')
-        +field('销售阶段',`<select name="stage" id="opp-form-stage">${stageOptions(stages,v.stage)}</select>`,{required:true})
+        +field('销售阶段',`<select class="k-select-trigger" name="stage" id="opp-form-stage">${stageOptions(stages,v.stage)}</select>`,{required:true})
         +(vis('endDate')?field('结束日期',`<input name="endDate" type="date" value="${E(v.endDate||'')}" aria-required="true" required${dis('endDate')}>`,{required:true}):'')
-        +(vis('exchangeRate')?field('汇率',`<input name="exchangeRate" value="${E(usd?100:v.exchangeRate??100)}" data-rate="${E(v.exchangeRate??100)}" inputmode="decimal"${usd?' readonly':''}${dis('exchangeRate')} aria-describedby="opp-rate-note">`,{required:cfg.exchangeRate.required,hidden:usd,hint:'<span id="opp-rate-note">每 100 外币折合多少美元，仅作记录</span>'}):'')
-        +field('输单原因',`<select name="lostReason"${isLost?' aria-required="true" required':' disabled'}><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,v.lostReason)).join('')}${v.lostReason&&!reasons.includes(v.lostReason)?`<option value="${E(v.lostReason)}" selected>${E(v.lostReason)}</option>`:''}</select>`,{required:true,hidden:!isLost})
-        +field('输单说明',`<input name="lostNote" value="${E(v.lostNote||'')}"${isLost?'':' disabled'}>`,{hidden:!isLost})
+        +(vis('exchangeRate')?field('汇率',`<input class="k-input" name="exchangeRate" value="${E(usd?100:v.exchangeRate??100)}" data-rate="${E(v.exchangeRate??100)}" inputmode="decimal"${usd?' readonly':''}${dis('exchangeRate')} aria-describedby="opp-rate-note">`,{required:cfg.exchangeRate.required,hidden:usd,hint:'<span id="opp-rate-note">每 100 外币折合多少美元，仅作记录</span>'}):'')
+        +field('输单原因',`<select class="k-select-trigger" name="lostReason"${isLost?' aria-required="true" required':' disabled'}><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,v.lostReason)).join('')}${v.lostReason&&!reasons.includes(v.lostReason)?`<option value="${E(v.lostReason)}" selected>${E(v.lostReason)}</option>`:''}</select>`,{required:true,hidden:!isLost})
+        +field('输单说明',`<input class="k-input" name="lostNote" value="${E(v.lostNote||'')}"${isLost?'':' disabled'}>`,{hidden:!isLost})
         +(flows.length>1?'':flow)
         +`</div>`+section('来源与分类',classify)+section('补充信息',extra)+section('自定义字段',(setup.customFields||[]).map(customControl).join(''))
         +`</form>`;
     }
+    // 「⋮」菜单（浅色小菜单）：上面是金额、客户、阶段徽标；下面一组组按钮，每个按钮占一行（k-btn--ghost 靠左）。
     function menuMarkup(card,armed=false){
       const stages=card.stages||model.STAGES;
       const stage=stages.find(item=>item.id===card.stage);
+      const item='k-btn k-btn--ghost opp-menu-item';
       // 一组按钮；没有一个能用的按钮时整组（含小标题）不显示。
       const group=(title,buttons)=>buttons?`${title?`<h3>${title}</h3>`:''}<div class="opp-menu-group">${buttons}</div>`:'';
-      const moves=stages.filter(item=>item.id!==card.stage).map(item=>`<button type="button" class="opp-move opp-kind-${item.kind}" data-opp-action="move" data-id="${E(card.id)}" data-stage="${E(item.id)}">移到「${E(item.label)}」</button>`).join('');
-      return `<div class="drawer-body opp-menu"><div class="opp-menu-summary"><b>${money(card.amount,card.currency)}</b><span>${E(card.client)}</span><span class="opp-chip opp-stage-chip opp-kind-${stage?.kind||'open'}">${E(stage?.label||card.stage)}</span></div>`
-        +group('',`${can('opp.edit')?`<button type="button" class="primary" data-opp-action="edit" data-id="${E(card.id)}">编辑商机</button>`:''}${stage?.kind==='won'&&!card.orderId&&can('order.create')?`<button type="button" data-opp-action="order" data-id="${E(card.id)}">生成订单</button>`:''}${card.orderId?`<button type="button" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}`)
-        +(can('doc.create')?group('生成单据',`<button type="button" data-opp-doc="quote" data-id="${E(card.id)}">报价单</button><button type="button" data-opp-doc="pi" data-id="${E(card.id)}">形式发票</button>`):'')
+      const moves=stages.filter(entry=>entry.id!==card.stage).map(entry=>`<button type="button" class="${item} opp-move opp-kind-${entry.kind}" data-opp-action="move" data-id="${E(card.id)}" data-stage="${E(entry.id)}"><i class="opp-dot" aria-hidden="true"></i>移到「${E(entry.label)}」</button>`).join('');
+      return `<div class="drawer-body opp-menu"><div class="opp-menu-summary"><b>${money(card.amount,card.currency)}</b><span>${E(card.client)}</span>${stageBadge(stage?.kind||'open',E(stage?.label||card.stage))}</div>`
+        +group('',`${can('opp.edit')?`<button type="button" class="${item} is-main" data-opp-action="edit" data-id="${E(card.id)}">编辑商机</button>`:''}${stage?.kind==='won'&&!card.orderId&&can('order.create')?`<button type="button" class="${item} is-accent" data-opp-action="order" data-id="${E(card.id)}">生成订单</button>`:''}${card.orderId?`<button type="button" class="${item}" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}`)
+        +(can('doc.create')?group('生成单据',`<button type="button" class="${item}" data-opp-doc="quote" data-id="${E(card.id)}">报价单</button><button type="button" class="${item}" data-opp-doc="pi" data-id="${E(card.id)}">形式发票</button>`):'')
         +(can('opp.edit')?group('调整销售阶段',moves):'')
-        +group('其他',`${can('opp.archive')?`<button type="button" data-opp-action="archive" data-id="${E(card.id)}" data-archived="${card.archived?'0':'1'}">${card.archived?'取消归档':'归档'}</button>`:''}${can('opp.delete')?`<button type="button" class="${armed?'team-danger':''}" data-opp-action="delete" data-id="${E(card.id)}">${armed?'再点一次确认删除（不可恢复）':'删除商机'}</button>`:''}`)
+        +group('其他',`${can('opp.archive')?`<button type="button" class="${item}" data-opp-action="archive" data-id="${E(card.id)}" data-archived="${card.archived?'0':'1'}">${card.archived?'取消归档':'归档'}</button>`:''}${can('opp.delete')?`<button type="button" class="${item} is-danger${armed?' team-danger':''}" data-opp-action="delete" data-id="${E(card.id)}">${armed?'再点一次确认删除（不可恢复）':'删除商机'}</button>`:''}`)
         +`<div class="error" id="opp-menu-error" role="alert"></div></div>`;
     }
     const lostMarkup=(card,reasons=model.LOST_REASONS)=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" aria-required="true" required><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
