@@ -109,6 +109,12 @@ test('cleanValue', () => {
   assert.equal(F.cleanValue(num, '-3'), -3);
   assert.equal(F.cleanValue(num, ''), undefined);
   assert.throws(() => F.cleanValue(num, '1,000'), /数字/);
+  // A stored tiny number shows as "1e-7"; saving it again must not be refused.
+  assert.equal(F.cleanValue(num, 1e-7, 1e-7), 1e-7);
+  assert.equal(F.cleanValue(num, '1e-7', 1e-7), 1e-7);
+  assert.equal(F.cleanValue(num, F.cleanValue(num, '0.0000001')), 1e-7);
+  assert.throws(() => F.cleanValue(num, '1e-7'), /数字/);
+  assert.throws(() => F.cleanValue(num, 1e16), /数字/);
   assert.equal(F.cleanValue(date, '2026-02-28'), '2026-02-28');
   assert.throws(() => F.cleanValue(date, '2026-02-30'), /有效的日期/);
   assert.throws(() => F.cleanValue(date, '10/01/2026'), /有效的日期/);

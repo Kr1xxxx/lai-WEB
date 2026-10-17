@@ -111,6 +111,19 @@ test('saving: values are cleaned by type and stored in order.custom', () => {
   assert.equal('custom' in order(state, 'plain'), false);
 });
 
+test('a tiny stored number (shown as 1e-7) does not block the next save or a stage change', () => {
+  let state = withFields();
+  const qty = idOf(state, '采购量');
+  state = save(state, 'a', { custom: { [qty]: '0.0000001' } });
+  assert.equal(order(state, 'a').custom[qty], 1e-7);
+  // The form shows the stored value as text; a stage change re-sends the stored custom object.
+  state = save(state, 'a', { custom: { [qty]: String(order(state, 'a').custom[qty]) } });
+  state = B.upsertOrder(state, 'a', { ...order(state, 'a'), stage: 'shipment' });
+  assert.equal(order(state, 'a').custom[qty], 1e-7);
+  // Typed scientific notation is still refused on a field that did not hold it.
+  assert.throws(() => save(state, 'b', { custom: { [qty]: '1e-7' } }), /请填写数字/);
+});
+
 test('required: a new order needs it, an old order with the field still empty and untouched saves, clearing a filled one is refused', () => {
   let state = withFields();
   state = save(state, 'old', {});
