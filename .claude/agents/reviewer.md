@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Reviews a diff or branch for correctness, code quality, refactors or migrations against the coordinator's detailed prompt. Read-only; reports findings, does not edit.
-model: claude-sonnet-5-5
+model: claude-opus-5-5
 effort: medium
 tools: Read, Grep, Glob, Bash
 ---

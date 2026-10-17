@@ -190,12 +190,15 @@
       el.classList.toggle("save-failed", error);
     }
   }
-  // 界面配色：laiSettings.theme 存「pink」（默认）、「orange」或「xiaoman」（原来的蓝色），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
-  const THEME_IDS = ["pink", "orange", "xiaoman"];
+  // 界面配色：laiSettings.theme 存「pink」「orange」「xiaoman」（原来的蓝色）或「tech」（科技蓝），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
+  const THEME_IDS = ["pink", "orange", "xiaoman", "tech"];
+  // 没选过配色时用哪个。想换默认配色就改这一行（设置页会自动给它加「（默认）」）；
+  // 另外 ui-tokens.css 里带「:root,」的那块变量（管页面载入前的底色）也要换到新默认的主题上。
+  const DEFAULT_THEME = "pink";
   function applyTheme(id) {
-    const theme = THEME_IDS.includes(id) ? id : "pink";
+    const theme = THEME_IDS.includes(id) ? id : DEFAULT_THEME;
     document.documentElement.dataset.theme = theme;
-    // 粉色、橙色用新界面（悬浮玻璃面板），小满保持原来的界面。
+    // 粉色、橙色、科技蓝用新界面（悬浮面板），小满保持原来的界面。
     document.documentElement.dataset.skin = theme === "xiaoman" ? "classic" : "glass";
   }
   // 已保存数据的快照（见 model.js 的 snapshotState）：保存时只把和它不同的部分发给本机服务。
@@ -1170,8 +1173,7 @@
   const poolEditBlocked = (name) =>
     L.bucket(state.customers?.[name] || {}) === "pool" && !CT.poolContactsVisible(state);
   function newCustomerOwner() {
-    if (R.scopeOf(state) !== "all" && R.meName(state)) return R.meName(state);
-    return String(state.laiSettings?.defaultOwner || state.orderSettings?.defaultOwner || "").trim();
+    return R.defaultOwner(state);
   }
   function editForm(isNew = false, pointerActivated = false, customerName = currentName) {
     if (!allow(isNew ? "customer.create" : L.bucket(state.customers?.[customerName] || {}) === "pool" ? "pool.edit" : "customer.edit")) return;
@@ -1397,7 +1399,7 @@
   document.addEventListener("pointerdown", (e) => { overlayPressTarget = e.target; overlayReleaseTarget = null; }, true);
   document.addEventListener("pointerup", (e) => { overlayReleaseTarget = e.target; }, true);
   const closesOnOutsideClick = (overlay) =>
-    modal === "columns" || modal === "feature" ||
+    modal === "columns" ||
     !["edit", "import", "segment", "company-display"].includes(modal) &&
     !overlay.querySelector('.drawer form, .drawer textarea, .drawer select, .drawer input:not([type="hidden"])');
   document.addEventListener("click", async (e) => {
@@ -1809,7 +1811,7 @@
     if (a === "about")
       drawer(
         "关于来财Lai",
-        `<div class="drawer-body"><h2>来财Lai ${APP_VERSION}</h2><p>独立的客户与经营管理软件。</p><div class="drawer-note">客户、订单、工作台、统计、日历与设置共享来财本地数据库。程序、窗口、菜单及数据目录均独立。</div><h3>使用说明</h3><p>客户客群、横向字段、跟进、公海和回收站，与订单、统计、日历使用同一套界面。所有模块共享来财本地数据。</p><h3>字体</h3><p>中文使用小米 MiSans 字体，英文和数字使用 Inter 字体。</p></div>`,
+        `<div class="drawer-body"><h2>来财Lai ${APP_VERSION}</h2><p>独立的客户与经营管理软件。</p><div class="drawer-note">客户、订单、工作台、统计、日历与设置共享来财数据库。</div><h3>使用说明</h3><p>客户客群、横向字段、跟进、公海和回收站，与订单、统计、日历使用同一套界面。所有模块共享来财本地数据。</p><h3>字体</h3><p>中文使用小米 MiSans 字体，英文和数字使用 Inter 字体。</p></div>`,
         `<button class="primary" data-action="close-modal">知道了</button>`,
         "about",
         e.detail > 0,
@@ -3265,18 +3267,23 @@
         <button type="button" class="import-dropzone" data-action="choose-import-file"><span>悬浮至此区域粘贴，或拖拽至此上传，或 <span class="import-link">点击上传</span></span><small>最多只能上传 1 个文件；仅支持 xls、xlsx、csv 文件格式；支持 5 MB 以内的文件</small></button>
         ${draft.parsed ? `<div class="import-file-ready" data-import-file-ready>${E(draft.fileName)} · ${draft.parsed.rows.length} 行</div>` : ''}`;
     } else if (draft.step === 2) {
-      body = `<p class="import-hint">为每列选择对应的来财字段。公司名称必选；未匹配的列不会写入。</p><div class="import-map">${draft.parsed.headers.map((header, index) => {
+      const custom = I.customFields(state);
+      body = `<p class="import-hint">为每列选择对应的来财字段。公司名称必选；未匹配的列不会写入。${custom.length ? '客户设置里的自定义字段也可以选。' : ''}</p><div class="import-map">${draft.parsed.headers.map((header, index) => {
         const selected = Object.entries(draft.mapping).find(([, column]) => column === index)?.[0] || '';
-        return `<label><span>${E(header || `第 ${index + 1} 列`)}</span><select data-import-column="${index}" aria-label="${E(header || `第 ${index + 1} 列`)}对应字段"><option value="">不导入</option>${I.fields.map(field => opt(field.id, field.label, selected)).join('')}</select></label>`;
+        return `<label><span>${E(header || `第 ${index + 1} 列`)}</span><select data-import-column="${index}" aria-label="${E(header || `第 ${index + 1} 列`)}对应字段"><option value="">不导入</option>${I.fields.map(field => opt(field.id, field.label, selected)).join('')}${custom.length ? `<optgroup label="自定义字段">${custom.map(field => opt(field.key, field.name, selected)).join('')}</optgroup>` : ''}</select></label>`;
       }).join('')}</div>`;
     } else if (draft.step === 3) {
-      const names = I.mappedRecords(draft.parsed, draft.mapping).slice(0, 5);
-      body = `<p class="import-hint">请核对导入范围和前 5 行；点击“开始导入”后才保存到来财本地数据库。</p><div class="import-review"><div>目标位置 <strong>${draft.destination === 'pool' ? '公海客户' : '客户列表'}</strong></div><div>重复数据 <strong>${draft.duplicate === 'update' ? '更新数据' : '不更新'}</strong></div><div>文件行数 <strong>${draft.parsed.rows.length}</strong></div></div><table class="import-preview" data-import-preview><thead><tr><th>公司名称</th><th>联系人昵称</th><th>联系人邮箱</th></tr></thead><tbody>${names.map(row => `<tr><td>${E(row.name)}</td><td>${E(row.contact || '—')}</td><td>${E(row.email || '—')}</td></tr>`).join('')}</tbody></table><p class="import-hint">同一公司的不同联系人会合并到同一客户；跨公司重复的邮箱或电话会跳过。</p>`;
+      const built = I.importWarnings(draft.parsed, draft.mapping, state);
+      const names = I.mappedRecords(draft.parsed, draft.mapping, state).slice(0, 5);
+      const warnBlock = built.length ? `<div class="import-issue-head"><strong>有 ${built.length} 格不会导入</strong></div><div class="import-issue-list" data-import-warnings>${built.slice(0, 20).map(item => `<div><span>${E(item.message)}</span></div>`).join('')}</div>${built.length > 20 ? `<p class="import-hint">这里只显示前 20 条。</p>` : ''}<p class="import-hint">只跳过这一格，这一行的其他内容照常导入。</p>` : '';
+      body = `<p class="import-hint">请核对导入范围和前 5 行；点击“开始导入”后才保存到来财本地数据库。</p><div class="import-review"><div>目标位置 <strong>${draft.destination === 'pool' ? '公海客户' : '客户列表'}</strong></div><div>重复数据 <strong>${draft.duplicate === 'update' ? '更新数据' : '不更新'}</strong></div><div>文件行数 <strong>${draft.parsed.rows.length}</strong></div></div><table class="import-preview" data-import-preview><thead><tr><th>公司名称</th><th>联系人昵称</th><th>联系人邮箱</th></tr></thead><tbody>${names.map(row => `<tr><td>${E(row.name)}</td><td>${E(row.contact || '—')}</td><td>${E(row.email || '—')}</td></tr>`).join('')}</tbody></table><p class="import-hint">同一公司的不同联系人会合并到同一客户；跨公司重复的邮箱或电话会跳过。</p>${warnBlock}`;
     } else {
       const result = draft.result;
       const issues = draft.details.filter(item => item.status === 'skipped');
+      const warned = draft.details.flatMap(item => item.warnings || []);
       body = `<div class="import-result" data-import-result><span class="import-result-icon">✓</span><h3>导入完成</h3><p>成功新建 ${result.created} 位，更新 ${result.updated} 位${result.contactsAdded ? `，新增联系人 ${result.contactsAdded} 位` : ''}，跳过 ${result.skipped} 行。</p></div>
-        ${issues.length ? `<div class="import-issue-head"><strong>跳过的客户</strong><button type="button" class="import-link" data-action="import-failure-log" data-record-index="-1">下载失败日志</button></div><div class="import-issue-list">${issues.slice(0, 20).map(item => `<div><span>第 ${item.row} 行 · ${E(item.name)}</span><em>${E(item.reason)}</em></div>`).join('')}</div>${issues.length > 20 ? `<p class="import-hint">这里只显示前 20 条；下载失败日志可查看全部 ${issues.length} 条。</p>` : ''}` : ''}`;
+        ${issues.length ? `<div class="import-issue-head"><strong>跳过的客户</strong><button type="button" class="import-link" data-action="import-failure-log" data-record-index="-1">下载失败日志</button></div><div class="import-issue-list">${issues.slice(0, 20).map(item => `<div><span>第 ${item.row} 行 · ${E(item.name)}</span><em>${E(item.reason)}</em></div>`).join('')}</div>${issues.length > 20 ? `<p class="import-hint">这里只显示前 20 条；下载失败日志可查看全部 ${issues.length} 条。</p>` : ''}` : ''}
+        ${warned.length ? `<div class="import-issue-head"><strong>有 ${warned.length} 格没有导入（这些行的其他内容已导入）</strong></div><div class="import-issue-list" data-import-warnings>${warned.slice(0, 20).map(message => `<div><span>${E(message)}</span></div>`).join('')}</div>` : ''}`;
     }
     const foot = draft.step === 4
       ? '<button type="button" class="primary" data-action="close-modal">完成</button>'
@@ -3310,7 +3317,7 @@
         : I.parseExcel(await file.arrayBuffer(), window.XLSX);
       if (!importDraft || modal !== 'import') return;
       importDraft.parsed = parsed;
-      importDraft.mapping = I.suggestMapping(parsed.headers);
+      importDraft.mapping = I.suggestMapping(parsed.headers, state);
       importDraft.fileName = file.name;
       importDraft.error = '';
     } catch (error) {
@@ -3327,7 +3334,7 @@
         if (!importDraft.parsed) throw new Error('请先选择 XLS、XLSX 或 UTF-8 CSV 文件');
         importDraft.step = 2;
       } else if (importDraft.step === 2) {
-        I.mappedRecords(importDraft.parsed, importDraft.mapping);
+        I.mappedRecords(importDraft.parsed, importDraft.mapping, state);
         importDraft.step = 3;
       }
       importDraft.error = '';
@@ -3804,20 +3811,20 @@
       .map(
         ([i, label, route, duo]) => {
           const target = railRoute(label, route);
-          return `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${target ? 'data-lai-route="' + target + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`;
+          return `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${target ? 'data-lai-route="' + target + '"' : label === "常用" ? 'data-action="favorite-nav"' : ""}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`;
         },
       )
       .join("") +
       `</div><button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
     );
   }
-  // ---- 角色权限：当前账号打不开的入口不显示（保留入口 feature 不受限制） ----
+  // ---- 角色权限：当前账号打不开的入口不显示 ----
   // 客户设置页：有「客户设置」「判重设置」「来源设置」任意一项权限就能打开，页里只显示有权限的页签。
   const csCanOpen = () => ["settings.customer", "settings.dedupe", "settings.source"].some((key) => R.can(state, key));
   const isCustomerSettings = (kind, target) => kind === "screen" && target === "customer-settings";
   // 能打开 = 角色有权限 并且 模块开着（功能开关）。
   const entryAllowed = (row) =>
-    row.kind === "feature" || (FS.entryOn(state, row.kind, row.target) && (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target)));
+    FS.entryOn(state, row.kind, row.target) && (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target));
   const menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed) ?? null;
   const favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed);
   // 整个菜单里的入口都打不开：左侧栏不显示这个菜单。
@@ -4002,12 +4009,10 @@
   function flyoutPanel(label) {
     const rows = label === "常用"
       ? favoriteEntries().map((entry) => ({ label: entry.label, kind: "favorite", target: entry.id, id: entry.id }))
-      : menuRows(label);
-    const body = rows === null
-      ? '<div class="rail-flyout-note">功能入口已保留，深入功能待后续实现。</div>'
-      : rows.length
-        ? rows.map(flyoutRow).join("")
-        : `<div class="rail-flyout-note">还没有常用导航。${FAVORITE_HINT}</div>`;
+      : menuRows(label) || [];
+    const body = rows.length
+      ? rows.map(flyoutRow).join("")
+      : `<div class="rail-flyout-note">还没有常用导航。${FAVORITE_HINT}</div>`;
     return `<div class="rail-flyout-panel" role="menu" aria-label="${E(label)}">${body}</div>`;
   }
   function showRailFlyout(item) {
@@ -4028,7 +4033,6 @@
   }
   function activateRailFlyout(kind, target) {
     hideRailFlyout();
-    if (kind === "feature") return featureNotice(target);
     if (kind === "favorite") return openFavoriteNav(target);
     return openNavEntry({ kind, target }, false);
   }
@@ -4078,9 +4082,7 @@
     if (!section.entries.length) return "";
     const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", "feature-switch": "settings", chats: "chat", "chat-templates": "folder" };
     const entryButton = (entry) =>
-      entry.kind === "feature"
-        ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
-        : navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${menuIcon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
+      navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${menuIcon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
     const groups = [...new Set(section.entries.map((entry) => entry.group).filter(Boolean))];
     if (!groups.length) return `<h3>${E(section.label)}</h3>${section.entries.map(entryButton).join("")}`;
     return `<h3>${E(section.label)}</h3>${groups
@@ -4453,20 +4455,6 @@
     if (d.action === "customer-tags") return customerTagEditor(el, e.detail > 0);
   });
 
-  function featureNotice(name, pointerActivated = false) {
-    if (modal) {
-      toast(`${name}：功能入口已保留，深入功能待后续实现。`);
-      return;
-    }
-    drawer(
-      name,
-      `<div class="drawer-body"><div class="feature-state"><strong>${E(name)}</strong>功能入口已保留。深入功能待后续实现，具体范围由你后续决定。</div></div>`,
-      `<button class="primary" data-action="close-modal">知道了</button>`,
-      "feature",
-      pointerActivated,
-    );
-    $(".drawer").classList.add("feature-dialog");
-  }
   function closeActivitySortMenu(restoreFocus = false, animate = false) {
     const box = $(".activity-sort-popover");
     if (!box) return;
@@ -4789,8 +4777,9 @@
   // 只有判重／来源权限的账号只看到那一个页签；有「客户设置」权限的看到其余页签。
   const csHiddenTabs = () => {
     const full = can("settings.customer");
+    // 邮件功能关了：动态设置（往来邮件自动记到客户动态）没有意义，页签不显示；设置本身保留。
     return window.LaiCustomerSettingsUI.TABS.map((tab) => tab.id).filter((id) =>
-      id === "dedupe" ? !can("settings.dedupe") : id === "sources" ? !can("settings.source") : !full);
+      id === "dedupe" ? !can("settings.dedupe") : id === "sources" ? !can("settings.source") : !full || (id === "activity" && !modOn("mail")));
   };
   // 每个页签、每种表单要的权限。
   const csTabPerm = (tabId) => (tabId === "dedupe" ? "settings.dedupe" : tabId === "sources" ? "settings.source" : "settings.customer");
@@ -5168,7 +5157,8 @@
     }
     if ((d.feature === "添加商机" || d.feature === "新建商机") && !allow("opp.create")) return;
     if (d.feature && customerOpportunityFeature(d.feature)) return;
-    if (d.feature) return featureNotice(d.feature, e.detail > 0);
+    // 其余带 data-feature 的按钮（商机按钮在没有可操作的商机时）什么也不弹。
+    if (d.feature) return;
     if (d.groupTab) {
       groupTab = d.groupTab;
       list();
@@ -5180,8 +5170,8 @@
     if (d.team) {
       team = d.team;
       if (team === "mine") {
-        const owner =
-          state.laiSettings?.defaultOwner || state.orderSettings?.defaultOwner;
+        // 只能看本人或本部门的账号，“我的客户”就是它自己的。
+        const owner = R.defaultOwner(state);
         if (!owner) {
           team = "team";
           return toast("请先在来财设置中设置默认跟进人，或选择业务员筛选");
@@ -5651,14 +5641,21 @@
     switchAccount,
     // 工作台的未读邮件卡片：邮件页打开过就用它已有的数字，邮件列表向本机邮件服务要。
     mailCounts: () => mail?.counts?.() || null,
+    // 收件箱最近的一页信（带 seen）：今天先做用其中没读的，客户来消息用最近的几封。
     mailSummary: async () => {
       if (!modOn("mail")) return null;
-      const response = await fetch("/api/mail/messages?folder=unread&page=1", { cache: "no-store" });
+      const response = await fetch("/api/mail/messages?folder=inbox&page=1", { cache: "no-store" });
       const data = await response.json();
       if (!data?.ok) return null;
       const counts = data.counts || { unread: data.total || 0, pending: 0 };
       return { items: data.items || [], unread: counts.unread, pending: counts.pending };
     },
+    // 工作台「回复」：打开聊天页并选中这位客户。
+    openChat: (name) => {
+      wa.select(name);
+      return navigateApp("chats");
+    },
+    defaultTheme: DEFAULT_THEME,
     // 线索、商机里的 WhatsApp 按钮：和客户资料用同一个对话框，对象（客户或线索）由按钮所在的页面明确传进来，不看“最近打开的客户”。
     openWhatsApp: (options) => wa.openDialog(options),
     toast,

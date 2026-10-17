@@ -57,7 +57,7 @@ const mailRoutes = {
   'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
   'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/backup-status', 'GET /api/import-log', 'POST /api/save', 'POST /api/save-changes', 'POST /api/manual-backup', 'POST /api/open-data-folder', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/backup-status', 'GET /api/import-log', 'POST /api/save', 'POST /api/save-changes', 'POST /api/manual-backup', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
 
 function securityHeaders(type = '') {
   return {
@@ -193,16 +193,6 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/manual-backup') {
       const backup = store.backup(true, 'manual');
       return send(res, backup.ok ? 200 : 503, JSON.stringify(backup));
-    }
-    if (url.pathname === '/api/open-data-folder') {
-      // Recheck the directory before handing the path to Finder.
-      store.readSnapshot();
-      await new Promise((resolve, reject) => {
-        const child = spawn('/usr/bin/open', [store.directory], { stdio: 'ignore' });
-        child.once('error', reject);
-        child.once('close', code => code === 0 ? resolve() : reject(httpError(503, 'unable to open data directory')));
-      });
-      return send(res, 200, JSON.stringify({ ok: true, path: store.directory }));
     }
   } catch (error) {
     const status = Number.isInteger(error.status) ? error.status : 500;

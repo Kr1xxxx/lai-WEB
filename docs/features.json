@@ -1,5 +1,5 @@
 {
- "_readme": "Feature verification list. Set browser or mac to true only after actually walking through the steps yourself; do not edit or remove steps to make them pass. browser = in a browser (npm run test:e2e or the web trial page); mac = the Mac app built from this repo, on a real Mac. e2e names the automated test file, if any. Earlier sessions recorded many browser checks in VALIDATION.md; walk a feature again before setting it true here.",
+ "_readme": "Feature verification list. Set browser to true only after actually walking through the steps yourself; do not edit or remove steps to make them pass. browser = in a browser (npm run test:e2e or the web trial page). The Mac app was removed (D-026, 2026-10-17), so the mac flag is no longer used and stays as it was. e2e names the automated test file, if any. Earlier sessions recorded many browser checks in VALIDATION.md; walk a feature again before setting it true here.",
  "features": [
   {
    "id": "customer-list",
@@ -883,6 +883,25 @@
     "Open the scope menu: the custom field is listed after the fixed fields; choose it and search again: only that field is matched and the label shows the field name"
    ],
    "e2e": "global-search-custom.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "order-custom-fields",
+   "area": "orders",
+   "description": "设置 → 订单字段: add, rename, move, require and delete order fields (text, textarea, number, date, select, multi) and their options; values in the order form (required only for new orders and for fields touched on old ones), a read-only list for accounts without 编辑订单, and order export columns; deleted fields keep their values in the data but are no longer shown or exported",
+   "steps": [
+    "Open 设置 → 设置, scroll to 订单字段, add a 文本 field marked 必填 and a 单选 field with two options",
+    "新建订单: both fields are under 自定义字段; saving without the required one says 请填写<field>",
+    "Fill them, save, open the order again: the values are there",
+    "Open an older order whose required field is empty and change only 备注: it saves",
+    "Export orders: the fields are the last columns with the values",
+    "Delete a field (two clicks): it leaves the form and the export, the stored value stays",
+    "Type something in 默认录入 without saving, then add an order field: the typed text and the scroll position stay"
+   ],
+   "e2e": "order-custom-fields.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false

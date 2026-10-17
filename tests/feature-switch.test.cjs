@@ -148,12 +148,12 @@ test('the key/route/entry → module tables live in role-model.js and feature-sw
 
 test('entryAllowed in app.js is the module check AND the role check; menus, flyouts, sub-navigation and 常用 all read it', () => {
   const app = read('src/app.js');
-  assert.match(app, /const entryAllowed = \(row\) =>\s*row\.kind === "feature" \|\| \(FS\.entryOn\(state, row\.kind, row\.target\) && /);
+  assert.match(app, /const entryAllowed = \(row\) =>\s*FS\.entryOn\(state, row\.kind, row\.target\) && /);
   for (const reader of ['menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed)', 'favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed)', 'const railHidden', 'const railRoute']) assert.ok(app.includes(reader), reader);
   assert.match(app, /section\.entries = section\.entries\.filter\(entryAllowed\)/, 'sub-navigation');
   // the same rule, evaluated here against the real menus
   {
-    const open = (state) => (row) => row.kind === 'feature' || (FS.entryOn(state, row.kind, row.target) && R.canOpen(state, row.kind, row.target));
+    const open = (state) => (row) => FS.entryOn(state, row.kind, row.target) && R.canOpen(state, row.kind, row.target);
     const rail = (state) => ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户'].filter((label) => RM.menuFor(label).some(open(state)));
     assert.deepEqual(rail({}), ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户']);
     for (const [id, label] of [['lead', '线索'], ['opp', '商机'], ['mail', '邮件'], ['chat', '沟通'], ['team', '团队数据']]) {
@@ -214,7 +214,8 @@ test('the 设置中心 hides items of a module that is off, shows the switch pag
   assert.ok(!hub(off('chat')).includes('chat-templates'));
   assert.ok(!hub(off('team')).includes('targets'));
   assert.ok(!hub(off('mail')).includes('mail-account'));
-  assert.deepEqual(hub(off('lead')), all, '线索 has no hub item of its own');
+  assert.ok(all.includes('lead-settings'), '线索设置 is in the hub');
+  assert.deepEqual(hub(off('lead')), all.filter((id) => id !== 'lead-settings'), '线索 off hides 线索设置 only');
   const nothing = hub(off(...FS.IDS));
   for (const keep of ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'rates', 'task-settings']) assert.ok(nothing.includes(keep), keep);
   assert.ok(!ids({ can: (key) => key !== 'settings.switch' }).includes('feature-switch'), 'permission settings.switch is required');
@@ -269,19 +270,25 @@ test('toggling saves through the page, needs settings.switch, and redraws the wh
   assert.equal(FS.enabled(state, 'lead'), true);
 });
 
-test('workbench: cards of an off module are not drawn, and the 新建商机 button goes too', () => {
+test('workbench: blocks of an off module are not drawn, and the 新建商机 button goes too', () => {
   const today = '2026-10-08';
-  const render = (state) => W.markup({ state: { orders: [], customers: {}, ...state }, today, B, OM, TM, bucket: (c) => L.bucket(c), mail: { unread: 2, pending: 1, items: [] } }, E);
+  const WA = require('../src/whatsapp-ui.js');
+  const chats = { Wa: { owner: 'A', history: [{ type: 'chat', channel: 'WhatsApp', time: '2026-10-07T10:00:00', lines: [{ at: '2026-10-07T10:00:00', from: 'Ann', dir: 'in', text: 'hi', key: 'k' }] }] } };
+  const render = (state) => W.markup({ state: { orders: [], customers: chats, ...state }, today, B, OM, TM, bucket: (c) => L.bucket(c), WA, mail: { unread: 2, pending: 1, items: [{ subject: 'Hi', seen: false, from: { name: 'Emma' }, date: '2026-10-07T09:00:00' }] } }, E);
   const full = render({});
-  for (const marker of ['进行中商机', '商机阶段', '未读邮件', '本月目标', 'data-biz-go="opp-new"', 'data-biz-go="mail:inbox"']) assert.ok(full.includes(marker), marker);
+  for (const marker of ['id="wb-h-opp"', '商机看板', '客户来消息', '本月成交', 'data-biz-go="opp-new"', 'data-biz-go="mail:inbox"', 'data-biz-go="mail:unread"', 'data-biz-chat', 'wb-ch ml', 'wb-ch wa']) assert.ok(full.includes(marker), marker);
   const noOpp = render(off('opp'));
-  assert.ok(!/进行中商机|商机阶段|opp-new|data-biz-go="opportunities"/.test(noOpp));
-  assert.ok(noOpp.includes('未读邮件') && noOpp.includes('本月目标'));
+  assert.ok(!/id="wb-h-opp"|opp-new|data-biz-go="opportunities"/.test(noOpp));
+  assert.ok(noOpp.includes('客户来消息') && noOpp.includes('本月成交'));
   const noMail = render(off('mail'));
-  assert.ok(!/未读邮件|mail:inbox|mail:unread/.test(noMail));
+  assert.ok(!/未读邮件|mail:inbox|mail:unread|wb-ch ml/.test(noMail));
+  assert.ok(noMail.includes('data-biz-chat'), 'WhatsApp is its own switch');
+  const noChat = render(off('chat'));
+  assert.ok(!/data-biz-chat|等你回复|wb-ch wa/.test(noChat));
+  assert.ok(noChat.includes('wb-ch ml'));
   const noTeam = render(off('team'));
-  assert.ok(!/本月目标|team-goals|data-biz-go="analysis"/.test(noTeam));
-  assert.ok(noTeam.includes('有效订单') && noTeam.includes('待办任务'), 'orders and tasks are never switchable');
+  assert.ok(!/本月成交|team-goals|data-biz-go="analysis"/.test(noTeam));
+  assert.ok(noTeam.includes('订单走到哪了') && noTeam.includes('今天先做'), 'orders and the queue are never switchable');
 });
 
 test('成交 follows the order rule while 商机 is off, and goes back to the saved rule when it is on again', () => {

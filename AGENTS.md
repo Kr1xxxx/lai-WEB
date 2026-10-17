@@ -6,10 +6,10 @@ Details live in `docs/`; this file only holds what you need every time.
 ## Project
 
 来财Lai is a local CRM for a small export business (customers, contacts, follow-ups, segments, orders,
-opportunities, team data, Zoho mail). Reference product: OKKI CRM (小满). **macOS only** (desktop builds are paused for now, D-019: only the web version is built), data stays on the Mac:
+opportunities, team data, Zoho mail). Reference product: OKKI CRM (小满). **Web version only** (the Mac app was removed, D-026); data stays local:
 no server, no accounts yet. The UI is entirely in Chinese.
 
-Stack: Swift AppKit shell + WKWebView (`native/`) → local Node HTTP server on 127.0.0.1 (`backend/`, Node 24+,
+Stack: the page in a browser → local Node HTTP server on 127.0.0.1 (`backend/`, Node 24+,
 `node:sqlite`) → SQLite. The page is one HTML file assembled from `src/*.js|css` by `scripts/build.py`
 (`assemble_html()`, markers in `src/template.html`). No npm dependencies; third-party code is vendored in `vendor/`.
 
@@ -29,13 +29,11 @@ Stack: Swift AppKit shell + WKWebView (`native/`) → local Node HTTP server on 
 npm run test:model       # unit/model/backend tests (tests/*.test.cjs, node:test)
 npm run test:e2e         # browser end-to-end tests (tests/e2e/, real backend + real page, Playwright)
 python3 -m unittest discover -s tests -p 'test_release_tools.py'   # build/export tool tests
-python3 scripts/build.py --node-runtime "$(command -v node)"        # macOS only → dist/来财Lai.app
-node scripts/integration-test.mjs                                   # macOS only, after the build
 ```
 
 Playwright is **not** in `package.json` (the repo has no npm dependencies). Install it outside the tracked files:
 `npm install --no-save --no-package-lock playwright@1.56.0 && npx playwright install chromium`. Set `CHROMIUM` to
-use an existing Chromium binary. CI no longer builds the Mac app while desktop builds are paused (D-019); `scripts/mac-cadence.mjs` holds the switch.
+use an existing Chromium binary.
 
 ## Structure
 
@@ -45,16 +43,14 @@ use an existing Chromium binary. CI no longer builds the Mac app while desktop b
 | `src/*-model.js`, `model.js`, `segments.js`, `modules.js` | Pure logic; put new logic here, with unit tests |
 | `src/*-ui.js`, `*-page.js`, `workbench.js`, `settings-hub.js` | Markup for each page; controllers live in `app.js` / `business-ui.js` |
 | `src/rail-menu.js` | The one list of real left-rail entries (flyouts, sub-nav and 常用 all read it) |
-| `src/template.html` + `scripts/build.py` | Page assembly: a new `src/` file needs a marker in both |
+| `src/template.html` + `scripts/build.py` (`assemble_html()`) | Page assembly: a new `src/` file needs a marker in both |
 | `backend/server.js`, `storage.js` | Local routes and auth; SQLite with revisions (`baseRevision` rejects stale saves) |
 | `backend/mail-*.js` | Zoho mail over IMAP/SMTP (vendored imapflow, nodemailer, postal-mime) |
-| `native/` | Swift app shell, single instance, windows; Swift tests run inside `scripts/build.py` |
 | `scripts/web-trial/` | Rebuild and check the published web trial page (README there) |
-| `scripts/*-acceptance.*` | Older isolated acceptance scripts; most need the built Mac app |
 | `tests/*.test.cjs` | node:test; some assert on source text and break on refactors |
 | `tests/e2e/` | Browser end-to-end tests; `harness.mjs` starts the backend in a `lai-test-*` temp dir |
 | `ARCHITECTURE.md`, `VALIDATION.md` | Code map and every business-rule decision made while building (Chinese, kept current) |
-| `docs/features.json` | Feature verification list (verified in browser / on the Mac app) |
+| `docs/features.json` | Feature verification list (verified in the browser) |
 | `docs/samples/` | Mock data — the only data to test with |
 | `docs/xiaoman/` | The owner's read-only record of OKKI (小满) settings, and how 来财 compares; reference only, not a to-do list |
 | `docs/archive/` | Old plans and progress notes. **Out of date — do not follow them.** |
@@ -77,7 +73,7 @@ runs on browser storage, cannot reach real mail and cannot download files.
 - Add tests with every feature; put user-visible flows in `tests/e2e/`.
 - Write user-visible text in short, plain Chinese without technical terms. Developer docs are in English.
 - Record each business-rule choice you make in `VALIDATION.md` (D-003); the owner can change it later.
-- In `docs/features.json`, set `browser` or `mac` to `true` only after you actually walked through the steps.
+- In `docs/features.json`, set `browser` to `true` only after you actually walked through the steps.
 
 **Ask the owner first**
 - Changing or reversing anything in `docs/DECISIONS.md`.
@@ -116,7 +112,7 @@ kept):
 
 - **Small** — merges by itself once every check is green: wording, styling, bug fixes, tests and docs, with at most
   500 changed lines in `src/` (tests and docs do not count).
-- **Big** — CI labels it `needs-owner` and stops: anything under `native/`, `backend/`, `vendor/`, `assets/`,
+- **Big** — CI labels it `needs-owner` and stops: anything under `backend/`, `vendor/`,
   `package.json`, CI and scripts (except browser checks and acceptance scripts), `.gitignore`, the rulebook
   (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `docs/DECISIONS.md`), data storage code in `src/`, deleted `src/`
   files, weakened tests, more than 500 lines of `src/`.

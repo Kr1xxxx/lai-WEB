@@ -58,7 +58,7 @@ function harness({ failSave = false, clock, customers, tasks, orders } = {}) {
     getMonth() { return this.wallClock ? clock.month - 1 : super.getMonth(); }
     getDate() { return this.wallClock ? clock.day : super.getDate(); }
   }
-  const context = { window: { LaiBusinessModel: B, LaiModules: L }, document, FormData, crypto: webcrypto, ...(clock ? { Date: ClockDate } : {}) };
+  const context = { window: { LaiBusinessModel: B, LaiModules: L, LaiWorkbench: require('../src/workbench.js') }, document, FormData, crypto: webcrypto, ...(clock ? { Date: ClockDate } : {}) };
   vm.createContext(context);
   if (clock) vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/business-model.js'), 'utf8'), context);
   vm.runInContext(source, context);

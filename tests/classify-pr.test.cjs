@@ -17,9 +17,9 @@ test('docs, tests, browser checks and acceptance scripts are small', async () =>
   assert.equal(classify({ files, uiDiff: '', labels: [] }).size, 'small');
 });
 
-test('app shell, backend, dependencies, CI, scripts and the rulebook wait for the owner', async () => {
+test('backend, dependencies, CI, scripts and the rulebook wait for the owner', async () => {
   const { classify } = await load();
-  for (const p of ['native/Sources/LaiNative/main.swift', 'backend/storage.js', 'vendor/squire/squire-raw.js', 'assets/AppIcon.icns', 'package.json', 'source-manifest.json',
+  for (const p of ['backend/storage.js', 'vendor/squire/squire-raw.js', 'package.json', 'source-manifest.json',
     '.github/workflows/ci.yml', '.gitignore', 'scripts/build.py', 'scripts/web-trial/rebuild.py', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'docs/DECISIONS.md']) {
     assert.equal(classify({ files: [file(p)], uiDiff: '', labels: [] }).size, 'big', p);
   }

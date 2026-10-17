@@ -5,17 +5,18 @@
 
 ## Status (2026-10-17)
 
-- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.09 built from `main` 7dd7df4 (#20 merged).
-- Desktop builds (Mac, Windows) are PAUSED (D-019): web version only. CI skips the Mac job; a manual run is still possible.
+- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.10 built from `main` f701889 (#21 merged).
+- The Mac app was removed (owner, 2026-10-17, D-026): web version only. The local backend stays as the data layer.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
   商机设置, products, workbench, calendar/tasks, business stats, team data, Zoho mail, roles + test accounts, 设置/设置中心,
-  three themes, MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
-- `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); none on the Mac app.
+  four themes (pink default, orange, 小满, 科技蓝; 小满 to be removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
+- `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); there is no Mac app any more (`mac` flag unused).
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
-- How Claude works (D-017): Opus coordinates; Sonnet/Opus subagents in parallel git worktrees (`.claude/agents/`).
+- How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". The owner wants no questions: consult the advisor and decide (CLAUDE.md).
+- UI direction (D-028): one component kit, shadcn/ui-style rules in 科技蓝 colours; 小满 style removed (D-029).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
-  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.09, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.10, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
   version top-left; every publish adds 0.01.
 
 ## Open PRs and branches
@@ -27,6 +28,7 @@
 | Roles: departments, field permissions, layouts by role | PR #15 | Merged 2026-10-16 (owner said 合并), `main` 892e284 |
 | Settings take effect (客户设置 logic, scope leaks, 设置 fixes), D-022–D-025 | PR #19 | Merged 2026-10-17 (owner said 合并), `main` eb6ba6e |
 | WhatsApp 沟通, export, lead settings, custom fields, rates, task rules, feature switches, D-022 build | PR #20 | Merged 2026-10-17 (owner said 后续自动合并), `main` 7dd7df4 |
+| Settings-audit fixes, Mac app removed (D-026), 科技蓝 theme + new 工作台, top-bar overlap fix, order custom fields, agent tree (D-027), D-028/D-029 | `claude/gallant-bell-0m7uzb` | PR open 2026-10-17; merges when CI is green |
 | 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Backend parts ported into `data-safety-pr2`; its numbering/finance `src/` changes were not ported (15 conflicts in `business-ui.js`) — re-evaluate against current code or drop |
 | Old branches | 62 merged or obsolete remote branches | Owner agreed to delete (2026-10-16). The cloud session's GitHub proxy refuses branch deletion (`git push --delete` hangs up, API returns 403); needs a session or tool with delete rights |
 
@@ -38,30 +40,32 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | --- | --- | --- | --- |
 | 2 | Waiting branches → PRs | Done except 1.4.127 | See table above |
 | 2i | 部门 + 本部门 scope + 部门管理员; field permissions; product layouts by role | Done | #15 merged |
-| 3 | Owner walks the Mac build | Blocked | Desktop builds paused (D-019) |
+| 3 | Owner walks the Mac build | Cancelled | Mac app removed (owner, 2026-10-17) |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo (owner) | Needs his real account (D-004); fake-server e2e passes |
 | 6 | More e2e: orders, opportunities, mail, settings | Done | `orders`, `opportunities`, `mail`, `settings-hub`, `features-walkthrough`, `customer-fixes`, `business-fixes`, `save-conflict` (data-safety PR) |
 | 7 | Translate `ARCHITECTURE.md` / `VALIDATION.md` to English | Todo | |
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
 | 9 | 沟通 module — WhatsApp (D-023) | Done (PR) | wa.me links, chat templates, import of exported chats, chat follow-ups; no receiving without a server (D-024) |
 | 28 | Export, lead settings, custom customer fields, exchange rates, task rules, feature switches | Done (PR) | Settings kept in `laiSettings` (no schema change); see VALIDATION.md |
-| 29 | Lead custom fields; custom fields in global search | Done (PR) | Lead list has fixed columns, so lead custom values show in editor, detail and export |
-| 30 | Custom fields for orders | Todo | `field-model.js` ENTITIES has customer and lead only |
+| 29 | Lead custom fields; custom fields in global search | Done (#21) | Lead list has fixed columns, so lead custom values show in editor, detail and export |
+| 30 | Custom fields for orders | Done (PR) | Settings section on 设置, form, read-only list, export; no list columns (fixed), no order field permissions yet |
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
-| 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
-| 25 | Split `src/app.js` (~5300 lines) and `business-ui.js` (~2700) by page | Todo | Many `tests/*.test.cjs` read source text; move them to behaviour tests while splitting |
+| 24 | Polish pass + data safety | Done | #17, #18 merged |
+| 25 | Split `src/app.js` (~5800 lines), `business-ui.js` (~3100), `mail-ui.js` by page | Todo (planned) | 15-slice plan with advisor review; starts after the render fix (Q1); one file in one wave at a time |
+| 31 | UI wave (advisor report 2026-10-17) | Todo | Q1 render only into main → Q2–Q8 quick wins → component kit (D-028) page by page with census/token ratchets |
+| 32 | Remove 小满 theme + classic skin (D-029) | Todo | After Q1; xiaoman shown as 科技蓝 |
+| 33 | Full overlap sweep + CI test | In progress | Worker running; lands in the next PR |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
 | 27 | 新建商机: 客户 / 负责人 as real dropdowns | Todo | Now styled like dropdowns but still inputs with a datalist; needs controller changes in `business-ui.js` |
 
 ## Waiting on the owner
 
-- Nothing blocking. Owner said 后续自动合并 (2026-10-17); the rulebook (D-014) was not changed, so record it as a decision if he wants it permanent.
+- Font subsetting (page 9.9 MB → ~3–4 MB): proposed as a one-time subset committed to `vendor/fonts` (no build dependency); waiting for his 可以. Check the MiSans licence first.
+- Owner said 后续自动合并 (2026-10-17); Claude merges its own PRs once CI is green.
 - Whether `claude/theme-pink-orange` and `claude/order-lines` (1–2 unmerged commits each, superseded by later work) may go.
 
 ## Known risks
 
 - Several sessions work at once; the web trial page is shared, so publishing from a branch hides other unmerged work.
-- With desktop builds paused, a Mac-only break can sit on `main` unnoticed until builds resume.
 - Many unit tests assert on source text and break on refactors; `tests/e2e/` is the reference for behaviour.
 - Timing tests (`perf-*`, mail time limits) can fail once under heavy load (several agents at once); rerun before judging.
-- The Mac app is ad-hoc signed, not notarized: first launch needs right-click → 打开.

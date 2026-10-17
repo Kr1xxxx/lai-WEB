@@ -158,16 +158,16 @@ test('设置中心: cards the account cannot use are hidden, and a group with no
   assert.equal(ids(Hub.markup({}, E)).length, Hub.GROUPS.flatMap((g) => g.items).length, 'without can everything shows');
 });
 
-test('工作台: cards of modules the account cannot view are hidden', () => {
+test('工作台: blocks of modules the account cannot view are hidden', () => {
   const html = (can, state = admin) => Workbench.markup({ state, today: TODAY, B, OM: O, TM, bucket: (c) => Modules.bucket(c), mail: null, can }, E);
   const full = html(canOf(admin));
-  for (const text of ['订单进度 <small>', '金额概览', '商机阶段', '本月目标', '未读邮件', '新建订单', '新建商机']) assert.ok(full.includes(text), text);
+  for (const text of ['订单走到哪了', '已收款', 'id="wb-h-opp"', '本月成交', '客户来消息', '新建订单', '新建商机']) assert.ok(full.includes(text), text);
   const mine = html(canOf(amy));
-  assert.ok(!mine.includes('本月目标'), '业务没有团队数据权限');
-  assert.ok(mine.includes('订单进度 <small>') && mine.includes('商机阶段'));
-  const none = html(without('order.view', 'opp.view', 'team.view', 'mail.view', 'order.create', 'opp.create'));
-  for (const text of ['订单进度 <small>', '金额概览', '商机阶段', '本月目标', '未读邮件', '新建订单', '新建商机', '有效订单', '进行中商机']) assert.ok(!none.includes(text), text);
-  assert.ok(none.includes('待办任务') && none.includes('待跟进客户'));
+  assert.ok(!mine.includes('本月成交'), '业务没有团队数据权限');
+  assert.ok(mine.includes('订单走到哪了') && mine.includes('id="wb-h-opp"'));
+  const none = html(without('order.view', 'opp.view', 'team.view', 'mail.view', 'chat.view', 'order.create', 'opp.create'));
+  for (const text of ['订单走到哪了', '已收款', 'id="wb-h-opp"', '本月成交', '客户来消息', '新建订单', '新建商机', '钱和目标']) assert.ok(!none.includes(text), text);
+  assert.ok(none.includes('今天先做') && none.includes('添加任务'), 'the queue and 添加任务 stay');
 });
 
 // 邮件页测试用的账号、邮件（和 mail-ui.test.cjs 一样）。
@@ -226,7 +226,7 @@ function controller(state) {
     getElementById: () => null, querySelector: () => null, querySelectorAll: () => [],
   };
   class FormData { constructor() { this.entries = []; } [Symbol.iterator]() { return this.entries[Symbol.iterator](); } }
-  const window = { LaiBusinessModel: B, LaiModules: Modules, LaiRoleModel: R, LaiLeadModel: L, LaiLeadUI: LeadUI, LaiOpportunityModel: O, LaiOpportunityUI: OppUI, LaiTeamModel: TM, LaiTeamUI: TeamUI, LaiProductModel: P, LaiProductUI: ProductUI, LaiDocTemplateModel: DM, LaiDocTemplateUI: DocUI, LaiOrdersPage: OrdersPage, LaiSettingsHub: Hub };
+  const window = { LaiBusinessModel: B, LaiModules: Modules, LaiWorkbench: Workbench, LaiRoleModel: R, LaiLeadModel: L, LaiLeadUI: LeadUI, LaiOpportunityModel: O, LaiOpportunityUI: OppUI, LaiTeamModel: TM, LaiTeamUI: TeamUI, LaiProductModel: P, LaiProductUI: ProductUI, LaiDocTemplateModel: DM, LaiDocTemplateUI: DocUI, LaiOrdersPage: OrdersPage, LaiSettingsHub: Hub };
   const context = { window, document, FormData, crypto: webcrypto };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8'), context);
@@ -319,7 +319,7 @@ test('业务: a record that is not hers cannot be opened or changed by id', asyn
 
 test('业务: pages she may not open show the no-permission notice instead of the page', () => {
   const c = controller(amy);
-  for (const [route, text] of [['settings', '设置'], ['opp-flows', '商机设置'], ['team-goals', '团队数据'], ['team-targets', '目标管理'], ['doc-templates', '单据模版设置']]) {
+  for (const [route, text] of [['settings', '设置'], ['opp-flows', '商机设置'], ['team-goals', '团队数据'], ['team-targets', '目标管理'], ['doc-templates', '单据模板设置']]) {
     c.ui.navigate(route);
     assert.match(c.html, /class="empty role-blocked" role="status"/, route);
     assert.match(c.html, /没有“/, route);

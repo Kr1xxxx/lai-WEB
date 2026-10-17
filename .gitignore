@@ -32,8 +32,6 @@ attachments/
 *.pfx
 .DS_Store
 node_modules/
-native/.build/
-native/.swiftpm/
 __pycache__/
 *.pyc
 .superpowers/

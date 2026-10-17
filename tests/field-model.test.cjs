@@ -9,7 +9,8 @@ test('defaults, bad stored data, types', () => {
   assert.deepEqual(F.get({}, 'customer'), {customFields: [], required: {}});
   const bad = {laiSettings: {fieldSettings: {customer: {customFields: [null, {id: 'a', name: 'N', type: 'bogus'}, {id: 'b', name: ' 等级 ', type: 'select', options: ['A', 'a', '', 5]}, {id: 'b', name: 'dup', type: 'text'}], required: {x: true, y: 'yes'}}}}};
   assert.deepEqual(F.get(bad, 'customer'), {customFields: [{id: 'b', name: '等级', type: 'select', options: ['A'], required: false}], required: {x: true}});
-  assert.throws(() => F.get({}, 'order'), /无效/);
+  assert.deepEqual(F.get({}, 'order'), {customFields: [], required: {}}); // orders became a field entity with 订单字段
+  assert.throws(() => F.get({}, 'product'), /无效/);
   assert.throws(() => F.addField({laiSettings: []}, 'customer', {name: 'x', type: 'text'}), /格式异常/);
   assert.throws(() => F.addField({laiSettings: {fieldSettings: {customer: []}}}, 'customer', {name: 'x', type: 'text'}), /格式异常/);
   assert.deepEqual(F.TYPES.map(t => t[1]), ['文本', '多行文本', '数字', '日期', '单选', '多选']);
@@ -108,6 +109,12 @@ test('cleanValue', () => {
   assert.equal(F.cleanValue(num, '-3'), -3);
   assert.equal(F.cleanValue(num, ''), undefined);
   assert.throws(() => F.cleanValue(num, '1,000'), /数字/);
+  // A stored tiny number shows as "1e-7"; saving it again must not be refused.
+  assert.equal(F.cleanValue(num, 1e-7, 1e-7), 1e-7);
+  assert.equal(F.cleanValue(num, '1e-7', 1e-7), 1e-7);
+  assert.equal(F.cleanValue(num, F.cleanValue(num, '0.0000001')), 1e-7);
+  assert.throws(() => F.cleanValue(num, '1e-7'), /数字/);
+  assert.throws(() => F.cleanValue(num, 1e16), /数字/);
   assert.equal(F.cleanValue(date, '2026-02-28'), '2026-02-28');
   assert.throws(() => F.cleanValue(date, '2026-02-30'), /有效的日期/);
   assert.throws(() => F.cleanValue(date, '10/01/2026'), /有效的日期/);

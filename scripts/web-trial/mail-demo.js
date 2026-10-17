@@ -63,7 +63,7 @@
 
   function handle(path, method, query, body) {
     if (path === '/api/mail-account' && method === 'GET') return json(200, {ok: true, available: false, account: account});
-    if (path.indexOf('/api/mail-account/') === 0) return json(501, {ok: false, message: '网页试用版无法连接真实邮箱。请在 Mac 上安装的来财应用里绑定。'});
+    if (path.indexOf('/api/mail-account/') === 0) return json(501, {ok: false, message: '网页试用版无法连接真实邮箱，所以不能绑定。'});
     if (path === '/api/mail/messages') {
       var folder = query.get('folder'), text = String(query.get('query') || '').trim().toLowerCase();
       if (['inbox', 'unread', 'pending', 'sent'].indexOf(folder) < 0) return bad('不支持的邮件文件夹');

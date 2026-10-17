@@ -11,6 +11,16 @@
     ['contactTitle', '职位'], ['contactGender', '性别'], ['contactNote', '联系人备注'],
     ['owner', '跟进人'], ['level', '客户等级'], ['note', '客户备注'],
   ].map(([id, label]) => Object.freeze({id, label})));
+  // 自定义字段（客户设置 → 自定义字段）：导入时列的字段 ID 是 custom:<字段ID>，和客户列表里的列同一个写法。
+  const FM = () => typeof module !== 'undefined' && module.exports ? require('./field-model.js') : root?.LaiFieldModel;
+  const CUSTOM = 'custom:';
+  const isCustomKey = key => typeof key === 'string' && key.startsWith(CUSTOM);
+  function customFields(state) {
+    const fm = FM();
+    if (!fm || !state) return [];
+    try { return fm.get(state, 'customer').customFields.map(field => ({...field, key: CUSTOM + field.id})); }
+    catch (_) { return []; }
+  }
   const aliases = new Map([
     ['客户名称', 'name'], ['名称', 'name'], ['公司名称', 'name'],
     ['联系人', 'contact'], ['联系人名称', 'contact'], ['主要联系人', 'contact'],
@@ -100,28 +110,32 @@
     return {headers:headerRow.slice(0,width),rows,lineNumbers:occupied.map(item => item.line)};
   }
 
-  function suggestMapping(headers) {
-    const mapping = {}, used = new Set();
+  function suggestMapping(headers, state) {
+    const mapping = {}, used = new Set(), custom = customFields(state), fm = FM();
     headers.forEach((header, index) => {
-      const field = aliases.get(String(header).trim());
+      // 系统字段优先；表头和某个自定义字段同名（不分大小写、全半角）时匹配到它。
+      const field = aliases.get(String(header).trim()) || custom.find(item => fm.sameName(item.name, header))?.key;
       if (field && !used.has(field)) { mapping[field] = index; used.add(field); }
     });
     return mapping;
   }
 
-  function mappedRecords(parsed, mapping) {
+  // 逐行整理出要导入的值。自定义字段的值按字段类型整理（FM.cleanValue）：不合格的格子（例如单选里没有这个选项）
+  // 只跳过这一格，记一条提醒，整行照常导入。返回 {records, warnings}。
+  function buildRecords(parsed, mapping, state) {
     if (!parsed || !Array.isArray(parsed.headers) || !Array.isArray(parsed.rows)) throw new Error('请先选择导入文件');
     if (!mapping || !Number.isInteger(mapping.name)) throw new Error('请把一列匹配到公司名称');
     const entries = Object.entries(mapping).filter(([, index]) => index !== '' && index !== null && index !== undefined);
-    const valid = new Set(fields.map(field => field.id));
+    const custom = new Map(customFields(state).map(field => [field.key, field]));
+    const valid = new Set([...fields.map(field => field.id), ...custom.keys()]);
     const indexes = new Set();
     for (const [key, index] of entries) {
       if (!valid.has(key) || !Number.isInteger(index) || index < 0 || index >= parsed.headers.length || indexes.has(index))
         throw new Error('字段匹配无效或重复');
       indexes.add(index);
     }
-    const seen = new Map();
-    return parsed.rows.map((row, index) => {
+    const fm = FM(), seen = new Map(), warnings = [];
+    const records = parsed.rows.map((row, index) => {
       const line = parsed.lineNumbers?.[index] || index + 2;
       if (!Array.isArray(row) || row.length !== parsed.headers.length) throw new Error(`第 ${line} 行列数不一致`);
       const values = Object.fromEntries(entries.map(([key, column]) => [key, String(row[column] ?? '').trim()]));
@@ -129,22 +143,48 @@
       if (!name || name.length > 200 || ['__proto__', 'constructor', 'prototype'].includes(name))
         throw new Error(`第 ${line} 行公司名称无效`);
       if (Object.values(values).some(value => value.length > 5000)) throw new Error(`第 ${line} 行字段内容过长`);
+      const rowWarnings = [];
+      for (const [key, field] of custom) {
+        if (!Object.hasOwn(values, key)) continue;
+        const raw = values[key];
+        delete values[key];
+        if (!raw) continue;
+        try {
+          const clean = fm.cleanValue(field, raw);
+          if (clean !== undefined) values[key] = clean;
+        } catch (error) {
+          rowWarnings.push({row:line, name, field:field.name, message:`第 ${line} 行${error.message}，这一格没有导入`});
+        }
+      }
       const key = normalize(name);
       const first = seen.get(key);
-      if (first) for (const field of companyFields) {
-        if (first[field] && values[field] && first[field] !== values[field])
-          throw new Error(`第 ${line} 行${fields.find(item => item.id === field)?.label || field}与同公司前面的行不一致`);
-        if (!first[field] && values[field]) first[field] = values[field];
-      }
-      else seen.set(key,{...values});
+      if (first) {
+        for (const field of companyFields) {
+          if (first[field] && values[field] && first[field] !== values[field])
+            throw new Error(`第 ${line} 行${fields.find(item => item.id === field)?.label || field}与同公司前面的行不一致`);
+          if (!first[field] && values[field]) first[field] = values[field];
+        }
+        // 自定义字段是公司资料：同一公司前面的行已经填了不同的值时，这一格不导入，以前面的为准。
+        for (const [id, field] of custom) {
+          if (!Object.hasOwn(values, id)) continue;
+          if (Object.hasOwn(first, id) && JSON.stringify(first[id]) !== JSON.stringify(values[id])) {
+            delete values[id];
+            rowWarnings.push({row:line, name, field:field.name, message:`第 ${line} 行“${field.name}”与同公司前面的行不一致，这一格没有导入`});
+          } else if (!Object.hasOwn(first, id)) first[id] = values[id];
+        }
+      } else seen.set(key, {...values});
+      warnings.push(...rowWarnings);
       return values;
     });
+    return {records, warnings};
   }
+  const mappedRecords = (parsed, mapping, state) => buildRecords(parsed, mapping, state).records;
+  const importWarnings = (parsed, mapping, state) => buildRecords(parsed, mapping, state).warnings;
 
   function applyImport(state, parsed, mapping, options = {}, time = new Date().toISOString()) {
     const destination = options.destination || 'active', duplicate = options.duplicate || 'skip';
     if (!['active', 'pool'].includes(destination) || !['skip', 'update'].includes(duplicate)) throw new Error('导入选项无效');
-    const records = mappedRecords(parsed, mapping);
+    const {records, warnings: allWarnings} = buildRecords(parsed, mapping, state);
     const customers = {...(state.customers || {})};
     const known = new Map([...new Set([...Object.keys(customers), ...(state.orders || []).map(order => order.client).filter(Boolean)])]
       .map(name => [normalize(name), name]));
@@ -177,6 +217,10 @@
       }
       const line = parsed.lineNumbers?.[index] || index + 2;
       const record = {...old, client:name, updated:time};
+      // 自定义字段：只写这一行里有值的；其余保持原样。
+      const customValues = Object.entries(values).filter(([key]) => isCustomKey(key));
+      if (customValues.length) record.custom = {...(old.custom && typeof old.custom === 'object' && !Array.isArray(old.custom) ? old.custom : {}),
+        ...Object.fromEntries(customValues.map(([key, value]) => [key.slice(CUSTOM.length), value]))};
       if (!old.createdAt && !existingName) record.createdAt = time;
       for (const [key, value] of Object.entries(values)) {
         if (!companyFields.has(key) || key === 'tags' || !value) continue;
@@ -271,8 +315,10 @@
       processed.add(key);
       if (firstForCompany) result[status]++;
       if (contactAdded) result.contactsAdded = (result.contactsAdded || 0) + 1;
-      details.push({row:line,name:values.name,status});
+      const warned = allWarnings.filter(item => item.row === line);
+      details.push({row:line,name:values.name,status,...(warned.length ? {warnings:warned.map(item => item.message)} : {})});
     }
+    const warnings = details.flatMap(item => (item.warnings || []).map(message => ({row:item.row, name:item.name, message})));
     const fileName = String(options.fileName || '').trim();
     const record = fileName ? {
       id:String(options.recordId || `${time}-${fileName}`),
@@ -280,7 +326,7 @@
     } : null;
     const history = record ? [record, ...(Array.isArray(state.laiImportHistory) ? state.laiImportHistory : [])]
       : state.laiImportHistory;
-    return {state:{...state, customers, ...(record ? {laiImportHistory:history} : {})}, result, details, record};
+    return {state:{...state, customers, ...(record ? {laiImportHistory:history} : {})}, result, details, warnings, record};
   }
 
   function failureLogCsv(issues) {
@@ -293,7 +339,7 @@
       [item.row, item.name, item.reason].map(cell).join(',')).join('\r\n');
   }
 
-  const api = {fields, templateHeaders, parseCsv, parseExcel, suggestMapping, mappedRecords, applyImport, failureLogCsv};
+  const api = {fields, templateHeaders, customFields, parseCsv, parseExcel, suggestMapping, mappedRecords, importWarnings, applyImport, failureLogCsv};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.LaiCustomerImport = api;
 })(typeof window !== 'undefined' ? window : null);

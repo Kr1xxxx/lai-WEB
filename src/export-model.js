@@ -99,10 +99,16 @@
     ['tracking', '物流单号', o => text(o.trackingNumber)], ['carrier', '承运商', o => text(o.carrier)],
     ['note', '备注', o => text(o.note)], ['draft', '是否草稿', o => o.isDraft ? '是' : '否'],
   ];
+  // 自定义字段（设置 → 订单字段）：options.state 里设置还在的字段，排在自带的列后面，列 id 是 custom:<字段ID>；没传 state 就只有自带的列。
   function orderRows(orders, options = {}) {
     const items = list(orders).filter(o => o && typeof o === 'object');
     cap(items.length);
-    return build(ORDER_COLUMNS, items, options.gate);
+    const custom = FM() && options.state ? FM().get(options.state, 'order').customFields : [];
+    const columns = [...ORDER_COLUMNS, ...custom.map(field => ['custom:' + field.id, field.name, o => {
+      const value = o.custom && typeof o.custom === 'object' ? o.custom[field.id] : undefined;
+      return field.type === 'number' ? num(value) : field.type === 'date' ? localDay(value) || text(value) : text(value);
+    }])];
+    return build(columns, items, options.gate);
   }
   function orderItemRows(orders) {
     const data = [];

@@ -39,8 +39,10 @@ test('settings page source: wider currency list, owner hint, short local-data no
   const src = read('business-ui.js');
   for (const code of ['USD', 'EUR', 'GBP', 'CNY', 'CAD', 'AUD', 'JPY', 'HKD', 'SGD', 'RUB', 'AED', 'INR', 'BRL', 'MXN']) assert.ok(src.includes(`"${code}"`), code);
   assert.match(src, /\[\.\.\.new Set\(\[current, \.\.\.CURRENCIES\]/);
-  assert.ok(src.includes('切换账号后会跟着变成当前账号'));
-  assert.ok(src.includes('客户、订单、日程都存在这台电脑上，可以随时备份。'));
+  assert.ok(src.includes('新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。'));
+  assert.ok(!src.includes('切换账号后会跟着变成当前账号'), 'switching accounts no longer rewrites the default owner');
+  assert.ok(src.includes('客户、订单、日程都保存在来财里，可以随时备份。'));
+  assert.ok(!src.includes('存在这台电脑上') && !src.includes('打开数据目录') && !src.includes('open-folder'), 'no Mac-only wording or data-folder button');
   assert.ok(!src.includes('统一客户与经营界面') && !src.includes('来财数据库'));
 });
 

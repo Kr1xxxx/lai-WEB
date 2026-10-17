@@ -107,7 +107,7 @@
 }
 
 /*
- * 界面配色：粉色（默认）、橙色和小满（原来的蓝色）。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
+ * 界面配色：粉色（默认）、橙色、小满（原来的蓝色）和科技蓝（深海军蓝加钴蓝，冷灰底）。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
  * nav（深色左侧栏）和 chart（图表色）这四组变量；设置里的「界面配色」把选择存进
  * laiSettings.theme，并写到 <html data-theme="…">。新增颜色一律用这些变量，不要写死色值。
  * 邮件正文里的颜色是用户内容，不在主题范围内。
@@ -247,3 +247,47 @@
   --opp-open-ink: #0b6682;
 }
 
+/* 科技蓝：深海军蓝左栏、钴蓝（#2f5bff）一个强调色、冷灰页面底、白色面板。红色只留给逾期，琥珀给今天到期，绿色给已赢单，粉色只在标志上。
+   版面用新界面皮肤（data-skin="glass"），扁平化的部分在 skin-glass.css 里写在 data-theme="tech" 下。 */
+:root[data-theme="tech"] {
+  --skin-page: #eef2f7;
+  --skin-ink-rgb: 14, 26, 43;
+  --skin-blob: #2f5bff;
+  --skin-gold: #f2c14e;
+  --brand-900: #0f1d33;
+  --brand-900-rgb: 15, 29, 51;
+  --brand-700: #1d44d8;
+  --brand-600: #2650f0;
+  --brand-500: #2f5bff;
+  --brand-rgb: 47, 91, 255;
+  --brand-300: #8fa8ff;
+  --brand-200: #c9d5ff;
+  --brand-100: #e2e9ff;
+  --brand-50: #eef2ff;
+  --nav-hover: #1b2d4d;
+  --nav-line: #31456a;
+  --nav-top: #0b1628;
+  --nav-glow-rgb: 47, 91, 255;
+
+  --ink-900: #0e1a2b;
+  --ink-rgb: 14, 26, 43;
+  --ink-800: #2a3a52;
+  --ink-700: #44546b;
+  --ink-600: #4f5f75;
+  --ink-500: #5d6c80;
+  --ink-400: #98a5b7;
+  --ink-300: #c3cdda;
+  --ink-200: #dbe3ed;
+  --ink-100: #e8edf4;
+  --ink-50: #f4f7fb;
+
+  --chart-1: #2f5bff;
+  --chart-2: #16a37a;
+  --chart-3: #e39a1b;
+  --chart-rank-1: #1d3fb8;
+  --chart-rank-2: #2f5bff;
+  --chart-rank-3: #7c97ff;
+  --chart-track: #e8edf4;
+  --opp-open-soft: #e7edff;
+  --opp-open-ink: #1d44d8;
+}

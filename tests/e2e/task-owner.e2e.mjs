@@ -75,8 +75,9 @@ test('业务 Amy (本人): her new task is hers, she sees only her own tasks and
     await go(app, 'dashboard');
     text = await body(app);
     assert.ok(text.includes('Amy 新待办') && !text.includes('Kris 的待办') && !text.includes('老待办没负责人'));
-    assert.match(text, /3 项未完成/);
-    assert.match(text, /今天到期 3 项/);
+    assert.equal(await app.page.locator('.wb-queue .wb-row').count(), 3, 'her three tasks are in 今天先做');
+    assert.match(await app.page.locator('.wb-hello').innerText(), /今天有 3 件事要处理/);
+    assert.equal(await app.page.locator('.wb-queue .wb-tag', { hasText: '今天到期' }).count(), 3);
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });

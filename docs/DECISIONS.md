@@ -10,7 +10,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 
 | # | Decision | Status |
 | --- | --- | --- |
-| D-001 | A local macOS app; data stays on the Mac | Accepted |
+| D-001 | A local macOS app; data stays on the Mac | Partly superseded by D-026 (the macOS app part) |
 | D-002 | OKKI CRM (小满) is the reference product | Accepted |
 | D-003 | Build each module deeply in one go; no placeholder entries | Accepted |
 | D-004 | Only irreversible real-world actions need the owner's go-ahead | Accepted |
@@ -25,17 +25,22 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-013 | Branch from `main`, merge back after acceptance | Superseded by D-014 |
 | D-014 | One PR per change; small ones merge themselves, big ones wait for 合并 | Accepted |
 | D-015 | Moderate verification for small features | Accepted |
-| D-016 | Mac build cadence: Claude every 10th merge, others every PR | Paused by D-019 |
-| D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Accepted |
-| D-019 | Desktop builds (Mac, Windows) paused; web version only for now | Accepted |
+| D-016 | Mac build cadence: Claude every 10th merge, others every PR | Superseded by D-026 |
+| D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Superseded by D-027 |
+| D-019 | Desktop builds (Mac, Windows) paused; web version only for now | Superseded by D-026 |
 | D-022 | Company details live in one place; 本人 scope also limits 团队数据; tasks belong to a person | Accepted |
 | D-023 | 沟通 module uses WhatsApp | Accepted |
 | D-024 | Multi-user later runs on Cloudflare; not set up now | Accepted |
 | D-025 | Complex tasks get their own audit before building | Accepted |
+| D-026 | Mac app removed; web only | Accepted |
+| D-027 | Claude agent tree: Opus 5.5 high coordinates, Opus 5.5 medium subagents, Fable 5.1 on call as advisor | Accepted |
+| D-028 | UI direction: one component kit with shadcn/ui-style rules (tidy, consistent) in the 科技蓝 colours | Accepted |
+| D-029 | 小满 style removed; its place taken by 科技蓝 (themes: pink default, orange, 科技蓝) | Accepted |
 
 ---
 
 ### D-001 A local macOS app (2026-09)
+- Status: the macOS app part is superseded by D-026 (2026-10-17); the local backend and SQLite storage stay.
 - Decision: 来财Lai is a standalone macOS app (macOS 13.5+). A Swift shell runs a local Node server bound to
   127.0.0.1 with SQLite in `~/Library/Application Support/LaiCRM`. The owner installs builds on his own Mac to
   accept them.
@@ -121,6 +126,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   walk-through — not a heavy review. Bigger modules still get an independent review.
 
 ### D-016 Mac build cadence (2026-10-09)
+- Status: superseded by D-026; the Mac build no longer exists.
 - Context: macOS minutes cost 10× on a private repository.
 - Decision: for Claude, the Mac build runs once every 10 updates: Claude PRs (`claude/*`) skip it, and `main` is
   built after every 10th merged Claude PR. Exception: a Claude PR that changes `native/` or `scripts/build.py`
@@ -146,6 +152,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   Do not recommend them as next steps. They are marked 排除 in `docs/xiaoman/README.md`.
 
 ### D-019 Desktop builds paused, web version only (2026-10-10)
+- Status: superseded by D-026; the paused code was deleted.
 - Context: the owner wants to focus on the web version first. Only a Mac build existed in CI; there is no Windows build.
 - Decision: all automatic desktop builds are stopped. CI's `mac build + integration` job and the every-10th-merge
   build on `main` do not run (`PAUSED = true` in `scripts/mac-cadence.mjs`); `CLAUDE.md` tells Claude not to start or
@@ -190,3 +197,47 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Before building a complex task (a new module, a cross-module change, anything touching data storage or permissions),
   Claude runs a separate read-only audit first: what exists, what the reference product does, risks, a proposed spec
   and slices. Building starts from that audit. Small fixes skip it.
+
+### D-026 Mac app removed; web only (2026-10-17)
+- Context: the owner, on 2026-10-17: "mac 版验收去掉这个任务,这个无限期暂停,mac 代码可以删除" (drop the Mac acceptance
+  task; the Mac version is paused indefinitely; the Mac code may be deleted).
+- Decision: `native/` (the Swift shell), the Mac build (the `.app` part of `scripts/build.py`), the Mac CI job and its
+  cadence logic (`scripts/mac-cadence.mjs`), the integration test, the app icon assets and the acceptance scripts that
+  only ran against the built Mac app are removed. The product is the web version. The local Node backend (`backend/`,
+  SQLite, mail) stays: it is the data layer and the browser end-to-end tests run on it. `assemble_html()` in
+  `scripts/build.py` stays, because the web trial and the tests build the page with it.
+- Supersedes: the macOS-app part of D-001, D-016 and D-019. The `mac` flag in `docs/features.json` is no longer used.
+- Consequences: no desktop build or Mac acceptance is planned. If a desktop app is wanted again, it is a new project
+  (the old `native/` stays in the commit history).
+
+### D-027 Claude agent tree: Opus coordinates, Opus subagents, Fable on call (2026-10-17)
+- Context: the owner handed over a diagram ("Plan on high. Delegate on medium. Keep Fable on call.") and said 按照这个执行.
+- Decision: the main session is Opus 5.5 at high effort; it plans, delegates, reviews and verifies. Subagents are
+  Opus 5.5 at medium effort: `explorer` (read code), `worker` (edits and tests, own worktree), `researcher` (look up
+  docs), `reviewer` (check a diff). Fable 5.1 is the `advisor` agent (high effort, read-only), consulted before
+  picking a plan, when an error repeats, and before calling a task done. Replaces D-017's Sonnet default.
+- Consequences: `.claude/agents/*.md` carry the models; `.claude/settings.json` keeps the main session on Opus high.
+  A session switched to another model with `/model` should be switched back to `claude-opus-5-5` to match.
+
+### D-028 UI direction: shadcn-style rules in 科技蓝 colours (2026-10-17)
+- Context: an advisor review found the pages inconsistent (100 button styles, 8 table headers, 6 pagers, 4 tab styles,
+  3 dialog designs) and pink used as paint rather than signal. The owner saw a shadcn/ui-style preview and the 科技蓝
+  workbench preview and chose: "整齐规则配上科技蓝的颜色" (the tidy rules, with the 科技蓝 colours).
+- Decision: build one component kit (buttons, inputs, selects, tabs, table + pager, dialog/drawer shell with an error
+  slot, empty state, toast, page header) following shadcn/ui's rules: one neutral scale, 1px borders, a small radius
+  scale, faint shadows, minimum 12px text, one primary colour used only for meaning (primary action, active item,
+  links, progress). Its reference colours are the 科技蓝 palette (navy rail, cobalt primary, cool grey). No shadcn/React
+  code or npm dependency: the look is rebuilt in the app's own CSS and tokens. Pages move onto the kit one per PR.
+- Consequences: the kit works through theme tokens, so pink, orange and 小满 keep working; the default theme stays pink
+  (D-008) until the owner switches it. New markup must use kit classes; a token ratchet test stops new literal colours,
+  font sizes and radii.
+
+### D-029 小满 style removed, replaced by 科技蓝 (2026-10-17)
+- Context: the 小满 theme was not just colours but a separate older layout (`data-skin="classic"`), so pages such as
+  orders and opportunities carried two versions. Asked whether 小满 should keep only its colours, the owner answered:
+  "去掉小满风格,改成科技蓝" (remove the 小满 style, use 科技蓝 instead).
+- Decision: the 小满 theme and the classic skin are removed. The themes are pink (default, D-008), orange and 科技蓝,
+  all on one layout (the D-028 kit). An account whose saved theme is 小满 is shown 科技蓝; the saved value is
+  rewritten to 科技蓝 the next time settings are saved. No data other than that setting is touched.
+- Supersedes: the 小满 option in D-008 (pink stays the default).
+

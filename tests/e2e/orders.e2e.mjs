@@ -294,20 +294,22 @@ test('the archive dialog can go back to editing; the order from the editor can b
   assert.deepEqual(app.errors, []);
 });
 
-test('the workbench counts the orders and the money per currency, without the draft', async () => {
+test('the workbench shows the orders on the line and the money for the main currency, without the draft', async () => {
   const { page } = app;
   await page.locator('.rail-item', { hasText: '工作台' }).first().click();
   await page.locator('.wb').waitFor();
-  const stat = (label) => page.locator('.wb-stat', { hasText: label });
   const clean = (text) => text.replace(/\s+/g, ' ').trim();
-  // E2E-001 (production) and E2E-002 (done) count; E2E-003 is a draft; E2E-004 is archived.
-  assert.match(clean(await stat('有效订单').innerText()), /有效订单 2/);
-  assert.match(clean(await stat('未完成订单').innerText()), /未完成订单 1/);
-  const money = clean(await page.locator('.wb-moneys').innerText());
-  assert.match(money, /USD 1 笔 \$1,500 \$500 \$1,000/);
-  assert.match(money, /EUR 1 笔 €2,500 €2,500 €0/);
-  assert.equal(await page.locator('.wb-order').count(), 1);
-  assert.match(clean(await page.locator('.wb-order').innerText()), /Northwind Lash Studio.*E2E-001.*生产中/);
+  // E2E-001 (production, USD) is unfinished; E2E-002 (done, EUR) is finished; E2E-003 is a draft; E2E-004 is archived.
+  assert.equal(await page.locator('.wb-ocard').count(), 1);
+  assert.match(clean(await page.locator('.wb-ocard').innerText()), /Northwind Lash Studio \$1,500/);
+  assert.equal(await page.locator('li[data-stage="production"] .wb-ocard').count(), 1, 'the card sits under 生产中');
+  assert.match(clean(await page.locator('li[data-stage="done"]').innerText()), /已完成 1 已完成 1 笔，EUR 2,500/);
+  assert.match(clean(await page.locator('.wb-orders .wb-ph').innerText()), /1 笔未完成，共 USD 1,500/);
+  // One order in each currency: the bigger total (EUR 2,500) is the main currency; the other is counted, never converted.
+  const money = clean(await page.locator('.wb-moneyp').innerText());
+  assert.match(money, /€2,500 已收款（100%）/);
+  assert.match(money, /€0 待收款，0 笔订单/);
+  assert.match(money, /另有 1 种币种，各币种分别统计、不折算/);
   // The workbench asks for the mailbox, and no mailbox is set up in this test.
   assert.deepEqual(app.errors.filter((e) => !e.includes('/api/mail/')), []);
   app.errors.length = 0;

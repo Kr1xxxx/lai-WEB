@@ -9,11 +9,10 @@ import { pathToFileURL } from 'node:url';
 export const UI_LINE_LIMIT = 500;
 
 // Changes to how the product or the process works — always the owner's call.
-//   native/  : the Mac app shell          backend/ : local server, data storage, mail
-//   vendor/  : third-party code            assets/  : app icon
+//   backend/ : local server, data storage, mail      vendor/ : third-party code
 //   scripts/ : build and CI tools (browser checks and acceptance scripts count as tests, see TEST_PATHS)
 const OWNER_PATHS = [
-  /^native\//, /^backend\//, /^vendor\//, /^assets\//,
+  /^backend\//, /^vendor\//,
   /^package(-lock)?\.json$/, /^source-manifest\.json$/, /^\.github\//, /^\.gitignore$/, /^scripts\//,
   /^AGENTS\.md$/, /^CLAUDE\.md$/, /^CONTRIBUTING\.md$/, /^docs\/DECISIONS\.md$/,
 ];

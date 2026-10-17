@@ -475,7 +475,7 @@ test('customer editor: ticking 同时新建商机 no longer blocks saving; it op
   assert.doesNotMatch(app, /商机创建待后续实现/);
   assert.match(app, /wantOpportunity = !!fd\.get\("createOpportunity"\);/);
   assert.match(app, /toast\("已保存到来财"\);\s*if \(wantOpportunity && form\.id === "customer-form"\) business\.newOpportunity\(data\.name\.trim\(\)\);/);
-  assert.match(app, /if \(d\.feature && customerOpportunityFeature\(d\.feature\)\) return;\s*if \(d\.feature\) return featureNotice/);
+  assert.match(app, /if \(d\.feature && customerOpportunityFeature\(d\.feature\)\) return;\s*(\/\/[^\n]*\s*)?if \(d\.feature\) return;/);
 });
 
 
