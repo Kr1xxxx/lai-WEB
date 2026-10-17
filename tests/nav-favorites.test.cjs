@@ -262,7 +262,9 @@ function harness({settings, flush = true, failSave = null, route = 'customers', 
   }
   vm.createContext(boundary);
   vm.runInContext(navCode, boundary);
-  vm.runInContext(`function shell(content) { __ui.rail = appNav(); __ui.subnav = subnav(); __ui.main = content; __ui.shells++; return ''; }`, Object.assign(boundary, {__ui: Object.assign(ui, {shells: 0})}));
+  // 页面通过 renderShell 画进外框（真实的 renderShell 只换 main、就地更新外框）；替身每次都记下左侧栏、二级导航和 main 的标记。
+  vm.runInContext(`function shell(content) { __ui.rail = appNav(); __ui.subnav = subnav(); __ui.main = content; __ui.shells++; return ''; }
+function renderShell(content) { shell(content); }`, Object.assign(boundary, {__ui: Object.assign(ui, {shells: 0})}));
   vm.runInContext(clickCode, boundary);
   vm.runInContext(`function boundaryRender() { shell('<INITIAL/>'); }`, boundary);
   const h = {boundary, calls, ui, listeners, mailState, regionButtons,
