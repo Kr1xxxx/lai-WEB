@@ -24,8 +24,8 @@ function saveCustomers(s, customers, orders) {
   return s.readSnapshot();
 }
 const strip = snap => { const { revision, exportedAt, ...rest } = snap; return { ...rest, data: { ...rest.data } }; };
-const realRename = fs.renameSync;
-function repair() { fs.renameSync = realRename; }
+const realRename = fs.renameSync, realOpen = fs.openSync, realFsync = fs.fsyncSync;
+function repair() { fs.renameSync = realRename; fs.openSync = realOpen; fs.fsyncSync = realFsync; }
 function rejects(fn, status, code) {
   let error;
   try { fn(); } catch (e) { error = e; }
@@ -249,6 +249,8 @@ test('if the swapped-in database cannot be opened, the data from before the rest
   };
   const error = rejects(() => h.store.restoreBackup(path.basename(manual.file)), 500, 'restore_failed');
   assert.match(error.message, /换回/);
+  const beforeRestore = sqliteFiles(h.store).find(n => n.startsWith('before-restore-'));
+  assert.ok(beforeRestore && error.message.includes(beforeRestore), 'the message names the before-restore backup');
   repair();
   const after = h.store.readSnapshot();
   assert.deepEqual(strip(after), strip(live));
@@ -257,6 +259,147 @@ test('if the swapped-in database cannot be opened, the data from before the rest
   saveCustomers(h.store, { Alpha: { note: 'saved after rollback' } });
   h.restart();
   assert.equal(h.store.readSnapshot().data.customers.Alpha.note, 'saved after rollback');
+});
+
+test('if the database was swapped and cannot be put back, the message says so and names the before-restore backup', t => {
+  for (const variant of ['rollback file unusable', 'rollback cannot be opened either']) {
+    const h = fixture(t);
+    saveCustomers(h.store, { Alpha: { note: 'backup' } });
+    const manual = h.store.backup(true, 'manual');
+    saveCustomers(h.store, { Alpha: { note: 'live' }, Beta: {} });
+    const dbFile = path.join(h.store.directory, 'lai-data.sqlite');
+    let swaps = 0;
+    fs.renameSync = (from, to) => {
+      if (String(to) === dbFile) {
+        swaps += 1;
+        // The swapped-in file turns out unreadable (simulated disk damage after the checks) ...
+        if (swaps === 1 || variant === 'rollback cannot be opened either') fs.writeFileSync(from, crypto.randomBytes(4096));
+        // ... and the before-restore backup is damaged too, so preparing the rollback fails.
+        if (swaps === 1 && variant === 'rollback file unusable')
+          for (const name of sqliteFiles(h.store).filter(n => n.startsWith('before-restore-'))) fs.writeFileSync(path.join(backupDir(h.store), name), crypto.randomBytes(4096));
+      }
+      return realRename(from, to);
+    };
+    const error = rejects(() => h.store.restoreBackup(path.basename(manual.file)), 500, 'restore_incomplete');
+    repair();
+    const beforeRestore = sqliteFiles(h.store).find(n => n.startsWith('before-restore-'));
+    assert.ok(beforeRestore && error.message.includes(beforeRestore), `${variant}: the message names the before-restore backup`);
+    assert.doesNotMatch(error.message, /没有改动|已换回/, `${variant}: no false comfort`);
+    assert.match(error.message, /没有完成/);
+    assert.equal(swaps, variant === 'rollback file unusable' ? 1 : 2);
+    assert.equal(h.store.health().ok, false, `${variant}: the store reports that it cannot open the data`);
+    assert.deepEqual(leftovers(h.store), []);
+  }
+});
+
+test('the before-restore backup and the backups folder are synced to disk before the database is swapped', t => {
+  const h = fixture(t);
+  saveCustomers(h.store, { Alpha: {} });
+  const manual = h.store.backup(true, 'manual');
+  saveCustomers(h.store, { Alpha: {}, Beta: {} });
+  const dbFile = path.join(h.store.directory, 'lai-data.sqlite'), dir = backupDir(h.store);
+  const events = [], open = new Map();
+  fs.openSync = (file, ...rest) => { const fd = realOpen(file, ...rest); open.set(fd, String(file)); return fd; };
+  fs.fsyncSync = fd => { events.push('fsync ' + (open.get(fd) || '?')); return realFsync(fd); };
+  fs.renameSync = (from, to) => { events.push('rename ' + String(to)); return realRename(from, to); };
+  const result = h.store.restoreBackup(path.basename(manual.file));
+  repair();
+  const swap = events.indexOf('rename ' + dbFile);
+  assert.ok(swap > 0);
+  const beforeSwap = events.slice(0, swap);
+  const backupIn = beforeSwap.indexOf('rename ' + path.join(dir, result.beforeRestore));
+  assert.ok(backupIn >= 0, 'the before-restore backup is renamed into backups/ before the swap');
+  assert.ok(beforeSwap.indexOf('fsync ' + path.join(dir, result.beforeRestore), backupIn) > backupIn, 'the backup file is synced');
+  assert.ok(beforeSwap.indexOf('fsync ' + dir, backupIn) > backupIn, 'the backups folder is synced after the rename');
+});
+
+// A second process (another 来财 started on the same data folder) that saves on request.
+function otherProcess(t, dataDir) {
+  const code = `const { openStorage } = require(process.argv[1]);
+    const s = openStorage({ seedFile: '/nonexistent-seed.json' });
+    process.on('message', m => {
+      if (m === 'close') { s.close(); process.send({ closed: true }); return; }
+      try {
+        const snap = s.readSnapshot();
+        if (m !== 'read') { snap.data.customers[m] = { note: 'from the other process' }; s.save(snap, { baseRevision: snap.revision }); }
+        process.send({ ok: true, customers: Object.keys(s.readSnapshot().data.customers).sort() });
+      } catch (e) { process.send({ ok: false, status: e.status, message: e.message }); }
+    });
+    process.send('ready');`;
+  const child = spawn(process.execPath, ['-e', code, path.join(__dirname, '../backend/storage.js')], { env: { ...process.env, LAI_DATA_DIR: dataDir }, stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+  t.after(() => { if (child.exitCode === null) child.kill(); });
+  const ready = new Promise(resolve => child.once('message', resolve));
+  const ask = message => new Promise(resolve => { child.once('message', resolve); child.send(message); });
+  const stop = async () => { await ask('close'); child.kill(); await new Promise(r => child.exitCode !== null ? r() : child.once('exit', r)); };
+  return { ready, ask, stop };
+}
+
+test('another process with the same data open blocks the restore; nothing changes until it is closed', async t => {
+  const h = fixture(t);
+  saveCustomers(h.store, { Base: {} });
+  const manual = h.store.backup(true, 'manual');
+  saveCustomers(h.store, { Base: {}, AfterBackup: {} });
+  const backupsBefore = sqliteFiles(h.store);
+  const other = otherProcess(t, h.store.directory);
+  await other.ready;
+  assert.deepEqual((await other.ask('FromOther1')).customers, ['AfterBackup', 'Base', 'FromOther1']);
+
+  const before = h.store.readSnapshot();
+  const error = rejects(() => h.store.restoreBackup(path.basename(manual.file)), 409, 'data_in_use');
+  assert.match(error.message, /另一个来财/);
+  assert.deepEqual(h.store.readSnapshot(), before, 'this process still has the same data');
+  assert.deepEqual(sqliteFiles(h.store), backupsBefore, 'a refused restore makes no before-restore backup');
+  assert.deepEqual(leftovers(h.store), []);
+  // Both processes keep working on the one shared database.
+  assert.deepEqual((await other.ask('FromOther2')).customers, ['AfterBackup', 'Base', 'FromOther1', 'FromOther2']);
+  assert.deepEqual(Object.keys(h.store.readSnapshot().data.customers).sort(), ['AfterBackup', 'Base', 'FromOther1', 'FromOther2']);
+  saveCustomers(h.store, { ...h.store.readSnapshot().data.customers, FromThis: {} });
+  assert.deepEqual((await other.ask('read')).customers, ['AfterBackup', 'Base', 'FromOther1', 'FromOther2', 'FromThis']);
+
+  // Once the other process is closed, the restore works.
+  await other.stop();
+  const result = h.store.restoreBackup(path.basename(manual.file));
+  assert.equal(result.ok, true);
+  assert.deepEqual(Object.keys(h.store.readSnapshot().data.customers), ['Base']);
+});
+
+test('the check is repeated right before the swap; a refused restore copies no attachments back', t => {
+  const h = fixture(t);
+  const live = path.join(h.store.directory, 'attachments');
+  fs.mkdirSync(path.join(live, 'orders'), { recursive: true });
+  fs.writeFileSync(path.join(live, 'orders', 'a.pdf'), 'A original');
+  saveCustomers(h.store, { Alpha: {} }, [{ id: 'o1', num: 'L-1', client: 'Alpha', attachments: [{ fileUrl: '/attachments/orders/a.pdf' }] }]);
+  const manual = h.store.backup(true, 'manual');
+  saveCustomers(h.store, { Alpha: {}, Beta: {} }, []);
+  fs.rmSync(path.join(live, 'orders', 'a.pdf'));
+  const before = h.store.readSnapshot();
+  const dbFile = path.join(h.store.directory, 'lai-data.sqlite');
+  const backups = backupDir(h.store) + path.sep;
+  // Another connection opens the data after the first check (while the before-restore backup is being made).
+  let extra = null;
+  fs.renameSync = (from, to) => {
+    const result = realRename(from, to);
+    if (!extra && String(to).startsWith(backups) && String(to).endsWith('.sqlite')) {
+      extra = new DatabaseSync(dbFile);
+      extra.prepare('SELECT COUNT(*) AS count FROM customers').get();
+    }
+    return result;
+  };
+  t.after(() => { try { extra?.close(); } catch (_) {} });
+  rejects(() => h.store.restoreBackup(path.basename(manual.file)), 409, 'data_in_use');
+  repair();
+  assert.ok(extra, 'the second connection was opened during the restore');
+  assert.deepEqual(h.store.readSnapshot(), before);
+  assert.equal(fs.existsSync(path.join(live, 'orders', 'a.pdf')), false, 'a refused restore copies no attachments back');
+  assert.deepEqual(leftovers(h.store), []);
+  assert.deepEqual(extra.prepare('SELECT name FROM customers ORDER BY name').all().map(r => r.name), ['Alpha', 'Beta']);
+  saveCustomers(h.store, { Alpha: {}, Beta: {}, Gamma: {} });
+  assert.deepEqual(extra.prepare('SELECT name FROM customers ORDER BY name').all().map(r => r.name), ['Alpha', 'Beta', 'Gamma'], 'both connections still share one database');
+  extra.close(); extra = null;
+  const result = h.store.restoreBackup(path.basename(manual.file));
+  assert.equal(result.attachmentsRestored, 1);
+  assert.equal(fs.readFileSync(path.join(live, 'orders', 'a.pdf'), 'utf8'), 'A original');
+  assert.deepEqual(Object.keys(h.store.readSnapshot().data.customers), ['Alpha']);
 });
 
 test('leftover temp files from an interrupted restore are removed at start', t => {
