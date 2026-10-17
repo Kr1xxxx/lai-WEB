@@ -671,6 +671,12 @@
     const oppCard = (id) => OM().cardOf(state(), id, B.localDate());
     // 商机不归当前账号负责（角色只看本人或本部门时）：提示一句，什么也不做。
     const oppBlocked = (id) => notYours(oppItem(id));
+    // 负责人下拉的名单：团队成员，加上数据里已经出现过的负责人（只差大小写算同一人）。
+    function oppOwners() {
+      const seen = new Map();
+      for (const name of [...(RM() ? RM().settings(state()).members.map((m) => m.name) : []), ...OM().ownerNames(state())]) if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
+      return [...seen.values()].sort((a, b) => a.localeCompare(b, "zh"));
+    }
     function openOppForm(id, client = "") {
       if (!need(id === undefined ? "opp.create" : "opp.edit") || (id !== undefined && oppBlocked(id))) return;
       let next;
@@ -696,7 +702,7 @@
           OU().formMarkup(values, {
             customers: OM().customerNames(pickState()),
             contacts: OM().contactsOf(pickState(), String(values.client || "").trim()),
-            owners: OM().ownerNames(state()),
+            owners: oppOwners(),
             flows: OM().flowsOf(state()),
             stages: OM().flowOf(state(), values.flow).stages,
             setup: OM().formSetup(pickState()),
