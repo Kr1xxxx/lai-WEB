@@ -220,10 +220,7 @@
 :root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-footer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-footer { height: 54px; padding: 0 14px; gap: 8px; }
 :root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: 364px; }
 
-/* ===== 商机看板（设计画布 Opportunities.dc.html）===== */
-:root[data-skin="glass"] .opp-view-in { display: inline-flex; }
-:root[data-skin="glass"] .opp-analysis-link { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font-size: 12px; }
-:root[data-skin="glass"] .opp-analysis-link:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
+/* ===== 商机看板（设计画布 Opportunities.dc.html）：筛选条和下拉、金额汇总（线索页、商机分析也用）===== */
 :root[data-skin="glass"] .opp-toolbar { gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-page select,
 :root[data-skin="glass"] .opp-page input[type="search"],
@@ -233,21 +230,6 @@
 :root[data-skin="glass"] .opp-summary-note { grid-column: 1 / -1; padding: 0 2px; border: 0; }
 :root[data-skin="glass"] .opp-currency { flex-direction: row; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 11px; background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-summary.is-compact .opp-currency { padding: 8px 12px; border: 1px solid var(--card-line); }
-:root[data-skin="glass"] .opp-stat { flex-direction: row; align-items: baseline; gap: 8px; min-width: 0; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 11px; background: rgba(255,255,255,.96); }
-/* 统计卡：中性白卡，颜色只在数字上（D-028 去掉大面积铺色） */
-:root[data-skin="glass"] .opp-stat:is(.is-open, .is-won, .is-lost) { background: var(--card-bg); }
-:root[data-skin="glass"] .opp-board { grid-template-columns: repeat(5, minmax(216px, 1fr)); gap: 8px; }
-:root[data-skin="glass"] .opp-column { padding: 8px; border-radius: 12px; border: 1px solid rgba(var(--skin-ink-rgb), .07); background: rgba(255,255,255,.62); }
-:root[data-skin="glass"] .opp-stage { position: static; padding: 0 2px 5px; border-radius: 0; border-top: 0; border-bottom: 2px solid var(--ink-400); background: transparent; color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .opp-kind-open .opp-stage { background: transparent; border-top-color: transparent; border-bottom-color: var(--opp-open); color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .opp-kind-won .opp-stage { background: transparent; border-top-color: transparent; border-bottom-color: var(--opp-won); color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .opp-kind-lost .opp-stage { background: transparent; border-top-color: transparent; border-bottom-color: var(--ink-400); color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .opp-stage-name { font-weight: 700; }
-:root[data-skin="glass"] .opp-stage-count { background: #f5eff3; }
-:root[data-skin="glass"] .opp-cards { padding: 6px 0 0; gap: 6px; }
-:root[data-skin="glass"] .opp-card { position: relative; gap: 5px; padding: 9px 10px 8px; border-radius: 9px; border-color: rgba(var(--skin-ink-rgb), .08); background: rgba(255,255,255,.96); }
-:root[data-skin="glass"] .opp-card:hover { border-color: var(--ink-300); box-shadow: 0 2px 8px rgba(var(--skin-ink-rgb), .1); }
-:root[data-skin="glass"] .opp-card-menu:hover:not(:disabled) { background: #f5eff3; border-color: transparent; }
 
 /* 商机卡片的「⋮」菜单：深色小卡片（设计稿里是贴在卡片旁的深色菜单），停靠在右侧；点外面仍然关闭 */
 :root[data-skin="glass"] .overlay:has(.opp-menu) { background: transparent; }
@@ -265,7 +247,6 @@
 :root[data-skin="glass"] .opp-menu .opp-menu-group button[data-opp-action="delete"] { color: #FFB8A8; }
 :root[data-skin="glass"] .opp-menu .opp-chip { background: rgba(255,255,255,.14); color: #fff; }
 :root[data-skin="glass"] .opp-menu .error { color: #FFB8A8; }
-:root[data-skin="glass"] .opp-stat span, :root[data-skin="glass"] .opp-stat b { white-space: nowrap; }
 
 /* ===== 客户详情（设计画布 CustomerDetail.dc.html）：卡片、页头、按钮 ===== */
 :root[data-skin="glass"] .lcd-root { background: transparent; padding: 0 0 12px; }

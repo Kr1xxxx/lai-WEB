@@ -15,7 +15,7 @@ const oppOf = async (client) => (await opps()).find((o) => o.client === client);
 const card = (client) => app.page.locator('.opp-card', { hasText: client });
 const column = (id) => app.page.locator(`[data-opp-drop="${id}"]`);
 const clean = (text) => text.replace(/\s+/g, ' ').trim();
-const summary = async () => clean(await app.page.locator('.opp-summary').innerText());
+const summary = async () => clean(await app.page.locator('.opp-stats').innerText());
 
 async function openBoard() {
   await app.open('customers');
