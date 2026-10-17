@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #26 merged (`main` e8b4be7) after a CI race fix in `task-rules.e2e` (the backend answers the save
+  before the page redraws; the test now waits for the redraw, same assertion). Web trial v1.14 published and opened;
+  功能一览 page updated with new screenshots. Kit migration of 订单 and 商机 running in workers.
 - 2026-10-17 — Claude — #25 merged (`main` c5548b1). Q5+Q6 and B0+Q7+Q8 built in parallel and merged; conflicts fixed
   (header-tab font via token for the CSS ratchet; tabs also placed in `.k-pageheader`). Accepted ui-audit baseline
   1200x800 customers 7→9 (frozen 操作 column, same class as 1440; total covered 342→150). model 1530 / e2e 336 (one
