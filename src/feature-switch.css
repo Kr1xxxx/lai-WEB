@@ -11,7 +11,3 @@
 :root[data-skin] .fs-page .fs-switch { display: inline-flex; flex: none; align-items: center; gap: 8px; min-width: 76px; font-size: var(--text-sm); color: var(--fg); cursor: pointer; white-space: nowrap; }
 :root[data-skin] .fs-page .fs-switch:has(.k-switch:not(:checked)) { color: var(--muted-fg); }
 :root[data-skin] .fs-page .fs-fixed { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
-/* 皮肤里的 :root[data-skin="glass"] input[type="checkbox"] 比套件的 .k-switch 强一级，会把开关画回勾选框；
-   这里按套件的样子再写一遍尺寸和底色（套件 src/ui-kit.css 加强选择器后可以删掉这两条）。 */
-:root[data-skin] .fs-page input.k-switch { flex: none; width: 32px; height: 18px; border: 0; border-radius: var(--radius-pill); background: var(--input); }
-:root[data-skin] .fs-page input.k-switch:checked { background: var(--primary); }
