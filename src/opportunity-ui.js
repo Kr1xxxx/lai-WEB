@@ -211,7 +211,7 @@
         cfg.products.show&&vis('products')?field('关联产品',`<textarea name="products" rows="4"${dis('products')} placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal,required:cfg.products.required}):''
       ].join('');
       const reasons=setup.reasons||model.LOST_REASONS;
-      return `<form class="drawer-body opp-form" id="opp-form"><div class="error" id="opp-error" role="alert"></div>`
+      return `<form class="drawer-body opp-form" id="opp-form" novalidate data-form-check>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
         +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
         +field('客户',`<input name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})

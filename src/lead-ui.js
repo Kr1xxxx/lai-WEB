@@ -120,7 +120,7 @@
       const shown=name=>vis(name)&&rules[name]?.show!==false;
       const must=name=>shown(name)&&rules[name]?.required===true&&level(name)==='edit';
       const star=name=>must(name)?' required':'';
-      return `<form class="drawer-body opp-form lead-form" id="lead-form"><div class="error" id="lead-error" role="alert"></div><p class="lead-banner is-dup" id="lead-warn" role="status" hidden></p>`
+      return `<form class="drawer-body opp-form lead-form" id="lead-form" novalidate data-form-check><p class="lead-banner is-dup" id="lead-warn" role="status" hidden></p>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
         +field('线索名称',`<input name="name" value="${E(v.name||'')}" placeholder="公司名称；个人买家填姓名" maxlength="120" autocomplete="off" required>`,{required:true,wide:true})
         +(shown('contact')?field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off"${dis('contact')}${star('contact')}>`,{required:must('contact')}):'')

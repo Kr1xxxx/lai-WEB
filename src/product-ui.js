@@ -192,7 +192,7 @@
         const current=(chosen.find(c=>c.type===s.name)||{}).value||'';
         return `<label class="cs-field"><span>${E(s.name)}${specOff?' <span class="cs-use">（只读）</span>':''}</span><select name="spec:${E(s.name)}"${specOff}><option value="">不选</option>${s.values.map(v=>option(v,v,current)).join('')}</select></label>`;
       }).join('')}</fieldset>`:'';
-      return `<form id="product-form" class="drawer-body cs-group-form"><div class="error" id="product-error" role="alert"></div>${blocks}${specBlock}</form>`;
+      return `<form id="product-form" class="drawer-body cs-group-form" novalidate data-form-check>${blocks}${specBlock}</form>`;
     }
     // ---- 产品详情（只读，按“产品详情”用的布局排；空字段不显示，产品名称一定显示）----
     function detailMarkup(state,product){

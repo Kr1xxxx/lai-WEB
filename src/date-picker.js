@@ -225,3 +225,184 @@
     else doc?.addEventListener?.("DOMContentLoaded", () => watch());
   }
 })(typeof window !== "undefined" ? window : globalThis);
+
+(function (root) {
+  "use strict";
+  // ---------- 表单必填检查（全应用一处处理） ----------
+  // 不用浏览器自己的英文气泡（Please fill out this field.）：没填好的框由这里写一句中文短句，
+  // 放进保存按钮旁边的错误条（data-form-error），并把光标和视线移到第一个没填好的框。
+  // - 打了 novalidate + data-form-check 的表单：提交前这里先查，没填好就拦下，后面的保存代码收不到提交。
+  // - 其他表单：浏览器照常拦提交，这里取消它的气泡（invalid 事件 preventDefault），改成同样的中文提示。
+  const CONTROL = "input,select,textarea,button,datalist,output";
+  const NOISE = ".required,.ce-required,.cs-use,.opp-field-hint,.lai-select-validation,.lai-select-trigger,.flatpickr-input";
+
+  // 标签文字去掉星号、冒号和括号里的说明（如“（选填）”“（只读）”）。
+  function cleanLabel(text) {
+    return String(text ?? "")
+      .replace(/[*\uFF0A]/g, "")
+      .replace(/[（(][^）)]*[）)]/g, "")
+      .replace(/[：:]\s*$/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  // info：{label, missing, choice, type, typeMismatch, badInput, under, over, min, max, tooShort, tooLong, minLength, maxLength, step, pattern}
+  function messageFor(info = {}) {
+    const name = cleanLabel(info.label) || "这一项";
+    if (info.missing) return `${info.choice ? "请选择" : "请填写"}${name}`;
+    if (info.badInput) return `${name}请填写数字`;
+    if (info.typeMismatch) {
+      if (info.type === "email") return `${name}请填写正确的邮箱`;
+      if (info.type === "url") return `${name}请填写正确的网址`;
+      return `${name}格式不对`;
+    }
+    if (info.under) return `${name}不能小于 ${info.min}`;
+    if (info.over) return `${name}不能大于 ${info.max}`;
+    if (info.tooShort) return `${name}至少 ${info.minLength} 个字`;
+    if (info.tooLong) return `${name}最多 ${info.maxLength} 个字`;
+    if (info.step) return `${name}的数值不对`;
+    if (info.pattern) return `${name}格式不对`;
+    return `${name}没填好`;
+  }
+  function textOf(node) {
+    if (!node || typeof node.cloneNode !== "function") return "";
+    const copy = node.cloneNode(true);
+    for (const extra of copy.querySelectorAll?.(`${CONTROL},${NOISE}`) || []) extra.remove();
+    return cleanLabel(copy.textContent);
+  }
+  function labelOf(el) {
+    if (!el) return "";
+    const aria = el.getAttribute?.("aria-label");
+    if (aria) return cleanLabel(aria);
+    for (const label of Array.from(el.labels || [])) {
+      const text = textOf(label);
+      if (text) return text;
+    }
+    const box = el.closest?.(".ce-field,.field,.opp-field,.cs-field,label,fieldset");
+    const head = box?.querySelector?.(":scope > label, :scope > legend, :scope > .ce-label, :scope > .opp-field-label, :scope > span");
+    return textOf(head) || textOf(box) || "";
+  }
+  function infoOf(el) {
+    const v = el.validity || {};
+    const type = String(el.type || el.getAttribute?.("type") || "").toLowerCase();
+    return {
+      label: labelOf(el),
+      missing: !!v.valueMissing,
+      choice: el.tagName === "SELECT" || ["checkbox", "radio", "date", "month", "datetime-local"].includes(type) || !!el.list,
+      type,
+      typeMismatch: !!v.typeMismatch,
+      badInput: !!v.badInput,
+      under: !!v.rangeUnderflow, min: el.min,
+      over: !!v.rangeOverflow, max: el.max,
+      tooShort: !!v.tooShort, minLength: el.minLength,
+      tooLong: !!v.tooLong, maxLength: el.maxLength,
+      step: !!v.stepMismatch,
+      pattern: !!v.patternMismatch,
+    };
+  }
+  const describe = (el) => messageFor(infoOf(el));
+  const firstInvalid = (form) => Array.from(form?.elements || []).find((el) => el.willValidate && el.validity && !el.validity.valid) || null;
+
+  // 错误条：抽屉底栏里的 data-form-error → 表单里的 data-form-error → 表单（或抽屉）里原有的错误框 → 临时在底栏／保存按钮前加一个。
+  function slotFor(form) {
+    if (!form) return null;
+    const drawer = form.closest?.(".drawer");
+    const found =
+      drawer?.querySelector(".drawer-footer [data-form-error]") ||
+      form.querySelector("[data-form-error]") ||
+      form.querySelector(".error[role=alert]") ||
+      drawer?.querySelector(".error[role=alert]");
+    if (found) return found;
+    const doc = form.ownerDocument;
+    const slot = doc.createElement("div");
+    slot.className = "error form-foot-error";
+    slot.setAttribute("role", "alert");
+    slot.setAttribute("data-form-error", "");
+    const footer = drawer?.querySelector(".drawer-footer");
+    const submit = form.querySelector('[type="submit"]');
+    if (footer) footer.prepend(slot);
+    else if (submit) submit.before(slot);
+    else form.append(slot);
+    return slot;
+  }
+  function show(slot, text) {
+    if (!slot) return;
+    slot.textContent = text;
+    slot.classList.toggle("visible", !!text);
+  }
+  // 把光标放到这个框上，并让它出现在眼前（收起的“展开全部”先打开；美化过的下拉框、日期框会把光标转给自己看得见的按钮）。
+  function focusField(el) {
+    if (!el) return false;
+    const closed = el.closest?.("details:not([open])");
+    if (closed) closed.open = true;
+    try { el.focus({ preventScroll: true }); } catch (_) { return false; }
+    const doc = el.ownerDocument;
+    const shown = doc.activeElement && doc.activeElement !== doc.body ? doc.activeElement : el;
+    shown.scrollIntoView?.({ block: "center", inline: "nearest" });
+    return shown !== doc.body && doc.activeElement === shown;
+  }
+  function report(form) {
+    const el = firstInvalid(form);
+    if (!el) return true;
+    const slot = slotFor(form);
+    show(slot, describe(el));
+    if (slot) slot.__laiField = el;
+    el.setAttribute("aria-invalid", "true");
+    focusField(el);
+    return false;
+  }
+  // 保存时出错（模型里抛的错）：找出说的是哪个框。error.field（表单里的 name）优先；
+  // 否则看错误文字里有没有某个框的标题（如“请填写产品型号”里的“产品型号”），取最长的那个。
+  function fieldFor(form, error) {
+    if (!form) return null;
+    const elements = Array.from(form.elements || []).filter((el) => !el.disabled && el.type !== "hidden" && el.tagName !== "BUTTON" && el.tagName !== "FIELDSET" && el.tagName !== "OUTPUT");
+    const named = error?.field && elements.find((el) => el.name === error.field);
+    if (named) return named;
+    const message = String(error?.message ?? error ?? "");
+    let best = null, size = 1;
+    for (const el of elements) {
+      const label = labelOf(el);
+      if (label.length > size && message.includes(label)) { best = el; size = label.length; }
+    }
+    return best;
+  }
+  function install(doc) {
+    if (!doc || doc.__laiFormCheck) return;
+    doc.__laiFormCheck = true;
+    const queued = new Set();
+    doc.addEventListener("invalid", (event) => {
+      const form = event.target?.form;
+      event.preventDefault();
+      if (!form) return;
+      if (!queued.size) Promise.resolve().then(() => { for (const f of queued) report(f); queued.clear(); });
+      queued.add(form);
+    }, true);
+    doc.addEventListener("submit", (event) => {
+      const form = event.target;
+      if (!form?.noValidate || !form.hasAttribute?.("data-form-check") || event.submitter?.formNoValidate) return;
+      if (form.checkValidity()) {
+        const slot = slotFor(form);
+        if (slot?.__laiField) { show(slot, ""); slot.__laiField = null; }
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+    // 改好了：撤掉红框；错误条说的正是这个框时一起收起。
+    const settle = (event) => {
+      const el = event.target;
+      if (!el?.hasAttribute?.("aria-invalid") || !el.validity?.valid || !el.form) return;
+      el.removeAttribute("aria-invalid");
+      const drawer = el.form.closest?.(".drawer");
+      const slot = drawer?.querySelector(".drawer-footer [data-form-error]") || el.form.querySelector("[data-form-error],.error[role=alert]");
+      if (slot?.__laiField === el) { show(slot, ""); slot.__laiField = null; }
+    };
+    doc.addEventListener("input", settle, true);
+    doc.addEventListener("change", settle, true);
+  }
+  const api = { cleanLabel, messageFor, labelOf, infoOf, describe, firstInvalid, slotFor, show, focusField, report, fieldFor, install };
+  if (typeof module !== "undefined" && module.exports) module.exports.formCheck = api;
+  else {
+    root.LaiFormCheck = api;
+    install(root.document);
+  }
+})(typeof window !== "undefined" ? window : globalThis);
