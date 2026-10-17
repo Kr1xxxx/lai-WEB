@@ -23,7 +23,6 @@
   "lcd-contact-search-empty",
   "lcd-empty",
   "lcd-side-empty",
-  "lead-empty",
   "mail-bulk-empty",
   "mail-reader-empty",
   "now-empty",
@@ -62,7 +61,6 @@
   "order-table role-table",
   "order-table role-table role-list-table",
   "order-table team-table",
-  "order-table team-table lead-table",
   "order-table team-table team-board",
   "order-table tr-table"
  ]

@@ -100,7 +100,9 @@ test('科技蓝: flat white panels, a navy rail with light icons and a cobalt ac
   assert.match(skin, /\.wb \{ --wb-primary: var\(--primary\); \}/);
   // every tech rule is limited to the tech theme (the glass skin test above already pins data-skin)
   const rules = tech.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+\{/g);
-  assert.ok(rules.length > 20);
+  // The section shrinks on purpose as pages move onto the kit (their colours come from tokens), so this only checks
+  // that a real tech section is left; the specific rail, button and panel rules are pinned above.
+  assert.ok(rules.length > 10);
   for (const rule of rules) {
     const selectors = rule.replace(/\{$/, '').replace(/:(?:is|not)\([^)]*\)/g, '').split(',').map((x) => x.trim());
     for (const selector of selectors) assert.ok(selector.startsWith(':root[data-skin="glass"][data-theme="tech"]'), selector);

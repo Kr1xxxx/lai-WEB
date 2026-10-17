@@ -31,52 +31,58 @@
       return E(shortDate(row.nextFollow,today));
     }
 
+    // 列表页用组件套件（src/ui-kit.css，D-028）：状态页签 k-tabs、筛选 k-input／k-select-trigger、表格 k-table、状态 k-badge、空状态 k-empty、按钮 k-btn。
+    // 状态颜色只表示意义：新线索＝主色，跟进中＝黄，已转客户＝绿，无效＝灰。详情抽屉里的状态标签不变（chip）。
+    const STATUS_BADGE={new:'k-badge--primary',following:'k-badge--warning',converted:'k-badge--success',invalid:'k-badge--neutral'};
+    const badge=row=>`<span class="k-badge ${STATUS_BADGE[row.status]||'k-badge--neutral'}">${E(row.statusLabel)}</span>`;
     // 状态页签：数字是当前搜索和筛选条件下各状态的数量。
     function tabs(page){
-      const tab=(id,label)=>`<button type="button" role="tab" data-lead-status="${id}" aria-selected="${page.filters.status===id}">${E(label)}<b>${page.counts[id]}</b></button>`;
-      return `<div class="lead-tabs" role="tablist" aria-label="线索状态">${tab('all','全部')}${model.STATUSES.map(status=>tab(status.id,status.label)).join('')}</div>`;
+      const tab=(id,label)=>`<button type="button" class="k-tab" role="tab" data-lead-status="${id}" aria-selected="${page.filters.status===id}">${E(label)}<b>${page.counts[id]}</b></button>`;
+      return `<div class="k-tabs lead-tabs" role="tablist" aria-label="线索状态">${tab('all','全部')}${model.STATUSES.map(status=>tab(status.id,status.label)).join('')}</div>`;
     }
     function toolbar(page){
       const f=page.filters;
       const owners=page.owners.map(name=>option(name,name,f.owner&&name.toLowerCase()===f.owner.toLowerCase()?name:'')).join('')+(page.hasUnassigned?option('未分配','未分配',f.owner):'');
       const sources=page.sources.map(name=>option(name,name,f.source&&name.toLowerCase()===f.source.toLowerCase()?name:'')).join('');
-      return `<div class="opp-toolbar lead-toolbar"><input type="search" id="lead-search" value="${E(f.search)}" placeholder="搜索${['名称',...SEARCH_FIELDS.filter(([name])=>vis(name)).map(([,label])=>label)].join('、')}" aria-label="搜索线索">`
-        +`<select id="lead-owner" aria-label="跟进人"><option value="">全部跟进人</option>${owners}</select>`
-        +(vis('source')?`<select id="lead-source" aria-label="线索来源"><option value="">全部来源</option>${sources}</select>`:'')
-        +`<button type="button" class="lead-due-toggle" data-lead-action="due" aria-pressed="${f.due}">该跟进的<b>${page.dueCount}</b></button>`
-        +`<select id="lead-sort" class="opp-sort" aria-label="排序">${model.SORTS.map(([id,label])=>option(id,label,f.sort)).join('')}</select></div>`;
+      return `<div class="lead-filters"><input type="search" class="k-input lead-search" id="lead-search" value="${E(f.search)}" placeholder="搜索${['名称',...SEARCH_FIELDS.filter(([name])=>vis(name)).map(([,label])=>label)].join('、')}" aria-label="搜索线索">`
+        +`<select id="lead-owner" class="k-select-trigger lead-filter" aria-label="跟进人"><option value="">全部跟进人</option>${owners}</select>`
+        +(vis('source')?`<select id="lead-source" class="k-select-trigger lead-filter" aria-label="线索来源"><option value="">全部来源</option>${sources}</select>`:'')
+        +`<button type="button" class="k-btn lead-due-toggle" data-lead-action="due" aria-pressed="${f.due}">该跟进的<b>${page.dueCount}</b></button>`
+        +`<select id="lead-sort" class="k-select-trigger lead-sort" aria-label="排序">${model.SORTS.map(([id,label])=>option(id,label,f.sort)).join('')}</select></div>`;
     }
+    const act=(action,id,text,cls='k-btn k-btn--ghost k-btn--sm')=>`<button type="button" class="${cls}" data-lead-action="${action}" data-id="${E(id)}">${text}</button>`;
     function rowActions(row){
-      if(row.status==='converted')return `<button type="button" data-lead-action="open" data-id="${E(row.id)}">查看</button>`;
-      if(row.status==='invalid')return can('lead.edit')?`<button type="button" data-lead-action="reopen" data-id="${E(row.id)}">重新跟进</button>`:`<button type="button" data-lead-action="open" data-id="${E(row.id)}">查看</button>`;
-      return (can('lead.edit')?`<button type="button" data-lead-action="follow" data-id="${E(row.id)}">写跟进</button>`:`<button type="button" data-lead-action="open" data-id="${E(row.id)}">查看</button>`)+(can('lead.convert')?`<button type="button" class="lead-convert" data-lead-action="convert" data-id="${E(row.id)}">转为客户</button>`:'');
+      if(row.status==='converted')return act('open',row.id,'查看');
+      if(row.status==='invalid')return can('lead.edit')?act('reopen',row.id,'重新跟进'):act('open',row.id,'查看');
+      return (can('lead.edit')?act('follow',row.id,'写跟进'):act('open',row.id,'查看'))+(can('lead.convert')?act('convert',row.id,'转为客户','k-btn k-btn--sm lead-convert'):'');
     }
     function table(page,view,today){
       const limit=Math.max(PAGE,Number(view.limit)||PAGE);
       const shown=page.rows.slice(0,limit),rest=page.rows.length-shown.length;
-      if(!page.total)return `<section class="business-section lead-empty"><strong>还没有线索</strong><p>线索是还没成为客户的潜在买家：展会上拿到的名片、官网的询盘、别人介绍的联系人。先记在这里跟进，谈成了再一键转为客户。</p>${can('lead.create')?'<button type="button" class="primary" data-lead-action="new">新建线索</button>':''}</section>`;
-      if(!page.rows.length)return '<section class="business-section lead-empty"><strong>没有符合条件的线索</strong><p>换一个状态，或清空搜索和筛选条件再看。</p></section>';
+      if(!page.total)return `<div class="k-empty lead-none"><p class="k-empty-title">还没有线索</p><span>线索是还没成为客户的潜在买家：展会上拿到的名片、官网的询盘、别人介绍的联系人。先记在这里跟进，谈成了再一键转为客户。</span>${can('lead.create')?'<button type="button" class="k-btn k-btn--primary" data-lead-action="new">新建线索</button>':''}</div>`;
+      if(!page.rows.length)return '<div class="k-empty lead-none"><p class="k-empty-title">没有符合条件的线索</p><span>换一个状态，或清空搜索和筛选条件再看。</span></div>';
       const showContact=vis('contact')||vis('email')||vis('phone');
       const body=shown.map(source=>{
         const row=strip(source);
         const dup=duplicateNote(row);
-        return `<tr${row.overdue?' class="lead-row-overdue"':''}><td><button type="button" class="company-link" data-lead-action="open" data-id="${E(row.id)}">${E(row.name)}</button>${dup?`<span class="opp-chip lead-dup" title="${E(dup)}">可能重复</span>`:''}${row.product?`<small class="lead-sub">${E(row.product)}</small>`:''}</td>`
+        return `<tr${row.overdue?' class="lead-row-overdue"':''}><td class="lead-name"><button type="button" class="company-link" data-lead-action="open" data-id="${E(row.id)}">${E(row.name)}</button>${dup?`<span class="k-badge k-badge--warning lead-dup" title="${E(dup)}">可能重复</span>`:''}${row.product?`<small class="lead-sub">${E(row.product)}</small>`:''}</td>`
           +(showContact?`<td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:row.phone?`<small class="lead-sub">${E(row.phone)}</small>`:''}</td>`:'')
           +(vis('country')?`<td class="lead-nowrap">${E(row.country||'—')}</td>`:'')+(vis('source')?`<td class="lead-nowrap">${E(row.source||'—')}</td>`:'')+`<td class="lead-nowrap">${E(row.owner||'未分配')}</td>`
-          +`<td>${chip(row)}${row.status==='converted'?`<small class="lead-sub">${customerLink(row)}</small>`:row.status==='invalid'&&row.invalidReason?`<small class="lead-sub">${E(row.invalidReason)}</small>`:''}</td>`
+          +`<td>${badge(row)}${row.status==='converted'?`<small class="lead-sub">${customerLink(row)}</small>`:row.status==='invalid'&&row.invalidReason?`<small class="lead-sub">${E(row.invalidReason)}</small>`:''}</td>`
           +`<td>${row.lastFollowDay?`<span class="lead-nowrap">${E(shortDate(row.lastFollowDay,today))}</span><small class="lead-sub lead-clip" title="${E(row.lastFollowText)}">${E(row.lastFollowText)}</small>`:'<span class="lead-muted">未跟进</span>'}</td>`
           +`<td class="lead-nowrap">${nextFollowCell(row,today)}</td><td class="lead-nowrap">${E(shortDate(row.createdDay,today))}</td><td class="lead-actions">${rowActions(row)}</td></tr>`;
       }).join('');
-      return `<section class="business-section opp-list lead-list"><div class="team-table-scroll"><table class="order-table team-table lead-table"><thead><tr><th>线索名称</th>${showContact?'<th>联系人</th>':''}${vis('country')?'<th>国家地区</th>':''}${vis('source')?'<th>来源</th>':''}<th>跟进人</th><th>状态</th><th>最近跟进</th><th>下次跟进</th><th>创建</th><th>操作</th></tr></thead><tbody>${body}</tbody></table></div>`
-        +(rest>0?`<button type="button" class="opp-more" data-lead-action="more">再显示 ${Math.min(PAGE,rest)} 条（还有 ${rest} 条）</button>`:'')+'</section>';
+      return `<div class="lead-scroll"><table class="k-table lead-table"><thead><tr><th>线索名称</th>${showContact?'<th>联系人</th>':''}${vis('country')?'<th>国家地区</th>':''}${vis('source')?'<th>来源</th>':''}<th>跟进人</th><th>状态</th><th>最近跟进</th><th>下次跟进</th><th>创建</th><th class="lead-actions">操作</th></tr></thead><tbody>${body}</tbody></table></div>`
+        +`<div class="lead-foot"><span class="lead-total">共 ${page.rows.length} 条线索</span>${rest>0?`<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-lead-action="more">再显示 ${Math.min(PAGE,rest)} 条（还有 ${rest} 条）</button>`:''}</div>`;
     }
-    const pageMarkup=(page,view={},today='')=>`<div class="business-scroll opp-page lead-page">${tabs(page)}${toolbar(page)}${table(page,view,today)}</div>`;
-    const headerActions=page=>`<button type="button" data-lead-action="trash-page">回收站${page.trashCount?`（${page.trashCount}）`:''}</button>${can('lead.create')?'<button type="button" class="primary" data-lead-action="new">新建线索</button>':''}`;
+    const pageMarkup=(page,view={},today='')=>`<div class="business-scroll lead-page">${tabs(page)}<section class="k-card lead-list">${toolbar(page)}${table(page,view,today)}</section></div>`;
+    const headerActions=page=>`<button type="button" class="k-btn" data-lead-action="trash-page">回收站${page.trashCount?`（${page.trashCount}）`:''}</button>${can('lead.create')?'<button type="button" class="k-btn k-btn--primary" data-lead-action="new">新建线索</button>':''}`;
 
     function trashMarkup(rows,armed='',today=''){
-      if(!rows.length)return '<div class="business-scroll opp-page lead-page"><section class="business-section lead-empty"><strong>回收站是空的</strong><p>移入回收站的线索会放在这里，可以恢复，也可以彻底删除。</p></section></div>';
-      return `<div class="business-scroll opp-page lead-page"><div class="error" id="lead-trash-error" role="alert"></div><section class="business-section opp-list lead-list"><div class="team-table-scroll"><table class="order-table team-table lead-table"><thead><tr><th>线索名称</th>${vis('contact')||vis('email')?'<th>联系人</th>':''}${vis('source')?'<th>来源</th>':''}<th>跟进人</th><th>状态</th><th>移入时间</th><th>操作</th></tr></thead><tbody>${rows.map(source=>{const row=strip(source);return `<tr><td>${E(row.name)}</td>${vis('contact')||vis('email')?`<td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:''}</td>`:''}${vis('source')?`<td>${E(row.source||'—')}</td>`:''}<td>${E(row.owner||'未分配')}</td><td>${chip(row)}</td><td>${E(shortDate(row.trashedDay,today))}</td>`
-        +`<td class="lead-actions">${can('lead.edit')?`<button type="button" data-lead-action="restore" data-id="${E(row.id)}">恢复</button>`:''}${can('lead.purge')?`<button type="button" class="lead-danger" data-lead-action="delete" data-id="${E(row.id)}">${armed===row.id?'再点一次，彻底删除':'彻底删除'}</button>`:''}</td></tr>`}).join('')}</tbody></table></div></section></div>`;
+      if(!rows.length)return '<div class="business-scroll lead-page"><section class="k-card lead-list"><div class="k-empty lead-none"><p class="k-empty-title">回收站是空的</p><span>移入回收站的线索会放在这里，可以恢复，也可以彻底删除。</span></div></section></div>';
+      const showContact=vis('contact')||vis('email');
+      return `<div class="business-scroll lead-page"><div class="error" id="lead-trash-error" role="alert"></div><section class="k-card lead-list"><div class="lead-scroll"><table class="k-table lead-table lead-trash-table"><thead><tr><th>线索名称</th>${showContact?'<th>联系人</th>':''}${vis('source')?'<th>来源</th>':''}<th>跟进人</th><th>状态</th><th>移入时间</th><th class="lead-actions">操作</th></tr></thead><tbody>${rows.map(source=>{const row=strip(source);return `<tr><td class="lead-name"><span class="lead-strong">${E(row.name)}</span></td>${showContact?`<td>${E(row.contact||'—')}${row.email?`<small class="lead-sub">${E(row.email)}</small>`:''}</td>`:''}${vis('source')?`<td class="lead-nowrap">${E(row.source||'—')}</td>`:''}<td class="lead-nowrap">${E(row.owner||'未分配')}</td><td>${badge(row)}</td><td class="lead-nowrap">${E(shortDate(row.trashedDay,today))}</td>`
+        +`<td class="lead-actions">${can('lead.edit')?act('restore',row.id,'恢复','k-btn k-btn--sm'):''}${can('lead.purge')?act('delete',row.id,armed===row.id?'再点一次，彻底删除':'彻底删除','k-btn k-btn--danger k-btn--sm'):''}</td></tr>`}).join('')}</tbody></table></div><div class="lead-foot"><span class="lead-total">共 ${rows.length} 条线索</span></div></section></div>`;
     }
 
     const req='<i class="opp-req" aria-hidden="true">*</i>';
