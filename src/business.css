@@ -3044,3 +3044,50 @@ td.team-reached {
 .wb-ch.wa { background: var(--wb-ok-soft); color: var(--wb-ok-ink); }
 .wb-ch.ml { background: var(--wb-accent-soft); color: var(--wb-accent-ink); }
 .wb-m time { font-size: 12px; color: var(--wb-muted); white-space: nowrap; }
+
+/* ===== 全部订单（路由 order-list；markup 在 src/orders-page.js）=====
+   页头、按钮、输入、表格、徽标、翻页、空状态都来自统一组件（src/ui-kit.css，D-028）；这里只放这一页自己的排版：
+   筛选条、表格列宽、单元格里的两行文字和省略号、表格下方的合计条、回收站。只用 ui-tokens.css 的变量。 */
+:root[data-skin] .main:has(.op-page) { overflow: auto; }
+:root[data-skin] .op-page { display: flex; flex-direction: column; gap: 12px; min-height: 100%; font-size: var(--text-sm); color: var(--fg); }
+:root[data-skin] .op-page > .k-pageheader { padding-bottom: 0; }
+:root[data-skin] .op-list { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 320px; overflow: hidden; }
+:root[data-skin] .op-trash { flex: 0 0 auto; overflow: hidden; }
+:root[data-skin] .op-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .op-filters .op-search { flex: 1 1 200px; width: auto; max-width: 240px; }
+:root[data-skin] .op-filters .op-filter { flex: none; width: auto; min-width: 112px; }
+:root[data-skin] .op-legend { margin-left: auto; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .op-scroll { flex: 1 1 auto; overflow: auto; }
+/* 列宽：编号、金额、阶段、日期、跟进人、操作固定；客户、产品、物流按比例分剩下的 */
+:root[data-skin] .k-table.op-table { min-width: 1160px; table-layout: fixed; }
+:root[data-skin] .k-table.op-table td { padding-top: 6px; padding-bottom: 6px; line-height: 20px; }
+:root[data-skin] .k-table.op-table th:nth-child(1) { width: 116px; }
+:root[data-skin] .k-table.op-table th:nth-child(2) { width: 13%; }
+:root[data-skin] .k-table.op-table th:nth-child(3) { width: 9%; }
+:root[data-skin] .k-table.op-table th:is(:nth-child(4), :nth-child(5), :nth-child(6)) { width: 104px; }
+:root[data-skin] .k-table.op-table th:nth-child(7) { width: 76px; }
+:root[data-skin] .k-table.op-table th:is(:nth-child(8), :nth-child(9)) { width: 64px; }
+:root[data-skin] .k-table.op-table th:nth-child(11) { width: 116px; }
+:root[data-skin] .k-table.op-table tbody tr:last-child td { border-bottom: 0; }
+:root[data-skin] .k-table.op-table .op-none:hover td { background: transparent; }
+:root[data-skin] :is(.op-table, .op-trash-table) .k-num { white-space: nowrap; }
+:root[data-skin] .op-strong { font-weight: 600; }
+:root[data-skin] .op-due { font-weight: 600; color: var(--danger-fg); }
+:root[data-skin] .op-date { white-space: nowrap; color: var(--muted-fg); }
+:root[data-skin] .op-num .k-badge { margin-top: 2px; }
+:root[data-skin] .op-link {
+  display: block; max-width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--fg);
+  font: inherit; font-weight: 500; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+:root[data-skin] .op-link:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--primary); text-decoration: underline; }
+:root[data-skin] :is(.op-client, .op-ship) small { display: block; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] :is(.op-ship > span, .op-cell) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .op-cell.op-clamp { display: -webkit-box; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+:root[data-skin] .k-table :is(th, td).op-acts { text-align: right; white-space: nowrap; }
+:root[data-skin] .op-acts .k-btn + .k-btn { margin-left: 2px; }
+:root[data-skin] .op-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--border); }
+:root[data-skin] .op-total { font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .op-trash .k-card-head { align-items: baseline; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .k-table.op-trash-table { min-width: 720px; }
+:root[data-skin] .k-table.op-trash-table tr:last-child td { border-bottom: 0; }
+:root[data-skin] .op-trash .k-empty { padding: 16px; }

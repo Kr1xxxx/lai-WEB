@@ -63,13 +63,13 @@ const nums = async () => (await rows().locator('.op-num .op-link').allInnerTexts
 test('an order is created for a sample customer, shows in the list and the backend, and survives a reload', async () => {
   const { page } = app;
   assert.equal(await rows().count(), 0);
-  assert.match(await page.locator('.op-sub').first().innerText(), /有效订单 0 笔/);
+  assert.match(await page.locator('.op-page .k-pageheader-desc').innerText(), /有效订单 0 笔/);
   await createOrder({ num: 'E2E-001', client: 'Northwind Lash Studio', productType: 'Cloud Lash', amount: 1000, paidAmount: 300, owner: 'Kris' });
   assert.equal(await rows().count(), 1);
   const text = await rowText('E2E-001');
   for (const part of ['Northwind Lash Studio', 'Cloud Lash', '1,000.00 USD', '300.00 USD', '700.00 USD', '报价', 'Kris']) assert.ok(text.includes(part), part + ' in ' + text);
-  assert.match(await page.locator('.op-top .op-sub').innerText(), /有效订单 1 笔 · 草稿 0 笔 · 未完成 1 笔/);
-  assert.match(await page.locator('.op-foot .op-sub').first().innerText(), /共 1 笔订单/);
+  assert.match(await page.locator('.op-page .k-pageheader-desc').innerText(), /有效订单 1 笔 · 草稿 0 笔 · 未完成 1 笔/);
+  assert.match(await page.locator('.op-foot .op-total').first().innerText(), /共 1 笔订单/);
   const saved = await byNum('E2E-001');
   assert.deepEqual([saved.client, saved.amount, saved.paidAmount, saved.currency, saved.stage, saved.isDraft], ['Northwind Lash Studio', 1000, 300, 'USD', 'quote', false]);
   await openOrders();
@@ -166,7 +166,7 @@ test('moving an order to 已发货 counts it as fully paid; drafts are counted a
   const { page } = app;
   await createOrder({ num: 'E2E-002', client: 'Bluebell Beauty Supply', productType: 'Lash Tray', amount: 2500, currency: 'EUR', paidAmount: 0, owner: 'Amy' });
   await createOrder({ num: 'E2E-003', client: 'Lumen Lash Lab', productType: 'Sample Box', amount: 90, isDraft: true });
-  assert.match(await page.locator('.op-top .op-sub').innerText(), /有效订单 3 笔 · 草稿 1 笔 · 未完成 3 笔/);
+  assert.match(await page.locator('.op-page .k-pageheader-desc').innerText(), /有效订单 3 笔 · 草稿 1 笔 · 未完成 3 笔/);
   assert.ok((await rowText('E2E-003')).includes('草稿'));
   assert.ok((await rowText('E2E-002')).includes('2,500.00 EUR'));
   assert.ok((await rowText('E2E-002')).includes('0.00 EUR'));
@@ -182,7 +182,7 @@ test('moving an order to 已发货 counts it as fully paid; drafts are counted a
   await fillOrder({ stage: 'done' });
   await submit();
   await form().waitFor({ state: 'detached' });
-  assert.match(await page.locator('.op-top .op-sub').innerText(), /有效订单 3 笔 · 草稿 1 笔 · 未完成 2 笔/);
+  assert.match(await page.locator('.op-page .k-pageheader-desc').innerText(), /有效订单 3 笔 · 草稿 1 笔 · 未完成 2 笔/);
   assert.deepEqual(app.errors, []);
 });
 
@@ -198,8 +198,8 @@ test('rows are newest first; search, stage, currency and clear-filters narrow th
   assert.deepEqual(await nums(), ['E2E-003']);
   await search('没有这个订单');
   assert.equal(await rows().count(), 0);
-  await page.locator('.op-empty').getByText('没有符合条件的订单').waitFor();
-  assert.match(await page.locator('.op-foot .op-sub').first().innerText(), /共 0 笔订单/);
+  await page.locator('.op-list .k-empty').getByText('没有符合条件的订单').waitFor();
+  assert.match(await page.locator('.op-foot .op-total').first().innerText(), /共 0 笔订单/);
   await clearFilters();
   assert.equal(await rows().count(), 4);
   assert.equal(await page.locator('#biz-search').inputValue(), '');
@@ -252,10 +252,10 @@ test('archiving moves an order to the trash and restoring brings it back, also a
   await page.getByRole('button', { name: '确认归档' }).click();
   await settle(700);
   assert.deepEqual(await nums(), ['E2E-002', 'E2E-004', 'E2E-001']);
-  assert.match(await page.locator('.op-top .op-sub').innerText(), /草稿 0 笔/);
+  assert.match(await page.locator('.op-page .k-pageheader-desc').innerText(), /草稿 0 笔/);
   const trash = page.locator('.op-trash-row', { hasText: 'E2E-003' });
   await trash.waitFor();
-  assert.match(await page.locator('.op-trash-head').innerText(), /1 笔/);
+  assert.match(await page.locator('.op-trash .k-card-head').innerText(), /1 笔/);
   assert.equal((await orders()).some((o) => o.num === 'E2E-003'), false);
   assert.equal((await app.readData()).trashOrders.some((o) => o.num === 'E2E-003'), true);
   await openOrders();
@@ -326,12 +326,12 @@ test('more than one page of orders: next and previous move between pages', async
   assert.equal(res.status(), 200, await res.text());
   await openOrders();
   assert.equal(await rows().count(), 20);
-  assert.match(await page.locator('.op-foot .op-sub').first().innerText(), /共 23 笔订单/);
-  assert.equal(await page.locator('.op-page-now').innerText(), '1');
+  assert.match(await page.locator('.op-foot .op-total').first().innerText(), /共 23 笔订单/);
+  assert.equal(await page.locator('.op-foot .k-pager [aria-current="page"]').innerText(), '1');
   assert.equal(await page.locator('[data-biz-action="prev"]').isDisabled(), true);
   await page.locator('[data-biz-action="next"]').click();
   await settle();
-  assert.equal(await page.locator('.op-page-now').innerText(), '2');
+  assert.equal(await page.locator('.op-foot .k-pager [aria-current="page"]').innerText(), '2');
   assert.equal(await rows().count(), 3);
   assert.equal(await page.locator('[data-biz-action="next"]').isDisabled(), true);
   await page.locator('[data-biz-action="prev"]').click();
