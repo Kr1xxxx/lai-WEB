@@ -214,7 +214,8 @@ test('the 设置中心 hides items of a module that is off, shows the switch pag
   assert.ok(!hub(off('chat')).includes('chat-templates'));
   assert.ok(!hub(off('team')).includes('targets'));
   assert.ok(!hub(off('mail')).includes('mail-account'));
-  assert.deepEqual(hub(off('lead')), all, '线索 has no hub item of its own');
+  assert.ok(all.includes('lead-settings'), '线索设置 is in the hub');
+  assert.deepEqual(hub(off('lead')), all.filter((id) => id !== 'lead-settings'), '线索 off hides 线索设置 only');
   const nothing = hub(off(...FS.IDS));
   for (const keep of ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'rates', 'task-settings']) assert.ok(nothing.includes(keep), keep);
   assert.ok(!ids({ can: (key) => key !== 'settings.switch' }).includes('feature-switch'), 'permission settings.switch is required');

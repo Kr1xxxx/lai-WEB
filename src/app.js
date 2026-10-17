@@ -1170,8 +1170,7 @@
   const poolEditBlocked = (name) =>
     L.bucket(state.customers?.[name] || {}) === "pool" && !CT.poolContactsVisible(state);
   function newCustomerOwner() {
-    if (R.scopeOf(state) !== "all" && R.meName(state)) return R.meName(state);
-    return String(state.laiSettings?.defaultOwner || state.orderSettings?.defaultOwner || "").trim();
+    return R.defaultOwner(state);
   }
   function editForm(isNew = false, pointerActivated = false, customerName = currentName) {
     if (!allow(isNew ? "customer.create" : L.bucket(state.customers?.[customerName] || {}) === "pool" ? "pool.edit" : "customer.edit")) return;
@@ -4794,8 +4793,9 @@
   // 只有判重／来源权限的账号只看到那一个页签；有「客户设置」权限的看到其余页签。
   const csHiddenTabs = () => {
     const full = can("settings.customer");
+    // 邮件功能关了：动态设置（往来邮件自动记到客户动态）没有意义，页签不显示；设置本身保留。
     return window.LaiCustomerSettingsUI.TABS.map((tab) => tab.id).filter((id) =>
-      id === "dedupe" ? !can("settings.dedupe") : id === "sources" ? !can("settings.source") : !full);
+      id === "dedupe" ? !can("settings.dedupe") : id === "sources" ? !can("settings.source") : !full || (id === "activity" && !modOn("mail")));
   };
   // 每个页签、每种表单要的权限。
   const csTabPerm = (tabId) => (tabId === "dedupe" ? "settings.dedupe" : tabId === "sources" ? "settings.source" : "settings.customer");
@@ -5185,8 +5185,8 @@
     if (d.team) {
       team = d.team;
       if (team === "mine") {
-        const owner =
-          state.laiSettings?.defaultOwner || state.orderSettings?.defaultOwner;
+        // 只能看本人或本部门的账号，“我的客户”就是它自己的。
+        const owner = R.defaultOwner(state);
         if (!owner) {
           team = "team";
           return toast("请先在来财设置中设置默认跟进人，或选择业务员筛选");

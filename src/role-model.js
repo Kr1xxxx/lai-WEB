@@ -195,8 +195,10 @@
     return hit;
   }
   // 只存可改的部分；系统管理员的权限固定，不存。
-  // “默认跟进人”只在换账号（或给当前账号改名）时跟着变，其他改动不碰你在设置里填的值。
-  function put(state,next,{owner=false}={}){
+  // “默认跟进人”（laiSettings.defaultOwner）是用户在设置里自己填的值，这里不改它：换账号、改名都不碰。
+  // 给当前账号改名时，如果默认跟进人正好是这个账号的旧名字，由 renameOwnerEverywhere 一起改成新名字。
+  // 新建客户、线索、商机、订单时实际用谁，见 defaultOwner()：只能看本人或本部门的账号，默认是它自己。
+  function put(state,next){
     const roles=next.roles.filter(r=>r.id!==ADMIN).map(r=>{
       const row={id:r.id,name:r.name,scope:r.scope,perms:cleanPerms(r.perms),v:VERSION,known:[...KEYS]};
       const fields=cleanFields(r.fields),layouts=cleanLayouts(r.layouts);
@@ -207,7 +209,6 @@
     const departments=next.departments.map(d=>({id:d.id,name:d.name,parentId:d.parentId||''}));
     const members=next.members.map(m=>m.deptId?{id:m.id,name:m.name,roleId:m.roleId,deptId:m.deptId}:{id:m.id,name:m.name,roleId:m.roleId});
     const laiSettings={...(state.laiSettings||{}),roles:{roles,departments,members,current:next.current}};
-    if(owner)laiSettings.defaultOwner=(next.members.find(m=>m.id===next.current)||{}).name||state.laiSettings?.defaultOwner;
     return {...state,laiSettings};
   }
   const copy=state=>{const s=settings(state);return {
@@ -256,6 +257,12 @@
   const isAdmin=state=>roleOf(state)?.id===ADMIN;
   const scopeOf=state=>roleOf(state)?.scope||'self';
   const meName=state=>currentMember(state)?.name||'';
+  // 新建客户、线索、商机、订单时默认的跟进人。可看全公司的账号用设置里填的“默认跟进人”；
+  // 只能看本人或本部门的账号，新建的资料默认归它自己（不然建完自己都看不到）。
+  function defaultOwner(state){
+    if(scopeOf(state)!=='all'&&meName(state))return meName(state);
+    return trim(state?.laiSettings?.defaultOwner)||trim(state?.orderSettings?.defaultOwner);
+  }
   // 可见范围：全公司都能看；本人只看跟进人/负责人是自己的（不分大小写）。没有跟进人的也看不到，公海客户另由 pool.view 决定。
   // 部门 id 加上它所有下级部门的 id。
   function deptAndBelow(state,deptId){
@@ -440,7 +447,7 @@
     const before=member.name;
     member.name=value;
     // 名字只是大小写或空格不同的话，记录也照样改成新写法。
-    return renameOwnerEverywhere(put(state,next,{owner:member.id===next.current}),before,value);
+    return renameOwnerEverywhere(put(state,next),before,value);
   }
   function removeMember(state,id){
     guard(state);
@@ -452,12 +459,12 @@
     if(!next.members.some(m=>m.roleId===ADMIN))throw new Error('至少要留一位系统管理员');
     return put(state,next);
   }
-  // 切换测试账号：任何人都能切（只是预览）。同时把“默认跟进人”换成这个账号，新建的客户、线索、商机默认算他的。
+  // 切换测试账号：任何人都能切（只是预览）。不改“默认跟进人”。
   function switchTo(state,id){
     const next=copy(state);
     if(!next.members.some(m=>m.id===id))throw new Error('没有找到这个账号');
     next.current=id;
-    return put(state,next,{owner:true});
+    return put(state,next);
   }
   // 每个页面要什么权限才能打开。kind 同 rail-menu.js：route／screen／mail。没列的页面谁都能开（工作台、日历、设置中心）。
   const PAGE_PERMS=Object.freeze({
@@ -531,7 +538,7 @@
   function memberCount(state,roleId){return settings(state).members.filter(m=>m.roleId===roleId).length;}
 
   const api={LIMITS,SCOPES,GROUPS,KEYS,ADMIN,SALES,DEPT_ADMIN,TEST_SALES,SALES_DEFAULT,DEPT_ADMIN_DEFAULT,PAGE_PERMS,FIELD_MODULES,FIELD_LEVELS,
-    pagePerm,canOpen,moduleOfKey,moduleOfRoute,moduleOfEntry,moduleOnFor,ROUTE_MODULE,labelOf,settings,currentMember,roleOf,can,isAdmin,scopeOf,meName,canSee,denied,assert,
+    pagePerm,canOpen,moduleOfKey,moduleOfRoute,moduleOfEntry,moduleOnFor,ROUTE_MODULE,labelOf,settings,currentMember,roleOf,can,isAdmin,scopeOf,meName,defaultOwner,canSee,denied,assert,
     fieldLevel,fieldVisible,fieldEditable,lockedFields,keepLocked,productLayoutOf,
     addRole,updateRole,deleteRole,addMember,setMemberRole,renameMember,renameOwnerEverywhere,removeMember,switchTo,memberCount,
     addDepartment,renameDepartment,deleteDepartment,setMemberDept,deptTree,deptAndBelow,deptCount};

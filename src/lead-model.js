@@ -360,7 +360,9 @@
     return {mode:usable?'existing':'new',existing:usable?duplicate:'',name:item.name,country:trim(item.country),source:trim(item.source),owner:cleanName(item.owner)||defaultOwner(state)};
   }
 
-  const defaultOwner=state=>cleanName(state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner);
+  const typedDefaultOwner=state=>cleanName(state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner);
+  // 新线索的默认跟进人：只能看本人或本部门的账号是它自己，其他账号用设置里填的（见 role-model.js 的 defaultOwner）。
+  const defaultOwner=state=>{const R=RMODEL();return R&&R.defaultOwner?cleanName(R.defaultOwner(state)):typedDefaultOwner(state);};
   const defaults=state=>({name:'',contact:'',email:'',phone:'',country:'',source:'',website:'',product:'',note:'',owner:defaultOwner(state),nextFollow:''});
   // 可选的跟进人、来源：已经用过的写法（去重，不区分大小写），加上常见来源。
   function distinct(values){
@@ -368,7 +370,7 @@
     for(const value of values){const text=cleanName(value);if(text&&text!=='未分配'&&!seen.has(text.toLowerCase()))seen.set(text.toLowerCase(),text);}
     return [...seen.values()].sort((a,b)=>a.localeCompare(b,'zh'));
   }
-  const ownerNames=state=>distinct([defaultOwner(state),...list(state).map(item=>item.owner),...Object.values(profilesOf(state)).map(profile=>profile?.owner)]);
+  const ownerNames=state=>distinct([typedDefaultOwner(state),...list(state).map(item=>item.owner),...Object.values(profilesOf(state)).map(profile=>profile?.owner)]);
   const CSM=node?require('./customer-settings-model.js'):root.LaiCustomerSettings;
   const sourceNames=state=>[...((CSM&&CSM.sourceChoices(state))||distinct([...list(state).map(item=>item.source),...Object.values(profilesOf(state)).map(profile=>profile?.source),...SOURCE_HINTS]))];
   // 线索设置：无效原因、字段显示与必填（见 lead-settings-model.js）。

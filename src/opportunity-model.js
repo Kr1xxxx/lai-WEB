@@ -7,6 +7,9 @@
   // 来源名单与线索、客户共用一份（客户设置 → 来源设置）；读不到时按没有名单处理。
   const CSM=node?require('./customer-settings-model.js'):root.LaiCustomerSettings;
   const trim=value=>String(value??'').trim();
+  // 新商机的默认负责人：只能看本人或本部门的账号是它自己，其他账号用设置里填的“默认跟进人”（见 role-model.js 的 defaultOwner）。
+  const RMODEL=()=>node?require('./role-model.js'):root.LaiRoleModel;
+  const defaultOwnerOf=state=>{const R=RMODEL();return R&&R.defaultOwner?R.defaultOwner(state):state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner;};
   // 销售阶段：kind 决定金额归入「进行中」「赢单」还是「输单」。
   const STAGES=Object.freeze([
     {id:'open',label:'未成单',kind:'open'},
@@ -804,7 +807,7 @@
   // 新建表单的默认值。
   function defaults(state,today=isoDay(new Date())){
     return {nameMode:'auto',name:'',client:'',contact:'',amount:'',endDate:addDays(today,30),flow:'default',exchangeRate:100,currency:defaultCurrency(state),
-      stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(state?.laiSettings?.defaultOwner||state?.orderSettings?.defaultOwner),collaborators:[],tags:[],products:[],lostReason:'',lostNote:'',sources:[],type:'',leadId:'',custom:{}};
+      stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(defaultOwnerOf(state)),collaborators:[],tags:[],products:[],lostReason:'',lostNote:'',sources:[],type:'',leadId:'',custom:{}};
   }
   // 由赢单商机生成订单时预填的内容（交给现有的订单表单，由用户确认保存）。
   // 商机里的产品带到订单的产品明细；产品都没填单价时不带（不然订单金额会变成 0），只留“产品”文字。
