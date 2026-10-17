@@ -161,21 +161,22 @@
 
 /* ---------- 开关和勾选框 ----------
    .k-switch：开／关两种状态的设置（功能开关、显示某块）；用在 <input type="checkbox" class="k-switch">，role="switch" 写在标记里。
-   .k-checkbox：多选里的一项（要显示的列、批量勾选）；只换颜色和大小，仍是浏览器自己的勾选框。 */
-:root[data-skin] .k-checkbox { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
-:root[data-skin] .k-checkbox:disabled { cursor: not-allowed; opacity: 0.5; }
-:root[data-skin] .k-switch {
+   .k-checkbox：多选里的一项（要显示的列、批量勾选）；外观沿用全应用统一的勾选框（skin-glass.css），这里只定大小。
+   选择器写成 input.k-switch：和 skin-glass.css 的 input[type="checkbox"] 一样强，本文件排在后面，所以开关不会被画成勾选框。 */
+:root[data-skin] input.k-checkbox { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
+:root[data-skin] input.k-checkbox:disabled { cursor: not-allowed; opacity: 0.5; }
+:root[data-skin] input.k-switch {
   appearance: none; -webkit-appearance: none; position: relative; flex: none; box-sizing: border-box;
   width: 32px; height: 18px; margin: 0; padding: 0; border: 0; border-radius: var(--radius-pill);
   background: var(--input); cursor: pointer; transition: background-color var(--motion-fast) var(--ease-standard);
 }
-:root[data-skin] .k-switch::after {
+:root[data-skin] input.k-switch::after {
   content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
   background: var(--card-bg); box-shadow: var(--shadow-1); transition: transform var(--motion-fast) var(--ease-standard);
 }
-:root[data-skin] .k-switch:checked { background: var(--primary); }
-:root[data-skin] .k-switch:checked::after { transform: translateX(14px); }
-:root[data-skin] .k-switch:disabled { opacity: 0.5; cursor: not-allowed; }
+:root[data-skin] input.k-switch:checked { background: var(--primary); }
+:root[data-skin] input.k-switch:checked::after { transform: translateX(14px); }
+:root[data-skin] input.k-switch:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---------- 键盘焦点 ---------- */
 :root[data-skin] :is(.k-btn, .k-tab, .k-pager button, .k-select-trigger, .k-input, .k-textarea, .k-switch, .k-checkbox):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
