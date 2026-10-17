@@ -10,7 +10,7 @@
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
   商机设置, products, workbench, calendar/tasks, business stats, team data, Zoho mail, roles + test accounts, 设置/设置中心,
-  four themes (pink default, orange, 小满, 科技蓝; 小满 to be removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
+  three themes (pink default, orange, 科技蓝; 小满 removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
 - `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); there is no Mac app any more (`mac` flag unused).
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
 - How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". The owner wants no questions: consult the advisor and decide (CLAUDE.md).
@@ -52,8 +52,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | Done | #17, #18 merged |
 | 25 | Split `src/app.js` (~5800 lines), `business-ui.js` (~3100), `mail-ui.js` by page | Todo (planned) | 15-slice plan with advisor review; starts after the render fix (Q1); one file in one wave at a time |
-| 31 | UI wave (advisor report 2026-10-17) | In progress | Q1+Q2 done (#24): frame drawn once, pages render into `main`, focus kept, order search patches rows; Q3+Q4 and 小满 removal in progress; then the component kit (D-028) page by page |
-| 32 | Remove 小满 theme + classic skin (D-029) | In progress | Worker running; xiaoman shown as 科技蓝 |
+| 31 | UI wave (advisor report 2026-10-17) | In progress | Q1+Q2 done (#24); Q3+Q4 done (PR): errors in a footer slot next to save, Chinese validation (`LaiFormCheck`, now inside `date-picker.js`; move to its own file during the split), 写跟进 opens 动态 with the box focused, detail defaults to 动态. Next: Q5–Q8, then the component kit (D-028) page by page |
+| 32 | Remove 小满 theme + classic skin (D-029) | Done (PR) | Themes pink/orange/tech; saved xiaoman shown as tech, rewritten on next settings save; dead base CSS left for S4 |
 | 33 | Full overlap sweep + CI test | Done (#23) | `scripts/ui-audit/overlap-sweep.cjs` + `tests/e2e/overlap-sweep.e2e.mjs`; 0 findings in 4 themes × 9 widths |
 | 34 | Font subset (owner OK) | Done (#23) | MiSans hanzi cut to GB2312 + used chars; page 9.9 → 7.7 MB, pixel-identical; licence note in `vendor/fonts/SUBSET.md` |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
