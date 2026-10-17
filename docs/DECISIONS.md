@@ -17,7 +17,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-005 | Synthetic data only; formal import stays disabled until complete | Accepted |
 | D-006 | No 回款 (payment collection) and no 海关数据 (customs data) | Accepted |
 | D-007 | Mail: Zoho Mail with an app-specific password | Accepted |
-| D-008 | Colour themes: pink by default; orange and 小满 blue as options | Accepted (default changed 2026-10-16) |
+| D-008 | Colour themes: pink by default; orange and 小满 blue as options | Accepted (default changed 2026-10-16); default superseded by D-033 |
 | D-009 | Left rail and entries | Accepted; its Leads entry superseded by D-030 |
 | D-010 | Look and feel | Accepted |
 | D-011 | Prefer mature open-source code over hand-written code | Accepted |
@@ -39,6 +39,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-030 | 线索 (leads) removed, code deleted; stored lead data kept | Accepted |
 | D-031 | 协同 removed (calendar, 任务设置, tasks), code deleted; stored task data kept | Accepted |
 | D-032 | Fable 5.1 `specialist` (medium effort, edits) for complex slices and second passes; `researcher` agent file added | Accepted |
+| D-033 | Light Linear look is the default: 科技蓝 recoloured (white panels, white rail, neutral greys, cobalt accent); pink and orange optional | Accepted |
 
 ---
 
@@ -276,3 +277,18 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Also: the `researcher` agent named in D-027 had no file; `.claude/agents/researcher.md` now exists (Opus, medium,
   read-only, web lookups).
 - Refines: D-027 (raising a subagent to high effort is replaced by handing the slice to `specialist`).
+
+### D-033 Light Linear look becomes the default (2026-10-17)
+- Context: the owner liked the light Linear-style workbench preview (https://claude.ai/artifact/EcFzzjH1E4vV5QuJsk8vTr)
+  and, asked in thread #05 whether it should become the default look with pink and orange kept as options, answered
+  "是的" (yes).
+- Decision: no new theme id. The 科技蓝 theme (`tech`) is recoloured to the light look: page `#fafafa`, white panels
+  with 1px neutral borders, a white rail with dark grey icons and a light grey current item with a cobalt icon,
+  neutral (zinc) greys, cobalt `#2f5bff` as the one accent. 科技蓝 is the default (`DEFAULT_THEME` in `src/app.js`, and
+  the `:root,` fallback block in `src/ui-tokens.css`). The layout (top bar, icon rail, sub-nav, cards) is unchanged.
+- Data: a saved pink or orange stays as it is; accounts that never chose a colour and the web trial get the new
+  default; accounts that chose 科技蓝 (or 小满, shown as 科技蓝 per D-029) see the light rail. Nothing stored is rewritten.
+- Steps: S-A colours and rail, S-B default (PR #35); S-C taste tweaks (radius, selected states) after the
+  owner looks at the trial. All before the old-CSS merge (S4).
+- Supersedes: the default in D-008 (pink); the navy rail in D-028's reference palette.
+
