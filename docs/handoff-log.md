@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — After #21: settings-audit fixes (线索设置 hub entry, Mac-only data-folder button removed, customer
+  import of custom fields, module-off hides settings, 默认跟进人 no longer overwritten, wording); Mac app removed (D-026);
+  科技蓝 theme + rebuilt 工作台 (all themes); top-bar overlap fix + e2e at 1024–1680px; order custom fields (workflow:
+  build → 3 reviewers → fix). Two background workers were stopped by an owner interrupt at 02:44 and resumed from WIP
+  commits. Advisor (Fable) UI review: no shared components, full re-render on every click, pink used as paint; plan in
+  HANDOFF #31. Owner decisions: D-027 agent tree, D-028 kit in 科技蓝, D-029 remove 小满, no questions (ask the advisor).
 - 2026-10-17 — Claude — Task 29: lead custom fields (线索设置 → 自定义字段, editor, detail, export, conversion copies to
   same-name same-type customer fields, role field permissions) and top-bar search over customer custom fields (全部 and a
   single custom field scope). model 1458 / e2e 294 green, UI audit pass (170).
