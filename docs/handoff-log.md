@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #30 merged (`main` dc48b03); web trial v1.18 published and opened; 功能一览 updated (线索 and
+  协同 sections removed). PAUSED at the owner's request ("完成手上的活就先暂停"). Open for him: data-dir lock file (needs his
+  OK), whether 工作台 tasks come back. Next when resumed: kit on mail, 沟通, team pages, settings pages; then the app.js split.
 - 2026-10-17 — Claude — #29 merged (`main` be707da); web trial v1.17 published. Then merged on the branch: 线索 removed
   (D-030) and 协同 incl. tasks removed (D-031), code and tests deleted, stored `laiLeads`/`laiTasks`/settings kept (new
   `tests/removed-features-data.test.cjs`); 商机 pages polished (customer as card title, one colour meaning, stage progress,
