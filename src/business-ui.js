@@ -251,29 +251,37 @@
       if (!open.length) return "";
       return `<div class="business-section task-owner-hint" role="status"><span>有 ${open.length} 条待办没有负责人</span> ${button("assign-tasks", "去分配", `data-id="${E(open[0].id)}"`)} ${button("hide-task-hint", "知道了")}</div>`;
     }
-    function renderOrders() {
+    // 全部订单当前这一页要显示什么：筛选后的订单、这一页的订单、页码。
+    function orderListView() {
       const filtered = filteredOrders(),
         size = 20,
         pages = Math.max(1, Math.ceil(filtered.length / size));
       page = Math.min(page, pages);
       const items = filtered.slice((page - 1) * size, page * size);
-      if (glassSkin() && root.LaiOrdersPage)
-        return root.LaiOrdersPage.markup(
-          {
-            items,
-            all: activeOrders(),
-            total: filtered.length,
-            filters: { search, stage, currency, period },
-            stages: B.stages,
-            currencies: [...new Set(activeOrders().map((o) => o.currency || "USD"))],
-            page,
-            pages,
-            trash: scoped().trashOrders || [],
-            can,
-            exportable: !!root.LaiExportUI,
-          },
-          E,
-        );
+      return {
+        items,
+        all: activeOrders(),
+        total: filtered.length,
+        filters: { search, stage, currency, period },
+        stages: B.stages,
+        currencies: [...new Set(activeOrders().map((o) => o.currency || "USD"))],
+        page,
+        pages,
+        trash: scoped().trashOrders || [],
+        can,
+        exportable: !!root.LaiExportUI,
+      };
+    }
+    // 小满主题的订单表：表体行、没有订单时的提示、下方的合计和翻页。
+    const classicOrderRows = (items) =>
+      items.map((o) => `<tr><td>${openButton(o)}${o.isDraft ? '<span class="tag">草稿</span>' : ""}</td><td>${customerButton(o.client)}</td><td>${E(o.country || "—")}</td><td>${date(o.createdAt)}</td><td>${E(o.productType || "—")}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${money(["shipment", "done"].includes(o.stage) ? o.amount : o.paidAmount, o.currency || "USD")}</td><td><span class="tag stage-${E(o.stage)}">${E(label(o.stage))}</span></td><td>${E(o.trackingNumber || "—")}</td><td><button class="text-button" data-biz-order="${E(o.id)}">${can("order.edit") ? "查看 / 编辑" : "查看"}</button></td></tr>`).join("");
+    const classicOrderEmpty = (items) =>
+      items.length ? "" : '<div class="empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>';
+    const classicOrderFoot = (view) =>
+      `<footer class="pagination"><span>共 ${view.total} 笔订单</span><div class="pages">${button("prev", "‹", view.page === 1 ? "disabled" : "")}<span>${view.page} / ${view.pages}</span>${button("next", "›", view.page === view.pages ? "disabled" : "")}</div></footer>`;
+    function renderOrders() {
+      const view = orderListView();
+      if (glassSkin() && root.LaiOrdersPage) return root.LaiOrdersPage.markup(view, E);
       return (
         header(
           "订单管理",
@@ -281,8 +289,32 @@
           exportButton("order") + button("order-trash", "订单回收站") +
             (can("order.create") ? button("new-order", "＋ 新建订单", "", true) : ""),
         ) +
-        `<section class="business-section order-workspace"><div class="business-toolbar"><input class="business-search" id="biz-search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(search)}"><select id="biz-stage" aria-label="订单阶段">${option("", "全部阶段", stage)}${B.stages.map((s) => option(s.id, s.label, stage)).join("")}</select><select id="biz-currency" aria-label="订单币种">${option("", "全部币种", currency)}${[...new Set(activeOrders().map((o) => o.currency || "USD"))].map((c) => option(c, c, currency)).join("")}</select><select id="biz-period" aria-label="时间">${(root.LaiOrdersPage?.PERIODS || [["", "全部时间"]]).map(([v, t]) => option(v, t, period)).join("")}</select>${button("clear-filters", "清除筛选")}</div><div class="business-table-scroll" id="biz-order-scroll"><table class="order-table unified-orders"><thead><tr><th>订单编号</th><th>客户名称</th><th>国家地区</th><th>创建日期</th><th>产品</th><th>订单金额</th><th>已收款</th><th>阶段</th><th>物流单号</th><th>操作</th></tr></thead><tbody>${items.map((o) => `<tr><td>${openButton(o)}${o.isDraft ? '<span class="tag">草稿</span>' : ""}</td><td>${customerButton(o.client)}</td><td>${E(o.country || "—")}</td><td>${date(o.createdAt)}</td><td>${E(o.productType || "—")}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${money(["shipment", "done"].includes(o.stage) ? o.amount : o.paidAmount, o.currency || "USD")}</td><td><span class="tag stage-${E(o.stage)}">${E(label(o.stage))}</span></td><td>${E(o.trackingNumber || "—")}</td><td><button class="text-button" data-biz-order="${E(o.id)}">${can("order.edit") ? "查看 / 编辑" : "查看"}</button></td></tr>`).join("")}</tbody></table>${items.length ? "" : '<div class="empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>'}</div><footer class="pagination"><span>共 ${filtered.length} 笔订单</span><div class="pages">${button("prev", "‹", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${button("next", "›", page === pages ? "disabled" : "")}</div></footer></section>`
+        `<section class="business-section order-workspace"><div class="business-toolbar"><input class="business-search" id="biz-search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(search)}"><select id="biz-stage" aria-label="订单阶段">${option("", "全部阶段", stage)}${B.stages.map((s) => option(s.id, s.label, stage)).join("")}</select><select id="biz-currency" aria-label="订单币种">${option("", "全部币种", currency)}${[...new Set(activeOrders().map((o) => o.currency || "USD"))].map((c) => option(c, c, currency)).join("")}</select><select id="biz-period" aria-label="时间">${(root.LaiOrdersPage?.PERIODS || [["", "全部时间"]]).map(([v, t]) => option(v, t, period)).join("")}</select>${button("clear-filters", "清除筛选")}</div><div class="business-table-scroll" id="biz-order-scroll"><table class="order-table unified-orders"><thead><tr><th>订单编号</th><th>客户名称</th><th>国家地区</th><th>创建日期</th><th>产品</th><th>订单金额</th><th>已收款</th><th>阶段</th><th>物流单号</th><th>操作</th></tr></thead><tbody>${classicOrderRows(view.items)}</tbody></table>${classicOrderEmpty(view.items)}</div>${classicOrderFoot(view)}</section>`
       );
+    }
+    // 订单搜索框打字时：只换表格里的行、合计和翻页，页面、搜索框都不动（焦点、光标留在原处）。
+    // 页面不是当前的全部订单页（例如刚换了主题还没重画）时整页重画。
+    function refreshOrderRows() {
+      const scroller = document.getElementById("biz-order-scroll");
+      if (route !== "order-list" || !scroller) return render();
+      const view = orderListView();
+      const glassTable = scroller.querySelector(".op-table");
+      const foot = scroller.parentElement.querySelector(glassTable ? ":scope > .op-foot" : ":scope > footer.pagination");
+      if (!foot || (!!glassTable !== !!(glassSkin() && root.LaiOrdersPage))) return render();
+      if (glassTable) {
+        const head = glassTable.querySelector(":scope > .op-head");
+        while (head.nextSibling) head.nextSibling.remove();
+        head.insertAdjacentHTML("afterend", root.LaiOrdersPage.rowsMarkup(view, E));
+        foot.outerHTML = root.LaiOrdersPage.footMarkup(view);
+      } else {
+        const body = scroller.querySelector("tbody");
+        if (!body) return render();
+        body.innerHTML = classicOrderRows(view.items);
+        scroller.querySelector(":scope > .empty")?.remove();
+        scroller.insertAdjacentHTML("beforeend", classicOrderEmpty(view.items));
+        foot.outerHTML = classicOrderFoot(view);
+      }
+      scroller.scrollTop = 0;
     }
     function renderOrderTrash() {
       const orders = scoped().trashOrders || [];
@@ -509,7 +541,15 @@
     const flowView = { tab: "flows", flow: "default", armed: "" };
     const cssEscape = (value) => (root.CSS?.escape ? root.CSS.escape(String(value)) : String(value).replace(/["\\]/g, "\\$&"));
     let keepOppFilters = false,
-      oppSearchTimer = 0;
+      oppSearchTimer = 0,
+      orderSearchTimer = 0;
+    // 订单搜索：停下 150 毫秒后再换表格里的行；期间离开了全部订单页就不画。
+    function scheduleOrderRows() {
+      root.clearTimeout?.(orderSearchTimer);
+      orderSearchTimer = root.setTimeout?.(() => {
+        if (route === "order-list" && document.getElementById("biz-search")) refreshOrderRows();
+      }, 150);
+    }
     let oppDraft = null,
       oppArmed = "",
       oppDrag = "",
@@ -2616,12 +2656,9 @@
       if (e.target.id === "biz-search") {
         search = e.target.value;
         if (e.isComposing) return;
+        // 边打字边筛选：停下 150 毫秒后只换表格里的行，搜索框不重画，不丢字、光标不动。
         page = 1;
-        const pos = e.target.selectionStart;
-        render();
-        const input = document.getElementById("biz-search");
-        input.focus();
-        input.setSelectionRange(pos, pos);
+        scheduleOrderRows();
       }
       if (route === "opportunities" && e.target.id === "opp-search" && !e.isComposing) {
         // 边打字边筛选：停下 150 毫秒后再画一次，光标留在原处。
@@ -2651,8 +2688,7 @@
       if (e.target.id === "biz-search") {
         search = e.target.value;
         page = 1;
-        render();
-        document.getElementById("biz-search").focus();
+        scheduleOrderRows();
       }
     });
     // 看板拖动：拖到另一列调整阶段，「手动排序」下还能在列内调整先后；拖到输单会先问原因。拖进来的文件放进详情里的附件区。

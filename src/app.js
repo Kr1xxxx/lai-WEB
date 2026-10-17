@@ -395,12 +395,140 @@
     const searchScope = globalSearch.field === "all" || !C.globalSearchFieldsFor(state).some((field) => field.id === globalSearch.field) ? "客户" : scope;
     return `<header class="topbar"><div class="topbar-left-drag-region"><div class="brand" aria-label="来财Lai"><svg class="brand-mark" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path fill="#16121A" d="M46.00,0.00 H154.00 A46,46 0 0 1 200.00,46.00 V154.00 A46,46 0 0 1 154.00,200.00 H46.00 A46,46 0 0 1 0.00,154.00 V46.00 A46,46 0 0 1 46.00,0.00 Z"/><path fill="#FF4F9A" fill-rule="evenodd" d="M51.00,108.00 H149.00 A25,25 0 0 1 174.00,133.00 V133.00 A25,25 0 0 1 149.00,158.00 H51.00 A25,25 0 0 1 26.00,133.00 V133.00 A25,25 0 0 1 51.00,108.00 Z M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#16121A" d="M129.00,29.00 L130.57,29.09 L132.12,29.35 L133.62,29.79 L135.07,30.39 L136.45,31.15 L137.73,32.05 L138.90,33.10 L139.95,34.27 L140.85,35.55 L141.61,36.93 L142.21,38.38 L142.65,39.88 L142.91,41.43 L143.00,43.00 L143.00,127.00 L57.00,127.00 L57.00,43.00 L57.09,41.43 L57.35,39.88 L57.79,38.38 L58.39,36.93 L59.15,35.55 L60.05,34.27 L61.10,33.10 L62.27,32.05 L63.55,31.15 L64.93,30.39 L66.38,29.79 L67.88,29.35 L69.43,29.09 L71.00,29.00 Z"/><path fill="#0B080D" d="M58.00,127.00 H142.00 A6,6 0 0 1 148.00,133.00 V133.00 A6,6 0 0 1 142.00,139.00 H58.00 A6,6 0 0 1 52.00,133.00 V133.00 A6,6 0 0 1 58.00,127.00 Z"/><path fill="#FFC23D" d="M129.00,34.00 L130.01,34.06 L131.00,34.23 L131.97,34.51 L132.90,34.89 L133.79,35.38 L134.61,35.96 L135.36,36.64 L136.04,37.39 L136.62,38.21 L137.11,39.10 L137.49,40.03 L137.77,41.00 L137.94,41.99 L138.00,43.00 L138.00,133.00 L62.00,133.00 L62.00,43.00 L62.06,41.99 L62.23,41.00 L62.51,40.03 L62.89,39.10 L63.38,38.21 L63.96,37.39 L64.64,36.64 L65.39,35.96 L66.21,35.38 L67.10,34.89 L68.03,34.51 L69.00,34.23 L69.99,34.06 L71.00,34.00 Z"/><path fill="#16121A" fill-rule="evenodd" d="M125.00,42.00 L125.56,42.03 L126.11,42.13 L126.65,42.28 L127.17,42.50 L127.66,42.77 L128.12,43.09 L128.54,43.46 L128.91,43.88 L129.23,44.34 L129.50,44.83 L129.72,45.35 L129.87,45.89 L129.97,46.44 L130.00,47.00 L130.00,133.00 L70.00,133.00 L70.00,47.00 L70.03,46.44 L70.13,45.89 L70.28,45.35 L70.50,44.83 L70.77,44.34 L71.09,43.88 L71.46,43.46 L71.88,43.09 L72.34,42.77 L72.83,42.50 L73.35,42.28 L73.89,42.13 L74.44,42.03 L75.00,42.00 Z M123.50,46.00 L123.78,46.02 L124.06,46.06 L124.33,46.14 L124.58,46.25 L124.83,46.38 L125.06,46.55 L125.27,46.73 L125.45,46.94 L125.62,47.17 L125.75,47.42 L125.86,47.67 L125.94,47.94 L125.98,48.22 L126.00,48.50 L126.00,133.00 L74.00,133.00 L74.00,48.50 L74.02,48.22 L74.06,47.94 L74.14,47.67 L74.25,47.42 L74.38,47.17 L74.55,46.94 L74.73,46.73 L74.94,46.55 L75.17,46.38 L75.42,46.25 L75.67,46.14 L75.94,46.06 L76.22,46.02 L76.50,46.00 Z"/><path fill="#16121A" d="M101.67 102.58V107.00H98.17V102.52Q92.38 102.03 88.83 99.05Q85.28 96.08 85.06 90.95H95.00Q95.33 94.22 98.17 95.15V86.52Q93.91 85.43 91.37 84.39Q88.83 83.35 86.92 81.06Q85.01 78.77 85.01 74.78Q85.01 69.81 88.70 66.81Q92.38 63.81 98.17 63.42V59.00H101.67V63.42Q107.40 63.86 110.73 66.75Q114.06 69.65 114.44 74.78H104.45Q104.12 71.83 101.67 70.96V79.42Q106.20 80.68 108.66 81.66Q111.11 82.65 113.05 84.91Q114.99 87.18 114.99 91.11Q114.99 94.11 113.43 96.65Q111.88 99.19 108.85 100.80Q105.82 102.41 101.67 102.58ZM98.17 78.28V70.69Q96.64 70.96 95.77 71.86Q94.89 72.76 94.89 74.34Q94.89 75.71 95.74 76.64Q96.59 77.57 98.17 78.28ZM105.22 91.44Q105.22 90.02 104.31 89.12Q103.41 88.22 101.67 87.56V95.31Q103.30 95.04 104.26 94.00Q105.22 92.97 105.22 91.44Z"/></svg><svg class="brand-cn" viewBox="0 0 54 32" aria-hidden="true" focusable="false"><text x="27" y="24" text-anchor="middle">来财</text></svg><sup>AI</sup><button type="button" class="app-version" data-action="version-history" aria-haspopup="dialog" aria-label="当前版本 ${APP_VERSION}，查看版本更新历史">v${APP_VERSION}</button></div></div><form class="global-search" id="global-search-form"><button type="button" data-action="global-search-scope" aria-label="搜索范围" aria-haspopup="menu" aria-expanded="false"><span class="global-search-label" title="${E(searchScope)}">${E(searchScope)}</span><span class="dd-caret" aria-hidden="true"></span></button><input name="query" aria-label="全局客户搜索" placeholder="请输入搜索关键字" value="${E(globalSearch.query)}"><button type="submit" aria-label="搜索客户">${icon("search")}</button></form><div class="top-actions">${showIf("customer.create", `<button class="text-button" data-action="new" aria-label="快速新建">${icon("plus")}</button>`)}<i></i><button class="text-button" data-action="about">${icon("help")} 帮助</button><i></i><button class="avatar" data-action="profile-menu" aria-label="当前账号：${E(R.meName(state))}" title="当前账号：${E(R.meName(state))}" aria-haspopup="menu">${icon("people")}</button></div><span id="save-status" class="save-status" role="status"></span></header><nav class="rail" aria-label="模块导航">${appNav()}</nav><aside class="subnav" id="app-subnav"${activeRoute === "dashboard" && !favoritesMode ? " hidden" : ""}>${subnav()}</aside>${activeRoute === "customers" ? customerNavToggle(false) : ""}<main class="main ${activeRoute === "customers" ? "customer-main" : ""}">${content}</main>`;
   }
+  // ---- 外框只画一次：之后每次换页、重画只换 main 里的内容 ----
+  // 顶栏、左侧栏、二级导航第一次打开时整块画出来；之后换页、点筛选、勾选时这些节点一直留在页面上，
+  // 只把真正变了的地方改掉（左侧栏高亮、二级导航内容和隐藏、搜索范围文字、保存状态、版本号），main 里换成新页面。
+  // 换主题、换账号时整块重画一次。画完后焦点如果掉到了页面上（例如勾选、回车搜索、改筛选），放回原来那个输入框或勾选框。
+  let shellKey = "";
+  let shellView = "";
+  const shellPart = (node) =>
+    node.matches("header.topbar") ? "topbar" : node.matches("nav.rail") ? "rail" : node.id === "app-subnav" ? "subnav"
+      : node.matches(".subnav-restore") ? "restore" : node.matches("main.main") ? "main" : "";
+  // 把页面上的节点就地改成和新标记一样：同类节点只改不同的属性和文字，结构不同的才换掉。
+  function morphNode(live, next) {
+    if (live.nodeType !== next.nodeType || live.nodeName !== next.nodeName) {
+      live.replaceWith(next);
+      return next;
+    }
+    if (live.nodeType === 3 || live.nodeType === 8) {
+      if (live.nodeValue !== next.nodeValue) live.nodeValue = next.nodeValue;
+      return live;
+    }
+    if (live.nodeType !== 1) return live;
+    for (const name of live.getAttributeNames()) if (!next.hasAttribute(name)) live.removeAttribute(name);
+    for (const name of next.getAttributeNames()) {
+      const value = next.getAttribute(name);
+      if (live.getAttribute(name) !== value) live.setAttribute(name, value);
+    }
+    // 输入框：没在打字时，显示的内容跟着新标记走（和整块重画一样）。
+    if ((live.tagName === "INPUT" || live.tagName === "TEXTAREA") && live !== document.activeElement && live.value !== next.value) live.value = next.value;
+    let child = live.firstChild;
+    for (const nextChild of [...next.childNodes]) {
+      if (!child) {
+        live.append(nextChild);
+        continue;
+      }
+      const following = child.nextSibling;
+      morphNode(child, nextChild);
+      child = following;
+    }
+    while (child) {
+      const following = child.nextSibling;
+      child.remove();
+      child = following;
+    }
+    return live;
+  }
+  // 焦点所在的输入框、下拉框、勾选框：记下能在新页面里找回它的标记（id、name、data-*）。
+  function focusLocator(main) {
+    let el = document.activeElement;
+    if (!el || !main?.contains(el)) return null;
+    if (el.classList.contains("lai-select-trigger") && el.previousElementSibling?.tagName === "SELECT") el = el.previousElementSibling;
+    if (!["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName)) return null;
+    let selector = el.tagName.toLowerCase();
+    if (el.id) selector += "#" + CSS.escape(el.id);
+    else {
+      const names = el.getAttributeNames().filter((name) => name === "name" || name === "type" || (name.startsWith("data-") && !name.startsWith("data-lai-")));
+      if (["checkbox", "radio"].includes(el.type) && el.hasAttribute("value")) names.push("value");
+      if (!names.some((name) => name !== "type")) return null;
+      selector += names.map((name) => `[${name}="${CSS.escape(el.getAttribute(name))}"]`).join("");
+    }
+    const text = el.tagName !== "SELECT" && !["checkbox", "radio"].includes(el.type);
+    let range = null;
+    try {
+      if (text) range = [el.value, el.selectionStart, el.selectionEnd];
+    } catch {
+      range = null;
+    }
+    return { selector, range };
+  }
+  function restoreFocus(locator) {
+    if (!locator) return;
+    // 画完以后别处已经把焦点放到了别的地方：不抢。
+    queueMicrotask(() => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      const el = document.querySelector("#app > main.main " + locator.selector);
+      if (!el || el.disabled) return;
+      el.focus({ preventScroll: true });
+      if (el.dataset.laiSuggestionsList) window.LaiCustomerSuggestions?.close?.();
+      if (!locator.range || document.activeElement !== el) return;
+      const [value, start, end] = locator.range;
+      try {
+        if (el.value === value && start !== null) el.setSelectionRange(start, end);
+        else el.setSelectionRange(el.value.length, el.value.length);
+      } catch {
+        /* 有的输入框（日期等）不能设光标位置 */
+      }
+    });
+  }
+  function renderShell(content) {
+    const app = $("#app");
+    const key = `${document.documentElement.dataset.theme || ""}|${R.currentMember(state)?.id || ""}`;
+    const view = `${activeRoute}|${favoritesMode}|${customerScreen}|${currentName}`;
+    const liveMain = app.querySelector(":scope > main.main");
+    const locator = view === shellView ? focusLocator(liveMain) : null;
+    shellView = view;
+    if (!liveMain || key !== shellKey) {
+      shellKey = key;
+      app.innerHTML = shell(content);
+      restoreFocus(locator);
+      return;
+    }
+    const template = document.createElement("template");
+    template.innerHTML = shell("");
+    const nextParts = [...template.content.children];
+    const wanted = new Set(nextParts.map(shellPart));
+    const live = new Map();
+    // 外框以外的东西（悬停浮层等）和这次不需要的部分（客户页的「展开导航」按钮）先拿掉，和原来整块重画一样。
+    for (const child of [...app.children]) {
+      const part = shellPart(child);
+      if (part && wanted.has(part) && !live.has(part)) live.set(part, child);
+      else child.remove();
+    }
+    // 二级导航换成了另一个菜单：滚动回到开头（和新画出来的一样）。
+    const subnavTitle = live.get("subnav")?.firstElementChild?.textContent;
+    let cursor = app.firstElementChild;
+    for (const next of nextParts) {
+      const part = shellPart(next);
+      const node = live.has(part) ? (part === "main" ? live.get(part) : morphNode(live.get(part), next)) : next;
+      if (node === cursor) cursor = cursor.nextElementSibling;
+      else app.insertBefore(node, cursor);
+      if (part === "subnav" && live.has(part) && node.firstElementChild?.textContent !== subnavTitle) node.scrollTop = 0;
+      if (part === "main") {
+        node.setAttribute("class", next.getAttribute("class"));
+        node.innerHTML = content;
+        node.scrollTop = 0;
+        node.scrollLeft = 0;
+      }
+    }
+    restoreFocus(locator);
+  }
   // 当前账号打不开的页面：只显示原因，不显示页面内容。
   function blockedPage(title, message, hint = "可以点右上角头像，切换到别的测试账号。") {
     window.LaiActivityCategoryNavigation.mount(null);
     closeDropdowns();
     removePopover();
-    $("#app").innerHTML = shell(
+    renderShell(
       `<div class="pagebar"><div class="page-tabs"><h1>${E(title)}</h1></div></div><section class="module-page"><div class="empty role-blocked" role="status"><strong>${E(message)}</strong><span>${E(hint)}</span></div></section>`,
     );
   }
@@ -453,7 +581,7 @@
         .filter((g) => g.kind === "rules" && !g.archived)
         .map((g) => [g.id, S.resolveMembers(rows, g, undefined, state).length]),
     );
-    $("#app").innerHTML = shell(
+    renderShell(
       window.LaiCustomerList.render({
         rows,
         p,
@@ -629,7 +757,7 @@
     if (!keepTab) tab = "info";
     const c = allCustomerRows().find((c) => c.name === name);
     if (!c) return list();
-    $("#app").innerHTML = shell(detailMarkup(c));
+    renderShell(detailMarkup(c));
     updateDocumentSelectAll();
     syncDetailTabOverflow();
     window.LaiActivityCategoryNavigation.mount($(".lcd-root"));
@@ -3975,7 +4103,7 @@
     window.LaiActivityCategoryNavigation.mount(null);
     closeDropdowns();
     removePopover();
-    $("#app").innerHTML = shell(favoritesHomeMarkup());
+    renderShell(favoritesHomeMarkup());
   }
   function navRow(entry, active, attrs, content) {
     return `<div class="nav-row"><button type="button" class="nav-entry${active ? " active" : ""}" ${attrs}${active ? ' aria-current="page"' : ""}>${content}</button>${favoriteHeart(entry.id, entry.label)}</div>`;
@@ -4179,7 +4307,7 @@
       );
       body = `<div class="module-note">${screen === "pool" ? "移入公海的客户在这里集中管理。领回时选跟进人，默认是原跟进人。" : "回收站保留客户资料与关联订单。恢复后回到原来的客户列表或公海。"}</div><div class="module-table-wrap"><table class="order-table"><thead><tr><th>客户名称</th><th>国家地区</th><th>主要联系人</th><th>订单数</th><th>操作</th></tr></thead><tbody>${data.map((c) => `<tr><td><button class="company-link" data-open="${E(c.name)}">${E(c.name)}</button></td><td>${E(C.countryLabel(c.country))}</td><td>${E(screen === "pool" && !CT.poolContactsVisible(state) ? "已隐藏" : c.contact || "—")}</td><td>${c.orderCount}</td><td>${(screen === "pool" ? can("pool.claim") || can("pool.assign") : can("customer.trash")) ? `<button class="primary" data-customer-transition="${screen === "pool" ? "active" : "restore"}" data-customer-name="${E(c.name)}">${screen === "pool" ? "领回客户" : "恢复客户"}</button>` : ""}<button class="text-button" data-open="${E(c.name)}">查看</button></td></tr>`).join("")}</tbody></table>${data.length ? "" : '<div class="empty">' + icon("folder") + "<strong>" + (screen === "pool" ? "公海中暂无客户" : "回收站为空") + "</strong><span>" + (screen === "pool" ? "客户移入公海后会显示在这里" : "删除的客户会显示在这里") + "</span></div>"}</div>`;
     }
-    $("#app").innerHTML = shell(
+    renderShell(
       `<div class="pagebar"><div class="page-tabs"><h1>${names[screen]}</h1></div><button data-lai-screen="active">返回客户列表</button></div><section class="module-page">${body}</section>`,
     );
     document
@@ -4803,7 +4931,7 @@
     // 同一个页签里保存后重新画页面，保持原来的滚动位置（公海管理很长）。
     const sameTab = document.querySelector(`.cs-panel[data-cs-panel="${csTab}"]`);
     const scrolled = sameTab ? sameTab.closest("main")?.scrollTop || 0 : 0;
-    $("#app").innerHTML = shell(
+    renderShell(
       window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing, dedupeSub: csDedupeSub, hiddenTabs: csHiddenTabs(), canOpenSettings: R.canOpen(state, "route", "settings") }, E, ownerChoices()),
     );
     // 常用入口（列表字段、客群、标签……）属于「客户设置」权限。
@@ -5620,7 +5748,7 @@
       window.LaiActivityCategoryNavigation.mount(null);
       closeDropdowns();
       removePopover();
-      $("#app").innerHTML = shell(html);
+      renderShell(html);
     },
     save: persist,
     // 商机附件：读取文件、JSON 请求、上传文件（请求体就是文件内容）。
@@ -5714,7 +5842,7 @@
       window.LaiActivityCategoryNavigation.mount(null);
       closeDropdowns();
       removePopover();
-      $("#app").innerHTML = shell(html);
+      renderShell(html);
     },
   });
   // ---- 沟通：WhatsApp（D-023）----
@@ -5793,7 +5921,7 @@
       window.LaiActivityCategoryNavigation.mount(null);
       closeDropdowns();
       removePopover();
-      $("#app").innerHTML = shell(html);
+      renderShell(html);
     },
     // 只传 https 链接，用系统浏览器打开；打不开时复制链接（对话框里也一直有“复制链接”）。
     openExternal: (url) => {
