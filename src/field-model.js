@@ -198,6 +198,6 @@
   // 有多少条记录在这个字段上填了值。records：数组或以名称为键的对象。
   const usage=(records,id)=>(Array.isArray(records)?records:Object.values(plain(records))).filter(r=>r&&typeof r==='object'&&hasValue(plain(r.custom)[id])).length;
 
-  const api={ENTITIES,TYPES,LIMIT,LIMITS,typeLabel,get,addField,renameField,changeType,moveField,deleteField,setOptions,setRequired,setSystemRequired,cleanValue,missingRequired,formatValue,hasValue,usage};
+  const api={ENTITIES,TYPES,LIMIT,LIMITS,typeLabel,sameName,get,addField,renameField,changeType,moveField,deleteField,setOptions,setRequired,setSystemRequired,cleanValue,missingRequired,formatValue,hasValue,usage};
   if(node)module.exports=api;else root.LaiFieldModel=api;
 })(typeof window!=='undefined'?window:globalThis);

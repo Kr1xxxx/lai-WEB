@@ -114,6 +114,59 @@
   function hiddenFields(state){const fields=get(state).fields;return FIELDS.filter(({id})=>!fields[id].show).map(field=>field.id);}
   function requiredFields(state){const fields=get(state).fields;return FIELDS.filter(({id})=>fields[id].required).map(field=>field.id);}
 
-  const api={DEFAULT_REASONS,LIMITS,FIELDS,get,reasonsOf,reasonUse,reasonRows,addReason,renameReason,moveReason,removeReason,lockedBy,fieldRows,setField,hiddenFields,requiredFields};
+  // ---- 自定义字段（线索设置 → 自定义字段）----
+  // 设置存在 laiSettings.fieldSettings.lead（见 field-model.js），值存在线索的 custom[字段ID] 里。
+  // 必填只在新建、编辑线索表单保存时检查；删除字段只去掉设置，线索里已填的值原样留着，只是不再显示。
+  const FM=()=>node?require('./field-model.js'):root.LaiFieldModel;
+  // 线索自带字段的名称：自定义字段不能和它们重名。
+  const RESERVED_NAMES=Object.freeze(['线索名称','名称','联系人','邮箱','电话','国家地区','国家','线索来源','来源','网址','意向产品','备注','下次跟进','跟进人','状态','创建时间','最近跟进','无效原因','已转客户']);
+  const customRoleKey=id=>`custom.${id}`;
+  const customSettings=state=>FM().get(state,'lead');
+  const customFields=state=>customSettings(state).customFields;
+  function customRows(state){
+    const fm=FM();
+    return customFields(state).map(field=>({...field,typeLabel:fm.typeLabel(field.type),usage:fm.usage(leadsOf(state),field.id),locked:lockedBy(state,customRoleKey(field.id))}));
+  }
+  const addCustomField=(state,input)=>FM().addField(state,'lead',input,{reserved:RESERVED_NAMES});
+  const renameCustomField=(state,id,name)=>FM().renameField(state,'lead',id,name,{reserved:RESERVED_NAMES});
+  const moveCustomField=(state,id,delta)=>FM().moveField(state,'lead',id,Number(delta)<0?-1:1);
+  const deleteCustomField=(state,id)=>FM().deleteField(state,'lead',id);
+  function setCustomRequired(state,id,on){
+    if(on===true||on==='true'||on==='on'||on==='1'){
+      const lock=lockedBy(state,customRoleKey(id))[0];
+      if(lock)throw new Error(`角色「${lock.role}」把这个字段设为${lock.level==='hidden'?'隐藏':'只读'}，不能同时必填`);
+    }
+    return FM().setRequired(state,'lead',id,on);
+  }
+  // 选项：可以添加、排序、删除，不能改名。删掉的选项，线索身上已存的值仍保留。
+  function optionsOf(state,id){
+    const field=customFields(state).find(item=>item.id===id);
+    if(!field)throw new Error('字段不存在，可能已被删除');
+    if(field.type!=='select'&&field.type!=='multi')throw new Error('这个类型的字段没有选项');
+    return field.options;
+  }
+  function addFieldOption(state,id,text){
+    const value=trim(text);
+    if(!value)throw new Error('请填写选项');
+    const options=optionsOf(state,id);
+    if(options.some(option=>norm(option)===norm(value)))throw new Error('已经有这个选项');
+    return FM().setOptions(state,'lead',id,[...options,value]);
+  }
+  function moveFieldOption(state,id,option,delta){
+    const options=[...optionsOf(state,id)],i=options.indexOf(option),j=i+(Number(delta)<0?-1:1);
+    if(i<0)throw new Error('选项不存在，可能已被删除');
+    if(j<0||j>=options.length)throw new Error(j<0?'已经是第一个了':'已经是最后一个了');
+    [options[i],options[j]]=[options[j],options[i]];
+    return FM().setOptions(state,'lead',id,options);
+  }
+  function removeFieldOption(state,id,option){
+    const options=optionsOf(state,id);
+    if(!options.includes(option))throw new Error('选项不存在，可能已被删除');
+    if(options.length<=1)throw new Error('至少要留一个选项');
+    return FM().setOptions(state,'lead',id,options.filter(item=>item!==option));
+  }
+
+  const api={DEFAULT_REASONS,LIMITS,FIELDS,RESERVED_NAMES,get,reasonsOf,reasonUse,reasonRows,addReason,renameReason,moveReason,removeReason,lockedBy,fieldRows,setField,hiddenFields,requiredFields,
+    customFields,customRows,addCustomField,renameCustomField,moveCustomField,deleteCustomField,setCustomRequired,addFieldOption,moveFieldOption,removeFieldOption};
   if(node)module.exports=api;else root.LaiLeadSettings=api;
 })(typeof window!=='undefined'?window:globalThis);

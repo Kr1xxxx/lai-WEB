@@ -6,6 +6,7 @@
   const CF = node ? require('./customer-fields.js') : root.LaiCustomerFields;
   const OM = node ? require('./opportunity-model.js') : root.LaiOpportunityModel;
   const BM = node ? require('./business-model.js') : root.LaiBusinessModel;
+  const FM = () => node ? require('./field-model.js') : root.LaiFieldModel;
 
   const MAX_ROWS = 20000;
   const MAX_ERROR = '一次最多导出 20,000 行，请先筛选';
@@ -151,6 +152,11 @@
       ['owner', '跟进人', l => text(l.owner)], ['nextFollow', '下次跟进', l => localDay(l.nextFollow)],
       ['lastFollowAt', '最近跟进', l => localDay(l.lastFollowAt)], ['createdAt', '创建时间', l => localDay(l.createdAt)],
       ['invalidReason', '无效原因', l => text(l.invalidReason)], ['convertedTo', '已转客户', l => text(l.convertedTo)],
+      // 自定义字段（线索设置 → 自定义字段）：设置里还在的字段，列 id 是 custom:<字段ID>，字段权限走 custom.<字段ID>。
+      ...(FM() ? FM().get(state, 'lead').customFields : []).map(field => ['custom:' + field.id, field.name, l => {
+        const value = l.custom && typeof l.custom === 'object' ? l.custom[field.id] : undefined;
+        return field.type === 'number' ? num(value) : field.type === 'date' ? localDay(value) || text(value) : text(value);
+      }]),
     ];
     return build(columns, source, options.gate);
   }
