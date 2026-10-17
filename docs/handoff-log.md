@@ -4,6 +4,13 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude (mail thread) — Owner asked to replace mail with Warmbly. Research: Warmbly is a cold-email /
+  warm-up SaaS (npm `warmbly` is only a client for its paid API; self-host is Go + Postgres + Redis), so not
+  recommended; the app already vendors the standard libraries. Owner chose 升级到新版: rebuilt
+  `vendor/mail-libs/mail-libs.cjs` from imapflow 2.5.2, nodemailer 10.1.2, postal-mime 4.0.8, libmime 5.4.9, libqp 2.1.3,
+  libbase64 1.3.3, mailsplit 5.4.23 (licence texts unchanged). First rebuilt the old versions with the documented steps
+  and got a byte-identical file; README now spells out the directory layout, `node_modules` links and the services.json
+  key order needed for that. model 1478 / e2e 301. vendor/ → PR is needs-owner. Real Zoho send/receive still untested (owner: wait).
 - 2026-10-17 — Claude — Kit migration of the remaining pages (owner: 继续, restyle 邮件, 沟通, 团队数据 and the settings
   pages). Advisor before the plan: add a shared vertical tab list and switch to the kit first (done: `.k-tabs--vertical`,
   `.k-switch`, `.k-checkbox`; selectors are `input.k-*` so the glass checkbox rule does not win), keep the `cs-` family in
