@@ -12,6 +12,10 @@ looks up docs, `reviewer` checks a diff. Fable 5.1 is on call as the `advisor` a
 coordinator consults it at three moments: before picking a plan, when an error repeats, and before calling a task
 done. Plan on high, delegate on medium, keep Fable on call.
 
+The owner (2026-10-17): do not ask him questions; when unsure, consult the `advisor` and decide. Still ask him only for
+what AGENTS.md lists under "Ask the owner first" (new dependencies, schema/data-directory changes, irreversible
+real-world actions, releases) and for things only he can do (his accounts, GitHub settings).
+
 1. **Spec and plan first, in the conversation.** Before delegating, write the final spec (goal, behaviour, files,
    tests, out of scope) and a plan split into slices that touch different files. Commit it if workers need files
    from it (worktrees start from the committed `HEAD`, not uncommitted changes).
