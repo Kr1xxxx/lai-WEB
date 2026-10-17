@@ -12,6 +12,7 @@ const TU = require('../src/team-ui.js');
 const B = require('../src/business-model.js');
 const RM = require('../src/rail-menu.js');
 const {escapeHtml} = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const ui = U.create(escapeHtml, O);
 const TODAY = '2026-10-06';
@@ -341,7 +342,7 @@ test('controller: a failed save keeps the form and its content; analysis page an
 test('navigation: 商机 is a real menu with its own pages and highlight', () => {
   assert.deepEqual(RM.sectionFor('opportunities').entries.map(e => [e.label, e.target]), [['商机看板', 'opportunities'], ['商机分析', 'opp-analysis'], ['商机设置', 'opp-flows']]);
   assert.equal(RM.sectionFor('opp-analysis').label, '商机');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   assert.match(app, /\["globe", "商机", "opportunities"\]/);
   // 业务页面清单不再在 app.js 里另抄一份，而是取自 rail-menu.js（与「可设为常用」同一来源）。
   assert.match(app, /const businessRoutes = new Set\(RM\.favoritable\(\)\.filter/);
@@ -424,7 +425,7 @@ test('customer page: the controller API opens the form for that customer and ret
 
 test('customer page: detail shows the current in-progress opportunity, real counts, and its buttons are handled', () => {
   const D = require('../src/customer-detail-ui.js');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = app.slice(app.indexOf('  const detailOpp = {'), app.indexOf('  function detailMarkup(c) {'));
   const s = sample();
   const calls = [];
@@ -464,7 +465,7 @@ test('customer page: detail shows the current in-progress opportunity, real coun
 
 test('customer page: 本部门 accounts see (and count) only their department\'s opportunities and orders in the detail, and own their new customers', () => {
   const R = require('../src/role-model.js');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = app.slice(app.indexOf('  const detailOpp = {'), app.indexOf('  function customerOpportunityFeature(')) +
     app.slice(app.indexOf('  function newCustomerOwner() {'), app.indexOf('  function editForm('));
   let s = {...sample(), orders: [{id: 'o1', client: 'Alpha <b>Co</b>', owner: 'Amy'}, {id: 'o2', client: 'Alpha <b>Co</b>', owner: 'Bob'}, {id: 'o3', client: 'Alpha <b>Co</b>', owner: 'Na<i>omi'}]};
@@ -501,7 +502,7 @@ test('customer page: 本部门 accounts see (and count) only their department\'s
 });
 
 test('customer editor: ticking 同时新建商机 no longer blocks saving; it opens the opportunity form afterwards', () => {
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   assert.doesNotMatch(app, /商机创建待后续实现/);
   assert.match(app, /wantOpportunity = !!fd\.get\("createOpportunity"\);/);
   assert.match(app, /toast\("已保存到来财"\);\s*if \(wantOpportunity && form\.id === "customer-form"\) business\.newOpportunity\(data\.name\.trim\(\)\);/);

@@ -7,6 +7,7 @@ const R = require('../src/role-model.js');
 const List = require('../src/customer-list-ui.js');
 const SettingsUI = require('../src/customer-settings-ui.js');
 const M = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const row = { name: 'Acme', country: '美国', tags: [], owner: 'Kris', orderCount: 0, orders: [], history: [], followed: false };
 const listHtml = (can, selected = new Set()) => List.render({
@@ -65,7 +66,7 @@ test('the customer settings page hides the tabs and shortcut a role has no permi
 });
 
 test('app.js guards every customer action handler, not just the buttons', () => {
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = (name) => {
     const start = app.search(new RegExp(`  (async )?function ${name}\\(`));
     assert.ok(start >= 0, name);

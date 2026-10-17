@@ -6,7 +6,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+const { appSource } = require('./helpers/source.cjs');
+const app = appSource();
 
 function harness(request, manualBackup) {
   const notices = new Map(), timers = new Map(), toasts = [];

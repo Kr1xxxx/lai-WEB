@@ -8,6 +8,10 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   tech section, 设置 preview) and made the default (S-B: `DEFAULT_THEME`, `:root,` block, picker label). Saved
   pink/orange untouched. D-033 text goes into `docs/DECISIONS.md` in its own PR (rulebook, needs the owner's 合并).
   Next: S-C taste tweaks after the owner looks at the trial; must land before the old-CSS merge (S4).
+- 2026-10-17 — Claude (#03 thread) — Slice 0 of the app.js split (task 25): `tests/helpers/source.cjs` (`appSource()`
+  reads scripts/build.py's PREVIEW_APP list and joins the parts as build.py does); the 27 tests that read `src/app.js`
+  text now use it, no assertions changed. Split plan (advisor-reviewed): `/mnt/project-files/plans/03-split-app-js.md`;
+  the split itself waits until the restyle (#02) and contact-mail/商机 (#04) PRs merge.
 - 2026-10-17 — Claude — #26 (写邮件 on every contact card, addressed to that contact; extra-contact emails now count
   as customer addresses for mail matching) and #27 (商机 客户/负责人 as real dropdowns, old values kept, owner locked
   without 转移负责人) done by two parallel workers; the #27 worker hit the usage limit before committing, its saved work

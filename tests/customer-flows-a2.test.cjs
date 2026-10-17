@@ -10,6 +10,7 @@ require('../src/mail-ui.js');
 globalThis.LaiCustomerSettings = CSM;
 globalThis.LaiCustomerTools = CT;
 const D = require('../src/customer-detail-ui.js');
+const { appSource } = require('./helpers/source.cjs');
 const Mail = globalThis.LaiMailUI;
 
 const NOW = new Date('2026-10-09T12:00:00');
@@ -177,7 +178,7 @@ test('auto-record: the plan applies in one state update and a second pass record
 });
 
 test('the customer save path refuses edits of a pool customer whose contacts are hidden', () => {
-  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/app.js'), 'utf8');
+  const source = appSource();
   assert.match(source, /form\.id === "customer-form" && form\.dataset\.oldName && poolEditBlocked\(form\.dataset\.oldName\)\)\s*throw new Error\(POOL_EDIT_BLOCKED\)/);
   assert.match(source, /if \(!isNew && poolEditBlocked\(customerName\)\) return toast\(POOL_EDIT_BLOCKED\)/);
   assert.match(source, /const poolEditBlocked = \(name\) =>\s*L\.bucket\(state\.customers\?\.\[name\] \|\| \{\}\) === "pool" && !CT\.poolContactsVisible\(state\)/);
