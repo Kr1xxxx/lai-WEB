@@ -13,7 +13,7 @@
   three themes (pink default, orange, 科技蓝; 小满 removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
 - `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); there is no Mac app any more (`mac` flag unused).
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
-- How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". The owner wants no questions: consult the advisor and decide (CLAUDE.md).
+- How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". Fable 5.1 medium `specialist` takes complex slices and second passes (D-032). The owner wants no questions: consult the advisor and decide (CLAUDE.md).
 - UI direction (D-028): one component kit, shadcn/ui-style rules in 科技蓝 colours; 小满 style removed (D-029).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
   `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.16, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
