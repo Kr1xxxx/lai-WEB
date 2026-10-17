@@ -3,7 +3,12 @@
   const M = root.PreviewModel || (typeof require === "function" ? require("./model.js") : null);
   const F = root.LaiCustomerFields || (typeof require === "function" ? require("./customer-fields.js") : null);
   const CS = root.LaiCustomerSettings || (typeof require === "function" ? require("./customer-settings-model.js") : null);
+  const fieldModel = () => root.LaiFieldModel || (typeof require === "function" ? require("./field-model.js") : null);
   const initialDateValues = new WeakMap();
+  // 必填检查用：打开表单时的值、这次动过的字段（见 customer-settings-model.js 的 missingRequired）。
+  const initialFieldValues = new WeakMap();
+  const touchedFields = new WeakMap();
+  const SYSTEM_IDS = ["email", "phone", "customerStage", "previewGroup", "productType", "customerType", "website", "timezone", "customerStars"];
   function dateInputType(value) {
     const text = String(value ?? "");
     if (!text) return "date";
@@ -120,6 +125,11 @@
       ...CS.groupChoices(state, c.owner || "", groupName).map((item) => item.value),
     ];
     const rating = Math.min(5, Math.max(0, Number(c.customerStars) || 0));
+    // 字段设置里的必填：系统字段和自定义字段都标星（只读、看不到的不标，保存时也不查）。
+    const FM = fieldModel();
+    const fieldSettings = FM ? FM.get(state, "customer") : { customFields: [], required: {} };
+    const req = (id) => fieldSettings.required[id] === true && gate.editable(id);
+    const starOf = (on) => on ? '<span class="ce-required" aria-hidden="true">*</span>' : "";
     const extrasCount = Math.max(
       (Array.isArray(c.extraContacts) ? c.extraContacts.length : 0),
       (c.contacts || []).length - 1,
@@ -200,18 +210,18 @@
         }),
       );
     const companyFields = {
-      website: field("website", "公司网址", `${input("website", c.website)}`, { extra: "ce-website" }),
+      website: field("website", "公司网址", `${input("website", c.website)}`, { extra: "ce-website", star: req("website") }),
       name: field("name", "公司名称", input("name", c.name, "客户品牌名", { required: true }), { star: true }),
       country: field("country", "国家地区", combo("country", c.country, "可以搜索", countryOptions, isNew), { star: true }),
       source: field("source", "客户来源", combo("source", c.source, "请选择", (CS && CS.sourceChoices(state)) || list("source"), isNew), { star: true }),
-      productType: field("productType", "主营产品类型", select("productType", c.productType, "请选择", list("productType"))),
+      productType: field("productType", "主营产品类型", select("productType", c.productType, "请选择", list("productType")), { star: req("productType") }),
       tags: field("tags", "客户标签", input("tags", Array.isArray(c.tags) ? c.tags.join("，") : c.tags, "选填")),
-      previewGroup: field("previewGroup", "客户分组", select("previewGroup", groupName, "默认未分组", groups)),
-      customerStage: field("customerStage", "客户阶段", select("customerStage", originalStage, "选填", stageOptions)),
-      customerType: field("customerType", "客户类型", select("customerType", c.customerType || "", "选填", typeOptions)),
-      customerStars: `<div class="ce-field ce-rating-field"><span class="ce-label">客户星级</span><div class="ce-rating" role="radiogroup" aria-label="客户星级" data-rating="${rating}"><input type="hidden" name="customerStars" value="0">${[1, 2, 3, 4, 5].map((star) => `<label class="${star <= rating ? "is-active" : ""}"><input type="radio" name="customerStars" value="${star}" aria-label="${star}星"${rating === star ? " checked" : ""}>${glyph("star")}</label>`).join("")}</div></div>`,
+      previewGroup: field("previewGroup", "客户分组", select("previewGroup", groupName, "默认未分组", groups), { star: req("previewGroup") }),
+      customerStage: field("customerStage", "客户阶段", select("customerStage", originalStage, req("customerStage") ? "请选择" : "选填", stageOptions), { star: req("customerStage") }),
+      customerType: field("customerType", "客户类型", select("customerType", c.customerType || "", req("customerType") ? "请选择" : "选填", typeOptions), { star: req("customerType") }),
+      customerStars: `<div class="ce-field ce-rating-field"><span class="ce-label">${starOf(req("customerStars"))}客户星级</span><div class="ce-rating" role="radiogroup" aria-label="客户星级" data-rating="${rating}"><input type="hidden" name="customerStars" value="0">${[1, 2, 3, 4, 5].map((star) => `<label class="${star <= rating ? "is-active" : ""}"><input type="radio" name="customerStars" value="${star}" aria-label="${star}星"${rating === star ? " checked" : ""}>${glyph("star")}</label>`).join("")}</div></div>`,
       customerCode: `<div class="ce-field ce-number-field"><span class="ce-label">客户编号</span><div class="ce-customer-number"><span data-customer-code-display>${E(c.customerCode || "*****")}</span><button type="button" class="ce-number-edit" data-editor-action="edit-customer-code" aria-label="编辑客户编号">${glyph("edit")}</button><input id="ce-customerCode" class="ce-number-input" name="customerCode" type="text" value="${E(c.customerCode || "")}" aria-label="客户编号" hidden></div></div>`,
-      timezone: field("timezone", "时区", select("timezone", c.timezone, "不用填写", list("timezone"))),
+      timezone: field("timezone", "时区", select("timezone", c.timezone, req("timezone") ? "请选择" : "不用填写", list("timezone")), { star: req("timezone") }),
       defaultPaymentPlan: field("defaultPaymentPlan", "默认付款计划", input("defaultPaymentPlan", c.defaultPaymentPlan, "请选择")),
       customerAccountPeriod: field("customerAccountPeriod", "客户账期", input("customerAccountPeriod", c.customerAccountPeriod, "请选择")),
       companyProducts: field("companyProducts", "主营产品", select("companyProducts", c.companyProducts ?? c.mainProducts ?? c["主营产品"], "请选择", list("companyProducts"))),
@@ -219,6 +229,35 @@
       customBox: field("customBox", "定制盒", select("customBox", c.customBox ?? c["定制盒"], "请选择", list("customBox"))),
     };
     for (const key of Object.keys(companyFields)) companyFields[key] = gated(key, companyFields[key]);
+    // 自定义字段（客户设置 → 字段设置）：按设置里的顺序；看不到的不画，只读的画出来但不能改。
+    const savedCustom = (() => {
+      const raw = (!isNew && state.customers?.[c.name]?.custom) || c.custom;
+      return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    })();
+    const customControl = (def, value) => {
+      const id = `ce-custom-${def.id}`, name = `custom.${def.id}`;
+      if (def.type === "textarea") return `<textarea id="${id}" name="${E(name)}" rows="3" placeholder="请输入">${E(value ?? "")}</textarea>`;
+      if (def.type === "number") return `<input id="${id}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value ?? "")}" placeholder="请输入数字">`;
+      if (def.type === "date") return `<input id="${id}" name="${E(name)}" type="${dateInputType(value ?? "")}" value="${E(value ?? "")}" placeholder="请选择">`;
+      if (def.type === "select") {
+        const current = typeof value === "string" ? value : "";
+        return `<div class="ce-select"><select id="${id}" name="${E(name)}">${option("", "请选择", current)}${values(def.options, current).map((item) => option(item, item, current)).join("")}</select>${glyph("down")}</div>`;
+      }
+      if (def.type === "multi") {
+        const picked = Array.isArray(value) ? value.map(String) : [];
+        const choices = [...new Set([...def.options, ...picked])];
+        return `<div class="ce-multi" id="${id}" role="group" aria-label="${E(def.name)}">${choices.map((item) => `<label class="ce-multi-option"><input type="checkbox" name="${E(name)}" value="${E(item)}"${picked.includes(item) ? " checked" : ""}> ${E(item)}</label>`).join("")}</div>`;
+      }
+      return `<input id="${id}" name="${E(name)}" type="text" value="${E(value ?? "")}" placeholder="请输入">`;
+    };
+    const customFields = fieldSettings.customFields.map((def) => {
+      const editable = gate.editable("custom." + def.id);
+      const label = def.type === "multi"
+        ? `<span class="ce-label">${starOf(def.required && editable)}${E(def.name)}</span>`
+        : `<label for="ce-custom-${E(def.id)}">${starOf(def.required && editable)}${E(def.name)}</label>`;
+      return gated("custom." + def.id, `<div class="ce-field ce-custom-field" data-custom-id="${E(def.id)}" data-custom-type="${def.type}">${label}${customControl(def, savedCustom[def.id])}</div>`);
+    }).join("");
+    const customSection = customFields ? `<div class="ce-custom-fields" data-custom-fields><h3>自定义字段</h3>${customFields}</div>` : "";
     const layout = F.normalizeCompanyDisplayLayout(state.previewCompanyDisplayLayout);
     const fieldGroup = (ids) => ids.map((id) => `<div data-company-field="${id}">${companyFields[id]}</div>`).join("");
     const tradeFields = [
@@ -228,7 +267,7 @@
       gated("repurchaseCycle", field("repurchaseCycle", "复购周期", `<div class="ce-select"><select id="ce-repurchaseCycle" name="repurchaseCycle">${option("", "不提醒", String(c.repurchaseCycle || ""))}${values(["30", "60", "90", "180"], String(c.repurchaseCycle || "")).map((cycle) => option(cycle, `${cycle} 天`, String(c.repurchaseCycle || ""))).join("")}</select>${glyph("down")}</div>`)),
     ].join("");
     const company = `<section class="ce-company"><div class="ce-section-heading"><h3>公司常用信息</h3><button type="button" data-action="company-display-settings" class="ce-display-settings">${glyph("settings")}显示设置</button></div>
-      <div data-company-common>${fieldGroup(layout.common)}</div>
+      <div data-company-common>${fieldGroup(layout.common)}</div>${customSection}
       <details class="ce-extra ce-company-extra"><summary><span>展开全部 (选填)</span>${glyph("down")}</summary><div class="ce-extra-content"><h3>公司其它信息</h3><div data-company-other>${fieldGroup(layout.other)}</div>
         ${[["shortName","公司简称"],["landline","座机"],["companyAddress","详细地址"],["companyRemark","公司备注"],["poolGroup","公海分组"]]
           .filter(([key]) => c[key]).map(([key,label]) => gated(key, field(key,label,input(key,c[key])))).join("")}
@@ -255,6 +294,16 @@
     form.dataset.editorBound = "true";
     for (const control of form.querySelectorAll("[data-editor-date]"))
       initialDateValues.set(control, control.value);
+    initialFieldValues.set(form, formValues(form));
+    const touched = new Set();
+    touchedFields.set(form, touched);
+    const markTouched = (event) => {
+      const name = String(event.target?.name || "");
+      if (name.startsWith("custom.")) touched.add(name.slice(7));
+      else if (SYSTEM_IDS.includes(name)) touched.add(name);
+    };
+    form.addEventListener("input", markTouched);
+    form.addEventListener("change", markTouched);
     const setOptionalSection = (section, open) => {
       if (!section) return;
       section.open = open;
@@ -405,7 +454,29 @@
         );
     });
   }
-  const api = { render, bind, isUnchangedDate };
+  // 表单里当前的值：custom 是能改的自定义字段（只读的不算），system 是可设必填的系统字段（主联系人的邮箱、电话）。
+  function formValues(form) {
+    const custom = {}, system = {};
+    for (const box of form?.querySelectorAll?.("[data-custom-id]") || []) {
+      if (box.closest("[data-role-readonly]")) continue;
+      const id = box.dataset.customId;
+      if (box.dataset.customType === "multi") custom[id] = [...box.querySelectorAll('input[type="checkbox"]:checked')].map((item) => item.value);
+      else custom[id] = box.querySelector("input,select,textarea")?.value ?? "";
+    }
+    for (const id of SYSTEM_IDS) {
+      if (id === "customerStars") {
+        const picked = form?.querySelector?.('[name="customerStars"]:checked');
+        if (form?.querySelector?.('[name="customerStars"]')) system.customerStars = picked && picked.value !== "0" ? picked.value : "";
+        continue;
+      }
+      const control = form?.querySelector?.(`[name="${id}"]`);
+      if (control) system[id] = control.value;
+    }
+    return { custom, system };
+  }
+  const initialValues = (form) => initialFieldValues.get(form) || null;
+  const touchedOf = (form) => new Set(touchedFields.get(form) || []);
+  const api = { render, bind, isUnchangedDate, formValues, initialValues, touched: touchedOf };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.LaiCustomerEditor = api;
 })(typeof window !== "undefined" ? window : globalThis);

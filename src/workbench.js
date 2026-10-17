@@ -19,6 +19,14 @@
   const KIND_NAMES = { open: "进行中", won: "赢单", lost: "不计入" };
   const STAGE_COLORS = ["var(--chart-1)", "var(--skin-gold)", "var(--brand-300)", "rgb(var(--skin-ink-rgb))"];
 
+  // 功能开关：关着的模块（商机、邮件、团队数据）不画卡片。没有加载功能开关模块时当作都开着。
+  const switchOn = (state, module) => {
+    let FS = typeof globalThis !== "undefined" ? globalThis.LaiFeatureSwitch : null;
+    if (!FS && typeof require === "function") {
+      try { FS = require("./feature-switch-model.js"); } catch (_) { FS = null; }
+    }
+    return !FS || FS.enabled(state, module);
+  };
   const day = (value) => String(value || "").slice(0, 10);
   const num = (value) => Number(value || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
   const symbolMoney = (value, code) => (SYMBOLS[code] ? SYMBOLS[code] + num(value) : `${code} ${num(value)}`);
@@ -55,7 +63,7 @@
     const { state, today, B, OM, TM, bucket, mail } = input;
     // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。没有查看权限的模块，卡片和数字都不显示。
     const can = typeof input.can === "function" ? input.can : () => true;
-    const seeOrders = can("order.view"), seeOpp = can("opp.view"), seeTeam = can("team.view"), seeMail = can("mail.view");
+    const seeOrders = can("order.view"), seeOpp = can("opp.view") && switchOn(state, "opp"), seeTeam = can("team.view") && switchOn(state, "team"), seeMail = can("mail.view") && switchOn(state, "mail");
     const orders = state.orders || [];
     const metrics = B.orderMetrics(orders);
     const live = orders.filter((o) => !o.isDraft && o.stage !== "done");
@@ -154,7 +162,9 @@
         const d = day(t.date);
         const label = !d ? "" : d === today ? "今天" : shortDate(d);
         const cls = d && d < today ? "late" : d === today ? "today" : "";
-        return `<label class="wb-task"><input type="checkbox" data-biz-task="${E(t.id)}"><span>${E(t.title)}</span><small class="${cls}">${label}</small></label>`;
+        // 看得到别人的待办时（本部门／全公司）标出负责人；只看自己的账号不用标。
+        const who = input.showOwner ? B.taskOwner(state, t) || "未分配" : "";
+        return `<label class="wb-task"><input type="checkbox" data-biz-task="${E(t.id)}"><span>${E(t.title)}${who ? ` · ${E(who)}` : ""}</span><small class="${cls}">${label}</small></label>`;
       })
       .join("");
     const taskCard = `<section class="wb-card"><div class="wb-head"><h2>我的待办 <small>${tasks.length} 项未完成</small></h2><button type="button" class="wb-link" data-biz-action="new-task">添加任务 ›</button></div>${taskRows || '<p class="wb-empty">暂无待办任务。</p>'}</section>`;
@@ -183,7 +193,7 @@
     const mailBody = mail && Array.isArray(mail.items) ? mailRows(mail.items, today, E) || '<p class="wb-empty">没有未读邮件。</p>' : '<p class="wb-empty">正在读取邮件…</p>';
     const mailCard = `<section class="wb-card"><div class="wb-head"><h2>未读邮件 <small data-wb-mail-title>${unread === null ? "" : unread + " 封"}</small></h2><button type="button" class="wb-link" data-biz-go="mail:inbox">收件箱 ›</button></div><div data-wb-mails>${mailBody}</div></section>`;
 
-    return `<div class="wb"><div class="wb-top"><h1>工作台</h1><span>查看客户跟进与订单进度 · 截至今天 ${longToday(today)}</span><div><button type="button" data-biz-action="new-task">添加任务</button>${can("opp.create") ? '<button type="button" data-biz-go="opp-new">新建商机</button>' : ""}${can("order.create") ? '<button type="button" class="wb-primary" data-biz-action="new-order">新建订单</button>' : ""}</div></div><section class="wb-stats">${stats}</section><div class="wb-cols"><div class="wb-left">${seeOrders ? orderCard + moneyCard : ""}${seeOpp ? oppCard : ""}</div><div class="wb-right">${followCard}${taskCard}${seeTeam ? goalCard : ""}${seeMail ? mailCard : ""}</div></div></div>`;
+    return `<div class="wb"><div class="wb-top"><h1>工作台</h1><span>查看客户跟进与订单进度 · 截至今天 ${longToday(today)}</span><div><button type="button" data-biz-action="new-task">添加任务</button>${can("opp.create") && switchOn(state, "opp") ? '<button type="button" data-biz-go="opp-new">新建商机</button>' : ""}${can("order.create") ? '<button type="button" class="wb-primary" data-biz-action="new-order">新建订单</button>' : ""}</div></div><section class="wb-stats">${stats}</section><div class="wb-cols"><div class="wb-left">${seeOrders ? orderCard + moneyCard : ""}${seeOpp ? oppCard : ""}</div><div class="wb-right">${followCard}${taskCard}${seeTeam ? goalCard : ""}${seeMail ? mailCard : ""}</div></div></div>`;
   }
 
   return { markup, mailRows };

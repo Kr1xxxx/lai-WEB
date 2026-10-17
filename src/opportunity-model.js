@@ -131,6 +131,24 @@
     if(Array.isArray(profile.extraContacts))for(const extra of profile.extraContacts)names.push(extra?.contact);
     return [...new Set(names.map(trim).filter(Boolean))];
   }
+  // 商机关联联系人的电话（给 WhatsApp 按钮用）：商机写了联系人就找这个人，没写就用第一个有号码的联系人。
+  // 先看联系人自己的号码，再看他的其他号码。找不到号码返回 null；返回 {phone, code, contact, country}。
+  function contactPhone(state,client,contact){
+    const profile=state?.customers&&Object.hasOwn(state.customers,trim(client))?state.customers[trim(client)]:null;
+    if(!profile||typeof profile!=='object')return null;
+    const first=Array.isArray(profile.contacts)?profile.contacts[0]:null;
+    const mainName=trim(profile.contact)||trim(typeof first==='object'&&first?first.contact||first.name:first);
+    const records=[{name:mainName,phone:profile.phone,code:profile.phoneCountryCode,more:profile.additionalPhones},
+      ...(Array.isArray(profile.extraContacts)?profile.extraContacts:[]).map(extra=>({name:trim(extra?.contact),phone:extra?.phone,code:extra?.phoneCountryCode,more:extra?.additionalPhones}))];
+    const want=trim(contact);
+    for(const record of records){
+      if(want&&record.name!==want)continue;
+      const numbers=[{phone:record.phone,code:record.code},...(Array.isArray(record.more)?record.more:[]).map(entry=>typeof entry==='string'?{phone:entry,code:''}:{phone:entry?.phone,code:entry?.phoneCountryCode})];
+      const hit=numbers.find(entry=>trim(entry.phone));
+      if(hit)return {phone:trim(hit.phone),code:trim(hit.code),contact:record.name,country:trim(profile.country)};
+    }
+    return null;
+  }
   function ownerNames(state){
     const seen=new Map();
     const add=name=>{const text=cleanName(name);if(text&&text!=='未分配'&&!seen.has(text.toLowerCase()))seen.set(text.toLowerCase(),text);};
@@ -767,6 +785,22 @@
       opportunities:sortCards(all.map(item=>({...card(state,item,today,orderIds),createdAt:trim(item.createdAt)})),'createdAt-desc')
     };
   }
+  // 汇率预填（汇率设置里有这个币种时）：表单里的汇率该显示什么。
+  // 返回要填进去的数字；返回 null 表示保持现在填的不动（美元、写了一半的币种、用户自己填过的非 100 的值）。
+  // current 是现在框里的值；lastPrefill 是上一次自动填进去的值（用户没改过它，就还能再换）。
+  // 外币正好是 100 当作没填；表里没有这个币种时，只把上一次自动填的值还原成 100。
+  function prefillRate(state,currency,current,lastPrefill=null){
+    const code=trim(currency).toUpperCase();
+    if(!/^[A-Z]{3}$/.test(code)||code==='USD')return null;
+    const RT=node?require('./rate-model.js'):root.LaiRateModel;
+    const text=trim(current).replace(/,/g,''),now=text===''?null:Number(text);
+    const last=lastPrefill===null||lastPrefill===undefined||trim(lastPrefill)===''?null:Number(lastPrefill);
+    const untouched=now===null||now===100||(last!==null&&now===last);
+    if(!untouched)return null;
+    const table=RT?RT.rateFor(state,code):null;
+    if(table!==null&&table!==undefined)return table===now?null:table;
+    return last!==null&&now===last&&now!==100?100:null;
+  }
   // 新建表单的默认值。
   function defaults(state,today=isoDay(new Date())){
     return {nameMode:'auto',name:'',client:'',contact:'',amount:'',endDate:addDays(today,30),flow:'default',exchangeRate:100,currency:defaultCurrency(state),
@@ -1013,6 +1047,6 @@
       return item.sortRank===rank.get(item.id)?item:{...item,sortRank:rank.get(item.id)};
     })};
   }
-  const api={SET_LIMITS,addChoice,renameChoice,moveChoice,removeChoice,DEFAULT_TYPES,CUSTOM_TYPES,SYSTEM_FIELDS,lostReasons,addLostReason,renameLostReason,moveLostReason,removeLostReason,typeChoices,addType,renameType,moveType,removeType,choiceUse,fieldRows,fieldMap,setField,customFields,customTypeLabel,addCustomField,updateCustomField,moveCustomField,removeCustomField,customUse,cleanCustomValue,customRows,roleFieldList,lockInput,sourceList,sourcesFromCustomer,leadChoices,leadName,nextNumber,formSetup,ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,orderDraft,customerNames,contactsOf,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
+  const api={SET_LIMITS,addChoice,renameChoice,moveChoice,removeChoice,DEFAULT_TYPES,CUSTOM_TYPES,SYSTEM_FIELDS,lostReasons,addLostReason,renameLostReason,moveLostReason,removeLostReason,typeChoices,addType,renameType,moveType,removeType,choiceUse,fieldRows,fieldMap,setField,customFields,customTypeLabel,addCustomField,updateCustomField,moveCustomField,removeCustomField,customUse,cleanCustomValue,customRows,roleFieldList,lockInput,sourceList,sourcesFromCustomer,leadChoices,leadName,nextNumber,formSetup,ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,prefillRate,orderDraft,customerNames,contactsOf,contactPhone,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
   if(node)module.exports=api;else root.LaiOpportunityModel=api;
 })(typeof window!=='undefined'?window:globalThis);

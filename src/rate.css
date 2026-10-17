@@ -1,0 +1,55 @@
+/* 交易 › 汇率设置：汇率表、新增表单、说明。只用主题变量，三套主题通用。 */
+.rate-page .rate-table {
+  table-layout: fixed;
+}
+.rate-page .rate-table td,
+.rate-page .rate-table th {
+  white-space: nowrap;
+}
+.rate-page .rate-table th:nth-child(1) {
+  width: 14%;
+}
+.rate-page .rate-table th:nth-child(2) {
+  width: 22%;
+}
+.rate-page .rate-table th:nth-child(3),
+.rate-page .rate-table th:nth-child(4) {
+  width: 18%;
+}
+.rate-page .rate-table td:nth-child(2),
+.rate-page .rate-table td:nth-child(3) {
+  font-variant-numeric: tabular-nums;
+}
+.rate-page .rate-actions {
+  display: flex;
+  gap: 8px;
+}
+.rate-page .rate-actions button.danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.rate-page .rate-input {
+  width: min(140px, 100%);
+}
+.rate-page .rate-missing td {
+  color: var(--muted);
+}
+.rate-page .rate-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+.rate-page .rate-add .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+.rate-page .rate-add input[name="code"] {
+  text-transform: uppercase;
+}
+.rate-page .rate-note {
+  margin-top: 12px;
+}

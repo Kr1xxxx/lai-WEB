@@ -198,8 +198,8 @@
       .toLowerCase();
   const active = (value) =>
     value !== undefined && value !== null && normalize(value) !== "";
-  function sortRows(rows = [], field, direction = "asc") {
-    const definition = fields.get(aliases.get(field) || field);
+  function sortRows(rows = [], field, direction = "asc", state) {
+    const definition = registry(state).byId.get(aliases.get(field) || field);
     if (!definition) return [...rows];
     const sign = direction === "desc" ? -1 : 1;
     const emptyFirst = ["country", "lastWonDate", "lastFollowup", "opportunityTotal", "opportunityAverage"].includes(definition.id) && direction !== "desc";
@@ -289,8 +289,12 @@
     });
   }
 
-  function filter(rows = [], options = {}) {
+  function filter(rows = [], options = {}, state) {
+    const reg = registry(state);
     const field = aliases.get(options.field) || options.field || "name";
+    const quickDef = reg.byId.get(field);
+    // 单选、多选的自定义字段：快捷筛选选的是一个选项，按整个选项匹配（“ISO”不会匹配“ISO 9001”）。
+    const quickChoice = quickDef?.custom && (quickDef.fieldType === "select" || quickDef.fieldType === "multi");
     const tagTerms = values(options.tag)
       .flatMap((value) => String(value ?? "").split(/[,，]/))
       .map((value) => value.trim())
@@ -301,7 +305,7 @@
         : [];
     const hasQuery = active(options.query);
     // Invalid quick fields must not silently turn into an all-fields search.
-    if (hasQuery && !fields.has(field)) return [];
+    if (hasQuery && !quickDef) return [];
     return rows.filter((row) => {
       if (pickedCountries.length && !pickedCountries.includes(row.country))
         return false;
@@ -310,7 +314,7 @@
           const target = booleanValue(options.query);
           if (target === null || booleanValue(row.followed) !== target)
             return false;
-        } else if (!contains(rowValue(row, field), options.query)) return false;
+        } else if (!(quickChoice ? equals : contains)(rowValue(row, field), options.query)) return false;
       }
       for (const key of [
         "country",
@@ -346,7 +350,8 @@
     });
   }
 
-  function normalizeColumns(settings = {}) {
+  function normalizeColumns(settings = {}, state) {
+    const known = registry(state).byId;
     const order = [
       ...new Set([
         "name",
@@ -354,7 +359,7 @@
           (id) => aliases.get(id) || id,
         ),
       ]),
-    ].filter((id) => fields.has(id));
+    ].filter((id) => known.has(id));
     const requested = new Set(
       (Array.isArray(settings.frozen) ? settings.frozen : []).map(
         (id) => aliases.get(id) || id,
@@ -451,12 +456,57 @@
   };
   // 字段权限分“客户”和“公海客户”两套：档案在公海里按公海的，其余按客户的。
   const moduleOf = (target) => target === "pool" || target === "customer" ? target : target && target.laiBucket === "pool" ? "pool" : "customer";
+  const fieldModel = () => {
+    if (root.LaiFieldModel) return root.LaiFieldModel;
+    try { return typeof require === "function" ? require("./field-model.js") : null; } catch (_) { return null; }
+  };
+  const customFieldsOf = (state) => { try { return fieldModel()?.get(state, "customer").customFields || []; } catch (_) { return []; } };
+  // ---------- 自定义字段做成列 ----------
+  // 客户设置里配置的自定义字段，每个对应一个列：id 是 custom:<字段ID>，名称是字段名称。
+  // 值由 segments.js 的 enrich 放进每一行（row["custom:<字段ID>"]），所以列表、筛选、排序、客群、导出都按行上的这个键读。
+  // 类型：数字、日期保持原样，其余（文本、单选、多选）按文本；单选、多选带 options。
+  // 按 state.laiSettings.fieldSettings.customer 这个对象缓存：设置一改就是新对象，自动重算。
+  const CUSTOM_PREFIX = "custom:";
+  const isCustomColumn = (id) => typeof id === "string" && id.startsWith(CUSTOM_PREFIX);
+  const customRoleKey = (id) => "custom." + String(id).slice(CUSTOM_PREFIX.length);
+  const customWidth = { number: 120, date: 130, multi: 200, textarea: 200 };
+  const EMPTY_REGISTRY = Object.freeze({ custom: Object.freeze([]), list: catalog, byId: fields });
+  const registryCache = new WeakMap();
+  function registry(state) {
+    const raw = state?.laiSettings?.fieldSettings?.customer;
+    if (!raw || typeof raw !== "object") return EMPTY_REGISTRY;
+    let hit = registryCache.get(raw);
+    if (!hit) {
+      const configured = customFieldsOf(state);
+      if (!configured.length) hit = EMPTY_REGISTRY;
+      else {
+        const custom = Object.freeze(configured.map((f) => Object.freeze({
+          id: CUSTOM_PREFIX + f.id, label: f.name, category: "自定义字段", custom: true, customId: f.id,
+          type: f.type === "number" ? "number" : f.type === "date" ? "date" : "text",
+          fieldType: f.type, options: Object.freeze([...(f.options || [])]), width: customWidth[f.type] || 150,
+        })));
+        const byId = new Map(fields);
+        for (const def of custom) byId.set(def.id, def);
+        hit = Object.freeze({ custom, list: Object.freeze([...catalog, ...custom]), byId });
+      }
+      registryCache.set(raw, hit);
+    }
+    return hit;
+  }
+  // 全部列（系统列 + 这个账号数据里配置的自定义列）。
+  const catalogFor = (state) => registry(state).list;
+  const customColumns = (state) => registry(state).custom;
+  // 按 id 取一列（不处理别名）；找不到返回 undefined。
+  const fieldFor = (state, id) => registry(state).byId.get(id);
+
   function roleFieldList(state, module) {
     if (module !== "customer" && module !== "pool") return [];
     return [
       ...roleCompanyFields.map(([key, label]) => ({ key, label, group: "公司信息" })),
       ...roleTradeFields.map(([key, label]) => ({ key, label, group: "交易偏好" })),
       ...roleContactFields.map(([key, label]) => ({ key: "contact." + key, label, group: "联系人" })),
+      // 自定义字段（客户设置 → 字段设置）：键是 custom.<字段ID>，值在档案的 custom 里。
+      ...customFieldsOf(state).map((field) => ({ key: "custom." + field.id, label: field.name, group: "自定义字段" })),
     ];
   }
   // 列表列（id）→ 字段权限的键。没列出的列（公司名称、国家、跟进人、各种时间……）始终可见。
@@ -488,23 +538,28 @@
     const visible = (key) => level(key) !== "hidden";
     const editable = (key) => level(key) === "edit";
     const canActivity = plain || R.can(state, "activity.view");
-    const columnVisible = (id) => (!columnRoleKeys[id] || visible(columnRoleKeys[id])) && (canActivity || !activityColumns.has(id));
+    // 自定义列的权限键是 custom.<字段ID>；隐藏了的角色看不到这一列，也不能拿它筛选、排序、做客群条件、导出。
+    const columnVisible = (id) => isCustomColumn(id) ? visible(customRoleKey(id))
+      : (!columnRoleKeys[id] || visible(columnRoleKeys[id])) && (canActivity || !activityColumns.has(id));
     const idsHidden = (map) => new Set(Object.keys(map).filter((id) => !visible(map[id])));
     return {
       module, plain, level, visible, editable, columnVisible, canActivity,
       summaryVisible: (id) => !summaryRoleKeys[id] || visible(summaryRoleKeys[id]),
       contactVisible: (key) => visible("contact." + key),
       contactEditable: (key) => editable("contact." + key),
-      hiddenColumns: () => new Set(catalog.map((field) => field.id).filter((id) => !columnVisible(id))),
-      hiddenFilters: () => idsHidden(filterRoleKeys),
+      hiddenColumns: () => new Set(registry(state).list.map((field) => field.id).filter((id) => !columnVisible(id))),
+      hiddenFilters: () => new Set([...idsHidden(filterRoleKeys), ...registry(state).custom.map((field) => field.id).filter((id) => !columnVisible(id))]),
       hiddenSearch: () => idsHidden(searchRoleKeys),
     };
   }
   // 筛选条件里用到看不到的字段时，去掉那一项（不然能从筛选结果猜出隐藏的内容）。
   function sanitizeFilters(state, filters = {}, module = "customer") {
     const g = gate(state, module);
-    if (g.plain) return filters;
-    const out = { ...filters };
+    // 快捷筛选选着的自定义字段后来被删掉了：回到公司名称，免得什么都筛不出来。
+    const stale = isCustomColumn(filters.field) && !registry(state).byId.has(filters.field);
+    const base = stale ? { ...filters, field: "name" } : filters;
+    if (g.plain) return base;
+    const out = { ...base };
     const hidden = g.hiddenFilters();
     if (hidden.has(out.field)) out.query = "";
     // filters.group 是左侧客群，不是“客户分组”这个字段（它在筛选条件里叫 customerGroup）。
@@ -535,9 +590,23 @@
     module = module || moduleOf(before || after);
     const locked = R.lockedFields(state, module);
     if (!locked.length) return after;
-    const company = locked.filter((key) => !key.startsWith("contact."));
+    const company = locked.filter((key) => !key.startsWith("contact.") && !key.startsWith("custom."));
+    const customIds = locked.filter((key) => key.startsWith("custom.")).map((key) => key.slice(7));
     const contact = lockedContactKeys(state, module);
     let out = company.length ? R.keepLocked(state, module, before, after, company) : after;
+    // 自定义字段的值在档案的 custom 里：锁住的那几项用原来的值（原来没有就去掉）。
+    if (customIds.length) {
+      const plainObject = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+      const old = plainObject(before?.custom), now = plainObject(out.custom);
+      if (old || now) {
+        const custom = { ...(now || {}) };
+        for (const id of customIds) {
+          if (old && Object.hasOwn(old, id)) custom[id] = old[id];
+          else delete custom[id];
+        }
+        out = { ...out, custom };
+      }
+    }
     if (!contact.length) return out;
     out = { ...out };
     const restore = (target, source, props) => {
@@ -624,7 +693,7 @@
     return (owner) => names.has(normalize(owner));
   }
 
-  const api = { catalog, globalSearchFields, globalCustomerSearch, filter, sortRows, normalizeColumns, countryLabel,
+  const api = { catalog, catalogFor, customColumns, fieldFor, isCustomColumn, globalSearchFields, globalCustomerSearch, filter, sortRows, normalizeColumns, countryLabel,
     companyDisplayFields, normalizeCompanyDisplayLayout, roleFieldList, gate, sanitizeFilters, guardProfile, guardState, contactHasLocked,
     ownerFilterOptions, ownerDeptMatcher,
     columnRoleKeys, filterRoleKeys, searchRoleKeys, dupTypeRoleKeys };

@@ -12,9 +12,10 @@
   // 没写就谁都能看到。markup 的 info.can(key) 决定当前账号有没有，没传时全部显示。
   const GROUPS = Object.freeze([
     { id: "general", title: "通用", items: [
-      { id: "defaults", title: "默认录入", note: "公司名称、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
+      { id: "defaults", title: "默认录入", note: "公司资料（名称、地址、电话、银行）、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
       { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，只影响这台电脑", open: ["route", "settings"], current: "theme", perm: "settings.general" },
       { id: "favorites", title: "常用导航", note: "管理左侧栏“常用”里的快捷入口：添加、排序、移除", open: ["action", "favorite-nav-manage"] },
+      { id: "feature-switch", title: "功能开关", note: "线索、商机、产品、单据、邮件、沟通、团队数据可以关掉不用；数据都保留，重新打开就能用", open: ["route", "feature-switch"], perm: "settings.switch" },
     ] },
     { id: "customer", title: "客户", items: [
       { id: "columns", title: "列表字段", note: "客户列表显示哪些字段、顺序和冻结列", open: ["action", "settings"] },
@@ -22,17 +23,24 @@
       { id: "customer-settings", title: "客户设置", note: "客户相关设置的入口页", open: ["screen", "customer-settings"], anyPerm: ["settings.customer", "settings.dedupe", "settings.source"] },
     ] },
     { id: "opportunity", title: "商机", items: [
-      { id: "flows", title: "商机设置", note: "销售流程、输单原因和商机字段", open: ["route", "opp-flows"], perm: "settings.opportunity" },
+      { id: "flows", title: "商机设置", note: "销售流程、输单原因和商机字段", open: ["route", "opp-flows"], module: "opp", perm: "settings.opportunity" },
     ] },
     { id: "product", title: "产品和单据", items: [
-      { id: "product-settings", title: "产品设置", note: "产品分组、字段、规格和布局；打开产品页后点上方的设置页签", open: ["route", "products"], perm: ["product.view", "settings.product"] },
-      { id: "doc-templates", title: "单据模板", note: "报价单、形式发票、销售订单、发货通知的样式，并可预览", open: ["route", "doc-templates"], perm: "settings.docTemplate" },
+      { id: "product-settings", title: "产品设置", note: "产品分组、字段、规格和布局；打开产品页后点上方的设置页签", open: ["route", "products"], module: "product", perm: ["product.view", "settings.product"] },
+      { id: "doc-templates", title: "单据模板", note: "报价单、形式发票、销售订单、发货通知的样式，并可预览", open: ["route", "doc-templates"], module: "doc", perm: "settings.docTemplate" },
+      { id: "rates", title: "汇率设置", note: "每 100 外币折合多少美元，用来把外币订单折成美元", open: ["route", "rates"], perm: "settings.rate" },
+    ] },
+    { id: "chat", title: "沟通", items: [
+      { id: "chat-templates", title: "聊天模板", note: "WhatsApp 常用话术：新建、修改、删除", open: ["route", "chat-templates"], module: "chat", perm: "chat.template" },
+    ] },
+    { id: "task", title: "协同", items: [
+      { id: "task-settings", title: "任务设置", note: "按规则自动建待办：客户没跟进、订单到了某阶段、商机快到期、复购提醒", open: ["route", "task-settings"], perm: "settings.task" },
     ] },
     { id: "team", title: "团队", items: [
-      { id: "targets", title: "目标管理", note: "团队和个人的月度和季度目标", open: ["route", "team-targets"], perm: "team.targets" },
+      { id: "targets", title: "目标管理", note: "团队和个人的月度和季度目标", open: ["route", "team-targets"], module: "team", perm: "team.targets" },
     ] },
     { id: "mail", title: "邮件", items: [
-      { id: "mail-account", title: "邮箱设置", note: "发件人名称、签名、是否自动检查新邮件", open: ["action", "open-mail-settings"], perm: "mail.view" },
+      { id: "mail-account", title: "邮箱设置", note: "发件人名称、签名、是否自动检查新邮件", open: ["action", "open-mail-settings"], module: "mail", perm: "mail.view" },
     ] },
   ]);
   // 只在网页试用版里出现：试用页自带的数据面板由页面脚本接管，点击 data-action="web-trial-data" 即打开。应用本体没有这一组。
@@ -46,14 +54,16 @@
     if (item.current === "theme") return E(info.themeName);
     return "";
   }
-  const allowed = (item, can) =>
-    (!item.perm || [].concat(item.perm).every((key) => can(key))) && (!item.anyPerm || item.anyPerm.some((key) => can(key)));
+  // module：这一项属于哪个可以关的模块（功能开关）；模块关了就不显示。info.moduleOn(模块) 没传时当作都开着。
+  const allowed = (item, can, moduleOn = () => true) =>
+    (!item.module || moduleOn(item.module)) && (!item.perm || [].concat(item.perm).every((key) => can(key))) && (!item.anyPerm || item.anyPerm.some((key) => can(key)));
   function markup(info, escape) {
     const E = escape || identity;
     const data = { orderPrefix: "L", currency: "USD", themeName: "粉色", ...(info || {}) };
     const can = typeof data.can === "function" ? data.can : () => true;
+    const moduleOn = typeof data.moduleOn === "function" ? data.moduleOn : () => true;
     const visible = (data.testData ? GROUPS.concat([TEST_DATA_GROUP]) : GROUPS)
-      .map((group) => ({ ...group, items: group.items.filter((item) => allowed(item, can)) }))
+      .map((group) => ({ ...group, items: group.items.filter((item) => allowed(item, can, moduleOn)) }))
       .filter((group) => group.items.length);
     const groups = visible.map((group) => `<section class="business-section sh-group" data-sh-group="${group.id}"><div class="section-head"><h3>${E(group.title)}</h3></div><div class="sh-list">${
       group.items.map((item) => {

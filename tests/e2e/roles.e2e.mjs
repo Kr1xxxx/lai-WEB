@@ -58,6 +58,9 @@ test('edit 业务: 全选 follows the items, saving keeps 线索·删除 after a
   // 彻底删除（回收站） is a separate permission now, so 全选 turns on only after it is ticked too.
   assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), false);
   await leadGroup.locator('input[value="lead.purge"]').check();
+  // 导出线索 is another permission of the group (admin only by default), so it has to be ticked as well.
+  assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), false);
+  await leadGroup.locator('input[value="lead.export"]').check();
   assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), true, 'the last item turns 全选 on');
   await page.locator('#role-scope').selectOption('all');
   await page.locator('#role-edit-form button[type=submit]').click();

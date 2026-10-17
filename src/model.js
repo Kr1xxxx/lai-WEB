@@ -1,6 +1,9 @@
 (function (root) {
   'use strict';
   const CS = typeof module !== 'undefined' && module.exports ? require('./customer-settings-model.js') : root.LaiCustomerSettings;
+  // 汇率（rate-model.js）：没载入时外币订单照旧不折算。
+  const RT = typeof module !== 'undefined' && module.exports ? require('./rate-model.js') : null;
+  const rates = () => RT || root.LaiRateModel || null;
   const norm = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   // 客户名称查重用：全角半角、大小写、空格多少都算同一个名字（D-003）。存的仍是用户填的原样。
   const nameKey = value => String(value ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -73,6 +76,7 @@
       if (!ordersByClient.has(order.client)) ordersByClient.set(order.client, []);
       ordersByClient.get(order.client).push(order);
     }
+    const RTM = rates();
     return names.map(name => {
       const own = ordersByClient.get(name) || [];
       const related = own.filter(o => !o.isDraft && amount(o.amount)>0).sort((a,b)=>dateValue(b.createdAt||b.updated)-dateValue(a.createdAt||a.updated));
@@ -80,13 +84,18 @@
       const history = Array.isArray(profile.history) ? profile.history : [];
       const recent = related[0] || own[0] || {};
       const values = {...recent,...profile};
-      let total=0,paid=0,missingRates=0;
+      let total=0,paid=0,missingRates=0,converted=false;
       for (const order of related) {
-        if ((order.currency || 'USD').toUpperCase() !== 'USD') { missingRates++; continue; }
-        const full = amount(order.amount);
+        const usd = (order.currency || 'USD').toUpperCase() === 'USD';
+        // 外币订单按汇率折成美元（订单保存时记下的汇率优先，没有就用汇率设置里的）；没有汇率的照旧不算，客户金额显示为空。
+        const rate = usd ? 100 : RTM ? RTM.orderRate(state, order) : null;
+        if (rate === null) { missingRates++; continue; }
+        if (!usd) converted = true;
+        const full = usd ? amount(order.amount) : RTM.orderUsd(state, order, order.amount);
         total += full;
-        paid += ['shipment','done'].includes(order.stage) ? full : Math.min(full,amount(order.paidAmount));
+        paid += ['shipment','done'].includes(order.stage) ? full : Math.min(full, usd ? amount(order.paidAmount) : RTM.orderUsd(state, order, order.paidAmount));
       }
+      if (converted) { total = Math.round(total * 100) / 100; paid = Math.round(paid * 100) / 100; }
       const contact=profile.contacts?.[0]??values.contact??'';
       const email=profile.emails?.[0]??values.email??'';
       const phone=profile.phones?.[0]??values.phone??'';
@@ -142,6 +151,22 @@
     page=Math.max(1,Math.min(pageCount,Math.floor(Number(page)||1)));
     return {items:items.slice((page-1)*size,page*size),page,pageCount,total:items.length};
   }
+  // 自定义字段（客户设置 → 字段设置）：只收设置里还有的字段，按字段类型整理；没传的、设置里已删的字段保留原值。
+  // 必填不在这里查：只有客户编辑表单保存时才查（见 customer-settings-model.js 的 assertRequired）。
+  const fieldModel = () => root.LaiFieldModel || (typeof module !== 'undefined' && module.exports ? require('./field-model.js') : null);
+  function withCustomValues(state, previous, next, given) {
+    if (!given || typeof given !== 'object' || Array.isArray(given)) throw new Error('自定义字段格式无效');
+    const FM = fieldModel();
+    if (!FM) return next;
+    const stored = previous.custom && typeof previous.custom === 'object' && !Array.isArray(previous.custom) ? previous.custom : {};
+    const custom = { ...stored };
+    for (const def of FM.get(state, 'customer').customFields) {
+      if (!Object.hasOwn(given, def.id)) continue;
+      const value = FM.cleanValue(def, given[def.id], stored[def.id]);
+      if (value === undefined) delete custom[def.id]; else custom[def.id] = value;
+    }
+    return Object.keys(custom).length || previous.custom !== undefined ? { ...next, custom } : next;
+  }
   function upsertCustomer(state, oldName, fields, time=new Date().toISOString()) {
     const name=String(fields.name||'').trim();
     if (!name) throw new Error('请输入公司 / 客户名称');
@@ -152,7 +177,7 @@
     const previous=state.customers?.[oldName]||{};
     if(previous.laiBucket==='trash')throw new Error('请先恢复回收站客户');
     const record=oldName?(buildCustomers(state).find(c=>c.name===oldName)||{}):{};
-    const next={...previous,client:name,updated:time};
+    let next={...previous,client:name,updated:time};
     if(!oldName){
       if(!String(fields.country??'').trim())throw new Error('请输入国家地区');
       if(!String(fields.source??'').trim())throw new Error('请输入客户来源');
@@ -211,6 +236,7 @@
     }
     if(Object.hasOwn(fields,'tags')) next.tags=tags(fields.tags);
     if(Object.hasOwn(fields,'previewGroup'))next.previewGroup=String(fields.previewGroup);
+    if(Object.hasOwn(fields,'custom'))next=withCustomValues(state,previous,next,fields.custom);
     if(CS&&CS.assertNotDuplicate)CS.assertNotDuplicate(state,next,[previous,record],oldName);
     next.history=[{time,text:oldName?'更新客户资料':'新建客户档案',type:'operation'},...(previous.history||[])];
     const customers={...state.customers};

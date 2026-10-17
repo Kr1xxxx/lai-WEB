@@ -727,6 +727,133 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "whatsapp",
+   "area": "communication",
+   "description": "沟通 (WhatsApp, D-023): import an exported chat into 动态, click-to-chat links, log a chat by hand, undo an import, 沟通 page, permissions and owner scope",
+   "steps": [
+    "Open 沟通 → 聊天记录: empty page says how to start",
+    "导入聊天记录: choose docs/samples/whatsapp/android-24h.txt, pick 哪个是你, the customer is suggested, 确认导入: toast 已导入 n 条，跳过 0 条重复",
+    "The chat shows on 沟通 → 聊天记录 and on the customer 动态 › 聊天记录 (expand to see the bubbles)",
+    "Import the same file again: toast 已导入 0 条，跳过 n 条重复; in 导入记录 click 撤销 on the first import and confirm: the chat disappears and the row says 已撤销",
+    "客户详情 → WhatsApp: the number is shown with the country code, type a message, 打开 WhatsApp opens https://wa.me/<number>?text=...; 发出去了吗？记一笔 adds the message to 动态",
+    "Switch to a 业务 account (本人): another owner's customer and chats are not listed or suggested; turn 查看聊天记录 off for 业务: 沟通 page, rail menu and 聊天记录 entries are gone"
+   ],
+   "e2e": "whatsapp.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "lead-settings",
+   "area": "leads",
+   "description": "线索设置 (Leads → 设置): 无效原因 add/rename/move/delete (in-use reasons cannot be deleted), 线索字段 show/required for the lead form, links to 客户设置 for 来源 and 判重",
+   "steps": [
+    "Hover Leads in the left rail, click 设置: the 线索设置 page opens with 无效原因 (6 default reasons), 线索字段 and the two links to 客户设置",
+    "Add the reason 价格太高; 线索 → open a lead → 标记无效: 价格太高 is in the list; mark it",
+    "Back in 线索设置 delete 价格太高 (click twice): refused with 还有 1 条线索用了这个原因; rename it to 报价太高: the lead shows the new reason",
+    "Untick 显示 for 网址 and tick 必填 for 邮箱; 线索 → 新建线索: no 网址 box, saving without 邮箱 says 请填写邮箱",
+    "Switch to a 业务 account: 线索设置 is blocked"
+   ],
+   "e2e": "lead-settings.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "rates",
+   "area": "orders",
+   "description": "交易 → 汇率设置 (R1): manual rates per 100 units in USD; foreign orders convert into the customer total and level; orders keep the rate they were saved with",
+   "steps": [
+    "With no rates: a customer with only a 48,000 EUR order shows no level badge; 交易 → 汇率设置 lists only USD (100) and EUR as 未设置",
+    "Add EUR 110: the customer list shows B级翡翠客户 for that customer",
+    "Create a new 1,000 EUR order for the same customer: it is saved with usdRate 110",
+    "修改 EUR to 90: the new order keeps 110, the old order follows 90, the level becomes C级白金客户",
+    "删除 EUR while orders use it: the page says 还有…在用 EUR，不能删除",
+    "Switch to a 业务 account: 汇率设置 is not in the 交易 menu and #rates says the role has no 汇率设置 permission"
+   ],
+   "e2e": "rates.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "custom-fields",
+   "area": "customers",
+   "description": "客户设置 → 字段设置: custom customer fields (文本/多行文本/数字/日期/单选/多选) and required switches for common system fields; role field permissions per custom field",
+   "steps": [
+    "客户设置 → 字段设置: add a text field and a multi-select field with options",
+    "Open a customer's editor: fill both fields, save; the detail 资料 tab shows them",
+    "Make 联系人邮箱 required: clearing it in the editor fails with 请填写联系人邮箱; an old customer without email can still save another edit",
+    "批量建档 still creates customers without the required fields",
+    "As 业务 with a custom field set to 隐藏: the field is not in the editor or detail and its value is kept"
+   ],
+   "e2e": "custom-fields.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "export",
+   "area": "data",
+   "description": "导出 (customer, order, opportunity and lead lists): 范围 / 列 / 格式 dialog, .xlsx and CSV download, own rows only for a 本人 account, hidden fields leave the file, web trial 复制表格",
+   "steps": [
+    "As the administrator open 客户列表: the 导出 button is next to 新建客户. Click it: 导出客户 shows 范围 (当前筛选结果 / 全部我能看到的 with counts), 列, 格式, the hint 表里有客户联系方式，请妥善保管。 and a preview of the first 5 rows",
+    "Tick one customer, click 导出: 已选的（1 条） is there and chosen; pick 全部字段 and 导出: a file 来财-客户-YYYYMMDD.xlsx downloads with a header row and 1 customer, toast 已导出 1 位客户",
+    "订单, 商机 and 线索 lists each have 导出; the order file has the sheets 订单 and 产品明细; choose CSV for 线索 and the file opens in Excel with correct Chinese",
+    "Switch to a 本人 account that has the export permissions: the files hold only that account's customers, orders, opportunities and leads",
+    "Switch to a role that hides 邮箱 and 电话 (customer), 邮箱 (lead) and 联系人 (opportunity): those columns are not in the preview or the file",
+    "Switch to 业务 without the export permission: no 导出 button on any of the four lists",
+    "In the web trial page: 导出 shows 网页试用版不能下载文件。 and 复制表格; click it and paste into a spreadsheet: tab-separated rows, no file is downloaded"
+   ],
+   "e2e": "export.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "task-rules",
+   "area": "calendar",
+   "description": "协同 → 任务设置 (T1): four rules (客户没跟进, 订单到了某个阶段, 商机快到结束日期, 复购提醒), all off by default, that create tasks for the record's owner once a day; preview count, at most 50 per rule per run, never repeated, deleted ones never come back",
+   "steps": [
+    "As the administrator open 协同 → 任务设置: four rules, every switch is 未开启, each shows 现在会生成 N 个任务, the footer says 还没有运行过, no task exists on the calendar",
+    "With a customer owned by Amy whose last follow-up is long ago, tick 客户没跟进: the preview drops to 0, the footer shows today as 上次运行, 跟进 客户名 is listed under 自动生成的待办 with Amy as the owner and appears on the calendar today",
+    "Reload the page: no second copy of the task is created",
+    "Switch to 业务 Amy (本人): the calendar shows her 跟进 task and not Kris's; opening #task-settings says the role has no 任务设置 permission",
+    "As the administrator click 删除 twice on an auto task: it disappears, and reloading on a later day does not bring it back",
+    "Set 订单到了某个阶段 to a stage an order is in, 商机快到结束日期 to 7 days, or give a customer a 复购周期 and an old last order: each rule's preview counts them and ticking it creates the tasks for the order / opportunity / customer owner; records with no owner get nothing"
+   ],
+   "e2e": "task-rules.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "feature-switch",
+   "area": "settings",
+   "description": "设置 → 功能开关 (FS): switch 线索, 商机, 产品, 单据, 邮件, 沟通, 团队数据 off; they leave the rail, flyouts, 设置中心, 常用 (read time), workbench and customer detail; direct links say 这个功能已关闭; no mail requests while 邮件 is off; data is kept",
+   "steps": [
+    "As the administrator open 设置 → 功能开关: seven switches, all 已开启, the sentence 关掉后，这个功能不再显示；数据都保留，重新打开就能用。 and a note that 客户、订单、工作台、协同、设置、企业管理不能关闭",
+    "Switch 商机 off: 商机 leaves the left rail at once; 商机设置 is gone from 设置中心; the workbench has no 商机阶段 / 进行中商机 / 新建商机; a customer's detail has no 进行中的商机 card; opening #opportunities shows 这个功能已关闭 and lands on the workbench",
+    "Mark 线索, 产品 and 邮件 entries as 常用, then switch each off: they disappear from 常用 but come back, in the same order, when switched on again",
+    "Switch 产品 off: 交易 keeps 全部订单, 订单回收站, 单据模板, 汇率设置 but not 产品; the order form takes the product as free text. Switch 单据 off: 生成单据 is gone from the order form",
+    "Switch 邮件 off and reload: no request to /api/mail is made, the workbench has no 未读邮件, the customer detail has no 写邮件 or 往来邮件; switch it on and the mail checks start again",
+    "Switch 线索 off: Leads and 线索 leave the rail and 客户设置 → 判重设置 shows no 新线索与已有客户 tab. Switch 商机 off with 客户设置 → 成交规则 set to 按商机: 最近成交时间 follows the orders until 商机 is on again",
+    "Turn the task rule 商机快到结束日期 on, switch 商机 off: reloading creates no task for it and the rule stays switched on; switch 商机 on and reload: the task is created",
+    "Switch everything off and on again: leads, opportunities, products, customers, orders and 常用 are the same as before"
+   ],
+   "e2e": "feature-switch.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

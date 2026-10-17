@@ -127,3 +127,18 @@
 .cs-subtabs { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 14px; background: var(--color-neutral-50, #f7f8fa); border-radius: 8px; }
 .cs-subtabs button { height: 30px; padding: 0 14px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-700, #595959); font-size: 13px; }
 .cs-subtabs button.active { background: #fff; color: var(--color-primary-600); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+
+/* 字段设置 */
+.cf-section { margin-bottom: 24px; }
+.cf-section > h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+.cf-system { max-width: 560px; }
+.cf-system .check-row { margin: 0; }
+.cf-add { flex-wrap: wrap; align-items: center; }
+.cf-add select { flex: 0 0 120px; }
+.cf-add .check-row { margin: 0; }
+.cf-name { flex: 0 1 240px; min-width: 120px; height: 30px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); font-weight: 600; }
+.cf-field .cs-row-actions .check-row { margin: 0 6px 0 0; }
+.cf-lock { display: block; padding: 0 12px 6px; color: var(--ink-500, #8c8c8c); }
+.cf-system .cf-lock { padding: 2px 0 0; }
+.cf-options { padding: 0 12px 8px 28px; }
+.cf-options .cs-add { margin: 6px 0 0; }

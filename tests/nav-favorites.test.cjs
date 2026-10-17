@@ -12,20 +12,23 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + 邮件 6 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 线索 2 + 商机 3 + 工作台 1 + Leads 1（线索设置）+ 邮件 6 + 沟通 2 + 交易 2 + 团队数据 8 + 协同 1 + 设置 2。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
   'route:leads', 'route:lead-trash',
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
   'route:dashboard',
+  'route:lead-settings',
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
-  'route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates',
+  'route:chats', 'route:chat-templates',
+  'route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates', 'route:rates',
   'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
-  'route:calendar', 'route:settings', 'route:settings-hub',
+  'route:calendar', 'route:task-settings', 'route:settings', 'route:settings-hub', 'route:feature-switch',
   'route:roles', 'route:members'
 ];
-const MENUS = ['客户', '线索', '商机', '工作台', '邮件', '交易', '团队数据', '协同', '设置', '企业管理'];
-const RESERVED = ['沟通'];
+const MENUS = ['客户', '线索', '商机', '工作台', 'Leads', '邮件', '沟通', '交易', '团队数据', '协同', '设置', '企业管理'];
+// 沟通 became a real menu (WhatsApp, D-023); no menu is a pure placeholder any more. Leads' 设置 is a real route now (线索设置).
+const RESERVED = [];
 
 // ---------------- 清单只有一份来源 ----------------
 test('every real entry of every menu is favoritable, in menu order; the reserved menus have nothing to favorite', () => {
@@ -54,7 +57,7 @@ test('a page added to a menu becomes favoritable without touching nav-favorites.
   const sandbox = {};
   vm.createContext(sandbox);
   sandbox.window = sandbox;
-  const patched = source('rail-menu.js').replace("'协同':menu('协同',['日历与待办','route','calendar'])", "'协同':menu('协同',['日历与待办','route','calendar'],['新页面','route','brand-new'])");
+  const patched = source('rail-menu.js').replace("['任务设置','route','task-settings'])", "['任务设置','route','task-settings'],['新页面','route','brand-new'])");
   assert.notEqual(patched, source('rail-menu.js'), 'the fixture edit applied');
   vm.runInContext(patched, sandbox);
   vm.runInContext(source('nav-favorites.js'), sandbox);
@@ -147,22 +150,22 @@ test('rail-menu.js loads before nav-favorites.js and both before the app, in the
 test('rail menus list only existing destinations; callers cannot alter the menu definition', () => {
   const rows = label => RM.menuFor(label).map(r => [r.label, r.kind, r.target]);
   assert.deepEqual(rows('客户'), [['客户列表', 'screen', 'active'], ['公海客户', 'screen', 'pool'], ['客户查重', 'screen', 'duplicates'], ['客户设置', 'screen', 'customer-settings']]);
-  assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash'], ['产品', 'route', 'products'], ['单据模板', 'route', 'doc-templates']]);
+  assert.deepEqual(rows('交易'), [['全部订单', 'route', 'order-list'], ['订单回收站', 'route', 'order-trash'], ['产品', 'route', 'products'], ['单据模板', 'route', 'doc-templates'], ['汇率设置', 'route', 'rates']]);
   assert.deepEqual(rows('商机'), [['商机看板', 'route', 'opportunities'], ['商机分析', 'route', 'opp-analysis'], ['商机设置', 'route', 'opp-flows']]);
   assert.deepEqual(rows('邮件').map(r => r[2]), Mail.folders.map(f => f.id), 'the same six folders as the mail page');
   assert.deepEqual(rows('邮件').map(r => r[0]), Mail.folders.map(f => f.label));
   for (const unknown of ['不存在', '__proto__', 'constructor', ...RESERVED]) assert.equal(RM.menuFor(unknown), null, unknown);
   RM.menuFor('客户').pop(); RM.menuFor('客户')[0].label = 'x'; RM.favoritable()[0].label = 'x'; RM.sectionFor('calendar').entries.pop();
   assert.equal(RM.menuFor('客户').length, 4);
-  assert.deepEqual([RM.menuFor('客户')[0].label, RM.favoritable()[0].label, RM.sectionFor('calendar').entries.length], ['客户列表', '客户列表', 1], 'callers get copies and cannot alter the menu definition');
+  assert.deepEqual([RM.menuFor('客户')[0].label, RM.favoritable()[0].label, RM.sectionFor('calendar').entries.length], ['客户列表', '客户列表', 2], 'callers get copies and cannot alter the menu definition');
 });
 
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'settings', 'settings-hub', 'roles', 'members'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'rates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'task-settings', 'settings', 'settings-hub', 'feature-switch', 'roles', 'members'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '设置', '设置', '企业管理', '企业管理']);
-  assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站', '产品', '单据模板']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '协同', '设置', '设置', '设置', '企业管理', '企业管理']);
+  assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站', '产品', '单据模板', '汇率设置']);
   const labels = ['工作台', '交易', '团队数据', '协同', '设置', '企业管理'];
   const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label)[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
   assert.deepEqual([...all].sort(), [...routes].sort(), 'together they cover every page once, with no duplicates');
@@ -212,7 +215,7 @@ function harness({settings, flush = true, failSave = null, route = 'customers', 
   let flyout = null;
   const mailState = {...mail};
   const boundary = {
-    NF: F, RM, R: require('../src/role-model.js'), E: escapeHtml, icons: {heart: 'M0 0h24v24z'}, icon: name => `<i:${name}>`, menuIcon: name => `<i:${name}>`,
+    NF: F, RM, R: require('../src/role-model.js'), FS: require('../src/feature-switch-model.js'), E: escapeHtml, icons: {heart: 'M0 0h24v24z'}, icon: name => `<i:${name}>`, menuIcon: name => `<i:${name}>`,
     state: {customers: {}, orders: [], laiSettings: settings},
     activeRoute: route, favoritesMode, customerScreen, currentName: '', failSave, flush,
     mail: {view: () => mailState.view, folder: () => mailState.folder, subnav: () => '<MAIL-SUBNAV/>', composing: () => false, leave: async () => true, select: folder => { mailState.view = 'mail'; mailState.folder = folder || 'inbox'; calls.mailSelect.push(folder); boundary.shell('<MAIL-PAGE/>'); }},
@@ -415,7 +418,7 @@ test('hovering a rail menu shows its entries beside the rail, with a heart on ea
   assert.equal(h.flyout, first, 'same menu is not rebuilt');
   hover(h, railItem('交易'));
   assert.equal(first.removed, true); assert.equal(h.flyout.dataset.menu, '交易');
-  assert.deepEqual(h.hearts('flyout').map(b => b.dataset.navFavorite), ['route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates']);
+  assert.deepEqual(h.hearts('flyout').map(b => b.dataset.navFavorite), ['route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates', 'route:rates']);
 });
 
 test('every menu\'s flyout carries hearts for exactly its real entries (mail folders and team pages included)', () => {
@@ -437,6 +440,19 @@ test('reserved menus explain themselves, with no hearts; an empty 常用 flyout 
   hover(h, railItem('常用'));
   assert.match(h.flyout.innerHTML, /还没有常用导航。把鼠标移到导航条目上，点右侧的心形，就能加到常用。/);
   assert.doesNotMatch(h.flyout.innerHTML, /☆|★|收藏|data-flyout-kind/);
+});
+
+test('沟通 is a real menu (WhatsApp): the rail icon opens 聊天记录, the flyout lists both pages with hearts and no reserved notice', () => {
+  assert.deepEqual(RM.menuFor('沟通').map(r => [r.label, r.kind, r.target, r.id]), [['聊天记录', 'route', 'chats', 'route:chats'], ['聊天模板', 'route', 'chat-templates', 'route:chat-templates']]);
+  assert.match(app, /\["chat", "沟通", "chats"\]/);
+  assert.equal(RM.sectionFor('chats').label, '沟通');
+  assert.equal(RM.sectionFor('chat-templates').label, '沟通');
+  const h = harness({settings: undefined});
+  hover(h, railItem('沟通'));
+  assert.doesNotMatch(h.flyout.innerHTML, /功能入口已保留/);
+  assert.deepEqual(h.hearts('flyout').map(b => b.dataset.navFavorite), ['route:chats', 'route:chat-templates']);
+  assert.equal(RM.menuFor('线索').length, 2);
+  assert.deepEqual(RM.menuFor('Leads').map(r => r.kind), ['route'], 'Leads 设置 is the real 线索设置 page, no reserved row is left');
 });
 
 test('the 常用 flyout lists the favorites of every kind, each with a lit heart', () => {
@@ -807,13 +823,14 @@ test('the old star and "收藏" wording is gone and the real handlers are wired'
   assert.ok(app.indexOf('d.navFavorite') < app.indexOf('d.laiScreen'), 'the heart is handled before the screen routing');
 });
 
-test('the Leads rail entry has no OKKI in its name and a 设置 option that is a reserved entry, not a favorite', () => {
+test('the Leads rail entry has no OKKI in its name and a 设置 option that opens the real 线索设置 page and can be a favorite', () => {
   const rows = RM.menuFor('Leads');
-  assert.deepEqual(rows.map(r => [r.label, r.kind, r.target]), [['设置', 'feature', 'Leads 设置']]);
-  assert.equal(rows[0].id, undefined, 'a reserved entry cannot be a favorite');
-  assert.equal(RM.favoritable().some(r => r.menu === 'Leads'), false);
+  assert.deepEqual(rows.map(r => [r.label, r.kind, r.target]), [['设置', 'route', 'lead-settings']]);
+  assert.equal(rows[0].id, 'route:lead-settings', 'a real entry can be a favorite');
+  assert.deepEqual(RM.favoritable().filter(r => r.menu === 'Leads').map(r => r.id), ['route:lead-settings']);
+  assert.equal(RM.sectionFor('lead-settings').label, 'Leads');
   const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src/app.js'), 'utf8');
-  assert.match(app, /\["search", "Leads", null\]/);
+  assert.match(app, /\["search", "Leads", "lead-settings"\]/);
   assert.doesNotMatch(app, /\["search", "OKKI/);
 });
 

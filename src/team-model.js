@@ -204,7 +204,7 @@
     requireMonth(month);
     const rows=customerRows(state),selected=new Set(periodMonths(month)),months=monthsEnding(periodMonths(month).at(-1));
     const ownerOf=new Map(rows.map(row=>[row.name,row.owner]));
-    const all=(Array.isArray(state.laiTasks)?state.laiTasks:[]).filter(task=>task&&typeof task==='object').map(task=>({task,month:monthOf(task.date),owner:ownerOf.get(trim(task.customer))||''})).filter(item=>item.month);
+    const all=(Array.isArray(state.laiTasks)?state.laiTasks:[]).filter(task=>task&&typeof task==='object').map(task=>({task,month:monthOf(task.date),owner:trim(task.owner)||ownerOf.get(trim(task.customer))||''})).filter(item=>item.month);
     const itemOf=({task})=>({kind:'task',title:trim(task.title)||'（未命名任务）',meta:`${day(task.date)} · ${task.done===true?'已完成':'未完成'}`,customer:trim(task.customer)});
     const entries=[];
     for(const record of all.filter(item=>selected.has(item.month))){
@@ -215,7 +215,7 @@
     const table=tabulate(columns,entries,knownOwners(rows));
     return {
       kind:'tasks',title:'任务完成',month,
-      scope:'任务按任务日期归月，归到任务所关联客户当前的跟进人；没有关联客户或客户不存在的归入「未分配」。完成率＝已完成÷任务数。',
+      scope:'任务按任务日期归月，归到任务的负责人；老任务没有负责人时，归到所关联客户当前的跟进人；两者都没有的归入「未分配」。完成率＝已完成÷任务数。',
       tiles:[tile('total','任务数',table.total.total),tile('done','已完成',table.total.done),tile('rate','完成率',table.total.rate,'percent')],
       columns,rows:table.rows,total:table.total,totals:null,extra:[],notes:[],
       trend:trendOf(months,[{id:'total',label:'任务数',format:'count'},{id:'done',label:'已完成',format:'count'}],
@@ -452,12 +452,30 @@
       members:list,primaryCurrency,oppCurrency,moneyMetrics:MONEY_METRICS,rules:rulesFor(months.length>1?'本季度':'本月'),trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
       total};
   }
+  // 只看本人／本部门的账号：先把客户、订单、商机、任务、目标里不归自己的去掉，再交给下面的汇总。
+  // 没有跟进人的记录（未分配）和企业整体目标只有全公司看得到；sees(owner) 由角色模型给出。保存时仍用完整数据，这里只返回副本。
+  function scopeState(state,sees){
+    if(!state||typeof sees!=='function')return state;
+    const keepList=list=>Array.isArray(list)?list.filter(item=>item&&sees(item.owner)):list;
+    const customers=Object.fromEntries(Object.entries(state.customers||{}).filter(([,c])=>c&&sees(c.owner)));
+    // 待办属于负责人（D-022）：有 owner 看 owner，老任务没有 owner 时看所关联客户的跟进人（按完整客户资料查）；都没有的只有全公司看得到。
+    const fullCustomers=state.customers||{};
+    const taskOwner=task=>{
+      const own=trim(task.owner);
+      if(own)return own;
+      const name=trim(task.customer);
+      return name&&Object.hasOwn(fullCustomers,name)?trim(fullCustomers[name]&&fullCustomers[name].owner):'';
+    };
+    const tasks=Array.isArray(state.laiTasks)?state.laiTasks.filter(task=>task&&typeof task==='object'&&sees(taskOwner(task))):state.laiTasks;
+    const targets=Array.isArray(state.laiTargets)?state.laiTargets.filter(target=>target&&typeof target==='object'&&target.owner!==null&&target.owner!==undefined&&sees(target.owner)):state.laiTargets;
+    return {...state,customers,orders:keepList(state.orders),trashOrders:keepList(state.trashOrders),laiOpportunities:keepList(state.laiOpportunities),laiLeads:keepList(state.laiLeads),laiTasks:tasks,laiTargets:targets};
+  }
   const reports={assets,followups,tasks,orders};
   const kinds=Object.freeze(Object.keys(reports));
   function report(kind,state,month){
     if(!Object.hasOwn(reports,kind))throw new Error('不支持的团队数据报表');
     return reports[kind](state||{},month);
   }
-  const api={kinds,report,overview,monthOf,monthsEnding,periodMonths,quarterOf,periodLabel,validPeriod,targetMetrics:TARGET_METRICS,moneyMetrics:MONEY_METRICS,opportunityStats,listTargets,setTarget,removeTarget};
+  const api={kinds,scopeState,report,overview,monthOf,monthsEnding,periodMonths,quarterOf,periodLabel,validPeriod,targetMetrics:TARGET_METRICS,moneyMetrics:MONEY_METRICS,opportunityStats,listTargets,setTarget,removeTarget};
   if(node)module.exports=api;else root.LaiTeamModel=api;
 })(typeof window!=='undefined'?window:globalThis);
