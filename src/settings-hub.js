@@ -31,7 +31,7 @@
       { id: "rates", title: "汇率设置", note: "每 100 外币折合多少美元，用来把外币订单折成美元", open: ["route", "rates"], perm: "settings.rate" },
     ] },
     { id: "chat", title: "沟通", items: [
-      { id: "chat-templates", title: "聊天模板", note: "WhatsApp 常用话术：新建、编辑、停用", open: ["route", "chat-templates"], module: "chat", perm: "chat.template" },
+      { id: "chat-templates", title: "聊天模板", note: "WhatsApp 常用话术：新建、修改、删除", open: ["route", "chat-templates"], module: "chat", perm: "chat.template" },
     ] },
     { id: "task", title: "协同", items: [
       { id: "task-settings", title: "任务设置", note: "按规则自动建待办：客户没跟进、订单到了某阶段、商机快到期、复购提醒", open: ["route", "task-settings"], perm: "settings.task" },

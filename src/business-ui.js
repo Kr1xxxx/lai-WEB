@@ -860,6 +860,19 @@
       ctx.closeDialog();
       orderEditor(undefined, { ...OM().orderDraft(item, B.localDate()), num: suggestedOrderNumber() }, back, id);
     }
+    // 商机里的电话和 WhatsApp 按钮：账号要能开聊天，客户资料里的「联系电话」没被角色隐藏，而且看得到这位客户
+    // （本人账号看不到别人的客户，公海客户要“公海查看”，回收站里的不给），不然既不显示号码也不能打开。
+    function customerSeen(name) {
+      const profile = state().customers && Object.hasOwn(state().customers, name) ? state().customers[name] : null;
+      if (!profile || typeof profile !== "object") return false;
+      const bucket = root.LaiModules && root.LaiModules.bucket ? root.LaiModules.bucket(profile) : "";
+      if (bucket === "trash") return false;
+      return bucket === "pool" ? can("pool.view") : can("customer.view") && sees(profile.owner);
+    }
+    function oppPhone(client, contact) {
+      if (!can("chat.send") || (RM() && !RM().fieldVisible(state(), "customer", "contact.phone")) || !customerSeen(client)) return null;
+      return OM().contactPhone(state(), client, contact);
+    }
     function oppAction(d) {
       const action = d.oppAction;
       if (action !== "delete") oppArmed = "";
@@ -869,7 +882,7 @@
       if (action === "edit") return openOppForm(d.id);
       if (action === "wa") {
         const detail = OM().detailOf(state(), d.id, B.localDate()),
-          hit = detail && OM().contactPhone(state(), detail.client, detail.contact);
+          hit = detail && oppPhone(detail.client, detail.contact);
         if (!hit) return ctx.toast("这个联系人没有可用的电话");
         return ctx.openWhatsApp({ customer: detail.client, contact: hit.contact, phone: hit.phone, code: hit.code, country: hit.country });
       }
@@ -919,7 +932,7 @@
       if (!detail) return "";
       const documents = DM() ? DM().docsFor(state(), { kind: "opportunity", id }).map((doc) => ({ id: doc.id, number: doc.number, typeName: doc.snapshot?.typeName || "", date: doc.date, voided: doc.status === "已作废" })) : [];
       // 联系人有能打开的号码、账号又能开聊天时，详情里多一个 WhatsApp 按钮。
-      const hit = can("chat.send") ? OM().contactPhone(state(), detail.client, detail.contact) : null,
+      const hit = oppPhone(detail.client, detail.contact),
         whatsapp = hit && waE164(hit.phone, hit.code, hit.country) ? { phone: hit.phone, contact: hit.contact } : null;
       return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents, whatsapp }, attachView);
     }

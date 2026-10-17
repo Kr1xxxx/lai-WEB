@@ -110,7 +110,7 @@
       if(!Array.isArray(documents)||!documents.length)return '';
       return `<div class="form-section">单据</div><ul class="opp-docs">${documents.map(doc=>`<li${doc.voided?' class="is-void"':''}><b>${E(doc.number)}</b><span>${E(doc.typeName)}</span><span>${E(doc.date||'')}</span>${doc.voided?'<span class="opp-chip">已作废</span>':''}<button type="button" class="text-button" data-biz-action="docrec-view" data-id="${E(doc.id)}">查看</button></li>`).join('')}</ul>`;
     }
-    // 商机详情：基本信息、阶段记录、附件。context：{today, multiFlow, documents, whatsapp}（whatsapp：{phone, contact}，联系人有能打开的号码且账号能开聊天时才传，详情里就多一个 WhatsApp 按钮）；view：附件区状态。
+    // 商机详情：基本信息、阶段记录、附件。context：{today, multiFlow, documents, whatsapp}（whatsapp：{phone, contact}，联系人有能打开的号码、账号能开聊天、看得到这位客户、「联系电话」没被隐藏时才传；不传就不显示电话，详情里就多一个 WhatsApp 按钮）；view：附件区状态。
     function detailMarkup(detail,context={},view={}){
       const fact=(label,value,wide=false)=>label&&(value||value===0)?`<div${wide?' class="is-wide"':''}><dt>${label}</dt><dd>${value}</dd></div>`:'';
       const rate=detail.currency!=='USD'&&Number(detail.exchangeRate)?`每 100 ${E(detail.currency)} ＝ ${E(number(detail.exchangeRate))} USD`:'';
@@ -122,7 +122,7 @@
         +`<div class="error" id="opp-detail-error" role="alert"></div>`
         +`<dl class="opp-facts">`
         +fact('客户',detail.client?`<button type="button" class="company-link" data-biz-customer="${E(detail.client)}">${E(detail.client)}</button>`:'')
-        +(vis('contact')?fact('联系人',E(detail.contact)):'')+(context.whatsapp?fact('电话',`${E(context.whatsapp.phone)} <button type="button" class="text-button opp-wa" data-opp-action="wa" data-id="${E(detail.id)}" aria-label="用 WhatsApp 联系${E(context.whatsapp.contact||detail.client)}">WhatsApp</button>`):'')+fact('负责人',E(detail.owner))+(vis('collaborators')?fact('协同跟进人',E(detail.collaborators.join('、'))):'')
+        +(vis('contact')?fact('联系人',E(detail.contact)):'')+(context.whatsapp&&context.whatsapp.phone?fact('电话',`${E(context.whatsapp.phone)} <button type="button" class="text-button opp-wa" data-opp-action="wa" data-id="${E(detail.id)}" aria-label="用 WhatsApp 联系${E(context.whatsapp.contact||detail.client)}">WhatsApp</button>`):'')+fact('负责人',E(detail.owner))+(vis('collaborators')?fact('协同跟进人',E(detail.collaborators.join('、'))):'')
         +(vis('endDate')?fact('结束日期',E(detail.endDate)):'')+(context.multiFlow?fact('销售流程',E(detail.flowLabel)):'')
         +(vis('exchangeRate')?fact('汇率',E(rate)):'')+fact('创建时间',E(stamp(detail.createdAt)))
         +fact(detail.kind==='won'?'赢单时间':detail.kind==='lost'?'输单时间':'',detail.kind!=='open'&&detail.closedAt?E(stamp(detail.closedAt)):'')

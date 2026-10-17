@@ -403,7 +403,9 @@
     // 号码缺区号时按国家补：线索自己带国家；客户用资料里的国家。
     const countryOfDialog = (d) => plain(d.country) || plain((profileOf(d.customer) || {}).country);
     // 这条消息发出去后能不能记一笔：线索要调用方给 onLog；客户要在客户资料里找得到。
-    const canLogDialog = (d) => (d.lead ? !!d.onLog : !!(d.customer && profileOf(d.customer)));
+    const NOT_VISIBLE = "你看不到这位客户，不能操作";
+    // 记到客户动态：客户要在，而且这个账号看得到（本人账号看不到别人的客户，公海客户要“公海查看”）。
+    const canLogDialog = (d) => (d.lead ? !!d.onLog : !!(d.customer && profileOf(d.customer) && canSee(d.customer, profileOf(d.customer))));
     function templateVars(d) {
       const profile = profileOf(d.customer) || {};
       return { 姓名: plain(d.contact) || profilePhone(profile).contact, 公司: d.customer || plain(d.label), 我的名字: me(), 国家: countryOfDialog(d) };
@@ -431,6 +433,7 @@
       const lead = options.lead && typeof options.lead === "object" ? options.lead : null;
       const customer = lead ? "" : options.customer || selected || "";
       const profile = profileOf(customer);
+      if (profile && !canSee(customer, profile)) return ctx.toast(NOT_VISIBLE);
       const phone = profilePhone(profile);
       const onLog = typeof options.onLog === "function" ? options.onLog : null;
       dialogState = {
@@ -524,7 +527,8 @@
     }
     async function logLink() {
       const d = dialogState;
-      if (!d || !canLogDialog(d) || !guard("chat.send")) return;
+      if (!d || !guard("chat.send")) return;
+      if (!canLogDialog(d)) return !d.lead && d.customer && profileOf(d.customer) ? showError("wa-ask-error", NOT_VISIBLE) : undefined;
       let note = "已记到客户动态";
       try {
         if (d.onLog) {
@@ -730,10 +734,14 @@
     }
 
     // ---- 撤销导入 ----
+    const importRow = (id) => (Array.isArray(st().laiChatImports) ? st().laiChatImports : []).find((r) => r && r.id === id);
+    // 导入记录属于哪位客户，就要看得到这位客户才能撤销。
+    const importSeen = (row) => canSee(text(row.customer), profileOf(text(row.customer)));
     function askUndo(id) {
       if (!guard("chat.import")) return;
-      const row = (Array.isArray(st().laiChatImports) ? st().laiChatImports : []).find((r) => r && r.id === id);
+      const row = importRow(id);
       if (!row || row.undone) return;
+      if (!importSeen(row)) return ctx.toast(NOT_VISIBLE);
       ctx.dialog(
         "撤销这次导入？",
         `<div class="drawer-body"><p>${E(fullTime(row.at))} 导入到「${E(row.customer)}」的 ${Number(row.added) || 0} 条聊天会从客户动态里删掉，别的记录不受影响。</p><div class="error" id="wa-undo-error" role="alert"></div></div>`,
@@ -743,6 +751,8 @@
     }
     async function undo(id) {
       if (!guard("chat.import")) return;
+      const row = importRow(id);
+      if (row && !importSeen(row)) return showError("wa-undo-error", NOT_VISIBLE);
       try {
         const next = stateOf(M.undoImport(st(), id));
         const log = (Array.isArray(next.laiChatImports) ? next.laiChatImports : []).map((r) => (r && r.id === id ? { ...r, undone: true } : r));

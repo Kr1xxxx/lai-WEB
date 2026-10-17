@@ -137,14 +137,15 @@ test('analysis page shows the figures from the model', () => {
 
 // ---------------- controller ----------------
 const source = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8');
-function controller(initial, failWith = null, extra = {}) {
+function controller(initial, failWith = null, extraAll = {}) {
+  const {roleModel, ...extra} = extraAll;
   let current = initial, form = null, broken = false;
   const mounted = [], dialogs = [], listeners = {}, toasts = [], closed = [], errors = {}, refreshed = [], navigated = [];
   const sandbox = {crypto: {randomUUID: () => 'new-id'}, FormData: function (f) { return Object.entries(f.values)[Symbol.iterator](); }, document: {
     addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
     getElementById: id => id === 'opp-form' ? form : id ? (errors[id] ||= {textContent: '', classList: {add() {}}}) : null,
     querySelectorAll: () => [], querySelector: () => null}};
-  sandbox.window = {LaiBusinessModel: B, LaiModules: require('../src/modules.js'), LaiTeamModel: T, LaiTeamUI: TU, LaiOpportunityModel: O, LaiOpportunityUI: U};
+  sandbox.window = {LaiBusinessModel: B, LaiModules: require('../src/modules.js'), LaiTeamModel: T, LaiTeamUI: TU, LaiOpportunityModel: O, LaiOpportunityUI: U, ...(roleModel ? {LaiRoleModel: roleModel, LaiWhatsAppModel: require('../src/whatsapp-model.js')} : {})};
   vm.createContext(sandbox); vm.runInContext(source, sandbox);
   const page = sandbox.window.LaiBusinessUI.create({getState: () => current, escape: escapeHtml, mount: html => mounted.push(html),
     save: async next => { if (failWith) throw new Error(failWith); current = next; return true; }, openCustomer() {}, refreshCustomer: name => refreshed.push(name), navigate: to => navigated.push(to),
@@ -985,4 +986,57 @@ test('detail: the 电话 line with a WhatsApp button appears only when the page 
   assert.doesNotMatch(html, /data-chat-action/);
   assert.doesNotMatch(ui.detailMarkup(detail, {today: TODAY}, {}), /data-opp-action="wa"|<dt>电话<\/dt>/);
   assert.match(ui.detailMarkup(detail, {today: TODAY, whatsapp: {phone: '<i>1', contact: ''}}, {}), /&lt;i&gt;1/, 'the number is escaped');
+});
+
+test('opportunity WhatsApp / 电话: needs 联系电话 not hidden, a customer the account can see, and chat permission', async () => {
+  const RMODEL = require('../src/role-model.js');
+  const customers = {
+    'Alpha <b>Co</b>': {owner: 'Amy', contact: 'Ann', phone: '+44 7700 900123', country: '英国'},
+    'Beta Ltd': {owner: 'Bob', contact: 'Cy', phone: '+49 1512 3456789', country: '德国'},
+    'Pool Co': {owner: '', laiBucket: 'pool', contact: 'Pia', phone: '+49 1512 0000000', country: '德国'},
+  };
+  let s = {...base, customers};
+  s = add(s, 'mine', {client: 'Alpha <b>Co</b>', contact: 'Ann'});
+  s = add(s, 'theirs', {client: 'Beta Ltd', contact: 'Cy'});          // Amy owns the opportunity, Bob owns the customer
+  s = add(s, 'pooled', {client: 'Pool Co', contact: 'Pia'});
+  const account = (perms, fields = {}, scope = 'self') => ({...s, laiSettings: {...s.laiSettings, roles: {
+    roles: [{id: 'ops', name: '运营', scope, perms: {'customer.view': true, 'opp.view': true, 'chat.send': true, ...perms}, fields}],
+    members: [{id: 'm-kris', name: 'Kris', roleId: 'admin'}, {id: 'm-amy', name: 'Amy', roleId: 'ops'}], current: 'm-amy'}}});
+  const run = async (state, id) => {
+    const opened = [], c = controller(state, null, {roleModel: RMODEL, openWhatsApp: options => opened.push(options)});
+    c.page.navigate('opportunities');
+    await c.click({oppAction: 'detail', id});
+    const html = c.dialogs.at(-1)[1];
+    await c.click({oppAction: 'wa', id});
+    return {html, opened, toasts: c.toasts};
+  };
+  // allowed: own customer, phone visible
+  let got = await run(account({}), 'mine');
+  assert.match(got.html, /<dt>电话<\/dt><dd>\+44 7700 900123 <button[^>]*data-opp-action="wa"/);
+  assert.equal(got.opened.length, 1);
+  assert.equal(got.opened[0].customer, 'Alpha <b>Co</b>');
+  // 联系电话 hidden by the role: no number, no button, and the button action refuses
+  got = await run(account({}, {customer: {'contact.phone': 'hidden'}}), 'mine');
+  assert.doesNotMatch(got.html, /<dt>电话<\/dt>|7700 900123|data-opp-action="wa"/);
+  assert.equal(got.opened.length, 0);
+  assert.deepEqual(got.toasts.slice(-1), ['这个联系人没有可用的电话']);
+  // 联系电话 read-only is still visible
+  assert.equal((await run(account({}, {customer: {'contact.phone': 'read'}}), 'mine')).opened.length, 1);
+  // a 本人 account that owns an opportunity on someone else's customer: nothing leaks
+  got = await run(account({}), 'theirs');
+  assert.doesNotMatch(got.html, /<dt>电话<\/dt>|1512 3456789|data-opp-action="wa"/);
+  assert.equal(got.opened.length, 0);
+  // a 全公司 account sees that customer
+  assert.equal((await run(account({}, {}, 'all'), 'theirs')).opened.length, 1);
+  // pool customers need 公海查看
+  assert.equal((await run(account({}, {}, 'all'), 'pooled')).opened.length, 0);
+  got = await run(account({'pool.view': true}, {}, 'all'), 'pooled');
+  assert.match(got.html, /<dt>电话<\/dt>/);
+  assert.equal(got.opened.length, 1);
+  // no chat permission: no button, no number
+  got = await run(account({'chat.send': false}), 'mine');
+  assert.doesNotMatch(got.html, /<dt>电话<\/dt>|data-opp-action="wa"/);
+  assert.equal(got.opened.length, 0);
+  // the detail markup never prints a number it was not given
+  assert.doesNotMatch(ui.detailMarkup(O.detailOf(s, 'theirs', TODAY), {today: TODAY}, {}), /<dt>电话<\/dt>|1512/);
 });

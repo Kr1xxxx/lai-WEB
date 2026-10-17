@@ -533,3 +533,35 @@ test('css classes exist and the source has no placeholder entries', () => {
   for (const name of ['wa-row', 'wa-bubble', 'wa-day', 'wa-entry', 'wa-tpl-group', 'wa-pick']) assert.ok(css.includes('.' + name), name);
   assert.doesNotMatch(js, /功能入口已保留/);
 });
+
+test('a customer the account cannot see: no dialog, no 记一笔, no undo', async () => {
+  // opening the dialog for a customer outside the account's scope is refused
+  const h = harness();
+  h.ui.openDialog({ customer: '别人的客户' });
+  assert.equal(h.dialogs.length, 0);
+  assert.equal(h.toasts.at(-1), '你看不到这位客户，不能操作');
+  // the customer was visible when the dialog opened but is not any more when 记一笔 is pressed
+  let seen = true;
+  const g = harness({ ctx: { canSeeCustomer: () => seen } });
+  g.ui.openDialog({ customer: 'Nordic Lamps <AB>' });
+  g.node('wa-dlg-text').value = 'hello';
+  g.act('dlg-open');
+  assert.equal(g.dialog.title, '发出去了吗？');
+  seen = false;
+  await g.act('dlg-log');
+  assert.equal(g.model.calls.some((c) => c[0] === 'log'), false, 'nothing is written');
+  assert.equal(g.persisted.length, 0);
+  assert.equal(g.node('wa-ask-error').textContent, '你看不到这位客户，不能操作');
+  // undo of an import that belongs to a customer outside the scope
+  const u = harness();
+  u.act('undo', { id: 'i2' });
+  assert.equal(u.dialogs.length, 0, 'no confirm dialog');
+  assert.equal(u.toasts.at(-1), '你看不到这位客户，不能操作');
+  await u.act('undo-confirm', { id: 'i2' });
+  assert.equal(u.model.calls.some((c) => c[0] === 'undo'), false, 'undoImport is never called');
+  assert.equal(u.persisted.length, 0);
+  // a visible customer's import still undoes
+  await u.act('undo-confirm', { id: 'i1' });
+  assert.deepEqual(u.model.calls.find((c) => c[0] === 'undo'), ['undo', 'i1']);
+  for (const x of [h, g, u]) x.dispose();
+});
