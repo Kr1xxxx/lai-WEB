@@ -364,9 +364,15 @@
     const slot = slotFor(form);
     show(slot, describe(el));
     if (slot) slot.__laiField = el;
-    el.setAttribute("aria-invalid", "true");
     focusField(el);
+    mark(el);
     return false;
+  }
+  // 标红：框本身，和替它显示的下拉按钮、日期框（光标此时就在它上面）。
+  function mark(el) {
+    el?.setAttribute?.("aria-invalid", "true");
+    const shown = el?.ownerDocument?.activeElement;
+    if (shown && shown !== el && shown.matches?.(".lai-select-trigger,.lai-date-trigger")) shown.setAttribute("aria-invalid", "true");
   }
   // 保存时出错（模型里抛的错）：找出说的是哪个框。error.field（表单里的 name）优先；
   // 否则看错误文字里有没有某个框的标题（如“请填写产品型号”里的“产品型号”），取最长的那个。
@@ -417,7 +423,7 @@
     doc.addEventListener("input", settle, true);
     doc.addEventListener("change", settle, true);
   }
-  const api = { cleanLabel, messageFor, labelOf, infoOf, describe, firstInvalid, slotFor, show, focusField, reveal, report, fieldFor, install };
+  const api = { cleanLabel, messageFor, labelOf, infoOf, describe, firstInvalid, slotFor, show, focusField, reveal, mark, report, fieldFor, install };
   if (typeof module !== "undefined" && module.exports) module.exports.formCheck = api;
   else {
     root.LaiFormCheck = api;

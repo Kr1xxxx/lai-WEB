@@ -452,6 +452,11 @@ a,
 form .form-foot-error {
   margin: 8px 0;
 }
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: #d64552;
+}
 .cs-actions .form-foot-error {
   margin: 0;
   align-self: center;

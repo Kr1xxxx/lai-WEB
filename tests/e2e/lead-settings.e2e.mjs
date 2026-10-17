@@ -96,7 +96,7 @@ test('a hidden field leaves the lead form and a required field must be filled', 
   assert.equal(await page.locator('#lead-form [name="website"]').count(), 0);
   assert.equal(await page.locator('#lead-form [name="email"]').getAttribute('required') !== null, true);
   await page.locator('#lead-form [name="name"]').fill('Needs Mail Co');
-  await page.locator('#lead-form').evaluate((form) => { form.noValidate = true; });
+  await page.locator('#lead-form').evaluate((form) => { form.noValidate = true; form.removeAttribute('data-form-check'); });
   await page.locator('button[type="submit"][form="lead-form"]').click();
   await settle();
   assert.match(await page.locator('#lead-error').innerText(), /请填写邮箱/);

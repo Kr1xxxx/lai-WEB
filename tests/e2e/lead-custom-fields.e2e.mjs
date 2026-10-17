@@ -94,7 +94,7 @@ test('a new lead shows the fields, refuses a missing required one, and saves cle
   await page.locator(`#lead-form input[name="custom.${cat}"][value="假发"]`).check();
   await page.locator(`#lead-form [name="custom.${due}"]`).fill('2026-12-01');
   // The browser's own check stops an empty required field; with it off, the app's message shows.
-  await page.locator('#lead-form').evaluate((form) => { form.noValidate = true; });
+  await page.locator('#lead-form').evaluate((form) => { form.noValidate = true; form.removeAttribute('data-form-check'); });
   await submitLead();
   assert.match(await page.locator('#lead-error').innerText(), /请填写展会名/);
   await page.locator(`#lead-form [name="custom.${qty}"]`).fill('12,00');
