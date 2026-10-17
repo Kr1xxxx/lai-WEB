@@ -337,8 +337,26 @@
     try { el.focus({ preventScroll: true }); } catch (_) { return false; }
     const doc = el.ownerDocument;
     const shown = doc.activeElement && doc.activeElement !== doc.body ? doc.activeElement : el;
-    shown.scrollIntoView?.({ block: "center", inline: "nearest" });
+    reveal(shown);
     return shown !== doc.body && doc.activeElement === shown;
+  }
+  // 只滚动框所在的那一层滚动区（例如抽屉的表单区），把框移到中间；不用 scrollIntoView，它会连抽屉外框一起滚，标题和底栏会被滚走。
+  function reveal(el) {
+    const doc = el?.ownerDocument, view = doc?.defaultView;
+    if (!el?.getBoundingClientRect || !view) return;
+    let box = el.parentElement;
+    while (box && box !== doc.body && box !== doc.documentElement) {
+      const style = view.getComputedStyle(box);
+      if (/(auto|scroll)/.test(style.overflowY) && box.scrollHeight > box.clientHeight) break;
+      box = box.parentElement;
+    }
+    const r = el.getBoundingClientRect();
+    if (!box || box === doc.body || box === doc.documentElement) {
+      if (r.top < 0 || r.bottom > view.innerHeight) view.scrollBy(0, r.top - (view.innerHeight - r.height) / 2);
+      return;
+    }
+    const b = box.getBoundingClientRect();
+    if (r.top < b.top || r.bottom > b.bottom) box.scrollTop += r.top - b.top - (b.height - r.height) / 2;
   }
   function report(form) {
     const el = firstInvalid(form);
@@ -399,7 +417,7 @@
     doc.addEventListener("input", settle, true);
     doc.addEventListener("change", settle, true);
   }
-  const api = { cleanLabel, messageFor, labelOf, infoOf, describe, firstInvalid, slotFor, show, focusField, report, fieldFor, install };
+  const api = { cleanLabel, messageFor, labelOf, infoOf, describe, firstInvalid, slotFor, show, focusField, reveal, report, fieldFor, install };
   if (typeof module !== "undefined" && module.exports) module.exports.formCheck = api;
   else {
     root.LaiFormCheck = api;

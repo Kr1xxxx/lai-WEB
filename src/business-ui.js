@@ -2427,7 +2427,7 @@
       const row = /^items\.(\d+)$/.exec(String(error?.field || ""));
       const field = row ? form?.querySelector(`[data-item-product="${row[1]}"]`) : FC?.fieldFor(form, error);
       if (field && FC?.focusField(field)) return field.setAttribute("aria-invalid", "true");
-      target.scrollIntoView?.({ block: "nearest" });
+      FC?.reveal(target);
       const submit = (form?.id && document.querySelector(`[type="submit"][form="${form.id}"]`)) || form?.querySelector('[type="submit"]') || drawer?.querySelector(".drawer-footer .primary");
       submit?.focus({ preventScroll: true });
     }
