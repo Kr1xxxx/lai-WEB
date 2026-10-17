@@ -1291,6 +1291,10 @@
 :root[data-skin="glass"][data-theme="studio"] :is(.lcd-left, .lcd-right, .lcd-side) { gap: var(--studio-grid-gap); }
 /* 页头停在顶上时底色跟主区一样白（原来是 --bg，米白里是 surface-2，会露出一条灰带） */
 :root[data-skin="glass"][data-theme="studio"] .lcd-pagebar.k-pageheader { background: var(--studio-surface); }
+/* 吸顶后上方还有主区 24 的上内距，滚过去的内容会从这条缝里透出来：页头上方加一条同色白条盖住它（不挡点击） */
+:root[data-skin="glass"][data-theme="studio"] .lcd-pagebar.k-pageheader::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--studio-page-top); background: var(--studio-surface); pointer-events: none;
+}
 /* 返回：26 高的幽灵按钮 */
 :root[data-skin="glass"][data-theme="studio"] .lcd-pagebar .lcd-return.k-btn {
   height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding: 0 8px 0 6px; border-color: transparent; background: transparent; box-shadow: none;
