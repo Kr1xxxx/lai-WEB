@@ -7,9 +7,10 @@ const B = require('../src/business-model.js');
 const L = require('../src/modules.js');
 const Hub = require('../src/settings-hub.js');
 const { escapeHtml } = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const source = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8');
-const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+const app = appSource();
 
 // The 设置 page and the 设置中心 card read the theme list from business-ui.js; the default comes from app.js (ctx.defaultTheme).
 function page(route, { theme, defaultTheme } = {}) {

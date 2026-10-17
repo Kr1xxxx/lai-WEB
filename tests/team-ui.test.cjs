@@ -7,6 +7,7 @@ const T = require('../src/team-model.js');
 const U = require('../src/team-ui.js');
 const RM = require('../src/rail-menu.js');
 const {escapeHtml} = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const ui = U.create(escapeHtml);
 const state = {
@@ -123,7 +124,7 @@ test('the other pages still work when the team modules are not loaded', () => {
 
 // ---- rail highlight for business pages ----
 test('the rail highlights the menu that owns the current page', () => {
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = app.slice(app.indexOf('  function railActive('), app.indexOf('  function appNav()'));
   const active = (route, favoritesMode = false) => {
     const sandbox = {RM, activeRoute: route, favoritesMode};
@@ -149,7 +150,7 @@ test('the team modules are loaded between the business model and the business UI
   assert.ok(at('LAI_BUSINESS_MODEL') < at('TEAM_MODEL') && at('TEAM_MODEL') < at('TEAM_UI') && at('TEAM_UI') < at('LAI_BUSINESS_UI'));
   assert.match(build, /'<!--TEAM_MODEL-->','team-model\.js','script'/);
   assert.match(build, /'<!--TEAM_UI-->','team-ui\.js','script'/);
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   for (const route of ['team-assets', 'team-followups', 'team-orders']) assert.ok(app.includes(`"${route}"`), route);
   assert.ok(!app.includes('"team-tasks"'), '任务完成 went with 协同 (D-031)');
 });

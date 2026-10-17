@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { appSource } = require("./helpers/source.cjs");
 
 const read = (file) => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 const css = (file) => read(file).replace(/\/\*[\s\S]*?\*\//g, "");
@@ -55,7 +56,7 @@ test("新出现的 <select> 自动换成统一下拉；选项多于 8 个自动�
 });
 
 test("顶栏搜索范围按钮用统一的 V 形箭头，不再是文字「⌄」", () => {
-  const app = read("src/app.js");
+  const app = appSource();
   assert.equal((app.match(/class="dd-caret"/g) || []).length, 2);
   assert.doesNotMatch(app, /global-search-label[^`]*<span>⌄<\/span>/);
 });

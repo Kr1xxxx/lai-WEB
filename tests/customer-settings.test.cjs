@@ -6,6 +6,7 @@ const M = require('../src/model.js');
 const L = require('../src/modules.js');
 const S = require('../src/segments.js');
 const I = require('../src/customer-import.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const T = '2026-10-09T08:00:00.000Z';
 const base = () => ({
@@ -209,7 +210,7 @@ test('the settings page markup has fifteen tabs, escapes names and has no placeh
 test('every data-cs-* control and form the settings page draws is handled by app.js', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const E = (v) => String(v);
   let s = CS.addGroup(CS.addBlacklist(base(), '@x.test'), { name: '组' });
   const html = UI.TABS.map((t) => UI.markup(s, { tab: t.id, editing: { kind: 'stages', key: '未成单' } }, E, ['Kris'])).join('') +
