@@ -3,7 +3,7 @@
 > The single "where are we now". Update it before you stop working; the session log lives in
 > `docs/handoff-log.md`. Keep this file under 100 lines.
 
-## Status (2026-10-16)
+## Status (2026-10-17)
 
 - Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.08 built from `main` 892e284 (#15 merged).
 - Desktop builds (Mac, Windows) are PAUSED (D-019): web version only. CI skips the Mac job; a manual run is still possible.
@@ -24,7 +24,9 @@
 | --- | --- | --- |
 | Polish pass: tests, bug fixes, placeholder removal, UI audit fixes | PR #17 | Merged 2026-10-16 (owner said 合并), `main` 9df7d37 |
 | Data safety: incomplete-save guard, backup queue + tiered retention, before-delete backups, 409 rebase, mail forward/bulk/draft fixes; 待收款客户 group removed | PR #18 | Merged 2026-10-16 (owner said 合并), `main` 9579f5c |
-| Roles: departments, field permissions, layouts by role | PR #15 (`claude/project-thread-5ob5ux`) | Waiting for 合并; duplicate #16 closed 2026-10-16 |
+| Roles: departments, field permissions, layouts by role | PR #15 | Merged 2026-10-16 (owner said 合并), `main` 892e284 |
+| Settings take effect (客户设置 logic, scope leaks, 设置 fixes), D-022–D-025 | PR #19 | Merged 2026-10-17 (owner said 合并), `main` eb6ba6e |
+| WhatsApp 沟通, export, lead settings, custom fields, rates, task rules, feature switches, D-022 build | `claude/gallant-bell-0m7uzb` | PR open after #19; CI decides, owner said 后续自动合并 |
 | 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Backend parts ported into `data-safety-pr2`; its numbering/finance `src/` changes were not ported (15 conflicts in `business-ui.js`) — re-evaluate against current code or drop |
 | Old branches | 62 merged or obsolete remote branches | Owner agreed to delete (2026-10-16). The cloud session's GitHub proxy refuses branch deletion (`git push --delete` hangs up, API returns 403); needs a session or tool with delete rights |
 
@@ -35,13 +37,15 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | # | Task | State | Notes |
 | --- | --- | --- | --- |
 | 2 | Waiting branches → PRs | Done except 1.4.127 | See table above |
-| 2i | 部门 + 本部门 scope + 部门管理员; field permissions (可编辑/只读/隐藏) for 线索/商机/客户/公海/产品; product layouts by role; split perms | In progress | PR #15 (`claude/project-thread-5ob5ux`), main (#17, #18) merged in; waiting for 合并. Data stays in `laiSettings.roles` (v2, v1 upgraded on read; no schema change) |
+| 2i | 部门 + 本部门 scope + 部门管理员; field permissions; product layouts by role | Done | #15 merged |
 | 3 | Owner walks the Mac build | Blocked | Desktop builds paused (D-019) |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo (owner) | Needs his real account (D-004); fake-server e2e passes |
 | 6 | More e2e: orders, opportunities, mail, settings | Done | `orders`, `opportunities`, `mail`, `settings-hub`, `features-walkthrough`, `customer-fixes`, `business-fixes`, `save-conflict` (data-safety PR) |
 | 7 | Translate `ARCHITECTURE.md` / `VALIDATION.md` to English | Todo | |
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
-| 9 | 沟通 module — WhatsApp (D-023) | Todo | Audit first (D-025); what works without a server decides the first slice |
+| 9 | 沟通 module — WhatsApp (D-023) | Done (PR) | wa.me links, chat templates, import of exported chats, chat follow-ups; no receiving without a server (D-024) |
+| 28 | Export, lead settings, custom customer fields, exchange rates, task rules, feature switches | Done (PR) | Settings kept in `laiSettings` (no schema change); see VALIDATION.md |
+| 29 | Custom columns for orders and leads; custom fields in global search | Todo | |
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
 | 25 | Split `src/app.js` (~5300 lines) and `business-ui.js` (~2700) by page | Todo | Many `tests/*.test.cjs` read source text; move them to behaviour tests while splitting |
@@ -50,7 +54,7 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 
 ## Waiting on the owner
 
-- 合并 for #15.
+- Nothing blocking. Owner said 后续自动合并 (2026-10-17); the rulebook (D-014) was not changed, so record it as a decision if he wants it permanent.
 - Whether `claude/theme-pink-orange` and `claude/order-lines` (1–2 unmerged commits each, superseded by later work) may go.
 
 ## Known risks
