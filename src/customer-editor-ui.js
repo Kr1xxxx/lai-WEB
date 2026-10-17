@@ -77,13 +77,13 @@
       placeholder = "请输入",
       { required = false, type = "text", attrs = "" } = {},
     ) =>
-      `<input id="ce-${name}" name="${name}" type="${type === "date" ? dateInputType(value) : type}" value="${E(value)}" placeholder="${E(placeholder)}"${required ? ' aria-required="true" required' : ""}${type === "date" ? " data-editor-date" : ""}${attrs ? " " + attrs : ""}>`;
+      `<input id="ce-${name}" name="${name}" type="${type === "date" ? dateInputType(value) : type}" value="${E(value)}" placeholder="${E(placeholder)}"${required ? ' aria-required="true" required' : ""}${type === "date" ? " data-editor-date" : ""}${attrs ? " " + attrs : ""} class="k-input">`;
     const field = (name, label, content, { star = false, extra = "" } = {}) =>
       `<div class="ce-field ${extra}"><label for="ce-${name}">${star ? '<span class="ce-required" aria-hidden="true">*</span>' : ""}${label}</label>${content}</div>`;
     // 新客户的币种用「来财设置」里的默认币种；已有客户保持自己存的值。
     const defaultCurrency = String(state.laiSettings?.defaultCurrency || state.orderSettings?.defaultCurrency || "USD").trim().toUpperCase() || "USD";
     const select = (name, value, placeholder, options = []) =>
-      `<div class="ce-select"><select id="ce-${name}" name="${name}"${name === "productType" ? ' data-searchable="anchor"' : ""}>${option("", placeholder, value)}${values(
+      `<div class="ce-select"><select id="ce-${name}" name="${name}"${name === "productType" ? ' data-searchable="anchor"' : ""} class="k-select-trigger">${option("", placeholder, value)}${values(
         options,
         value,
       )
@@ -97,7 +97,7 @@
         .map((valueOption) => `<option value="${E(valueOption)}"></option>`)
         .join("")}</datalist></div>`;
     const textarea = (name, value, placeholder = "请输入") =>
-      `<textarea id="ce-${name}" name="${name}" rows="3" placeholder="${E(placeholder)}">${E(value || "")}</textarea>`;
+      `<textarea id="ce-${name}" name="${name}" rows="3" placeholder="${E(placeholder)}" class="k-textarea">${E(value || "")}</textarea>`;
     const countryOptions = values(list("country"), c.country);
     // 角色没有“重新分配”权限时，跟进人只读。
     const canReassign = !root.LaiRoleModel || root.LaiRoleModel.can(state, "customer.reassign");
@@ -156,7 +156,7 @@
         ? ["Instagram", "Facebook", "Twitter", "LinkedIn", "TikTok", "其他"]
         : ["+1", "+44", "+33", "+49", "+61", "+86"];
       const label = social ? "社交平台" : "联系电话";
-      return `<div class="ce-paired ce-method-row" data-method-row="${kind}" data-method-id="${E(record.id || "")}"><div class="ce-select"><select data-method-select aria-label="附加${social ? "社交平台" : "电话区号"} ${index + 2}">${option("", social ? "社交平台" : "电话区号", record[key])}${values(choices, record[key]).map((choice) => option(choice, choice, record[key])).join("")}</select>${glyph("down")}</div><input data-method-value type="${social ? "text" : "tel"}" value="${E(record[valueKey] || "")}" placeholder="${social ? "请输入账号" : "请输入电话"}" aria-label="附加${label} ${index + 2}"><button class="ce-method-remove" type="button" data-editor-action="remove-method" aria-label="移除附加${label} ${index + 2}">${glyph("minus")}</button></div>`;
+      return `<div class="ce-paired ce-method-row" data-method-row="${kind}" data-method-id="${E(record.id || "")}"><div class="ce-select"><select data-method-select aria-label="附加${social ? "社交平台" : "电话区号"} ${index + 2}" class="k-select-trigger">${option("", social ? "社交平台" : "电话区号", record[key])}${values(choices, record[key]).map((choice) => option(choice, choice, record[key])).join("")}</select>${glyph("down")}</div><input data-method-value type="${social ? "text" : "tel"}" value="${E(record[valueKey] || "")}" placeholder="${social ? "请输入账号" : "请输入电话"}" aria-label="附加${label} ${index + 2}" class="k-input"><button class="ce-method-remove k-btn k-btn--ghost" type="button" data-editor-action="remove-method" aria-label="移除附加${label} ${index + 2}">${glyph("minus")}</button></div>`;
     };
     const methodList = (kind, records) =>
       `<div class="ce-method-list" data-method-list="${kind}">${M.contactRecordsWithIds(records, "method-").map((record, index) => methodRow(kind, record, index)).join("")}</div>`;
@@ -167,29 +167,29 @@
       const name = (key) => (extra ? `${key}Extra` : key);
       const id = (key) => `${name(key)}-${index}`;
       const contactInput = (key, placeholder = "请输入", type = "text") =>
-        `<input id="ce-${id(key)}" name="${name(key)}" type="${type === "date" ? dateInputType(record[key]) : type}" value="${E(type === "date" ? record[key] ?? "" : record[key] || "")}" placeholder="${E(placeholder)}"${type === "date" ? " data-editor-date" : ""}${(isNew || newContact) && ["contact", "email", "phone"].includes(key) ? ' aria-required="true" required' : ""}>`;
+        `<input id="ce-${id(key)}" name="${name(key)}" type="${type === "date" ? dateInputType(record[key]) : type}" value="${E(type === "date" ? record[key] ?? "" : record[key] || "")}" placeholder="${E(placeholder)}"${type === "date" ? " data-editor-date" : ""}${(isNew || newContact) && ["contact", "email", "phone"].includes(key) ? ' aria-required="true" required' : ""} class="k-input">`;
       const contactField = (key, label, body, star = false) =>
         gated("contact." + key, `<div class="ce-field"><label for="ce-${id(key)}">${star ? '<span class="ce-required" aria-hidden="true">*</span>' : ""}${label}</label>${body}</div>`);
       const contactSelect = (key, placeholder, options) =>
-        `<div class="ce-select"><select id="ce-${id(key)}" name="${name(key)}">${option("", placeholder, record[key])}${values(
+        `<div class="ce-select"><select id="ce-${id(key)}" name="${name(key)}" class="k-select-trigger">${option("", placeholder, record[key])}${values(
           options,
           record[key],
         )
           .map((value) => option(value, value, record[key]))
           .join("")}</select>${glyph("down")}</div>`;
-      return `<section class="ce-contact-card" data-contact-card="${index}">${extra ? `<input type="hidden" name="contactIdExtra" value="${E(record.id || "legacy-" + index)}">` : ""}<div class="ce-contact-heading"><strong>联系人<span data-contact-number>${index + 1}</span></strong>${extra ? (!newContact && F.contactHasLocked?.(state, gate.module, record) ? `<button type="button" class="ce-contact-remove" aria-disabled="true" data-contact-locked title="这个联系人有你不能修改的资料，不能移除" aria-label="移除联系人${index + 1}（这个联系人有你不能修改的资料，不能移除）">移除</button>` : `<button type="button" class="ce-contact-remove" data-editor-action="remove-contact" aria-label="移除联系人${index + 1}">移除</button>`) : '<span class="ce-main-tag">主</span><span class="ce-main-hint">主联系人默认置顶</span>'}</div>
+      return `<section class="ce-contact-card" data-contact-card="${index}">${extra ? `<input type="hidden" name="contactIdExtra" value="${E(record.id || "legacy-" + index)}">` : ""}<div class="ce-contact-heading"><strong>联系人<span data-contact-number>${index + 1}</span></strong>${extra ? (!newContact && F.contactHasLocked?.(state, gate.module, record) ? `<button type="button" class="ce-contact-remove k-btn k-btn--ghost k-btn--sm" aria-disabled="true" data-contact-locked title="这个联系人有你不能修改的资料，不能移除" aria-label="移除联系人${index + 1}（这个联系人有你不能修改的资料，不能移除）">移除</button>` : `<button type="button" class="ce-contact-remove k-btn k-btn--ghost k-btn--sm" data-editor-action="remove-contact" aria-label="移除联系人${index + 1}">移除</button>`) : '<span class="ce-main-tag k-badge k-badge--primary">主</span><span class="ce-main-hint">主联系人默认置顶</span>'}</div>
         ${contactField("contact", "昵称", contactInput("contact", "客户姓名"), true)}
         ${contactField("email", "邮箱", contactInput("email", "必填"), true)}
-        ${contactField("socialAccount", "社交平台", `<div class="ce-paired">${contactSelect("socialPlatform", "社交平台", ["Instagram", "Facebook", "Twitter", "LinkedIn", "TikTok", "其他"])}${contactInput("socialAccount", "默认Instagram，没有…")}<button class="ce-plus" type="button" data-editor-action="add-method" data-method-type="social" aria-label="添加社交平台">${glyph("plus")}</button></div>${methodList("social", record.additionalSocialAccounts)}`)}
+        ${contactField("socialAccount", "社交平台", `<div class="ce-paired">${contactSelect("socialPlatform", "社交平台", ["Instagram", "Facebook", "Twitter", "LinkedIn", "TikTok", "其他"])}${contactInput("socialAccount", "默认Instagram，没有…")}<button class="ce-plus k-btn k-btn--ghost" type="button" data-editor-action="add-method" data-method-type="social" aria-label="添加社交平台">${glyph("plus")}</button></div>${methodList("social", record.additionalSocialAccounts)}`)}
         ${contactField("primaryContactMethod", "主要联系方式", contactSelect("primaryContactMethod", "请选择", ["WhatsApp", "邮件", "阿里巴巴", "iMessage"]))}
-        ${contactField("phone", "联系电话", `<div class="ce-paired">${contactSelect("phoneCountryCode", "电话区号", ["+1", "+44", "+33", "+49", "+61", "+86"])}${contactInput("phone", "WhatsApp")}<button class="ce-plus" type="button" data-editor-action="add-method" data-method-type="phone" aria-label="添加联系电话">${glyph("plus")}</button></div>${methodList("phone", record.additionalPhones)}`, true)}
+        ${contactField("phone", "联系电话", `<div class="ce-paired">${contactSelect("phoneCountryCode", "电话区号", ["+1", "+44", "+33", "+49", "+61", "+86"])}${contactInput("phone", "WhatsApp")}<button class="ce-plus k-btn k-btn--ghost" type="button" data-editor-action="add-method" data-method-type="phone" aria-label="添加联系电话">${glyph("plus")}</button></div>${methodList("phone", record.additionalPhones)}`, true)}
         <details class="ce-extra ce-contact-extra"><summary><span>展开全部 (选填)</span>${glyph("down")}</summary><div class="ce-extra-content">
           ${contactField("alibabaId", "Alibaba会员ID", contactInput("alibabaId", "阿里客户从线索中创建"))}
-          ${contactField("address", "地址", `<textarea id="ce-${id("address")}" name="${name("address")}" rows="3" placeholder="请输入">${E(record.address || "")}</textarea>`)}
+          ${contactField("address", "地址", `<textarea id="ce-${id("address")}" name="${name("address")}" rows="3" placeholder="请输入" class="k-textarea">${E(record.address || "")}</textarea>`)}
           ${contactField("alternateEmail", "备用邮箱", contactInput("alternateEmail"))}
           ${contactField("birthday", "生日", contactInput("birthday", "请选择", "date"))}
           ${contactField("contactPaymentMethod", "付款方式", contactSelect("contactPaymentMethod", "请选择", [...(Array.isArray(state.paymentMethods) ? state.paymentMethods : []).filter((value) => typeof value === "string"), "PayPal", "银行转账"]))}
-          ${contactField("contactNote", "联系人备注", `<textarea id="ce-${id("contactNote")}" name="${name("contactNote")}" rows="3" placeholder="请输入">${E(record.contactNote || "")}</textarea>`)}
+          ${contactField("contactNote", "联系人备注", `<textarea id="ce-${id("contactNote")}" name="${name("contactNote")}" rows="3" placeholder="请输入" class="k-textarea">${E(record.contactNote || "")}</textarea>`)}
           ${record.contactTitle ? contactField("contactTitle", "职位", contactInput("contactTitle")) : ""}
           ${record.contactGender ? contactField("contactGender", "性别", contactInput("contactGender")) : ""}
           <button class="ce-collapse" type="button" data-editor-action="collapse">收起 ${glyph("up")}</button>
@@ -220,7 +220,7 @@
       customerStage: field("customerStage", "客户阶段", select("customerStage", originalStage, req("customerStage") ? "请选择" : "选填", stageOptions), { star: req("customerStage") }),
       customerType: field("customerType", "客户类型", select("customerType", c.customerType || "", req("customerType") ? "请选择" : "选填", typeOptions), { star: req("customerType") }),
       customerStars: `<div class="ce-field ce-rating-field"><span class="ce-label">${starOf(req("customerStars"))}客户星级</span><div class="ce-rating" role="radiogroup" aria-label="客户星级" data-rating="${rating}"><input type="hidden" name="customerStars" value="0">${[1, 2, 3, 4, 5].map((star) => `<label class="${star <= rating ? "is-active" : ""}"><input type="radio" name="customerStars" value="${star}" aria-label="${star}星"${rating === star ? " checked" : ""}>${glyph("star")}</label>`).join("")}</div></div>`,
-      customerCode: `<div class="ce-field ce-number-field"><span class="ce-label">客户编号</span><div class="ce-customer-number"><span data-customer-code-display>${E(c.customerCode || "*****")}</span><button type="button" class="ce-number-edit" data-editor-action="edit-customer-code" aria-label="编辑客户编号">${glyph("edit")}</button><input id="ce-customerCode" class="ce-number-input" name="customerCode" type="text" value="${E(c.customerCode || "")}" aria-label="客户编号" hidden></div></div>`,
+      customerCode: `<div class="ce-field ce-number-field"><span class="ce-label">客户编号</span><div class="ce-customer-number"><span data-customer-code-display>${E(c.customerCode || "*****")}</span><button type="button" class="ce-number-edit k-btn k-btn--ghost" data-editor-action="edit-customer-code" aria-label="编辑客户编号">${glyph("edit")}</button><input id="ce-customerCode" class="ce-number-input k-input" name="customerCode" type="text" value="${E(c.customerCode || "")}" aria-label="客户编号" hidden></div></div>`,
       timezone: field("timezone", "时区", select("timezone", c.timezone, req("timezone") ? "请选择" : "不用填写", list("timezone")), { star: req("timezone") }),
       defaultPaymentPlan: field("defaultPaymentPlan", "默认付款计划", input("defaultPaymentPlan", c.defaultPaymentPlan, "请选择")),
       customerAccountPeriod: field("customerAccountPeriod", "客户账期", input("customerAccountPeriod", c.customerAccountPeriod, "请选择")),
@@ -236,19 +236,19 @@
     })();
     const customControl = (def, value) => {
       const id = `ce-custom-${def.id}`, name = `custom.${def.id}`;
-      if (def.type === "textarea") return `<textarea id="${id}" name="${E(name)}" rows="3" placeholder="请输入">${E(value ?? "")}</textarea>`;
-      if (def.type === "number") return `<input id="${id}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value ?? "")}" placeholder="请输入数字">`;
-      if (def.type === "date") return `<input id="${id}" name="${E(name)}" type="${dateInputType(value ?? "")}" value="${E(value ?? "")}" placeholder="请选择">`;
+      if (def.type === "textarea") return `<textarea id="${id}" name="${E(name)}" rows="3" placeholder="请输入" class="k-textarea">${E(value ?? "")}</textarea>`;
+      if (def.type === "number") return `<input id="${id}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value ?? "")}" placeholder="请输入数字" class="k-input">`;
+      if (def.type === "date") return `<input id="${id}" name="${E(name)}" type="${dateInputType(value ?? "")}" value="${E(value ?? "")}" placeholder="请选择" class="k-input">`;
       if (def.type === "select") {
         const current = typeof value === "string" ? value : "";
-        return `<div class="ce-select"><select id="${id}" name="${E(name)}">${option("", "请选择", current)}${values(def.options, current).map((item) => option(item, item, current)).join("")}</select>${glyph("down")}</div>`;
+        return `<div class="ce-select"><select id="${id}" name="${E(name)}" class="k-select-trigger">${option("", "请选择", current)}${values(def.options, current).map((item) => option(item, item, current)).join("")}</select>${glyph("down")}</div>`;
       }
       if (def.type === "multi") {
         const picked = Array.isArray(value) ? value.map(String) : [];
         const choices = [...new Set([...def.options, ...picked])];
         return `<div class="ce-multi" id="${id}" role="group" aria-label="${E(def.name)}">${choices.map((item) => `<label class="ce-multi-option"><input type="checkbox" name="${E(name)}" value="${E(item)}"${picked.includes(item) ? " checked" : ""}> ${E(item)}</label>`).join("")}</div>`;
       }
-      return `<input id="${id}" name="${E(name)}" type="text" value="${E(value ?? "")}" placeholder="请输入">`;
+      return `<input id="${id}" name="${E(name)}" type="text" value="${E(value ?? "")}" placeholder="请输入" class="k-input">`;
     };
     const customFields = fieldSettings.customFields.map((def) => {
       const editable = gate.editable("custom." + def.id);
@@ -264,15 +264,15 @@
       gated("currency", field("currency", "默认币种", select("currency", c.currency || defaultCurrency, "请选择", ["USD", "EUR", "GBP", "CNY", "AUD", "CAD"]))),
       gated("paymentMethod", field("paymentMethod", "客户付款方式", select("paymentMethod", c.paymentMethod, "请选择", [...(Array.isArray(state.paymentMethods) ? state.paymentMethods : []).filter((value) => typeof value === "string"), ...list("paymentMethod"), "PayPal", "T/T 银行转账"]))),
       gated("paymentEmail", field("paymentEmail", "付款邮箱", input("paymentEmail", c.paymentEmail, "paypal@example.com", { type: "email" }))),
-      gated("repurchaseCycle", field("repurchaseCycle", "复购周期", `<div class="ce-select"><select id="ce-repurchaseCycle" name="repurchaseCycle">${option("", "不提醒", String(c.repurchaseCycle || ""))}${values(["30", "60", "90", "180"], String(c.repurchaseCycle || "")).map((cycle) => option(cycle, `${cycle} 天`, String(c.repurchaseCycle || ""))).join("")}</select>${glyph("down")}</div>`)),
+      gated("repurchaseCycle", field("repurchaseCycle", "复购周期", `<div class="ce-select"><select id="ce-repurchaseCycle" name="repurchaseCycle" class="k-select-trigger">${option("", "不提醒", String(c.repurchaseCycle || ""))}${values(["30", "60", "90", "180"], String(c.repurchaseCycle || "")).map((cycle) => option(cycle, `${cycle} 天`, String(c.repurchaseCycle || ""))).join("")}</select>${glyph("down")}</div>`)),
     ].join("");
-    const company = `<section class="ce-company"><div class="ce-section-heading"><h3>公司常用信息</h3><button type="button" data-action="company-display-settings" class="ce-display-settings">${glyph("settings")}显示设置</button></div>
+    const company = `<section class="ce-company"><div class="ce-section-heading"><h3>公司常用信息</h3><button type="button" data-action="company-display-settings" class="ce-display-settings k-btn k-btn--ghost k-btn--sm">${glyph("settings")}显示设置</button></div>
       <div data-company-common>${fieldGroup(layout.common)}</div>${customSection}
       <details class="ce-extra ce-company-extra"><summary><span>展开全部 (选填)</span>${glyph("down")}</summary><div class="ce-extra-content"><h3>公司其它信息</h3><div data-company-other>${fieldGroup(layout.other)}</div>
         ${[["shortName","公司简称"],["landline","座机"],["companyAddress","详细地址"],["companyRemark","公司备注"],["poolGroup","公海分组"]]
           .filter(([key]) => c[key]).map(([key,label]) => gated(key, field(key,label,input(key,c[key])))).join("")}
-        ${gated("note", field("note", "客户备注", `<textarea id="ce-note" name="note" rows="3" placeholder="请输入">${E(c.note || "")}</textarea>`))}
-        ${gated("permanentNote", field("permanentNote", "客户永久备注", `<textarea id="ce-permanentNote" name="permanentNote" rows="3" placeholder="请输入">${E(c.permanentNote || "")}</textarea>`))}
+        ${gated("note", field("note", "客户备注", `<textarea id="ce-note" name="note" rows="3" placeholder="请输入" class="k-textarea">${E(c.note || "")}</textarea>`))}
+        ${gated("permanentNote", field("permanentNote", "客户永久备注", `<textarea id="ce-permanentNote" name="permanentNote" rows="3" placeholder="请输入" class="k-textarea">${E(c.permanentNote || "")}</textarea>`))}
         ${tradeFields ? `<h3>来财交易偏好</h3>${tradeFields}` : ""}
         <div class="ce-existing-fields">
           ${field("owner", "跟进人", canReassign ? combo("owner", c.owner, "请选择", ownerOptions) : `<div class="ce-select">${input("owner", c.owner, "—", { attrs: 'readonly title="你的角色不能更换跟进人"' })}</div>`)}
@@ -281,8 +281,8 @@
         </div><button class="ce-collapse" type="button" data-editor-action="collapse">收起 ${glyph("up")}</button>
       </div></details></section>`;
     return {
-      body: `<form id="customer-form" class="drawer-body ce-body" data-next-contact-id="${contacts.length}" data-old-name="${E(isNew ? "" : c.name)}" data-original-group="${E(groupName)}" data-original-stage="${E(originalStage)}" novalidate data-form-check><input type="hidden" name="previewFollowed" value="${c.followed === true || c.previewFollowed === true ? "true" : "false"}"><div class="ce-columns">${company}<section class="ce-contacts"><div class="ce-section-heading"><h3>联系人信息(<span data-contact-count>${contacts.length}</span>)</h3></div><div data-contact-list>${contacts.join("")}</div><button type="button" class="ce-add-contact" data-editor-action="add-contact">${glyph("plus")}添加联系人</button><template data-contact-template>${contactCard(1, {}, true)}</template><template data-method-template="social">${methodRow("social")}</template><template data-method-template="phone">${methodRow("phone")}</template></section></div></form>`,
-      footer: `<div class="ce-footer"><div class="ce-footer-switches"><label>历史动态重建 <input type="checkbox" role="switch" name="rebuildHistory" form="customer-form"${c.rebuildHistory !== false ? " checked" : ""}><span class="ce-switch" aria-hidden="true"></span></label><label>同时新建商机 <input type="checkbox" role="switch" name="createOpportunity" form="customer-form"${c.createOpportunity ? " checked" : ""}><span class="ce-switch" aria-hidden="true"></span></label></div><div class="error form-foot-error" id="form-error" role="alert" data-form-error></div><div class="ce-footer-actions"><button type="button" data-action="close-modal">取 消</button><button type="submit" name="saveMode" value="continue" form="customer-form">确定并继续新建</button><button class="primary" type="submit" name="saveMode" value="save" form="customer-form">确 定</button></div></div>`,
+      body: `<form id="customer-form" class="drawer-body ce-body" data-next-contact-id="${contacts.length}" data-old-name="${E(isNew ? "" : c.name)}" data-original-group="${E(groupName)}" data-original-stage="${E(originalStage)}" novalidate data-form-check><input type="hidden" name="previewFollowed" value="${c.followed === true || c.previewFollowed === true ? "true" : "false"}"><div class="ce-columns">${company}<section class="ce-contacts"><div class="ce-section-heading"><h3>联系人信息(<span data-contact-count>${contacts.length}</span>)</h3></div><div data-contact-list>${contacts.join("")}</div><button type="button" class="ce-add-contact k-btn" data-editor-action="add-contact">${glyph("plus")}添加联系人</button><template data-contact-template>${contactCard(1, {}, true)}</template><template data-method-template="social">${methodRow("social")}</template><template data-method-template="phone">${methodRow("phone")}</template></section></div></form>`,
+      footer: `<div class="ce-footer"><div class="ce-footer-switches"><label>历史动态重建 <input type="checkbox" role="switch" name="rebuildHistory" form="customer-form"${c.rebuildHistory !== false ? " checked" : ""}><span class="ce-switch" aria-hidden="true"></span></label><label>同时新建商机 <input type="checkbox" role="switch" name="createOpportunity" form="customer-form"${c.createOpportunity ? " checked" : ""}><span class="ce-switch" aria-hidden="true"></span></label></div><div class="error form-foot-error k-error" id="form-error" role="alert" data-form-error></div><div class="ce-footer-actions"><button type="button" class="k-btn" data-action="close-modal">取 消</button><button type="submit" class="k-btn" name="saveMode" value="continue" form="customer-form">确定并继续新建</button><button class="primary k-btn k-btn--primary" type="submit" name="saveMode" value="save" form="customer-form">确 定</button></div></div>`,
     };
   }
 

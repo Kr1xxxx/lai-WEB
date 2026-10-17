@@ -53,7 +53,7 @@ test('customer-edit: website and a contact phone are changed, nothing else is lo
     });
     await gotoCustomer(app, 'Northwind Lash Studio');
     const before = (await app.readData()).customers['Northwind Lash Studio'];
-    await page.locator('.lcd-pill', { hasText: '编辑' }).first().click();
+    await page.locator('.lcd-pagebar [data-action="edit"]').first().click();
     await page.locator('#ce-name').waitFor();
     await page.locator('#ce-website').fill('https://northwindlash.example');
     await page.locator('#ce-phone-0').fill('2125550188');

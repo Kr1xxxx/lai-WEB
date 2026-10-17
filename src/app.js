@@ -1266,7 +1266,7 @@
       trigger?.focus();
       return;
     }
-    panel.insertAdjacentHTML("beforeend", `<div class="company-display-unsaved customer-editor-unsaved" role="alertdialog" aria-label="未保存的客户资料"><div class="company-display-unsaved-message"><svg aria-hidden="true" viewBox="0 0 48 48"><path d="M24 5 2 43h44L24 5Z" fill="#F4A127" stroke="#F4A127" stroke-width="4" stroke-linejoin="round"/><path d="M24 35v1m0-17 .008 10" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg><strong>表单中有信息未保存，是否关闭？</strong></div><div class="company-display-unsaved-actions"><button type="button" data-action="discard-customer-editor">关 闭</button><button type="button" class="primary" data-action="continue-customer-editor">继续编辑</button></div></div>`);
+    panel.insertAdjacentHTML("beforeend", `<div class="company-display-unsaved customer-editor-unsaved" role="alertdialog" aria-label="未保存的客户资料"><div class="company-display-unsaved-message"><svg aria-hidden="true" viewBox="0 0 48 48"><path d="M24 5 2 43h44L24 5Z" fill="#F4A127" stroke="#F4A127" stroke-width="4" stroke-linejoin="round"/><path d="M24 35v1m0-17 .008 10" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg><strong>表单中有信息未保存，是否关闭？</strong></div><div class="company-display-unsaved-actions"><button type="button" class="k-btn k-btn--sm" data-action="discard-customer-editor">关 闭</button><button type="button" class="primary k-btn k-btn--sm k-btn--primary" data-action="continue-customer-editor">继续编辑</button></div></div>`);
     const warning = panel.querySelector(".customer-editor-unsaved");
     warning._trigger = trigger || panel.querySelector('.ce-footer [data-action="close-modal"]');
     positionCustomerUnsavedWarning(warning);
@@ -1399,8 +1399,12 @@
       state,
     });
     drawer(isNew ? "新建客户" : "编辑客户", form.body, form.footer, "edit", pointerActivated);
-    $(".drawer").classList.add("customer-editor");
+    // 抽屉的壳用组件套件（D-028）：k-drawer、k-dialog-head、k-dialog-foot；头部的关注、关闭是幽灵按钮。
+    $(".drawer").classList.add("customer-editor", "k-drawer");
     $(".drawer").classList.toggle("customer-create", isNew);
+    $(".drawer-head").classList.add("k-dialog-head");
+    $(".drawer-footer").classList.add("k-dialog-foot");
+    for (const button of $(".drawer-head").querySelectorAll("button")) button.classList.add("k-btn", "k-btn--ghost");
     setEditorFollowUI($(".drawer-head .editor-follow"), c.followed === true || c.previewFollowed === true);
     window.LaiCustomerEditor.bind?.($(".drawer"));
     const editor = $(".drawer");

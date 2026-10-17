@@ -83,7 +83,7 @@ test('follow-up time input: only when past times are allowed, max is now (local)
 
 test('template button and list: real button, groups with their texts, an empty hint with 去设置', () => {
   const html = render(base(), { tab: 'activity' });
-  assert.match(html, /<button type="button" class="lcd-feature" data-action="followup-templates"[^>]*>[\s\S]*?选择模板<\/button>/);
+  assert.match(html, /<button type="button" class="lcd-feature k-btn k-btn--ghost k-btn--sm" data-action="followup-templates"[^>]*>[\s\S]*?选择模板<\/button>/);
   assert.doesNotMatch(html, /data-feature="选择跟进模板"/, 'no placeholder entry any more');
   assert.match(D.followupTemplateList(base()), /还没有跟进模板[\s\S]*data-action="followup-templates-settings">去设置</);
   let state = CSM.addTemplateGroup(base(), '样品 <组>');

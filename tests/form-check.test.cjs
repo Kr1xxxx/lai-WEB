@@ -65,7 +65,7 @@ test("the app's forms check themselves and say what is required", () => {
   assert.match(read("src/product-ui.js"), /id="product-form" class="drawer-body cs-group-form" novalidate data-form-check>/);
   const editor = read("src/customer-editor-ui.js");
   assert.match(editor, /id="customer-form"[^>]*novalidate data-form-check>/);
-  assert.match(editor, /<div class="error form-foot-error" id="form-error" role="alert" data-form-error><\/div><div class="ce-footer-actions">/);
+  assert.match(editor, /<div class="error form-foot-error k-error" id="form-error" role="alert" data-form-error><\/div><div class="ce-footer-actions">/);
   assert.match(editor, /aria-required="true" required/);
   // The browser's own English bubble never shows: every invalid event is cancelled and answered in Chinese.
   const check = read("src/date-picker.js");

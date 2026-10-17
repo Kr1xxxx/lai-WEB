@@ -1,8 +1,6 @@
 {
  "note": "Class names that exist today and predate the kit (D-028). New markup uses src/ui-kit.css instead. Delete a name when its page moves to the kit; never add one. tests/ui-kit-classes.test.cjs",
- "primary": [
-  "lcd-primary"
- ],
+ "primary": [],
  "pages": [
   "import-record-pages"
  ],
@@ -12,15 +10,10 @@
   "dt-empty",
   "export-empty",
   "favorites-empty",
-  "followup-template-empty",
   "import-record-empty",
   "is-empty",
   "lai-select-empty",
   "lai-suggestions-empty",
-  "lcd-ai-empty",
-  "lcd-contact-search-empty",
-  "lcd-empty",
-  "lcd-side-empty",
   "mail-bulk-empty",
   "mail-reader-empty",
   "now-empty",
@@ -47,8 +40,6 @@
   "export-table",
   "import-preview",
   "import-records-table",
-  "lcd-table",
-  "lcd-table lcd-opportunity-table",
   "order-table",
   "order-table fit-table",
   "order-table ls-table",
