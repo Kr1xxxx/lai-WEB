@@ -112,9 +112,11 @@ test('the chosen theme is stored in laiSettings.theme, applied to <html>, and sw
   assert.match(ui, /laiSettings: \{ \.\.\.state\(\)\.laiSettings, theme: id \}/);
 });
 
-test('the workbench has no second-level navigation column, other pages keep theirs', () => {
+test('the workbench and menus with three or fewer entries have no second-level navigation column; customers and mail keep theirs', () => {
   const app = read('src/app.js');
-  assert.match(app, /id="app-subnav"\$\{activeRoute === "dashboard" && !favoritesMode \? " hidden" : ""\}/);
+  assert.match(app, /id="app-subnav"\$\{\(activeRoute === "dashboard" && !favoritesMode\) \|\| sectionTabEntries\(\) \? " hidden" : ""\}/);
+  assert.match(app, /const SECTION_TABS_MAX = 3;/);
+  assert.match(app, /if \(favoritesMode \|\| activeRoute === "customers" \|\| activeRoute === "mail"\) return null;/, 'customers, mail and 常用 keep the column');
   const css = read('src/customer-replica.css');
   assert.match(css, /\.subnav\[hidden\] ~ \.main\s*\{\s*left:\s*72px;/s);
   assert.match(css, /\.subnav\[hidden\]\s*\{\s*display:\s*none;/s);

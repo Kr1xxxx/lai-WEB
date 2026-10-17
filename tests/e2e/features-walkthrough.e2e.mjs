@@ -41,7 +41,8 @@ const gotoCustomer = async (app, name) => {
   await app.page.goto(`${app.base}/trade-order-system.html?customer=${encodeURIComponent(name)}#customers`);
   await app.page.locator('.lcd-root').waitFor();
 };
-const subnav = (app, label) => app.page.locator(`.subnav .nav-row:has(.nav-label:text-is("${label}"))`);
+// Menus with three or fewer entries show them as tabs in the page header instead of the sub-navigation column.
+const subnav = (app, label) => app.page.locator(`.subnav:not([hidden]) .nav-row:has(.nav-label:text-is("${label}")), .section-tabs .section-tab:text-is("${label}")`).first();
 
 test('customer-edit: website and a contact phone are changed, nothing else is lost after a reload', async () => {
   await run(async (app) => {
