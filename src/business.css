@@ -1190,17 +1190,6 @@ td.team-reached {
 .opp-form [hidden] {
   display: none !important;
 }
-.opp-name-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 12px;
-  margin-top: 6px;
-}
-.opp-name-row input[name="name"] {
-  flex: 1 1 240px;
-  width: auto;
-}
 /* 自动生成／自定义：两个并排的选项，选中的一个填色。 */
 .opp-seg {
   display: inline-flex;
@@ -1236,69 +1225,11 @@ td.team-reached {
   outline: 2px solid var(--opp-won);
   outline-offset: 1px;
 }
-/* 币种＋金额：一个连在一起的输入组。 */
-.opp-group {
-  display: flex;
-}
-.opp-form .opp-group .opp-group-currency {
-  flex: 0 0 74px;
-  width: 74px;
-  border-radius: var(--dd-radius) 0 0 var(--dd-radius);
-  background: #fff;
-  font-weight: 600;
-  text-align: center;
-  text-transform: uppercase;
-}
-.opp-form .opp-group input[name="amount"] {
-  flex: 1 1 auto;
-  margin-left: -1px;
-  border-radius: 0 var(--dd-radius) var(--dd-radius) 0;
-  font-variant-numeric: tabular-nums;
-}
-.opp-form .opp-group input:focus {
-  position: relative;
-  z-index: 1;
-}
 .opp-lead {
   margin: 0 0 16px;
   font-size: 13px;
   line-height: 1.6;
   color: var(--ink-800);
-}
-/* 操作菜单 */
-.opp-menu-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  margin-bottom: 18px;
-  font-size: 13px;
-  color: var(--ink-700);
-}
-.opp-menu-summary b {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--ink-900);
-  font-variant-numeric: tabular-nums;
-}
-.opp-menu h3 {
-  margin: 22px 0 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-800);
-}
-.opp-menu-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.opp-menu .opp-move.opp-kind-open {
-  border-color: var(--opp-open);
-  color: var(--opp-open-ink);
-}
-.opp-menu .opp-move.opp-kind-won {
-  border-color: var(--brand-200);
-  color: var(--brand-700);
 }
 
 /* 表单里的下拉框用全应用统一的下拉组件（规格见 customer-select.css 的 --dd-*），这里只补和输入框一致的聚焦光圈。 */
@@ -1668,9 +1599,6 @@ td.team-reached {
 .pool-rules-form .check-row{display:flex;gap:8px;align-items:flex-start;margin:8px 0}
 .duplicate-card h3 .duplicate-merge{float:right;font-size:12px}
 
-/* 订单表单顶部的「由商机生成」提示条 */
-.opp-source-banner { display: flex; gap: 8px; align-items: baseline; margin: 0 0 12px; padding: 9px 12px; border-left: 3px solid var(--brand-500, #1f6bff); border-radius: 6px; background: var(--brand-50, #eef4ff); color: var(--ink-700, #333); font-size: 13px; line-height: 1.5; }
-.opp-source-banner strong { flex: none; color: var(--brand-700, #0b4fd1); }
 
 /* ---------- 线索详情：沿用商机页的输入框、标签和表单样式，这里只补线索自己的部分（列表页在文件末尾的「kit: 线索 list」） ---------- */
 .lead-muted {
@@ -1830,94 +1758,6 @@ td.team-reached {
 .pd-item.pd-wide { grid-column: 1 / -1; }
 .pd-item dt { font-size: 12px; color: var(--ink-500, #8c8c8c); }
 .pd-item dd { margin: 2px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-/* ---------- 商机详情、附件、拖动 ---------- */
-.opp-detail,
-.opp-detail * {
-  --opp-ink: #1f2d45;
-  --opp-muted: #6b7a90;
-  --opp-line: #e3e7ee;
-  --opp-won: var(--brand-500);
-  --opp-won-soft: var(--brand-50);
-  --opp-danger: #c9363f;
-}
-.opp-detail {
-  color: var(--opp-ink);
-}
-.opp-detail .form-section {
-  display: flex;
-  align-items: center;
-  margin: 26px 0 12px;
-  font-size: 14px;
-}
-.opp-detail-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 16px;
-  margin-bottom: 16px;
-}
-.opp-detail-amount {
-  font-size: 26px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.opp-detail-amount small {
-  margin-right: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--opp-muted);
-}
-.opp-detail-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.opp-chip.is-danger {
-  background: #fdecee;
-  color: var(--opp-danger);
-}
-.opp-facts {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px 20px;
-  margin: 0;
-  padding: 16px 0 0;
-  border-top: 1px solid var(--opp-line);
-}
-.opp-facts dt {
-  margin: 0 0 3px;
-  font-size: 12px;
-  color: var(--opp-muted);
-}
-.opp-facts dd {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.opp-facts .is-wide {
-  grid-column: 1 / -1;
-}
-.opp-facts .company-link {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--opp-won);
-  text-align: left;
-}
-.opp-products {
-  width: 100%;
-  font-size: 13px;
-}
-.opp-history {
-  position: relative;
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 .lead-timeline {
   margin: 0;
   padding: 0;
@@ -1996,229 +1836,6 @@ td.team-reached {
 .theme-preview .pv-cards i { flex: 1; border-radius: 6px; background: #fff; }
 .theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }
 
-/* 订单产品明细和由订单生成的单据。订单表单是右侧一张窄卡，明细一行一张小卡；打开单据预览时卡片变宽。 */
-/* 抽屉底部的按钮栏高 64，表单底部留出同样的空白，滚到底时最后一项不会被压住。 */
-#biz-order-form.drawer-body, #opp-form.drawer-body { padding-bottom: 64px; }
-#biz-order-form .order-items { display: grid; gap: 8px; }
-#biz-order-form .order-item { border: 1px solid var(--line, #e5e7eb); border-radius: 10px; padding: 8px; display: grid; gap: 6px; }
-#biz-order-form .order-item-top { display: flex; align-items: center; gap: 8px; }
-#biz-order-form .order-item-top > :first-child { flex: 1; min-width: 0; }
-#biz-order-form .order-item-nums { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
-#biz-order-form .order-item-nums label { display: grid; gap: 2px; font-size: 12px; color: var(--muted, #6b7280); min-width: 0; }
-#biz-order-form .order-item-nums input { width: 100%; min-width: 0; }
-#biz-order-form .order-item-amount { font-variant-numeric: tabular-nums; white-space: nowrap; padding-bottom: 6px; font-size: 13px; }
-#biz-order-form .order-items-total { text-align: right; margin: 8px 0; font-variant-numeric: tabular-nums; }
-#biz-order-form .order-doc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
-#biz-order-form .order-doc-preview { margin-top: 12px; }
-#biz-order-form .order-doc-buttons { display: flex; gap: 8px; }
-.overlay:has(#biz-order-form .order-doc-preview) .drawer { width: min(760px, calc(100vw - 24px)) !important; }
-.opp-history li {
-  display: grid;
-  grid-template-columns: 14px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--opp-muted);
-}
-.opp-history i {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #c5ccd8;
-}
-.opp-history .opp-kind-open i {
-  background: var(--opp-open);
-}
-.opp-history .opp-kind-won i {
-  background: var(--brand-500);
-}
-.opp-history .is-current {
-  color: var(--opp-ink);
-  font-weight: 600;
-}
-.opp-history time {
-  font-size: 12px;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-  color: var(--opp-muted);
-}
-.opp-attach-count {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--opp-muted);
-  font-variant-numeric: tabular-nums;
-}
-.opp-dropzone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 18px 16px;
-  border: 1.5px dashed #c5ccd8;
-  border-radius: 10px;
-  background: #fafbfd;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color var(--motion-fast), background-color var(--motion-fast);
-}
-.opp-dropzone:hover,
-.opp-dropzone.is-over {
-  border-color: var(--opp-won);
-  background: var(--opp-won-soft);
-}
-.opp-dropzone.is-full {
-  cursor: not-allowed;
-  background: #f4f6f9;
-}
-.opp-dropzone-main {
-  font-size: 13px;
-}
-.opp-dropzone-main u {
-  color: var(--opp-won);
-}
-.opp-dropzone small {
-  font-size: 12px;
-  color: var(--opp-muted);
-}
-.opp-attach-status {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--opp-muted);
-}
-.opp-attach-status:empty {
-  display: none;
-}
-.opp-attach .error {
-  white-space: pre-line;
-}
-.opp-preview {
-  margin: 14px 0 0;
-  padding: 8px;
-  border: 1px solid var(--opp-line);
-  border-radius: 10px;
-  background: #f4f6f9;
-  text-align: center;
-}
-.opp-preview img {
-  display: block;
-  max-width: 100%;
-  max-height: 340px;
-  margin: 0 auto;
-  border-radius: 6px;
-  object-fit: contain;
-  background: repeating-conic-gradient(#fff 0% 25%, #eef0f4 0% 50%) 50% / 16px 16px;
-}
-.opp-preview img:not([src]) {
-  min-height: 120px;
-  min-width: 200px;
-}
-.opp-preview figcaption {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--opp-muted);
-  overflow-wrap: anywhere;
-}
-.opp-files {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.opp-file {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 4px 12px;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid var(--opp-line);
-  border-radius: 8px;
-  background: #fff;
-}
-.opp-file-ext {
-  grid-row: span 2;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--opp-won-soft);
-  color: #0a4fc4;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.opp-file-main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.opp-file-name {
-  align-self: flex-start;
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--opp-ink);
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-.opp-file-name:hover {
-  color: var(--opp-won);
-}
-.opp-file-main small {
-  font-size: 12px;
-  color: var(--opp-muted);
-}
-.opp-file-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-}
-.opp-file-tools button {
-  height: 26px;
-  padding: 0 9px;
-  border: 1px solid #d5dbe5;
-  border-radius: 6px;
-  background: #fff;
-  font-size: 12px;
-  color: #3b4a62;
-}
-.opp-file-tools button:hover {
-  border-color: var(--opp-won);
-  color: var(--opp-won);
-}
-.opp-file-tools .team-danger {
-  border-color: #efc3c6;
-  color: var(--opp-danger);
-}
-.opp-file-rename {
-  display: flex;
-  gap: 6px;
-}
-.opp-file-rename input {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid #d5dbe5;
-  border-radius: 6px;
-}
-.opp-file-rename button {
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid #d5dbe5;
-  border-radius: 6px;
-  background: #fff;
-}
-.opp-file-rename .primary {
-  border-color: var(--opp-won);
-  background: var(--opp-won);
-  color: #fff;
-}
 
 /* ---------- 商机设置（页签：销售流程｜输单原因｜商机字段）和商机表单里新增的字段 ---------- */
 .opp-set-tabs.cs-nav {
@@ -2349,40 +1966,6 @@ td.team-reached {
   height: 32px;
   padding: 0 14px;
 }
-/* 表单：商机编号（只读文字）和多选勾选框。 */
-.opp-static {
-  display: flex;
-  align-items: center;
-  min-height: 36px;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-800);
-}
-.opp-multi-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  max-height: 148px;
-  overflow: auto;
-  padding: 8px 11px;
-  border: 1px solid var(--ink-300);
-  border-radius: 6px;
-  background: #fff;
-}
-.opp-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--ink-800);
-}
-.opp-form .opp-check input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  padding: 0;
-  flex: 0 0 auto;
-}
 .opp-num {
   font-variant-numeric: tabular-nums;
 }
@@ -2414,11 +1997,10 @@ td.team-reached {
 .dt-void-note { margin: 0 0 8px; color: #d4380d; font-size: 13px; }
 .dt-paper.is-void { opacity: 0.55; filter: grayscale(1); }
 .dt-saved { margin-top: 10px; }
-.dt-saved ul, .opp-docs { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
-.dt-saved li, .opp-docs li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
-.dt-saved li.is-void, .opp-docs li.is-void { color: var(--ink-400, #a6a6a6); }
-.dt-saved li.is-void b, .opp-docs li.is-void b { text-decoration: line-through; }
-#biz-order-form .order-doc-preview .error { margin-top: 8px; }
+.dt-saved ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.dt-saved li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.dt-saved li.is-void { color: var(--ink-400, #a6a6a6); }
+.dt-saved li.is-void b { text-decoration: line-through; }
 .opp-doc .order-doc-buttons, .doc-view .order-doc-buttons { display: flex; gap: 8px; }
 .overlay:has(.opp-doc, .doc-view) .drawer { width: min(760px, calc(100vw - 24px)) !important; }
 @media (max-width: 700px) { .dt-num-fields { grid-template-columns: 1fr; } }
@@ -2513,11 +2095,6 @@ td.team-reached {
 /* 名称框按名称长短放宽（--of-name 是字数），最长 30 个字也能看全；窄屏时照常缩小 */
 .of-section .cf-name { flex: 0 1 max(240px, calc(var(--of-name, 0) * 1em + 26px)); max-width: 100%; }
 .of-section .of-error { margin-bottom: 10px; }
-.order-multi { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 0; }
-.order-multi-option { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; cursor: pointer; }
-.field .order-multi-option input[type="checkbox"] { width: auto; height: auto; }
-.order-custom-head { margin-top: 24px; }
-.order-custom-head + .form-grid, .order-custom-infos { margin-bottom: 24px; }
 .order-custom-infos .order-custom-wide { grid-column: 1 / -1; }
 .order-custom-infos .order-custom-wide dd { white-space: pre-line; }
 
@@ -2711,3 +2288,173 @@ td.team-reached {
 :root[data-skin] .lead-none { padding: 48px 24px; }
 :root[data-skin] .lead-none > span { max-width: 460px; line-height: 1.7; }
 :root[data-skin] .lead-none > .k-btn { margin-top: 12px; }
+
+/* kit: 订单表单与商机详情
+   订单表单（新建／编辑／只读的「订单详情」，#biz-order-form，markup 在 business-ui.js 的 orderEditor）、商机表单（#opp-form）、
+   商机详情抽屉（.opp-detail）和卡片的「⋮」菜单（.opp-menu）。控件来自组件套件（src/ui-kit.css）：k-input、k-select-trigger、
+   k-textarea、k-btn、k-badge、k-table、k-error；这里只排版。抽屉外壳仍由 app.js 生成（.drawer），所以外观按 k-drawer 在这里补。
+   停靠位置在 skin-glass.css。表单里的统一下拉和日期框跟 k-input 用同一种边框、圆角和高度。只用 ui-tokens.css 的变量。 */
+:root[data-skin] :is(#biz-order-form, #opp-form) { --dd-h: 32px; --dd-border: var(--input); --dd-radius: var(--radius); --dd-font: var(--text-sm); }
+:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger { border-color: var(--input); border-radius: var(--radius); font-size: var(--text-sm); }
+:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger:hover:not(:disabled) { border-color: var(--ink-400); }
+:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger:is(:focus, .active) { border-color: var(--ring); }
+:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger[aria-invalid="true"] { border-color: var(--danger); }
+:root[data-skin] :is(#biz-order-form, #opp-form) .k-input[readonly] { background: var(--muted-bg); color: var(--muted-fg); }
+:root[data-skin] :is(#biz-order-form, #opp-form) [hidden] { display: none !important; }
+
+/* 抽屉外壳：订单、商机表单（右侧停靠卡片）、商机详情，同 k-drawer：中性边框、大圆角、淡阴影，头 52、底 56 */
+:root[data-skin] .overlay:has(#biz-order-form, #opp-form) .drawer { border: 1px solid var(--border); border-radius: var(--r-xl); background: var(--popover-bg); box-shadow: var(--shadow-2); color: var(--fg); }
+:root[data-skin] .overlay:has(.opp-detail) .drawer { width: min(640px, calc(100vw - 32px)); border-left: 1px solid var(--border); background: var(--popover-bg); box-shadow: var(--shadow-2); color: var(--fg); }
+:root[data-skin] .overlay:has(#biz-order-form, #opp-form, .opp-detail) .drawer-head { height: auto; min-height: 52px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .overlay:has(#biz-order-form, #opp-form, .opp-detail) .drawer-head h2 { min-width: 0; font-size: var(--text-lg); font-weight: 600; line-height: 24px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .overlay:has(#biz-order-form, #opp-form, .opp-detail) .drawer-footer { height: auto; min-height: 56px; padding: 10px 16px; gap: 8px; border-top: 1px solid var(--border); background: var(--popover-bg); }
+:root[data-skin] .overlay:has(#biz-order-form, #opp-form) .drawer-footer .k-error { flex: 1 1 auto; max-height: 40px; margin: 0 auto 0 0; padding: 0; overflow: auto; background: transparent; font-size: var(--text-xs); line-height: 18px; }
+/* 打开单据预览时订单卡片变宽，放得下整张单据 */
+:root[data-skin] .overlay:has(#biz-order-form .order-doc-preview) .drawer { width: min(760px, calc(100vw - 24px)); }
+
+/* 表单正文：小节标题是一条细分隔线加一行粗体字；字段两列，标签在上（12 号灰字，必填星号紧跟文字）、控件在下 */
+:root[data-skin] :is(#biz-order-form, #opp-form).drawer-body { padding: 16px 16px var(--space-16); color: var(--fg); font-size: var(--text-sm); }
+:root[data-skin] :is(#biz-order-form, #opp-form) .form-section { display: flex; align-items: center; gap: 8px; margin: 20px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
+:root[data-skin] :is(#biz-order-form, #opp-form) .form-section::before { content: none; }
+:root[data-skin] :is(#biz-order-form, #opp-form) > .form-section:not(.form-section ~ .form-section) { margin-top: 0; padding-top: 0; border-top: 0; }
+:root[data-skin] #biz-order-form .form-grid,
+:root[data-skin] #opp-form .opp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+:root[data-skin] #biz-order-form .field,
+:root[data-skin] #opp-form .opp-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; font-size: var(--text-xs); font-weight: 500; line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] #biz-order-form .field.wide,
+:root[data-skin] #opp-form .opp-field.is-wide { grid-column: 1 / -1; }
+:root[data-skin] #opp-form .opp-field-label { padding: 0; font-size: var(--text-xs); font-weight: 500; line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] :is(#biz-order-form, #opp-form) :is(.required, .opp-req) { margin-left: 2px; font-style: normal; color: var(--danger); }
+:root[data-skin] #opp-form .opp-field-hint { font-size: var(--text-xs); font-weight: 400; line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] #biz-order-form .order-draft-check { align-self: end; min-height: 32px; margin: 0; font-size: var(--text-sm); font-weight: 400; color: var(--fg); cursor: pointer; }
+:root[data-skin] #biz-order-form .order-form-note { margin: 16px 0 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+
+/* 订单：由商机生成时顶部的说明条 */
+:root[data-skin] .opp-source-banner { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; margin: 0 0 16px; padding: 10px 12px; border-radius: var(--r-lg); background: var(--accent-bg); color: var(--fg); font-size: var(--text-sm); line-height: 1.5; }
+:root[data-skin] .opp-source-banner strong { flex: none; font-weight: 600; color: var(--accent-fg); }
+
+/* 订单：产品明细。一张带边框的小表：每行编号＋产品，下面数量、单价、小计；底下是「添加产品」和合计 */
+:root[data-skin] #biz-order-form .order-items { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card-bg); }
+:root[data-skin] #biz-order-form .order-item { display: grid; gap: 8px; padding: 10px 12px; }
+:root[data-skin] #biz-order-form .order-item + .order-item { border-top: 1px solid var(--border); }
+:root[data-skin] #biz-order-form .order-item-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+:root[data-skin] #biz-order-form .order-item-top .lai-select-trigger { flex: 1 1 0; width: auto; min-width: 0; }
+:root[data-skin] #biz-order-form .order-item-no { display: grid; flex: none; place-items: center; width: 20px; height: 20px; border-radius: var(--r-sm); background: var(--muted-bg); color: var(--muted-fg); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+:root[data-skin] #biz-order-form .order-item-nums { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(72px, auto); gap: 8px; align-items: end; padding-left: 28px; }
+:root[data-skin] #biz-order-form .order-item-nums label,
+:root[data-skin] #biz-order-form .order-item-sub { display: grid; gap: 4px; min-width: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] #biz-order-form .order-item-sub { text-align: right; }
+:root[data-skin] #biz-order-form .order-item-amount { height: 32px; font-size: var(--text-sm); font-weight: 600; line-height: 32px; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+:root[data-skin] #biz-order-form .order-items-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+:root[data-skin] #biz-order-form .order-items-total { margin: 0 0 0 auto; font-size: var(--text-sm); color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+:root[data-skin] #biz-order-form .order-items-total strong { margin-left: 6px; font-size: var(--text-base); font-weight: 600; color: var(--fg); }
+:root[data-skin] #biz-order-form .order-items-hint { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+
+/* 订单：自定义字段（order-fields-ui.js）里的多选 */
+:root[data-skin] #biz-order-form .order-multi { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 0; }
+:root[data-skin] #biz-order-form .order-multi-option { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); font-weight: 400; color: var(--fg); cursor: pointer; }
+
+/* 订单：生成单据的按钮、单据预览 */
+:root[data-skin] #biz-order-form .order-doc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+:root[data-skin] #biz-order-form .order-doc-label { flex: 0 0 100%; margin-bottom: 4px; font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
+:root[data-skin] #biz-order-form .order-doc-preview { margin-top: 12px; }
+:root[data-skin] #biz-order-form .order-doc-preview .error { margin-top: 8px; }
+:root[data-skin] :is(#biz-order-form, .opp-doc) .order-doc-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* 商机表单：名称的「自动生成｜自定义」像 k-tabs；币种＋金额连在一起 */
+:root[data-skin] #opp-form .opp-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+:root[data-skin] #opp-form .opp-name-row .k-input { flex: 1 1 200px; width: auto; }
+:root[data-skin] #opp-form .opp-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-lg); background: var(--muted-bg); }
+:root[data-skin] #opp-form .opp-seg label { position: relative; margin: 0; }
+:root[data-skin] #opp-form .opp-seg input { position: absolute; opacity: 0; pointer-events: none; }
+:root[data-skin] #opp-form .opp-seg span { display: block; padding: 0 12px; border-radius: var(--r-md); font-size: var(--text-sm); font-weight: 500; line-height: 28px; color: var(--muted-fg); cursor: pointer; }
+:root[data-skin] #opp-form .opp-seg input:checked + span { background: var(--card-bg); color: var(--fg); box-shadow: var(--shadow-1); }
+:root[data-skin] #opp-form .opp-seg input:focus-visible + span { outline: 2px solid var(--ring); outline-offset: 1px; }
+:root[data-skin] #opp-form .opp-group { display: flex; min-width: 0; }
+:root[data-skin] #opp-form .opp-group .opp-group-currency { flex: 0 0 72px; width: 72px; border-radius: var(--radius) 0 0 var(--radius); font-weight: 600; text-align: center; text-transform: uppercase; }
+:root[data-skin] #opp-form .opp-group .k-input[name="amount"] { flex: 1 1 auto; width: auto; margin-left: -1px; border-radius: 0 var(--radius) var(--radius) 0; font-variant-numeric: tabular-nums; }
+:root[data-skin] #opp-form .opp-group .k-input:focus { position: relative; z-index: 1; }
+:root[data-skin] #opp-form .opp-static { display: flex; align-items: center; min-height: 32px; font-size: var(--text-sm); font-weight: 400; color: var(--fg); font-variant-numeric: tabular-nums; }
+:root[data-skin] #opp-form .opp-multi-list { display: flex; flex-wrap: wrap; gap: 6px 16px; max-height: 148px; padding: 8px 10px; overflow: auto; border: 1px solid var(--input); border-radius: var(--radius); background: var(--card-bg); }
+:root[data-skin] #opp-form fieldset:disabled .opp-multi-list { background: var(--muted-bg); }
+:root[data-skin] #opp-form .opp-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); font-weight: 400; color: var(--fg); }
+:root[data-skin] #opp-form .opp-check input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; margin: 0; padding: 0; }
+
+/* 商机详情：金额和阶段在最上面，下面两列资料；关联产品、单据、阶段记录、附件各一节 */
+:root[data-skin] .opp-detail { padding: 20px 24px 32px; color: var(--fg); font-size: var(--text-sm); }
+:root[data-skin] .opp-detail-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .opp-detail-amount { font-size: var(--text-2xl); font-weight: 600; line-height: 32px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+:root[data-skin] .opp-detail-amount small { margin-right: 6px; font-size: var(--text-sm); font-weight: 500; letter-spacing: 0; color: var(--muted-fg); }
+:root[data-skin] .opp-detail-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+:root[data-skin] .opp-detail > .error { margin-top: 12px; }
+:root[data-skin] .opp-facts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 24px; margin: 16px 0 0; }
+:root[data-skin] .opp-facts dt { margin: 0 0 2px; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .opp-facts dd { margin: 0; font-size: var(--text-sm); line-height: 20px; color: var(--fg); overflow-wrap: anywhere; }
+:root[data-skin] .opp-facts .is-wide { grid-column: 1 / -1; }
+:root[data-skin] .opp-facts dd .k-badge { margin: 2px 0; }
+:root[data-skin] .opp-facts .company-link { max-width: 100%; padding: 0; border: 0; background: transparent; font-size: var(--text-sm); font-weight: 500; color: var(--primary); text-align: left; white-space: normal; }
+:root[data-skin] .opp-facts .opp-wa { margin-left: 6px; vertical-align: middle; }
+:root[data-skin] .opp-detail .form-section { display: flex; align-items: center; gap: 8px; margin: 24px 0 10px; padding-top: 16px; border-top: 1px solid var(--border); font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
+:root[data-skin] .opp-detail .form-section::before { content: none; }
+:root[data-skin] .opp-products-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); }
+:root[data-skin] .k-table.opp-products tbody tr:last-child td { border-bottom: 0; }
+:root[data-skin] .opp-docs { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--r-lg); }
+:root[data-skin] .opp-docs li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 40px; padding: 4px 6px 4px 12px; font-variant-numeric: tabular-nums; }
+:root[data-skin] .opp-docs li + li { border-top: 1px solid var(--border); }
+:root[data-skin] .opp-docs li span { color: var(--muted-fg); }
+:root[data-skin] .opp-docs li .k-btn { margin-left: auto; }
+:root[data-skin] .opp-docs li.is-void b { color: var(--muted-fg); text-decoration: line-through; }
+/* 阶段记录：一条细线串起小圆点（进行中＝主色，赢单＝绿，输单＝灰），当前阶段加粗 */
+:root[data-skin] .opp-history { display: grid; margin: 0; padding: 0; list-style: none; }
+:root[data-skin] .opp-history li { position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 32px; color: var(--muted-fg); }
+:root[data-skin] .opp-history li + li::before { content: ""; position: absolute; left: 7px; top: -12px; width: 1px; height: 24px; background: var(--border); }
+:root[data-skin] .opp-history i { position: relative; justify-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--opp-accent, var(--ink-400)); }
+:root[data-skin] .opp-history .is-current { font-weight: 600; color: var(--fg); }
+:root[data-skin] .opp-history time { font-size: var(--text-xs); font-weight: 400; color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+/* 附件：虚线框拖放区，文件一行一个（类型方块、名称和大小、操作按钮在名称下面） */
+:root[data-skin] .opp-attach-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+:root[data-skin] .opp-dropzone { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; border: 1px dashed var(--input); border-radius: var(--r-lg); background: var(--bg); text-align: center; cursor: pointer; transition: border-color var(--motion-fast), background-color var(--motion-fast); }
+:root[data-skin] .opp-dropzone:is(:hover, .is-over) { border-color: var(--primary); background: var(--accent-bg); }
+:root[data-skin] .opp-dropzone.is-full { background: var(--muted-bg); cursor: not-allowed; }
+:root[data-skin] .opp-dropzone-main { font-size: var(--text-sm); color: var(--fg); }
+:root[data-skin] .opp-dropzone-main u { color: var(--primary); text-underline-offset: 2px; }
+:root[data-skin] .opp-dropzone small { font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .opp-attach-status { margin-top: 8px; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .opp-attach-status:empty { display: none; }
+:root[data-skin] .opp-attach .error { margin-top: 8px; white-space: pre-line; }
+:root[data-skin] .opp-preview { margin: 12px 0 0; padding: 8px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); text-align: center; }
+:root[data-skin] .opp-preview img { display: block; max-width: 100%; max-height: 340px; margin: 0 auto; border-radius: var(--r-md); object-fit: contain; background: repeating-conic-gradient(var(--card-bg) 0% 25%, var(--muted-bg) 0% 50%) 50% / 16px 16px; }
+:root[data-skin] .opp-preview img:not([src]) { min-width: 200px; min-height: 120px; }
+:root[data-skin] .opp-preview figcaption { margin-top: 6px; font-size: var(--text-xs); color: var(--muted-fg); overflow-wrap: anywhere; }
+:root[data-skin] .opp-files { margin: 12px 0 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--r-lg); }
+:root[data-skin] .opp-file { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 2px 12px; align-items: center; padding: 10px 12px; }
+:root[data-skin] .opp-file + .opp-file { border-top: 1px solid var(--border); }
+:root[data-skin] .opp-file-ext { display: grid; grid-row: span 2; place-items: center; width: 36px; height: 36px; border-radius: var(--r-md); background: var(--muted-bg); color: var(--muted-fg); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.02em; }
+:root[data-skin] .opp-file-main { display: flex; flex-direction: column; min-width: 0; }
+:root[data-skin] .opp-file-name { align-self: flex-start; max-width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; font: inherit; font-size: var(--text-sm); font-weight: 500; line-height: 20px; color: var(--fg); text-align: left; overflow-wrap: anywhere; white-space: normal; box-shadow: none; }
+:root[data-skin] button.opp-file-name { cursor: pointer; }
+:root[data-skin] button.opp-file-name:hover:not(:disabled) { border-color: transparent; background: transparent; color: var(--primary); }
+:root[data-skin] .opp-file-main small { font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .opp-file-tools { display: flex; flex-wrap: wrap; gap: 2px; margin-left: -10px; }
+:root[data-skin] .opp-file-rename { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+:root[data-skin] .opp-file-rename .k-input { flex: 1 1 auto; width: auto; height: 28px; min-height: 28px; }
+
+/* 「⋮」菜单：浅色小菜单（位置在 skin-glass.css）。上面金额、客户、阶段；下面每个操作一行 */
+:root[data-skin] .overlay:has(.opp-menu) .drawer { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--popover-bg); color: var(--fg); box-shadow: var(--shadow-2); }
+:root[data-skin] .overlay:has(.opp-menu) .drawer-head { height: auto; min-height: 40px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .overlay:has(.opp-menu) .drawer-head h2 { min-width: 0; font-size: var(--text-sm); font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .overlay:has(.opp-menu) .drawer-footer { display: none; }
+:root[data-skin] .opp-menu { padding: 6px; color: var(--fg); }
+:root[data-skin] .opp-menu-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 4px; padding: 4px 6px 10px; border-bottom: 1px solid var(--border); font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .opp-menu-summary b { flex: 0 0 100%; font-size: var(--text-base); font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; }
+:root[data-skin] .opp-menu h3 { margin: 8px 6px 2px; font-size: var(--text-xs); font-weight: 500; color: var(--muted-fg); }
+:root[data-skin] .opp-menu-group { display: grid; }
+:root[data-skin] .opp-menu .opp-menu-item { justify-content: flex-start; width: 100%; height: 30px; min-height: 30px; padding: 0 6px; font-weight: 400; color: var(--fg); }
+:root[data-skin] .opp-menu .opp-menu-item:is(.is-main, .is-accent) { font-weight: 600; }
+:root[data-skin] .opp-menu .opp-menu-item.is-accent { color: var(--accent-fg); }
+:root[data-skin] .opp-menu .opp-menu-item.is-danger,
+:root[data-skin] .opp-menu .opp-menu-item.is-danger:hover:not(:disabled) { color: var(--danger-fg); }
+:root[data-skin] .opp-menu .opp-menu-item.is-danger:hover:not(:disabled),
+:root[data-skin] .opp-menu .opp-menu-item.team-danger { background: var(--danger-bg); }
+:root[data-skin] .opp-menu .opp-menu-item .opp-dot { margin-right: 4px; }
+:root[data-skin] .opp-menu .error { margin: 6px; }

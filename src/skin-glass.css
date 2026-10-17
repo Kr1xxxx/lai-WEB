@@ -190,18 +190,11 @@
 :root[data-skin="glass"] .team-goal-new,
 :root[data-skin="glass"] .team-goal-new:hover:not(:disabled) { border-color: var(--ink-200); }
 
-/* 订单、商机表单：新界面下停靠在右侧，不挡住列表（设计稿里是右侧一张卡） */
+/* 订单、商机表单：停靠在右侧，不挡住列表（窄窗口 340、宽窗口最多 400）。卡片的外观（组件套件的抽屉）在 business.css「kit: 订单表单与商机详情」 */
+:root[data-skin="glass"]:has(#biz-order-form), :root[data-skin="glass"]:has(#opp-form) { --dock-w: clamp(340px, 26vw, 400px); }
 :root[data-skin="glass"] .overlay:has(#biz-order-form), :root[data-skin="glass"] .overlay:has(#opp-form) { background: transparent; pointer-events: none; }
-:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer {
-  pointer-events: auto; top: 68px; right: 12px; bottom: 12px; width: 340px; border-radius: 14px; border: 1px solid var(--card-line);
-  background: rgba(255,255,255,.98); box-shadow: 0 10px 30px rgba(var(--skin-ink-rgb), .12); overflow: hidden;
-}
-:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-head, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-head { height: 48px; padding: 0 14px; }
-:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-head h2, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-head h2 { font-size: 14px; font-weight: 700; }
-:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-body, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-body { padding: 12px 14px 64px; }
-:root[data-skin="glass"] .overlay:has(#biz-order-form) .form-grid, :root[data-skin="glass"] .overlay:has(#opp-form) .form-grid { grid-template-columns: 1fr; gap: 10px; }
-:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer-footer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer-footer { height: 54px; padding: 0 14px; gap: 8px; }
-:root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: 364px; }
+:root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer { pointer-events: auto; top: 68px; right: 12px; bottom: 12px; width: var(--dock-w); overflow: hidden; }
+:root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: calc(var(--dock-w) + 24px); }
 
 /* ===== 商机看板（设计画布 Opportunities.dc.html）：筛选条和下拉、金额汇总（线索页、商机分析也用）===== */
 :root[data-skin="glass"] .opp-toolbar { gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
@@ -214,22 +207,9 @@
 :root[data-skin="glass"] .opp-currency { flex-direction: row; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 11px; background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-summary.is-compact .opp-currency { padding: 8px 12px; border: 1px solid var(--card-line); }
 
-/* 商机卡片的「⋮」菜单：深色小卡片（设计稿里是贴在卡片旁的深色菜单），停靠在右侧；点外面仍然关闭 */
+/* 商机卡片的「⋮」菜单：贴在卡片旁的浅色小菜单（位置由 business-ui.js 的 anchorOppMenu 算；找不到卡片时停在右侧），点外面仍然关闭。外观在 business.css「kit: 订单表单与商机详情」 */
 :root[data-skin="glass"] .overlay:has(.opp-menu) { background: transparent; }
-:root[data-skin="glass"] .overlay:has(.opp-menu) .drawer { top: 128px; right: 12px; bottom: auto; max-height: calc(100vh - 140px); width: 232px; border-radius: 12px; background: #231720; color: #fff; box-shadow: 0 12px 24px rgba(35,23,32,.28); overflow: auto; }
-:root[data-skin="glass"] .overlay:has(.opp-menu) .drawer-head { height: 40px; padding: 0 12px; border-color: rgba(255,255,255,.12); }
-:root[data-skin="glass"] .overlay:has(.opp-menu) .drawer-head h2 { font-size: 13px; color: #fff; }
-:root[data-skin="glass"] .overlay:has(.opp-menu) .drawer-head button { color: #fff; border-color: transparent; background: transparent; }
-:root[data-skin="glass"] .overlay:has(.opp-menu) .drawer-footer { display: none; }
-:root[data-skin="glass"] .opp-menu { padding: 8px; color: #fff; }
-:root[data-skin="glass"] .opp-menu-summary, :root[data-skin="glass"] .opp-menu-summary span { color: rgba(255,255,255,.82); }
-:root[data-skin="glass"] .opp-menu h3 { color: rgba(255,255,255,.7); }
-:root[data-skin="glass"] .opp-menu .opp-menu-group button { width: 100%; justify-content: flex-start; text-align: left; border-color: transparent; background: transparent; color: #fff; border-radius: 7px; font-weight: 500; }
-:root[data-skin="glass"] .opp-menu .opp-menu-group button:hover:not(:disabled) { background: rgba(255,255,255,.12); border-color: transparent; color: #fff; }
-:root[data-skin="glass"] .opp-menu .opp-menu-group button[data-opp-action="order"] { color: #F2C14E; font-weight: 700; }
-:root[data-skin="glass"] .opp-menu .opp-menu-group button[data-opp-action="delete"] { color: #FFB8A8; }
-:root[data-skin="glass"] .opp-menu .opp-chip { background: rgba(255,255,255,.14); color: #fff; }
-:root[data-skin="glass"] .opp-menu .error { color: #FFB8A8; }
+:root[data-skin="glass"] .overlay:has(.opp-menu) .drawer { top: 128px; right: 12px; bottom: auto; max-height: calc(100vh - 140px); width: 240px; overflow: auto; }
 
 /* ===== 客户详情（设计画布 CustomerDetail.dc.html）：卡片、页头、按钮 ===== */
 :root[data-skin="glass"] .lcd-root { background: transparent; padding: 0 0 12px; }
@@ -247,7 +227,6 @@
 :root[data-skin="glass"] .lcd-columns { gap: 10px; }
 :root[data-skin="glass"] .lcd-left, :root[data-skin="glass"] .lcd-right { gap: 10px; }
 :root[data-skin="glass"] .lcd-card { border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
-:root[data-skin="glass"] .opp-menu-summary b { color: #fff; }
 
 /* 客户详情的第三栏：资料、销售订单、文档、操作历史（设计稿 CustomerDetail） */
 :root[data-skin="glass"] .lcd-columns { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr) minmax(250px, 290px); }
@@ -393,7 +372,6 @@
 :root[data-skin="glass"][data-theme="tech"] .rail-flyout .nav-heart.is-favorite,
 :root[data-skin="glass"][data-theme="tech"] .rail-flyout .nav-heart.is-favorite:hover { color: var(--brand-500); }
 /* 商机卡片的「⋮」菜单：深海军蓝小卡片 */
-:root[data-skin="glass"][data-theme="tech"] .overlay:has(.opp-menu) .drawer { background: var(--brand-900); box-shadow: 0 12px 24px rgba(var(--brand-900-rgb), 0.28); }
 /* 写死过暖色（偏粉的灰、棕红）的几处，换成冷灰 */
 :root[data-skin="glass"][data-theme="tech"] .tag { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-200); }
 :root[data-skin="glass"][data-theme="tech"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }
