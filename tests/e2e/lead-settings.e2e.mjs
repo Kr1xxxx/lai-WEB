@@ -27,7 +27,7 @@ test('Leads → 设置 opens the 线索设置 page (flyout row and rail icon)', 
   await settle(700);
   await page.locator('[data-ls-section="reasons"]').waitFor();
   assert.match(await page.locator('.business-title h1').innerText(), /线索设置/);
-  assert.equal(await page.locator('[data-ls-section]').count(), 3);
+  assert.equal(await page.locator('[data-ls-section]').count(), 4);
   assert.match(await body(), /来源请到 客户设置 → 来源设置/);
   assert.match(await body(), /判重请到 客户设置 → 判重设置/);
   assert.equal(await page.locator('.cs-list li').count(), 6);

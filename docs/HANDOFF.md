@@ -5,7 +5,7 @@
 
 ## Status (2026-10-17)
 
-- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.08 built from `main` 892e284 (#15 merged).
+- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.09 built from `main` 7dd7df4 (#20 merged).
 - Desktop builds (Mac, Windows) are PAUSED (D-019): web version only. CI skips the Mac job; a manual run is still possible.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
@@ -15,7 +15,7 @@
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
 - How Claude works (D-017): Opus coordinates; Sonnet/Opus subagents in parallel git worktrees (`.claude/agents/`).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
-  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.08, published 2026-10-16; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.09, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
   version top-left; every publish adds 0.01.
 
 ## Open PRs and branches
@@ -26,7 +26,7 @@
 | Data safety: incomplete-save guard, backup queue + tiered retention, before-delete backups, 409 rebase, mail forward/bulk/draft fixes; 待收款客户 group removed | PR #18 | Merged 2026-10-16 (owner said 合并), `main` 9579f5c |
 | Roles: departments, field permissions, layouts by role | PR #15 | Merged 2026-10-16 (owner said 合并), `main` 892e284 |
 | Settings take effect (客户设置 logic, scope leaks, 设置 fixes), D-022–D-025 | PR #19 | Merged 2026-10-17 (owner said 合并), `main` eb6ba6e |
-| WhatsApp 沟通, export, lead settings, custom fields, rates, task rules, feature switches, D-022 build | `claude/gallant-bell-0m7uzb` | PR open after #19; CI decides, owner said 后续自动合并 |
+| WhatsApp 沟通, export, lead settings, custom fields, rates, task rules, feature switches, D-022 build | PR #20 | Merged 2026-10-17 (owner said 后续自动合并), `main` 7dd7df4 |
 | 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Backend parts ported into `data-safety-pr2`; its numbering/finance `src/` changes were not ported (15 conflicts in `business-ui.js`) — re-evaluate against current code or drop |
 | Old branches | 62 merged or obsolete remote branches | Owner agreed to delete (2026-10-16). The cloud session's GitHub proxy refuses branch deletion (`git push --delete` hangs up, API returns 403); needs a session or tool with delete rights |
 
@@ -45,7 +45,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
 | 9 | 沟通 module — WhatsApp (D-023) | Done (PR) | wa.me links, chat templates, import of exported chats, chat follow-ups; no receiving without a server (D-024) |
 | 28 | Export, lead settings, custom customer fields, exchange rates, task rules, feature switches | Done (PR) | Settings kept in `laiSettings` (no schema change); see VALIDATION.md |
-| 29 | Custom columns for orders and leads; custom fields in global search | Todo | |
+| 29 | Lead custom fields; custom fields in global search | Done (PR) | Lead list has fixed columns, so lead custom values show in editor, detail and export |
+| 30 | Custom fields for orders | Todo | `field-model.js` ENTITIES has customer and lead only |
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
 | 25 | Split `src/app.js` (~5300 lines) and `business-ui.js` (~2700) by page | Todo | Many `tests/*.test.cjs` read source text; move them to behaviour tests while splitting |

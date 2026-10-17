@@ -854,6 +854,39 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "lead-custom-fields",
+   "area": "leads",
+   "description": "线索设置 → 自定义字段: add, rename, move, require and delete lead fields (text, textarea, number, date, select, multi); values in the lead editor, detail and export; conversion copies values into same-name, same-type customer fields; role field permissions hide or lock them",
+   "steps": [
+    "Open 线索设置 → 自定义字段, add a 单选 field with two options and mark it required",
+    "新建线索: the field is in the form and saving without it says 请填写<field>",
+    "Fill it, save, open the lead: the detail shows the value",
+    "Export leads: the field is offered as a column",
+    "Convert the lead to a new customer that has a same-name 单选 field: the customer gets the value",
+    "Delete the field: it disappears from form, detail and export"
+   ],
+   "e2e": "lead-custom-fields.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
+  },
+  {
+   "id": "global-search-custom",
+   "area": "customers",
+   "description": "Top-bar search finds customers by custom field values (全部 scope, or one custom field chosen in the scope menu); fields hidden from the role and deleted fields are not searched",
+   "steps": [
+    "Give a customer a value in a custom text field",
+    "Type part of the value in the top-bar search: the customer is listed",
+    "Open the scope menu: the custom field is listed after the fixed fields; choose it and search again: only that field is matched and the label shows the field name"
+   ],
+   "e2e": "global-search-custom.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }
