@@ -2293,12 +2293,14 @@ td.team-reached {
    订单表单（新建／编辑／只读的「订单详情」，#biz-order-form，markup 在 business-ui.js 的 orderEditor）、商机表单（#opp-form）、
    商机详情抽屉（.opp-detail）和卡片的「⋮」菜单（.opp-menu）。控件来自组件套件（src/ui-kit.css）：k-input、k-select-trigger、
    k-textarea、k-btn、k-badge、k-table、k-error；这里只排版。抽屉外壳仍由 app.js 生成（.drawer），所以外观按 k-drawer 在这里补。
-   停靠位置在 skin-glass.css。表单里的统一下拉和日期框跟 k-input 用同一种边框、圆角和高度。只用 ui-tokens.css 的变量。 */
-:root[data-skin] :is(#biz-order-form, #opp-form) { --dd-h: 32px; --dd-border: var(--input); --dd-radius: var(--radius); --dd-font: var(--text-sm); }
-:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger { border-color: var(--input); border-radius: var(--radius); font-size: var(--text-sm); }
-:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger:hover:not(:disabled) { border-color: var(--ink-400); }
-:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger:is(:focus, .active) { border-color: var(--ring); }
-:root[data-skin] :is(#biz-order-form, #opp-form) input.lai-date-trigger[aria-invalid="true"] { border-color: var(--danger); }
+   停靠位置在 skin-glass.css。表单里的输入框和旁边的统一下拉、日期框（customer-select.css 的 --dd-*，D-010）同一种边框、圆角，都是 32 高。
+   只用 ui-tokens.css 的变量。 */
+:root[data-skin] :is(#biz-order-form, #biz-order-form .form-grid, #opp-form) { --dd-h: 32px; }
+:root[data-skin] :is(#biz-order-form, #opp-form) :is(.k-input, .k-textarea) { border-color: var(--dd-border); border-radius: var(--dd-radius); }
+:root[data-skin] :is(#biz-order-form, #opp-form) :is(.k-input, .k-textarea):hover:not(:disabled) { border-color: var(--ink-400); }
+:root[data-skin] :is(#biz-order-form, #opp-form) :is(.k-input, .k-textarea):focus { border-color: var(--ring); }
+:root[data-skin] :is(#biz-order-form, #opp-form) :is(.k-input, .k-textarea)[aria-invalid="true"] { border-color: var(--danger); }
+:root[data-skin] :is(#biz-order-form, #opp-form) .k-textarea { padding: 8px 10px; }
 :root[data-skin] :is(#biz-order-form, #opp-form) .k-input[readonly] { background: var(--muted-bg); color: var(--muted-fg); }
 :root[data-skin] :is(#biz-order-form, #opp-form) [hidden] { display: none !important; }
 
@@ -2361,7 +2363,7 @@ td.team-reached {
 :root[data-skin] #biz-order-form .order-doc-preview .error { margin-top: 8px; }
 :root[data-skin] :is(#biz-order-form, .opp-doc) .order-doc-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 
-/* 商机表单：名称的「自动生成｜自定义」像 k-tabs；币种＋金额连在一起 */
+/* 商机表单：名称的「自动生成｜自定义」像 k-tabs；币种和金额并排在一行 */
 :root[data-skin] #opp-form .opp-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 :root[data-skin] #opp-form .opp-name-row .k-input { flex: 1 1 200px; width: auto; }
 :root[data-skin] #opp-form .opp-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-lg); background: var(--muted-bg); }
@@ -2370,12 +2372,11 @@ td.team-reached {
 :root[data-skin] #opp-form .opp-seg span { display: block; padding: 0 12px; border-radius: var(--r-md); font-size: var(--text-sm); font-weight: 500; line-height: 28px; color: var(--muted-fg); cursor: pointer; }
 :root[data-skin] #opp-form .opp-seg input:checked + span { background: var(--card-bg); color: var(--fg); box-shadow: var(--shadow-1); }
 :root[data-skin] #opp-form .opp-seg input:focus-visible + span { outline: 2px solid var(--ring); outline-offset: 1px; }
-:root[data-skin] #opp-form .opp-group { display: flex; min-width: 0; }
-:root[data-skin] #opp-form .opp-group .opp-group-currency { flex: 0 0 72px; width: 72px; border-radius: var(--radius) 0 0 var(--radius); font-weight: 600; text-align: center; text-transform: uppercase; }
-:root[data-skin] #opp-form .opp-group .k-input[name="amount"] { flex: 1 1 auto; width: auto; margin-left: -1px; border-radius: 0 var(--radius) var(--radius) 0; font-variant-numeric: tabular-nums; }
-:root[data-skin] #opp-form .opp-group .k-input:focus { position: relative; z-index: 1; }
+:root[data-skin] #opp-form .opp-group { display: flex; gap: 6px; min-width: 0; }
+:root[data-skin] #opp-form .opp-group .opp-group-currency { flex: 0 0 64px; width: 64px; font-weight: 600; text-align: center; text-transform: uppercase; }
+:root[data-skin] #opp-form .opp-group .k-input[name="amount"] { flex: 1 1 auto; width: auto; font-variant-numeric: tabular-nums; }
 :root[data-skin] #opp-form .opp-static { display: flex; align-items: center; min-height: 32px; font-size: var(--text-sm); font-weight: 400; color: var(--fg); font-variant-numeric: tabular-nums; }
-:root[data-skin] #opp-form .opp-multi-list { display: flex; flex-wrap: wrap; gap: 6px 16px; max-height: 148px; padding: 8px 10px; overflow: auto; border: 1px solid var(--input); border-radius: var(--radius); background: var(--card-bg); }
+:root[data-skin] #opp-form .opp-multi-list { display: flex; flex-wrap: wrap; gap: 6px 16px; max-height: 148px; padding: 8px 10px; overflow: auto; border: 1px solid var(--dd-border); border-radius: var(--dd-radius); background: var(--card-bg); }
 :root[data-skin] #opp-form fieldset:disabled .opp-multi-list { background: var(--muted-bg); }
 :root[data-skin] #opp-form .opp-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); font-weight: 400; color: var(--fg); }
 :root[data-skin] #opp-form .opp-check input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; margin: 0; padding: 0; }
