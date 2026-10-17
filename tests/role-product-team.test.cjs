@@ -241,7 +241,7 @@ test('product UI: hidden columns, read-only inputs, hidden specs, detail layout'
   const form = ui.formMarkup(sales, P.find(sales, 'p1'), false);
   assert.doesNotMatch(form, /name="model"|name="fob"|name="nameCn"|name="spec:/);
   assert.match(form, /name="unit"[^>]*disabled/);
-  assert.match(form, /<textarea name="remark"[^>]*disabled/);
+  assert.match(form, /<textarea class="k-textarea" name="remark"[^>]*disabled/);
   assert.doesNotMatch(form, /name="code"[^>]*disabled/, '有 codeEdit，编辑时编号能改');
   assert.match(form, /name="name"/);
   // 新建：没有 codeNew，编号只读

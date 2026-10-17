@@ -1,107 +1,139 @@
-/* 客户设置页（客户设置 → 分组、阶段、类型、公海管理、跟进规则、成交规则、黑名单、上限、查重、动态、写跟进、布局） */
-.cs-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 0; }
-.cs-shortcuts button { height: 30px; padding: 0 12px; }
+/* 设置类页面的排版（客户设置；产品、单据模板也用它，商机设置、订单字段用其中的列表和表格）：
+   左边竖排页签（.cs-nav，客户设置、产品、单据模板上同时是 .k-tabs.k-tabs--vertical），右边一张面板（.cs-panel，
+   这三页上同时是 .k-card）。按钮、输入框、表格、空状态、开关来自组件套件（src/ui-kit.css）；这里只排版，
+   以及给还没换成套件类的地方（商机设置、订单字段）一个同样的外观。只用 ui-tokens.css 的变量。 */
 /* 客户页的 main 本来不滚动：窗口矮时设置页下面的项会被切掉、点不到（1280×720 时左边列表最后一项，1440×640 时倒数第二项）。让它能滚。 */
 .customer-main:has(.cs-page) { overflow-y: auto; }
+:root[data-skin] .k-pageheader.cs-header { flex-wrap: wrap; padding: 4px 16px 0; }
+.cs-shortcuts { flex-wrap: wrap; justify-content: flex-end; }
 .cs-page { display: flex; align-items: flex-start; gap: 16px; padding: 12px 16px 24px; min-height: 0; }
-.cs-nav { flex: 0 0 168px; display: flex; flex-direction: column; gap: 2px; padding: 8px; background: #fff; border-radius: 8px; position: sticky; top: 0; }
-.cs-nav button { text-align: left; height: 36px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-700, #595959); font-size: 14px; }
-.cs-nav button:hover { background: var(--color-neutral-50, #f7f8fa); }
-.cs-nav button.active { background: var(--color-primary-50); color: var(--color-primary-600); font-weight: 600; }
-.cs-panel { flex: 1; min-width: 0; max-width: 860px; padding: 20px 24px 24px; background: #fff; border-radius: 8px; }
-.cs-panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
-.cs-note { margin: 0 0 14px; font-size: 13px; color: var(--ink-500, #8c8c8c); line-height: 20px; }
-.cs-hint { margin: 8px 0 0; font-size: 12px; color: var(--ink-500, #8c8c8c); }
+/* 左边页签：一列、可点整行。没换成 k-tabs 的（商机设置的横排页签）也是分段式的样子。 */
+.cs-nav { flex: 0 0 168px; display: flex; flex-direction: column; gap: 2px; padding: 2px; border-radius: var(--r-lg); background: var(--muted-bg); position: sticky; top: 0; }
+.cs-nav button { height: 32px; padding: 0 12px; border: 0; border-radius: var(--r-md); background: transparent; box-shadow: none; color: var(--muted-fg); font-size: var(--text-sm); font-weight: 500; text-align: left; cursor: pointer; }
+.cs-nav button:hover { color: var(--fg); }
+.cs-nav button.active { background: var(--card-bg); color: var(--fg); box-shadow: var(--shadow-1); }
+/* 右边面板 */
+.cs-panel { flex: 1; min-width: 0; box-sizing: border-box; padding: 16px 20px 20px; border: 1px solid var(--card-line); border-radius: var(--r-xl); background: var(--card-bg); color: var(--fg); }
+.cs-panel.k-card { padding: 0; }
+:root[data-skin] .cs-panel > .k-card-body { padding: 14px 16px 16px; }
+.cs-panel > h2 { margin: 0 0 4px; font-size: var(--text-base); font-weight: 600; line-height: 22px; }
+.cs-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cs-note { margin: 0 0 14px; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+.cs-hint { margin: 8px 0 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
 .cs-error { margin-bottom: 10px; }
-.cs-toolbar { margin-bottom: 12px; }
-.cs-add { display: flex; gap: 8px; margin-bottom: 12px; }
-.cs-add input { flex: 1; max-width: 320px; height: 32px; padding: 0 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.cs-add button, .cs-inline button, .cs-actions button { height: 32px; padding: 0 14px; }
-.cs-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--ink-100, #eff0f3); border-radius: 8px; }
-.cs-list > li { border-top: 1px solid var(--ink-100, #eff0f3); }
+.cs-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+/* 一行输入框＋按钮（添加、改名） */
+.cs-add { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.cs-inline { display: flex; align-items: center; gap: 8px; flex: 1; }
+.cs-add input { flex: 1; max-width: 320px; }
+.cs-inline input { flex: 1; max-width: 260px; }
+.cs-add select { flex: 0 1 240px; }
+/* 没换成 k-input / k-btn 的输入框和按钮（商机设置、订单字段）：和套件同样的边框、圆角、高度 */
+.cs-add input:not(.k-input), .cs-inline input:not(.k-input), .cs-field :is(input[type="text"], input[type="number"], input:not([type])):not(.k-input), .cs-table input:not([type="checkbox"]):not(.k-input), .cs-inline-form input:not(.k-input) {
+  box-sizing: border-box; height: 32px; padding: 0 10px; border: 1px solid var(--input); border-radius: var(--radius); background: var(--card-bg); color: var(--fg); font: inherit; font-size: var(--text-sm);
+}
+.cs-add button:not(.k-btn), .cs-inline button:not(.k-btn), .cs-actions button:not(.k-btn) { height: 32px; padding: 0 14px; }
+/* 名单：一个有边框的列表，一行一项，右边是操作 */
+.cs-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-lg); }
+.cs-list > li { border-top: 1px solid var(--border); }
 .cs-list > li:first-child { border-top: 0; }
 .cs-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; }
-.cs-row strong { font-size: 14px; font-weight: 600; }
-.cs-row .cs-use { flex: 1; min-width: 0; font-size: 12px; color: var(--ink-500, #8c8c8c); }
-.cs-row-actions { display: flex; gap: 6px; flex: 0 0 auto; margin-left: auto; }
-.cs-row-actions button { height: 28px; min-width: 28px; padding: 0 10px; }
-.cs-children { margin: 0 0 8px 28px; border-radius: 6px; }
-.cs-child { background: var(--color-neutral-25, #fafafa); }
-.cs-inline { display: flex; gap: 8px; flex: 1; }
-.cs-inline input { flex: 1; max-width: 260px; height: 30px; padding: 0 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.cs-empty { padding: 28px 12px; text-align: center; font-size: 13px; color: var(--ink-500, #8c8c8c); border: 1px dashed var(--ink-200, #ececec); border-radius: 8px; }
-.cs-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; padding: 0; border: 0; font-size: 13px; }
-.cs-field > span, .cs-field > legend { font-weight: 600; padding: 0; }
-.cs-field input[type="text"], .cs-field input[type="number"], .cs-field input:not([type]) { height: 32px; max-width: 280px; padding: 0 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.cs-field em { font-style: normal; font-size: 12px; color: var(--ink-500, #8c8c8c); }
-.cs-page .check-row, .cs-group-form .check-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; font-weight: 400; }
+.cs-row strong { font-size: var(--text-sm); font-weight: 600; }
+.cs-row .cs-use { flex: 1; min-width: 0; font-size: var(--text-xs); color: var(--muted-fg); }
+.cs-row-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
+.cs-row-actions button:not(.k-btn) { height: 28px; min-width: 28px; padding: 0 10px; }
+.cs-row-actions .k-btn--sm { min-width: 28px; }
+.cs-children { margin: 0 0 8px 28px; }
+.cs-child { background: var(--bg); }
+.cs-children > .cs-child:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.cs-children > .cs-child:last-child { border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.cs-empty { padding: 32px 16px; text-align: center; font-size: var(--text-sm); color: var(--muted-fg); }
+/* 面板里的空状态（k-empty）：一块虚线框，看得出“这里本来放名单” */
+:root[data-skin] .cs-panel .k-empty { padding: 24px 16px; border: 1px dashed var(--border); border-radius: var(--r-lg); }
+.cs-panel .k-empty + .cs-actions, .cs-panel .k-empty + .cs-hint { margin-top: 10px; }
+/* 表单里的一项：标签在上，控件在下 */
+.cs-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; padding: 0; border: 0; font-size: var(--text-sm); }
+.cs-field > span, .cs-field > legend { padding: 0; font-weight: 600; color: var(--fg); }
+.cs-field :is(input[type="text"], input[type="number"], input[type="date"], input:not([type])) { max-width: 280px; }
+.cs-field textarea:not(.k-textarea) { padding: 8px 10px; border: 1px solid var(--input); border-radius: var(--radius); font: inherit; resize: vertical; }
+.cs-field em { font-style: normal; font-size: var(--text-xs); color: var(--muted-fg); }
+.cs-page .check-row, .cs-group-form .check-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: var(--text-sm); font-weight: 400; }
+.cs-page input[type="radio"], .cs-page input[type="checkbox"], .cs-group-form input[type="radio"] { height: auto; min-height: 0; accent-color: var(--primary); }
 .cs-members { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 4px 0 0 22px; }
+.cs-flat { padding-left: 0; flex-direction: column; flex-wrap: nowrap; gap: 2px; max-height: 180px; overflow: auto; }
 .cs-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 16px; }
-.cs-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; }
-.cs-table th { text-align: left; font-weight: 600; padding: 8px 10px; background: var(--color-neutral-50, #f7f8fa); }
-.cs-table td { padding: 6px 10px; border-top: 1px solid var(--ink-100, #eff0f3); }
-.cs-table input { width: 110px; height: 30px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.cs-full { font-style: normal; font-size: 12px; color: var(--color-danger, #e45656); }
-.cs-actions { margin-top: 6px; }
+/* 表格：套件的 .k-table；没换的（商机设置）同样的表头和分隔线 */
+.cs-panel .k-table { margin-bottom: 12px; }
+.cs-table { width: 100%; margin-bottom: 12px; border-collapse: collapse; font-size: var(--text-sm); color: var(--fg); }
+.cs-table th { height: 36px; padding: 0 12px; border-bottom: 1px solid var(--border); color: var(--muted-fg); font-size: var(--text-xs); font-weight: 500; text-align: left; white-space: nowrap; }
+.cs-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .cs-panel :is(.k-table, .cs-table) input:not([type="checkbox"]) { width: 110px; }
+:root[data-skin] .k-table .cs-subhead th { height: auto; padding: 14px 12px 6px; color: var(--fg); font-size: var(--text-sm); font-weight: 600; }
+.cs-table .cs-subhead th { padding-top: 14px; color: var(--fg); }
+.cs-full { font-style: normal; font-size: var(--text-xs); color: var(--danger-fg); }
+.cs-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.cs-rules td .cs-row-actions { justify-content: flex-start; }
+.cs-dedupe .check-row { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; }
+.cs-dedupe td { padding-right: 16px; }
+.cs-dedupe input[type="radio"] { width: auto; flex: none; margin: 0; }
+/* 公海管理等长页：一段一段，段之间一条细线 */
+.cs-section { margin: 0 0 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+.cs-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.cs-section h3 { margin: 0 0 4px; font-size: var(--text-sm); font-weight: 600; }
+.cs-section > .cs-hint:first-of-type { margin: 0 0 10px; }
+.cs-inline-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: var(--text-sm); }
+.cs-inline-form label { display: inline-flex; align-items: center; gap: 6px; }
+:root[data-skin] .cs-inline-form input { width: 76px; }
+.cs-claim .cs-inline-form { margin-bottom: 12px; }
+.cs-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; padding: 10px 12px; border-radius: var(--r-md); background: var(--muted-bg); font-size: var(--text-sm); }
+.cs-tpl-text { flex: 1; min-width: 0; font-size: var(--text-sm); line-height: 20px; white-space: pre-wrap; word-break: break-word; }
+/* 布局设置：两张可选的小图 */
 .cs-layouts { display: flex; gap: 16px; }
-.cs-layout-card { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 170px; padding: 14px 12px 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: 8px; background: #fff; }
-.cs-layout-card.active { border-color: var(--color-primary-500); box-shadow: 0 0 0 1px var(--color-primary-500) inset; }
+.cs-layout-card { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 170px; padding: 14px 12px 10px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card-bg); color: var(--fg); cursor: pointer; }
+.cs-layout-card:hover { border-color: var(--input); }
+.cs-layout-card.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
 .cs-layout-pic { display: flex; gap: 4px; width: 120px; height: 70px; }
-.cs-layout-pic i { display: block; height: 100%; border-radius: 4px; background: var(--color-neutral-100, #eff0f3); }
+.cs-layout-pic i { display: block; height: 100%; border-radius: var(--r-sm); background: var(--muted-bg); }
 .cs-layout-pic.small-left i:first-child { flex: 1; }
 .cs-layout-pic.small-left i:last-child { flex: 2; }
 .cs-layout-pic.large-left i:first-child { flex: 2; }
 .cs-layout-pic.large-left i:last-child { flex: 1; }
-.cs-layout-card.active .cs-layout-pic i { background: var(--color-primary-100); }
-.cs-group-form .cs-field input { max-width: 100%; }
-/* 新建产品抽屉：分组标题和第一项之间留空；产品分组下拉和其他输入框一样宽。 */
-.cs-group-form > fieldset.cs-field > legend { margin-bottom: 14px; }
-.cs-group-form .cs-field button.lai-select-trigger { width: 100% !important; max-width: none; }
-.cs-section { margin: 0 0 24px; padding-top: 16px; border-top: 1px solid var(--ink-100, #eff0f3); }
-.cs-section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
-.cs-section h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
-.cs-section > .cs-hint:first-of-type { margin: 0 0 10px; }
-.cs-inline-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
-.cs-inline-form label { display: inline-flex; align-items: center; gap: 6px; }
-.cs-inline-form input { width: 76px; height: 30px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.cs-inline-form button { height: 32px; padding: 0 14px; }
-.cs-claim .cs-inline-form { margin-bottom: 12px; }
-.cs-add select { flex: 0 1 240px; height: 32px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.cs-table input[type="checkbox"] { width: auto; height: auto; }
-.cs-rules td .cs-row-actions { justify-content: flex-start; }
-.cs-page input[type="radio"], .cs-page input[type="checkbox"] { height: auto; min-height: 0; }
-.cs-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; padding: 10px 12px; font-size: 13px; background: var(--color-neutral-50, #f7f8fa); border-radius: 6px; }
-.cs-confirm button { height: 30px; padding: 0 14px; }
-.cs-flat { padding-left: 0; flex-direction: column; flex-wrap: nowrap; gap: 2px; max-height: 180px; overflow: auto; }
-.cs-tpl-text { flex: 1; min-width: 0; font-size: 13px; line-height: 20px; white-space: pre-wrap; word-break: break-word; }
-.cs-field textarea { padding: 8px 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); font: inherit; resize: vertical; }
-.cs-group-form .cs-field select { height: 32px; max-width: 280px; padding: 0 8px; }
-.cs-group-form .cs-field input[type="date"] { max-width: 280px; }
-@media (max-width: 900px) { .cs-page { flex-direction: column; } .cs-nav { flex-basis: auto; flex-direction: row; flex-wrap: wrap; position: static; width: 100%; } }
-
-.cs-dedupe .check-row { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; }
-.cs-dedupe td { padding-right: 16px; }
-.cs-dedupe input[type="radio"] { width: auto; flex: none; margin: 0; }
-
-.cs-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 8px; }
-.cs-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border: 1px solid var(--line, #e5e7eb); border-radius: 999px; font-size: 13px; }
-.cs-chip button { border: 0; background: transparent; cursor: pointer; padding: 0 6px; font-size: 14px; line-height: 1; color: inherit; }
-.cs-table .cs-subhead th { background: transparent; text-align: left; font-size: 13px; padding-top: 14px; }
+.cs-layout-card.active .cs-layout-pic i { background: var(--accent-bg); }
+/* 规格值 */
+.cs-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px 8px; }
+.cs-chip { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 2px 0 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--muted-bg); font-size: var(--text-xs); }
+.cs-chip button { height: 20px; min-height: 20px; padding: 0 6px; border: 0; border-radius: var(--r-sm); background: transparent; box-shadow: none; color: var(--muted-fg); font-size: var(--text-sm); line-height: 1; cursor: pointer; }
+.cs-chip button:hover { background: var(--card-bg); color: var(--fg); }
+.cs-group > .cs-add { margin: 0 12px 10px; }
 .cs-prod td:first-child { min-width: 180px; white-space: normal; overflow: visible; text-overflow: clip; }
 .cs-prod td:first-child .company-link { max-width: none; white-space: normal; text-align: left; }
+@media (max-width: 900px) { .cs-page { flex-direction: column; } .cs-nav { flex-basis: auto; flex-direction: row; flex-wrap: wrap; position: static; width: 100%; } }
+
+/* 抽屉里的表单（客户分组、公海规则、常用语、新建产品）：输入框占满宽度 */
+.cs-group-form .cs-field :is(input, select) { max-width: 100%; }
+.cs-group-form > fieldset.cs-field > legend { margin-bottom: 14px; }
+.cs-group-form .cs-field button.lai-select-trigger { width: 100% !important; max-width: none; }
+/* 客户设置的抽屉（分组、公海规则、常用语）外壳由 app.js 画（.drawer.actions）；外观按 k-drawer 在这里补：中性边框、淡阴影，头 52、底 56 */
+:root[data-skin] .overlay:has(#cs-group-form, #cs-rule-form, #cs-tpl-form) .drawer { width: min(420px, calc(100vw - 32px)); border-left: 1px solid var(--border); border-radius: var(--r-xl) 0 0 var(--r-xl); background: var(--popover-bg); box-shadow: var(--shadow-2); color: var(--fg); }
+:root[data-skin] .overlay:has(#cs-group-form, #cs-rule-form, #cs-tpl-form) .drawer-head { height: auto; min-height: 52px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .overlay:has(#cs-group-form, #cs-rule-form, #cs-tpl-form) .drawer-head h2 { font-size: var(--text-lg); font-weight: 600; color: var(--fg); }
+:root[data-skin] .overlay:has(#cs-group-form, #cs-rule-form, #cs-tpl-form) .drawer-body { padding: 16px; }
+:root[data-skin] .overlay:has(#cs-group-form, #cs-rule-form, #cs-tpl-form) .drawer-footer { height: auto; min-height: 56px; padding: 10px 16px; gap: 8px; border-top: 1px solid var(--border); background: var(--popover-bg); }
 
 /* ---- 单据模板 ---- */
 .dt-grid { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 24px; align-items: start; }
-.dt-form { display: grid; gap: 12px; }
-.dt-form textarea { width: 100%; resize: vertical; }
-.dt-checks { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.dt-form { display: grid; gap: 4px; }
+.dt-form .cs-field { margin-bottom: 10px; }
+.dt-checks { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.dt-form > .dt-checks { margin-bottom: 8px; }
 .dt-form .cs-actions { display: flex; gap: 8px; }
 .dt-company { max-width: 640px; }
 .dt-group { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-.dt-group h3 { grid-column: 1 / -1; margin: 4px 0 10px; font-size: 14px; }
+.dt-group h3 { grid-column: 1 / -1; margin: 4px 0 10px; font-size: var(--text-sm); font-weight: 600; }
 .dt-company .cs-field input { max-width: 100%; }
-.dt-side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.dt-paper { background: #fff; color: #111; border: 1px solid var(--line, #e5e5e5); border-radius: 8px; padding: 20px; overflow: auto; }
+.dt-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: var(--text-sm); }
+/* 预览是一张纸：白底黑字，跟打印出来的一样（不跟着配色变） */
+.dt-paper { background: #fff; color: #111; border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; overflow: auto; }
 .dt-doc { font-size: 12px; line-height: 1.5; }
 .dt-doc * { max-width: none; }
 .dt-doc .dt-table th, .dt-doc .dt-table td { font-size: 12px; white-space: normal; overflow: visible; text-overflow: clip; padding: 5px 4px; }
@@ -129,15 +161,22 @@
 
 /* 字段设置 */
 .cf-section { margin-bottom: 24px; }
-.cf-section > h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+.cf-section > h3 { margin: 0 0 10px; font-size: var(--text-sm); font-weight: 600; }
 .cf-system { max-width: 560px; }
 .cf-system .check-row { margin: 0; }
 .cf-add { flex-wrap: wrap; align-items: center; }
 .cf-add select { flex: 0 0 120px; }
 .cf-add .check-row { margin: 0; }
-.cf-name { flex: 0 1 240px; min-width: 120px; height: 30px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); font-weight: 600; }
+.cf-name { flex: 0 1 240px; min-width: 120px; font-weight: 600; }
+.cf-name:not(.k-input) { height: 30px; padding: 0 8px; border: 1px solid var(--input); border-radius: var(--radius); }
 .cf-field .cs-row-actions .check-row { margin: 0 6px 0 0; }
-.cf-lock { display: block; padding: 0 12px 6px; color: var(--ink-500, #8c8c8c); }
+.cf-lock { display: block; padding: 0 12px 6px; color: var(--muted-fg); }
 .cf-system .cf-lock { padding: 2px 0 0; }
 .cf-options { padding: 0 12px 8px 28px; }
 .cf-options .cs-add { margin: 6px 0 0; }
+.theme-preview .pv-nav { flex: 0 0 22%; background: var(--pv-nav); }
+.theme-preview .pv-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+.theme-preview .pv-bar { display: block; height: 10px; width: 60%; border-radius: 5px; background: var(--pv-brand); }
+.theme-preview .pv-cards { flex: 1; display: flex; gap: 8px; }
+.theme-preview .pv-cards i { flex: 1; border-radius: 6px; background: #fff; }
+.theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }

@@ -46,7 +46,7 @@ test('sync from a CSV: preview shows 新建 2 / 更新 1, confirm writes, the ta
   assert.equal((await products()).length, 1);
 
   await tab('sync');
-  assert.match(await page.locator('.cs-empty').innerText(), /还没有导入过/);
+  assert.match(await page.locator('.cs-panel .k-empty').innerText(), /还没有导入过/);
   await page.locator('[data-prod-action="sync-open"]').click();
   await page.locator('#prod-sync-file').waitFor();
   const file = csv('products.csv', '产品名称,产品编号,离岸价,没用的列\n新睫毛,N-1,2.5,x\n新胶水,N-2,,x\n胶水新名,E-1,3,x\n,N-3,4,x\n');

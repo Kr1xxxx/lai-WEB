@@ -27,12 +27,17 @@ const TABS = Object.freeze([
 ]);
 
 function nav(tab, E, hidden = []) {
-  return `<nav class="cs-nav" aria-label="客户设置">${TABS.filter((t) => !hidden.includes(t.id)).map((t) => `<button type="button" data-cs-tab="${t.id}" class="${t.id === tab ? "active" : ""}"${t.id === tab ? ' aria-current="page"' : ""}>${E(t.label)}</button>`).join("")}</nav>`;
+  return `<nav class="cs-nav k-tabs k-tabs--vertical" aria-label="客户设置">${TABS.filter((t) => !hidden.includes(t.id)).map((t) => `<button type="button" data-cs-tab="${t.id}" class="k-tab${t.id === tab ? " active" : ""}"${t.id === tab ? ' aria-current="page"' : ""}>${E(t.label)}</button>`).join("")}</nav>`;
 }
 // 新规则默认从今天起算，免得一打开就把老客户整批移走。
 const todayLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const field = (label, content, hint) => `<label class="cs-field"><span>${label}</span>${content}${hint ? `<em>${hint}</em>` : ""}</label>`;
-const empty = (text) => `<div class="cs-empty">${text}</div>`;
+const empty = (text) => `<div class="k-empty">${text}</div>`;
+// 右边的设置面板（客户设置、产品、单据模板共用一种）：k-card，头部是标题和一句说明，正文里先是出错提示。
+// attrs 是面板上的 data-*（控制器按它找当前页签）；errorId 是出错提示的 id。
+function panel(attrs, title, note, errorId, inner, E = identity, extra = "") {
+  return `<div class="cs-panel k-card${extra ? " " + extra : ""}" ${attrs}><div class="k-card-head"><div class="cs-head"><h2 class="k-card-title">${E(title)}</h2><p class="k-card-desc">${E(note)}</p></div></div><div class="k-card-body"><div class="cs-error error" id="${errorId}" role="alert"></div>${inner}</div></div>`;
+}
 
 // 阶段和类型：同一种“可改名、可排序的名单”
 function namedList(kind, items, useOf, ui, E) {
@@ -41,12 +46,12 @@ function namedList(kind, items, useOf, ui, E) {
     const used = useOf(name);
     const editing = ui.editing && ui.editing.kind === kind && ui.editing.key === name;
     const body = editing
-      ? `<form class="cs-inline" data-cs-form="rename-${kind}" data-old="${E(name)}" novalidate data-form-check><input name="name" value="${E(name)}" maxlength="20" aria-label="${label}名称" autocomplete="off"><button type="submit" class="primary">保存</button><button type="button" data-cs-cancel>取消</button></form>`
+      ? `<form class="cs-inline" data-cs-form="rename-${kind}" data-old="${E(name)}" novalidate data-form-check><input class="k-input" name="name" value="${E(name)}" maxlength="20" aria-label="${label}名称" autocomplete="off"><button type="submit" class="k-btn k-btn--primary k-btn--sm">保存</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-cancel>取消</button></form>`
       : `<strong>${E(name)}</strong><span class="cs-use">${used ? `${used} 位客户在用` : "没有客户在用"}</span>`;
-    const buttons = editing ? "" : `<span class="cs-row-actions"><button type="button" data-cs-move="${kind}" data-name="${E(name)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-cs-move="${kind}" data-name="${E(name)}" data-delta="1" aria-label="下移"${index === items.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-cs-edit="${kind}" data-key="${E(name)}">改名</button><button type="button" data-cs-delete="${kind}" data-key="${E(name)}">删除</button></span>`;
+    const buttons = editing ? "" : `<span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-move="${kind}" data-name="${E(name)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-move="${kind}" data-name="${E(name)}" data-delta="1" aria-label="下移"${index === items.length - 1 ? " disabled" : ""}>↓</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-edit="${kind}" data-key="${E(name)}">改名</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-delete="${kind}" data-key="${E(name)}">删除</button></span>`;
     return `<li class="cs-row">${body}${buttons}</li>`;
   }).join("");
-  return `<form class="cs-add" data-cs-form="add-${kind}" novalidate data-form-check><input name="name" placeholder="新${label}名称" maxlength="20" aria-label="新${label}名称" autocomplete="off"><button type="submit" class="primary">添加</button></form>${items.length ? `<ul class="cs-list">${rows}</ul>` : empty(`还没有${label}`)}`;
+  return `<form class="cs-add" data-cs-form="add-${kind}" novalidate data-form-check><input class="k-input" name="name" placeholder="新${label}名称" maxlength="20" aria-label="新${label}名称" autocomplete="off"><button type="submit" class="k-btn k-btn--primary">添加</button></form>${items.length ? `<ul class="cs-list">${rows}</ul>` : empty(`还没有${label}`)}`;
 }
 
 function groupsTab(state, ui, E) {
@@ -56,12 +61,12 @@ function groupsTab(state, ui, E) {
     const children = g.children.map((c) => {
       const path = `${g.name}${CS.SEP}${c.name}`;
       const used = CS.groupUse(state, path);
-      return `<li class="cs-row cs-child"><strong>${E(c.name)}</strong><span class="cs-use">${used ? `${used} 位客户在用` : "没有客户在用"}</span><span class="cs-row-actions"><button type="button" data-cs-group-edit="${E(c.id)}">改名</button><button type="button" data-cs-delete="group" data-key="${E(c.id)}">删除</button></span></li>`;
+      return `<li class="cs-row cs-child"><strong>${E(c.name)}</strong><span class="cs-use">${used ? `${used} 位客户在用` : "没有客户在用"}</span><span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-group-edit="${E(c.id)}">改名</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-delete="group" data-key="${E(c.id)}">删除</button></span></li>`;
     }).join("");
     const used = CS.groupUse(state, g.name);
-    return `<li class="cs-group"><div class="cs-row"><strong>${E(g.name)}</strong><span class="cs-use">${E(who)}${g.children.length && g.childRequired ? " · 必须选到子分组" : ""} · ${used ? `${used} 位客户在用` : "没有客户在用"}</span><span class="cs-row-actions"><button type="button" data-cs-group-add="${E(g.id)}">添加子分组</button><button type="button" data-cs-group-edit="${E(g.id)}">编辑</button><button type="button" data-cs-delete="group" data-key="${E(g.id)}">删除</button></span></div>${children ? `<ul class="cs-list cs-children">${children}</ul>` : ""}</li>`;
+    return `<li class="cs-group"><div class="cs-row"><strong>${E(g.name)}</strong><span class="cs-use">${E(who)}${g.children.length && g.childRequired ? " · 必须选到子分组" : ""} · ${used ? `${used} 位客户在用` : "没有客户在用"}</span><span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-group-add="${E(g.id)}">添加子分组</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-group-edit="${E(g.id)}">编辑</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-delete="group" data-key="${E(g.id)}">删除</button></span></div>${children ? `<ul class="cs-list cs-children">${children}</ul>` : ""}</li>`;
   }).join("");
-  return `<div class="cs-toolbar"><button type="button" class="primary" data-cs-group-add="">新建分组</button></div>${groups.length ? `<ul class="cs-list cs-tree">${rows}</ul>` : empty("还没有分组。点“新建分组”添加，客户编辑里的“客户分组”就能选到它。")}`;
+  return `<div class="cs-toolbar"><button type="button" class="k-btn k-btn--primary" data-cs-group-add="">新建分组</button></div>${groups.length ? `<ul class="cs-list cs-tree">${rows}</ul>` : empty("还没有分组。点“新建分组”添加，客户编辑里的“客户分组”就能选到它。")}`;
 }
 function groupForm(state, spec, owners, E) {
   const settings = CS.get(state);
@@ -79,32 +84,32 @@ function groupForm(state, spec, owners, E) {
   const parts = [
     parent ? `<p class="cs-hint">上级分组：<strong>${E(parent.name)}</strong></p>` : "",
     isChild ? `<p class="cs-hint">上级分组：<strong>${E(top.name)}</strong></p>` : "",
-    field("分组名称", `<input name="name" value="${E(current ? current.name : "")}" maxlength="20" required autocomplete="off">`),
+    field("分组名称", `<input class="k-input" name="name" value="${E(current ? current.name : "")}" maxlength="20" required autocomplete="off">`),
   ];
   if (topLevel) {
-    parts.push(`<fieldset class="cs-field"><legend>可用的跟进人</legend><label class="check-row"><input type="radio" name="membersMode" value="all"${members === "all" ? " checked" : ""}> 全部跟进人</label><label class="check-row"><input type="radio" name="membersMode" value="some"${members === "all" ? "" : " checked"}> 只限这些人</label><div class="cs-members">${owners.length ? owners.map((o) => `<label class="check-row"><input type="checkbox" name="member" value="${E(o)}"${checked(o)}> ${E(o)}</label>`).join("") : '<span class="cs-hint">还没有跟进人。先在客户里填跟进人。</span>'}</div></fieldset>`);
-    if (current && current.children.length) parts.push(`<label class="check-row"><input type="checkbox" name="childRequired"${current.childRequired ? " checked" : ""}> 客户必须选到子分组</label>`);
+    parts.push(`<fieldset class="cs-field"><legend>可用的跟进人</legend><label class="check-row"><input type="radio" name="membersMode" value="all"${members === "all" ? " checked" : ""}> 全部跟进人</label><label class="check-row"><input type="radio" name="membersMode" value="some"${members === "all" ? "" : " checked"}> 只限这些人</label><div class="cs-members">${owners.length ? owners.map((o) => `<label class="check-row"><input type="checkbox" class="k-checkbox" name="member" value="${E(o)}"${checked(o)}> ${E(o)}</label>`).join("") : '<span class="cs-hint">还没有跟进人。先在客户里填跟进人。</span>'}</div></fieldset>`);
+    if (current && current.children.length) parts.push(`<label class="check-row"><input type="checkbox" class="k-switch" role="switch" name="childRequired"${current.childRequired ? " checked" : ""}> 客户必须选到子分组</label>`);
   }
   return `<form id="cs-group-form" class="drawer-body cs-group-form" data-id="${E(spec.id || "")}" data-parent="${E(spec.parentId || "")}" novalidate data-form-check><div class="error" id="workspace-error" role="alert"></div>${parts.join("")}</form>`;
 }
 
 function blacklistTab(state, E) {
   const list = CS.get(state).blacklist;
-  return `<form class="cs-add" data-cs-form="add-blacklist" novalidate data-form-check><input name="email" placeholder="完整邮箱，或 @域名，如 @example.com" maxlength="120" aria-label="黑名单邮箱" autocomplete="off"><button type="submit" class="primary">添加</button></form>${list.length ? `<ul class="cs-list">${list.map((entry) => `<li class="cs-row"><strong>${E(entry)}</strong><span class="cs-use">${entry.startsWith("@") ? "整个域名" : "这个邮箱"}</span><span class="cs-row-actions"><button type="button" data-cs-delete="blacklist" data-key="${E(entry)}">移除</button></span></li>`).join("")}</ul>` : empty("黑名单是空的")}`;
+  return `<form class="cs-add" data-cs-form="add-blacklist" novalidate data-form-check><input class="k-input" name="email" placeholder="完整邮箱，或 @域名，如 @example.com" maxlength="120" aria-label="黑名单邮箱" autocomplete="off"><button type="submit" class="k-btn k-btn--primary">添加</button></form>${list.length ? `<ul class="cs-list">${list.map((entry) => `<li class="cs-row"><strong>${E(entry)}</strong><span class="cs-use">${entry.startsWith("@") ? "整个域名" : "这个邮箱"}</span><span class="cs-row-actions"><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-delete="blacklist" data-key="${E(entry)}">移除</button></span></li>`).join("")}</ul>` : empty("黑名单是空的")}`;
 }
 
 function capsTab(state, owners, E) {
   const caps = CS.get(state).caps;
   const rows = CS.capRows(state, owners);
   const table = rows.length
-    ? `<table class="cs-table"><thead><tr><th>跟进人</th><th>现有客户数</th><th>上限（留空＝跟随默认）</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${E(r.owner)}</td><td>${r.count}${r.effective && r.count >= r.effective ? ' <em class="cs-full">已满</em>' : ""}</td><td><input name="cap:${E(r.owner)}" type="number" min="0" max="${CS.LIMITS.cap}" step="1" value="${r.limit === null ? "" : r.limit}" placeholder="${caps.defaultLimit || "不限"}" aria-label="${E(r.owner)}的客户上限"></td></tr>`).join("")}</tbody></table>`
+    ? `<table class="k-table"><thead><tr><th>跟进人</th><th class="k-num">现有客户数</th><th>上限（留空＝跟随默认）</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${E(r.owner)}</td><td class="k-num">${r.effective && r.count >= r.effective ? '<em class="k-badge k-badge--danger cs-full">已满</em> ' : ""}${r.count}</td><td><input class="k-input" name="cap:${E(r.owner)}" type="number" min="0" max="${CS.LIMITS.cap}" step="1" value="${r.limit === null ? "" : r.limit}" placeholder="${caps.defaultLimit || "不限"}" aria-label="${E(r.owner)}的客户上限"></td></tr>`).join("")}</tbody></table>`
     : empty("还没有跟进人。客户里填了跟进人后，会列在这里。");
-  return `<form class="cs-caps" data-cs-form="caps" novalidate data-form-check>${field("默认上限", `<input name="defaultLimit" type="number" min="0" max="${CS.LIMITS.cap}" step="1" value="${caps.defaultLimit}">`, "0 表示不限。每位跟进人可以在下面单独设置。")}${table}<div class="cs-actions"><button type="submit" class="primary">保存</button></div></form>`;
+  return `<form class="cs-caps" data-cs-form="caps" novalidate data-form-check>${field("默认上限", `<input class="k-input" name="defaultLimit" type="number" min="0" max="${CS.LIMITS.cap}" step="1" value="${caps.defaultLimit}">`, "0 表示不限。每位跟进人可以在下面单独设置。")}${table}<div class="cs-actions"><button type="submit" class="k-btn k-btn--primary">保存</button></div></form>`;
 }
 
 function duplicatesTab(state, E) {
   const chosen = new Set(CS.get(state).duplicateFields);
-  return `<form class="cs-dup" data-cs-form="duplicates" novalidate data-form-check><fieldset class="cs-field"><legend>每位疑似重复的客户后面显示</legend><div class="cs-checks">${CS.DUPLICATE_FIELDS.map(([key, label]) => `<label class="check-row"><input type="checkbox" name="field" value="${key}"${chosen.has(key) ? " checked" : ""}> ${E(label)}</label>`).join("")}</div></fieldset><p class="cs-hint">这里只决定显示什么，不改变“按相同邮箱或电话判重”的规则。</p><div class="cs-actions"><button type="submit" class="primary">保存</button></div></form>`;
+  return `<form class="cs-dup" data-cs-form="duplicates" novalidate data-form-check><fieldset class="cs-field"><legend>每位疑似重复的客户后面显示</legend><div class="cs-checks">${CS.DUPLICATE_FIELDS.map(([key, label]) => `<label class="check-row"><input type="checkbox" class="k-checkbox" name="field" value="${key}"${chosen.has(key) ? " checked" : ""}> ${E(label)}</label>`).join("")}</div></fieldset><p class="cs-hint">这里只决定显示什么，不改变“按相同邮箱或电话判重”的规则。</p><div class="cs-actions"><button type="submit" class="k-btn k-btn--primary">保存</button></div></form>`;
 }
 
 function sourcesTab(state, ui, E) {
@@ -113,8 +118,8 @@ function sourcesTab(state, ui, E) {
     const editing = ui.editing && ui.editing.kind === "source" && ui.editing.key === item.id;
     const used = CS.sourceUse(state, path);
     const head = editing
-      ? `<form class="cs-inline" data-cs-form="rename-source" data-id="${E(item.id)}" novalidate data-form-check><input name="name" value="${E(item.name)}" maxlength="20" aria-label="来源名称" autocomplete="off"><button type="submit" class="primary">保存</button><button type="button" data-cs-cancel>取消</button></form>`
-      : `<strong>${E(item.name)}</strong><span class="cs-use">${item.hidden ? "已隐藏 · " : ""}${used ? `${used} 位客户在用` : "没有客户在用"}</span><span class="cs-row-actions"><button type="button" data-cs-source-move="${E(item.id)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-cs-source-move="${E(item.id)}" data-delta="1" aria-label="下移"${index === count - 1 ? " disabled" : ""}>↓</button>${top ? `<button type="button" data-cs-source-sub="${E(item.id)}">添加子来源</button>` : ""}<button type="button" data-cs-source-hide="${E(item.id)}" data-hidden="${item.hidden ? "0" : "1"}">${item.hidden ? "显示" : "隐藏"}</button><button type="button" data-cs-edit="source" data-key="${E(item.id)}">改名</button><button type="button" data-cs-delete="source" data-key="${E(item.id)}">删除</button></span>`;
+      ? `<form class="cs-inline" data-cs-form="rename-source" data-id="${E(item.id)}" novalidate data-form-check><input class="k-input" name="name" value="${E(item.name)}" maxlength="20" aria-label="来源名称" autocomplete="off"><button type="submit" class="k-btn k-btn--primary k-btn--sm">保存</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-cancel>取消</button></form>`
+      : `<strong>${E(item.name)}</strong><span class="cs-use">${item.hidden ? "已隐藏 · " : ""}${used ? `${used} 位客户在用` : "没有客户在用"}</span><span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-source-move="${E(item.id)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-source-move="${E(item.id)}" data-delta="1" aria-label="下移"${index === count - 1 ? " disabled" : ""}>↓</button>${top ? `<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-source-sub="${E(item.id)}">添加子来源</button>` : ""}<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-source-hide="${E(item.id)}" data-hidden="${item.hidden ? "0" : "1"}">${item.hidden ? "显示" : "隐藏"}</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-edit="source" data-key="${E(item.id)}">改名</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-delete="source" data-key="${E(item.id)}">删除</button></span>`;
     return head;
   };
   const rows = list.map((t, i) => {
@@ -122,15 +127,15 @@ function sourcesTab(state, ui, E) {
     return `<li class="cs-group"><div class="cs-row">${row(t, t.name, true, i, list.length)}</div>${kids ? `<ul class="cs-list cs-children">${kids}</ul>` : ""}</li>`;
   }).join("");
   const adding = ui.editing && ui.editing.kind === "sourcesub" ? list.find((t) => t.id === ui.editing.key) : null;
-  const subForm = adding ? `<form class="cs-add" data-cs-form="add-source" data-parent="${E(adding.id)}" novalidate data-form-check><input name="name" placeholder="“${E(adding.name)}”下的新子来源" maxlength="20" aria-label="新子来源名称" autocomplete="off"><button type="submit" class="primary">添加</button><button type="button" data-cs-cancel>取消</button></form>` : "";
-  return `<form class="cs-add" data-cs-form="add-source" novalidate data-form-check><input name="name" placeholder="新一级来源名称" maxlength="20" aria-label="新来源名称" autocomplete="off"><button type="submit" class="primary">添加</button></form>${subForm}${list.length ? `<ul class="cs-list cs-tree">${rows}</ul><p class="cs-hint">隐藏后，新建时选不到，但已经在用的客户不受影响。名单里没有的来源仍可以手填。</p>` : empty("还没有来源名单。现在下拉里列的是已经用过的来源；添加后只列这里的。")}`;
+  const subForm = adding ? `<form class="cs-add" data-cs-form="add-source" data-parent="${E(adding.id)}" novalidate data-form-check><input class="k-input" name="name" placeholder="“${E(adding.name)}”下的新子来源" maxlength="20" aria-label="新子来源名称" autocomplete="off"><button type="submit" class="k-btn">添加</button><button type="button" class="k-btn k-btn--ghost" data-cs-cancel>取消</button></form>` : "";
+  return `<form class="cs-add" data-cs-form="add-source" novalidate data-form-check><input class="k-input" name="name" placeholder="新一级来源名称" maxlength="20" aria-label="新来源名称" autocomplete="off"><button type="submit" class="k-btn k-btn--primary">添加</button></form>${subForm}${list.length ? `<ul class="cs-list cs-tree">${rows}</ul><p class="cs-hint">隐藏后，新建时选不到，但已经在用的客户不受影响。名单里没有的来源仍可以手填。</p>` : empty("还没有来源名单。现在下拉里列的是已经用过的来源；添加后只列这里的。")}`;
 }
 function dedupeTab(state, ui, E) {
   const modes = CS.get(state).dedupe;
   const radio = (key, value, text) => `<label class="check-row"><input type="radio" name="dedupe:${key}" value="${value}"${modes[key] === value ? " checked" : ""}> ${text}</label>`;
   const rowsOf = (fields) => fields.map(([key, label]) => `<tr><td>${E(label)}</td><td>${radio(key, "allow", "判重，允许保存")}</td><td>${radio(key, "block", "判重，不允许保存")}</td><td>${radio(key, "off", "不判重")}</td></tr>`).join("");
   const head = '<thead><tr><th>资料</th><th colspan="3">重复时</th></tr></thead>';
-  return `<form class="cs-dup" data-cs-form="dedupe" novalidate data-form-check><table class="cs-table cs-dedupe">${head}<tbody><tr><td>公司名称</td><td colspan="3">固定：不允许保存</td></tr>${rowsOf(CS.DEDUPE_FIELDS)}</tbody></table><p class="cs-hint">“判重，允许保存”：保存不受影响，重复的客户会出现在“客户查重”页。“判重，不允许保存”：保存时提示和哪位客户相同。只检查这次新增或改过的值，已有的重复不会挡住修改。</p>${saveRow()}</form>`;
+  return `<form class="cs-dup" data-cs-form="dedupe" novalidate data-form-check><table class="k-table cs-dedupe">${head}<tbody><tr><td>公司名称</td><td colspan="3">固定：不允许保存</td></tr>${rowsOf(CS.DEDUPE_FIELDS)}</tbody></table><p class="cs-hint">“判重，允许保存”：保存不受影响，重复的客户会出现在“客户查重”页。“判重，不允许保存”：保存时提示和哪位客户相同。只检查这次新增或改过的值，已有的重复不会挡住修改。</p>${saveRow()}</form>`;
 }
 
 function layoutTab(state) {
@@ -143,15 +148,16 @@ function layoutTab(state) {
 const poolTools = () => (typeof module !== "undefined" && module.exports ? require("./customer-tools.js") : root.LaiCustomerTools);
 const kindText = (kind) => (kind === "noDeal" ? "没有成交" : "没有联系");
 const section = (title, hint, inner) => `<section class="cs-section"><h3>${title}</h3>${hint ? `<p class="cs-hint">${hint}</p>` : ""}${inner}</section>`;
-const nums = (name, value, min, max, label) => `<input name="${name}" type="number" min="${min}" max="${max}" step="1" value="${value}" aria-label="${label}" required>`;
-const saveRow = () => `<div class="cs-actions"><button type="submit" class="primary">保存</button></div>`;
+const nums = (name, value, min, max, label) => `<input class="k-input" name="${name}" type="number" min="${min}" max="${max}" step="1" value="${value}" aria-label="${label}" required>`;
+// 保存按钮：只有一个表单的页签用主按钮；公海管理一页有好几段各自保存，用普通按钮（那一页的主按钮是“新建规则”）。
+const saveRow = (main = true) => `<div class="cs-actions"><button type="submit" class="k-btn${main ? " k-btn--primary" : ""}">保存</button></div>`;
 
 function poolRulesSection(rules, E) {
-  const rows = rules.rules.map((r) => `<tr><td><input type="checkbox" data-cs-rule-toggle="${E(r.id)}"${r.enabled ? " checked" : ""} aria-label="启用“${E(r.name)}”"></td><td>${E(r.name)}</td><td>${r.days} 天${kindText(r.kind)}</td><td>${r.groups.length ? r.groups.map(E).join("、") : "全部客户"}</td><td>${r.startDate ? E(r.startDate) : "—"}</td><td><span class="cs-row-actions"><button type="button" data-cs-rule-edit="${E(r.id)}">编辑</button><button type="button" data-cs-rule-delete="${E(r.id)}">删除</button></span></td></tr>`).join("");
+  const rows = rules.rules.map((r) => `<tr><td><input type="checkbox" class="k-switch" role="switch" data-cs-rule-toggle="${E(r.id)}"${r.enabled ? " checked" : ""} aria-label="启用“${E(r.name)}”"></td><td>${E(r.name)}</td><td>${r.days} 天${kindText(r.kind)}</td><td>${r.groups.length ? r.groups.map(E).join("、") : "全部客户"}</td><td>${r.startDate ? E(r.startDate) : "—"}</td><td><span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-rule-edit="${E(r.id)}">编辑</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-rule-delete="${E(r.id)}">删除</button></span></td></tr>`).join("");
   const table = rules.rules.length
-    ? `<table class="cs-table cs-rules"><thead><tr><th>启用</th><th>名称</th><th>条件</th><th>适用分组</th><th>开始日期</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<table class="k-table cs-rules"><thead><tr><th>启用</th><th>名称</th><th>条件</th><th>适用分组</th><th>开始日期</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`
     : empty("还没有规则。点“新建规则”，比如“90 天没有联系就移入公海”。");
-  return section("自动移入公海规则", "每天打开来财时自动执行一次已启用的规则；也可以点“立即执行”。", `<div class="cs-toolbar"><button type="button" class="primary" data-cs-rule-edit="">新建规则</button></div>${table}`);
+  return section("自动移入公海规则", "每天打开来财时自动执行一次已启用的规则；也可以点“立即执行”。", `<div class="cs-toolbar"><button type="button" class="k-btn k-btn--primary" data-cs-rule-edit="">新建规则</button></div>${table}`);
 }
 function poolPreviewSection(state, rules, ui, E) {
   const CT = poolTools();
@@ -160,38 +166,38 @@ function poolPreviewSection(state, rules, ui, E) {
   const anyOn = rules.rules.some((r) => r.enabled);
   const confirming = ui.editing && ui.editing.kind === "poolrun";
   const table = list.length
-    ? `<table class="cs-table"><thead><tr><th>客户</th><th>跟进人</th><th>规则</th><th>天数</th></tr></thead><tbody>${list.slice(0, 20).map((c) => `<tr><td>${E(c.name)}</td><td>${E(c.owner)}</td><td>${E(c.ruleName)}</td><td>${c.days} 天</td></tr>`).join("")}</tbody></table>${list.length > 20 ? `<p class="cs-hint">还有 ${list.length - 20} 位…</p>` : ""}`
+    ? `<table class="k-table"><thead><tr><th>客户</th><th>跟进人</th><th>规则</th><th class="k-num">天数</th></tr></thead><tbody>${list.slice(0, 20).map((c) => `<tr><td>${E(c.name)}</td><td>${E(c.owner)}</td><td>${E(c.ruleName)}</td><td class="k-num">${c.days} 天</td></tr>`).join("")}</tbody></table>${list.length > 20 ? `<p class="cs-hint">还有 ${list.length - 20} 位…</p>` : ""}`
     : empty(anyOn ? "现在没有符合规则的客户" : "还没有启用的规则，所以不会有客户被移入公海");
   const run = confirming
-    ? `<div class="cs-confirm" role="alert"><span>将把 <strong>${list.length}</strong> 位客户移入公海，确定吗？</span><button type="button" class="primary" data-cs-pool-run-ok>确定移入</button><button type="button" data-cs-cancel>取消</button></div>`
-    : `<div class="cs-actions"><button type="button" class="primary" data-cs-pool-run>立即执行</button></div>`;
+    ? `<div class="cs-confirm" role="alert"><span>将把 <strong>${list.length}</strong> 位客户移入公海，确定吗？</span><button type="button" class="k-btn k-btn--primary k-btn--sm" data-cs-pool-run-ok>确定移入</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-cancel>取消</button></div>`
+    : `<div class="cs-actions"><button type="button" class="k-btn" data-cs-pool-run>立即执行</button></div>`;
   let soonBox;
   if (!rules.remindDays) soonBox = '<p class="cs-hint">提前提醒已关闭。</p>';
   else if (!soon.length) soonBox = empty(`未来 ${rules.remindDays} 天内没有客户会被移入公海`);
-  else soonBox = `<table class="cs-table"><thead><tr><th>客户</th><th>规则</th><th>还有几天</th></tr></thead><tbody>${soon.slice(0, 20).map((c) => `<tr><td>${E(c.name)}</td><td>${E(c.ruleName)}</td><td>还有 ${c.dueInDays} 天</td></tr>`).join("")}</tbody></table>${soon.length > 20 ? `<p class="cs-hint">还有 ${soon.length - 20} 位…</p>` : ""}`;
+  else soonBox = `<table class="k-table"><thead><tr><th>客户</th><th>规则</th><th>还有几天</th></tr></thead><tbody>${soon.slice(0, 20).map((c) => `<tr><td>${E(c.name)}</td><td>${E(c.ruleName)}</td><td>还有 ${c.dueInDays} 天</td></tr>`).join("")}</tbody></table>${soon.length > 20 ? `<p class="cs-hint">还有 ${soon.length - 20} 位…</p>` : ""}`;
   return section("现在符合规则的客户", "按已启用的规则算出来的，点“立即执行”会把他们移入公海。", `${table}${run}`)
     + section("即将移入公海", "", soonBox);
 }
 function claimTable(rules, owners, E) {
   const names = [...new Set([...owners, ...Object.keys(rules.claimLimit.perOwner)])];
   if (!names.length) return "";
-  return `<table class="cs-table"><thead><tr><th>跟进人</th><th>每人上限（留空＝跟随默认）</th></tr></thead><tbody>${names.map((o) => `<tr><td>${E(o)}</td><td><input name="claim:${E(o)}" type="number" min="0" max="100000" step="1" value="${Object.hasOwn(rules.claimLimit.perOwner, o) ? rules.claimLimit.perOwner[o] : ""}" placeholder="${rules.claimLimit.defaultLimit || "不限"}" aria-label="${E(o)}的领取上限"></td></tr>`).join("")}</tbody></table>`;
+  return `<table class="k-table"><thead><tr><th>跟进人</th><th>每人上限（留空＝跟随默认）</th></tr></thead><tbody>${names.map((o) => `<tr><td>${E(o)}</td><td><input class="k-input" name="claim:${E(o)}" type="number" min="0" max="100000" step="1" value="${Object.hasOwn(rules.claimLimit.perOwner, o) ? rules.claimLimit.perOwner[o] : ""}" placeholder="${rules.claimLimit.defaultLimit || "不限"}" aria-label="${E(o)}的领取上限"></td></tr>`).join("")}</tbody></table>`;
 }
 function poolTab(state, ui, owners, E) {
   const rules = poolTools().poolRules(state);
   const white = rules.whitelist;
   const free = owners.filter((o) => !white.includes(o));
-  const whitelist = `<form class="cs-add" data-cs-form="pool-white-add" novalidate data-form-check><select name="owner" aria-label="选择跟进人"${free.length ? "" : " disabled"}>${free.length ? free.map((o) => `<option value="${E(o)}">${E(o)}</option>`).join("") : '<option value="">没有可选的跟进人</option>'}</select><button type="submit" class="primary"${free.length ? "" : " disabled"}>加入白名单</button></form>${white.length ? `<ul class="cs-list">${white.map((o) => `<li class="cs-row"><strong>${E(o)}</strong><span class="cs-use">名下的客户不会被移入公海</span><span class="cs-row-actions"><button type="button" data-cs-pool-white-remove="${E(o)}">移除</button></span></li>`).join("")}</ul>` : '<p class="cs-hint">白名单是空的。</p>'}`;
-  const reasons = `<label class="check-row"><input type="checkbox" data-cs-pool-require${rules.requireReason ? " checked" : ""}> 移入公海时必须填写原因</label><form class="cs-add" data-cs-form="pool-reason-add" novalidate data-form-check><input name="reason" placeholder="新原因（20 字以内）" maxlength="20" aria-label="新原因" autocomplete="off"><button type="submit" class="primary">添加</button></form>${rules.reasons.length ? `<ul class="cs-list">${rules.reasons.map((r) => `<li class="cs-row"><strong>${E(r)}</strong><span class="cs-row-actions"><button type="button" data-cs-pool-reason-remove="${E(r)}">删除</button></span></li>`).join("")}</ul>` : '<p class="cs-hint">还没有原因。添加后，移入公海时可以直接选。</p>'}`;
+  const whitelist = `<form class="cs-add" data-cs-form="pool-white-add" novalidate data-form-check><select name="owner" aria-label="选择跟进人"${free.length ? "" : " disabled"}>${free.length ? free.map((o) => `<option value="${E(o)}">${E(o)}</option>`).join("") : '<option value="">没有可选的跟进人</option>'}</select><button type="submit" class="k-btn"${free.length ? "" : " disabled"}>加入白名单</button></form>${white.length ? `<ul class="cs-list">${white.map((o) => `<li class="cs-row"><strong>${E(o)}</strong><span class="cs-use">名下的客户不会被移入公海</span><span class="cs-row-actions"><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-pool-white-remove="${E(o)}">移除</button></span></li>`).join("")}</ul>` : '<p class="cs-hint">白名单是空的。</p>'}`;
+  const reasons = `<label class="check-row"><input type="checkbox" class="k-switch" role="switch" data-cs-pool-require${rules.requireReason ? " checked" : ""}> 移入公海时必须填写原因</label><form class="cs-add" data-cs-form="pool-reason-add" novalidate data-form-check><input class="k-input" name="reason" placeholder="新原因（20 字以内）" maxlength="20" aria-label="新原因" autocomplete="off"><button type="submit" class="k-btn">添加</button></form>${rules.reasons.length ? `<ul class="cs-list">${rules.reasons.map((r) => `<li class="cs-row"><strong>${E(r)}</strong><span class="cs-row-actions"><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-pool-reason-remove="${E(r)}">删除</button></span></li>`).join("")}</ul>` : '<p class="cs-hint">还没有原因。添加后，移入公海时可以直接选。</p>'}`;
   return [
     poolRulesSection(rules, E),
     poolPreviewSection(state, rules, ui, E),
-    section("提前提醒", "填 0 表示不提醒。客户详情页会提示还有几天移入公海。", `<form class="cs-inline-form" data-cs-form="pool-remind" novalidate data-form-check><label>提前 ${nums("remindDays", rules.remindDays, 0, 30, "提前提醒天数")} 天提醒</label><button type="submit" class="primary">保存</button></form>`),
+    section("提前提醒", "填 0 表示不提醒。客户详情页会提示还有几天移入公海。", `<form class="cs-inline-form" data-cs-form="pool-remind" novalidate data-form-check><label>提前 ${nums("remindDays", rules.remindDays, 0, 30, "提前提醒天数")} 天提醒</label><button type="submit" class="k-btn">保存</button></form>`),
     section("白名单", "白名单里的跟进人，名下的客户不会被自动移入公海。", whitelist),
-    section("这些客户不移", "", `<form class="cs-dup" data-cs-form="pool-skip" novalidate data-form-check><label class="check-row"><input type="checkbox" name="skipOpenOrders"${rules.skipOpenOrders ? " checked" : ""}> 有进行中订单（报价、定金、生产中、尾款）的客户</label><label class="check-row"><input type="checkbox" name="skipFollowed"${rules.skipFollowed ? " checked" : ""}> 已设为关注的客户</label>${field("带这些标签的客户（用逗号隔开）", `<input name="skipTags" value="${E(rules.skipTags.join("，"))}" maxlength="200" autocomplete="off">`)}${saveRow()}</form>`),
-    section("领回限制", "填 0 表示不限。", `<form class="cs-inline-form" data-cs-form="pool-reclaim" novalidate data-form-check><label>原跟进人 ${nums("reclaimBlockDays", rules.reclaimBlockDays, 0, 365, "领回限制天数")} 天内不能领回同一个客户</label><button type="submit" class="primary">保存</button></form>`),
-    section("领取上限", "填 0 表示不限。下面可以给每个人单独设置。", `<form class="cs-claim" data-cs-form="pool-claim" novalidate data-form-check><div class="cs-inline-form"><label>每 ${nums("periodDays", rules.claimLimit.periodDays, 1, 365, "统计天数")} 天，每人最多领 ${nums("defaultLimit", rules.claimLimit.defaultLimit, 0, 100000, "默认领取上限")} 位</label></div>${claimTable(rules, owners, E)}${saveRow()}</form>`),
-    section("公海联系人", "隐藏后公海客户也不能编辑。", `<form class="cs-dup" data-cs-form="pool-contacts" novalidate data-form-check><label class="check-row"><input type="radio" name="showPoolContacts" value="show"${rules.showPoolContacts ? " checked" : ""}> 显示</label><label class="check-row"><input type="radio" name="showPoolContacts" value="hide"${rules.showPoolContacts ? "" : " checked"}> 隐藏</label>${saveRow()}</form>`),
+    section("这些客户不移", "", `<form class="cs-dup" data-cs-form="pool-skip" novalidate data-form-check><label class="check-row"><input type="checkbox" class="k-checkbox" name="skipOpenOrders"${rules.skipOpenOrders ? " checked" : ""}> 有进行中订单（报价、定金、生产中、尾款）的客户</label><label class="check-row"><input type="checkbox" class="k-checkbox" name="skipFollowed"${rules.skipFollowed ? " checked" : ""}> 已设为关注的客户</label>${field("带这些标签的客户（用逗号隔开）", `<input class="k-input" name="skipTags" value="${E(rules.skipTags.join("，"))}" maxlength="200" autocomplete="off">`)}${saveRow(false)}</form>`),
+    section("领回限制", "填 0 表示不限。", `<form class="cs-inline-form" data-cs-form="pool-reclaim" novalidate data-form-check><label>原跟进人 ${nums("reclaimBlockDays", rules.reclaimBlockDays, 0, 365, "领回限制天数")} 天内不能领回同一个客户</label><button type="submit" class="k-btn">保存</button></form>`),
+    section("领取上限", "填 0 表示不限。下面可以给每个人单独设置。", `<form class="cs-claim" data-cs-form="pool-claim" novalidate data-form-check><div class="cs-inline-form"><label>每 ${nums("periodDays", rules.claimLimit.periodDays, 1, 365, "统计天数")} 天，每人最多领 ${nums("defaultLimit", rules.claimLimit.defaultLimit, 0, 100000, "默认领取上限")} 位</label></div>${claimTable(rules, owners, E)}${saveRow(false)}</form>`),
+    section("公海联系人", "隐藏后公海客户也不能编辑。", `<form class="cs-dup" data-cs-form="pool-contacts" novalidate data-form-check><label class="check-row"><input type="radio" name="showPoolContacts" value="show"${rules.showPoolContacts ? " checked" : ""}> 显示</label><label class="check-row"><input type="radio" name="showPoolContacts" value="hide"${rules.showPoolContacts ? "" : " checked"}> 隐藏</label>${saveRow(false)}</form>`),
     section("移入公海原因", "", reasons),
   ].join("");
 }
@@ -202,20 +208,20 @@ function ruleForm(state, id, E) {
   for (const g of settings.groups) { paths.push([g.name, g.name]); for (const c of g.children) paths.push([`${g.name}${CS.SEP}${c.name}`, `　${c.name}`]); }
   const known = new Set(paths.map(([p]) => p));
   for (const g of rule.groups) if (!known.has(g)) paths.push([g, g]);
-  const picks = paths.length ? paths.map(([value, label]) => `<label class="check-row"><input type="checkbox" name="group" value="${E(value)}"${rule.groups.includes(value) ? " checked" : ""}> ${E(label)}</label>`).join("") : '<span class="cs-hint">还没有分组，规则会用在全部客户上。</span>';
+  const picks = paths.length ? paths.map(([value, label]) => `<label class="check-row"><input type="checkbox" class="k-checkbox" name="group" value="${E(value)}"${rule.groups.includes(value) ? " checked" : ""}> ${E(label)}</label>`).join("") : '<span class="cs-hint">还没有分组，规则会用在全部客户上。</span>';
   return `<form id="cs-rule-form" class="drawer-body cs-group-form cs-rule-form" data-id="${E(id || "")}" novalidate data-form-check><div class="error" id="workspace-error" role="alert"></div>`
-    + field("规则名称", `<input name="name" value="${E(rule.name)}" maxlength="20" required autocomplete="off">`)
+    + field("规则名称", `<input class="k-input" name="name" value="${E(rule.name)}" maxlength="20" required autocomplete="off">`)
     + field("条件", `<select name="kind"><option value="noContact"${rule.kind === "noContact" ? " selected" : ""}>没有联系</option><option value="noDeal"${rule.kind === "noDeal" ? " selected" : ""}>没有成交</option></select>`)
-    + field("超过多少天", `<input name="days" type="number" min="1" max="3650" step="1" value="${rule.days}" required>`, "天数从最近一次联系（或成交）算起。")
+    + field("超过多少天", `<input class="k-input" name="days" type="number" min="1" max="3650" step="1" value="${rule.days}" required>`, "天数从最近一次联系（或成交）算起。")
     + `<fieldset class="cs-field"><legend>适用分组</legend><div class="cs-members cs-flat">${picks}</div><em>不选＝全部客户。选了一级分组，它下面的子分组也算。</em></fieldset>`
-    + field("开始日期（可不填）", `<input name="startDate" type="date" value="${E(rule.startDate)}">`, "从这天起算，避免一开启就移走很多老客户。")
-    + `<label class="check-row"><input type="checkbox" name="enabled"${rule.enabled ? " checked" : ""}> 启用这条规则</label></form>`;
+    + field("开始日期（可不填）", `<input class="k-input" name="startDate" type="date" value="${E(rule.startDate)}">`, "从这天起算，避免一开启就移走很多老客户。")
+    + `<label class="check-row"><input type="checkbox" class="k-switch" role="switch" name="enabled"${rule.enabled ? " checked" : ""}> 启用这条规则</label></form>`;
 }
 
 // ---- 客户跟进规则、成交规则、动态设置 ----
 function followTab(state, E) {
   const rules = CS.get(state).followRules;
-  const group = (name, label, hint) => `<fieldset class="cs-field"><legend>${label}</legend><div class="cs-checks">${CS.visibleFollowActions(state).map(([key, text]) => `<label class="check-row"><input type="checkbox" name="${name}" value="${key}"${rules[name].includes(key) ? " checked" : ""}> ${E(text)}</label>`).join("")}</div><em>${hint}</em></fieldset>`;
+  const group = (name, label, hint) => `<fieldset class="cs-field"><legend>${label}</legend><div class="cs-checks">${CS.visibleFollowActions(state).map(([key, text]) => `<label class="check-row"><input type="checkbox" class="k-checkbox" name="${name}" value="${key}"${rules[name].includes(key) ? " checked" : ""}> ${E(text)}</label>`).join("")}</div><em>${hint}</em></fieldset>`;
   return `<form class="cs-dup" data-cs-form="follow" novalidate data-form-check>${group("contact", "算作“最近联系”", "最近联系时间决定公海规则里“多少天没有联系”。")}${group("followup", "算作“最近跟进”", "最近跟进时间显示在客户列表和详情里。")}${saveRow()}</form>`;
 }
 function dealTab(state) {
@@ -231,7 +237,7 @@ const stamp = (iso) => {
 };
 function activityTab(state, E) {
   const a = CS.get(state).activity;
-  return `<label class="check-row"><input type="checkbox" data-cs-activity${a.autoMail ? " checked" : ""}> 自动把和客户联系人的往来邮件记到客户动态</label>${a.autoMail && a.since ? `<p class="cs-hint">从 ${E(stamp(a.since))} 起自动记录</p>` : ""}<p class="cs-hint">只记打开这个开关以后的邮件；同一封邮件只记一次。</p>`;
+  return `<label class="check-row"><input type="checkbox" class="k-switch" role="switch" data-cs-activity${a.autoMail ? " checked" : ""}> 自动把和客户联系人的往来邮件记到客户动态</label>${a.autoMail && a.since ? `<p class="cs-hint">从 ${E(stamp(a.since))} 起自动记录</p>` : ""}<p class="cs-hint">只记打开这个开关以后的邮件；同一封邮件只记一次。</p>`;
 }
 
 // ---- 写跟进设置 ----
@@ -240,19 +246,19 @@ function followupTab(state, ui, E) {
   const groups = f.templates.map((g, index) => {
     const editing = ui.editing && ui.editing.kind === "tplgroup" && ui.editing.key === g.id;
     const head = editing
-      ? `<form class="cs-inline" data-cs-form="tpl-group-rename" data-id="${E(g.id)}" novalidate data-form-check><input name="name" value="${E(g.name)}" maxlength="20" aria-label="分组名称" autocomplete="off"><button type="submit" class="primary">保存</button><button type="button" data-cs-cancel>取消</button></form>`
-      : `<strong>${E(g.name)}</strong><span class="cs-use">${g.items.length} 条常用语</span><span class="cs-row-actions"><button type="button" data-cs-tpl-move="${E(g.id)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-cs-tpl-move="${E(g.id)}" data-delta="1" aria-label="下移"${index === f.templates.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-cs-tpl-add="${E(g.id)}">添加常用语</button><button type="button" data-cs-edit="tplgroup" data-key="${E(g.id)}">改名</button><button type="button" data-cs-delete="tplgroup" data-key="${E(g.id)}">删除</button></span>`;
-    const items = g.items.map((i) => `<li class="cs-row cs-child"><span class="cs-tpl-text">${E(i.text)}</span><span class="cs-row-actions"><button type="button" data-cs-tpl-edit="${E(i.id)}" data-tpl-group="${E(g.id)}">编辑</button><button type="button" data-cs-tpl-delete="${E(i.id)}" data-tpl-group="${E(g.id)}">删除</button></span></li>`).join("");
+      ? `<form class="cs-inline" data-cs-form="tpl-group-rename" data-id="${E(g.id)}" novalidate data-form-check><input class="k-input" name="name" value="${E(g.name)}" maxlength="20" aria-label="分组名称" autocomplete="off"><button type="submit" class="k-btn k-btn--primary k-btn--sm">保存</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-cancel>取消</button></form>`
+      : `<strong>${E(g.name)}</strong><span class="cs-use">${g.items.length} 条常用语</span><span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-tpl-move="${E(g.id)}" data-delta="-1" aria-label="上移"${index === 0 ? " disabled" : ""}>↑</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-tpl-move="${E(g.id)}" data-delta="1" aria-label="下移"${index === f.templates.length - 1 ? " disabled" : ""}>↓</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-tpl-add="${E(g.id)}">添加常用语</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-edit="tplgroup" data-key="${E(g.id)}">改名</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-delete="tplgroup" data-key="${E(g.id)}">删除</button></span>`;
+    const items = g.items.map((i) => `<li class="cs-row cs-child"><span class="cs-tpl-text">${E(i.text)}</span><span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cs-tpl-edit="${E(i.id)}" data-tpl-group="${E(g.id)}">编辑</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cs-tpl-delete="${E(i.id)}" data-tpl-group="${E(g.id)}">删除</button></span></li>`).join("");
     return `<li class="cs-group"><div class="cs-row">${head}</div>${items ? `<ul class="cs-list cs-children">${items}</ul>` : ""}</li>`;
   }).join("");
-  const templates = `<form class="cs-add" data-cs-form="tpl-group-add" novalidate data-form-check><input name="name" placeholder="新分组名称，如 开发信跟进" maxlength="20" aria-label="新模板分组名称" autocomplete="off"><button type="submit" class="primary">添加分组</button></form>${f.templates.length ? `<ul class="cs-list cs-tree">${groups}</ul>` : empty("还没有模板。建好后，写跟进时点“选择模板”就能插入。")}`;
-  return section("跟进时间", "", `<label class="check-row"><input type="checkbox" data-cs-allow-past${f.allowPastTime ? " checked" : ""}> 允许填写过去的跟进时间（不能晚于现在）</label>`)
+  const templates = `<form class="cs-add" data-cs-form="tpl-group-add" novalidate data-form-check><input class="k-input" name="name" placeholder="新分组名称，如 开发信跟进" maxlength="20" aria-label="新模板分组名称" autocomplete="off"><button type="submit" class="k-btn k-btn--primary">添加分组</button></form>${f.templates.length ? `<ul class="cs-list cs-tree">${groups}</ul>` : empty("还没有模板。建好后，写跟进时点“选择模板”就能插入。")}`;
+  return section("跟进时间", "", `<label class="check-row"><input type="checkbox" class="k-switch" role="switch" data-cs-allow-past${f.allowPastTime ? " checked" : ""}> 允许填写过去的跟进时间（不能晚于现在）</label>`)
     + section("跟进模板", "按分组放常用的跟进话术。", templates);
 }
 function tplForm(state, spec, E) {
   const group = CS.get(state).followup.templates.find((g) => g.id === spec.groupId);
   const item = group && spec.itemId ? group.items.find((i) => i.id === spec.itemId) : null;
-  return `<form id="cs-tpl-form" class="drawer-body cs-group-form" data-tpl-group="${E(spec.groupId || "")}" data-item="${E(spec.itemId || "")}" novalidate data-form-check><div class="error" id="workspace-error" role="alert"></div>${group ? `<p class="cs-hint">分组：<strong>${E(group.name)}</strong></p>` : ""}<label class="cs-field"><span>常用语</span><textarea name="text" rows="6" maxlength="500" required>${E(item ? item.text : "")}</textarea><em>最多 500 个字。</em></label></form>`;
+  return `<form id="cs-tpl-form" class="drawer-body cs-group-form" data-tpl-group="${E(spec.groupId || "")}" data-item="${E(spec.itemId || "")}" novalidate data-form-check><div class="error" id="workspace-error" role="alert"></div>${group ? `<p class="cs-hint">分组：<strong>${E(group.name)}</strong></p>` : ""}<label class="cs-field"><span>常用语</span><textarea class="k-textarea" name="text" rows="6" maxlength="500" required>${E(item ? item.text : "")}</textarea><em>最多 500 个字。</em></label></form>`;
 }
 
 // 字段设置：系统字段的必填开关、自定义字段的增删改排序和选项。点击和保存见下面的 fieldsController。
@@ -263,29 +269,29 @@ function fieldsTab(state, E) {
   const lockText = (lock) => lock ? `角色「${E(lock.role)}」把这个字段设为${lock.level === "hidden" ? "隐藏" : "只读"}，不能必填` : "";
   const system = rows.system.map((f) => {
     const lock = f.locked[0];
-    return `<tr><td>${E(f.label)}</td><td><label class="check-row"><input type="checkbox" data-cf-sys="${E(f.id)}"${f.required ? " checked" : ""}${lock && !f.required ? " disabled" : ""} aria-label="${E(f.label)}：必填"> 必填</label>${lock ? `<small class="cs-hint cf-lock">${lockText(lock)}</small>` : ""}</td></tr>`;
+    return `<tr><td>${E(f.label)}</td><td><label class="check-row"><input type="checkbox" class="k-checkbox" data-cf-sys="${E(f.id)}"${f.required ? " checked" : ""}${lock && !f.required ? " disabled" : ""} aria-label="${E(f.label)}：必填"> 必填</label>${lock ? `<small class="cs-hint cf-lock">${lockText(lock)}</small>` : ""}</td></tr>`;
   }).join("");
   const choice = (type) => type === "select" || type === "multi";
   const custom = rows.custom.map((f, index) => {
     const lock = f.locked[0], sure = cfArmed === f.id;
     const options = choice(f.type)
-      ? `<div class="cf-options"><ul class="cs-list">${f.options.map((o, i) => `<li class="cs-row cs-child"><strong>${E(o)}</strong><span class="cs-row-actions"><button type="button" data-cf-action="opt-up" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="上移选项：${E(o)}"${i === 0 ? " disabled" : ""}>↑</button><button type="button" data-cf-action="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i === f.options.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-cf-action="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join("")}</ul>`
-        + `<form class="cs-add" data-cf-form="option" data-id="${E(f.id)}" novalidate data-form-check><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${FM.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`
+      ? `<div class="cf-options"><ul class="cs-list">${f.options.map((o, i) => `<li class="cs-row cs-child"><strong>${E(o)}</strong><span class="cs-row-actions"><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cf-action="opt-up" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="上移选项：${E(o)}"${i === 0 ? " disabled" : ""}>↑</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cf-action="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i === f.options.length - 1 ? " disabled" : ""}>↓</button><button type="button" class="k-btn k-btn--danger k-btn--sm" data-cf-action="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join("")}</ul>`
+        + `<form class="cs-add" data-cf-form="option" data-id="${E(f.id)}" novalidate data-form-check><input class="k-input" name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${FM.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit" class="k-btn k-btn--sm">添加选项</button></form></div>`
       : "";
-    return `<li class="cs-group cf-field" data-cf-field="${E(f.id)}"><div class="cs-row"><input class="cf-name" data-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${FM.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off">`
+    return `<li class="cs-group cf-field" data-cf-field="${E(f.id)}"><div class="cs-row"><input class="k-input cf-name" data-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${FM.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off">`
       + `<span class="cs-use">${E(f.typeLabel)} · ${f.usage ? `${f.usage} 位客户已填` : "还没有客户填"}</span><span class="cs-row-actions">`
-      + `<label class="check-row"><input type="checkbox" data-cf-required="${E(f.id)}"${f.required ? " checked" : ""}${lock && !f.required ? " disabled" : ""} aria-label="${E(f.name)}：必填"> 必填</label>`
-      + `<button type="button" data-cf-action="up" data-id="${E(f.id)}" aria-label="上移：${E(f.name)}"${index === 0 ? " disabled" : ""}>↑</button>`
-      + `<button type="button" data-cf-action="down" data-id="${E(f.id)}" aria-label="下移：${E(f.name)}"${index === rows.custom.length - 1 ? " disabled" : ""}>↓</button>`
-      + `<button type="button" class="${sure ? "team-danger" : ""}" data-cf-action="delete" data-id="${E(f.id)}" aria-label="${sure ? "再点一次确认删除" : "删除"}：${E(f.name)}">${sure ? "再点一次确认删除" : "删除"}</button></span></div>`
+      + `<label class="check-row"><input type="checkbox" class="k-checkbox" data-cf-required="${E(f.id)}"${f.required ? " checked" : ""}${lock && !f.required ? " disabled" : ""} aria-label="${E(f.name)}：必填"> 必填</label>`
+      + `<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cf-action="up" data-id="${E(f.id)}" aria-label="上移：${E(f.name)}"${index === 0 ? " disabled" : ""}>↑</button>`
+      + `<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-cf-action="down" data-id="${E(f.id)}" aria-label="下移：${E(f.name)}"${index === rows.custom.length - 1 ? " disabled" : ""}>↓</button>`
+      + `<button type="button" class="k-btn k-btn--danger k-btn--sm${sure ? " team-danger" : ""}" data-cf-action="delete" data-id="${E(f.id)}" aria-label="${sure ? "再点一次确认删除" : "删除"}：${E(f.name)}">${sure ? "再点一次确认删除" : "删除"}</button></span></div>`
       + `${lock ? `<small class="cs-hint cf-lock">${lockText(lock)}</small>` : ""}${options}</li>`;
   }).join("");
   const types = FM.TYPES.map(([id, label]) => `<option value="${id}">${E(label)}</option>`).join("");
-  const add = `<form class="cs-add cf-add" data-cf-form="add" novalidate data-form-check><input name="name" placeholder="新字段名称" maxlength="${FM.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
+  const add = `<form class="cs-add cf-add" data-cf-form="add" novalidate data-form-check><input class="k-input" name="name" placeholder="新字段名称" maxlength="${FM.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
     + `<select name="type" aria-label="字段类型">${types}</select>`
-    + `<input name="options" placeholder="选项（单选、多选用），用逗号分开" aria-label="字段选项" autocomplete="off">`
-    + `<label class="check-row"><input type="checkbox" name="required"> 必填</label><button type="submit" class="primary">添加字段</button></form>`;
-  return `<section class="cf-section" data-cf-section="system"><h3>常用字段必填</h3><table class="cs-table cf-system"><thead><tr><th>字段</th><th>必填</th></tr></thead><tbody>${system}</tbody></table>`
+    + `<input class="k-input" name="options" placeholder="选项（单选、多选用），用逗号分开" aria-label="字段选项" autocomplete="off">`
+    + `<label class="check-row"><input type="checkbox" class="k-checkbox" name="required"> 必填</label><button type="submit" class="k-btn k-btn--primary">添加字段</button></form>`;
+  return `<section class="cf-section" data-cf-section="system"><h3>常用字段必填</h3><table class="k-table cf-system"><thead><tr><th>字段</th><th>必填</th></tr></thead><tbody>${system}</tbody></table>`
     + `<p class="cs-hint">被某个角色设为只读或隐藏的字段不能设为必填；先在「角色权限 → 字段权限」里改成可编辑。</p></section>`
     + `<section class="cf-section" data-cf-section="custom"><h3>自定义字段（${rows.custom.length}/${FM.LIMIT}）</h3>${add}`
     + `${rows.custom.length ? `<ul class="cs-list cs-tree">${custom}</ul>` : empty("还没有自定义字段。添加后，客户编辑里会多出这些字段。")}`
@@ -363,8 +369,9 @@ function markup(state, ui = {}, escape = identity, owners = []) {
     ["列表字段设置", 'data-action="settings"'], ["客群管理", 'data-action="manage-segments"'], ["标签管理", 'data-action="tag-manager"'],
     ["客户回收站", 'data-lai-screen="trash"'], ["来财设置", 'data-lai-route="settings"'],
     ["恢复默认字段", 'data-action="restore-table-defaults"'],
-  ].filter(([label]) => label !== "来财设置" || ui.canOpenSettings !== false).map(([label, attr]) => `<button type="button" ${attr}>${E(label)}</button>`).join("");
-  return `<div class="pagebar"><div class="page-tabs"><h1>客户设置</h1></div></div><section class="cs-shortcuts" aria-label="常用入口">${shortcuts}</section><section class="cs-page">${nav(tab, E, hidden)}<div class="cs-panel" data-cs-panel="${tab}"><h2>${E(meta.label)}</h2><p class="cs-note">${E(meta.note)}</p><div class="cs-error error" id="cs-error" role="alert"></div>${body(tab, state, ui, owners, E)}</div></section>`;
+  ].filter(([label]) => label !== "来财设置" || ui.canOpenSettings !== false).map(([label, attr]) => `<button type="button" class="k-btn k-btn--sm" ${attr}>${E(label)}</button>`).join("");
+  // 组件套件（D-028）：页头 k-pageheader（常用入口放在右边），左边竖排页签，右边一张 k-card。
+  return `<div class="k-pageheader cs-header"><div class="k-pageheader-text"><h1 class="k-pageheader-title">客户设置</h1></div><section class="k-pageheader-actions cs-shortcuts" aria-label="常用入口">${shortcuts}</section></div><section class="cs-page">${nav(tab, E, hidden)}${panel(`data-cs-panel="${tab}"`, meta.label, meta.note, "cs-error", body(tab, state, ui, owners, E), E)}</section>`;
 }
 
 const api = { TABS, markup, groupForm, ruleForm, tplForm, fieldsController };
