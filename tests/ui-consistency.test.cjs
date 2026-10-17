@@ -2,9 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { appSource } = require('./helpers/source.cjs');
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const skin = read('src/skin-glass.css');
-const app = read('src/app.js');
+const app = appSource();
 
 test('checkboxes are one shape in every state: 16px rounded square, filled with a tick when checked, a dash when mixed', () => {
   const base = skin.match(/:root\[data-skin="glass"\] input\[type="checkbox"\] \{([^}]*)\}/)[1];

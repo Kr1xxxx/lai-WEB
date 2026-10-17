@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { appSource } = require('./helpers/source.cjs');
 
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -38,5 +39,5 @@ test('the assembled page embeds the fonts and credits MiSans in 关于来财Lai'
   assert.equal((head.match(/font-family:"Inter"/g) || []).length, 2);
   assert.doesNotMatch(head, /url\('(?!data:font\/woff2;base64,)/);
   assert.ok(head.indexOf('font-family:"Inter"') < head.indexOf('--font-ui'), 'fonts come before the tokens');
-  assert.match(read('src/app.js'), /中文使用小米 MiSans 字体，英文和数字使用 Inter 字体/);
+  assert.match(appSource(), /中文使用小米 MiSans 字体，英文和数字使用 Inter 字体/);
 });

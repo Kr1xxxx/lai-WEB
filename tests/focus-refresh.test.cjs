@@ -3,9 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { appSource } = require('./helpers/source.cjs');
 
 // Run the shipped async handler, controlling only its persistence/UI boundary.
-const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+const app = appSource();
 const start = app.indexOf('  let focusRefreshInProgress = false;');
 const end = app.indexOf('\n  business = window.LaiBusinessUI.create', start);
 assert.ok(start >= 0 && end > start);

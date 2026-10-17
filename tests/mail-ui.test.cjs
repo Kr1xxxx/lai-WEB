@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { escapeHtml } = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 require('../src/mail-ui.js');
 const Mail = globalThis.LaiMailUI;
 
@@ -420,7 +421,7 @@ test('the page module only talks through the provided request and keeps no crede
   for (const banned of ['fetch(', 'XMLHttpRequest', 'WebSocket', 'localStorage', 'sessionStorage', 'console.', 'innerHTML = m.', 'eval(']) assert.ok(!source.includes(banned), banned);
   assert.deepEqual([...new Set([...source.matchAll(/"(\/api\/[^"?]+)"/g)].map(m => m[1]))].sort(), ['/api/mail-account', '/api/mail-account/bind', '/api/mail-account/settings', '/api/mail-account/unbind', '/api/mail-account/verify', '/api/mail/attachment/save', '/api/mail/bulk', '/api/mail/bulk/batch', '/api/mail/bulk/cancel', '/api/mail/bulk/start', '/api/mail/correspondence', '/api/mail/draft', '/api/mail/drafts', '/api/mail/drafts/delete', '/api/mail/drafts/save', '/api/mail/flags', '/api/mail/message', '/api/mail/messages', '/api/mail/send', '/api/mail/status', '/api/mail/templates', '/api/mail/templates/delete', '/api/mail/templates/save', '/api/mail/trash']);
   for (const marker of ['<!--MAIL_STYLE-->', '<!--LAI_MAIL_UI-->', '<!--LAI_MAIL_EDITOR-->']) { assert.equal(read('src/template.html').split(marker).length, 2, marker); assert.ok(read('scripts/build.py').includes(marker), marker); }
-  const app = read('src/app.js');
+  const app = appSource();
   assert.ok(app.includes('["mail", "邮件", "mail"]')); for (const hook of ['d.mailFolder', 'd.mailAction', 'd.mailView', 'mail?.composing() && !(await mail.leave())', 'mail?.composeDirty()', 'd.feature === "写邮件"', 'LaiMailEditor.create']) assert.ok(app.includes(hook), hook);
   const RM = require('../src/rail-menu.js');
   assert.deepEqual(RM.menuFor('邮件', {}).map(row => [row.label, row.kind, row.target]), Mail.folders.map(f => [f.label, 'mail', f.id]));
@@ -799,7 +800,7 @@ test('the background check does nothing while 邮件 is switched off (ctx.mailOn
     assert.equal(await h.mail.check(), true);
     assert.equal(h.requests.length, before + 1);
   } finally { h.dispose(); }
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src/app.js'), 'utf8'), /mailOn: \(\) => modOn\("mail"\)/, 'app.js passes mailOn');
+  assert.match(appSource(), /mailOn: \(\) => modOn\("mail"\)/, 'app.js passes mailOn');
 });
 
 test('templates can be saved from the message, inserted with the customer filled in, and deleted after a second click', async () => {

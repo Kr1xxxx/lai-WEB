@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude (#03 thread) — Slice 0 of the app.js split (task 25): `tests/helpers/source.cjs` (`appSource()`
+  reads scripts/build.py's PREVIEW_APP list and joins the parts as build.py does); the 27 tests that read `src/app.js`
+  text now use it, no assertions changed. Split plan (advisor-reviewed): `/mnt/project-files/plans/03-split-app-js.md`;
+  the split itself waits until the restyle (#02) and contact-mail/商机 (#04) PRs merge.
 - 2026-10-17 — Claude — #26 (写邮件 on every contact card, addressed to that contact; extra-contact emails now count
   as customer addresses for mail matching) and #27 (商机 客户/负责人 as real dropdowns, old values kept, owner locked
   without 转移负责人) done by two parallel workers; the #27 worker hit the usage limit before committing, its saved work
