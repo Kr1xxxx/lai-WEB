@@ -2,27 +2,27 @@
  "note": "每个主题在 1440×900 下：各类样式有几种（under12 是 12px 以下的文字节点数）。只能变少；scripts/ui-audit/census.cjs --check 检查。",
  "summary": {
   "pink": {
-   "fontSize": 15,
+   "fontSize": 13,
    "fontWeight": 4,
-   "textColor": 39,
-   "radius": 17,
+   "textColor": 33,
+   "radius": 15,
    "shadow": 9,
-   "button": 107,
-   "input": 19,
+   "button": 95,
+   "input": 18,
    "th": 9,
-   "heading": 23,
+   "heading": 21,
    "under12": 0
   },
   "tech": {
-   "fontSize": 15,
+   "fontSize": 13,
    "fontWeight": 4,
-   "textColor": 37,
-   "radius": 17,
+   "textColor": 31,
+   "radius": 15,
    "shadow": 9,
-   "button": 107,
-   "input": 19,
+   "button": 95,
+   "input": 18,
    "th": 9,
-   "heading": 23,
+   "heading": 21,
    "under12": 0
   }
  }

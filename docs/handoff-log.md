@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — 客户列表 on the kit merged (k-pageheader, k-tabs scope switch, k-card panel, k-table, k-pager,
+  k-empty with 清空筛选). ui-audit covered spots 150→81; baseline rewritten to the new counts (1024x800 customers 7→8,
+  same frozen 操作 column class, all other sizes tightened). Census baseline lowered (button 107→95, textColor 39→33,
+  fontSize 15→13). model 1531 / e2e 336. Advisor on next direction: (1) one-command local start + backup restore,
+  (2) owner real-data trial, (3) kit on detail drawers/forms, (4) split app.js after (3), (5) small fillers. Owner: do
+  1, 3, 4, 5 (继续做吧).
 - 2026-10-17 — Claude — Kit migration of 工作台 (k-pageheader, k-card panels, k-badge queue tags, k-empty; census went
   down: button 107→103, heading 23→21) and 线索 list + 回收站 (k-tabs status, k-table, k-badge status, k-empty) merged
   from workers. business.css ratchet 180→146 px, 83→69 radius, 185→141 hex. `scripts/web-trial/leads-check.cjs` step 6
