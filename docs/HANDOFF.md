@@ -10,7 +10,7 @@
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
   商机设置, products, workbench, calendar/tasks, business stats, team data, Zoho mail, roles + test accounts, 设置/设置中心,
-  three themes (pink default, orange, 科技蓝; 小满 removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
+  four themes (pink default, orange, 科技蓝, 米白 = Gr8r Studio look; 小满 removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
 - `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); there is no Mac app any more (`mac` flag unused).
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
 - How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". Fable 5.1 medium `specialist` takes complex slices and second passes (D-032). The owner wants no questions: consult the advisor and decide (CLAUDE.md).
@@ -59,6 +59,7 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 35 | Data safety round 2 (advisor A1–A4) | Done (PR, needs-owner) | Delta saves can no longer drop a top-level block or blank a customer (`validateChanges`, `completeState`); newer `schema_version` refused untouched; before-delete backup also for top-level lists; Chinese error messages by route. B1–B4 wording leftovers not in this PR |
 | 26 | 写邮件给联系人 for extra contacts | Done (PR) | Button on every contact card with an email; `composeFor(..., pick)`; `customerAddresses` now includes `extraContacts` emails |
 | 27 | 新建商机: 客户 / 负责人 as real dropdowns | Done (PR) | `.k-select-trigger` selects (客户 searchable); old values kept; owners = team members + owners in data |
+| 36 | 米白 theme modelled on Gr8r Studio (#09) | Done (PR, needs-owner: build.py) | All in `src/theme-studio.css` (S0 token block + S1–S9 sections, scoped to `data-theme="studio"`, loaded last via `<!--THEME_STUDIO_STYLE-->`); plan `/mnt/project-files/plans/09-gr8r-theme.md`; Fable audit round 2: 8.2/10, gaps fixed in round 2 |
 
 ## Waiting on the owner
 

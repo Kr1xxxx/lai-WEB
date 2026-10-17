@@ -4,6 +4,14 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude (#09) — 米白 theme (id `studio`) modelled on Gr8r Studio: colours plus sizes, spacing, radii,
+  type scale and density. Fable advisor wrote the plan (`/mnt/project-files/plans/09-gr8r-theme.md`: token map, density
+  table, slices S0–S9, what CSS cannot match). S0 token block by the coordinator; S1 frame, S4 overlays, S5 tables (Fable
+  specialist) and S2/S3/S6/S7/S8 (Opus workers) in parallel worktrees, each editing only its own section; all hit the
+  usage limit once and resumed. Fable round-2 audit 8.2/10 (no area < 7.5); five small gaps fixed in round 2 (toolbars
+  44, sticky customer bar strip, old drawer footer buttons, 商机 board header, form field heights). Only app.js /
+  business-ui.js / settings-hub.js one-line theme lists, template marker and build.py entry outside the theme file
+  (build.py → needs-owner). Ratchet exempts theme-studio.css; its own test keeps literals in the S0 token block.
 - 2026-10-17 — Claude — Kit migration of the remaining pages (owner: 继续, restyle 邮件, 沟通, 团队数据 and the settings
   pages). Advisor before the plan: add a shared vertical tab list and switch to the kit first (done: `.k-tabs--vertical`,
   `.k-switch`, `.k-checkbox`; selectors are `input.k-*` so the glass checkbox rule does not win), keep the `cs-` family in
