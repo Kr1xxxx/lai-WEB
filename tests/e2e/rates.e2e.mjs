@@ -55,7 +55,7 @@ test('汇率设置 is under 交易; with no rates the EUR customer has no level,
   await page.locator('.rail-item[data-rail-menu="交易"]').click();
   await page.locator('.subnav .nav-row:has(.nav-label:text-is("汇率设置"))').click();
   await page.locator('.rate-page').waitFor();
-  assert.match(await page.locator('.pagebar h1').innerText(), /汇率设置/);
+  assert.match(await page.locator('.k-pageheader-title').innerText(), /汇率设置/);
   assert.match(await row('USD').innerText(), /100/);
   assert.match(await row('EUR').innerText(), /未设置/);
   assert.match(await page.locator('.rate-note').innerText(), /改汇率不会改已经保存的订单。/);

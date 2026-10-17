@@ -324,7 +324,8 @@ test('sync tab: empty hint, task table, undo only on the newest task and it asks
   let s = P.syncProducts({}, [rec({ name: 'A' }, 2)], { fileName: 'one.csv', at: T2 }).state;
   s = P.syncProducts(s, [rec({ name: 'B' }, 2)], { fileName: 'two.csv', at: T3 }).state;
   const html = ui.pageMarkup(s, { tab: 'sync', armed: '' });
-  for (const head of ['任务名称', '导入时间', '状态', '产品数', '新建数', '更新数', '跳过数', '来源', '操作']) assert.ok(html.includes(`<th>${head}</th>`), head);
+  for (const head of ['任务名称', '导入时间', '状态', '来源', '操作']) assert.ok(html.includes(`<th>${head}</th>`), head);
+  for (const head of ['产品数', '新建数', '更新数', '跳过数']) assert.ok(html.includes(`<th class="k-num">${head}</th>`), head);
   assert.equal((html.match(/data-prod-action="sync-undo"/g) || []).length, 1, 'only the newest');
   const id = s.laiProductSyncTasks[0].id;
   assert.ok(html.includes(`data-id="${id}"`));

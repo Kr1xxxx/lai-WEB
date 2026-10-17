@@ -512,6 +512,99 @@ test('templates: limits and guard', async () => {
   ok.dispose();
 });
 
+test('kit markup (D-028): page header, cards, tabs, badge, buttons and empty states', () => {
+  const h = harness();
+  h.ui.render();
+  const html = h.page;
+  assert.match(html, /^<div class="k-pageheader wa-header"><div class="k-pageheader-text"><h1 class="k-pageheader-title">聊天记录<\/h1><\/div><div class="k-pageheader-actions">/);
+  assert.equal((html.match(/k-btn--primary/g) || []).length, 1, 'one primary button: 打开 WhatsApp');
+  assert.match(html, /class="k-btn k-btn--primary" data-chat-action="whatsapp"/);
+  assert.match(html, /class="k-btn" data-chat-action="import"/);
+  assert.match(html, /class="k-btn" data-chat-action="log"/);
+  assert.match(html, /<aside class="k-card wa-list-pane">/);
+  assert.match(html, /<section class="k-card wa-thread-pane" id="wa-thread-pane">/);
+  assert.match(html, /<input type="search" class="k-input" id="wa-search"/);
+  assert.match(html, /<div class="k-tabs wa-filters" role="tablist" aria-label="筛选">/);
+  assert.match(html, /class="k-tab wa-filter active" aria-selected="true" data-chat-action="filter" data-id="all"/);
+  assert.match(html, /<b class="k-badge k-badge--warning">等你回复<\/b>/);
+  assert.match(html, /class="k-btn k-btn--sm" data-chat-action="open-customer"/);
+  assert.match(html, /<section class="k-card wa-imports" aria-label="导入记录"><div class="k-card-head"><h2 class="k-card-title">导入记录<\/h2>/);
+  assert.match(html, /class="k-btn k-btn--sm wa-log-undo" data-chat-action="undo"/);
+  assert.doesNotMatch(html, /class="(?:pagebar|page-actions|module-page|module-note|primary|text-button|error)\b|wa-empty|wa-list-empty|wa-thread-empty|wa-waiting/);
+  h.node('wa-search').value = 'zzz';
+  h.fire('wa-search', 'input');
+  assert.match(h.node('wa-list').innerHTML, /^<div class="k-empty wa-list-none"><span>没有符合的聊天<\/span><\/div>$/);
+  h.dispose();
+  // no chats yet: a k-empty in a card; the import button is not a second primary next to 打开 WhatsApp
+  const e = harness({ st: { customers: { A: { history: [] } } } });
+  e.ui.render();
+  assert.match(e.page, /<div class="k-card wa-blank"><div class="k-empty">[\s\S]*<p class="k-empty-title">还没有聊天记录<\/p>/);
+  assert.equal((e.page.match(/k-btn--primary/g) || []).length, 1);
+  e.dispose();
+  const importOnly = harness({ st: { customers: { A: { history: [] } } }, perms: { 'chat.send': false } });
+  importOnly.ui.render();
+  assert.match(importOnly.page, /<div class="k-empty">[\s\S]*class="k-btn k-btn--primary" data-chat-action="import"/, 'without 打开 WhatsApp the import button is the primary');
+  importOnly.dispose();
+});
+
+test('kit markup (D-028): dialogs put the error in the footer and get the kit drawer shell', () => {
+  const h = harness();
+  h.ui.render();
+  // the drawer shell is drawn by app.js; the UI adds the kit classes to it right after opening
+  const added = {};
+  const el = (name) => ({ classList: { add: (...c) => (added[name] = [...(added[name] || []), ...c]) } });
+  const head = el('head'), foot = el('foot'), close = el('close');
+  const shell = { ...el('drawer'), querySelector: (sel) => (sel === '.drawer-head' ? head : sel === '.drawer-footer' ? foot : null), querySelectorAll: (sel) => (sel === '.drawer-head button' ? [close] : []) };
+  globalThis.document.querySelector = (sel) => (sel === '#overlay-root .drawer' ? shell : null);
+  for (const [action, id] of [['log', 'wa-log-error'], ['import', 'wa-import-error'], ['whatsapp', 'wa-dlg-error']]) {
+    h.act(action);
+    assert.ok(h.dialog.footer.startsWith(`<p class="k-error" id="${id}" role="alert"></p><button type="button" class="k-btn" data-action="close-modal">取消</button>`), action);
+    assert.equal((h.dialog.footer.match(/k-btn--primary/g) || []).length, 1, action);
+    assert.match(h.dialog.body, /^<form class="drawer-body k-dialog-body wa-form/);
+    assert.doesNotMatch(h.dialog.body, /id="wa-[a-z]+-error"|class="(?:error|module-note|form-grid)\b/, 'no error slot left in the body');
+    assert.equal(h.dialog.type, 'whatsapp');
+  }
+  assert.match(h.dialogs[0].body, /<input id="wa-log-contact" class="k-input"/);
+  assert.match(h.dialogs[0].body, /<textarea id="wa-log-text" class="k-textarea"/);
+  assert.match(h.dialogs[2].body, /<textarea id="wa-dlg-text" class="k-textarea"/);
+  assert.deepEqual(added.drawer.slice(0, 2), ['k-drawer', 'wa-drawer']);
+  assert.deepEqual(added.head.slice(0, 1), ['k-dialog-head']);
+  assert.deepEqual(added.foot.slice(0, 1), ['k-dialog-foot']);
+  assert.deepEqual(added.close.slice(0, 3), ['k-btn', 'k-btn--ghost', 'k-btn--sm']);
+  // the error still shows in the footer slot
+  h.node('wa-dlg-phone').value = '';
+  h.act('dlg-open');
+  assert.match(h.node('wa-dlg-error').textContent, /号码不对/);
+  h.dispose();
+});
+
+test('kit markup (D-028): templates page uses cards, kit inputs and ghost tool buttons', async () => {
+  const h = harness();
+  h.ui.renderTemplates();
+  assert.match(h.page, /^<div class="k-pageheader wa-header"><div class="k-pageheader-text"><h1 class="k-pageheader-title">聊天模板<\/h1>/);
+  assert.match(h.page, /<div class="k-card wa-tpl-new"><input id="wa-new-group" class="k-input"/);
+  assert.equal((h.page.match(/k-btn--primary/g) || []).length, 1, 'one primary button: 添加分组');
+  assert.match(h.page, /class="k-btn k-btn--primary" data-chat-action="group-add"/);
+  assert.match(h.page, /<section class="k-card wa-tpl-group"><header class="k-card-head"><h3 class="k-card-title">报价<\/h3><span class="k-badge wa-tpl-count">2 条<\/span>/);
+  assert.match(h.page, /class="k-btn k-btn--ghost k-btn--sm" data-chat-action="item-edit"/);
+  assert.match(h.page, /<textarea id="wa-new-item-g1" class="k-textarea"/);
+  assert.match(h.page, /class="k-btn" data-chat-action="item-add" data-gid="g1"/);
+  assert.match(h.page, /<p class="k-error" id="wa-tpl-error" role="alert"><\/p>/);
+  await h.act('item-del', { gid: 'g1', id: 't1' });
+  assert.match(h.page, /class="k-btn k-btn--danger k-btn--sm" data-chat-action="item-del" data-gid="g1" data-id="t1">再点一次删除/);
+  await h.act('item-edit', { gid: 'g1', id: 't2' });
+  assert.match(h.page, /<textarea id="wa-edit-item" class="k-textarea"/);
+  h.node('wa-new-group').value = '';
+  await h.act('group-add');
+  assert.match(h.page, /<p class="k-error" id="wa-tpl-error" role="alert">请先写分组名称<\/p>/);
+  assert.doesNotMatch(h.page, /class="(?:pagebar|module-page|module-note|primary|text-button|error)\b|wa-list-empty/);
+  h.dispose();
+  const none = harness({ st: { customers: {}, laiSettings: {} } });
+  none.ui.renderTemplates();
+  assert.match(none.page, /<div class="k-card"><div class="k-empty wa-tpl-blank"><span>还没有模板。先添加一个分组，再往里写模板。<\/span><\/div><\/div>/);
+  none.dispose();
+});
+
 test('css classes exist and the source has no placeholder entries', () => {
   const css = fs.readFileSync(path.join(__dirname, '../src/whatsapp.css'), 'utf8');
   const js = fs.readFileSync(path.join(__dirname, '../src/whatsapp-ui.js'), 'utf8');

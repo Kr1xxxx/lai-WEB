@@ -472,7 +472,7 @@
       else if (view === "customer") {
         const rows = customers();
         below = rows.length
-          ? `<input class="mail-customer-filter" id="mail-customer-filter" type="search" placeholder="搜索客户" aria-label="搜索客户" autocomplete="off"><div class="mail-customers" role="list">` +
+          ? `<input class="k-input mail-customer-filter" id="mail-customer-filter" type="search" placeholder="搜索客户" aria-label="搜索客户" autocomplete="off"><div class="mail-customers" role="list">` +
             rows
               .map(
                 (row) =>
@@ -482,24 +482,45 @@
             `</div>`
           : `<p class="subnav-empty mail-view-note">还没有填写了邮箱的客户。在客户资料里填上邮箱后，这里会按客户归集往来邮件。</p>`;
       } else below = `<p class="subnav-empty mail-view-note">查看下属邮件需要公司账号和上下级关系，来财目前是单机版。</p>`;
+      // 邮件／客户／下属是分段页签（k-tabs），写信是这一页唯一的主按钮。
       return (
-        `<div class="mail-views" role="tablist" aria-label="邮件视图">` +
-        views.map((item) => `<button type="button" role="tab" class="mail-view ${item.id === view ? "active" : ""}" data-mail-view="${item.id}" aria-selected="${item.id === view}">${E(item.label)}</button>`).join("") +
+        `<div class="mail-views k-tabs" role="tablist" aria-label="邮件视图">` +
+        views.map((item) => `<button type="button" role="tab" class="mail-view k-tab" data-mail-view="${item.id}" aria-selected="${item.id === view}">${E(item.label)}</button>`).join("") +
         `</div>` +
-        (canSend() ? `<button type="button" class="primary mail-compose" data-mail-action="compose">写 信</button>` : "") +
+        (canSend() ? `<button type="button" class="k-btn k-btn--primary mail-compose" data-mail-action="compose">写 信</button>` : "") +
         below
       );
     }
 
-    // ---- 标记：主体 ----
-    const empty = (iconName, title, note, actions = "") => `<div class="empty mail-unbound"><div class="mail-unbound-art">${icon(iconName)}</div><strong>${E(title)}</strong><span>${E(note)}</span>${actions}</div>`;
-    const pagebar = (title, actions = "", before = "") => `<div class="pagebar mail-pagebar">${before}<div class="page-tabs"><h1>${E(title)}</h1></div><div class="page-actions">${actions}</div></div>`;
+    // ---- 标记：主体（页头、面板、空状态、弹窗壳都用组件套件 D-028） ----
+    const empty = (iconName, title, note, actions = "") => `<div class="k-empty mail-unbound"><div class="mail-unbound-art">${icon(iconName)}</div><p class="k-empty-title">${E(title)}</p><span>${E(note)}</span>${actions}</div>`;
+    const busy = (text) => `<div class="k-empty mail-unbound" aria-busy="true"><span>${text}</span></div>`;
+    const sheet = (cls, inner) => `<section class="k-card module-page mail-page${cls ? " " + cls : ""}">${inner}</section>`;
+    const pagebar = (title, actions = "", before = "") => `<div class="k-pageheader mail-pageheader"><div class="k-pageheader-text">${before}<h1 class="k-pageheader-title">${E(title)}</h1></div><div class="k-pageheader-actions">${actions}</div></div>`;
+    const btn = (action, text, variant = "", extra = "") => `<button type="button" class="k-btn${variant ? " " + variant : ""}" data-mail-action="${action}"${extra ? " " + extra : ""}>${text}</button>`;
+    const backButton = (action) => btn(action, `${icon("back")}返回`, "k-btn--ghost k-btn--sm mail-back");
+    const refreshButton = (disabled) => btn("refresh", `${icon("refresh")}刷新`, "", disabled ? "disabled" : "");
     // account.demo 只会出现在网页试用版：那里是一组示例邮件，发信不会真的发出。
-    const accountButton = () => (account ? `${account.demo ? '<span class="mail-demo-tag" title="网页试用版无法连接真实邮箱">示例邮箱 · 不会真的发信</span>' : ""}<button type="button" class="text-button" data-mail-action="account" title="${E(account.email)}">${icon("settings")}邮箱设置</button>` : "");
+    const accountButton = () => (account ? `${account.demo ? '<span class="k-badge k-badge--warning mail-demo-tag" title="网页试用版无法连接真实邮箱">示例邮箱 · 不会真的发信</span>' : ""}<button type="button" class="k-btn k-btn--ghost" data-mail-action="account" title="${E(account.email)}">${icon("settings")}邮箱设置</button>` : "");
+    // 弹窗：外壳由外壳（app.js）生成，这里给它加上套件的壳类（居中的 k-dialog，头、底是 k-dialog-head／-foot，头上的关闭是幽灵按钮）。
+    function kitDialog(title, body, footer, type, pointerActivated) {
+      ctx.dialog(title, body, footer, type, pointerActivated);
+      const shell = typeof document !== "undefined" && document.querySelector ? document.querySelector(".drawer") : null;
+      if (!shell || !shell.classList) return;
+      shell.classList.add("mail-dialog", "k-dialog");
+      const head = shell.querySelector(".drawer-head"),
+        foot = shell.querySelector(".drawer-footer");
+      if (head) {
+        head.classList.add("k-dialog-head");
+        head.querySelectorAll("button").forEach((button) => button.classList.add("k-btn", "k-btn--ghost"));
+      }
+      if (foot) foot.classList.add("k-dialog-foot");
+    }
+    const footError = (id, message = "") => `<div class="k-error" id="${id}" role="alert">${E(message)}</div>`;
     function gate() {
-      if (status === "idle" || status === "loading") return `<div class="empty mail-unbound" aria-busy="true"><span>正在读取邮箱绑定状态…</span></div>`;
-      if (status === "error") return empty("mail", "无法读取邮箱绑定状态", loadError, `<button type="button" class="primary" data-mail-action="reload">重试</button>`);
-      if (!account) return empty("mail", "未绑定邮箱", "绑定 Zoho 邮箱后，可在这里收发邮件，并按客户查看往来邮件。", `<button type="button" class="primary" data-mail-action="bind">绑定邮箱</button>`);
+      if (status === "idle" || status === "loading") return busy("正在读取邮箱绑定状态…");
+      if (status === "error") return empty("mail", "无法读取邮箱绑定状态", loadError, btn("reload", "重试"));
+      if (!account) return empty("mail", "未绑定邮箱", "绑定 Zoho 邮箱后，可在这里收发邮件，并按客户查看往来邮件。", btn("bind", "绑定邮箱", "k-btn--primary"));
       return "";
     }
     const rowTool = (action, iconName, label, attrs = "") => `<button type="button" class="mail-row-tool" data-mail-action="${action}" ${attrs} aria-label="${label}" title="${label}">${icon(iconName)}</button>`;
@@ -537,7 +558,7 @@
         `<span class="mail-row-snippet">${E(message.snippet || "")}</span></button>` +
         `<button type="button" role="checkbox" class="mail-check${on ? " on" : ""}" data-mail-action="pick" ${ref} aria-checked="${on}" aria-label="${many ? "选择这个会话" : "选择这封邮件"}">${on ? icon("check") : ""}</button>` +
         `<span class="mail-row-side">` +
-        (customer ? `<button type="button" class="mail-customer-chip" data-mail-action="customer-open" data-name="${E(customer)}" title="打开客户资料：${E(customer)}">${E(customer)}</button>` : "") +
+        (customer ? `<button type="button" class="k-badge k-badge--neutral mail-customer-chip" data-mail-action="customer-open" data-name="${E(customer)}" title="打开客户资料：${E(customer)}">${E(customer)}</button>` : "") +
         `<span class="mail-row-tools">` +
         (inboxOnly
           ? `<button type="button" class="mail-pending ${pending ? "on" : ""}" data-mail-action="toggle-pending" ${ref} aria-pressed="${pending}" aria-label="${pending ? "取消待处理" : "标为待处理"}" title="${pending ? "取消待处理" : "标为待处理"}">${icon("star")}</button>` +
@@ -552,7 +573,7 @@
       if (!picked.size) return "";
       const refs = [...picked.values()],
         inbox = refs.some((ref) => ref.box !== "sent");
-      const button = (action, label) => `<button type="button" data-mail-action="${action}">${label}</button>`;
+      const button = (action, label) => btn(action, label, "k-btn--ghost k-btn--sm");
       return (
         `<div class="mail-bulkbar" role="toolbar" aria-label="批量操作"><strong>已选 ${refs.length} 封</strong>` +
         (inbox ? button("bulk-read", "标为已读") + button("bulk-unread", "标为未读") + button("bulk-pending", "待处理") + button("bulk-unpending", "取消待处理") : "") +
@@ -560,30 +581,30 @@
         `<span class="mail-bar-gap"></span>${button("pick-all", "全选本页")}${button("pick-none", "取消选择")}</div>`
       );
     }
-    const threadButton = () => `<button type="button" data-mail-action="thread-toggle" aria-pressed="${threadMode}" title="${threadMode ? "现在同一来往的邮件合成一行，点一下改回一封一行" : "现在一封一行，点一下把同一来往的邮件合成一行"}">${icon("chat")}${threadMode ? "会话" : "逐封"}</button>`;
+    const threadButton = () => `<button type="button" class="k-btn" data-mail-action="thread-toggle" aria-pressed="${threadMode}" title="${threadMode ? "现在同一来往的邮件合成一行，点一下改回一封一行" : "现在一封一行，点一下把同一来往的邮件合成一行"}">${icon("chat")}${threadMode ? "会话" : "逐封"}</button>`;
     // 三栏里的中间和右边：列表栏、可拖动的分隔线、阅读栏。
     const split = (listHtml) =>
-      `<section class="module-page mail-page mail-split${reading ? " reading" : ""}${picked.size ? " picking" : ""} contact-${contactMode}"${listWidth ? ` style="--mail-list-width:${listWidth}px"` : ""}>` +
+      `<section class="k-card module-page mail-page mail-split${reading ? " reading" : ""}${picked.size ? " picking" : ""} contact-${contactMode}"${listWidth ? ` style="--mail-list-width:${listWidth}px"` : ""}>` +
       `<div class="mail-list-pane">${listHtml}</div><div class="mail-divider" id="mail-divider" role="separator" aria-orientation="vertical" aria-label="拖动调整列表宽度" title="拖动调整列表宽度"></div>` +
       `<div class="mail-reader-pane">${readerPane()}</div></section>`;
     function listPage() {
       const title = current().label + (list.total && !list.loading ? `（${list.total}）` : "");
       const search =
-        `<form class="mail-search" id="mail-search-form" role="search"><input id="mail-search-input" name="query" type="search" value="${E(query)}" placeholder="搜索主题、发件人、收件人" aria-label="搜索邮件" autocomplete="off"><button type="submit" aria-label="搜索">${icon("search")}</button></form>` +
+        `<form class="mail-search" id="mail-search-form" role="search"><input class="k-input" id="mail-search-input" name="query" type="search" value="${E(query)}" placeholder="搜索主题、发件人、收件人" aria-label="搜索邮件" autocomplete="off"><button type="submit" class="k-btn k-btn--ghost k-btn--sm" aria-label="搜索">${icon("search")}</button></form>` +
         threadButton() +
-        `<button type="button" data-mail-action="refresh" ${list.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` +
+        refreshButton(list.loading) +
         accountButton();
       let body;
-      if (list.loading && !list.items.length) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在读取邮件…</span></div>`;
-      else if (list.error) body = empty("mail", "读取邮件失败", list.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
-      else if (!list.items.length) body = empty("mail", query ? "没有符合搜索条件的邮件" : `「${current().label}」里没有邮件`, query ? "换个关键词再试，或清除搜索。" : folder === "pending" ? "在收件箱里点邮件上的星标，可以把它标为待处理。" : "", query ? `<button type="button" data-mail-action="clear-search">清除搜索</button>` : "");
+      if (list.loading && !list.items.length) body = busy("正在读取邮件…");
+      else if (list.error) body = empty("mail", "读取邮件失败", list.error, btn("refresh", "重试"));
+      else if (!list.items.length) body = empty("mail", query ? "没有符合搜索条件的邮件" : `「${current().label}」里没有邮件`, query ? "换个关键词再试，或清除搜索。" : folder === "pending" ? "在收件箱里点邮件上的星标，可以把它标为待处理。" : "", query ? btn("clear-search", "清除搜索") : "");
       else {
         const index = addressIndex();
         const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
         body =
           bulkBar() +
           `<div class="mail-list ${list.loading ? "loading" : ""}" id="mail-list" role="list">${rowsOf(list.items).map((items) => rowMarkup(items, index, false)).join("")}</div>` +
-          `<div class="mail-pager"><span>共 ${list.total} 封 · 第 ${list.page} / ${pages} 页</span><button type="button" data-mail-action="page-prev" ${list.page <= 1 || list.loading ? "disabled" : ""}>上一页</button><button type="button" data-mail-action="page-next" ${list.page >= pages || list.loading ? "disabled" : ""}>下一页</button></div>`;
+          `<div class="k-pager mail-pager"><span>共 ${list.total} 封 · 第 ${list.page} / ${pages} 页</span><button type="button" data-mail-action="page-prev" ${list.page <= 1 || list.loading ? "disabled" : ""}>上一页</button><button type="button" data-mail-action="page-next" ${list.page >= pages || list.loading ? "disabled" : ""}>下一页</button></div>`;
       }
       return pagebar(title, search) + split(body);
     }
@@ -592,15 +613,15 @@
       `<div class="mail-row" role="listitem"><button type="button" class="mail-row-main" data-mail-action="${action}" data-id="${E(id)}"><span class="mail-row-top"><span class="mail-dot"></span><span class="mail-row-who">${who}</span><span class="mail-row-time">${E(time)}</span></span><span class="mail-row-subject">${E(subject || "（无主题）")}</span><span class="mail-row-snippet">${E(snippet || "")}</span></button>${tools ? `<span class="mail-row-side"><span class="mail-row-tools">${tools}</span></span>` : ""}</div>`;
     function draftsPage() {
       let body;
-      if (drafts.loading && !drafts.items.length) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在读取草稿…</span></div>`;
-      else if (drafts.error) body = empty("note", "读取草稿失败", drafts.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
+      if (drafts.loading && !drafts.items.length) body = busy("正在读取草稿…");
+      else if (drafts.error) body = empty("note", "读取草稿失败", drafts.error, btn("refresh", "重试"));
       else if (!drafts.items.length) body = empty("note", "草稿箱是空的", "写信时点「存草稿」，或没发出就关闭，内容和附件会保存在这里。草稿只保存在这台电脑上。");
       else
         body =
           `<div class="mail-list wide" role="list">` +
           drafts.items.map((draft) => plainRow("draft-open", draft.id, E(draft.to ? "发给 " + draft.to : "（未填收件人）") + ((draft.attachments || []).length ? `<span class="mail-clip" title="带 ${draft.attachments.length} 个附件">${icon("clip")}</span>` : ""), draft.subject, String(draft.text || "").replace(/\s+/g, " ").trim().slice(0, 140), shortTime(draft.updatedAt), rowTool("draft-delete", "trash", "删除草稿", `data-id="${E(draft.id)}"`))).join("") +
           `</div>`;
-      return pagebar(`草稿箱${drafts.items.length ? `（${drafts.items.length}）` : ""}`, `<button type="button" data-mail-action="refresh">${icon("refresh")}刷新</button>` + accountButton()) + `<section class="module-page mail-page mail-list-page">${body}</section>`;
+      return pagebar(`草稿箱${drafts.items.length ? `（${drafts.items.length}）` : ""}`, refreshButton(false) + accountButton()) + sheet("mail-list-page", body);
     }
     function frameDocument(html) {
       return (
@@ -620,10 +641,11 @@
       return { name: "", person: other, addresses: [other.address] };
     }
     // 「记到动态」：把这封邮件记进客户资料的动态里（往来邮件）。记过的显示为已记录。
-    const recordButton = (name, item) => {
+    // cls：邮件页的联系人栏里传套件按钮类；客户详情页里的那一块不传（它的按钮由客户详情的样式管）。
+    const recordButton = (name, item, cls = "") => {
       if (!ctx.recordMail) return "";
       const done = !!(ctx.isMailRecorded && ctx.isMailRecorded(name, item));
-      return `<button type="button" data-mail-action="record" data-name="${E(name)}" data-box="${item.box}" data-uid="${item.uid}" ${done ? "disabled" : ""} title="${done ? "这封邮件已经在客户动态里了" : "把这封邮件记到这位客户的动态里"}">${done ? "已记录" : "记到动态"}</button>`;
+      return `<button type="button"${cls ? ` class="${cls}"` : ""} data-mail-action="record" data-name="${E(name)}" data-box="${item.box}" data-uid="${item.uid}" ${done ? "disabled" : ""} title="${done ? "这封邮件已经在客户动态里了" : "把这封邮件记到这位客户的动态里"}">${done ? "已记录" : "记到动态"}</button>`;
     };
     // 阅读区右侧：对方是谁、能做什么、最近和他的往来邮件。
     function contactPanel(m) {
@@ -633,16 +655,16 @@
         ? `<span class="mail-avatar large" style="background:hsl(${hue(who.name)} 45% 46%)">${E(initial({ name: who.name }))}</span><strong>${E(who.name)}</strong>` +
           (who.contact ? `<span class="mail-contact-line">${E(who.contact)}</span>` : "") +
           who.addresses.slice(0, 3).map((address) => `<span class="mail-contact-line">${E(address)}</span>`).join("") +
-          `<div class="mail-contact-actions"><button type="button" data-mail-action="customer-open" data-name="${E(who.name)}">客户资料</button>${canSend() ? `<button type="button" data-mail-action="contact-compose" data-to="${E(who.contact ? `${who.contact} <${who.addresses[0]}>` : who.addresses[0])}">写信</button>` : ""}${recordButton(who.name, m)}</div>`
+          `<div class="mail-contact-actions">${btn("customer-open", "客户资料", "k-btn--sm", `data-name="${E(who.name)}"`)}${canSend() ? btn("contact-compose", "写信", "k-btn--sm", `data-to="${E(who.contact ? `${who.contact} <${who.addresses[0]}>` : who.addresses[0])}"`) : ""}${recordButton(who.name, m, "k-btn k-btn--sm")}</div>`
         : `<span class="mail-avatar large" style="background:hsl(${hue(who.person.address)} 45% 46%)">${E(initial(who.person))}</span><strong>${E(person(who.person))}</strong><span class="mail-contact-line">${E(who.person.address)}</span><span class="mail-contact-note">这个邮箱还不在客户资料里。</span>` +
-          (canSend() ? `<div class="mail-contact-actions"><button type="button" data-mail-action="contact-compose" data-to="${E(who.person.name ? `${who.person.name} <${who.person.address}>` : who.person.address)}">写信</button></div>` : "");
+          (canSend() ? `<div class="mail-contact-actions">${btn("contact-compose", "写信", "k-btn--sm", `data-to="${E(who.person.name ? `${who.person.name} <${who.person.address}>` : who.person.address)}"`)}</div>` : "");
       const others = related.key === who.addresses.join(",") ? related.items.filter((item) => !sameRef(item, m)).slice(0, 8) : [];
       const recent = related.key !== who.addresses.join(",") || related.loading
         ? `<span class="mail-contact-note">正在查找…</span>`
         : related.error
           ? `<span class="mail-contact-note">${E(related.error)}</span>`
           : others.length
-            ? others.map((item) => `<button type="button" class="mail-contact-item" data-mail-action="open" data-box="${item.box}" data-uid="${item.uid}"><span class="mail-direction ${item.box === "sent" ? "out" : "in"}">${item.box === "sent" ? "发" : "收"}</span><span class="mail-contact-subject">${E(item.subject || "（无主题）")}</span><span class="mail-row-time">${E(shortTime(item.date))}</span></button>`).join("")
+            ? others.map((item) => `<button type="button" class="k-btn k-btn--ghost k-btn--sm mail-contact-item" data-mail-action="open" data-box="${item.box}" data-uid="${item.uid}"><span class="mail-direction ${item.box === "sent" ? "out" : "in"}">${item.box === "sent" ? "发" : "收"}</span><span class="mail-contact-subject">${E(item.subject || "（无主题）")}</span><span class="mail-row-time">${E(shortTime(item.date))}</span></button>`).join("")
             : `<span class="mail-contact-note">没有其他往来邮件。</span>`;
       // 客户页签里左边的列表就是往来邮件，这里不重复列。
       return `<aside class="mail-contact" aria-label="联系人"><div class="mail-contact-head">${head}</div>${view === "customer" ? "" : `<h3>最近往来</h3><div class="mail-contact-list">${recent}</div>`}</aside>`;
@@ -663,16 +685,16 @@
       `<button type="button" class="mail-thread-item" data-mail-action="open" data-box="${item.box}" data-uid="${item.uid}"><span class="mail-avatar small" style="background:hsl(${hue(item.from && item.from.address)} 45% 46%)">${E(item.box === "sent" ? "我" : initial(item.from))}</span><span class="mail-thread-who">${E(item.box === "sent" ? "我" : person(item.from) || "（未知发件人）")}</span><span class="mail-thread-snippet">${E(item.snippet || item.subject || "")}</span><span class="mail-row-time">${E(shortTime(item.date))}</span></button>`;
     function readerPane() {
       if (!reading)
-        return `<div class="empty mail-unbound mail-reader-empty"><div class="mail-unbound-art">${icon("mail")}</div><strong>选择一封邮件</strong><span>在左边的列表里点一封，内容会显示在这里。</span><span class="mail-keys">快捷键：↑ ↓ 上一封／下一封，R 回复，A 回复全部，F 转发，S 待处理，U 标为未读，Delete 删除，C 写信，/ 搜索</span></div>`;
-      const back = `<button type="button" class="mail-back" data-mail-action="back" title="返回列表">${icon("back")}返回</button>`;
-      if (reading.loading) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div><div class="empty mail-unbound" aria-busy="true"><span>正在读取邮件内容…</span></div></div>`;
-      if (reading.error) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div>${empty("mail", "无法打开这封邮件", reading.error, `<button type="button" class="primary" data-mail-action="back">返回列表</button>`)}</div>`;
+        return `<div class="k-empty mail-unbound mail-reader-idle"><div class="mail-unbound-art">${icon("mail")}</div><p class="k-empty-title">选择一封邮件</p><span>在左边的列表里点一封，内容会显示在这里。</span><span class="mail-keys">快捷键：↑ ↓ 上一封／下一封，R 回复，A 回复全部，F 转发，S 待处理，U 标为未读，Delete 删除，C 写信，/ 搜索</span></div>`;
+      const back = btn("back", `${icon("back")}返回`, "k-btn--ghost k-btn--sm mail-back", 'title="返回列表"');
+      if (reading.loading) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div>${busy("正在读取邮件内容…")}</div>`;
+      if (reading.error) return `<div class="mail-reader-main"><div class="mail-reader-bar">${back}</div>${empty("mail", "无法打开这封邮件", reading.error, btn("back", "返回列表"))}</div>`;
       const m = reading.message,
         sent = m.box === "sent",
         customer = customerOf(m, addressIndex()),
         ref = `data-box="${m.box}" data-uid="${m.uid}"`;
       // 左边三个主要操作带文字；右边几个次要操作只有图标，文字放在提示里，窄的时候也排得下。
-      const tool = (action, iconName, label, attrs = "", compact = false) => `<button type="button" class="mail-tool${compact ? " compact" : ""}" data-mail-action="${action}" ${attrs} title="${label}"${compact ? ` aria-label="${label}"` : ""}>${icon(iconName)}${compact ? "" : `<span>${label}</span>`}</button>`;
+      const tool = (action, iconName, label, attrs = "", compact = false) => `<button type="button" class="k-btn k-btn--ghost k-btn--sm mail-tool${compact ? " compact" : ""}" data-mail-action="${action}" ${attrs} title="${label}"${compact ? ` aria-label="${label}"` : ""}>${icon(iconName)}${compact ? "" : `<span>${label}</span>`}</button>`;
       const panel = contactPanel(m);
       const bar =
         `<div class="mail-reader-bar" role="toolbar" aria-label="邮件操作">${back}${canSend() ? tool("reply", "reply", "回复") + tool("reply-all", "replyAll", "回复全部") + tool("forward", "forward", "转发") : ""}<span class="mail-bar-gap"></span>` +
@@ -682,7 +704,7 @@
         `</div>`;
       const fact = (label, value) => (value ? `<div><dt>${label}</dt><dd>${value}</dd></div>` : "");
       const attachments = (m.attachments || []).length
-        ? `<div class="mail-attachments"><h3>附件（${m.attachments.length}）</h3><ul>${m.attachments.map((item) => `<li><span class="mail-attachment-name">${icon("clip")}${E(item.filename)}</span><span class="mail-attachment-size">${fileSize(item.size)}</span><button type="button" data-mail-action="attachment-save" data-index="${item.index}">保存到「下载」</button></li>`).join("")}</ul><div class="error" id="mail-attachment-error" role="alert"></div></div>`
+        ? `<div class="mail-attachments"><h3>附件（${m.attachments.length}）</h3><ul>${m.attachments.map((item) => `<li><span class="mail-attachment-name">${icon("clip")}${E(item.filename)}</span><span class="mail-attachment-size">${fileSize(item.size)}</span>${btn("attachment-save", "保存到「下载」", "k-btn--sm", `data-index="${item.index}"`)}</li>`).join("")}</ul><div class="k-error" id="mail-attachment-error" role="alert"></div></div>`
         : "";
       const content = m.html
         ? `<iframe class="mail-body-frame" title="邮件正文" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" srcdoc="${E(frameDocument(m.html))}"></iframe><p class="mail-body-note">为保护隐私，邮件里的远程图片不会加载。</p>`
@@ -694,74 +716,80 @@
       const earlier = at > 0 ? `<div class="mail-thread-strip" aria-label="这个会话里更早的邮件">${talk.slice(0, at).map(stripItem).join("")}</div>` : "",
         later = at >= 0 && at < talk.length - 1 ? `<div class="mail-thread-strip" aria-label="这个会话里更晚的邮件">${talk.slice(at + 1).map(stripItem).join("")}</div>` : "";
       return (
-        `<div class="mail-reader-main">${bar}<div class="mail-reader-scroll"><div class="error" id="mail-reader-error" role="alert"></div>` +
+        `<div class="mail-reader-main">${bar}<div class="mail-reader-scroll"><div class="k-error" id="mail-reader-error" role="alert"></div>` +
         `<h2 class="mail-reader-subject">${E(m.subject || "（无主题）")}${talk.length ? `<span class="mail-thread-count" title="这个会话里有 ${talk.length} 封邮件">${talk.length}</span>` : ""}</h2>` +
         earlier +
         `<div class="mail-reader-from"><span class="mail-avatar" style="background:hsl(${hue(m.from && m.from.address)} 45% 46%)">${E(initial(m.from))}</span>` +
         `<div class="mail-reader-who"><strong class="mail-reader-name">${E(person(m.from) || "（未知发件人）")}</strong>${m.from && m.from.name ? `<span class="mail-reader-address">${E(m.from.address)}</span>` : ""}` +
-        (customer ? `<button type="button" class="mail-customer-chip" data-mail-action="customer-open" data-name="${E(customer)}" title="打开客户资料">${E(customer)}</button>` : "") +
+        (customer ? `<button type="button" class="k-badge k-badge--primary mail-customer-chip" data-mail-action="customer-open" data-name="${E(customer)}" title="打开客户资料">${E(customer)}</button>` : "") +
         `</div><span class="mail-reader-time">${E(fullTime(m.date))}</span></div>` +
         `<dl class="mail-reader-facts">${fact("收件人", E(addressLine(m.to)))}${fact("抄送", E(addressLine(m.cc)))}</dl>` +
         attachments +
         content +
         later +
-        `</div>${canSend() ? `<div class="mail-quick"><button type="button" class="mail-quick-reply" data-mail-action="reply">${icon("reply")}<span>回复 ${E(person(target) || "发件人")}…</span></button><button type="button" data-mail-action="forward">转发</button></div>` : ""}</div>` +
+        `</div>${canSend() ? `<div class="mail-quick"><button type="button" class="k-btn mail-quick-reply" data-mail-action="reply">${icon("reply")}<span>回复 ${E(person(target) || "发件人")}…</span></button>${btn("forward", "转发")}</div>` : ""}</div>` +
         panel
       );
     }
     function customerPage() {
       const rows = customers();
-      if (!rows.length) return pagebar("客户邮件", accountButton()) + `<section class="module-page mail-page">${empty("people", "还没有填写了邮箱的客户", "在客户资料里填上公司邮箱或联系人邮箱后，这里会按客户归集往来邮件。")}</section>`;
+      if (!rows.length) return pagebar("客户邮件", accountButton()) + sheet("", empty("people", "还没有填写了邮箱的客户", "在客户资料里填上公司邮箱或联系人邮箱后，这里会按客户归集往来邮件。"));
       const row = rows.find((item) => item.name === customerName);
-      if (!row) return pagebar("客户邮件", accountButton()) + `<section class="module-page mail-page">${empty("people", "选择一个客户", `左侧列出了 ${rows.length} 个填写了邮箱的客户，点一个查看与它的往来邮件。`)}</section>`;
-      const actions = (canSend() ? `<button type="button" class="primary" data-mail-action="customer-compose">写信给该客户</button>` : "") + `<button type="button" data-mail-action="customer-open" data-name="${E(row.name)}">查看客户资料</button>${threadButton()}<button type="button" data-mail-action="refresh" ${thread.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
+      if (!row) return pagebar("客户邮件", accountButton()) + sheet("", empty("people", "选择一个客户", `左侧列出了 ${rows.length} 个填写了邮箱的客户，点一个查看与它的往来邮件。`));
+      const actions = (canSend() ? btn("customer-compose", "写信给该客户") : "") + btn("customer-open", "查看客户资料", "k-btn--ghost", `data-name="${E(row.name)}"`) + threadButton() + refreshButton(thread.loading) + accountButton();
       let body;
-      if (thread.loading) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在查找往来邮件…</span></div>`;
-      else if (thread.error) body = empty("mail", "读取往来邮件失败", thread.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
+      if (thread.loading) body = busy("正在查找往来邮件…");
+      else if (thread.error) body = empty("mail", "读取往来邮件失败", thread.error, btn("refresh", "重试"));
       else if (!thread.items.length) body = empty("mail", "还没有往来邮件", `在收件箱和已发送里没有找到与 ${row.addresses.join("、")} 有关的邮件。`);
       else body = `<p class="mail-thread-note">${E(row.addresses.join("、"))} · 收件箱与已发送中最近的 ${thread.items.length} 封</p>${bulkBar()}<div class="mail-list" id="mail-list" role="list">${rowsOf(thread.items).map((items) => rowMarkup(items, new Map(), true)).join("")}</div>`;
       return pagebar(row.name, actions) + split(body);
     }
     const bulkProgress = (b) => `已发 ${b.sent} / 共 ${b.total}${b.failed ? ` · 失败 ${b.failed}` : ""}${b.skipped ? ` · 未发 ${b.skipped}` : ""}`;
-    const bulkTag = (b) => `<span class="mail-bulk-tag ${E(b.status)}">${E(BULK_STATUS[b.status] || b.status)}</span>`;
+    // 群发和每一封的状态都是徽标：进行中＝主色，完成／已发送＝绿，停止／失败＝红，其余中性。
+    const TONE = { sending: "primary", pending: "primary", done: "success", sent: "success", stopped: "danger", interrupted: "danger", failed: "danger" };
+    const tone = (status) => `k-badge k-badge--${TONE[status] || "neutral"}`;
+    const bulkTag = (b) => `<span class="${tone(b.status)} mail-bulk-tag ${E(b.status)}">${E(BULK_STATUS[b.status] || b.status)}</span>`;
     function bulkPage() {
-      const actions = (canSend() ? `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button>` : "") + `<button type="button" data-mail-action="refresh" ${bulk.loading ? "disabled" : ""}>${icon("refresh")}刷新</button>` + accountButton();
+      const actions = (canSend() ? btn("bulk-new", "新建群发") : "") + refreshButton(bulk.loading) + accountButton();
       let body;
-      if (bulk.loading && !bulk.items.length) body = `<div class="empty mail-unbound" aria-busy="true"><span>正在读取群发记录…</span></div>`;
-      else if (bulk.error) body = empty("people", "读取群发记录失败", bulk.error, `<button type="button" class="primary" data-mail-action="refresh">重试</button>`);
-      else if (!bulk.items.length) body = empty("people", "还没有群发记录", "群发会给每位客户单独发一封，对方看不到其他收件人；正文里可以用 {{姓名}}、{{公司}} 自动换成每位客户自己的。", `<button type="button" class="primary" data-mail-action="bulk-new">新建群发</button>`);
+      if (bulk.loading && !bulk.items.length) body = busy("正在读取群发记录…");
+      else if (bulk.error) body = empty("people", "读取群发记录失败", bulk.error, btn("refresh", "重试"));
+      else if (!bulk.items.length) body = empty("people", "还没有群发记录", "群发会给每位客户单独发一封，对方看不到其他收件人；正文里可以用 {{姓名}}、{{公司}} 自动换成每位客户自己的。", canSend() ? btn("bulk-new", "新建群发") : "");
       else
         body =
           `<div class="mail-list wide" role="list">` +
           bulk.items.map((b) => plainRow("bulk-open", b.id, `${bulkTag(b)} ${E(bulkProgress(b))}`, b.subject, "", shortTime(b.createdAt))).join("") +
           `</div>`;
-      return pagebar(`群发箱${bulk.items.length ? `（${bulk.items.length}）` : ""}`, actions) + `<section class="module-page mail-page mail-list-page">${body}</section>`;
+      return pagebar(`群发箱${bulk.items.length ? `（${bulk.items.length}）` : ""}`, actions) + sheet("mail-list-page", body);
     }
     function batchPage() {
-      const back = `<button type="button" class="mail-back" data-mail-action="bulk-back">${icon("back")}返回</button>`;
+      const back = backButton("bulk-back");
       const b = batch.data;
-      if (!b) return pagebar(batch.error ? "无法打开群发记录" : "正在打开…", "", back) + `<section class="module-page mail-page">${batch.error ? empty("people", "无法打开这批群发", batch.error, `<button type="button" class="primary" data-mail-action="bulk-back">返回群发箱</button>`) : `<div class="empty mail-unbound" aria-busy="true"><span>正在读取发送进度…</span></div>`}</section>`;
-      const actions = (b.status === "sending" ? `<button type="button" data-mail-action="bulk-cancel">停止发送</button>` : "") + `<button type="button" data-mail-action="refresh">${icon("refresh")}刷新</button>`;
+      if (!b) return pagebar(batch.error ? "无法打开群发记录" : "正在打开…", "", back) + sheet("", batch.error ? empty("people", "无法打开这批群发", batch.error, btn("bulk-back", "返回群发箱")) : busy("正在读取发送进度…"));
+      const actions = (b.status === "sending" ? btn("bulk-cancel", "停止发送", "k-btn--danger") : "") + refreshButton(false);
       const rows = b.items
         .map(
           (item) =>
-            `<tr class="${E(item.status)}"><td>${item.customer ? `<button type="button" class="company-link" data-mail-action="customer-open" data-name="${E(item.customer)}">${E(item.customer)}</button>` : "—"}</td><td>${E(item.name || "—")}</td><td>${E(item.address)}</td><td><span class="mail-item-status ${E(item.status)}">${E(ITEM_STATUS[item.status] || item.status)}</span></td><td>${E(item.status === "sent" ? fullTime(item.sentAt) : item.error || "")}</td></tr>`,
+            `<tr class="${E(item.status)}"><td>${item.customer ? `<button type="button" class="company-link" data-mail-action="customer-open" data-name="${E(item.customer)}">${E(item.customer)}</button>` : "—"}</td><td>${E(item.name || "—")}</td><td>${E(item.address)}</td><td><span class="${tone(item.status)} mail-item-status ${E(item.status)}">${E(ITEM_STATUS[item.status] || item.status)}</span></td><td>${E(item.status === "sent" ? fullTime(item.sentAt) : item.error || "")}</td></tr>`,
         )
         .join("");
       return (
         pagebar(b.subject || "（无主题）", actions, back) +
-        `<section class="module-page mail-page mail-reader mail-batch"><div class="mail-batch-summary">${bulkTag(b)}<strong>${E(bulkProgress(b))}</strong><span>${E(fullTime(b.createdAt))} 开始${b.stopReason ? ` · ${E(b.stopReason)}` : ""}</span></div>` +
-        (batch.error ? `<div class="error visible" role="alert">${E(batch.error)}</div>` : "") +
-        (b.status === "sending" ? `<p class="mail-body-note">正在逐封发送，这个页面会自动更新。可以离开去做别的事，发送不会中断；关闭来财应用则会中断。</p>` : "") +
-        `<div class="mail-batch-table"><table class="order-table"><thead><tr><th>客户</th><th>称呼</th><th>邮箱</th><th>状态</th><th>发送时间／原因</th></tr></thead><tbody>${rows}</tbody></table></div>` +
-        `<details class="mail-batch-text"><summary>查看这批邮件的正文${(b.attachmentNames || []).length ? `（附件 ${b.attachmentNames.length} 个）` : ""}</summary><div class="mail-body-text">${E(b.text || "")}</div>${(b.attachmentNames || []).length ? `<p class="mail-body-note">附件：${E(b.attachmentNames.join("、"))}</p>` : ""}</details></section>`
+        sheet(
+          "mail-reader mail-batch",
+          `<div class="mail-batch-summary">${bulkTag(b)}<strong>${E(bulkProgress(b))}</strong><span>${E(fullTime(b.createdAt))} 开始${b.stopReason ? ` · ${E(b.stopReason)}` : ""}</span></div>` +
+            (batch.error ? `<div class="k-error" role="alert">${E(batch.error)}</div>` : "") +
+            (b.status === "sending" ? `<p class="mail-body-note">正在逐封发送，这个页面会自动更新。可以离开去做别的事，发送不会中断；关闭来财应用则会中断。</p>` : "") +
+            `<div class="mail-batch-table"><table class="k-table"><thead><tr><th>客户</th><th>称呼</th><th>邮箱</th><th>状态</th><th>发送时间／原因</th></tr></thead><tbody>${rows}</tbody></table></div>` +
+            `<details class="mail-batch-text"><summary>查看这批邮件的正文${(b.attachmentNames || []).length ? `（附件 ${b.attachmentNames.length} 个）` : ""}</summary><div class="mail-body-text">${E(b.text || "")}</div>${(b.attachmentNames || []).length ? `<p class="mail-body-note">附件：${E(b.attachmentNames.join("、"))}</p>` : ""}</details>`,
+        )
       );
     }
     function page() {
       if (compose) return composePage();
-      if (view === "team") return pagebar("下属邮件") + `<section class="module-page mail-page">${empty("lead", "查看下属的邮件", "这需要公司账号和上下级关系。来财目前是单机版，还没有这部分。")}</section>`;
+      if (view === "team") return pagebar("下属邮件") + sheet("", empty("lead", "查看下属的邮件", "这需要公司账号和上下级关系。来财目前是单机版，还没有这部分。"));
       const blocked = gate();
-      if (blocked) return pagebar(view === "customer" ? "客户邮件" : current().label) + `<section class="module-page mail-page">${blocked}</section>`;
+      if (blocked) return pagebar(view === "customer" ? "客户邮件" : current().label) + sheet("", blocked);
       if (view === "customer") return customerPage();
       if (folder === "drafts") return draftsPage();
       if (folder === "bulk") return batch ? batchPage() : bulkPage();
@@ -1050,10 +1078,10 @@
       const after = last < 0 ? null : rows.slice(last + 1).find((items) => !gone(items)) || rows.slice(0, last).reverse().find((items) => !gone(items)) || null;
       const first = findMessage(targets[0].box, targets[0].uid)[0] || (reading && reading.message && sameRef(reading.message, targets[0]) ? reading.message : null);
       confirmTarget = { refs: targets, next: after ? { box: after[0].box, uid: after[0].uid } : null };
-      ctx.dialog(
+      kitDialog(
         "删除邮件",
-        `<div class="drawer-body"><p>${targets.length > 1 ? `删除这 ${targets.length} 封邮件？` : `删除「${E((first && first.subject) || "（无主题）")}」？`}</p><div class="module-note">邮件会移到 Zoho 邮箱的「已删除」文件夹，可以在 Zoho 里恢复。</div><div class="error" id="mail-confirm-error" role="alert"></div></div>`,
-        `<button type="button" data-action="close-modal">取消</button><button type="button" class="primary" data-mail-action="delete-confirm">删除</button>`,
+        `<div class="drawer-body k-dialog-body"><p>${targets.length > 1 ? `删除这 ${targets.length} 封邮件？` : `删除「${E((first && first.subject) || "（无主题）")}」？`}</p><div class="module-note">邮件会移到 Zoho 邮箱的「已删除」文件夹，可以在 Zoho 里恢复。</div></div>`,
+        `${footError("mail-confirm-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button>${btn("delete-confirm", "删除", "k-btn--danger")}`,
         "mail-confirm",
         pointerActivated,
       );
@@ -1160,7 +1188,7 @@
     function renderFileList(id, files, removeAction) {
       const box = document.getElementById(id);
       if (!box) return;
-      box.innerHTML = files.map((file, index) => `<li><span class="mail-attachment-name">${icon("clip")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span><button type="button" data-mail-action="${removeAction}" data-index="${index}">移除</button></li>`).join("");
+      box.innerHTML = files.map((file, index) => `<li><span class="mail-attachment-name">${icon("clip")}${E(file.name)}</span><span class="mail-attachment-size">${fileSize(file.size)}</span>${btn(removeAction, "移除", "k-btn--ghost k-btn--sm", `data-index="${index}"`)}</li>`).join("");
     }
     // 把选中的文件读进 holder.files；合计超过 10 MB 的不加。
     function readFiles(fileList, holder, errorId, redraw) {
@@ -1242,7 +1270,7 @@
     }
     function bulkListMarkup() {
       const shown = bulkShown();
-      if (!shown.length) return `<span class="mail-bulk-empty">没有符合筛选条件的客户</span>`;
+      if (!shown.length) return `<div class="k-empty mail-bulk-none">没有符合筛选条件的客户</div>`;
       return shown
         .map((item) => {
           const on = compose.selected.has(item.customer);
@@ -1253,25 +1281,25 @@
     function composePage() {
       const v = compose.values,
         bulkMode = compose.mode === "bulk";
-      const back = `<button type="button" class="mail-back" data-mail-action="compose-close">${icon("back")}返回</button>`;
-      const actions = `<button type="button" data-mail-action="template-open">${icon("note")}模板</button>` + (bulkMode ? `<button type="button" data-mail-action="bulk-preview">预览第一封</button>` : `<button type="button" data-mail-action="compose-draft">存草稿</button>`) + `<button class="primary" type="submit" form="mail-compose-form" id="mail-compose-submit">${compose.confirm ? `确认向 ${compose.selected.size} 位客户分别发送` : "发送"}</button>`;
-      const row = (label, name, value, extra = "") => `<label class="mail-compose-row"><span>${label}</span><input name="${name}" id="mail-compose-${name}" value="${E(value || "")}" autocomplete="off" spellcheck="false" ${extra}></label>`;
+      const back = backButton("compose-close");
+      // 页头右边：出错时的说明（紧挨着按钮，不用滚动就看得见），模板、存草稿（群发是预览第一封），发送是主按钮。
+      const actions = footError("mail-compose-error") + btn("template-open", `${icon("note")}模板`) + (bulkMode ? btn("bulk-preview", "预览第一封") : btn("compose-draft", "存草稿")) + `<button class="k-btn k-btn--primary" type="submit" form="mail-compose-form" id="mail-compose-submit">${compose.confirm ? `确认向 ${compose.selected.size} 位客户分别发送` : "发送"}</button>`;
+      const row = (label, name, value, extra = "") => `<label class="mail-compose-row"><span>${label}</span><input class="k-input" name="${name}" id="mail-compose-${name}" value="${E(value || "")}" autocomplete="off" spellcheck="false" ${extra}></label>`;
       const who = bulkMode
         ? `<div class="module-note">每位客户单独收到一封，看不到其他收件人。主题和正文里的 <b>{{姓名}}</b> 会换成联系人姓名（没有就用公司名），<b>{{公司}}</b> 换成客户名称。一批最多 200 位。</div>` +
-          `<div class="mail-compose-row tall"><span>收件客户</span><div class="mail-bulk-picker"><div class="mail-bulk-toolbar"><span id="mail-bulk-count">${E(bulkCountText())}</span><button type="button" data-mail-action="bulk-all">全选</button><button type="button" data-mail-action="bulk-none">清空</button>${bulkFacet("group", "客群")}${bulkFacet("stage", "阶段")}${bulkFacet("country", "国家")}<input id="mail-bulk-filter" type="search" value="${E(compose.filter.text)}" placeholder="搜索客户" aria-label="搜索客户" autocomplete="off"></div><div class="mail-bulk-recipients" id="mail-bulk-recipients" role="group" aria-label="收件客户">${bulkListMarkup()}</div></div></div>`
+          `<div class="mail-compose-row tall"><span>收件客户</span><div class="mail-bulk-picker"><div class="mail-bulk-toolbar"><span id="mail-bulk-count">${E(bulkCountText())}</span>${btn("bulk-all", "全选", "k-btn--sm")}${btn("bulk-none", "清空", "k-btn--sm")}${bulkFacet("group", "客群")}${bulkFacet("stage", "阶段")}${bulkFacet("country", "国家")}<input class="k-input" id="mail-bulk-filter" type="search" value="${E(compose.filter.text)}" placeholder="搜索客户" aria-label="搜索客户" autocomplete="off"></div><div class="mail-bulk-recipients" id="mail-bulk-recipients" role="group" aria-label="收件客户">${bulkListMarkup()}</div></div></div>`
         : row("收件人", "to", v.to, 'placeholder="多个地址用逗号分隔"') +
-          (compose.showCc ? row("抄送", "cc", v.cc) + row("密送", "bcc", v.bcc) : `<div class="mail-compose-row slim"><span></span><button type="button" class="text-button" data-mail-action="compose-cc">添加抄送／密送</button></div>`);
+          (compose.showCc ? row("抄送", "cc", v.cc) + row("密送", "bcc", v.bcc) : `<div class="mail-compose-row slim"><span></span>${btn("compose-cc", "添加抄送／密送", "k-btn--ghost k-btn--sm")}</div>`);
       return (
         pagebar(compose.title, actions, back) +
-        `<section class="module-page mail-page mail-compose-page"><form class="mail-compose-form" id="mail-compose-form" autocomplete="off" novalidate>` +
-        `<div class="error" id="mail-compose-error" role="alert"></div>` +
+        `<section class="k-card module-page mail-page mail-compose-page"><form class="mail-compose-form" id="mail-compose-form" autocomplete="off" novalidate>` +
         who +
         row("主题", "subject", v.subject, 'maxlength="500"') +
         (ctx.editorToolbar ? ctx.editorToolbar() : "") +
         `<div class="mail-editor" id="mail-compose-editor" role="textbox" aria-multiline="true" aria-label="正文"></div>` +
         (bulkMode ? `<div class="mail-body-text mail-bulk-preview" id="mail-bulk-preview" hidden></div>` : "") +
-        `<div class="mail-compose-files"><label class="mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB${bulkMode ? "，每封都会带上" : ""}</span><ul id="mail-compose-file-list"></ul>` +
-        (compose.forwardOf && compose.forwardCount ? (compose.sourceUnavailable ? `<p class="mail-forward-attachments">原邮件不在现在绑定的邮箱里，不能附带它的 ${compose.forwardCount} 个附件</p>` : `<label class="mail-forward-attachments"><input type="checkbox" name="forwardAttachments" ${v.forwardAttachments ? "checked" : ""}> 附带原邮件的 ${compose.forwardCount} 个附件</label>`) : "") +
+        `<div class="mail-compose-files"><label class="k-btn k-btn--sm mail-file-pick">${icon("plus")}添加附件<input type="file" id="mail-compose-file" multiple hidden></label><span class="muted tiny">合计不超过 10 MB${bulkMode ? "，每封都会带上" : ""}</span><ul id="mail-compose-file-list"></ul>` +
+        (compose.forwardOf && compose.forwardCount ? (compose.sourceUnavailable ? `<p class="mail-forward-attachments">原邮件不在现在绑定的邮箱里，不能附带它的 ${compose.forwardCount} 个附件</p>` : `<label class="mail-forward-attachments"><input type="checkbox" class="k-checkbox" name="forwardAttachments" ${v.forwardAttachments ? "checked" : ""}> 附带原邮件的 ${compose.forwardCount} 个附件</label>`) : "") +
         `</div>` +
         `<div class="mail-compose-from">${row("发件人名称", "fromName", v.fromName, 'maxlength="80" placeholder="收件人看到的名字"')}<span class="mail-compose-address" data-compose-name-hint>发信后会记住这个名字</span><span class="mail-compose-address">${E(account ? account.email : "")}</span></div>` +
         `</form></section>`
@@ -1484,17 +1512,17 @@
     function templateDialog(pointerActivated, message = "") {
       if (!compose) return;
       const line = (t, own) =>
-        `<div class="mail-template-row"><div><strong>${E(t.name)}</strong><span>${E(t.subject || String(t.text || "").replace(/\s+/g, " ").slice(0, 80) || "（无主题）")}</span></div><button type="button" class="primary" data-mail-action="template-use" data-id="${E(t.id)}">使用</button>` +
-        (own ? `<button type="button" data-mail-action="template-delete" data-id="${E(t.id)}">${templateArmed === t.id ? "再点一次删除" : "删除"}</button>` : "") +
+        `<div class="mail-template-row"><div><strong>${E(t.name)}</strong><span>${E(t.subject || String(t.text || "").replace(/\s+/g, " ").slice(0, 80) || "（无主题）")}</span></div>${btn("template-use", "使用", "k-btn--sm", `data-id="${E(t.id)}"`)}` +
+        (own ? btn("template-delete", templateArmed === t.id ? "再点一次删除" : "删除", templateArmed === t.id ? "k-btn--danger k-btn--sm" : "k-btn--ghost k-btn--sm", `data-id="${E(t.id)}"`) : "") +
         `</div>`;
       const mine = templates.loading && !templates.items.length ? `<p class="mail-template-note">正在读取模板…</p>` : templates.error ? `<p class="mail-template-note">${E(templates.error)}</p>` : templates.items.length ? templates.items.map((t) => line(t, true)).join("") : `<p class="mail-template-note">还没有保存过模板。写好一封信后，在下面起个名字存起来，下次直接用。</p>`;
-      ctx.dialog(
+      kitDialog(
         "邮件模板",
-        `<div class="drawer-body mail-templates"><div class="error ${message ? "visible" : ""}" id="mail-template-error" role="alert">${E(message)}</div>` +
+        `<div class="drawer-body k-dialog-body mail-templates">` +
           `<h3>我的模板</h3>${mine}<h3>示例模板</h3>${BUILTIN_TEMPLATES.map((t) => line(t, false)).join("")}` +
-          `<h3>把现在写的内容存为模板</h3><div class="mail-template-save"><input id="mail-template-name" maxlength="80" placeholder="模板名称，例如：报价跟进" aria-label="模板名称" autocomplete="off"><button type="button" class="primary" data-mail-action="template-save">保存</button></div>` +
+          `<h3>把现在写的内容存为模板</h3><div class="mail-template-save"><input class="k-input" id="mail-template-name" maxlength="80" placeholder="模板名称，例如：报价跟进" aria-label="模板名称" autocomplete="off">${btn("template-save", "保存")}</div>` +
           `<div class="module-note">模板里可以写 {{姓名}} 和 {{公司}}。给一位客户写信时，使用模板会直接换成这位客户的联系人和公司名；群发时每封换成各自的。模板只保存在这台电脑上。</div></div>`,
-        `<button type="button" class="primary" data-action="close-modal">关闭</button>`,
+        `${footError("mail-template-error", message)}<button type="button" class="k-btn" data-action="close-modal">关闭</button>`,
         "mail-templates",
         pointerActivated,
       );
@@ -1634,21 +1662,20 @@
     // ---- 绑定、设置 ----
     function bindDialog(pointerActivated) {
       const blocked = !available;
-      ctx.dialog(
+      kitDialog(
         account ? "更换邮箱" : "绑定 Zoho 邮箱",
-        `<form class="drawer-body mail-bind-form" id="mail-bind-form" autocomplete="off" novalidate>` +
+        `<form class="drawer-body k-dialog-body mail-bind-form" id="mail-bind-form" autocomplete="off" novalidate>` +
           (blocked ? `<div class="module-note mail-bind-blocked">网页试用版运行在浏览器里，无法连接邮箱服务器，所以不能绑定真实邮箱。</div>` : "") +
-          `<label class="field">邮箱地址<input id="mail-bind-email" name="email" type="email" inputmode="email" autocomplete="off" spellcheck="false" placeholder="name@yourcompany.com" value="${E(account ? account.email : "")}" required></label>` +
-          `<label class="field">应用专用密码<input id="mail-bind-password" name="password" type="password" autocomplete="new-password" placeholder="在 Zoho 账户里生成，不是登录密码" required></label>` +
+          `<label class="field">邮箱地址<input class="k-input" id="mail-bind-email" name="email" type="email" inputmode="email" autocomplete="off" spellcheck="false" placeholder="name@yourcompany.com" value="${E(account ? account.email : "")}" required></label>` +
+          `<label class="field">应用专用密码<input class="k-input" id="mail-bind-password" name="password" type="password" autocomplete="new-password" placeholder="在 Zoho 账户里生成，不是登录密码" required></label>` +
           `<div class="form-grid"><label class="field">Zoho 站点<select id="mail-bind-site" name="site">${sites.map((item) => option(item, account ? account.site : "cn")).join("")}</select></label>` +
           `<label class="field">账号类型<select id="mail-bind-type" name="accountType">${accountTypes.map((item) => option(item, "auto")).join("")}</select></label></div>` +
-          `<div class="error" id="mail-bind-error" role="alert"></div>` +
           `<details class="mail-bind-help" open><summary>绑定前需要在 Zoho 里完成两步</summary><ol>` +
           `<li>开启 IMAP：登录 Zoho 邮箱 → 设置 → 邮件账户 → IMAP 访问，勾选启用。</li>` +
           `<li>生成应用专用密码：Zoho 账户（accounts.zoho.com.cn）→ 安全 → 应用专用密码 → 生成新密码，把生成的密码填到上面。</li>` +
           `</ol><p>来财用它登录你的邮箱来收信和发信。密码保存在这台电脑的来财数据库里，数据库备份文件也会包含它。</p></details>` +
           `</form>`,
-        `<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="mail-bind-form" id="mail-bind-submit" ${blocked ? "disabled" : ""}>验证并绑定</button>`,
+        `${footError("mail-bind-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button><button class="k-btn k-btn--primary" type="submit" form="mail-bind-form" id="mail-bind-submit" ${blocked ? "disabled" : ""}>验证并绑定</button>`,
         "mail-bind",
         pointerActivated,
       );
@@ -1688,19 +1715,18 @@
     function accountDialog(pointerActivated, message = "") {
       if (!account) return;
       const row = (label, value) => `<div><dt>${label}</dt><dd>${E(value)}</dd></div>`;
-      ctx.dialog(
+      // 保存设置是这个窗口的主按钮，放在底栏；错误也在底栏、按钮左边。重新验证、更换、解除绑定是对邮箱本身的操作，留在正文里。
+      kitDialog(
         "邮箱设置",
-        `<div class="drawer-body mail-account"><div class="mail-bound-head"><div class="mail-unbound-art">${icon("mail")}</div><div><span class="mail-bound-tag">${icon("check")}${account.demo ? "示例" : "已绑定"}</span><strong>${E(account.email)}</strong></div></div>` +
+        `<div class="drawer-body k-dialog-body mail-account"><div class="mail-bound-head"><div class="mail-unbound-art">${icon("mail")}</div><div><span class="k-badge ${account.demo ? "k-badge--warning" : "k-badge--success"} mail-bound-tag">${icon("check")}${account.demo ? "示例" : "已绑定"}</span><strong>${E(account.email)}</strong></div></div>` +
           `<dl class="mail-bound-facts">${row("邮箱服务", account.demo ? "示例邮箱（网页试用版）" : "Zoho 邮箱")}${row("收信服务器", account.demo ? "无（不连接任何服务器）" : `${account.host}:${account.port}`)}${row("绑定时间", fullTime(account.boundAt))}${row("最近验证通过", fullTime(account.verifiedAt))}</dl>` +
-          `<label class="field">发件人名称<input id="mail-settings-name" value="${E(account.senderName || "")}" maxlength="80" placeholder="收件人看到的名字" autocomplete="off"></label>` +
-          `<label class="field">签名<textarea id="mail-settings-signature" rows="5" maxlength="2000" placeholder="写信、回复时自动加在正文末尾">\n${E(account.signature || "")}</textarea></label>` +
-          `<label class="mail-setting-check"><input type="checkbox" id="mail-settings-autocheck" ${account.autoCheck === false ? "" : "checked"}> 自动检查新邮件（每分钟一次，有新邮件时提示）</label>` +
-          `<div class="mail-bound-actions"><button type="button" class="primary" data-mail-action="settings-save">保存设置</button></div>` +
-          `<div class="error ${message ? "visible" : ""}" id="mail-account-error" role="alert">${E(message)}</div>` +
+          `<label class="field">发件人名称<input class="k-input" id="mail-settings-name" value="${E(account.senderName || "")}" maxlength="80" placeholder="收件人看到的名字" autocomplete="off"></label>` +
+          `<label class="field">签名<textarea class="k-textarea" id="mail-settings-signature" rows="5" maxlength="2000" placeholder="写信、回复时自动加在正文末尾">\n${E(account.signature || "")}</textarea></label>` +
+          `<label class="mail-setting-check"><input type="checkbox" class="k-switch" role="switch" id="mail-settings-autocheck" ${account.autoCheck === false ? "" : "checked"}> 自动检查新邮件（每分钟一次，有新邮件时提示）</label>` +
           (account.demo
             ? `<div class="module-note">这是网页试用版自带的示例邮箱，里面是示例邮件，写信和回复不会真的发出，刷新页面后恢复原样。试用版里不能绑定真实邮箱。</div></div>`
-            : `<div class="mail-bound-actions"><button type="button" data-mail-action="verify" ${working ? "disabled" : ""}>${working ? "正在验证…" : "重新验证"}</button><button type="button" data-mail-action="bind">更换邮箱</button><button type="button" data-mail-action="unbind">解除绑定</button></div></div>`),
-        `<button type="button" class="primary" data-action="close-modal">关闭</button>`,
+            : `<div class="mail-bound-actions">${btn("verify", working ? "正在验证…" : "重新验证", "k-btn--sm", working ? "disabled" : "")}${btn("bind", "更换邮箱", "k-btn--sm")}${btn("unbind", "解除绑定", "k-btn--danger k-btn--sm")}</div></div>`),
+        `${footError("mail-account-error", message)}<button type="button" class="k-btn" data-action="close-modal">关闭</button>${btn("settings-save", "保存设置", "k-btn--primary")}`,
         "mail-account",
         pointerActivated,
       );
@@ -1832,10 +1858,10 @@
     }
     function unbindDialog(pointerActivated) {
       if (!account) return;
-      ctx.dialog(
+      kitDialog(
         "解除绑定",
-        `<div class="drawer-body"><p>解除 ${E(account.email)} 的绑定？</p><div class="module-note">保存在这台电脑上的邮箱密码会一并删除，本机草稿保留。Zoho 里的邮件不受影响；之前的数据库备份文件里仍可能留有这个密码。</div><div class="error" id="mail-unbind-error" role="alert"></div></div>`,
-        `<button type="button" data-action="close-modal">取消</button><button type="button" class="primary" data-mail-action="unbind-confirm">解除绑定</button>`,
+        `<div class="drawer-body k-dialog-body"><p>解除 ${E(account.email)} 的绑定？</p><div class="module-note">保存在这台电脑上的邮箱密码会一并删除，本机草稿保留。Zoho 里的邮件不受影响；之前的数据库备份文件里仍可能留有这个密码。</div></div>`,
+        `${footError("mail-unbind-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button>${btn("unbind-confirm", "解除绑定", "k-btn--danger")}`,
         "mail-unbind",
         pointerActivated,
       );

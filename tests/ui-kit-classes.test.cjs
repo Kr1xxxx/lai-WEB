@@ -52,7 +52,7 @@ test('no new page-specific primary buttons, pagers, empty states or table classe
 
 test('the kit itself provides the replacements', () => {
   const kit = fs.readFileSync(path.join(src, 'ui-kit.css'), 'utf8');
-  for (const cls of ['.k-btn--primary', '.k-pager', '.k-empty', '.k-table', '.k-dialog', '.k-drawer', '.k-error', '.k-tabs', '.k-badge', '.k-card', '.k-input', '.k-select-trigger', '.k-textarea', '.k-toast', '.k-pageheader']) {
+  for (const cls of ['.k-btn--primary', '.k-pager', '.k-empty', '.k-table', '.k-dialog', '.k-drawer', '.k-error', '.k-tabs', '.k-badge', '.k-card', '.k-input', '.k-select-trigger', '.k-textarea', '.k-toast', '.k-pageheader', '.k-tabs--vertical', '.k-switch', '.k-checkbox']) {
     assert.ok(kit.includes(cls), cls);
   }
 });

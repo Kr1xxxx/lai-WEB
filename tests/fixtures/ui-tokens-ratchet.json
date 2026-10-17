@@ -2,9 +2,9 @@
  "note": "Literal font-size px, border-radius px and hex colours per src/*.css (ui-tokens.css exempt). May only go down. tests/ui-tokens-ratchet.test.cjs",
  "files": {
   "business.css": {
-   "fontSizePx": 111,
-   "radiusPx": 53,
-   "hex": 78
+   "fontSizePx": 45,
+   "radiusPx": 21,
+   "hex": 33
   },
   "customer-detail.css": {
    "fontSizePx": 0,
@@ -27,9 +27,9 @@
    "hex": 25
   },
   "customer-settings.css": {
-   "fontSizePx": 25,
-   "radiusPx": 19,
-   "hex": 43
+   "fontSizePx": 4,
+   "radiusPx": 2,
+   "hex": 12
   },
   "customer-suggestions.css": {
    "fontSizePx": 2,
@@ -47,14 +47,14 @@
    "hex": 6
   },
   "feature-switch.css": {
-   "fontSizePx": 1,
+   "fontSizePx": 0,
    "radiusPx": 0,
    "hex": 0
   },
   "mail.css": {
-   "fontSizePx": 72,
-   "radiusPx": 43,
-   "hex": 29
+   "fontSizePx": 5,
+   "radiusPx": 2,
+   "hex": 1
   },
   "rate.css": {
    "fontSizePx": 0,
@@ -64,7 +64,7 @@
   "skin-glass.css": {
    "fontSizePx": 5,
    "radiusPx": 9,
-   "hex": 31
+   "hex": 30
   },
   "styles.css": {
    "fontSizePx": 52,
@@ -77,9 +77,9 @@
    "hex": 0
   },
   "whatsapp.css": {
-   "fontSizePx": 7,
-   "radiusPx": 3,
-   "hex": 8
+   "fontSizePx": 0,
+   "radiusPx": 1,
+   "hex": 2
   }
  }
 }

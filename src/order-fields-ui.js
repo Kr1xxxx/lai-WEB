@@ -17,30 +17,30 @@
     const list=rows.map((f,index)=>{
       const sure=armed===f.id,choice=f.type==='select'||f.type==='multi';
       const options=choice?`<div class="cf-options"><ul class="cs-list">${f.options.map((o,i)=>`<li class="cs-row cs-child"><strong>${E(o)}</strong><span class="cs-row-actions">`
-        +`<button type="button" data-of-cf="opt-up" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="上移选项：${E(o)}"${i===0?' disabled':''}>↑</button>`
-        +`<button type="button" data-of-cf="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i===f.options.length-1?' disabled':''}>↓</button>`
-        +`<button type="button" data-of-cf="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join('')}</ul>`
-        +`<form class="cs-add" data-of-cf-form="option" data-id="${E(f.id)}" novalidate data-form-check><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${fm.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`:'';
+        +`<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-of-cf="opt-up" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="上移选项：${E(o)}"${i===0?' disabled':''}>↑</button>`
+        +`<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-of-cf="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i===f.options.length-1?' disabled':''}>↓</button>`
+        +`<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-of-cf="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join('')}</ul>`
+        +`<form class="cs-add" data-of-cf-form="option" data-id="${E(f.id)}" novalidate data-form-check><input class="k-input" name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${fm.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit" class="k-btn">添加选项</button></form></div>`:'';
       // 名称框按名称长短放宽（最长 30 个字），长名称不被截掉。
-      return `<li class="cs-group cf-field" data-of-cf-field="${E(f.id)}"><div class="cs-row"><input class="cf-name" data-of-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${fm.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off" style="--of-name:${Math.min(fm.LIMITS.nameLen,[...f.name].length)}">`
+      return `<li class="cs-group cf-field" data-of-cf-field="${E(f.id)}"><div class="cs-row"><input class="k-input cf-name" data-of-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${fm.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off" style="--of-name:${Math.min(fm.LIMITS.nameLen,[...f.name].length)}">`
         +`<span class="cs-use">${E(f.typeLabel)} · ${f.usage?`${f.usage} 笔订单已填`:'还没有订单填'}</span><span class="cs-row-actions">`
-        +`<label class="ls-check"><input type="checkbox" data-of-cf-required="${E(f.id)}"${f.required?' checked':''} aria-label="${E(f.name)}：必填"><span>必填</span></label>`
-        +`<button type="button" data-of-cf="up" data-id="${E(f.id)}" aria-label="上移：${E(f.name)}"${index===0?' disabled':''}>↑</button>`
-        +`<button type="button" data-of-cf="down" data-id="${E(f.id)}" aria-label="下移：${E(f.name)}"${index===rows.length-1?' disabled':''}>↓</button>`
-        +`<button type="button" class="${sure?'team-danger':''}" data-of-cf="delete" data-id="${E(f.id)}" aria-label="${sure?'再点一次确认删除':'删除'}：${E(f.name)}">${sure?'再点一次确认删除':'删除'}</button></span></div>${options}</li>`;
+        +`<label class="ls-check of-check"><input type="checkbox" class="k-checkbox" data-of-cf-required="${E(f.id)}"${f.required?' checked':''} aria-label="${E(f.name)}：必填"><span>必填</span></label>`
+        +`<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-of-cf="up" data-id="${E(f.id)}" aria-label="上移：${E(f.name)}"${index===0?' disabled':''}>↑</button>`
+        +`<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-of-cf="down" data-id="${E(f.id)}" aria-label="下移：${E(f.name)}"${index===rows.length-1?' disabled':''}>↓</button>`
+        +`<button type="button" class="k-btn k-btn--sm${sure?' k-btn--danger':' k-btn--ghost'}" data-of-cf="delete" data-id="${E(f.id)}" aria-label="${sure?'再点一次确认删除':'删除'}：${E(f.name)}">${sure?'再点一次确认删除':'删除'}</button></span></div>${options}</li>`;
     }).join('');
     const types=fm.TYPES.map(([id,label])=>`<option value="${id}">${E(label)}</option>`).join('');
-    const add=`<form class="cs-add cf-add" data-of-cf-form="add" novalidate data-form-check><input name="name" placeholder="新字段名称" maxlength="${fm.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
+    const add=`<form class="cs-add cf-add" data-of-cf-form="add" novalidate data-form-check><input class="k-input" name="name" placeholder="新字段名称" maxlength="${fm.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
       +`<select name="type" aria-label="字段类型">${types}</select>`
-      +`<input name="options" placeholder="选项（单选、多选用），用逗号分开" aria-label="字段选项" autocomplete="off">`
-      +`<label class="ls-check"><input type="checkbox" name="required"><span>必填</span></label><button type="submit" class="primary">添加字段</button></form>`;
+      +`<input class="k-input" name="options" placeholder="选项（单选、多选用），用逗号分开" aria-label="字段选项" autocomplete="off">`
+      +`<label class="ls-check of-check"><input type="checkbox" class="k-checkbox" name="required"><span>必填</span></label><button type="submit" class="k-btn k-btn--primary">添加字段</button></form>`;
     const shown=problem;
     problem='';
-    return `<section class="business-section of-section" data-of-section="custom"><div class="section-head"><h3>订单字段（${rows.length}/${fm.LIMIT}）</h3></div>`
-      +`<p class="cs-note">给订单加自己需要的字段。添加后，新建和编辑订单时会多出这些字段，订单详情和导出里也能看到。</p>`
-      +`<div class="error of-error${shown?' visible':''}" id="of-error" role="alert">${E(shown)}</div>${add}`
-      +`${rows.length?`<ul class="cs-list cs-tree">${list}</ul>`:'<p class="cs-hint">还没有订单字段。</p>'}`
-      +`<p class="cs-hint">最多 ${fm.LIMIT} 个。类型建好后不能改。选项可以添加、排序、删除，不能改名。必填只在新建和编辑订单时检查，老订单里本来就空着、这次也没改的不拦。删除字段或选项后，订单里已填的内容仍然保留，只是不再显示。名称改完按回车或点别处即保存。</p></section>`;
+    return `<section class="k-card st-card of-section" data-of-section="custom"><div class="k-card-head st-head"><h3 class="k-card-title">订单字段（${rows.length}/${fm.LIMIT}）</h3>`
+      +`<p class="k-card-desc">给订单加自己需要的字段。添加后，新建和编辑订单时会多出这些字段，订单详情和导出里也能看到。</p></div><div class="k-card-body">`
+      +`<div class="k-error of-error${shown?' visible':''}" id="of-error" role="alert">${E(shown)}</div>${add}`
+      +`${rows.length?`<ul class="cs-list cs-tree">${list}</ul>`:'<div class="k-empty of-none"><p class="k-empty-title">还没有订单字段。</p></div>'}`
+      +`<p class="cs-hint">最多 ${fm.LIMIT} 个。类型建好后不能改。选项可以添加、排序、删除，不能改名。必填只在新建和编辑订单时检查，老订单里本来就空着、这次也没改的不拦。删除字段或选项后，订单里已填的内容仍然保留，只是不再显示。名称改完按回车或点别处即保存。</p></div></section>`;
   }
 
   // 只重画「订单字段」这一节：同页上面「默认录入」里还没保存的内容、页面滚动位置都不动。

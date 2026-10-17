@@ -7,43 +7,23 @@
  "empty": [
   "contact-search-empty",
   "cs-empty",
-  "dt-empty",
   "export-empty",
   "favorites-empty",
   "import-record-empty",
   "is-empty",
   "lai-select-empty",
   "lai-suggestions-empty",
-  "mail-bulk-empty",
-  "mail-reader-empty",
   "now-empty",
-  "role-members-empty",
   "small-empty",
   "subnav-empty",
-  "summary-search-empty",
-  "team-rank-empty",
-  "wa-empty",
-  "wa-list-empty",
-  "wa-thread-empty"
+  "summary-search-empty"
  ],
  "table": [
   "cs-table",
-  "cs-table cf-system",
-  "cs-table cs-dedupe",
-  "cs-table cs-prod",
-  "cs-table cs-rules",
-  "cs-table cs-sync",
-  "cs-table dt-records",
   "dt-table",
   "export-table",
   "import-preview",
   "import-records-table",
-  "order-table",
-  "order-table fit-table",
-  "order-table rate-table",
-  "order-table role-table",
-  "order-table role-table role-list-table",
-  "order-table team-table",
-  "order-table team-table team-board"
+  "order-table"
  ]
 }

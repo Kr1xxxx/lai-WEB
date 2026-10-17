@@ -334,7 +334,7 @@ test('the page is assembled with the new files, and business-ui wires the form, 
   const ui = fs.readFileSync(path.join(root, 'src/business-ui.js'), 'utf8');
   assert.match(ui, /orderCustomMarkup\(o, locked, !old\)/);
   assert.match(ui, /LaiOrderFieldsUI\.collect\(form, root\.LaiOrderFields\.customFields\(state\(\)\)/);
-  assert.match(ui, /\$\{orderFieldsSection\(\)\}<section class="business-section theme-section">/);
+  assert.match(ui, /\$\{orderFieldsSection\(\)\}`\s*\+ card\("theme-section", "界面配色"/);
   for (const hook of ['click', 'change', 'submit']) assert.ok(ui.includes(`settingsExtra()?.${hook}(extraCtx(), e)`), hook);
 });
 

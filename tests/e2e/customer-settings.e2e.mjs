@@ -180,7 +180,7 @@ test('caps: a full owner cannot get another customer, and the message says why',
   const owned = Object.values(full).filter((c) => c.owner === 'Kris').length;
   await page.locator('input[name="defaultLimit"]').fill(String(owned));
   await page.locator('[data-cs-form="caps"] button[type=submit]').click();
-  await page.locator('.cs-table .cs-full').waitFor();
+  await page.locator('.k-table .cs-full').waitFor();
   assert.equal((await settings()).caps.defaultLimit, owned);
   await page.locator('.subnav .nav-row:has(.nav-label:text-is("客户列表"))').click();
   await page.locator('[data-action="create-menu"]').first().click();

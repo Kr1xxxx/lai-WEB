@@ -7,7 +7,8 @@
    类名一览：
    按钮      .k-btn  + .k-btn--primary | --secondary | --ghost | --danger ，尺寸 .k-btn--sm
    输入      .k-input  .k-textarea  .k-select-trigger（只管外观，和统一下拉 .lai-select-trigger 一样）
-   页签      .k-tabs > .k-tab（分段式；选中用 aria-selected="true" 或 .is-active）
+   页签      .k-tabs > .k-tab（分段式；选中用 aria-selected="true" 或 .is-active）；竖排分类 .k-tabs.k-tabs--vertical
+   开关      .k-switch（checkbox 画成开关）  勾选框 .k-checkbox
    表格      .k-table（一种表头、行悬停；数字列 .k-num 右对齐）  分页 .k-pager > button（当前页 aria-current="page"）
    卡片      .k-card  .k-card-head  .k-card-title  .k-card-desc  .k-card-body
    徽标      .k-badge + .k-badge--neutral | --success | --warning | --danger | --primary
@@ -150,5 +151,32 @@
 :root[data-skin] .k-pageheader-desc { min-width: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
 :root[data-skin] .k-pageheader-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 
+/* ---------- 竖排页签（设置类页面左边的分类：客户设置、产品、单据模板、目标数据……） ----------
+   .k-tabs.k-tabs--vertical > .k-tab：一列、左对齐、整行可点；选中项浅色底＋主色字（选中是「意义」，可以用主色）。 */
+:root[data-skin] .k-tabs--vertical { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0; background: transparent; }
+:root[data-skin] .k-tabs--vertical .k-tab { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 32px; min-height: 32px; padding: 0 10px; text-align: left; color: var(--fg); }
+:root[data-skin] .k-tabs--vertical .k-tab:hover:not(:disabled) { background: var(--muted-bg); color: var(--fg); }
+:root[data-skin] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active),
+:root[data-skin] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active):hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-fg); font-weight: 600; box-shadow: none; }
+
+/* ---------- 开关和勾选框 ----------
+   .k-switch：开／关两种状态的设置（功能开关、显示某块）；用在 <input type="checkbox" class="k-switch">，role="switch" 写在标记里。
+   .k-checkbox：多选里的一项（要显示的列、批量勾选）；外观沿用全应用统一的勾选框（skin-glass.css），这里只定大小。
+   选择器写成 input.k-switch：和 skin-glass.css 的 input[type="checkbox"] 一样强，本文件排在后面，所以开关不会被画成勾选框。 */
+:root[data-skin] input.k-checkbox { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
+:root[data-skin] input.k-checkbox:disabled { cursor: not-allowed; opacity: 0.5; }
+:root[data-skin] input.k-switch {
+  appearance: none; -webkit-appearance: none; position: relative; flex: none; box-sizing: border-box;
+  width: 32px; height: 18px; margin: 0; padding: 0; border: 0; border-radius: var(--radius-pill);
+  background: var(--input); cursor: pointer; transition: background-color var(--motion-fast) var(--ease-standard);
+}
+:root[data-skin] input.k-switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--card-bg); box-shadow: var(--shadow-1); transition: transform var(--motion-fast) var(--ease-standard);
+}
+:root[data-skin] input.k-switch:checked { background: var(--primary); }
+:root[data-skin] input.k-switch:checked::after { transform: translateX(14px); }
+:root[data-skin] input.k-switch:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ---------- 键盘焦点 ---------- */
-:root[data-skin] :is(.k-btn, .k-tab, .k-pager button, .k-select-trigger, .k-input, .k-textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+:root[data-skin] :is(.k-btn, .k-tab, .k-pager button, .k-select-trigger, .k-input, .k-textarea, .k-switch, .k-checkbox):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }

@@ -4,6 +4,17 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — Kit migration of the remaining pages (owner: 继续, restyle 邮件, 沟通, 团队数据 and the settings
+  pages). Advisor before the plan: add a shared vertical tab list and switch to the kit first (done: `.k-tabs--vertical`,
+  `.k-switch`, `.k-checkbox`; selectors are `input.k-*` so the glass checkbox rule does not win), keep the `cs-` family in
+  one slice, mail to the Fable specialist. Six slices in parallel worktrees (mail = specialist, others = workers); all
+  hit the usage limit once and resumed from saved work. Merged: 设置/功能开关/汇率设置, 团队数据 + 经营统计, 客户设置/产品/
+  单据模板 (shared `cs-` rules now also give 商机设置 and 订单字段 the kit look), 沟通, 企业管理, 邮件; plus the three
+  客户设置 drawers in app.js. Ratchet: business.css 111/53/78 → 45/21/33, mail.css 72/43/29 → 5/2/1, customer-settings.css
+  25/19/43 → 4/2/12, whatsapp.css 7/3/8 → 0/1/2. Census lower in every category. Known leftovers: 客户设置 drawers keep
+  their error at the top of the form; 从表格导入 keeps its file error in the body; 绑定邮箱 stays primary on the unbound
+  empty mail page; dead global rules (`.business-section` lists, `.money-summary`) wait for the S4 cleanup. 1.4.127
+  branch cancelled (owner).
 - 2026-10-17 — Claude (#06) — Data safety A1–A4 from the advisor's round-2 review: delta saves refuse removeAppState /
   non-object customers / undefined or type-changed blocks (400 incomplete_save, before backup and transaction); the page
   copies missing blocks back before saving and never sends removals; schema_version gate (newer DB not opened, nothing

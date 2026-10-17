@@ -160,7 +160,7 @@
     }
     function metricsMarkup(orders) {
       const m = B.orderMetrics(orders);
-      return `<div class="money-summary"><div class="section-head"><h3>金额概览</h3><span class="muted tiny">按币种分别统计 · 不含草稿</span></div><table class="order-table"><thead><tr><th>币种</th><th>订单数</th><th>订单金额</th><th>已收款</th><th>待收款</th></tr></thead><tbody>${m.byCurrency.map((c) => `<tr><td><span class="currency-badge">${E(c.currency)}</span></td><td>${c.count}</td><td>${money(c.total, c.currency)}</td><td>${money(c.paid, c.currency)}</td><td>${money(c.due, c.currency)}</td></tr>`).join("") || '<tr><td colspan="5">暂无订单金额</td></tr>'}</tbody></table></div>`;
+      return `<section class="k-card team-card"><div class="k-card-head"><h3 class="k-card-title">金额概览</h3><span class="k-card-desc">按币种分别统计 · 不含草稿</span></div><div class="k-card-body"><div class="team-table-scroll"><table class="k-table team-table"><thead><tr><th>币种</th><th class="k-num">订单数</th><th class="k-num">订单金额</th><th class="k-num">已收款</th><th class="k-num">待收款</th></tr></thead><tbody>${m.byCurrency.map((c) => `<tr><td><span class="k-badge k-badge--neutral">${E(c.currency)}</span></td><td class="k-num">${c.count}</td><td class="k-num">${money(c.total, c.currency)}</td><td class="k-num">${money(c.paid, c.currency)}</td><td class="k-num">${money(c.due, c.currency)}</td></tr>`).join("") || '<tr><td colspan="5" class="team-none">暂无订单金额</td></tr>'}</tbody></table></div></div></section>`;
     }
     // 工作台：所有配色都用 src/workbench.js 的版面（今天先做、钱和目标、订单线、商机、客户来消息）。
     let wbMail = null,
@@ -279,28 +279,15 @@
     function renderAnalysis() {
       const analysis = B.monthlyAnalysis(activeOrders(), month),
         orders = analysis.orders;
-      return (
-        header(
-          "经营统计",
-          "订单与客户贡献按币种展示",
-          `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`,
-        ) +
-        `<div class="business-scroll">${metricsMarkup(orders)}<div class="business-columns"><section class="business-section"><div class="section-head"><h3>订单阶段分布</h3></div><div class="stage-bars">${analysis.stages
-          .map(
-            (s) =>
-              `<div><span>${s.label}</span><div><i style="width:${s.percent}%"></i></div><b>${s.count}</b></div>`,
-          )
-          .join(
-            "",
-          )}</div></section><section class="business-section"><div class="section-head"><h3>客户贡献</h3><span class="muted tiny">按币种分组，再按金额排序</span></div><table class="order-table fit-table"><thead><tr><th>客户</th><th>订单数</th><th>订单金额</th></tr></thead><tbody>${
-          analysis.contributions
-            .slice(0, 15)
-            .map(
-              (c) =>
-                `<tr><td>${customerButton(c.client)}</td><td>${c.count}</td><td>${money(c.amount, c.currency)}</td></tr>`,
-            )
-            .join("") || '<tr><td colspan="3">本月暂无订单</td></tr>'
-        }</tbody></table></section></div></div>`
+      // 外观用组件套件（D-028）：卡片、表格、徽标；横条和两栏排版在 business.css「团队数据」一节。
+      const stages = analysis.stages.map((s) => `<div><span>${s.label}</span><div><i style="width:${s.percent}%"></i></div><b>${s.count}</b></div>`).join("");
+      const rows = analysis.contributions
+        .slice(0, 15)
+        .map((c) => `<tr><td>${customerButton(c.client)}</td><td class="k-num">${c.count}</td><td class="k-num">${money(c.amount, c.currency)}</td></tr>`)
+        .join("") || '<tr><td colspan="3" class="team-none">本月暂无订单</td></tr>';
+      return teamPage(
+        kitHeader("经营统计", "订单与客户贡献按币种展示", monthInput()),
+        `<div class="team-body">${metricsMarkup(orders)}<div class="team-columns"><section class="k-card team-card"><div class="k-card-head"><h3 class="k-card-title">订单阶段分布</h3></div><div class="k-card-body"><div class="team-bars team-stage-bars">${stages}</div></div></section><section class="k-card team-card"><div class="k-card-head"><h3 class="k-card-title">客户贡献</h3><span class="k-card-desc">按币种分组，再按金额排序</span></div><div class="k-card-body"><table class="k-table team-table team-fit"><thead><tr><th>客户</th><th class="k-num">订单数</th><th class="k-num">订单金额</th></tr></thead><tbody>${rows}</tbody></table></div></section></div></div>`,
       );
     }
     // 团队数据按账号的可见范围算：本人只算自己的，本部门算本部门成员的，全公司不变。看不到的数据连明细里都不会有。
@@ -320,41 +307,33 @@
     function renderTeam(kind) {
       teamReport = root.LaiTeamModel.report(kind, teamState(), month);
       if (teamNote()) teamReport.scopeNote = teamNote();
-      return (
-        header(
-          teamReport.title,
-          "按跟进人名称汇总 · 数字可点开看明细",
-          `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`,
-        ) + TU().markup(teamReport)
-      );
+      return teamPage(kitHeader(teamReport.title, "按跟进人名称汇总 · 数字可点开看明细", monthInput()), TU().markup(teamReport));
     }
     // 目标完成情况 / 团队墙：页签、展示方式、列显示与排序只是界面状态，不保存。
     const teamView = { period: "month", tab: "result", mode: "rank", showTarget: true, showRate: true, sort: null, wallSort: null };
     let teamOverview = null;
-    const monthInput = () => `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`;
+    // 团队数据和经营统计的页面：组件套件的页头＋内容，整页一起滚动（排版在 business.css「团队数据」一节）。
+    const teamPage = (head, body) => `<div class="team-page">${head}${body}</div>`;
+    // 月份框仍是统一的日期框（date-picker.js 把 class 带到看得见的框上），外观是 k-input。
+    // 团队数据各页用套件输入框（k-input team-month）；商机分析的页头还是旧版，传 false 保持原样，否则 k-input 的 100% 宽会压住页签。
+    const monthInput = (kit = true) => `<input type="month" id="biz-month"${kit ? ' class="k-input team-month"' : ""} value="${month}" aria-label="统计月份">`;
     // 周期：按月看所选月份，按季度看所选月份所在的自然季度。
     const periodKey = () => (teamView.period === "quarter" ? root.LaiTeamModel.quarterOf(month) : month);
     const periodSwitch = () =>
-      `<span class="team-segment team-period" role="group" aria-label="统计周期"><button type="button" data-team-period="month" aria-pressed="${teamView.period !== "quarter"}">按月</button><button type="button" data-team-period="quarter" aria-pressed="${teamView.period === "quarter"}">按季度</button></span>`;
-    const targetsButton = () => (can("team.targets") ? '<button type="button" data-lai-route="team-targets">目标设置</button>' : "");
+      `<span class="k-tabs team-period" role="group" aria-label="统计周期">${[["month", "按月"], ["quarter", "按季度"]].map(([key, label]) => { const on = key === "quarter" ? teamView.period === "quarter" : teamView.period !== "quarter"; return `<button type="button" class="k-tab${on ? " is-active" : ""}" data-team-period="${key}" aria-pressed="${on}">${label}</button>`; }).join("")}</span>`;
+    const targetsButton = () => (can("team.targets") ? '<button type="button" class="k-btn" data-lai-route="team-targets">目标设置</button>' : "");
     function renderGoals() {
       teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
-      return (
-        header(
-          "目标完成情况",
-          `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}<span class="team-scope">${teamNote() ? "我的数据" : "我的企业"}</span>${targetsButton()}`,
-        ) + TU().goalsMarkup(teamOverview, teamView)
+      return teamPage(
+        kitHeader("目标完成情况", `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`, `${periodSwitch()}${monthInput()}<span class="team-scope">${teamNote() ? "我的数据" : "我的企业"}</span>${targetsButton()}`),
+        TU().goalsMarkup(teamOverview, teamView),
       );
     }
     function renderWall() {
       teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
-      return (
-        header(
-          "团队墙",
-          `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}${targetsButton()}<button type="button" data-team-refresh="1">刷新</button>`,
-        ) + TU().wallMarkup(teamOverview, teamView, B.localDate())
+      return teamPage(
+        kitHeader("团队墙", `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`, `${periodSwitch()}${monthInput()}${targetsButton()}<button type="button" class="k-btn" data-team-refresh="1">刷新</button>`),
+        TU().wallMarkup(teamOverview, teamView, B.localDate()),
       );
     }
     const nextSort = (current, id) => ({ id, dir: current?.id === id && current.dir !== "asc" ? "asc" : "desc" });
@@ -391,12 +370,9 @@
     let armedTarget = "";
     function renderTargets() {
       const T = root.LaiTeamModel;
-      return (
-        header(
-          "目标管理",
-          "按周期、对象、指标保存的目标值",
-          `${monthInput()}${can("team.targets") ? '<button type="button" class="primary" data-team-target="new">新建目标</button>' : ""}`,
-        ) + TU().targetsMarkup(T.listTargets(teamState()), T.periodLabel, armedTarget)
+      return teamPage(
+        kitHeader("目标管理", "按周期、对象、指标保存的目标值", `${monthInput()}${can("team.targets") ? '<button type="button" class="k-btn k-btn--primary" data-team-target="new">新建目标</button>' : ""}`),
+        TU().targetsMarkup(T.listTargets(teamState()), T.periodLabel, armedTarget),
       );
     }
     // 设置目标表单：币种只在金额类指标时出现，成员只在对象选「成员」时出现；收起来的栏位不参与提交。
@@ -413,6 +389,16 @@
       }
     }
     let targetFormKey = "team.targets";
+    // 团队数据的抽屉（设置目标、统计规则、数字明细）用组件套件的壳：k-drawer、k-dialog-head、k-dialog-foot，和客户编辑抽屉一样。
+    function teamDialog(title, body, footer, type) {
+      ctx.dialog(title, body, footer, type);
+      const box = document.querySelector?.("#overlay-root .drawer");
+      if (!box) return;
+      box.classList.add("k-drawer", "team-drawer");
+      box.querySelector(".drawer-head")?.classList.add("k-dialog-head");
+      box.querySelector(".drawer-footer")?.classList.add("k-dialog-foot");
+      for (const button of box.querySelectorAll(".drawer-head button")) button.classList.add("k-btn", "k-btn--ghost", "k-btn--sm");
+    }
     function showTargetForm(metric) {
       // 目标管理页要“目标管理”，目标完成情况里设置目标值要“编辑目标值”。
       targetFormKey = route === "team-targets" ? "team.targets" : "team.goalEdit";
@@ -423,7 +409,7 @@
       const quarter = T.quarterOf(month);
       // 修改已有的企业目标时带出原来的数值；金额有多个币种时带出第一个。
       const existing = Object.hasOwn(overview.goals, metric) ? overview.goals[metric][0] : null;
-      ctx.dialog(
+      teamDialog(
         "设置目标",
         TU().targetFormMarkup(overview, {
           metric,
@@ -435,7 +421,7 @@
             { key: quarter, label: T.periodLabel(quarter) },
           ],
         }),
-        '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="biz-target-form">保存目标</button>',
+        `${footError("biz-target-error", "k-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button><button class="k-btn k-btn--primary" type="submit" form="biz-target-form">保存目标</button>`,
         "team-target",
       );
     }
@@ -470,10 +456,10 @@
     function showTeamRule(id) {
       if (!teamOverview || !Object.hasOwn(TU().columns, id)) return;
       const column = TU().columns[id];
-      ctx.dialog(
+      teamDialog(
         `${E(column.label)} · 统计规则`,
-        `<div class="drawer-body"><p>${E(teamOverview.rules[id])}</p></div>`,
-        '<button class="primary" data-action="close-modal">知道了</button>',
+        `<div class="k-dialog-body team-rule"><p>${E(teamOverview.rules[id])}</p></div>`,
+        '<button class="k-btn k-btn--primary" data-action="close-modal">知道了</button>',
         "team-rule",
       );
     }
@@ -535,7 +521,7 @@
         header(
           "商机分析",
           `${E(label)} · 按商机创建时间统计`,
-          `${OU().analysisControls(report)}<span class="k-tabs opp-range-tabs" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput() : ""}`,
+          `${OU().analysisControls(report)}<span class="k-tabs opp-range-tabs" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput(false) : ""}`,
         ) + OU().analysisMarkup(report)
       );
     }
@@ -1151,7 +1137,17 @@
     let prodDraft = null;
     let syncDraft = null;
     function renderProducts() {
-      return header("产品", "你卖的产品：分组、字段、规格都在这里设置", "") + `<div class="business-scroll">${PU().pageMarkup(state(), prodView)}</div>`;
+      return kitHeader("产品", "你卖的产品：分组、字段、规格都在这里设置") + `<div class="business-scroll">${PU().pageMarkup(state(), prodView)}</div>`;
+    }
+    // 产品、单据的抽屉用组件套件的壳（D-028）：k-drawer、k-dialog-head、k-dialog-foot，右上角关闭是幽灵按钮。
+    // 抽屉本身由 app.js 的 drawer 画（ctx.dialog），这里只在画好后加上套件的类；cls 是这个抽屉自己的宽度类。
+    function kitShell(cls) {
+      const box = document.querySelector("#overlay-root .drawer");
+      if (!box) return;
+      box.classList.add("k-drawer", "prod-drawer", ...(cls ? [cls] : []));
+      box.querySelector(".drawer-head")?.classList.add("k-dialog-head");
+      box.querySelector(".drawer-footer")?.classList.add("k-dialog-foot");
+      for (const close of box.querySelectorAll(".drawer-head button")) close.classList.add("k-btn", "k-btn--ghost", "k-btn--sm");
     }
     function prodSave(makeNext, after) {
       const box = document.getElementById("prod-error");
@@ -1166,12 +1162,14 @@
       const old = id === undefined ? null : PM().find(state(), id);
       if (id !== undefined && !old) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
       prodDraft = { id: old ? old.id : undefined };
-      ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), `${footError("product-error")}<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="product-form">保存产品</button>`, "business-product");
+      ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), `${footError("product-error", "k-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button><button class="k-btn k-btn--primary" type="submit" form="product-form">保存产品</button>`, "business-product");
+      kitShell();
     }
     function openProductDetail(id) {
       const product = PM().find(state(), id);
       if (!product) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
-      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" data-action="close-modal">关闭</button>${can("product.edit") ? `<button class="primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>` : ""}`, "business-product");
+      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" class="k-btn" data-action="close-modal">关闭</button>${can("product.edit") ? `<button class="k-btn k-btn--primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>` : ""}`, "business-product");
+      kitShell();
     }
     // ---- 从表格同步：选文件 → 预览 → 确认 → 记一条任务（可撤销）----
     function syncRefresh() {
@@ -1184,7 +1182,7 @@
     function openSyncDialog() {
       syncDraft = { fileName: "", mode: "code", records: null, plan: null, ignored: [], hidden: [], error: "" };
       ctx.dialog("从表格导入产品", PU().syncMarkup(state(), syncDraft), PU().syncFooter(syncDraft), "business-product-sync");
-      document.querySelector("#overlay-root .drawer")?.classList.add("prod-sync-dialog");
+      kitShell("prod-sync-dialog");
     }
     async function readSyncFile(file) {
       if (!syncDraft || !need("product.sync")) return;
@@ -1389,7 +1387,7 @@
       // 只看本人或本部门的账号：单据记录里只列来源订单／商机归自己的（只用来画页面，编号规则等仍按完整数据）。
       const full = state(),
         shown = RM() && RM().scopeOf(full) !== "all" ? { ...full, laiVisibleDocIds: DM().visibleDocumentIds(full, sees) } : full;
-      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(shown, { ...docView, date: docToday() })}</div>`;
+      return kitHeader("单据模板", "报价单、形式发票等长什么样，在这里设置并预览") + `<div class="business-scroll">${DU().pageMarkup(shown, { ...docView, date: docToday() })}</div>`;
     }
     function docPrint(type) {
       return printDocument(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
@@ -1417,7 +1415,7 @@
     // 单据看不看得到：全公司都看得到；只看本人或本部门的账号，看来源订单／商机的负责人看不看得到。
     const docVisible = (doc) => !RM() || RM().scopeOf(state()) === "all" || sees(DM().ownerOfDocument(state(), doc));
     // 作废按钮：要有“作废单据”权限，已作废的不再显示。
-    const docVoidButton = (doc) => (doc.status === "已作废" || !can("doc.void") ? "" : button("docrec-void", "作废", `data-id="${E(doc.id)}"`));
+    const docVoidButton = (doc) => (doc.status === "已作废" || !can("doc.void") ? "" : kitButton("docrec-void", "作废", `data-id="${E(doc.id)}"`, "k-btn--danger k-btn--sm"));
     function viewDoc(id) {
       const doc = DM().getDocument(state(), id);
       if (!doc) return ctx.toast("找不到这张单据");
@@ -1426,10 +1424,11 @@
       const voided = doc.status === "已作废";
       ctx.dialog(
         E(`${doc.snapshot.typeName} ${doc.number}`),
-        `<div class="drawer-body doc-view">${DU().paperMarkup(doc)}</div>`,
-        `<button type="button" data-action="close-modal">关闭</button>${docVoidButton(doc)}${voided ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, true)}`,
+        `<div class="drawer-body k-dialog-body doc-view">${DU().paperMarkup(doc)}</div>`,
+        `<button type="button" class="k-btn" data-action="close-modal">关闭</button>${docVoidButton(doc)}${voided ? "" : kitButton("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, "k-btn--primary")}`,
         "doc-view",
       );
+      kitShell("doc-view-drawer");
     }
     // 在订单／商机里看到的单据也能作废（不用先去单据模板页）：第一次点要再点一次确认。
     function docVoidAction(id) {
@@ -1553,10 +1552,10 @@
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
       if (!found) return;
-      ctx.dialog(
+      teamDialog(
         E(found.label),
         TU().detailMarkup(found.items),
-        '<button class="primary" data-action="close-modal">关闭</button>',
+        '<button class="k-btn k-btn--primary" data-action="close-modal">关闭</button>',
         "team-detail",
       );
     }
@@ -1576,8 +1575,8 @@
     function companySection() {
       if (!DM()) return "";
       const co = DM().settings(state()),
-        field = (kind, [key, label], values) => `<label class="field">${E(label)}<input name="${kind}:${key}" value="${E(values[key])}" maxlength="${DM().LIMITS.line}" autocomplete="off"></label>`;
-      return `<div class="section-head" data-company-section><h3>公司资料</h3><span class="muted tiny">报价单、形式发票等单据都用这里的资料；在“单据模板 → 公司信息”里看到的是同一份</span></div><div class="form-grid">${DM().COMPANY_FIELDS.map((f) => field("company", f, co.company)).join("")}${DM().BANK_FIELDS.map((f) => field("bank", f, co.bank)).join("")}</div>`;
+        field = (kind, [key, label], values) => `<label class="st-field"><span class="st-label">${E(label)}</span><input class="k-input" name="${kind}:${key}" value="${E(values[key])}" maxlength="${DM().LIMITS.line}" autocomplete="off"></label>`;
+      return `<section class="k-card st-card" data-company-section><div class="k-card-head st-head"><h3 class="k-card-title">公司资料</h3><p class="k-card-desc">报价单、形式发票等单据都用这里的资料；在“单据模板 → 公司信息”里看到的是同一份</p></div><div class="k-card-body st-grid">${DM().COMPANY_FIELDS.map((f) => field("company", f, co.company)).join("")}${DM().BANK_FIELDS.map((f) => field("bank", f, co.bank)).join("")}</div></section>`;
     }
     // 设置页里的「订单字段」一节：数据规则在 order-fields-model.js，页面在 order-fields-ui.js。
     const orderFieldsSection = () => (root.LaiOrderFieldsUI && root.LaiOrderFields && can("settings.general") ? root.LaiOrderFieldsUI.settingsMarkup(extraCtx()) : "");
@@ -1586,10 +1585,24 @@
     function renderSettings() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
-        currentTheme = THEME_CHOICES.some(([id]) => id === savedTheme(settings)) ? savedTheme(settings) : DEFAULT_THEME;
+        currentTheme = THEME_CHOICES.some(([id]) => id === savedTheme(settings)) ? savedTheme(settings) : DEFAULT_THEME,
+        currency = settings.defaultCurrency || old.defaultCurrency || "USD";
+      // 组件套件（D-028）：每一块是一张 k-card（标题＋一句说明），表单两列、标签在框上面；和设置中心同一种样子。
+      const card = (cls, title, desc, body, attrs = "") =>
+        `<section class="k-card st-card${cls ? " " + cls : ""}"${attrs}><div class="k-card-head st-head"><h3 class="k-card-title">${title}</h3>${desc}</div><div class="k-card-body">${body}</div></section>`;
+      const desc = (text) => `<p class="k-card-desc">${text}</p>`;
+      const defaults = `<section class="k-card st-card" data-settings-card="defaults"><div class="k-card-head st-head"><h3 class="k-card-title">默认录入</h3></div><div class="k-card-body st-grid">`
+        + `<label class="st-field"><span class="st-label">订单编号前缀${REQ}</span><input class="k-input" name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label>`
+        + `<label class="st-field"><span class="st-label">默认币种</span><select name="defaultCurrency">${currencyChoices(currency).map((c) => option(c, c, currency)).join("")}</select></label>`
+        + `<label class="st-field"><span class="st-label">默认跟进人</span><input class="k-input" name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="st-hint" data-settings-hint="defaultOwner">新建客户、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div></section>`;
+      const themes = `<div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state k-badge${currentTheme === id ? " k-badge--primary" : ""}">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="st-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p>`;
+      const local = `<p class="st-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="st-actions st-actions--start">${kitButton("backup", "立即备份")}</div><div id="biz-backup-status" class="st-hint" role="status"></div><div class="restore-history"><div class="restore-history-head"><h4>备份记录</h4><span class="muted tiny">可以把数据恢复到其中一份；恢复前会先把现在的数据另存一份</span></div><div id="biz-restore-list">${backupListMarkup()}</div></div>`;
       return (
-        header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section local-data-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="restore-history"><div class="restore-history-head"><h4>备份记录</h4><span class="muted tiny">可以把数据恢复到其中一份；恢复前会先把现在的数据另存一份</span></div><div id="biz-restore-list">${backupListMarkup()}</div></div></section></div>`
+        kitHeader("设置", "来财的默认录入与本地数据管理", "", "sh-header") +
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="st-form" novalidate data-form-check>${defaults}${companySection()}<div class="st-actions"><div class="k-error" id="biz-settings-error" role="alert" data-form-error></div>${kitButton("discard-settings", "取消修改")}<button class="k-btn k-btn--primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}`
+        + card("theme-section", "界面配色", desc("选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝"), themes)
+        + card("local-data-section", "本地数据", '<span class="k-badge k-badge--success st-head-badge">来财独立存储</span>', local)
+        + `</div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -1622,27 +1635,40 @@
     function renderRoles() {
       const title = roleView.edit ? (RM().settings(state()).roles.find((r) => r.id === roleView.edit)?.locked ? "查看角色" : "编辑角色") : "角色权限";
       const description = roleView.edit ? "勾选这个角色能做的事" : "设置每个角色能看什么、能做什么";
-      if (!RM().can(state(), "settings.roles")) return header("角色权限", description) + RU().deniedMarkup();
-      if (roleView.edit) return header(title, description) + RU().editMarkup(state(), roleView.edit, roleDraft(roleView.edit));
-      return header(title, description, '<button type="button" class="primary" data-role-action="add">新增角色</button>') + RU().rolesMarkup(state(), { armed: roleView.armed });
+      if (!RM().can(state(), "settings.roles")) return kitHeader("角色权限", description) + RU().deniedMarkup();
+      if (roleView.edit) return kitHeader(title, description) + RU().editMarkup(state(), roleView.edit, roleDraft(roleView.edit));
+      return kitHeader(title, description, '<button type="button" class="k-btn k-btn--primary" data-role-action="add">新增角色</button>') + RU().rolesMarkup(state(), { armed: roleView.armed });
     }
     function renderMembers() {
       const description = "测试账号：切换后看到的就是这个角色能看的内容";
-      if (!RM().can(state(), "settings.roles")) return header("成员管理", description) + RU().deniedMarkup();
-      return header("成员管理", description, '<button type="button" class="primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter, dept: roleView.dept, armedDept: roleView.armedDept });
+      if (!RM().can(state(), "settings.roles")) return kitHeader("成员管理", description) + RU().deniedMarkup();
+      return kitHeader("成员管理", description, '<button type="button" class="k-btn k-btn--primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter, dept: roleView.dept, armedDept: roleView.armedDept });
+    }
+    // 企业管理的窗口：app.js 生成的 .drawer 外壳换成组件套件的居中窗口（k-dialog、k-dialog-head、k-dialog-foot，关闭是幽灵按钮）；
+    // 出错的字写在底栏按钮左边的 .k-error（id 不变，saveNext 按 id 找它）。
+    const roleError = (id) => `<div class="k-error" id="${id}" role="alert"></div>`;
+    const roleSubmitButton = (form, text) => `<button class="k-btn k-btn--primary" type="submit" form="${form}">${text}</button>`;
+    function roleDialog(title, body, foot, type) {
+      ctx.dialog(title, body, foot, type);
+      const box = globalThis.document?.querySelector?.("#overlay-root .drawer");
+      if (!box) return;
+      box.classList.add("k-dialog", "role-dialog");
+      box.querySelector(".drawer-head")?.classList.add("k-dialog-head");
+      box.querySelector(".drawer-footer")?.classList.add("k-dialog-foot");
+      box.querySelector('.drawer-head [data-action="close-modal"]')?.classList.add("k-btn", "k-btn--ghost", "k-btn--sm");
     }
     function roleClick(d) {
       const action = d.roleAction;
       if (action !== "delete") roleView.armed = "";
       if (action !== "member-delete") roleView.armedMember = "";
       if (action !== "dept-delete") roleView.armedDept = "";
-      const cancel = '<button type="button" data-action="close-modal">取消</button>';
-      if (action === "add") return ctx.dialog("新增角色", RU().addRoleMarkup(state()), cancel + '<button class="primary" type="submit" form="role-add-form">新增</button>', "role-add");
-      if (action === "member-add") return ctx.dialog("添加成员", RU().addMemberMarkup(state(), { deptId: pickedDept() }), cancel + '<button class="primary" type="submit" form="member-add-form">添加</button>', "member-add");
+      const cancel = '<button type="button" class="k-btn" data-action="close-modal">取消</button>';
+      if (action === "add") return roleDialog("新增角色", RU().addRoleMarkup(state()), roleError("role-add-error") + cancel + roleSubmitButton("role-add-form", "新增"), "role-add");
+      if (action === "member-add") return roleDialog("添加成员", RU().addMemberMarkup(state(), { deptId: pickedDept() }), roleError("member-add-error") + cancel + roleSubmitButton("member-add-form", "添加"), "member-add");
       if (action === "rename") {
         const member = RM().settings(state()).members.find((m) => m.id === d.id);
         if (!member) return ctx.toast("没有找到这位成员，请刷新后重试");
-        return ctx.dialog("改名", RU().renameMarkup(member), cancel + '<button class="primary" type="submit" form="member-rename-form">保存</button>', "member-rename");
+        return roleDialog("改名", RU().renameMarkup(member), roleError("member-rename-error") + cancel + roleSubmitButton("member-rename-form", "保存"), "member-rename");
       }
       if (action === "edit") {
         roleView.edit = d.id;
@@ -1666,11 +1692,11 @@
         roleView.dept = d.id || "";
         return render();
       }
-      if (action === "dept-add") return ctx.dialog("新建部门", RU().deptAddMarkup(state(), pickedDept()), cancel + '<button class="primary" type="submit" form="dept-add-form">新建</button>', "dept-add");
+      if (action === "dept-add") return roleDialog("新建部门", RU().deptAddMarkup(state(), pickedDept()), roleError("dept-add-error") + cancel + roleSubmitButton("dept-add-form", "新建"), "dept-add");
       if (action === "dept-rename") {
         const dept = RM().deptTree(state()).find((x) => x.id === d.id);
         if (!dept) return ctx.toast("没有找到这个部门，请刷新后重试");
-        return ctx.dialog("部门改名", RU().deptRenameMarkup(dept), cancel + '<button class="primary" type="submit" form="dept-rename-form">保存</button>', "dept-rename");
+        return roleDialog("部门改名", RU().deptRenameMarkup(dept), roleError("dept-rename-error") + cancel + roleSubmitButton("dept-rename-form", "保存"), "dept-rename");
       }
       if (action === "dept-delete") {
         if (roleView.armedDept !== d.id) {
@@ -1719,14 +1745,14 @@
       if (!role) return;
       const readOnly = !!role.locked,
         draft = roleDraft(role.id),
-        close = '<button type="button" data-action="close-modal">关闭</button>';
+        close = '<button type="button" class="k-btn" data-action="close-modal">关闭</button>';
       if (action === "layouts") {
         const body = RU().layoutMarkup(state(), draft.layouts.product || {}, { readOnly });
-        return ctx.dialog("设置布局权限", body, readOnly ? close : cancel + '<button class="primary" type="submit" form="role-layout-form">确定</button>', "role-layouts");
+        return roleDialog("设置布局权限", body, roleError("role-layout-error") + (readOnly ? close : cancel + roleSubmitButton("role-layout-form", "确定")), "role-layouts");
       }
       const name = (RM().FIELD_MODULES.find(([id]) => id === module) || [])[1] || "";
       const has = (root.LaiRoleFields?.list?.(state(), module) || []).length > 0;
-      ctx.dialog(`${name}字段权限`, RU().fieldsMarkup(state(), module, draft.fields[module] || {}, { readOnly }), readOnly || !has ? close : cancel + '<button class="primary" type="submit" form="role-fields-form">确定</button>', "role-fields");
+      roleDialog(`${name}字段权限`, RU().fieldsMarkup(state(), module, draft.fields[module] || {}, { readOnly }), readOnly || !has ? close : cancel + roleSubmitButton("role-fields-form", "确定"), "role-fields");
     }
     function showLimitTags() {
       const draft = roleView.draft;

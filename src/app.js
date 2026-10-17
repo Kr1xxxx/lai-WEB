@@ -5037,16 +5037,24 @@
       return false;
     }
   }
+  // 客户设置的小抽屉（分组、公海规则、常用语）用组件套件的壳（D-028）：k-drawer、k-dialog-head、k-dialog-foot，关闭是幽灵按钮。
+  function csKitShell() {
+    $(".drawer").classList.add("k-drawer");
+    $(".drawer-head").classList.add("k-dialog-head");
+    $(".drawer-footer").classList.add("k-dialog-foot");
+    for (const button of $(".drawer-head").querySelectorAll("button")) button.classList.add("k-btn", "k-btn--ghost");
+  }
   function csGroupDrawer(spec, pointerActivated) {
     const isChild = !!spec.id && !CSM.get(state).groups.some((g) => g.id === spec.id);
     const title = spec.id ? (isChild ? "改子分组名称" : "编辑分组") : spec.parentId ? "新建子分组" : "新建分组";
     drawer(
       title,
       window.LaiCustomerSettingsUI.groupForm(state, spec, ownerChoices(), E),
-      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="cs-group-form" class="primary">保存</button>`,
+      `<button type="button" class="k-btn" data-action="close-modal">取消</button><button type="submit" form="cs-group-form" class="k-btn k-btn--primary">保存</button>`,
       "actions",
       pointerActivated,
     );
+    csKitShell();
   }
   // 公海管理里每一小节单独保存：在现有设置上改几项，整份交给 CT.setPoolRules 检查。
   const csPoolSave = (patch, ...rest) => csSave(() => CT.setPoolRules(state, { ...CT.poolRules(state), ...patch(CT.poolRules(state)) }), ...rest);
@@ -5056,19 +5064,21 @@
     drawer(
       id ? "编辑规则" : "新建规则",
       window.LaiCustomerSettingsUI.ruleForm(state, id, E),
-      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="cs-rule-form" class="primary">保存</button>`,
+      `<button type="button" class="k-btn" data-action="close-modal">取消</button><button type="submit" form="cs-rule-form" class="k-btn k-btn--primary">保存</button>`,
       "actions",
       pointerActivated,
     );
+    csKitShell();
   }
   function csTplDrawer(spec, pointerActivated) {
     drawer(
       spec.itemId ? "编辑常用语" : "添加常用语",
       window.LaiCustomerSettingsUI.tplForm(state, spec, E),
-      `<button type="button" data-action="close-modal">取消</button><button type="submit" form="cs-tpl-form" class="primary">保存</button>`,
+      `<button type="button" class="k-btn" data-action="close-modal">取消</button><button type="submit" form="cs-tpl-form" class="k-btn k-btn--primary">保存</button>`,
       "actions",
       pointerActivated,
     );
+    csKitShell();
   }
   function csClick(el, e) {
     const d = el.dataset;

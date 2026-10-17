@@ -61,7 +61,7 @@ test("the app's forms check themselves and say what is required", () => {
   for (const id of ["biz-order-error", "opp-error", "product-error"])
     assert.match(app, new RegExp(`footError\\("${id}"[,)]`), `${id} sits in the drawer footer`);
   assert.match(read("src/opportunity-ui.js"), /id="opp-form" novalidate data-form-check>/);
-  assert.match(read("src/product-ui.js"), /id="product-form" class="drawer-body cs-group-form" novalidate data-form-check>/);
+  assert.match(read("src/product-ui.js"), /id="product-form" class="drawer-body k-dialog-body cs-group-form" novalidate data-form-check>/);
   const editor = read("src/customer-editor-ui.js");
   assert.match(editor, /id="customer-form"[^>]*novalidate data-form-check>/);
   assert.match(editor, /<div class="error form-foot-error k-error" id="form-error" role="alert" data-form-error><\/div><div class="ce-footer-actions">/);

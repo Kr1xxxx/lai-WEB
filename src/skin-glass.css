@@ -168,18 +168,6 @@
 :root[data-skin="glass"] .tag { color: #a3433b; }
 :root[data-skin="glass"] .tag.green { color: #1f6f52; }
 :root[data-skin="glass"] .new-badge { background: #25773f; }
-:root[data-skin="glass"] .team-rank-1 { background: #966300; }
-
-/* ===== 只有底线或分隔线的控件：不要被全局按钮样式加上圆角和灰色边框 =====
-   标签页（结果目标/过程目标/商机目标）、“新建目标”格子原来只有一两边的线、没有圆角，
-   全局的“按钮 8px 圆角 + 淡灰边框”会把它们变成带灰弧线的小圆片。这里还原。 */
-:root[data-skin="glass"] :is(.team-tabs button, .team-goal-new) { border-radius: 0; }
-:root[data-skin="glass"] .team-tabs button,
-:root[data-skin="glass"] .team-tabs button:hover:not(:disabled) { border-color: transparent; }
-:root[data-skin="glass"] .team-tabs button[aria-selected="true"],
-:root[data-skin="glass"] .team-tabs button[aria-selected="true"]:hover:not(:disabled) { border-color: transparent transparent var(--brand-700); }
-:root[data-skin="glass"] .team-goal-new,
-:root[data-skin="glass"] .team-goal-new:hover:not(:disabled) { border-color: var(--ink-200); }
 
 /* 订单、商机表单：停靠在右侧，不挡住列表（窄窗口 340、宽窗口最多 400）。卡片的外观（组件套件的抽屉）在 business.css「kit: 订单表单与商机详情」 */
 :root[data-skin="glass"]:has(#biz-order-form), :root[data-skin="glass"]:has(#opp-form) { --dock-w: clamp(340px, 26vw, 400px); }
@@ -306,4 +294,3 @@
 /* 商机卡片的「⋮」菜单：深海军蓝小卡片 */
 /* 写死过暖色（偏粉的灰、棕红）的几处，换成冷灰 */
 :root[data-skin="glass"][data-theme="tech"] .tag { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-200); }
-:root[data-skin="glass"][data-theme="tech"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }

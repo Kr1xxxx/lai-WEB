@@ -19,7 +19,7 @@ const products = async () => (await app.readData()).laiProducts || [];
 
 test('the 产品 entry sits under 交易 and starts empty', async () => {
   const { page } = app;
-  assert.equal(await page.locator('.cs-empty').first().innerText().then((t) => t.includes('还没有产品')), true);
+  assert.equal(await page.locator('.cs-panel .k-empty').first().innerText().then((t) => t.includes('还没有产品')), true);
   assert.deepEqual(await page.locator('[data-prod-tab]').allInnerTexts(), ['产品列表', '产品分组', '导入产品', '产品字段', '规格管理', '布局']);
 });
 
@@ -96,7 +96,7 @@ test('search, edit, delete (two clicks) and reload keep the data', async () => {
   await page.locator('#prod-search').press('Enter');
   await page.locator('#prod-search').blur();
   await settle();
-  assert.equal(await page.locator('.cs-table tbody tr').count(), 1);
+  assert.equal(await page.locator('.cs-panel .k-table tbody tr').count(), 1);
   await page.locator('[data-prod-action="delete"]').click();
   await settle();
   assert.equal((await products()).length, 2, 'first click only arms the delete');
@@ -106,6 +106,6 @@ test('search, edit, delete (two clicks) and reload keep the data', async () => {
   await app.page.reload();
   await app.page.waitForLoadState('networkidle');
   await openProducts();
-  assert.equal(await page.locator('.cs-table tbody tr').count(), 1);
+  assert.equal(await page.locator('.cs-panel .k-table tbody tr').count(), 1);
   assert.deepEqual(app.errors, []);
 });

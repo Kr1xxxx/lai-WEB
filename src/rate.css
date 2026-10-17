@@ -1,55 +1,21 @@
-/* 交易 › 汇率设置：汇率表、新增表单、说明。只用主题变量，三套主题通用。 */
-.rate-page .rate-table {
-  table-layout: fixed;
-}
-.rate-page .rate-table td,
-.rate-page .rate-table th {
-  white-space: nowrap;
-}
-.rate-page .rate-table th:nth-child(1) {
-  width: 14%;
-}
-.rate-page .rate-table th:nth-child(2) {
-  width: 22%;
-}
-.rate-page .rate-table th:nth-child(3),
-.rate-page .rate-table th:nth-child(4) {
-  width: 18%;
-}
-.rate-page .rate-table td:nth-child(2),
-.rate-page .rate-table td:nth-child(3) {
-  font-variant-numeric: tabular-nums;
-}
-.rate-page .rate-actions {
-  display: flex;
-  gap: 8px;
-}
-.rate-page .rate-actions button.danger {
-  color: var(--color-danger);
-  border-color: var(--color-danger);
-}
-.rate-page .rate-input {
-  width: min(140px, 100%);
-}
-.rate-page .rate-missing td {
-  color: var(--muted);
-}
-.rate-page .rate-add {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-  margin-top: 16px;
-}
-.rate-page .rate-add .field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 160px;
-}
-.rate-page .rate-add input[name="code"] {
-  text-transform: uppercase;
-}
-.rate-page .rate-note {
-  margin-top: 12px;
-}
+/* 交易 › 汇率设置：页头、卡片、表格、按钮、输入、徽标都来自组件套件（src/ui-kit.css，D-028）；
+   这里只排这一页：列宽、操作按钮一行、新增表单、说明。只用 ui-tokens.css 的变量，三套主题通用。 */
+:root[data-skin] .rate-page { display: flex; flex-direction: column; gap: 12px; }
+:root[data-skin] .rate-page .rate-card { flex: none; }
+:root[data-skin] .rate-page .rate-table { width: 100%; table-layout: fixed; }
+:root[data-skin] .rate-page .rate-table :is(td, th) { white-space: nowrap; }
+:root[data-skin] .rate-page .rate-table th:nth-child(1) { width: 14%; }
+:root[data-skin] .rate-page .rate-table th:nth-child(2) { width: 20%; }
+:root[data-skin] .rate-page .rate-table th:nth-child(3) { width: 18%; }
+:root[data-skin] .rate-page .rate-table th:nth-child(4) { width: 18%; padding-left: 32px; }
+:root[data-skin] .rate-page .rate-table td:nth-child(4) { padding-left: 32px; }
+:root[data-skin] .rate-page .rate-code { font-variant-numeric: tabular-nums; color: var(--fg); }
+:root[data-skin] .rate-page .rate-dim,
+:root[data-skin] .rate-page .rate-missing td { color: var(--muted-fg); }
+:root[data-skin] .rate-page .rate-actions { display: flex; align-items: center; gap: 8px; }
+:root[data-skin] .rate-page .rate-input { width: min(140px, 100%); text-align: right; }
+:root[data-skin] .rate-page .rate-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 16px; }
+:root[data-skin] .rate-page .rate-field { display: flex; flex-direction: column; gap: 6px; width: 200px; font-size: var(--text-xs); font-weight: 500; color: var(--muted-fg); }
+:root[data-skin] .rate-page .rate-add input[name="code"] { text-transform: uppercase; }
+:root[data-skin] .rate-page .rate-error { margin: 12px 0 0; }
+:root[data-skin] .rate-page .rate-note { margin: 12px 0 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
