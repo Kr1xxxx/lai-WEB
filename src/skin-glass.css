@@ -188,7 +188,7 @@
 :root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: calc(var(--dock-w) + 24px); }
 
 /* ===== 筛选条（产品页也用 .opp-toolbar）。商机页自己的外观在 business.css「kit: 商机美化」 ===== */
-:root[data-skin="glass"] .opp-toolbar { gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
+:root[data-skin="glass"] .opp-toolbar { gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: var(--r-xl); border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-toolbar input[type="search"] { flex: 1 1 130px; min-width: 120px; width: auto; max-width: 260px; }
 
 /* 商机卡片的「⋮」菜单：贴在卡片旁的浅色小菜单（位置由 business-ui.js 的 anchorOppMenu 算；找不到卡片时停在右侧），点外面仍然关闭。外观在 business.css「kit: 订单表单与商机详情」 */
