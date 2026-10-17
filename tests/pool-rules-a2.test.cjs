@@ -411,3 +411,16 @@ test('existing behaviour is kept: pool keeps lastPoolEntry/poolEntryCount, claim
   assert.equal(s.customers.A.laiPreviousOwner, 'Kris');
   assert.throws(() => L.moveCustomers(s, ['missing'], 'pool', T0), /客户不存在/);
 });
+
+test('公海 rules also run when the window is focused again and on a 30-minute timer, not only at boot', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const body = app.slice(app.indexOf('  async function autoRunPoolRules()'), app.indexOf('  // 跟进时间不能晚于'));
+  assert.match(body, /const POOL_AUTO_CHECK_MS = 30 \* 60 \* 1000;/);
+  assert.match(body, /setInterval\(\(\) => autoRunPoolRules\(\), POOL_AUTO_CHECK_MS\)/);
+  assert.match(body, /addEventListener\("focus", \(\) => autoRunPoolRules\(\)\)/);
+  // Same skip rules every time: another window, unsaved work or an open dialog, or nothing due today.
+  assert.match(body, /separateCustomerWindow \|\| hasUnsavedWork\(\) \|\| !CT\.autoRunDue\(state\)/);
+  assert.match(body, /if \(poolAutoRunning\) return;/, 'a slow save is not started twice');
+  assert.match(app, /await autoRunPoolRules\(\);\s*startPoolAutoRun\(\);/, 'started once after the first run at boot');
+});

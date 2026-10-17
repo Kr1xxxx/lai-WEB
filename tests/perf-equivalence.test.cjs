@@ -91,14 +91,19 @@ function refContactTimes(state, name) {
   const rules = CS.get(state).followRules;
   const profile = (state.customers || {})[name] || {};
   const calc = (keys, legacy) => latestOf([...keys.flatMap((key) => refActionTimes(state, name, key)), legacy]);
-  return { lastContact: calc(rules.contact, profile.lastContact), lastFollowup: calc(rules.followup, profile.lastFollowup) };
+  // 取消勾选“写跟进”后，资料上的 lastFollowup 只给没有任何动态记录的老客户用（S1 修复 2）
+  const tracked = (Array.isArray(profile.history) ? profile.history : []).some((h) => h && ["followup", "email", "chat", "call"].includes(h.type));
+  const legacyFollowup = tracked && !rules.followup.includes("followup") ? "" : profile.lastFollowup;
+  return { lastContact: calc(rules.contact, profile.lastContact), lastFollowup: calc(rules.followup, legacyFollowup) };
 }
 function refLastDeal(state, name) {
   const profile = (state.customers || {})[name] || {};
-  if (CS.get(state).dealRule.by === "opportunity") return trim(profile.opportunityLastWonDate);
+  // 数据里没有赢单阶段的商机，所以只剩资料上导入的日期；看不懂的值不再原样返回（S1 修复 1）
+  if (CS.get(state).dealRule.by === "opportunity") return Number.isFinite(validTime(profile.opportunityLastWonDate)) ? trim(profile.opportunityLastWonDate) : "";
   return latestOf((state.orders || []).filter((o) => o && o.client === name && !o.isDraft && ["shipment", "done"].includes(o.stage)).map((o) => o.shippedAt || o.createdAt));
 }
-const refTimes = { lastContact: (s, n) => refContactTimes(s, n).lastContact, lastDeal: refLastDeal };
+// 公海判断“最近联系”时，领回时间一定算（S1 修复 5）
+const refTimes = { lastContact: (s, n) => latestOf([refContactTimes(s, n).lastContact, ((s.customers || {})[n] || {}).lastPrivatePoolEntry]), lastDeal: refLastDeal };
 
 // 公海：照旧的 evaluate（每条规则各算一次时间，所有客户都建一遍）
 const time = (v) => { const t = Date.parse(String(v || "").replace(" ", "T")); return Number.isFinite(t) ? t : NaN; };

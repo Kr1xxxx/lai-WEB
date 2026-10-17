@@ -214,10 +214,21 @@
   const getDocument=(state,id)=>docList(state).find(item=>item&&item.id===id)||null;
   // 某张订单／某个商机已经保存的单据，新的在前。
   const docsFor=(state,source)=>docList(state).filter(item=>item&&item.source&&source&&item.source.kind===source.kind&&item.source.id===source.id&&item.source.id);
-  // 单据记录页的列表：按类型和关键词（编号、客户）筛选。
+  // 单据属于谁：看来源订单／商机的跟进人；来源找不到（已彻底删除等）就看客户资料里的跟进人。
+  function ownerOfDocument(state,doc){
+    const source=doc&&doc.source&&typeof doc.source==='object'?doc.source:{};
+    const find=list=>Array.isArray(list)?list.find(item=>item&&item.id===source.id):null;
+    const item=source.id?(source.kind==='opportunity'?find(state&&state.laiOpportunities):(find(state&&state.orders)||find(state&&state.trashOrders))):null;
+    if(item)return trim(item.owner);
+    const profiles=state&&state.customers&&typeof state.customers==='object'?state.customers:{};
+    return doc&&Object.hasOwn(profiles,doc.client)&&profiles[doc.client]?trim(profiles[doc.client].owner):'';
+  }
+  // 当前账号看得到的单据编号：sees(owner) 由角色范围决定（全公司账号不用调这个）。
+  const visibleDocumentIds=(state,sees)=>docList(state).filter(item=>item&&sees(ownerOfDocument(state,item))).map(item=>item.id);
+  // 单据记录页的列表：按类型和关键词（编号、客户）筛选。state.laiVisibleDocIds（只用来画页面，不保存）有值时，只列这些单据。
   function listDocuments(state,{type='',query=''}={}){
-    const q=trim(query).toLowerCase();
-    return docList(state).filter(item=>item&&(!type||item.type===type)&&(!q||[item.number,item.client].some(v=>String(v||'').toLowerCase().includes(q))));
+    const q=trim(query).toLowerCase(),only=Array.isArray(state&&state.laiVisibleDocIds)?new Set(state.laiVisibleDocIds):null;
+    return docList(state).filter(item=>item&&(!only||only.has(item.id))&&(!type||item.type===type)&&(!q||[item.number,item.client].some(v=>String(v||'').toLowerCase().includes(q))));
   }
   // 商机生成单据用的明细：关联产品逐行列出（名称在产品库里有同名产品就带上编号、型号、单位）；没有关联产品就用商机本身一行。hideProducts（当前账号看不到“关联产品”）时同样不列产品，只用商机本身一行。
   function linesFromOpportunity(state,opp,{hideProducts=false}={}){
@@ -257,6 +268,6 @@
       bank:t.showBank?bankLines:[],showSignature:t.showSignature,
     };
   }
-  const api={LIMITS,TYPES,COLUMNS,FIXED_COLUMNS,COMPANY_FIELDS,BANK_FIELDS,DATE_MODES,RESETS,DIGITS,LIMIT_DOCS,settings,setCompany,setBank,setTemplate,resetTemplate,setNumbering,checkRule,formatNumber,nextNumber,saveDocument,voidDocument,getDocument,docsFor,listDocuments,linesFromOpportunity,sampleLines,preview,money};
+  const api={LIMITS,ownerOfDocument,visibleDocumentIds,TYPES,COLUMNS,FIXED_COLUMNS,COMPANY_FIELDS,BANK_FIELDS,DATE_MODES,RESETS,DIGITS,LIMIT_DOCS,settings,setCompany,setBank,setTemplate,resetTemplate,setNumbering,checkRule,formatNumber,nextNumber,saveDocument,voidDocument,getDocument,docsFor,listDocuments,linesFromOpportunity,sampleLines,preview,money};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiDocTemplateModel=api;
 })(typeof window!=='undefined'?window:globalThis);

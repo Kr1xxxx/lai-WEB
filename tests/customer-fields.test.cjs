@@ -400,7 +400,8 @@ test('drawer initial focus is the dialog and editor headers retain the heart ent
 
  test('field settings use the reference headings and normal filters expose tag match radios', async () => {
   const h=appHarness();await h.click({action:'settings'});
-  assert.match(h.html,/设置「全部客户」显示字段/);
+  assert.match(h.html,/设置显示字段（所有客户列表通用）/);
+  assert.doesNotMatch(h.html,/应用到其它客群|save-columns-all/,"the column setting is one global value, so there is no separate apply-to-others button");
   assert.match(h.html,/<h3>可选字段<\/h3>/);
   assert.match(h.html,/<h3>已选字段<\/h3>/);
   h.api.filterForm();

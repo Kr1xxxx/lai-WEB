@@ -89,7 +89,9 @@ test('回收站客户的标签不计入统计，但改名时一并改',()=>{
 
 test('批量建档：能建的建，不能建的说明原因',()=>{
   const text=['New Co\tTom\ttom@new.co\t+86 138 0000 1111\t中国','Second Co,,,,','Acme','Bad Mail,X,notmail,,德国','Dup Mail,Y,b@acme.com,,美国','','Second Co'].join('\n');
-  const r=T.batchCreate(base(),text,{country:'美国',owner:'Kris',tags:'新客户',source:'名单'},'2026-10-08T00:00:00.000Z');
+  // 邮箱判重默认是“允许保存”，这里按“不允许保存”测（判重按客户设置，S1 修复 4）
+  const start={...base(),laiSettings:{customerSettings:{dedupe:{email:'block'}}}};
+  const r=T.batchCreate(start,text,{country:'美国',owner:'Kris',tags:'新客户',source:'名单'},'2026-10-08T00:00:00.000Z');
   assert.deepEqual(r.created,['New Co','Second Co']);
   assert.equal(r.state.customers['New Co'].country,'中国');
   assert.equal(r.state.customers['Second Co'].country,'美国');

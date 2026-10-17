@@ -10,7 +10,7 @@ const roleState = (current) => ({
   customers: { A: { client: 'A' } },
   laiSettings: {
     roles: {
-      roles: [{ id: 'sales', name: '业务', scope: 'self', perms: { 'customer.view': true }, v: 2, fields: { opp: { products: 'hidden', note: 'hidden', endDate: 'hidden' } } }],
+      roles: [{ id: 'sales', name: '业务', scope: 'self', perms: { 'customer.view': true, 'opp.view': true }, v: 2, fields: { opp: { products: 'hidden', note: 'hidden', endDate: 'hidden' } } }],
       departments: [],
       members: [{ id: 'a', name: 'Kris', roleId: 'admin' }, { id: 'b', name: 'Amy', roleId: 'sales' }],
       current,

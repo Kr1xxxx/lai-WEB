@@ -77,8 +77,8 @@ test('switching to the 业务 account shows only that account\'s customers and r
   await page.screenshot({ path: process.env.SHOT_DIR ? `${process.env.SHOT_DIR}/shell-menu-amy.png` : undefined });
   await page.keyboard.press('Escape');
   await page.mouse.click(700, 500);
-  // 客户设置 is not offered; the other customer pages still are.
-  assert.equal(await page.locator('.subnav .nav-row:has(.nav-label:text-is("客户设置"))').count(), 0);
+  // 客户设置 is offered because 业务 holds 来源设置 (it then shows only that tab); the other customer pages still are.
+  assert.equal(await page.locator('.subnav .nav-row:has(.nav-label:text-is("客户设置"))').count(), 1);
   await page.locator('.subnav .nav-row:has(.nav-label:text-is("公海客户"))').waitFor();
   // The 企业管理 menu has nothing for this role, so it is not in the left rail.
   assert.equal(await page.locator('.rail-item[data-rail-menu="企业管理"]').count(), 0);

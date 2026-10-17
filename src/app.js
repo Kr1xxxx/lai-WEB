@@ -500,11 +500,19 @@
   }
   // 客户详情页里的商机：数字来自商机模块；detailOpp 记住当前显示的是第几个进行中的商机。
   const detailOpp = { name: "", index: 0 };
+  // 本人、本部门范围的账号在客户详情里只看到自己能看到的（R.canSee）商机和订单；这里换一份只含这些记录的数据交给详情页。
+  function detailScopeState() {
+    if (R.scopeOf(state) === "all") return state;
+    const mine = (item) => R.canSee(state, item?.owner);
+    return {
+      ...state,
+      orders: (Array.isArray(state.orders) ? state.orders : []).filter(mine),
+      laiOpportunities: Array.isArray(state.laiOpportunities) ? state.laiOpportunities.filter(mine) : state.laiOpportunities,
+    };
+  }
   function customerOpportunities(name) {
     // 本人／本部门范围的账号只算、只列自己能看到的商机（和商机页一样按负责人）。
-    const scoped = R.scopeOf(state) === "all" || !Array.isArray(state.laiOpportunities) ? state
-      : { ...state, laiOpportunities: state.laiOpportunities.filter((item) => item && R.canSee(state, item.owner)) };
-    const stats = window.LaiOpportunityModel.customerStats(scoped, name);
+    const stats = window.LaiOpportunityModel.customerStats(detailScopeState(), name);
     if (detailOpp.name !== name) Object.assign(detailOpp, { name, index: 0 });
     detailOpp.index = Math.min(Math.max(0, detailOpp.index), Math.max(0, stats.activeOpportunities.length - 1));
     return { ...stats, activeOpportunityIndex: detailOpp.index };
@@ -530,7 +538,12 @@
     return true;
   }
   function detailMarkup(c) {
+    const scoped = detailScopeState();
     c = window.LaiOpportunityModel ? { ...c, ...customerOpportunities(c.name) } : c;
+    if (scoped !== state) {
+      const orders = (Array.isArray(c.orders) ? c.orders : []).filter((order) => R.canSee(state, order?.owner));
+      c = { ...c, orders, orderCount: orders.length };
+    }
     return window.LaiCustomerDetail.render(c, {
       sideColumn: true,
       tab,
@@ -538,7 +551,7 @@
       escape: E,
       money,
       date,
-      state,
+      state: scoped,
       followupDraft: followupDrafts.get(c.name),
       activityFilter,
       activityQuery,
@@ -1150,14 +1163,18 @@
   // 公海规则里关掉了「显示公海联系人」时，公海客户不能编辑（编辑页会露出联系人）。
   const poolEditBlocked = (name) =>
     L.bucket(state.customers?.[name] || {}) === "pool" && !CT.poolContactsVisible(state);
+  function newCustomerOwner() {
+    if (R.scopeOf(state) !== "all" && R.meName(state)) return R.meName(state);
+    return String(state.laiSettings?.defaultOwner || state.orderSettings?.defaultOwner || "").trim();
+  }
   function editForm(isNew = false, pointerActivated = false, customerName = currentName) {
     if (!allow(isNew ? "customer.create" : L.bucket(state.customers?.[customerName] || {}) === "pool" ? "pool.edit" : "customer.edit")) return;
     if (!isNew && L.bucket(state.customers?.[customerName] || {}) === "trash")
       return toast("请先恢复回收站客户");
     if (!isNew && poolEditBlocked(customerName)) return toast(POOL_EDIT_BLOCKED);
-    // 本人、本部门范围的账号新建客户，跟进人默认是自己，否则建完在自己的列表里就看不到了。
+    // 新客户的跟进人：本人、本部门范围的账号是自己（否则建完在自己的列表里就看不到了），其他账号用「来财设置」里的默认跟进人。
     const c = isNew
-      ? R.scopeOf(state) !== "all" && R.meName(state) ? { owner: R.meName(state) } : {}
+      ? { owner: newCustomerOwner() }
       : allCustomerRows().find((c) => c.name === customerName) || {};
     const form = window.LaiCustomerEditor.render(c, {
       isNew,
@@ -2157,7 +2174,10 @@
     !!(pending || modal || business?.hasDraft() || mail?.composeDirty() ||
       openFollowupDraft());
   // 每天自动按公海规则移一次客户；没有要移的也记下今天已执行，一天只跑一次。
+  let poolAutoRunning = false;
   async function autoRunPoolRules() {
+    if (poolAutoRunning) return;
+    poolAutoRunning = true;
     try {
       if (separateCustomerWindow || hasUnsavedWork() || !CT.autoRunDue(state)) return;
       const result = CT.applyPoolRules(state);
@@ -2167,9 +2187,19 @@
         toast(`按公海规则移入 ${result.moved.length} 位客户`);
       }
     } catch (_) {
-      // 这次没成功就算了，下次打开再试；不留“保存失败”的提示。
+      // 这次没成功就算了，下次再试；不留“保存失败”的提示。
       status("");
+    } finally {
+      poolAutoRunning = false;
     }
+  }
+  // 页面开着跨过零点时也要按规则跑：切回窗口时、以及每 30 分钟检查一次；有窗口或草稿开着就等下次（规则同 autoRunPoolRules）。
+  const POOL_AUTO_CHECK_MS = 30 * 60 * 1000;
+  let poolAutoTimer = 0;
+  function startPoolAutoRun() {
+    if (poolAutoTimer) return;
+    poolAutoTimer = setInterval(() => autoRunPoolRules(), POOL_AUTO_CHECK_MS);
+    window.addEventListener("focus", () => autoRunPoolRules());
   }
   // 跟进时间不能晚于“现在”：页面开久了，“现在”也要跟着往后走。
   document.addEventListener("focusin", (event) => {
@@ -2221,6 +2251,7 @@
       if (location.hash === "#favorites") await openFavorites();
       else await navigateApp(location.hash.slice(1) || "customers", initialCustomer, false);
       await autoRunPoolRules();
+      startPoolAutoRun();
       // 绑定了邮箱就开始定时检查新邮件（没绑定或关掉了自动检查时什么也不做）。
       mail?.start().catch(() => {});
     } catch (err) {
@@ -2374,7 +2405,7 @@
     const hiddenColumns = C.gate(state, "customer").hiddenColumns();
     const columnCatalog = C.catalog.filter((f) => !hiddenColumns.has(f.id));
     drawer(
-      "设置「全部客户」显示字段",
+      "设置显示字段（所有客户列表通用）",
       `<div class="drawer-body columns-body"><div class="columns-layout"><section><div class="column-search-wrap">${icon("search")}<input id="column-search" aria-label="搜索字段名称" placeholder="可输入字段搜索"></div><h3>可选字段</h3><div class="available-fields">${[
         ...new Set(columnCatalog.map((f) => f.category)),
       ]
@@ -2405,7 +2436,7 @@
         .join(
           "",
         )}</section></div><div class="error" id="workspace-error" role="alert"></div></div>`,
-      `<button data-action="close-modal">取消</button><button data-action="save-columns-all">确定并应用到其它客群</button><button class="primary" data-action="save-columns">确定</button>`,
+      `<button data-action="close-modal">取消</button><button class="primary" data-action="save-columns">确定</button>`,
       "columns",
       pointerActivated,
     );
@@ -3632,7 +3663,7 @@
   const L = window.LaiModules;
   let customerScreen = "active";
   let csTab = "groups", csEditing = null, csDedupeSub = "customer";
-  // 本人范围的账号只看自己做跟进人的客户；公海客户没有跟进人，看有没有“公海查看”权限。
+  // 本人、本部门范围的账号只看看得到的跟进人的客户；公海客户没有跟进人，看有没有“公海查看”权限。
   const customerVisible = (c) =>
     L.bucket(state.customers?.[c.name]) === "pool" ? can("pool.view") : R.canSee(state, c.owner);
   // 整个客户表重算一遍很贵，而详情页上每点一下都会问一次：同一份数据、同一个账号下只算一次。
@@ -3702,7 +3733,11 @@
     );
   }
   // ---- 角色权限：当前账号打不开的入口不显示（保留入口 feature 不受限制） ----
-  const entryAllowed = (row) => row.kind === "feature" || R.canOpen(state, row.kind, row.target);
+  // 客户设置页：有「客户设置」「判重设置」「来源设置」任意一项权限就能打开，页里只显示有权限的页签。
+  const csCanOpen = () => ["settings.customer", "settings.dedupe", "settings.source"].some((key) => R.can(state, key));
+  const isCustomerSettings = (kind, target) => kind === "screen" && target === "customer-settings";
+  const entryAllowed = (row) =>
+    row.kind === "feature" || (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target));
   const menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed) ?? null;
   const favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed);
   // 整个菜单里的入口都打不开：左侧栏不显示这个菜单。
@@ -3783,6 +3818,16 @@
     const hearts = [...document.querySelectorAll("#app-subnav [data-nav-favorite]")];
     (hearts[Math.min(index, hearts.length - 1)] || document.querySelector('#app-subnav [data-action="favorite-nav-manage"]'))?.focus({ preventScroll: true });
     return saved;
+  }
+  // 管理常用里只看得到当前账号能打开的条目；↑↓ 要跨过的是看得到的邻居，不能被看不到的条目吃掉一步。
+  function moveFavoriteVisible(settings, id, direction) {
+    const full = NF.list(settings), shown = new Set(favoriteEntries().map((entry) => entry.id));
+    const visible = full.filter((item) => shown.has(item));
+    const index = visible.indexOf(id), neighbour = visible[index + (direction < 0 ? -1 : 1)];
+    if (index < 0 || !neighbour) return settings;
+    const rest = full.filter((item) => item !== id);
+    rest.splice(rest.indexOf(neighbour) + (direction < 0 ? 0 : 1), 0, id);
+    return { ...settings, favoriteNav: rest };
   }
   const FAVORITE_HINT = "把鼠标移到导航条目上，点右侧的心形，就能加到常用。";
   function favoriteNavPanel(pointerActivated = false) {
@@ -4000,6 +4045,13 @@
   function showCustomerScreen(screen) {
     if (screen === "customer-settings") return customerSettings();
     if (screenBlocked(screen)) return;
+    // 客户回收站没有单独的页面权限：能移入回收站（也就是能恢复）的角色才能进。
+    if (screen === "trash" && !can("customer.trash")) {
+      customerScreen = screen;
+      currentName = "";
+      selected.clear();
+      return blockedPage(SCREEN_TITLES.trash, R.denied("customer.trash"));
+    }
     window.LaiActivityCategoryNavigation.mount(null);
     rememberCustomerListViewport();
     customerScreen = screen;
@@ -4013,7 +4065,7 @@
     };
     let body = "";
     if (screen === "duplicates") {
-      // 本人范围的账号只在自己的客户里查重。
+      // 本人、本部门范围的账号只在看得到的客户里查重。
       const mine = R.scopeOf(state) === "all" ? null : new Set(allCustomerRows().map((row) => row.name));
       const dupGate = C.gate(state, "customer");
       const groups = L.findDuplicates(state, CSM.get(state).dedupe)
@@ -4022,7 +4074,15 @@
         .filter((g) => g.names.length > 1);
       const dupChosen = CSM.get(state).duplicateFields;
       const dupFields = CSM.DUPLICATE_FIELDS.filter(([key]) => dupChosen.includes(key) && dupGate.visible(key));
-      body = `<div class="module-note">按完全相同的邮箱或电话号码查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span>${showIf("customer.merge", `<button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button>`)}</h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button>${dupFields.map(([key, label]) => `<span>${E(label)}：${E(CSM.duplicateValue(state, name, key) ? (key === "country" ? C.countryLabel(state.customers[name]?.country) : CSM.duplicateValue(state, name, key)) : "—")}</span>`).join("")}<button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同邮箱或电话的客户</strong><span>当前检查 " + (mine ? mine.size : Object.keys(state.customers).length) + " 个客户档案</span></div>"}`;
+      // 邮箱和电话一直比对；判重设置里选了「判重」的其它资料也一起比对。角色看不到的资料不提（上面也不列这些分组）。
+      const dedupeRules = CSM.get(state).dedupe;
+      const comparedLabels = ["邮箱", "电话", ...CSM.DEDUPE_FIELDS
+        .filter(([key]) => !["email", "phone"].includes(key) && ["allow", "block"].includes(dedupeRules?.[key]))
+        .map(([, label]) => label)]
+        .filter((label) => !C.dupTypeRoleKeys[label] || dupGate.visible(C.dupTypeRoleKeys[label]));
+      const comparedText = comparedLabels.length > 2
+        ? `${comparedLabels.slice(0, -1).join("、")}或${comparedLabels.at(-1)}` : comparedLabels.join("或") || "资料";
+      body = `<div class="module-note">按完全相同的${comparedText}查找疑似重复客户。先核对资料，再决定合并或移入回收站；合并只在你确认后才做，订单会一起并到保留的客户名下。</div>${groups.length ? groups.map((g) => `<section class="duplicate-card"><h3>${E(g.type)}相同 <span>${E(g.value)}</span>${showIf("customer.merge", `<button type="button" class="duplicate-merge" data-action="merge-group" data-names="${E(g.names.join("\u0001"))}">合并这组</button>`)}</h3>${g.names.map((name) => `<div><button class="company-link" data-open="${E(name)}">${E(name)}</button>${dupFields.map(([key, label]) => `<span>${E(label)}：${E(CSM.duplicateValue(state, name, key) ? (key === "country" ? C.countryLabel(state.customers[name]?.country) : CSM.duplicateValue(state, name, key)) : "—")}</span>`).join("")}<button data-open="${E(name)}">查看资料</button></div>`).join("")}</section>`).join("") : '<div class="empty">' + icon("check") + "<strong>未发现相同" + comparedText + "的客户</strong><span>当前检查 " + (mine ? mine.size : Object.keys(state.customers).length) + " 个客户档案</span></div>"}`;
     } else {
       const data = allCustomerRows().filter(
         (c) => L.bucket(state.customers[c.name]) === screen,
@@ -4061,7 +4121,8 @@
         const key = L.bucket(state.customers?.[currentName]) === "pool" ? "pool.view" : "customer.view";
         return can(key) && !customerHidden(currentName);
       }
-      return R.canOpen(state, "screen", customerScreen);
+      if (customerScreen === "trash") return can("customer.trash");
+      return isCustomerSettings("screen", customerScreen) ? csCanOpen() : R.canOpen(state, "screen", customerScreen);
     }
     return R.canOpen(state, "route", activeRoute);
   }
@@ -4255,7 +4316,7 @@
     if (d.favoriteOpen) return openFavoriteNav(d.favoriteOpen);
     if (d.favoriteJump) return openFavoriteNav(d.favoriteJump);
     if (d.favoriteMove)
-      return saveFavoriteNav((settings) => NF.move(settings, d.favoriteMove, Number(d.direction))).then((saved) => {
+      return saveFavoriteNav((settings) => moveFavoriteVisible(settings, d.favoriteMove, Number(d.direction))).then((saved) => {
         if (!saved) return;
         // 保持焦点在刚点的按钮；移到边界后该按钮变为禁用，则回到同一行的名称。
         const same = `[data-favorite-move="${d.favoriteMove}"][data-direction="${d.direction}"]`;
@@ -4611,7 +4672,7 @@
         ["标签管理", "tag-manager"],
         ["客户设置", "customer-settings"],
       ]
-        .filter(([, action]) => action !== "customer-settings" || can("settings.customer"))
+        .filter(([, action]) => action !== "customer-settings" || csCanOpen())
         .filter(([, action]) => action !== "tag-manager" || can("customer.edit"))
         .map(
           ([label, action]) =>
@@ -4632,26 +4693,40 @@
     );
   }
   // 客户设置里的页签：没有对应权限的页签不显示。
-  const csHiddenTabs = () => [
-    ...(can("settings.dedupe") ? [] : ["dedupe"]),
-    ...(can("settings.source") ? [] : ["sources"]),
-  ];
+  // 只有判重／来源权限的账号只看到那一个页签；有「客户设置」权限的看到其余页签。
+  const csHiddenTabs = () => {
+    const full = can("settings.customer");
+    return window.LaiCustomerSettingsUI.TABS.map((tab) => tab.id).filter((id) =>
+      id === "dedupe" ? !can("settings.dedupe") : id === "sources" ? !can("settings.source") : !full);
+  };
+  // 每个页签、每种表单要的权限。
+  const csTabPerm = (tabId) => (tabId === "dedupe" ? "settings.dedupe" : tabId === "sources" ? "settings.source" : "settings.customer");
+  const csFormPerm = (kind) =>
+    ["dedupe", "lead-dedupe"].includes(kind) ? "settings.dedupe" : ["add-source", "rename-source"].includes(kind) ? "settings.source" : "settings.customer";
   function customerSettings(keepModal = false) {
     window.LaiActivityCategoryNavigation.mount(null);
     rememberCustomerListViewport();
     // 标签管理窗口开着时页面在后面刷新，窗口要留着让人继续改。
     if (!keepModal) closeModal();
-    if (screenBlocked("customer-settings")) return;
+    if (!csCanOpen()) {
+      customerScreen = "customer-settings";
+      currentName = "";
+      selected.clear();
+      return blockedPage(SCREEN_TITLES["customer-settings"], R.denied("settings.customer"));
+    }
     customerScreen = "customer-settings";
     currentName = "";
     selected.clear();
-    if (csHiddenTabs().includes(csTab)) csTab = "groups";
+    if (csHiddenTabs().includes(csTab)) csTab = window.LaiCustomerSettingsUI.TABS.find((tab) => !csHiddenTabs().includes(tab.id)).id;
     // 同一个页签里保存后重新画页面，保持原来的滚动位置（公海管理很长）。
     const sameTab = document.querySelector(`.cs-panel[data-cs-panel="${csTab}"]`);
     const scrolled = sameTab ? sameTab.closest("main")?.scrollTop || 0 : 0;
     $("#app").innerHTML = shell(
       window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing, dedupeSub: csDedupeSub, hiddenTabs: csHiddenTabs(), canOpenSettings: R.canOpen(state, "route", "settings") }, E, ownerChoices()),
     );
+    // 常用入口（列表字段、客群、标签……）属于「客户设置」权限。
+    if (!can("settings.customer")) $(".cs-shortcuts")?.remove();
+    else if (!can("customer.trash")) $('.cs-shortcuts [data-lai-screen="trash"]')?.remove();
     if (scrolled) {
       const main = document.querySelector(".cs-panel")?.closest("main");
       if (main) main.scrollTop = scrolled;
@@ -4716,7 +4791,9 @@
   function csClick(el, e) {
     const d = el.dataset;
     // 客户设置页上的按钮：没有权限就不动（页面本身没权限时根本打不开，这里防的是过期的页面或键盘操作）。
-    if (el.closest(".cs-page") && !allow("settings.customer")) return true;
+    // 只管客户设置页本身：产品、单据模板等页面也用 .cs-page 样式，不能被这个权限拦住。
+    const csPage = activeRoute === "customers" && customerScreen === "customer-settings" ? el.closest(".cs-page") : null;
+    if (csPage && !allow(csTabPerm(d.csTab || csPage.querySelector(".cs-panel")?.dataset.csPanel))) return true;
     if ((d.csSourceMove || d.csSourceHide || d.csSourceSub || d.csDelete === "source") && !allow("settings.source")) return true;
     if ((d.csDedupeSub || d.csTab === "dedupe") && !allow("settings.dedupe")) return true;
     if (d.csTab === "sources" && !allow("settings.source")) return true;
@@ -4888,9 +4965,7 @@
     const kind = form.dataset?.csForm;
     if (!kind && !["cs-group-form", "cs-rule-form", "cs-tpl-form"].includes(form.id)) return;
     e.preventDefault();
-    if (!allow("settings.customer")) return;
-    if (["dedupe", "lead-dedupe"].includes(kind) && !allow("settings.dedupe")) return;
-    if (["add-source", "rename-source"].includes(kind) && !allow("settings.source")) return;
+    if (!allow(csFormPerm(kind))) return;
     const data = new FormData(form);
     if (form.id === "cs-rule-form") {
       const rule = {
@@ -5057,6 +5132,9 @@
     if (d.laiOrder) {
       // 从客户详情打开订单：记下是哪位客户，保存或取消后回到这位客户。
       const back = currentName;
+      if (!allow("order.view")) return;
+      const target = (Array.isArray(state.orders) ? state.orders : []).find((order) => order?.id === d.laiOrder);
+      if (target && !R.canSee(state, target.owner)) return toast("这笔订单不在你名下，你的角色只能看自己负责的订单");
       if (await navigateApp("order-list"))
         return business.openOrder(d.laiOrder, undefined, back);
       return;
@@ -5085,7 +5163,7 @@
       return;
     }
     if (a === "table-options") return tableOptions(el);
-    if (a === "customer-settings") return allow("settings.customer") && customerSettings();
+    if (a === "customer-settings") return (csCanOpen() || allow("settings.customer")) && customerSettings();
     if (a === "collapse-groups") {
       if (groupPointerPress === el) { groupPointerPress = null; return; }
       return toggleGroupPanel(el, e.detail > 0);
@@ -5147,14 +5225,6 @@
       });
       return filterForm();
     }
-    if (a === "save-columns-all")
-      return workspaceSave(
-        () => ({
-          ...state,
-          previewTable: { ...columnDraft, ...C.normalizeColumns(columnDraft) },
-        }),
-        () => toast("字段设置已应用到所有客群"),
-      );
   });
   document.addEventListener("change", (e) => {
     const el = e.target;
@@ -5527,7 +5597,7 @@
     openMail: (folder) => navigateApp("mail", "", true, false, folder),
     getCustomers: () => state.customers || {},
     isArchived: (profile) => L.bucket(profile) === "trash",
-    // 只看本人客户的账号：群发、收件人、客户匹配里也不出现别人的客户。
+    // 只看本人或本部门客户的账号：群发、收件人、客户匹配里也不出现别人的客户。
     canSeeCustomer: (name, profile) => R.scopeOf(state) === "all" || customerVisible({ name, owner: profile?.owner }),
     openCustomer: (name) => navigateApp("customers", name),
     toast,

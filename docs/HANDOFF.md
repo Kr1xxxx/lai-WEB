@@ -5,7 +5,7 @@
 
 ## Status (2026-10-16)
 
-- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.06 built from `main` 9df7d37.
+- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.08 built from `main` 892e284 (#15 merged).
 - Desktop builds (Mac, Windows) are PAUSED (D-019): web version only. CI skips the Mac job; a manual run is still possible.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
@@ -15,7 +15,7 @@
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
 - How Claude works (D-017): Opus coordinates; Sonnet/Opus subagents in parallel git worktrees (`.claude/agents/`).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
-  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.06, published 2026-10-16; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.08, published 2026-10-16; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
   version top-left; every publish adds 0.01.
 
 ## Open PRs and branches
@@ -23,7 +23,7 @@
 | What | Where | State |
 | --- | --- | --- |
 | Polish pass: tests, bug fixes, placeholder removal, UI audit fixes | PR #17 | Merged 2026-10-16 (owner said 合并), `main` 9df7d37 |
-| Data safety: incomplete-save guard, backup queue + tiered retention, before-delete backups, 409 rebase, mail forward/bulk/draft fixes; 待收款客户 group removed | `claude/gallant-bell-0m7uzb` (restarted from `main` 9df7d37) | PR open; touches `backend/`, so `needs-owner` |
+| Data safety: incomplete-save guard, backup queue + tiered retention, before-delete backups, 409 rebase, mail forward/bulk/draft fixes; 待收款客户 group removed | PR #18 | Merged 2026-10-16 (owner said 合并), `main` 9579f5c |
 | Roles: departments, field permissions, layouts by role | PR #15 (`claude/project-thread-5ob5ux`) | Waiting for 合并; duplicate #16 closed 2026-10-16 |
 | 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Backend parts ported into `data-safety-pr2`; its numbering/finance `src/` changes were not ported (15 conflicts in `business-ui.js`) — re-evaluate against current code or drop |
 | Old branches | 62 merged or obsolete remote branches | Owner agreed to delete (2026-10-16). The cloud session's GitHub proxy refuses branch deletion (`git push --delete` hangs up, API returns 403); needs a session or tool with delete rights |
@@ -41,8 +41,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 6 | More e2e: orders, opportunities, mail, settings | Done | `orders`, `opportunities`, `mail`, `settings-hub`, `features-walkthrough`, `customer-fixes`, `business-fixes`, `save-conflict` (data-safety PR) |
 | 7 | Translate `ARCHITECTURE.md` / `VALIDATION.md` to English | Todo | |
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
-| 9 | 沟通 module — which chat tool | Blocked (owner) | Rail entry and flyout kept as the only placeholder besides Leads → 设置 (D-009) |
-| 10 | Company-wide sharing (accounts, server) | Blocked (owner) | Roles are a local preview only: anyone can switch back to admin |
+| 9 | 沟通 module — WhatsApp (D-023) | Todo | Audit first (D-025); what works without a server decides the first slice |
+| 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
 | 25 | Split `src/app.js` (~5300 lines) and `business-ui.js` (~2700) by page | Todo | Many `tests/*.test.cjs` read source text; move them to behaviour tests while splitting |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
@@ -50,9 +50,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 
 ## Waiting on the owner
 
-- 合并 for the data-safety PR and #15.
+- 合并 for #15.
 - Whether `claude/theme-pink-orange` and `claude/order-lines` (1–2 unmerged commits each, superseded by later work) may go.
-- 沟通 module: which chat tool. Company sharing: where it runs, accounts and permissions.
 
 ## Known risks
 

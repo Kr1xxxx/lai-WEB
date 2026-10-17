@@ -75,6 +75,8 @@
       `<input id="ce-${name}" name="${name}" type="${type === "date" ? dateInputType(value) : type}" value="${E(value)}" placeholder="${E(placeholder)}"${required ? " required" : ""}${type === "date" ? " data-editor-date" : ""}${attrs ? " " + attrs : ""}>`;
     const field = (name, label, content, { star = false, extra = "" } = {}) =>
       `<div class="ce-field ${extra}"><label for="ce-${name}">${star ? '<span class="ce-required" aria-hidden="true">*</span>' : ""}${label}</label>${content}</div>`;
+    // 新客户的币种用「来财设置」里的默认币种；已有客户保持自己存的值。
+    const defaultCurrency = String(state.laiSettings?.defaultCurrency || state.orderSettings?.defaultCurrency || "USD").trim().toUpperCase() || "USD";
     const select = (name, value, placeholder, options = []) =>
       `<div class="ce-select"><select id="ce-${name}" name="${name}"${name === "productType" ? ' data-searchable="anchor"' : ""}>${option("", placeholder, value)}${values(
         options,
@@ -220,7 +222,7 @@
     const layout = F.normalizeCompanyDisplayLayout(state.previewCompanyDisplayLayout);
     const fieldGroup = (ids) => ids.map((id) => `<div data-company-field="${id}">${companyFields[id]}</div>`).join("");
     const tradeFields = [
-      gated("currency", field("currency", "默认币种", select("currency", c.currency || "USD", "请选择", ["USD", "EUR", "GBP", "CNY", "AUD", "CAD"]))),
+      gated("currency", field("currency", "默认币种", select("currency", c.currency || defaultCurrency, "请选择", ["USD", "EUR", "GBP", "CNY", "AUD", "CAD"]))),
       gated("paymentMethod", field("paymentMethod", "客户付款方式", select("paymentMethod", c.paymentMethod, "请选择", [...(Array.isArray(state.paymentMethods) ? state.paymentMethods : []).filter((value) => typeof value === "string"), ...list("paymentMethod"), "PayPal", "T/T 银行转账"]))),
       gated("paymentEmail", field("paymentEmail", "付款邮箱", input("paymentEmail", c.paymentEmail, "paypal@example.com", { type: "email" }))),
       gated("repurchaseCycle", field("repurchaseCycle", "复购周期", `<div class="ce-select"><select id="ce-repurchaseCycle" name="repurchaseCycle">${option("", "不提醒", String(c.repurchaseCycle || ""))}${values(["30", "60", "90", "180"], String(c.repurchaseCycle || "")).map((cycle) => option(cycle, `${cycle} 天`, String(c.repurchaseCycle || ""))).join("")}</select>${glyph("down")}</div>`)),

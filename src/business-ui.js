@@ -49,6 +49,31 @@
       dashMemo = { base: s, value: { ...s, customers } };
       return dashMemo.value;
     }
+    // 下拉名单用的数据：角色只看本人或本部门时，客户只留看得到的，订单、线索、商机也只留自己的；只用来出名单，保存时永远用完整的 state()。
+    let pickMemo = null;
+    function pickState() {
+      const s = scoped();
+      if (s === state()) return s;
+      if (pickMemo && pickMemo.base === s) return pickMemo.value;
+      const R = RM(),
+        full = state(),
+        customers = Object.fromEntries(Object.entries(full.customers || {}).filter(([, c]) => c && R.canSee(full, c.owner)));
+      // 订单上的客户名也会进名单：客户资料有、但不归自己的，就不要带出来。
+      const ok = (order) => order && (Object.hasOwn(customers, order.client) || !Object.hasOwn(full.customers || {}, order.client));
+      const value = { ...s, customers, orders: (s.orders || []).filter(ok), trashOrders: Array.isArray(s.trashOrders) ? s.trashOrders.filter(ok) : s.trashOrders };
+      pickMemo = { base: s, value };
+      return value;
+    }
+    // 这个客户名在客户资料里有、但当前账号看不到（不归自己负责）。全公司范围永远是 false；资料里没有的名字不算。
+    function customerHidden(name) {
+      const R = RM(),
+        full = state(),
+        text = String(name || "").trim().toLowerCase();
+      if (!R || !text || R.scopeOf(full) === "all") return false;
+      const key = Object.keys(full.customers || {}).find((k) => k.trim().toLowerCase() === text);
+      return key !== undefined && !R.canSee(full, full.customers[key]?.owner);
+    }
+    const HIDDEN_CUSTOMER = "这个客户不在你的范围内";
     // 打开了没有权限的页面：不画页面，只说明为什么。
     const routeDenied = (name) => {
       const key = RM() && RM().pagePerm("route", name);
@@ -634,7 +659,7 @@
     }
     const oppItem = (id) => OM().list(state()).find((item) => item.id === id);
     const oppCard = (id) => OM().cardOf(state(), id, B.localDate());
-    // 商机不归当前账号负责（角色只看本人时）：提示一句，什么也不做。
+    // 商机不归当前账号负责（角色只看本人或本部门时）：提示一句，什么也不做。
     const oppBlocked = (id) => notYours(oppItem(id));
     function openOppForm(id, client = "") {
       if (!need(id === undefined ? "opp.create" : "opp.edit") || (id !== undefined && oppBlocked(id))) return;
@@ -643,7 +668,7 @@
         // 新建时默认放进看板当前正在看的那个流程的第一个阶段。
         const flow = OM().flowOf(state(), oppView.filters.flow);
         // 从客户那里新建时，客户的来源在来源名单里就带过来。
-        next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client, flow: flow.id, stage: flow.stages[0].id, sources: client ? OM().sourcesFromCustomer(state(), client) : [] } };
+        next = { id: crypto.randomUUID(), isNew: true, values: { ...OM().defaults(state(), B.localDate()), client, flow: flow.id, stage: flow.stages[0].id, sources: client ? OM().sourcesFromCustomer(pickState(), client) : [] } };
       }
       else {
         const item = oppItem(id);
@@ -656,12 +681,12 @@
         ctx.dialog(
           next.isNew ? "新建商机" : "编辑商机",
           OU().formMarkup(values, {
-            customers: OM().customerNames(state()),
-            contacts: OM().contactsOf(state(), String(values.client || "").trim()),
+            customers: OM().customerNames(pickState()),
+            contacts: OM().contactsOf(pickState(), String(values.client || "").trim()),
             owners: OM().ownerNames(state()),
             flows: OM().flowsOf(state()),
             stages: OM().flowOf(state(), values.flow).stages,
-            setup: OM().formSetup(state()),
+            setup: OM().formSetup(pickState()),
             isNew: next.isNew,
           }),
           '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>',
@@ -681,7 +706,7 @@
       const el = form.elements;
       if (name === "client") {
         const client = String(el.client.value || "").trim();
-        const contacts = OM().contactsOf(state(), client);
+        const contacts = OM().contactsOf(pickState(), client);
         // 关联联系人可以在商机设置里隐藏；显示时，客户有联系人且设为必填才算必填。
         if (el.contact) {
           el.contact.innerHTML = OU().contactOptions(contacts, client === oppDraft.client ? oppDraft.contact : "", client);
@@ -1068,11 +1093,11 @@
       const today = B.localDate();
       return header("线索回收站", "移入回收站的线索可以恢复，也可以彻底删除", '<button type="button" data-lead-action="list-page">返回线索列表</button>') + LU().trashMarkup(LD().trash(scoped(), today), leadArmed, today);
     }
-    // 线索不归当前账号负责（角色只看本人时）：提示一句，什么也不做。
+    // 线索不归当前账号负责（角色只看本人或本部门时）：提示一句，什么也不做。
     const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
     // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
     const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge" };
-    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(state()) });
+    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()) });
     function openLeadForm(id) {
       if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
       let next;
@@ -1176,8 +1201,8 @@
     }
     // ---------- 产品：列表、分组、同步、字段、规格、布局 ----------
     const PM = () => root.LaiProductModel;
-    // 订单里选产品：角色看不到的产品字段不带进订单明细。
-    const orderProducts = () => (PM() ? PM().list(state()).map((p) => PM().forRole(state(), p)) : []);
+    // 订单里选产品：没有“查看产品”权限的账号不列出产品库；角色看不到的产品字段不带进订单明细。
+    const orderProducts = () => (PM() && can("product.view") ? PM().list(state()).map((p) => PM().forRole(state(), p)) : []);
     let productUI = null;
     const PU = () => productUI || (productUI = root.LaiProductUI.create(E, PM(), can));
     const prodView = { tab: "list", search: "", group: "", editing: null, armed: "", layoutEdit: "" };
@@ -1419,7 +1444,10 @@
     const docView = { tab: "quote", armed: "", armedVoid: "", rec: { type: "", query: "" } };
     const docToday = () => (B.localDate ? B.localDate() : "");
     function renderDocTemplates() {
-      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(state(), { ...docView, date: docToday() })}</div>`;
+      // 只看本人或本部门的账号：单据记录里只列来源订单／商机归自己的（只用来画页面，编号规则等仍按完整数据）。
+      const full = state(),
+        shown = RM() && RM().scopeOf(full) !== "all" ? { ...full, laiVisibleDocIds: DM().visibleDocumentIds(full, sees) } : full;
+      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(shown, { ...docView, date: docToday() })}</div>`;
     }
     function docPrint(type) {
       return printDocument(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
@@ -1443,21 +1471,60 @@
       };
     }
     // 保存过的单据：在抽屉里看（用保存时那一份内容，改了模板也不变），可以重新打印。
+    let docVoidArmed = "";
+    // 单据看不看得到：全公司都看得到；只看本人或本部门的账号，看来源订单／商机的负责人看不看得到。
+    const docVisible = (doc) => !RM() || RM().scopeOf(state()) === "all" || sees(DM().ownerOfDocument(state(), doc));
+    // 作废按钮：要有“作废单据”权限，已作废的不再显示。
+    const docVoidButton = (doc) => (doc.status === "已作废" || !can("doc.void") ? "" : button("docrec-void", "作废", `data-id="${E(doc.id)}"`));
     function viewDoc(id) {
       const doc = DM().getDocument(state(), id);
       if (!doc) return ctx.toast("找不到这张单据");
+      if (!docVisible(doc)) return ctx.toast("这条记录不归你负责");
+      docVoidArmed = "";
       const voided = doc.status === "已作废";
       ctx.dialog(
         E(`${doc.snapshot.typeName} ${doc.number}`),
         `<div class="drawer-body doc-view">${DU().paperMarkup(doc)}</div>`,
-        `<button type="button" data-action="close-modal">关闭</button>${voided ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, true)}`,
+        `<button type="button" data-action="close-modal">关闭</button>${docVoidButton(doc)}${voided ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, true)}`,
         "doc-view",
       );
     }
+    // 在订单／商机里看到的单据也能作废（不用先去单据模板页）：第一次点要再点一次确认。
+    function docVoidAction(id) {
+      if (!need("doc.void")) return;
+      const doc = DM().getDocument(state(), id);
+      if (!doc) return ctx.toast("找不到这张单据");
+      if (!docVisible(doc)) return ctx.toast("这条记录不归你负责");
+      if (docVoidArmed !== id) {
+        docVoidArmed = id;
+        const btn = document.querySelector?.(`[data-biz-action="docrec-void"][data-id="${id}"]`);
+        if (btn) {
+          btn.textContent = "确定作废";
+          btn.classList?.add("team-danger");
+        }
+        return;
+      }
+      docVoidArmed = "";
+      const inOrder = !!orderForm() && !!draft?.items;
+      return saveNext(
+        () => DM().voidDocument(state(), id),
+        "doc-void-error",
+        () => {
+          if (inOrder) {
+            showOrderSaved(id);
+            const list = document.getElementById("biz-order-saved");
+            if (list) list.innerHTML = orderSavedMarkup();
+          } else viewDoc(id);
+          return false;
+        },
+      );
+    }
     function docRecAction(action, d) {
+      if (action === "docrec-void") return docVoidAction(d.id);
       if (action === "docrec-print") {
         const doc = DM().getDocument(state(), d.id);
         if (!doc) return ctx.toast("找不到这张单据");
+        if (!docVisible(doc)) return ctx.toast("这条记录不归你负责");
         if (doc.status === "已作废") return ctx.toast("这张单据已作废，不能打印");
         return printDocument(doc.snapshot);
       }
@@ -1506,6 +1573,7 @@
         docView.armed = "";
         return render();
       }
+      if (d.docAction === "void" && !docVisible(DM().getDocument(state(), d.id) || {})) return ctx.toast("这条记录不归你负责");
       if (d.docAction === "view") return viewDoc(d.id);
       if (d.docAction === "source") return d.kind === "opportunity" ? showOppDetail(d.id) : need("order.view") && orderEditor(d.id);
       if (d.docAction === "void") {
@@ -1596,13 +1664,16 @@
         E,
       );
     }
+    // 默认币种的选项：当前已存的币种一定在里面，保存设置时不会被悄悄换掉。
+    const CURRENCIES = ["USD", "EUR", "GBP", "CNY", "CAD", "AUD", "JPY", "HKD", "SGD", "RUB", "AED", "INR", "BRL", "MXN"];
+    const currencyChoices = (current) => [...new Set([current, ...CURRENCIES].filter(Boolean))];
     function renderSettings() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
         currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : "pink";
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">公司名称<input name="companyName" value="${E(settings.companyName || "来财Lai")}"></label><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${["USD", "EUR", "GBP", "CNY", "CAD", "AUD"].map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"></label></div><div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、客群和日历任务保存在同一个来财数据库。旧版订单系统的数据另外存放，和来财的数据互不覆盖。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="section-rule"></div><h3>来财Lai</h3><p class="settings-copy">统一客户与经营界面。没有旧页面跳转，不自动连接外部服务。</p></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">公司名称<input name="companyName" value="${E(settings.companyName || "来财Lai")}"></label><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">切换账号后会跟着变成当前账号</span></label></div><div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都存在这台电脑上，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -1929,10 +2000,10 @@
       ctx.dialog(
         old ? (locked ? "订单详情" : "编辑订单") : "新建订单",
         `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>${can("doc.create") ? `<div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div>` : ""}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
-          state().customers || {},
+          pickState().customers || {},
         )
           .filter(
-            (n) => root.LaiModules.bucket(state().customers[n]) !== "trash",
+            (n) => root.LaiModules.bucket(pickState().customers[n]) !== "trash",
           )
           .map((n) => `<option value="${E(n)}">`)
           .join(
@@ -1948,7 +2019,7 @@
       const products = orderProducts();
       const items = draft?.items || [];
       if (!products.length && !items.length)
-        return '<p class="muted tiny order-items-empty">还没有产品。先到 交易 → 产品 添加产品，就能在这里选；也可以直接在上面“产品”里写文字。</p>';
+        return !can("product.view") ? "" :  '<p class="muted tiny order-items-empty">还没有产品。先到 交易 → 产品 添加产品，就能在这里选；也可以直接在上面“产品”里写文字。</p>';
       const rows = items
         .map((item, i) => {
           const known = products.some((p) => p.id === item.productId);
@@ -2019,9 +2090,10 @@
     function showOrderSaved(id) {
       const box = document.getElementById("biz-order-doc"), doc = DM().getDocument(state(), id);
       if (!box || !doc || !draft) return;
+      docVoidArmed = "";
       draft.doc = "";
       draft.docView = id;
-      box.innerHTML = `<div class="order-doc-preview" data-order-doc-saved="${E(id)}"><div class="dt-side-head"><strong>${E(doc.snapshot.typeName)} ${E(doc.number)}</strong><span class="order-doc-buttons">${doc.status === "已作废" ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(id)}"`, true)}${button("order-doc-close", "收起")}</span></div>${DU().paperMarkup(doc)}</div>`;
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc-saved="${E(id)}"><div class="dt-side-head"><strong>${E(doc.snapshot.typeName)} ${E(doc.number)}</strong><span class="order-doc-buttons">${docVoidButton(doc)}${doc.status === "已作废" ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(id)}"`, true)}${button("order-doc-close", "收起")}</span></div>${DU().paperMarkup(doc)}</div>`;
     }
     function saveOrderDoc(type) {
       // 单据的来源是这笔订单：订单还没保存时，来源记不上，所以要先保存订单。
@@ -2669,7 +2741,15 @@
       if (form.id === "lead-convert-form" && !need("lead.convert")) return;
       if (form.id === "lead-invalid-form" && !need("lead.edit")) return;
       if (form.id === "lead-follow-form") return saveNext(() => LD().addFollowup(state(), form.dataset.id, data), "lead-follow-error", leadSaved(form.dataset.id));
-      if (form.id === "lead-convert-form") return saveNext(() => LD().convert(state(), form.dataset.id, data), "lead-convert-error", leadSaved(form.dataset.id));
+      if (form.id === "lead-convert-form")
+        return saveNext(
+          () => {
+            if (customerHidden(data.mode === "existing" ? data.existing : data.name)) throw new Error(HIDDEN_CUSTOMER);
+            return LD().convert(state(), form.dataset.id, data);
+          },
+          "lead-convert-error",
+          leadSaved(form.dataset.id),
+        );
       if (form.id === "lead-invalid-form") return saveNext(() => LD().markInvalid(state(), form.dataset.id, data), "lead-invalid-error", leadSaved(form.dataset.id));
       if (form.id === "opp-form") {
         if (!oppDraft) return;
@@ -2690,8 +2770,13 @@
         // 字段权限：只读和隐藏的字段不能改。编辑时沿用原来的值，新建时不许填（用默认值），表单里漏掉的字段也不会被清空。
         const locked = oppLocked();
         const input = OM().lockInput(locked, oppDraft.isNew ? null : oppItem(oppDraft.id), data, OM().defaults(state(), B.localDate()));
+        // 本人／本部门账号不能给看不到的客户建商机；客户没改的老商机照常保存。
+        const wasClient = oppDraft.isNew ? "" : String(oppItem(oppDraft.id)?.client || "").trim();
         return saveNext(
-          () => OM().upsert(state(), oppDraft.id, input, { mustExist: !oppDraft.isNew, locked }),
+          () => {
+            if (String(input.client || "").trim().toLowerCase() !== wasClient.toLowerCase() && customerHidden(input.client)) throw new Error(HIDDEN_CUSTOMER);
+            return OM().upsert(state(), oppDraft.id, input, { mustExist: !oppDraft.isNew, locked });
+          },
           "opp-error",
           () => {
             oppDraft = null;
@@ -2717,8 +2802,11 @@
         if (!need(draft?.isNew ? "order.create" : "order.edit")) return;
         data.isDraft = form.elements.isDraft.checked;
         data.items = draft.items || [];
+        // 本人／本部门账号不能给看不到的客户建订单；客户没改的老订单照常保存。
+        const wasClient = String(allOrders().find((order) => order.id === draft.id)?.client || "").trim();
         return saveNext(
           () => {
+            if (String(data.client || "").trim().toLowerCase() !== wasClient.toLowerCase() && customerHidden(data.client)) throw new Error(HIDDEN_CUSTOMER);
             const next = B.upsertOrder(state(), draft.id, data);
             // 由商机生成的订单：保存订单的同时把订单记到商机上（商机已不存在时只保存订单）。
             return draft.fromOpportunity && OM().list(next).some((item) => item.id === draft.fromOpportunity)

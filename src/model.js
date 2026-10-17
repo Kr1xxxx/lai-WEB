@@ -389,8 +389,14 @@
       const current=String(old[field]??'').trim();
       if(current===value)continue;
       changed=true;
-      customers[name]={...old,client:name,[field]:value,updated:time,
+      const record={...old,client:name,[field]:value,updated:time,
         history:[{time,text:`批量编辑客户字段：${editable.label}${clear?'（清空）':''}`,type:'operation'},...(Array.isArray(old.history)?old.history:[])]};
+      // 判重设置里选了“不允许保存”的资料，批量改了也不能和别的客户（包括这一批里前面刚改的）重复。
+      if(CS&&CS.assertNotDuplicate&&value){
+        try{CS.assertNotDuplicate({...state,customers},record,old,name);}
+        catch(error){throw new Error(`「${name}」${error.message}`);}
+      }
+      customers[name]=record;
     }
     if(!changed)throw new Error('所选客户的字段无需更新');
     return {...state,customers};

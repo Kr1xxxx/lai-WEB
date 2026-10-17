@@ -34,7 +34,7 @@ test('creating: automatic name, stored fields, input untouched', () => {
   assert.equal(a.name, '26100601-Amy', 'date (yymmdd) + two-digit sequence + owner');
   assert.deepEqual([a.client, a.contact, a.amount, a.currency, a.exchangeRate, a.endDate, a.stage, a.owner, a.archived, a.createdAt, a.flow, a.nameMode],
     ['Alpha Co', 'Ann', 331.74, 'USD', 100, '2026-11-05', 'open', 'Amy', false, NOW, 'default', 'auto']);
-  assert.deepEqual(a.stageHistory, [{stage: 'open', at: NOW}]);
+  assert.deepEqual(a.stageHistory, [{stage: 'open', label: '未成单', at: NOW}]);
   assert.equal(a.closedAt, undefined);
   assert.equal(base.laiOpportunities, undefined);
   const s2 = add(s1, 'b', {owner: 'bob '});

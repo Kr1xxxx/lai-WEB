@@ -160,7 +160,9 @@ test('system fields: required ones are checked on save with 请填写XX', () => 
   assert.throws(() => add(s, 'a'), /请填写备注/);
   assert.equal(get(add(s, 'a', {note: 'ok'}), 'a').note, 'ok');
   for (const [id, label] of [['collaborators', '协同跟进人'], ['tags', '商机标签'], ['products', '关联产品'], ['type', '商机类型'], ['leadId', '来源线索'], ['sources', '商机来源']]) {
-    assert.throws(() => add(O.setField(base, id, {required: true}), 'a'), new RegExp(`请填写${label}`), id);
+    // 来源线索、商机来源只有名单里有可选项时才能要求必填（名单为空见下面的单独测试）
+    const stocked = withSources({...base, laiLeads: [{id: 'L1', name: 'Acme'}]});
+    assert.throws(() => add(O.setField(stocked, id, {required: true}), 'a'), new RegExp(`请填写${label}`), id);
   }
   // 联系人：客户有联系人才要选（和原来一样）；设成不必填后可以不选
   assert.throws(() => add(base, 'c', {client: 'Alpha Co'}), /请选择关联联系人/);
@@ -381,4 +383,51 @@ test('formSetup gathers what the form needs', () => {
   assert.equal(setup.fields.tags.show, false);
   assert.deepEqual([setup.reasons.length, setup.types.length, setup.sources.length, setup.leads, setup.customFields.map(f => f.id)], [6, 3, 3, [{id: 'L', name: 'Q'}], ['g']]);
   assert.equal(O.formSetup({}).sources, null);
+});
+
+// ---------------- 必填陷阱：没有可选项时不能要求必填 ----------------
+test('required 商机类型 with an empty type list does not block saving; deleting the last type is refused while required', () => {
+  let s = base;
+  for (const type of O.typeChoices(base)) s = O.removeType(s, type);
+  s = O.setField(s, 'type', {required: true});
+  assert.doesNotThrow(() => add(s, 'a'), 'no options to choose from, so required is skipped');
+  let t = O.setField(base, 'type', {required: true});
+  t = O.removeType(O.removeType(t, '新客户商机'), '老客户复购');
+  assert.deepEqual(O.typeChoices(t), ['样品单']);
+  assert.throws(() => O.removeType(t, '样品单'), /商机类型现在是必填/);
+  assert.throws(() => add(t, 'b'), /请填写商机类型/, 'still required while a type exists');
+  assert.deepEqual(O.typeChoices(O.removeType(O.setField(t, 'type', {required: false}), '样品单')), []);
+});
+
+test('required 来源线索 with no leads does not block saving, and applies again once a lead exists', () => {
+  const s = O.setField(base, 'leadId', {required: true});
+  assert.doesNotThrow(() => add(s, 'a'), 'no leads at all');
+  assert.doesNotThrow(() => add({...s, laiLeads: [{id: 'L2', name: 'Gone', trashed: true}]}, 'c'), 'trashed leads are not choices');
+  assert.throws(() => add({...s, laiLeads: [{id: 'L1', name: 'Acme'}]}, 'b'), /请填写来源线索/);
+});
+
+test('required 商机来源 with an empty source list does not block saving', () => {
+  const s = O.setField(base, 'sources', {required: true});
+  assert.doesNotThrow(() => add(s, 'a'), 'no source list at all');
+  const withList = withSources(s);
+  assert.throws(() => add(withList, 'b'), /请填写商机来源/, 'required while sources exist');
+  let hidden = withList;
+  for (const top of CS.get(hidden).sources) hidden = CS.setSourceHidden(hidden, top.id, true);
+  assert.deepEqual(CS.sourceChoices(hidden), []);
+  assert.doesNotThrow(() => add(hidden, 'c'), 'every source hidden means no options');
+});
+
+test('stageHistory stores the stage label; a deleted stage shows a readable label, not a raw id', () => {
+  let s = O.addFlowStage(base, 'default', {label: '已报价', kind: 'open'}, {id: 'quoted'});
+  s = add(s, 'a', {stage: 'quoted'});
+  assert.deepEqual(get(s, 'a').stageHistory, [{stage: 'quoted', label: '已报价', at: NOW}]);
+  s = O.moveStage(s, 'a', 'unpaid', {now: NOW});
+  assert.equal(get(s, 'a').stageHistory.at(-1).label, '付款未到账');
+  // delete the stage: its history entry falls back to the stored label
+  s = O.removeFlowStage(s, 'default', 'quoted', {moveTo: 'open'});
+  const labels = O.detailOf(s, 'a').history.map(h => h.label);
+  assert.ok(labels.includes('已报价') && !labels.includes('quoted'));
+  // old entries without a stored label and with an unknown id
+  const legacy = {...s, laiOpportunities: O.list(s).map(item => ({...item, stageHistory: [{stage: 'gone-id', at: NOW}, ...item.stageHistory]}))};
+  assert.equal(O.detailOf(legacy, 'a').history[0].label, '已删除的阶段');
 });

@@ -25,7 +25,9 @@
       const groups=M.groupChoices(state);
       // 角色看不到的字段：列、搜索提示、分组筛选都不出现。
       const hidden=M.hiddenKeys?M.hiddenKeys(state):new Set();
-      const shows=key=>!hidden.has(key);
+      // 产品字段里设为隐藏的字段，列表里也不出现（产品名称一定显示）。
+      const config=M.settings(state).fields;
+      const shows=key=>!hidden.has(key)&&(!config[key]||config[key].visible);
       const hint=[['name','名称'],['code','编号'],['model','型号'],['remark','备注']].filter(([key])=>shows(key)).map(item=>item[1]).join('、');
       const toolbar=`<div class="opp-toolbar lead-toolbar"><input type="search" id="prod-search" value="${E(view.search||'')}" placeholder="搜索${hint}" aria-label="搜索产品">`
         +(shows('group')?`<select id="prod-group" aria-label="产品分组"><option value="">全部分组</option>${groups.map(g=>option(g,g,view.group)).join('')}</select>`:'')
@@ -34,10 +36,10 @@
       if(!rows.length)return toolbar+empty('没有符合条件的产品，换个关键词或分组再看。');
       const body=rows.map(p=>{
         const armed=view.armed===p.id;
-        return `<tr><td><button type="button" class="company-link" data-prod-action="view" data-id="${E(p.id)}">${E(p.name)}</button>${p.nameCn&&shows('nameCn')?`<div class="cs-use">${E(p.nameCn)}</div>`:''}</td><td>${E(p.code||'—')}</td>${shows('model')?`<td>${E(p.model||'—')}</td>`:''}${shows('group')?`<td>${E(p.group||'未分组')}</td>`:''}${shows('fob')?`<td>${p.fob?E(p.fob):'—'}</td>`:''}${shows('unit')?`<td>${E(p.unit||'—')}</td>`:''}<td>${E(day(p.updatedAt))}</td>`
+        return `<tr><td><button type="button" class="company-link" data-prod-action="view" data-id="${E(p.id)}">${E(p.name)}</button>${p.nameCn&&shows('nameCn')?`<div class="cs-use">${E(p.nameCn)}</div>`:''}</td>${shows('code')?`<td>${E(p.code||'—')}</td>`:''}${shows('model')?`<td>${E(p.model||'—')}</td>`:''}${shows('group')?`<td>${E(p.group||'未分组')}</td>`:''}${shows('fob')?`<td>${p.fob?E(p.fob):'—'}</td>`:''}${shows('unit')?`<td>${E(p.unit||'—')}</td>`:''}<td>${E(day(p.updatedAt))}</td>`
           +`<td><span class="cs-row-actions">${can('product.edit')?`<button type="button" data-prod-action="edit" data-id="${E(p.id)}">编辑</button>`:''}${can('product.delete')?`<button type="button" data-prod-action="delete" data-id="${E(p.id)}">${armed?'确定删除':'删除'}</button>`:''}</span></td></tr>`;
       }).join('');
-      return toolbar+`<table class="cs-table cs-prod"><thead><tr><th>产品名称</th><th>产品编号</th>${shows('model')?'<th>产品型号</th>':''}${shows('group')?'<th>产品分组</th>':''}${shows('fob')?'<th>离岸价</th>':''}${shows('unit')?'<th>计量单位</th>':''}<th>更新</th><th>操作</th></tr></thead><tbody>${body}</tbody></table>`
+      return toolbar+`<table class="cs-table cs-prod"><thead><tr><th>产品名称</th>${shows('code')?'<th>产品编号</th>':''}${shows('model')?'<th>产品型号</th>':''}${shows('group')?'<th>产品分组</th>':''}${shows('fob')?'<th>离岸价</th>':''}${shows('unit')?'<th>计量单位</th>':''}<th>更新</th><th>操作</th></tr></thead><tbody>${body}</tbody></table>`
         +`<p class="cs-hint">共 ${rows.length} 个产品${rows.length!==total?`（全部 ${total} 个）`:''}。${can('product.delete')?'删除后不能恢复。':''}</p>`;
     }
     // ---- 产品分组 ----
@@ -102,7 +104,7 @@
       if(!tasks.length)return toolbar+empty('还没有导入过。点“从表格导入产品”，选一个 Excel 或 CSV 文件，先看预览，确认后才会写入。');
       const body=tasks.map(t=>{
         const r=t.result;
-        const note=t.status==='已撤销'&&r?`<div class="cs-use">删除新建 ${r.removed} 个，还原更新 ${r.restored} 个${r.kept?`；${r.kept} 个产品导入后又改过，没有撤销`:''}</div>`:'';
+        const note=t.status==='已撤销'&&r?`<div class="cs-use">删除新建 ${r.removed} 个，还原更新 ${r.restored} 个${r.kept?`；${r.kept} 个产品导入后又改过，没有撤销`:''}${r.groupCleared?`；${r.groupCleared} 个产品原来的分组已经删除，还原后分组留空`:''}</div>`:'';
         const armed=view.armed===`undo:${t.id}`;
         const action=latest&&latest.id===t.id?`<button type="button" data-prod-action="sync-undo" data-id="${E(t.id)}">${armed?'确定撤销':'撤销'}</button>`:'—';
         return `<tr><td>${E(t.name)}</td><td>${E(stamp(t.at))}</td><td>${E(t.status)}${note}</td><td class="num">${t.total}</td><td class="num">${t.created}</td><td class="num">${t.updated}</td><td class="num">${t.skipped}</td><td>${E(t.source)}</td><td><span class="cs-row-actions">${action}</span></td></tr>`;
@@ -213,7 +215,7 @@
         const shown=plan.rows.slice(0,200);
         const tag={new:'新建',update:'更新',skip:'跳过'};
         const rows=shown.map(r=>`<tr class="ps-${r.status}"><td class="num">${r.line}</td><td>${tag[r.status]}</td><td>${E(r.name||'—')}</td><td>${E(r.code||'—')}</td><td>${r.reason?E(r.reason):''}${r.warnings.length?`<div class="cs-use">${E(r.warnings.join('；'))}</div>`:''}</td></tr>`).join('');
-        const notes=[draft.ignored.length?`这些列没有用到：${draft.ignored.join('、')}`:'',draft.hidden.length?`这些字段在“产品字段”里被隐藏，已忽略：${draft.hidden.join('、')}`:''].filter(Boolean);
+        const notes=[draft.ignored.length?`这些列没有用到：${draft.ignored.join('、')}`:'',draft.hidden.length?`这些字段在“产品字段”里被隐藏，已忽略：${draft.hidden.join('、')}`:'',M.settings(state).fields.code.visible?'':'产品编号在“产品字段”里被隐藏：文件里的编号只用来对上已有的产品，不会写进产品。'].filter(Boolean);
         preview=`<div class="ps-summary" role="status">共 ${c.total} 行：<strong>新建 ${c.new}</strong>、<strong>更新 ${c.update}</strong>、跳过 ${c.skip}</div>`
           +notes.map(n=>`<p class="cs-hint">${E(n)}</p>`).join('')
           +`<div class="ps-table"><table class="cs-table"><thead><tr><th>行</th><th>处理</th><th>产品名称</th><th>产品编号</th><th>说明</th></tr></thead><tbody>${rows}</tbody></table></div>`

@@ -201,3 +201,65 @@ test('roles saved before the permission split keep what they could do', () => {
   assert.equal(saved.laiSettings.roles.roles.find(r => r.id === 'sales').v, 2);
   assert.deepEqual(R.settings(saved).roles.find(r => r.id === 'sales').perms, { 'lead.view': true }, 'v2 roles are not upgraded again');
 });
+
+test('renaming a member renames their records everywhere (case-insensitive), in one state', () => {
+  const state0 = {
+    laiSettings: { defaultOwner: 'Kris' }, orderSettings: { defaultOwner: 'amy' },
+    customers: { a: { owner: 'Kris' }, b: { owner: 'AMY' }, c: { owner: 'Amy', laiBucket: 'trash' } },
+    laiLeads: [{ id: 'l1', owner: 'amy' }, { id: 'l2', owner: 'Kris' }],
+    orders: [{ id: 'o1', owner: 'Amy' }, { id: 'o2', owner: 'Kris' }], trashOrders: [{ id: 'o3', owner: 'Amy' }],
+    laiOpportunities: [{ id: 'p1', owner: 'Kris', collaborators: ['amy', 'Bob'] }, { id: 'p2', owner: 'Amy', collaborators: [] }],
+    laiTasks: [{ id: 't1', title: 'x', customer: 'a' }],
+    laiTargets: [{ metric: 'orders', owner: 'Amy', value: 5 }, { metric: 'orders', owner: null, value: 9 }],
+  };
+  const amy = R.settings(state0).members.find(m => m.name.toLowerCase() === 'amy');
+  const next = R.renameMember(state0, amy.id, 'Amelia');
+  assert.ok(R.settings(next).members.some(m => m.name === 'Amelia') && !R.settings(next).members.some(m => m.name.toLowerCase() === 'amy'));
+  assert.deepEqual(Object.values(next.customers).map(c => c.owner), ['Kris', 'Amelia', 'Amelia']);
+  assert.deepEqual(next.laiLeads.map(l => l.owner), ['Amelia', 'Kris']);
+  assert.deepEqual([...next.orders, ...next.trashOrders].map(o => o.owner), ['Amelia', 'Kris', 'Amelia']);
+  assert.deepEqual(next.laiOpportunities.map(o => [o.owner, o.collaborators]), [['Kris', ['Amelia', 'Bob']], ['Amelia', []]]);
+  assert.deepEqual(next.laiTargets.map(t => t.owner), ['Amelia', null]);
+  assert.equal(next.orderSettings.defaultOwner, 'Amelia');
+  assert.equal(next.laiSettings.defaultOwner, 'Kris', 'someone else is the default owner');
+  assert.equal(state0.customers.b.owner, 'AMY', 'the input state is untouched');
+  assert.equal(next.laiTasks, state0.laiTasks, 'untouched lists keep their identity');
+});
+
+test('renameOwnerEverywhere: no-ops, and the current account renaming carries the default owner', () => {
+  const state0 = { laiSettings: { defaultOwner: 'Kris' }, customers: { a: { owner: 'Kris' } }, orders: [] };
+  assert.equal(R.renameOwnerEverywhere(state0, 'Nobody', 'X'), state0);
+  assert.equal(R.renameOwnerEverywhere(state0, 'Kris', 'Kris'), state0);
+  assert.equal(R.renameOwnerEverywhere(state0, '', 'X'), state0);
+  const kris = R.settings(state0).members.find(m => m.name === 'Kris');
+  const next = R.renameMember(state0, kris.id, 'Chris');
+  assert.equal(next.laiSettings.defaultOwner, 'Chris');
+  assert.equal(next.customers.a.owner, 'Chris');
+  // case-only rename
+  const cased = R.renameMember(state0, kris.id, 'KRIS');
+  assert.equal(cased.customers.a.owner, 'KRIS');
+});
+
+test('a saved 业务 role gets permissions added after it was saved (by its known list), but never re-enables ones it knew', () => {
+  const stored = known => ({ laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known, perms: { 'lead.view': true } }, { id: 'rx', name: '自建', scope: 'self', v: 2, known, perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } });
+  const all = R.KEYS.filter(key => key !== 'mail.send' && key !== 'doc.create');
+  // The role was saved when mail.send and doc.create did not exist yet: both are granted (both are in the default 业务 list).
+  let s = R.settings(stored(all));
+  const sales = s.roles.find(r => r.id === 'sales');
+  assert.equal(sales.perms['mail.send'], true);
+  assert.equal(sales.perms['doc.create'], true);
+  assert.equal(sales.perms['lead.view'], true);
+  assert.equal(sales.perms['lead.edit'], undefined, 'known and left off: stays off');
+  // A key outside the default 业务 list is never granted; a custom role never gets defaults.
+  assert.equal(sales.perms['lead.delete'], undefined);
+  assert.equal(s.roles.find(r => r.id === 'rx').perms['mail.send'], undefined);
+  // Everything known at save time: nothing is added.
+  s = R.settings(stored([...R.KEYS]));
+  assert.equal(s.roles.find(r => r.id === 'sales').perms['mail.send'], undefined);
+  // An old save without a known list is read against the key list of the time it was written (nothing new yet).
+  s = R.settings(stored(undefined));
+  assert.equal(s.roles.find(r => r.id === 'sales').perms['mail.send'], undefined);
+  // Saving writes the known list, so a later new key is granted from then on.
+  const saved = R.addMember(stored([...R.KEYS]), { name: 'Bob' });
+  assert.deepEqual(saved.laiSettings.roles.roles.find(r => r.id === 'sales').known, [...R.KEYS]);
+});

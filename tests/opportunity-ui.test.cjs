@@ -400,7 +400,7 @@ test('customer page: detail shows the current in-progress opportunity, real coun
   const sandbox = {state: s, currentName: 'Alpha <b>Co</b>', activeRoute: 'customers', toast: t => calls.push(['toast', t]), detail: (...a) => calls.push(['detail', ...a]),
     business: {newOpportunity: n => calls.push(['new', n]), showOpportunities: n => calls.push(['all', n]), opportunityMenu: (...a) => calls.push(['menu', ...a]), moveOpportunity: (...a) => calls.push(['move', ...a])}};
   sandbox.window = {LaiOpportunityModel: O};
-  // customerOpportunities 按角色范围筛商机（本人／本部门只算自己能看到的）。
+  // detailScopeState / customerOpportunities 按角色范围筛商机（本人／本部门只算自己能看到的）。
   sandbox.R = require('../src/role-model.js');
   vm.createContext(sandbox); vm.runInContext(body, sandbox);
   const run = code => vm.runInContext(code, sandbox);
@@ -429,6 +429,44 @@ test('customer page: detail shows the current in-progress opportunity, real coun
   assert.match(html, /销售金额 <b>USD 100<\/b>/); assert.match(html, /结束日期 <b>2025-12-15<\/b>/);
   assert.match(html, /class="lcd-feature lcd-phase phase-0 is-current" data-feature="商机阶段：未成单"/);
   assert.equal((html.match(/is-current/g) || []).length, 1);
+});
+
+test('customer page: 本部门 accounts see (and count) only their department\'s opportunities and orders in the detail, and own their new customers', () => {
+  const R = require('../src/role-model.js');
+  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const body = app.slice(app.indexOf('  const detailOpp = {'), app.indexOf('  function customerOpportunityFeature(')) +
+    app.slice(app.indexOf('  function newCustomerOwner() {'), app.indexOf('  function editForm('));
+  let s = {...sample(), orders: [{id: 'o1', client: 'Alpha <b>Co</b>', owner: 'Amy'}, {id: 'o2', client: 'Alpha <b>Co</b>', owner: 'Bob'}, {id: 'o3', client: 'Alpha <b>Co</b>', owner: 'Na<i>omi'}]};
+  const member = (name) => R.settings(s).members.find((m) => m.name === name);
+  s = R.addMember(s, {name: 'Kris', roleId: R.ADMIN});
+  s = R.switchTo(s, R.settings(s).members.find((m) => m.name === 'Kris').id);
+  for (const name of ['Amy', 'Bob', 'Na<i>omi']) if (!member(name)) s = R.addMember(s, {name, roleId: 'sales'});
+  for (const name of ['Amy', 'Bob', 'Na<i>omi']) s = R.setMemberRole(s, member(name).id, 'sales');
+  s = R.addDepartment(s, {name: '销售部'});
+  const dept = R.deptTree(s).find((d) => d.name === '销售部').id;
+  s = R.addDepartment(s, {name: '一组', parentId: dept});
+  s = R.setMemberDept(s, member('Amy').id, dept);
+  s = R.setMemberDept(s, member('Na<i>omi').id, R.deptTree(s).find((d) => d.name === '一组').id);
+  const asAmy = (scope, extra = {}) => {
+    const next = R.switchTo(R.updateRole(s, 'sales', {scope}), member('Amy').id);
+    return {...next, laiSettings: {...next.laiSettings, ...extra}};
+  };
+  const sandbox = {state: asAmy('dept', {defaultOwner: 'Bob'}), R, window: {LaiOpportunityModel: O}};
+  assert.equal(R.scopeOf(sandbox.state), 'dept');
+  vm.createContext(sandbox); vm.runInContext(body, sandbox);
+  const run = (code) => vm.runInContext(code, sandbox);
+  // Bob is outside the department: his order and his p5 opportunity on Beta stay out; Na<i>omi (sub-department) is in.
+  assert.deepEqual(run('detailScopeState().orders.map((o) => o.id)'), ['o1', 'o3']);
+  assert.deepEqual(run('customerOpportunities("Alpha <b>Co</b>").activeOpportunities.map((o) => o.id)'), ['p1', 'p2']);
+  // New customers: 本人 and 本部门 accounts always own them; company-wide accounts get the 默认跟进人 from settings.
+  assert.equal(run('newCustomerOwner()'), 'Amy');
+  sandbox.state = asAmy('self', {defaultOwner: 'Bob'});
+  assert.deepEqual(run('customerOpportunities("Alpha <b>Co</b>").activeOpportunities.map((o) => o.id)'), ['p1'], '本人 sees only her own');
+  assert.deepEqual(run('detailScopeState().orders.map((o) => o.id)'), ['o1']);
+  assert.equal(run('newCustomerOwner()'), 'Amy');
+  sandbox.state = asAmy('all', {defaultOwner: 'Bob'});
+  assert.equal(run('detailScopeState() === state'), true);
+  assert.equal(run('newCustomerOwner()'), 'Bob');
 });
 
 test('customer editor: ticking 同时新建商机 no longer blocks saving; it opens the opportunity form afterwards', () => {

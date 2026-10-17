@@ -245,6 +245,7 @@
     const used=choiceUse(state,kind,name);
     if(used)throw new Error(`还有 ${used} 个商机用了${c.that}，先改掉它们`);
     if(items.length<=c.min)throw new Error(`至少保留 ${c.min} 个${c.what}`);
+    if(kind==='types'&&items.length<=1){const row=fieldMap(state).type;if(row.show&&row.required)throw new Error('商机类型现在是必填，至少要留一个类型；先把它改成不必填再删');}
     return putSettings(state,{[c.key]:items.filter(entry=>entry!==name)});
   }
   const addLostReason=(state,value)=>addChoice(state,'reasons',value),renameLostReason=(state,name,value)=>renameChoice(state,'reasons',name,value);
@@ -423,7 +424,7 @@
       const wanted=has('sources')?splitList(input.sources):before,allowed=sourceList(state)||[];
       for(const source of wanted)if(!before.some(entry=>sameName(entry,source))&&!allowed.some(entry=>sameName(entry,source)))throw new Error(`商机来源“${source}”不在来源名单里`);
       setOrDrop('sources',wanted.map(source=>allowed.find(entry=>sameName(entry,source))||before.find(entry=>sameName(entry,source))||source));
-      need('sources','商机来源',next.sources?.length);
+      if(allowed.length)need('sources','商机来源',next.sources?.length);
     }
     if(cfg.type.show){
       const type=cleanText(value('type'));
@@ -432,14 +433,16 @@
         if(!hit)throw new Error(`商机类型“${type}”不在类型名单里`);
         setOrDrop('type',hit);
       }else setOrDrop('type',type);
-      need('type','商机类型',next.type);
+      // 类型名单被删光时没有可选项，不能再要求必填。
+      if(typeChoices(state).length)need('type','商机类型',next.type);
     }
     // 来源线索：新选的必须是还在的线索。
     if(cfg.leadId.show){
       const id=trim(value('leadId'));
       if(id&&id!==trim(previous?.leadId)&&!leadChoices(state).some(lead=>lead.id===id))throw new Error('来源线索不存在或已在回收站，请重新选择');
       setOrDrop('leadId',id);
-      need('leadId','来源线索',next.leadId);
+      // 没有可选的线索时不能要求必填。
+      if(leadChoices(state).length)need('leadId','来源线索',next.leadId);
     }
     // 自定义字段：只处理设置里还有的字段；其余已存的值原样留着。
     const stored=plainObject(previous?.custom),given=has('custom')?plainObject(input.custom):{},custom={...stored};
@@ -502,7 +505,7 @@
       next.lostNote=trim(Object.hasOwn(input,'lostNote')?input.lostNote:previous?.lostNote);
     }else{delete next.lostReason;delete next.lostNote;}
     if(previous?.stage!==stageId||!sameFlow){
-      next.stageHistory=[...(Array.isArray(previous?.stageHistory)?previous.stageHistory:[]),{stage:stageId,at:now}];
+      next.stageHistory=[...(Array.isArray(previous?.stageHistory)?previous.stageHistory:[]),{stage:stageId,label:stage.label,at:now}];
       // 进入赢单或输单阶段时记下结束时间；回到进行中则清掉。
       if(stage.kind==='open')delete next.closedAt;
       else if(!previous||knownStage(state,previous)?.kind!==stage.kind||!previous.closedAt)next.closedAt=now;
@@ -878,7 +881,7 @@
       if(!target)throw new Error(`「${stage.label}」里还有 ${affected.size} 个商机，请先选择把它们移到哪个阶段`);
       next={...state,laiOpportunities:raw(state).map(item=>{
         if(!affected.has(item))return item;
-        const moved={...item,stage:target.id,updatedAt:now,stageHistory:[...(Array.isArray(item.stageHistory)?item.stageHistory:[]),{stage:target.id,at:now}]};
+        const moved={...item,stage:target.id,updatedAt:now,stageHistory:[...(Array.isArray(item.stageHistory)?item.stageHistory:[]),{stage:target.id,label:target.label,at:now}]};
         delete moved.sortRank;
         if(target.kind==='open')delete moved.closedAt;
         else if(stage.kind!==target.kind||!item.closedAt)moved.closedAt=now;
@@ -986,7 +989,7 @@
     return {...base,flowLabel:flow.label,contact:trim(item.contact),note:trim(item.note),collaborators:Array.isArray(item.collaborators)?item.collaborators:[],
       products:Array.isArray(item.products)?item.products.filter(row=>row&&typeof row==='object'&&trim(row.name)):[],exchangeRate:item.exchangeRate,
       createdAt:trim(item.createdAt),updatedAt:trim(item.updatedAt),closedAt:trim(item.closedAt),lostNote:trim(item.lostNote),
-      history:(Array.isArray(item.stageHistory)?item.stageHistory:[]).filter(entry=>entry&&typeof entry==='object').map(entry=>({stage:trim(entry.stage),label:label(trim(entry.stage))?.label||trim(entry.stage),kind:label(trim(entry.stage))?.kind||'open',at:trim(entry.at)})),
+      history:(Array.isArray(item.stageHistory)?item.stageHistory:[]).filter(entry=>entry&&typeof entry==='object').map(entry=>({stage:trim(entry.stage),label:label(trim(entry.stage))?.label||trim(entry.label)||'已删除的阶段',kind:label(trim(entry.stage))?.kind||'open',at:trim(entry.at)})),
       attachments:attachmentsOf(item),number:trim(item.number),sources:Array.isArray(item.sources)?item.sources.map(trim).filter(Boolean):[],type:trim(item.type),
       leadId:trim(item.leadId),leadName:trim(item.leadId)?leadName(state,trim(item.leadId)):'',custom:customRows(state,item)};
   }
