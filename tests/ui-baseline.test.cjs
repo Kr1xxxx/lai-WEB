@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { appSource } = require('./helpers/source.cjs');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -65,7 +66,7 @@ test('interaction polish has bounded motion', () => {
 });
 
 test('the customer sub-navigation no longer offers the removed profile-suggestion entry', () => {
-  const app = read('src/app.js');
+  const app = appSource();
   assert.doesNotMatch(app, /建档建议/);
   // 客户页的条目现在取自 rail-menu.js（和悬停浮层、可设为常用的清单同一份来源）。
   const block = app.slice(app.indexOf('function subnav()'), app.indexOf('async function navigateApp'));
@@ -95,7 +96,7 @@ test('every theme (pink, orange, tech) defines the same colour variables and not
 });
 
 test('the chosen theme is stored in laiSettings.theme, applied to <html>, and switched from 设置', () => {
-  const app = read('src/app.js');
+  const app = appSource();
   const ui = read('src/business-ui.js');
   assert.match(app, /const THEME_IDS = \["pink", "orange", "tech"\];/);
   assert.match(app, /const RETIRED_THEMES = \{ xiaoman: "tech" \};/, 'a saved 小满 is shown as 科技蓝 (D-029)');
@@ -114,7 +115,7 @@ test('the chosen theme is stored in laiSettings.theme, applied to <html>, and sw
 });
 
 test('the workbench and menus with three or fewer entries have no second-level navigation column; customers and mail keep theirs', () => {
-  const app = read('src/app.js');
+  const app = appSource();
   assert.match(app, /id="app-subnav"\$\{\(activeRoute === "dashboard" && !favoritesMode\) \|\| sectionTabEntries\(\) \? " hidden" : ""\}/);
   assert.match(app, /const SECTION_TABS_MAX = 3;/);
   assert.match(app, /if \(favoritesMode \|\| activeRoute === "customers" \|\| activeRoute === "mail"\) return null;/, 'customers, mail and 常用 keep the column');

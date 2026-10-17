@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const C = require('../src/changelog.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 
@@ -38,5 +39,5 @@ test('render escapes text and marks the current version', () => {
 test('the changelog script is loaded before the app, in the template and in the build script', () => {
   assert.match(read('src/template.html'), /<!--CHANGELOG-->/);
   assert.match(read('scripts/build.py'), /'<!--CHANGELOG-->','changelog\.js','script'/);
-  assert.match(read('src/app.js'), /data-action="version-history"/);
+  assert.match(appSource(), /data-action="version-history"/);
 });

@@ -2,8 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { appSource } = require("./helpers/source.cjs");
 
-const app = fs.readFileSync(path.join(__dirname, "../src/app.js"), "utf8");
+const app = appSource();
 const css = fs.readFileSync(
   path.join(__dirname, "../src/customer-replica.css"),
   "utf8",

@@ -11,6 +11,7 @@ const F = require('../src/customer-fields.js');
 const CT = require('../src/customer-tools.js');
 const CS = require('../src/customer-settings-model.js');
 const O = require('../src/opportunity-model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const NOW = '2026-10-01T00:00:00.000Z';
 // Roles as stored by older versions: 业务 with field levels, Boss is admin, Amy is 业务 and the current account.
@@ -50,7 +51,7 @@ test('merging customers as a restricted account keeps every value of the merged 
   const guarded = F.guardState(state, merged);
   assert.notEqual(guarded.customers.Keep.website, 'dup.com');
   // app.js: the merge saves with guard:false.
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   assert.match(app, /CT\.mergeCustomers\(state, primary[^\n]*\n[^\n]*\n\s*\{ guard: false \},/);
 });
 
@@ -89,7 +90,7 @@ test('stage, group and tag renames change the customers; app.js saves them witho
   assert.equal(F.guardState(state, renamed).customers.Acme.customerStage, stages[0], 'the guard would undo it');
   const tagged = CT.renameTag(state, 'vip', '重点', NOW).state;
   assert.deepEqual(tagged.customers.Acme.tags, ['重点']);
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   assert.match(app, /async function csSave[\s\S]{0,400}await persist\(makeNext\(\), null, \{ guard: false \}\);/);
   assert.match(app, /await persist\(fn\(\)\.state, null, \{ guard: false \}\)/, 'tag manager');
   assert.match(app, /persist\(CT\.markAutoRun\(result\.state\), null, \{ guard: false \}\)/, 'daily pool rules');
