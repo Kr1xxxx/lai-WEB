@@ -339,7 +339,7 @@
 :root[data-skin="glass"][data-theme="studio"] .global-search > button { min-height: 0; height: 100%; padding: 0 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 :root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child { width: var(--studio-scope-w); flex: 0 0 var(--studio-scope-w); border-right: 1px solid var(--studio-border); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-body); color: var(--studio-text-2); }
 :root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child:hover,
-:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child[aria-expanded="true"] { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child[aria-expanded="true"] { background: var(--studio-surface-3); }
 :root[data-skin="glass"][data-theme="studio"] .global-search > input { height: 100%; padding: 0 9px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: var(--studio-fs-sm); color: var(--studio-text); }
 :root[data-skin="glass"][data-theme="studio"] .global-search > input::placeholder { color: var(--studio-text-3); }
 :root[data-skin="glass"][data-theme="studio"] .global-search > button:last-child { width: 28px; padding: 0; color: var(--studio-text-4); }
@@ -999,7 +999,7 @@
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.tree-heading { padding: 0 8px 0 0; }
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.tree-heading i,
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .tree-toggle { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
-:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .tree-toggle:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .tree-toggle:hover { background: var(--studio-surface-3); }
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .won-tree-title { height: var(--studio-side-row); line-height: var(--studio-side-row); }
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-row small { font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-body); color: var(--studio-text-3); }
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row:hover { background: var(--studio-surface-3); color: var(--studio-text); }
@@ -1304,7 +1304,7 @@
    不跟 .opp-field 的 500（标签仍是 12.5/500）；币种代码保留原来的加粗 */
 :root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form, #biz-order-form, #biz-order-form .form-grid) { --dd-h: var(--studio-h-md); }
 :root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-static { min-height: var(--studio-h-md); }
-:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) :is(.k-input:not(.opp-group-currency), .k-textarea, .lai-select-trigger, .lai-date-trigger) {
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form, #biz-order-form) :is(.k-input:not(.opp-group-currency), .k-textarea, .lai-select-trigger, .lai-date-trigger) {
   font-weight: var(--studio-fw-body);
 }
 

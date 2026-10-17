@@ -5,7 +5,7 @@
 //
 // 选项（都可省略）：
 //   --url http://127.0.0.1:8766/      网页试用版地址（需要它自带的示例数据 LaiWebTrialDemoSeed）
-//   --themes pink,orange,tech  要扫的主题
+//   --themes pink,orange,tech,studio  要扫的主题
 //   --views 1440x900,1280x720,...      窗口尺寸（默认 1440x900,1280x720,1440x640,1200x800,1024x800；后两个窄窗口是 2026-10 加的）
 //   --routes customers,order-list,... 只扫这几页（默认全部）
 //   --no-font                         跳过「点击前后字体」检查（比较慢）
@@ -30,7 +30,7 @@ const opt = (name, fallback) => {
 const flag = (name) => args.includes("--" + name);
 
 const URL_BASE = opt("url", process.env.TRIAL_URL || "http://127.0.0.1:8766/");
-const THEMES = opt("themes", "pink,orange,tech").split(",");
+const THEMES = opt("themes", "pink,orange,tech,studio").split(",");
 const VIEWS = opt("views", "1440x900,1280x720,1440x640,1200x800,1024x800").split(",").map((v) => v.split("x").map(Number));
 const ALL_ROUTES = ["customers", "dashboard", "mail", "opportunities", "opp-analysis", "opp-flows", "order-list", "order-trash", "team-goals", "team-targets", "team-wall", "analysis", "team-assets", "team-followups", "team-orders", "settings", "settings-hub"];
 const ROUTES = opt("routes", "") ? opt("routes", "").split(",") : ALL_ROUTES;
