@@ -4,6 +4,7 @@
   "version": "1.4.126",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
+    "start": "node scripts/start.cjs",
     "test:model": "node --test tests/*.test.cjs",
     "test:e2e": "node --test tests/e2e/*.e2e.mjs"
   }
