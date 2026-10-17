@@ -179,7 +179,8 @@
 /* 新建客户、编辑客户的排版。抽屉的壳是 .k-drawer + .k-dialog-head + .k-dialog-foot，输入是 .k-input / .k-textarea，
    下拉是 .k-select-trigger（页面上换成统一下拉，D-010），按钮是 .k-btn，「主」是 .k-badge，底栏错误是 .k-error，都来自组件套件；
    这里只放这张表单自己的排版。只用 ui-tokens.css 的变量；每条规则带 :root[data-skin]，并且比组件的同名规则多一级。 */
-:root[data-skin] .drawer.customer-editor.k-drawer { width: min(840px, 100vw); max-width: 100vw; height: auto; max-height: none; border-width: 0 0 0 1px; border-radius: var(--r-xl) 0 0 var(--r-xl); font-family: var(--font-ui); }
+/* 抽屉贴着窗口右边、上下撑满，所以四个角都是直角 */
+:root[data-skin] .drawer.customer-editor.k-drawer { width: min(840px, 100vw); max-width: 100vw; height: auto; max-height: none; border-width: 0 0 0 1px; border-radius: 0; font-family: var(--font-ui); }
 :root[data-skin] .customer-editor .drawer-head.k-dialog-head { gap: 4px; height: 56px; min-height: 56px; padding: 0 16px 0 24px; border-bottom: 1px solid var(--border); }
 :root[data-skin] .customer-editor .drawer-head.k-dialog-head h2 { margin: 0 auto 0 0; font-size: var(--text-lg); font-weight: 600; line-height: 24px; color: var(--fg); }
 :root[data-skin] .customer-editor .drawer-head .k-btn { width: 32px; min-width: 32px; height: 32px; min-height: 32px; padding: 0; color: var(--muted-fg); }
@@ -210,6 +211,8 @@
 :root[data-skin] .ce-body .ce-select { position: relative; min-width: 0; }
 :root[data-skin] .ce-body .ce-select > .ce-icon { position: absolute; top: 9px; right: 10px; width: 14px; height: 14px; color: var(--muted-fg); pointer-events: none; }
 :root[data-skin] .ce-body .ce-combo > .k-input { padding-right: 28px; }
+/* 换成统一下拉后，下拉框自己画箭头，原来的箭头图标藏起来 */
+:root[data-skin] .ce-body .ce-select:has(> .lai-select-trigger) > .ce-icon { display: none; }
 :root[data-skin] .ce-body .ce-select > .lai-select-trigger { width: 100%; }
 /* 客户星级 */
 :root[data-skin] .ce-body .ce-rating { display: flex; align-items: center; gap: 4px; height: 28px; }

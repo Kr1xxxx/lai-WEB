@@ -370,7 +370,7 @@
 :root[data-skin] .lcd-root .lcd-followup-label > button:not(.k-btn) strong { font-size: var(--text-base); font-weight: 600; }
 :root[data-skin] .lcd-root .lcd-followup-label .k-btn .icon { width: 14px; height: 14px; }
 :root[data-skin] .lcd-root .lcd-followup-form { margin: 0 0 var(--space-5); }
-:root[data-skin] .lcd-root .lcd-followup-form .k-textarea { display: block; height: 36px; min-height: 36px; resize: vertical; }
+:root[data-skin] .lcd-root .lcd-followup-form .k-textarea { display: block; height: 32px; min-height: 32px; padding-top: 5px; padding-bottom: 5px; resize: vertical; }
 :root[data-skin] .lcd-root .lcd-followup-form:is(:focus-within, .has-draft) .k-textarea { min-height: 108px; }
 :root[data-skin] .lcd-root .lcd-followup-footer { flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-2); }
 :root[data-skin] .lcd-root .lcd-followup-footer label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted-fg); }
@@ -484,7 +484,7 @@
 :root[data-skin] .lcd-root #document-results { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 :root[data-skin] .lcd-root .lcd-doc-grid { flex: 1; min-height: 360px; overflow: auto; }
 :root[data-skin] .lcd-root .lcd-doc-grid table { min-width: 640px; }
-:root[data-skin] .lcd-root .lcd-pagination.k-pager { gap: 8px; padding: 0 12px; border-top: 1px solid var(--border); white-space: nowrap; }
+:root[data-skin] .lcd-root .lcd-pagination.k-pager { flex-wrap: wrap; gap: 4px 8px; padding: 8px 12px; border-top: 1px solid var(--border); white-space: nowrap; }
 :root[data-skin] .lcd-root .lcd-pagination.k-pager > span[aria-label] { min-width: 28px; height: 28px; border: 1px solid var(--primary); border-radius: var(--r-md); color: var(--primary); font-weight: 600; line-height: 26px; text-align: center; }
 :root[data-skin] .lcd-root .lcd-doc-selected { margin-right: auto; color: var(--fg); }
 :root[data-skin] .lcd-root .k-pager .lcd-doc-selected button { min-width: 0; height: auto; min-height: 0; margin-left: 8px; padding: 0; color: var(--primary); }
