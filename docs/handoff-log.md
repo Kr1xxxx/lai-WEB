@@ -4,6 +4,8 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #28 merged (`main` 4101b9c); web trial v1.16 published and opened; 功能一览 updated. Running:
+  `npm start` (done in a worker, held until #28 merged), backup restore, customer detail/editor kit, order/opp forms kit.
 - 2026-10-17 — Claude — 客户列表 on the kit merged (k-pageheader, k-tabs scope switch, k-card panel, k-table, k-pager,
   k-empty with 清空筛选). ui-audit covered spots 150→81; baseline rewritten to the new counts (1024x800 customers 7→8,
   same frozen 操作 column class, all other sizes tightened). Census baseline lowered (button 107→95, textColor 39→33,
