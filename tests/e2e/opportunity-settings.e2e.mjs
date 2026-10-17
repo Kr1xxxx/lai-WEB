@@ -13,7 +13,7 @@ const settings = async () => (await app.readData()).laiSettings?.opportunitySett
 const openSettings = async () => {
   const { page } = app;
   await page.locator('.rail-item[data-rail-menu="商机"]').click();
-  await page.locator('.subnav .nav-row:has(.nav-label:text-is("商机设置"))').click();
+  await page.locator('.section-tabs .section-tab:text-is("商机设置")').click();
   await page.locator('.opp-set').waitFor();
 };
 const setTab = async (id) => { await app.page.locator(`[data-opp-set-tab="${id}"]`).click(); await app.page.locator(`[data-opp-set-panel="${id}"]`).waitFor(); };
@@ -76,7 +76,7 @@ test('a custom 单选 field is added in 商机字段 and saved', async () => {
 
 test('a new opportunity records 商机来源, 商机类型 and the custom field; its detail shows them with an OPP- number', async () => {
   const { page } = app;
-  await page.locator('.subnav .nav-row:has(.nav-label:text-is("商机看板"))').click();
+  await page.locator('.section-tabs .section-tab:text-is("商机看板")').click();
   await page.locator('[data-opp-action="new"]').first().click();
   await page.locator('#opp-form').waitFor();
   await settle();

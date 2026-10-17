@@ -141,7 +141,7 @@ const source = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'u
 function controller(initial, failWith = null, extraAll = {}) {
   const {roleModel, ...extra} = extraAll;
   let current = initial, form = null, broken = false;
-  const mounted = [], dialogs = [], listeners = {}, toasts = [], closed = [], errors = {}, refreshed = [], navigated = [];
+  const mounted = [], dialogs = [], listeners = {}, toasts = [], toastOptions = [], dismissed = [], closed = [], errors = {}, refreshed = [], navigated = [];
   const sandbox = {crypto: {randomUUID: () => 'new-id'}, FormData: function (f) { return Object.entries(f.values)[Symbol.iterator](); }, document: {
     addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
     getElementById: id => id === 'opp-form' ? form : id ? (errors[id] ||= {textContent: '', classList: {add() {}}}) : null,
@@ -150,7 +150,7 @@ function controller(initial, failWith = null, extraAll = {}) {
   vm.createContext(sandbox); vm.runInContext(source, sandbox);
   const page = sandbox.window.LaiBusinessUI.create({getState: () => current, escape: escapeHtml, mount: html => mounted.push(html),
     save: async next => { if (failWith) throw new Error(failWith); current = next; return true; }, openCustomer() {}, refreshCustomer: name => refreshed.push(name), navigate: to => navigated.push(to),
-    toast: text => toasts.push(text), dialog: (...args) => { if (broken) throw new Error('boom'); dialogs.push(args); }, closeDialog: () => closed.push(1), ...extra});
+    toast: (text, options) => { toasts.push(text); toastOptions.push(options || null); return {dismiss: () => dismissed.push(text)}; }, dialog: (...args) => { if (broken) throw new Error('boom'); dialogs.push(args); }, closeDialog: () => closed.push(1), ...extra});
   const target = dataset => ({closest: sel => sel === 'button' ? {dataset, disabled: false} : null});
   const fakeForm = values => {
     const field = value => { const label = {hidden: false}; return {value, disabled: false, hidden: false, required: false, readOnly: false, innerHTML: '', dataset: {}, label, closest: () => label}; };
@@ -158,7 +158,7 @@ function controller(initial, failWith = null, extraAll = {}) {
     form = {elements, values};
     return elements;
   };
-  return {page, mounted, dialogs, toasts, closed, errors, refreshed, navigated, state: () => current, fakeForm, setForm: values => { form = values ? {values} : null; },
+  return {page, mounted, dialogs, toasts, toastOptions, dismissed, undoOffer: () => toastOptions.at(-1)?.action || null, closed, errors, refreshed, navigated, state: () => current, fakeForm, setForm: values => { form = values ? {values} : null; },
     replaceState: next => { current = next; }, breakDialog: () => { broken = true; },
     click: dataset => Promise.all(listeners.click.map(fn => fn({target: target(dataset)}))),
     submit: (id, values, dataset = {}) => Promise.all(listeners.submit.map(fn => fn({target: {id, values, dataset, elements: {isDraft: {checked: false}}}, preventDefault() {}}))),
@@ -871,11 +871,14 @@ test('controller: manual sort lets a card be dropped between others, and the mov
   assert.equal(c.drag('dragover', dragColumn('open', [['m3', 0, 100], ['m2', 110, 210]]), {clientY: 20}), true);
   c.drag('drop', dragColumn('open', [['m3', 0, 100], ['m2', 110, 210]]), {clientY: 20}); await flush();
   assert.deepEqual(inColumn(c.state(), 'open'), ['m1', 'm3', 'm2'], 'dropped above the first card');
-  assert.match(c.mounted.at(-1), /<div class="opp-undo" id="opp-undo" role="status"><span>已调整「[^」]+」的位置<\/span><button type="button" data-opp-action="undo">撤销<\/button>/);
+  // 撤销放在唯一的提示条里：提示「已调整…的位置」，带「撤销」按钮；页面里不再画单独的撤销条。
+  assert.match(c.toasts.at(-1), /^已调整「[^」]+」的位置$/);
+  assert.equal(c.undoOffer().label, '撤销');
+  assert.doesNotMatch(c.mounted.at(-1), /opp-undo|data-opp-action="undo"/);
   // 撤销：回到原来的样子
-  await c.click({oppAction: 'undo'}); await flush();
+  await c.undoOffer().run(); await flush();
   assert.equal(c.state(), s, 'the very same state comes back');
-  assert.doesNotMatch(c.mounted.at(-1), /opp-undo/); assert.equal(c.toasts.at(-1), '已撤销');
+  assert.equal(c.toasts.at(-1), '已撤销'); assert.equal(c.toastOptions.at(-1), null, 'the follow-up toast has no button');
   // 放到下面：y 在所有卡片中点之后 = 放到最后
   c.drag('dragstart', cardEl('m3'));
   c.drag('drop', dragColumn('open', [['m2', 0, 100], ['m1', 110, 210]]), {clientY: 500}); await flush();
@@ -885,8 +888,8 @@ test('controller: manual sort lets a card be dropped between others, and the mov
   c.drag('dragstart', cardEl('m2'));
   c.drag('drop', dragColumn('unpaid', []), {clientY: 10}); await flush();
   assert.equal(O.list(c.state()).find(i => i.id === 'm2').stage, 'unpaid');
-  assert.match(c.mounted.at(-1), /已移到「付款未到账」/);
-  await c.click({oppAction: 'undo'}); await flush();
+  assert.equal(c.toasts.at(-1), '已移到「付款未到账」');
+  await c.undoOffer().run(); await flush();
   assert.equal(c.state(), beforeMove);
 });
 
@@ -895,16 +898,19 @@ test('controller: undo is refused once something else changed, and disappears wh
   const c = controller(s);
   c.page.navigate('opportunities');
   c.drag('dragstart', cardEl('m1')); c.drag('drop', dragColumn('unpaid', []), {clientY: 1}); await flush();
-  assert.match(c.mounted.at(-1), /opp-undo/);
+  const first = c.undoOffer();
+  assert.ok(first, 'the move offers 撤销 in the toast');
   c.replaceState(O.setArchived(c.state(), 'm2', true));      // 之后有了别的修改（也可能来自另一个窗口）
   const changed = c.state();
-  await c.click({oppAction: 'undo'}); await flush();
+  await first.run(); await flush();
   assert.equal(c.state(), changed); assert.match(c.toasts.at(-1), /已有新的修改，不能撤销/);
-  assert.doesNotMatch(c.mounted.at(-1), /opp-undo/);
   c.drag('dragstart', cardEl('m2')); c.drag('drop', dragColumn('balance', []), {clientY: 1}); await flush();
-  c.page.navigate('analysis'); c.page.navigate('opportunities');
-  assert.doesNotMatch(c.mounted.at(-1), /opp-undo/, 'leaving the page drops the undo offer');
-  await c.click({oppAction: 'undo'}); await flush();
+  const second = c.undoOffer();
+  assert.equal(c.toasts.at(-1), '已移到「待付尾款」');
+  c.page.navigate('analysis');
+  assert.equal(c.dismissed.at(-1), '已移到「待付尾款」', 'leaving the page takes the undo toast away');
+  c.page.navigate('opportunities');
+  await second.run(); await flush();
   assert.equal(O.list(c.state()).find(i => i.id === 'm2').stage, 'balance', 'nothing to undo any more');
 });
 

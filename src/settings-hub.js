@@ -68,13 +68,14 @@
     const visible = (data.testData ? GROUPS.concat([TEST_DATA_GROUP]) : GROUPS)
       .map((group) => ({ ...group, items: group.items.filter((item) => allowed(item, can, moduleOn)) }))
       .filter((group) => group.items.length);
-    const groups = visible.map((group) => `<section class="business-section sh-group" data-sh-group="${group.id}"><div class="section-head"><h3>${E(group.title)}</h3></div><div class="sh-list">${
+    // 组件套件（src/ui-kit.css，D-028）的第一张样板页：页头、卡片、徽标、小号按钮都用 k- 类；sh- 类只管这一页的排版。
+    const groups = visible.map((group) => `<section class="k-card sh-group" data-sh-group="${group.id}"><div class="k-card-head"><h3 class="k-card-title">${E(group.title)}</h3></div><div class="k-card-body sh-list">${
       group.items.map((item) => {
         const now = current(item, data, E);
-        return `<div class="sh-item" data-sh-item="${item.id}"><div class="sh-text"><strong>${E(item.title)}</strong><span>${E(item.note)}</span></div>${now ? `<em class="sh-now">${now}</em>` : ""}<button type="button" ${ATTR[item.open[0]]}="${item.open[1]}" aria-label="打开${E(item.title)}">设置</button></div>`;
+        return `<div class="sh-item" data-sh-item="${item.id}"><div class="sh-text"><strong>${E(item.title)}</strong><span>${E(item.note)}</span></div>${now ? `<em class="k-badge sh-now">${now}</em>` : ""}<button type="button" class="k-btn k-btn--sm" ${ATTR[item.open[0]]}="${item.open[1]}" aria-label="打开${E(item.title)}">设置</button></div>`;
       }).join("")
     }</div></section>`).join("");
-    return `<div class="pagebar"><div class="business-title"><h1>设置中心</h1><span>常用的设置汇总在这里，点“设置”打开；客户摘要字段、公司显示、表格行高和列宽在各自的页面里设置</span></div><div class="page-actions"></div></div><div class="business-scroll sh-page">${groups}</div>`;
+    return `<div class="k-pageheader sh-header"><div class="k-pageheader-text"><h1 class="k-pageheader-title">设置中心</h1><span class="k-pageheader-desc">常用的设置汇总在这里，点“设置”打开；客户摘要字段、公司显示、表格行高和列宽在各自的页面里设置</span></div></div><div class="business-scroll sh-page">${groups}</div>`;
   }
   return { GROUPS, TEST_DATA_GROUP, markup, allowed };
 });

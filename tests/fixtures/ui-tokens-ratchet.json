@@ -1,0 +1,95 @@
+{
+ "note": "Literal font-size px, border-radius px and hex colours per src/*.css (ui-tokens.css exempt). May only go down. tests/ui-tokens-ratchet.test.cjs",
+ "files": {
+  "business.css": {
+   "fontSizePx": 195,
+   "radiusPx": 92,
+   "hex": 192
+  },
+  "customer-detail.css": {
+   "fontSizePx": 34,
+   "radiusPx": 33,
+   "hex": 110
+  },
+  "customer-editor.css": {
+   "fontSizePx": 34,
+   "radiusPx": 13,
+   "hex": 51
+  },
+  "customer-replica.css": {
+   "fontSizePx": 98,
+   "radiusPx": 56,
+   "hex": 142
+  },
+  "customer-select.css": {
+   "fontSizePx": 1,
+   "radiusPx": 4,
+   "hex": 25
+  },
+  "customer-settings.css": {
+   "fontSizePx": 26,
+   "radiusPx": 21,
+   "hex": 46
+  },
+  "customer-suggestions.css": {
+   "fontSizePx": 2,
+   "radiusPx": 1,
+   "hex": 5
+  },
+  "date-picker.css": {
+   "fontSizePx": 5,
+   "radiusPx": 4,
+   "hex": 12
+  },
+  "export.css": {
+   "fontSizePx": 9,
+   "radiusPx": 1,
+   "hex": 6
+  },
+  "feature-switch.css": {
+   "fontSizePx": 1,
+   "radiusPx": 0,
+   "hex": 0
+  },
+  "lead-settings.css": {
+   "fontSizePx": 3,
+   "radiusPx": 0,
+   "hex": 1
+  },
+  "mail.css": {
+   "fontSizePx": 72,
+   "radiusPx": 43,
+   "hex": 29
+  },
+  "rate.css": {
+   "fontSizePx": 0,
+   "radiusPx": 0,
+   "hex": 0
+  },
+  "skin-glass.css": {
+   "fontSizePx": 23,
+   "radiusPx": 35,
+   "hex": 76
+  },
+  "styles.css": {
+   "fontSizePx": 52,
+   "radiusPx": 19,
+   "hex": 12
+  },
+  "task-rule.css": {
+   "fontSizePx": 0,
+   "radiusPx": 0,
+   "hex": 0
+  },
+  "ui-kit.css": {
+   "fontSizePx": 0,
+   "radiusPx": 0,
+   "hex": 0
+  },
+  "whatsapp.css": {
+   "fontSizePx": 7,
+   "radiusPx": 3,
+   "hex": 8
+  }
+ }
+}

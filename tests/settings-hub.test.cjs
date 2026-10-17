@@ -35,7 +35,11 @@ test('the page lists every group and entry once, shows the current defaults and 
     for (const item of group.items) assert.equal(html.split(`data-sh-item="${item.id}"`).length - 1, 1, item.id);
   }
   assert.match(html, /A&lt;B · EUR/);
-  assert.match(html, /<em class="sh-now">粉色<\/em>/);
+  assert.match(html, /<em class="k-badge sh-now">粉色<\/em>/);
+  // 组件套件的样板页（D-028）：页头、卡片、按钮都用 k- 类
+  assert.match(html, /class="k-pageheader sh-header"[\s\S]*<h1 class="k-pageheader-title">设置中心<\/h1>/);
+  assert.equal((html.match(/<section class="k-card sh-group"/g) || []).length, Hub.GROUPS.length);
+  assert.equal((html.match(/<button type="button" class="k-btn k-btn--sm"/g) || []).length, Hub.GROUPS.flatMap((g) => g.items).length);
   assert.doesNotMatch(html, /A<B/);
   assert.equal((html.match(/<button /g) || []).length, Hub.GROUPS.flatMap((g) => g.items).length, 'one button per entry');
   assert.doesNotThrow(() => Hub.markup());

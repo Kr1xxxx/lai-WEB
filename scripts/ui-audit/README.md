@@ -55,6 +55,18 @@ PLAYWRIGHT_CORE=/某处/node_modules/playwright-core node scripts/ui-audit/overl
 
 同一套检查（`overlap-checks.js` 和 `overlap-sweep-lib.cjs`）也在自动测试 `tests/e2e/overlap-sweep.e2e.mjs` 里跑：真实后端＋示例数据（公司名、联系人名故意拉长），粉色和科技蓝两套配色，宽度 1024、1200、1366、1680，约 110 秒；另有一个自检，往页面里塞一个重叠、一个被切掉的字、一个伸出窗口的字，检查器必须报出来（防止检查器自己坏了还显示通过）。
 
+## 样式普查（census）
+
+`census.cjs` 数一数页面上实际用了几种字号、字重、文字颜色、圆角、阴影、按钮样式（高×字号×字重×圆角×底色×边框×字色）、输入框样式、表头样式、标题样式，以及 12px 以下的文字有多少处。范围：ui-audit 的页面清单（19 页）＋客户详情＋新建客户／订单／商机；1440×900；默认粉色和科技蓝两套，各算各的。
+种类越多界面越乱；D-028 的组件套件（`src/ui-kit.css`）一页页迁过去，这些数字只能往下走。
+
+```
+node scripts/web-trial/serve.cjs lai-web.html 8861 &
+PLAYWRIGHT_CORE=/某处/node_modules/playwright-core node scripts/ui-audit/census.cjs --url http://127.0.0.1:8861/ --check
+```
+
+`--check` 和 `census-baseline.json` 比，任何一项变多就以退出码 1 结束；`--out FILE` 写出每一种样式和出现次数（找「多出来的那一种」用）；数字确实变少后用 `--write-baseline` 更新基线。约 1 分钟。
+
 ## 基线
 
 `baseline.json` 记录「已核实不算问题」的被遮挡数量，例如客户表格冻结在右边的操作列压住后面的列、折叠起来的客群子分组。

@@ -106,7 +106,7 @@
 }
 .pipeline-card span {
   color: var(--ink-500);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .pipeline-card b {
   font-size: 12px;
@@ -136,7 +136,7 @@
   text-align: left;
 }
 .business-line time {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--ink-500);
 }
 .task-line label {
@@ -159,7 +159,7 @@
   background: var(--brand-50);
   padding: 5px 10px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .business-toolbar {
   display: flex;
@@ -239,7 +239,7 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 .calendar-week {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--ink-500);
   text-align: center;
   padding: 9px 0 16px;
@@ -264,19 +264,23 @@
   padding: 9px 6px;
   background: #fff;
   text-align: left;
-  font-size: 11px;
+  font-size: var(--text-xs);
   overflow: hidden;
 }
 .calendar-day > b {
   font-weight: 500;
   margin-bottom: 3px;
 }
+.calendar-day > small {
+  font-size: var(--text-xs);
+  color: var(--muted-fg);
+}
 .calendar-day.selected {
   background: var(--brand-50);
   box-shadow: inset 0 0 0 1px var(--brand-300);
 }
 .calendar-event {
-  font-size: 10px;
+  font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -308,7 +312,7 @@
 }
 .agenda-item time,
 .agenda-item > span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--ink-500);
 }
 .agenda-item strong {
@@ -1131,7 +1135,7 @@ td.team-reached {
 }
 .opp-card-amount small {
   margin-right: 5px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--opp-muted);
 }
@@ -1163,7 +1167,7 @@ td.team-reached {
   border: 0;
   border-radius: 10px;
   background: var(--opp-lost-soft, var(--ink-100));
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--opp-lost-ink, var(--ink-700));
   white-space: nowrap;
 }
@@ -1209,7 +1213,7 @@ td.team-reached {
   border-radius: 50%;
   background: var(--ink-200);
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 18px;
   text-align: center;
@@ -1806,17 +1810,18 @@ td.team-reached {
 }
 
 /* 设置中心：每组一张卡片，每行是“名称＋说明＋当前值＋设置按钮” */
-.sh-page { max-width: none; display: flex; flex-direction: column; gap: 14px; }
-.sh-group { margin: 0; flex: 0 0 auto; }
-.sh-group .section-head { margin-bottom: 2px; }
-.sh-list { display: flex; flex-direction: column; }
-.sh-item { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--ink-100); }
+/* 设置中心：组件套件的样板页（外观来自 ui-kit.css 的 k-pageheader、k-card、k-badge、k-btn；这里只排版） */
+.sh-header { box-sizing: border-box; height: 60px; padding: 0; }
+.sh-page { max-width: none; display: flex; flex-direction: column; gap: 12px; }
+.sh-group { flex: 0 0 auto; }
+.sh-list { display: flex; flex-direction: column; padding-top: 4px; padding-bottom: 6px; }
+.sh-item { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--border); }
 .sh-item:first-child { border-top: 0; }
 .sh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.sh-text strong { font-size: 13px; font-weight: 600; }
-.sh-text span { font-size: 12px; color: var(--ink-500); }
-.sh-now { flex: 0 0 auto; font-style: normal; font-size: 12px; color: var(--ink-600); padding: 2px 8px; border-radius: 999px; background: var(--ink-50); }
-.sh-item > button { flex: 0 0 auto; min-width: 64px; height: 30px; padding: 0 14px; }
+.sh-text strong { font-size: var(--text-sm); font-weight: 600; color: var(--fg); }
+.sh-text span { font-size: var(--text-xs); color: var(--muted-fg); }
+.sh-now { flex: 0 0 auto; }
+.sh-item > .k-btn { flex: 0 0 auto; min-width: 64px; }
 /* 商机页的看板／列表切换（筛选卡片里）和「商机分析」入口由 skin-glass.css 显示 */
 .opp-view-in, .opp-analysis-link { display: none; }
 
@@ -1865,7 +1870,7 @@ td.team-reached {
   padding: 0 6px;
   border-radius: 9px;
   background: #eef0f4;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 18px;
   color: #566176;
@@ -2202,35 +2207,6 @@ td.team-reached {
   background: var(--opp-won);
   pointer-events: none;
 }
-.opp-undo {
-  position: fixed;
-  left: 50%;
-  bottom: 28px;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  max-width: calc(100vw - 48px);
-  padding: 10px 12px 10px 16px;
-  border-radius: 10px;
-  background: #1f2d45;
-  box-shadow: 0 8px 24px rgba(31, 45, 69, 0.28);
-  color: #fff;
-  font-size: 13px;
-  transform: translateX(-50%);
-}
-.opp-undo button {
-  height: 28px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  font-weight: 600;
-}
-.opp-undo button:hover {
-  background: rgba(255, 255, 255, 0.26);
-}
 .opp-detail,
 .opp-detail * {
   --opp-ink: #1f2d45;
@@ -2545,7 +2521,7 @@ td.team-reached {
   border-radius: 8px;
   background: var(--opp-won-soft);
   color: #0a4fc4;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -2809,7 +2785,7 @@ td.team-reached {
 .dt-records .dt-row-actions button { height: 28px; padding: 0 10px; }
 .dt-records tr.is-void td { color: var(--ink-400, #a6a6a6); }
 .dt-records tr.is-void td b { text-decoration: line-through; }
-.dt-void-chip { display: inline-block; padding: 0 6px; border-radius: 10px; background: #f0f0f0; color: #8c8c8c; font-size: 11px; line-height: 18px; vertical-align: middle; }
+.dt-void-chip { display: inline-block; padding: 0 6px; border-radius: 10px; background: #f0f0f0; color: #8c8c8c; font-size: var(--text-xs); line-height: 18px; vertical-align: middle; }
 .dt-empty { margin: 24px 0; color: var(--ink-500, #8c8c8c); font-size: 13px; }
 .dt-void-note { margin: 0 0 8px; color: #d4380d; font-size: 13px; }
 .dt-paper.is-void { opacity: 0.55; filter: grayscale(1); }
@@ -2995,7 +2971,9 @@ td.team-reached {
 .wb-q.wb-late .wb-tag { color: var(--wb-late); }
 .wb-q.wb-today .wb-tag { color: var(--wb-today); }
 .wb-q.wb-today .wb-tag::before { background: var(--wb-today-dot); }
-.wb-q.wb-wait .wb-tag, .wb-q.wb-mail .wb-tag { color: var(--wb-accent-ink); }
+/* 「等你回复」「未读邮件」是分类不是警告：字用正文色，只有圆点是主色 */
+.wb-q.wb-wait .wb-tag, .wb-q.wb-mail .wb-tag { color: var(--wb-text); }
+.wb-q.wb-wait .wb-tag::before, .wb-q.wb-mail .wb-tag::before { background: var(--wb-accent); }
 .wb-who { min-width: 0; display: flex; flex-direction: column; }
 .wb-who b { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
 .wb-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3015,7 +2993,7 @@ td.team-reached {
 .wb-pct { color: var(--wb-accent-ink); }
 .wb-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 30px; line-height: 1.25; letter-spacing: -0.02em; }
 .wb-sub { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--wb-muted); }
-.wb-bar { height: 8px; border-radius: 99px; background: var(--wb-accent-soft); overflow: hidden; margin-top: 8px; }
+.wb-bar { height: 8px; border-radius: 99px; background: var(--muted-bg); overflow: hidden; margin-top: 8px; }
 .wb-bar i { display: block; height: 100%; min-width: 0; border-radius: 99px; background: var(--wb-accent); }
 .wb-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .wb-split > div { min-width: 0; padding-top: 10px; border-top: 1px solid var(--wb-line); }
@@ -3062,7 +3040,7 @@ td.team-reached {
 
 /* 客户来消息 */
 .wb-m { grid-template-columns: 38px minmax(0, 1fr) auto; }
-.wb-ch { width: 36px; height: 30px; display: grid; place-items: center; border-radius: 8px; font-size: 11px; font-weight: 700; }
+.wb-ch { width: 36px; height: 30px; display: grid; place-items: center; border-radius: 8px; font-size: var(--text-xs); font-weight: 700; }
 .wb-ch.wa { background: var(--wb-ok-soft); color: var(--wb-ok-ink); }
 .wb-ch.ml { background: var(--wb-accent-soft); color: var(--wb-accent-ink); }
 .wb-m time { font-size: 12px; color: var(--wb-muted); white-space: nowrap; }

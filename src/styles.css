@@ -253,7 +253,7 @@ a,
   background: white;
 }
 .timeline-item time {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--ink-500);
 }
 .timeline-item p {
@@ -340,7 +340,7 @@ a,
   border-radius: var(--radius-pill);
   background: var(--brand-500);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 18px;
 }
 .changelog-release h4 {
@@ -768,7 +768,7 @@ textarea[aria-invalid="true"] {
 .activity-filter-error {
   padding: 4px 12px 8px;
   color: var(--color-danger);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .activity-filter-popover-motion {
   animation: lai-activity-filter-in 200ms var(--ease-out) both;
@@ -890,6 +890,29 @@ textarea[aria-invalid="true"] {
   filter: blur(0);
   transition-duration: var(--toast-open);
 }
+/* 带按钮的提示（例如「撤销」）：按钮能点，文字和按钮排成一行。 */
+#toast.has-action {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 10px 8px 20px;
+}
+#toast.has-action.show {
+  pointer-events: auto;
+}
+#toast .toast-action {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 600;
+  cursor: pointer;
+}
+#toast .toast-action:hover {
+  background: var(--brand-100);
+}
 .alert-bar {
   font-size: 12px;
   color: #be6842;
@@ -898,7 +921,7 @@ textarea[aria-invalid="true"] {
   border-bottom: 1px solid #ffe9c9;
 }
 .list-footer-note {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--ink-500);
 }
 .save-failed {
@@ -977,7 +1000,7 @@ textarea[aria-invalid="true"] {
   color: var(--ink-500);
 }
 .selected-field button {
-  font-size: 11px;
+  font-size: var(--text-xs);
   padding: 2px 4px;
 }
 .selected-field .freeze-button {
@@ -1227,5 +1250,5 @@ textarea[aria-invalid="true"] {
 /* 自动备份没成功时的提示条（app.js 的 updateBackupNotice）：固定在右下角、分页条上方 */
 .backup-warning { position: fixed; right: 16px; bottom: 64px; z-index: 45; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px); padding: 10px 14px; border: 1px solid var(--color-warning); background: var(--color-warning-soft); color: var(--ink-700); border-radius: var(--radius-lg); box-shadow: var(--shadow-popover); font-size: var(--font-size-body); }
 .backup-warning[hidden] { display: none; }
-.backup-warning button { flex-shrink: 0; height: 28px; padding: 0 12px; border: 1px solid var(--color-warning); border-radius: var(--radius-md, 6px); background: var(--color-neutral-0); color: var(--ink-700); cursor: pointer; }
+.backup-warning button { flex-shrink: 0; height: 28px; padding: 0 12px; border: 1px solid var(--color-warning); border-radius: var(--radius-md); background: var(--color-neutral-0); color: var(--ink-700); cursor: pointer; }
 .backup-warning button:disabled { opacity: .6; cursor: default; }

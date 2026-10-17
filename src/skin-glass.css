@@ -1,25 +1,20 @@
 /* 界面皮肤（设计画布的“悬浮玻璃面板”风格）：所有配色（粉色、橙色、科技蓝）都用它。
    app.js 一载入就给 <html> 设 data-skin="glass"，以后一直是 glass（D-029 去掉了小满的 classic 皮肤）。
    这里的规则以后再并进基础样式（基础样式里被这里盖住的旧规则到时一起删）。 */
+/* 2026-10 去掉粉色大面积铺色（D-028）：页面底是中性色 --bg，面板白底 1px 边；底色上的两团光晕不再画。
+   主色只留给左栏选中项、主按钮、链接和进度条。 */
 :root[data-skin="glass"] {
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-soft: rgba(255, 255, 255, 0.42);
-  --glass-line: rgba(255, 255, 255, 0.85);
-  --card-bg: rgba(255, 255, 255, 0.88);
-  --card-line: rgba(var(--skin-ink-rgb), 0.08);
-  --skin-radius: 14px;
-  --skin-blur: blur(22px) saturate(170%);
-  background: var(--skin-page);
+  --glass-bg: var(--nav-bg);
+  --glass-soft: var(--nav-bg);
+  --glass-line: var(--border);
+  --skin-radius: var(--r-xl);
+  --skin-blur: none;
+  background: var(--bg);
 }
-:root[data-skin="glass"] body { background: var(--skin-page); }
-:root[data-skin="glass"] #app { position: relative; height: 100vh; overflow: hidden; background: var(--skin-page); }
-/* 底色上的两团光晕 */
+:root[data-skin="glass"] body { background: var(--bg); }
+:root[data-skin="glass"] #app { position: relative; height: 100vh; overflow: hidden; background: var(--bg); }
 :root[data-skin="glass"] #app::before,
-:root[data-skin="glass"] #app::after {
-  content: ""; position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(90px);
-}
-:root[data-skin="glass"] #app::before { left: -140px; top: 420px; width: 380px; height: 380px; background: var(--skin-blob); opacity: 0.38; }
-:root[data-skin="glass"] #app::after { left: 40px; top: -150px; width: 320px; height: 320px; background: var(--skin-gold); opacity: 0.42; }
+:root[data-skin="glass"] #app::after { content: none; display: none; }
 
 /* 顶栏：悬浮的玻璃条 */
 :root[data-skin="glass"] .topbar {
@@ -34,9 +29,9 @@
   --rail-pitch: calc((100vh - 160px) / 13); --rail-max-h: 52px; --rail-max-gap: 2px;
   z-index: 6; left: 12px; top: 68px; bottom: 12px; width: 68px; padding: 8px 6px; box-sizing: border-box;
   background: var(--glass-bg); -webkit-backdrop-filter: var(--skin-blur); backdrop-filter: var(--skin-blur);
-  border: 1px solid var(--glass-line); border-radius: var(--skin-radius); box-shadow: none; color: rgb(var(--skin-ink-rgb));
+  border: 1px solid var(--glass-line); border-radius: var(--skin-radius); box-shadow: none; color: var(--nav-fg);
 }
-:root[data-skin="glass"] .rail-item { width: 100%; flex: 0 0 var(--rail-item-h); height: var(--rail-item-h); min-height: 0; border-radius: 11px; font-size: 11px; font-weight: 500; line-height: 16px; }
+:root[data-skin="glass"] .rail-item { width: 100%; flex: 0 0 var(--rail-item-h); height: var(--rail-item-h); min-height: 0; border-radius: 11px; font-size: var(--text-xs); font-weight: 500; line-height: 16px; }
 :root[data-skin="glass"] .rail-item .icon { width: 18px; height: 18px; stroke-width: 1.9; }
 :root[data-skin="glass"] .rail-item:first-child .icon { fill: none; stroke: currentColor; }
 :root[data-skin="glass"] .rail-item:first-child:after { display: none; }
@@ -49,7 +44,7 @@
 :root[data-skin="glass"] .rail-item.active .icon { stroke: var(--skin-gold); }
 :root[data-skin="glass"] .rail-refresh { position: relative; width: 100%; height: 52px; margin: 4px 0 0; background: transparent; box-shadow: none; color: rgb(var(--skin-ink-rgb)); }
 :root[data-skin="glass"] .rail-refresh::before { display: none; }
-:root[data-skin="glass"] .rail-refresh .icon { stroke: var(--brand-500); }
+:root[data-skin="glass"] .rail-refresh .icon { stroke: currentColor; }
 
 /* 悬停浮层：浅色玻璃（深色字，清晰易读；暂时不做暗夜模式） */
 :root[data-skin="glass"] .rail-flyout { left: 80px; top: auto; }
@@ -79,7 +74,7 @@
 :root[data-skin="glass"] .main { left: 260px; top: 68px; right: 12px; bottom: 12px; padding: 0; background: transparent; }
 :root[data-skin="glass"] .nav-collapsed .main,
 :root[data-skin="glass"] .subnav[hidden] ~ .main { left: 90px; }
-:root[data-skin="glass"] .wb { --wb-primary: rgb(var(--skin-ink-rgb)); }
+:root[data-skin="glass"] .wb { --wb-primary: var(--primary); }
 :root[data-skin="glass"] .panel { --customer-group-width: max(196px, calc((100vw - 284px) * 0.14)); }
 :root[data-skin="glass"] .nav-collapsed .panel { --customer-group-width: max(196px, calc((100vw - 114px) * 0.14)); }
 
@@ -98,15 +93,15 @@
 :root[data-skin="glass"] button:hover:not(:disabled) { border-color: var(--brand-500); }
 :root[data-skin="glass"] button.primary,
 :root[data-skin="glass"] .primary {
-  background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700;
+  background: var(--primary); border-color: var(--primary); color: var(--primary-fg); font-weight: 700;
 }
-:root[data-skin="glass"] button.primary:hover:not(:disabled) { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; filter: brightness(1.15); }
+:root[data-skin="glass"] button.primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
 :root[data-skin="glass"] input,
 :root[data-skin="glass"] select,
 :root[data-skin="glass"] textarea { border-radius: 8px; border-color: rgba(var(--skin-ink-rgb), 0.14); }
 
 /* 表格 */
-:root[data-skin="glass"] th { background: var(--ink-50); color: var(--ink-600); font-size: 11px; font-weight: 500; }
+:root[data-skin="glass"] th { background: var(--ink-50); color: var(--ink-600); font-size: var(--text-xs); font-weight: 500; }
 :root[data-skin="glass"] tbody tr:hover td { background: var(--ink-50); }
 :root[data-skin="glass"] td { border-color: var(--ink-100); }
 
@@ -140,8 +135,8 @@
   font-size: 13px; color: rgb(var(--skin-ink-rgb));
 }
 :root[data-skin="glass"] .global-search > input::placeholder { color: rgba(var(--skin-ink-rgb), 0.45); }
-:root[data-skin="glass"] .global-search > button:last-child { width: 38px; color: var(--brand-500); }
-:root[data-skin="glass"] .global-search > button:last-child:hover { background: var(--brand-50); }
+:root[data-skin="glass"] .global-search > button:last-child { width: 38px; color: var(--muted-fg); }
+:root[data-skin="glass"] .global-search > button:last-child:hover { background: var(--muted-bg); color: var(--fg); }
 
 :root[data-skin="glass"] .popover.global-search-scope-menu {
   width: 312px; min-width: 312px; height: 244px; margin-top: 6px; border: 1px solid rgba(var(--skin-ink-rgb), 0.1); border-radius: 12px;
@@ -222,8 +217,8 @@
 :root[data-skin="glass"] .op-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
 :root[data-skin="glass"] .op-btn:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
 :root[data-skin="glass"] .op-btn:disabled { opacity: .45; cursor: default; }
-:root[data-skin="glass"] .op-btn.op-primary { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700; }
-:root[data-skin="glass"] .op-btn.op-primary:hover:not(:disabled) { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; opacity: .88; }
+:root[data-skin="glass"] .op-btn.op-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); font-weight: 700; }
+:root[data-skin="glass"] .op-btn.op-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
 :root[data-skin="glass"] .op-btn.op-ghost { border-color: transparent; background: transparent; }
 :root[data-skin="glass"] .op-btn.op-ghost:hover:not(:disabled) { background: transparent; border-color: transparent; }
 :root[data-skin="glass"] .op-card { display: flex; flex-direction: column; border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); overflow: hidden; }
@@ -239,19 +234,19 @@
 :root[data-skin="glass"] .op-row > span:nth-child(9) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-skin="glass"] .op-table { min-width: 1092px; display: flex; flex-direction: column; }
 :root[data-skin="glass"] .op-grid, :root[data-skin="glass"] .op-row { display: grid; grid-template-columns: 92px minmax(110px,1.2fr) minmax(72px,.8fr) 96px 96px 96px 100px 56px 46px minmax(140px,1.3fr) 88px; gap: 8px; align-items: center; padding: 7px 10px; }
-:root[data-skin="glass"] .op-head { background: #faf7f9; font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--ink-100); }
+:root[data-skin="glass"] .op-head { background: #faf7f9; font-size: var(--text-xs); color: var(--text-muted); border-top: 1px solid var(--ink-100); }
 :root[data-skin="glass"] .op-row { min-height: 44px; padding-top: 4px; padding-bottom: 4px; border-top: 1px solid var(--ink-100); }
 :root[data-skin="glass"] .op-row:hover { background: #fcf8fa; }
 :root[data-skin="glass"] .op-r, :root[data-skin="glass"] .op-money { text-align: right; }
 :root[data-skin="glass"] .op-bold { font-weight: 700; }
 :root[data-skin="glass"] .op-due { font-weight: 700; color: #a3433b; }
 :root[data-skin="glass"] .op-num { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-:root[data-skin="glass"] .op-num em { font-style: normal; padding: 0 5px; border-radius: 4px; background: #f5eff3; font-size: 10px; color: var(--text-muted); }
+:root[data-skin="glass"] .op-num em { font-style: normal; padding: 0 5px; border-radius: 4px; background: #f5eff3; font-size: var(--text-xs); color: var(--text-muted); }
 :root[data-skin="glass"] .op-link { padding: 0; border: 0; background: transparent; color: rgb(var(--skin-ink-rgb)); font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
 :root[data-skin="glass"] .op-link:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--brand-700); text-decoration: underline; }
 :root[data-skin="glass"] .op-link.op-plain { font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-skin="glass"] .op-client, :root[data-skin="glass"] .op-ship { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
-:root[data-skin="glass"] .op-client small, :root[data-skin="glass"] .op-ship small { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin="glass"] .op-client small, :root[data-skin="glass"] .op-ship small { font-size: var(--text-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-skin="glass"] .op-ship > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-skin="glass"] .op-stage { display: flex; flex-direction: column; gap: 4px; }
 :root[data-skin="glass"] .op-stage b { font-size: 12px; font-weight: 700; }
@@ -259,13 +254,13 @@
 :root[data-skin="glass"] .op-bar i { flex: 1; height: 4px; border-radius: 2px; background: var(--ink-200); }
 :root[data-skin="glass"] .op-bar i.on { background: var(--brand-700); }
 :root[data-skin="glass"] .op-acts { display: flex; gap: 4px; justify-content: flex-end; }
-:root[data-skin="glass"] .op-mini { height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font: inherit; font-size: 11px; cursor: pointer; }
+:root[data-skin="glass"] .op-mini { height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font: inherit; font-size: var(--text-xs); cursor: pointer; }
 :root[data-skin="glass"] .op-mini:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
 :root[data-skin="glass"] .op-mini.op-restore { border-color: var(--brand-300, var(--ink-200)); color: var(--brand-700); background: var(--brand-50); }
 :root[data-skin="glass"] .op-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--ink-100); background: #faf7f9; }
 :root[data-skin="glass"] .op-pages { display: flex; align-items: center; gap: 6px; }
 :root[data-skin="glass"] .op-pages .op-btn { width: 28px; padding: 0; height: 28px; }
-:root[data-skin="glass"] .op-page-now { min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700; }
+:root[data-skin="glass"] .op-page-now { min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--primary); color: var(--primary-fg); font-weight: 700; }
 :root[data-skin="glass"] .op-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 40px 12px; color: var(--text-muted); border-top: 1px solid var(--ink-100); }
 :root[data-skin="glass"] .op-empty strong { color: rgb(var(--skin-ink-rgb)); }
 :root[data-skin="glass"] .op-empty-small { padding: 14px 12px; }
@@ -273,7 +268,7 @@
 :root[data-skin="glass"] .op-trash-head { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px; }
 :root[data-skin="glass"] .op-trash-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
 :root[data-skin="glass"] .op-trash-row { display: grid; grid-template-columns: 104px minmax(0,1.4fr) 96px 72px minmax(0,1fr) 76px; gap: 10px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--ink-100); font-size: 12px; }
-:root[data-skin="glass"] .op-trash-row small { color: var(--text-muted); font-size: 11px; }
+:root[data-skin="glass"] .op-trash-row small { color: var(--text-muted); font-size: var(--text-xs); }
 :root[data-skin="glass"] .op-trash-row .op-money { text-align: left; }
 
 /* 订单、商机表单：新界面下停靠在右侧，不挡住列表（设计稿里是右侧一张卡） */
@@ -303,9 +298,8 @@
 :root[data-skin="glass"] .opp-currency { flex-direction: row; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 11px; background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-summary.is-compact .opp-currency { padding: 8px 12px; border: 1px solid var(--card-line); }
 :root[data-skin="glass"] .opp-stat { flex-direction: row; align-items: baseline; gap: 8px; min-width: 0; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 11px; background: rgba(255,255,255,.96); }
-:root[data-skin="glass"] .opp-stat.is-open { background: #e6f4f8; }
-:root[data-skin="glass"] .opp-stat.is-won { background: var(--brand-50); }
-:root[data-skin="glass"] .opp-stat.is-lost { background: #f5eff3; }
+/* 统计卡：中性白卡，颜色只在数字上（D-028 去掉大面积铺色） */
+:root[data-skin="glass"] .opp-stat:is(.is-open, .is-won, .is-lost) { background: var(--card-bg); }
 :root[data-skin="glass"] .opp-board { grid-template-columns: repeat(5, minmax(216px, 1fr)); gap: 8px; }
 :root[data-skin="glass"] .opp-column { padding: 8px; border-radius: 12px; border: 1px solid rgba(var(--skin-ink-rgb), .07); background: rgba(255,255,255,.62); }
 :root[data-skin="glass"] .opp-stage { position: static; padding: 0 2px 5px; border-radius: 0; border-top: 0; border-bottom: 2px solid var(--ink-400); background: transparent; color: rgb(var(--skin-ink-rgb)); }
@@ -348,7 +342,8 @@
 :root[data-skin="glass"] .lcd-pagebar > div > .lcd-return:first-child { margin-left: 0; }
 :root[data-skin="glass"] .lcd-root .lcd-pill { height: 30px; padding: 0 12px; border-radius: 8px; border-color: var(--ink-200); font-size: 12px; font-weight: 500; }
 :root[data-skin="glass"] .lcd-root .lcd-pill:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
-:root[data-skin="glass"] .lcd-root .lcd-primary, :root[data-skin="glass"] .lcd-root .lcd-primary:hover:not(:disabled) { background: rgb(var(--skin-ink-rgb)); border-color: rgb(var(--skin-ink-rgb)); color: #fff; font-weight: 700; }
+:root[data-skin="glass"] .lcd-root .lcd-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); font-weight: 700; }
+:root[data-skin="glass"] .lcd-root .lcd-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
 :root[data-skin="glass"] .lcd-columns { gap: 10px; }
 :root[data-skin="glass"] .lcd-left, :root[data-skin="glass"] .lcd-right { gap: 10px; }
 :root[data-skin="glass"] .lcd-card { border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
@@ -364,7 +359,7 @@
 :root[data-skin="glass"] .lcd-side-card { padding: 12px 14px; font-size: 12px; }
 :root[data-skin="glass"] .lcd-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 :root[data-skin="glass"] .lcd-side-head h3 { margin: 0; font-size: 14px; font-weight: 700; }
-:root[data-skin="glass"] .lcd-side-link { padding: 2px 8px; height: auto; border: 1px solid var(--ink-200); border-radius: 6px; background: #fff; color: rgb(var(--skin-ink-rgb)); font-size: 11px; cursor: pointer; }
+:root[data-skin="glass"] .lcd-side-link { padding: 2px 8px; height: auto; border: 1px solid var(--ink-200); border-radius: 6px; background: #fff; color: rgb(var(--skin-ink-rgb)); font-size: var(--text-xs); cursor: pointer; }
 :root[data-skin="glass"] .lcd-side-link:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
 :root[data-skin="glass"] .lcd-side-card > .lcd-side-link { margin-top: 8px; border-color: transparent; background: transparent; color: var(--brand-700); padding-left: 0; }
 :root[data-skin="glass"] .lcd-side-card > .lcd-side-link:hover:not(:disabled) { background: transparent; border-color: transparent; text-decoration: underline; }
@@ -390,7 +385,7 @@
 /* 左栏选中的模块（2026-10-09 用户选了药丸效果，并要求把文字也包进去）：整个菜单项（图标加文字）是一块玫红药丸，图标和文字都变白，
    带一点阴影；没有左边竖线。这是主按钮之外唯一的深色块。 */
 :root[data-skin="glass"] .rail-item.active,
-:root[data-skin="glass"] .rail-item.active:hover { background: var(--brand-700); color: #fff; box-shadow: 0 6px 14px -6px rgba(var(--skin-ink-rgb), 0.55); font-weight: 700; }
+:root[data-skin="glass"] .rail-item.active:hover { background: var(--nav-active); color: #fff; box-shadow: none; font-weight: 700; }
 :root[data-skin="glass"] .rail-item.active :is(.icon, .icon-duo) { stroke: #fff; color: #fff; }
 :root[data-skin="glass"] .rail-item.active .icon-duo .tint { fill: #fff; fill-opacity: .3; }
 /* 批量操作条：白底 + 玫粉描边 */
@@ -448,7 +443,7 @@
 :root[data-skin="glass"] .icon-duo { display: block; stroke-width: 1.7; }
 :root[data-skin="glass"] .icon-duo .tint { fill: currentColor; fill-opacity: .16; stroke: none; }
 :root[data-skin="glass"] .rail-item .icon-duo { width: 22px; height: 22px; }
-:root[data-skin="glass"] .rail-item .icon-duo .tint { fill: var(--brand-500); fill-opacity: .2; }
+:root[data-skin="glass"] .rail-item .icon-duo .tint { fill: currentColor; fill-opacity: .12; }
 :root[data-skin="glass"] .rail-item:hover:not(.active) .icon-duo .tint { fill-opacity: .32; }
 :root[data-skin="glass"] .follow-options input { width: 16px !important; height: 16px !important; }
 /* 客户编辑表单（快速新建、编辑客户）的输入框原来是 4px 圆角、灰边，和其他输入框的 8px 不一致 */
@@ -460,10 +455,20 @@
   :root[data-skin="glass"] .rail-item .icon, :root[data-skin="glass"] .rail-item .icon-duo { width: 19px; height: 19px; }
 }
 @media (max-height: 700px) {
-  :root[data-skin="glass"] .rail-item { font-size: 10px; line-height: 12px; }
+  :root[data-skin="glass"] .rail-item { font-size: var(--text-xs); line-height: 12px; }
   :root[data-skin="glass"] .rail-item .icon, :root[data-skin="glass"] .rail-item .icon-duo { width: 16px; height: 16px; }
   :root[data-skin="glass"] .rail-refresh { height: 44px; }
 }
+
+/* 主按钮：每个主题都用主色（--primary），不再是黑色（D-028）。带 [data-theme] 是为了和原来科技蓝那条一样强，盖过各页自己的按钮色。 */
+:root[data-skin="glass"][data-theme] button.primary,
+:root[data-skin="glass"][data-theme] .primary,
+:root[data-skin="glass"][data-theme] .op-btn.op-primary,
+:root[data-skin="glass"][data-theme] .lcd-root .lcd-primary,
+:root[data-skin="glass"][data-theme] .op-page-now { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
+:root[data-skin="glass"][data-theme] button.primary:hover:not(:disabled),
+:root[data-skin="glass"][data-theme] .op-btn.op-primary:hover:not(:disabled),
+:root[data-skin="glass"][data-theme] .lcd-root .lcd-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
 
 /* ===== 科技蓝（data-theme="tech"）=====
    和粉色、橙色用同一套新界面，只改“气质”：
@@ -472,13 +477,12 @@
    · 按钮、焦点、链接都用钴蓝一种强调色；红色只给逾期和错误，琥珀给今天到期，绿色给已赢单，粉色只留在标志上。
    颜色变量在 ui-tokens.css 的 data-theme="tech" 块里；这里只放皮肤的覆盖，每条规则都带 data-skin="glass"。 */
 :root[data-skin="glass"][data-theme="tech"] {
+  --bg: var(--skin-page);
+  --nav-bg: var(--brand-900);
+  --nav-fg: rgba(255, 255, 255, 0.74);
+  --nav-active: var(--brand-500);
   --glass-bg: #fff;
-  --glass-soft: #f7f9fc;
-  --glass-line: var(--ink-200);
-  --card-bg: #fff;
-  --card-line: var(--ink-200);
-  --skin-radius: 12px;
-  --skin-blur: none;
+  --glass-soft: #fff;
   --muted: #4f5f75;
   --color-neutral-500: #4f5f75;
   --color-neutral-600: #44546b;
@@ -487,19 +491,15 @@
   --text-muted: #4f5f75;
   --text-faint: rgba(var(--skin-ink-rgb), 0.6);
 }
-:root[data-skin="glass"][data-theme="tech"] .wb { --wb-primary: var(--brand-500); }
-/* 底色上的光晕去掉 */
-:root[data-skin="glass"][data-theme="tech"] #app::before,
-:root[data-skin="glass"][data-theme="tech"] #app::after { display: none; }
 /* 顶栏、二级导航：白色扁平条 */
 :root[data-skin="glass"][data-theme="tech"] .topbar { background: #fff; border-color: var(--ink-200); box-shadow: none; }
 :root[data-skin="glass"][data-theme="tech"] .subnav { background: #fff; border-color: var(--ink-200); }
 /* 左栏：深海军蓝，浅色图标，当前模块钴蓝 */
-:root[data-skin="glass"][data-theme="tech"] .rail { background: var(--brand-900); border-color: var(--brand-900); color: #fff; }
-:root[data-skin="glass"][data-theme="tech"] .rail-item { color: rgba(255, 255, 255, 0.74); }
+:root[data-skin="glass"][data-theme="tech"] .rail { background: var(--nav-bg); border-color: var(--nav-bg); color: #fff; }
+:root[data-skin="glass"][data-theme="tech"] .rail-item { color: var(--nav-fg); }
 :root[data-skin="glass"][data-theme="tech"] .rail-item:hover { background: rgba(255, 255, 255, 0.08); color: #fff; box-shadow: none; }
 :root[data-skin="glass"][data-theme="tech"] .rail-item.active,
-:root[data-skin="glass"][data-theme="tech"] .rail-item.active:hover { background: var(--brand-500); color: #fff; box-shadow: none; font-weight: 700; }
+:root[data-skin="glass"][data-theme="tech"] .rail-item.active:hover { background: var(--nav-active); color: #fff; box-shadow: none; font-weight: 700; }
 :root[data-skin="glass"][data-theme="tech"] .rail-item.active :is(.icon, .icon-duo) { stroke: #fff; color: #fff; }
 :root[data-skin="glass"][data-theme="tech"] .rail-item .icon-duo .tint { fill: #fff; fill-opacity: 0.14; }
 :root[data-skin="glass"][data-theme="tech"] .rail-item:hover:not(.active) .icon-duo .tint { fill-opacity: 0.26; }
@@ -509,15 +509,6 @@
 :root[data-skin="glass"][data-theme="tech"] .rail-refresh .icon { stroke: var(--brand-300); }
 :root[data-skin="glass"][data-theme="tech"] .rail-flyout .nav-heart.is-favorite,
 :root[data-skin="glass"][data-theme="tech"] .rail-flyout .nav-heart.is-favorite:hover { color: var(--brand-500); }
-/* 主按钮：钴蓝 */
-:root[data-skin="glass"][data-theme="tech"] button.primary,
-:root[data-skin="glass"][data-theme="tech"] .primary,
-:root[data-skin="glass"][data-theme="tech"] .op-btn.op-primary,
-:root[data-skin="glass"][data-theme="tech"] .lcd-root .lcd-primary,
-:root[data-skin="glass"][data-theme="tech"] .op-page-now { background: var(--brand-500); border-color: var(--brand-500); color: #fff; }
-:root[data-skin="glass"][data-theme="tech"] button.primary:hover:not(:disabled),
-:root[data-skin="glass"][data-theme="tech"] .op-btn.op-primary:hover:not(:disabled),
-:root[data-skin="glass"][data-theme="tech"] .lcd-root .lcd-primary:hover:not(:disabled) { background: var(--brand-500); border-color: var(--brand-500); color: #fff; filter: brightness(1.12); }
 /* 商机卡片的「⋮」菜单：深海军蓝小卡片 */
 :root[data-skin="glass"][data-theme="tech"] .overlay:has(.opp-menu) .drawer { background: var(--brand-900); box-shadow: 0 12px 24px rgba(var(--brand-900-rgb), 0.28); }
 /* 写死过暖色（偏粉的灰、棕红）的几处，换成冷灰 */
@@ -525,7 +516,7 @@
 :root[data-skin="glass"][data-theme="tech"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }
 :root[data-skin="glass"][data-theme="tech"] .lcd-person span { background: #5d6c80; }
 :root[data-skin="glass"][data-theme="tech"] .op-due { color: #c4352b; }
-:root[data-skin="glass"][data-theme="tech"] :is(.op-num em, .opp-stage-count, .opp-card-menu:hover, .opp-stat.is-lost) { background: var(--ink-100); }
+:root[data-skin="glass"][data-theme="tech"] :is(.op-num em, .opp-stage-count, .opp-card-menu:hover) { background: var(--ink-100); }
 :root[data-skin="glass"][data-theme="tech"] :is(.op-head, .op-foot) { background: var(--ink-50); }
 :root[data-skin="glass"][data-theme="tech"] .op-row:hover { background: var(--ink-50); }
 :root[data-skin="glass"][data-theme="tech"] .lcd-side-order { background: var(--ink-50); }

@@ -526,6 +526,7 @@
       oppDrag = "",
       oppHover = null,
       oppUndoTimer = 0,
+      oppUndoToast = null,
       // 从客户详情页发起的商机操作：记下客户名，保存后回到该客户，而不是画商机页面。
       oppReturn = "";
     // 商机详情、菜单、编辑和输单窗口开着时（例如从「单据记录」的来源点进来），页面不在商机页，窗口里的按钮也要能用。
@@ -854,7 +855,6 @@
       if (action !== "delete") oppArmed = "";
       if (action === "new") return openOppForm();
       if (action === "detail") return showOppDetail(d.id);
-      if (action === "undo") return undoMove();
       if (action === "edit") return openOppForm(d.id);
       if (action === "wa") {
         const detail = OM().detailOf(state(), d.id, B.localDate()),
@@ -1039,20 +1039,28 @@
       oppView.undo = null;
       if (oppUndoTimer) root.clearTimeout?.(oppUndoTimer);
       oppUndoTimer = 0;
+      oppUndoToast?.dismiss?.();
+      oppUndoToast = null;
     }
+    // 「撤销」放在页面唯一的提示条里（ctx.toast 带按钮），和提示条一样留 8 秒。
     function offerUndo(label, before, after) {
       clearUndo();
       oppView.undo = { label, before, after };
-      oppUndoTimer = root.setTimeout?.(() => { oppUndoTimer = 0; oppView.undo = null; document.getElementById("opp-undo")?.remove?.(); }, 8000) || 0;
+      oppUndoTimer = root.setTimeout?.(() => { oppUndoTimer = 0; oppView.undo = null; oppUndoToast = null; }, 8000) || 0;
+      oppUndoToast = ctx.toast(label, { action: { label: "撤销", run: () => undoMove() } }) || null;
     }
-    // 保存一次移动，成功后在页面底部给 8 秒的「撤销」。
+    // 保存一次移动，成功后提示条换成「已移到…」并带 8 秒的「撤销」。
     function moveWithUndo(label, makeNext, errorId) {
       const before = state();
       let after = null;
-      return saveNext(() => (after = makeNext()), errorId, () => { offerUndo(label, before, after); return oppDone(); });
+      return saveNext(() => (after = makeNext()), errorId, oppDone).then((saved) => {
+        if (saved) offerUndo(label, before, after);
+        return saved;
+      });
     }
     function undoMove() {
       const undo = oppView.undo;
+      oppUndoToast = null;
       clearUndo();
       if (!undo) return;
       if (state() !== undo.after) { ctx.toast("数据已有新的修改，不能撤销了"); return render(true); }
