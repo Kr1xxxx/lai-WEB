@@ -2181,7 +2181,8 @@ button.subnav-restore {
     gap: 9px;
   }
   .global-search {
-    left: calc((100% - 750px) / 2);
+    /* 窗口窄时不能往左压到标志和版本号上（版本号最长到 250px 左右）。 */
+    left: max(264px, calc((100% - 750px) / 2));
     width: 410px;
   }
   .page-actions {
@@ -2205,7 +2206,7 @@ button.subnav-restore {
     gap: 6px;
   }
   .global-search {
-    left: 248px;
+    left: 264px;
     width: 330px;
   }
   .top-actions {

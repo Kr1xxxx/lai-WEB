@@ -23,7 +23,8 @@ test('admin can do everything, 业务 follows its defaults and scope', () => {
   for (const key of R.KEYS) assert.equal(R.can(state, key), true);
   const sales = R.settings(state).members.find(m => m.roleId === 'sales');
   state = R.switchTo(state, sales.id);
-  assert.equal(state.laiSettings.defaultOwner, 'Amy');
+  assert.equal(state.laiSettings.defaultOwner, 'Kris', 'switching account leaves the typed 默认跟进人 alone');
+  assert.equal(R.defaultOwner(state), 'Amy', '本人 account owns its new records');
   assert.equal(R.can(state, 'customer.view'), true);
   assert.equal(R.can(state, 'customer.import'), false);
   assert.equal(R.can(state, 'settings.roles'), false);
@@ -112,7 +113,7 @@ test('every page perm is a real permission key', () => {
   }
 });
 
-test('role and member changes keep the default owner; only switching (or renaming yourself) changes it', () => {
+test('role and member changes keep the default owner; renaming yourself only follows when it was your own old name', () => {
   let state = { laiSettings: { defaultOwner: 'Kris Wang' }, customers: { a: { owner: 'Amy' } } };
   state = R.addRole(state, { name: '经理' });
   state = R.addMember(state, { name: 'Bob' });
@@ -302,4 +303,60 @@ test('a role saved before the chat keys existed gets the 业务 chat defaults bu
   // A role that knew the keys and turned them off stays off.
   const off = { laiSettings: { roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: [...R.KEYS], perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm2' } } };
   assert.equal(R.can(off, 'chat.view'), false);
+});
+
+const typed = (state, name) => ({ ...state, laiSettings: { ...state.laiSettings, defaultOwner: name } });
+
+test('默认跟进人: switching accounts never rewrites the typed value; 本人 and 本部门 accounts default to themselves, company-wide accounts to the typed value', () => {
+  // The account list is made from 默认跟进人 the first time; after that the user types another one.
+  let state = typed({ laiSettings: { defaultOwner: 'Kris' }, customers: { a: { owner: 'Amy' } }, orders: [] }, 'Kris');
+  const admin = R.currentMember(state);
+  const sales = R.settings(state).members.find(m => m.roleId === 'sales');
+  assert.equal(R.defaultOwner(state), 'Kris');
+  state = R.switchTo(state, admin.id); // stores the account list
+  state = typed(state, '王小明');
+  assert.equal(R.defaultOwner(state), '王小明');
+  const asSales = scope => R.switchTo(R.updateRole(state, 'sales', { scope }), sales.id);
+  for (const scope of ['self', 'dept']) {
+    const switched = asSales(scope);
+    assert.equal(switched.laiSettings.defaultOwner, '王小明', 'switching account leaves the typed value alone');
+    assert.equal(R.scopeOf(switched), scope);
+    assert.equal(R.defaultOwner(switched), sales.name, `${scope}: the account owns its new records`);
+  }
+  const wide = asSales('all');
+  assert.equal(wide.laiSettings.defaultOwner, '王小明');
+  assert.equal(R.defaultOwner(wide), '王小明', 'a company-wide account uses the typed value');
+  const back = R.switchTo(asSales('self'), admin.id);
+  assert.equal(back.laiSettings.defaultOwner, '王小明');
+  assert.equal(R.defaultOwner(back), '王小明');
+  // fallbacks: the old order settings, then empty
+  assert.equal(R.defaultOwner({ orderSettings: { defaultOwner: ' Old ' } }), 'Old');
+  assert.equal(R.defaultOwner({}), '');
+  assert.equal(R.defaultOwner(null), '');
+});
+
+test('默认跟进人: renaming the current account leaves a value that is someone else, and follows when it was the old name', () => {
+  // switchTo stores the account list, so the account keeps its name when the typed value changes later.
+  const first = { laiSettings: { defaultOwner: 'Kris' }, customers: {}, orders: [] };
+  const state0 = R.switchTo(first, R.currentMember(first).id);
+  const me = R.currentMember(state0);
+  assert.equal(me.name, 'Kris');
+  assert.equal(R.renameMember(typed(state0, '王小明'), me.id, 'Boss').laiSettings.defaultOwner, '王小明');
+  assert.equal(R.renameMember(state0, me.id, 'Chris').laiSettings.defaultOwner, 'Chris');
+});
+
+test('默认跟进人: new leads and opportunities use the account itself when it only sees its own or its department', () => {
+  const L = require('../src/lead-model.js'), O = require('../src/opportunity-model.js');
+  let state = { laiSettings: { defaultOwner: 'Kris' }, customers: {}, orders: [] };
+  const sales = R.settings(state).members.find(m => m.roleId === 'sales');
+  state = typed(R.switchTo(state, R.currentMember(state).id), '王小明');
+  assert.equal(L.defaults(state).owner, '王小明');
+  assert.equal(O.defaults(state, '2026-10-17').owner, '王小明');
+  const asSales = scope => R.switchTo(R.updateRole(state, 'sales', { scope }), sales.id);
+  for (const scope of ['self', 'dept']) {
+    assert.equal(L.defaults(asSales(scope)).owner, sales.name, scope);
+    assert.equal(O.defaults(asSales(scope), '2026-10-17').owner, sales.name, scope);
+  }
+  assert.equal(L.defaults(asSales('all')).owner, '王小明');
+  assert.equal(O.defaults(asSales('all'), '2026-10-17').owner, '王小明');
 });

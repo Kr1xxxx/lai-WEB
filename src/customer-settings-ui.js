@@ -222,7 +222,7 @@ function ruleForm(state, id, E) {
 // ---- 客户跟进规则、成交规则、动态设置 ----
 function followTab(state, E) {
   const rules = CS.get(state).followRules;
-  const group = (name, label, hint) => `<fieldset class="cs-field"><legend>${label}</legend><div class="cs-checks">${CS.FOLLOW_ACTIONS.map(([key, text]) => `<label class="check-row"><input type="checkbox" name="${name}" value="${key}"${rules[name].includes(key) ? " checked" : ""}> ${E(text)}</label>`).join("")}</div><em>${hint}</em></fieldset>`;
+  const group = (name, label, hint) => `<fieldset class="cs-field"><legend>${label}</legend><div class="cs-checks">${CS.visibleFollowActions(state).map(([key, text]) => `<label class="check-row"><input type="checkbox" name="${name}" value="${key}"${rules[name].includes(key) ? " checked" : ""}> ${E(text)}</label>`).join("")}</div><em>${hint}</em></fieldset>`;
   return `<form class="cs-dup" data-cs-form="follow">${group("contact", "算作“最近联系”", "最近联系时间决定公海规则里“多少天没有联系”。")}${group("followup", "算作“最近跟进”", "最近跟进时间显示在客户列表和详情里。")}${saveRow()}</form>`;
 }
 function dealTab(state) {

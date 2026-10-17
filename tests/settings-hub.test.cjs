@@ -43,7 +43,7 @@ test('the page lists every group and entry once, shows the current defaults and 
 
 test('the parts a user can set are all covered: defaults, theme, favorites, columns, segments, customer settings, sales flow, product settings, document templates, rates, chat templates, task settings, targets, mailbox', () => {
   const ids = Hub.GROUPS.flatMap((g) => g.items.map((i) => i.id));
-  assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'flows', 'product-settings', 'doc-templates', 'rates', 'chat-templates', 'task-settings', 'targets', 'mail-account']);
+  assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'feature-switch', 'lead-settings', 'columns', 'segments', 'customer-settings', 'flows', 'product-settings', 'doc-templates', 'rates', 'chat-templates', 'task-settings', 'targets', 'mail-account']);
 });
 
 test('the 测试数据 entry shows only in the web trial, once, and opens the trial panel', () => {
@@ -79,4 +79,29 @@ test('聊天模板 opens the chat-templates page and needs chat.template', () =>
   const item = Hub.GROUPS.flatMap((g) => g.items).find((i) => i.id === 'chat-templates');
   assert.deepEqual(item.open, ['route', 'chat-templates']);
   assert.equal(item.perm, 'chat.template');
+});
+
+test('线索设置 is in the hub: it opens lead-settings, needs settings.lead and the 线索 module', () => {
+  const item = Hub.GROUPS.flatMap((g) => g.items).find((i) => i.id === 'lead-settings');
+  assert.deepEqual(item.open, ['route', 'lead-settings']);
+  assert.equal(item.perm, 'settings.lead');
+  assert.equal(item.module, 'lead');
+  const ids = (info) => [...Hub.markup(info, E).matchAll(/data-sh-item="([\w-]+)"/g)].map((m) => m[1]);
+  assert.ok(ids({}).includes('lead-settings'));
+  assert.ok(!ids({ can: (key) => key !== 'settings.lead' }).includes('lead-settings'));
+  assert.ok(!ids({ moduleOn: (m) => m !== 'lead' }).includes('lead-settings'), 'module off hides the entry');
+  assert.match(Hub.markup({}, E), /data-sh-item="lead-settings"[\s\S]*?data-lai-route="lead-settings"/);
+});
+
+test('列表字段 and 客群管理 need customer.view; the product note names the settings tabs; the theme note says the colour is saved with the data', () => {
+  const ids = (can) => [...Hub.markup({ can }, E).matchAll(/data-sh-item="([\w-]+)"/g)].map((m) => m[1]);
+  for (const id of ['columns', 'segments']) {
+    assert.ok(ids(() => true).includes(id), id);
+    assert.ok(!ids((key) => key !== 'customer.view').includes(id), `${id} hidden without customer.view`);
+  }
+  const html = Hub.markup({}, E);
+  assert.match(html, /产品分组、产品字段、规格管理、布局/);
+  assert.doesNotMatch(html, /点上方的设置页签/);
+  assert.match(html, /配色跟着数据一起保存/);
+  assert.doesNotMatch(html, /这台电脑/);
 });

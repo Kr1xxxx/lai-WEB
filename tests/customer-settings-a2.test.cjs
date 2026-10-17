@@ -284,3 +284,30 @@ test('segments derive WhatsApp dates from whatsapp chat entries only', () => {
   assert.equal(row.lastWhatsAppReceived, local('2026-09-05T10:00:00Z'));
   assert.equal(row.lastWhatsAppContact, local('2026-09-07T10:00:00Z'));
 });
+
+test('follow actions of a closed module are hidden from the choices but stay saved', () => {
+  const off = (...ids) => ({ laiSettings: { featureSwitch: { off: ids } } });
+  const keys = (state) => CS.visibleFollowActions(state).map(([key]) => key);
+  assert.deepEqual(keys({}), ALL, 'all modules on: every action is offered');
+  assert.deepEqual(keys(off('mail')), ['followup', 'chatSent', 'chatReceived', 'order', 'opportunity', 'claim']);
+  assert.deepEqual(keys(off('chat')), ['followup', 'mailSent', 'mailReceived', 'order', 'opportunity', 'claim']);
+  assert.deepEqual(keys(off('opp')), ['followup', 'mailSent', 'mailReceived', 'chatSent', 'chatReceived', 'order', 'claim']);
+  assert.deepEqual(keys(off('mail', 'chat', 'opp')), ['followup', 'order', 'claim']);
+  assert.deepEqual(keys(off('lead', 'product', 'doc', 'team')), ALL, 'other modules do not matter');
+  assert.deepEqual(CS.hiddenFollowKeys(off('mail')), ['mailSent', 'mailReceived']);
+
+  // Saving from a form that does not show the closed actions keeps what was stored for them.
+  const closed = (state, ...ids) => ({ ...state, laiSettings: { ...state.laiSettings, featureSwitch: { off: ids } } });
+  const state = closed(CS.setFollowRules({}, { contact: ALL, followup: ['followup', 'mailSent', 'chatSent'] }), 'mail', 'chat');
+  const saved = CS.setFollowRules(state, { contact: ['followup', 'order'], followup: ['followup'] });
+  assert.deepEqual(CS.get(saved).followRules.contact, ['followup', 'mailSent', 'mailReceived', 'chatSent', 'chatReceived', 'order']);
+  assert.deepEqual(CS.get(saved).followRules.followup, ['followup', 'mailSent', 'chatSent']);
+  // A closed action posted by hand is ignored; an action that was not stored is not added.
+  const forced = CS.setFollowRules(closed(CS.setFollowRules({}, { contact: ['followup'] }), 'mail'), { contact: ['followup', 'mailSent'] });
+  assert.deepEqual(CS.get(forced).followRules.contact, ['followup']);
+  // At least one visible action is needed, even if hidden ones are stored.
+  assert.throws(() => CS.setFollowRules(state, { contact: ['mailSent'] }), /请至少选一项“算作最近联系”的动作/);
+  // Opening the module again shows the stored choices as they were.
+  const back = { ...saved, laiSettings: { ...saved.laiSettings, featureSwitch: { off: [] } } };
+  assert.deepEqual(CS.get(back).followRules.contact, ['followup', 'mailSent', 'mailReceived', 'chatSent', 'chatReceived', 'order']);
+});

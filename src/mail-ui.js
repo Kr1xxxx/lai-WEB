@@ -1630,7 +1630,7 @@
       ctx.dialog(
         account ? "更换邮箱" : "绑定 Zoho 邮箱",
         `<form class="drawer-body mail-bind-form" id="mail-bind-form" autocomplete="off" novalidate>` +
-          (blocked ? `<div class="module-note mail-bind-blocked">网页试用版运行在浏览器里，无法连接邮箱服务器。请在 Mac 上安装的来财应用里绑定。</div>` : "") +
+          (blocked ? `<div class="module-note mail-bind-blocked">网页试用版运行在浏览器里，无法连接邮箱服务器，所以不能绑定真实邮箱。</div>` : "") +
           `<label class="field">邮箱地址<input id="mail-bind-email" name="email" type="email" inputmode="email" autocomplete="off" spellcheck="false" placeholder="name@yourcompany.com" value="${E(account ? account.email : "")}" required></label>` +
           `<label class="field">应用专用密码<input id="mail-bind-password" name="password" type="password" autocomplete="new-password" placeholder="在 Zoho 账户里生成，不是登录密码" required></label>` +
           `<div class="form-grid"><label class="field">Zoho 站点<select id="mail-bind-site" name="site">${sites.map((item) => option(item, account ? account.site : "cn")).join("")}</select></label>` +
@@ -1691,7 +1691,7 @@
           `<div class="mail-bound-actions"><button type="button" class="primary" data-mail-action="settings-save">保存设置</button></div>` +
           `<div class="error ${message ? "visible" : ""}" id="mail-account-error" role="alert">${E(message)}</div>` +
           (account.demo
-            ? `<div class="module-note">这是网页试用版自带的示例邮箱，里面是示例邮件，写信和回复不会真的发出，刷新页面后恢复原样。真实邮箱要在 Mac 上安装的来财应用里绑定。</div></div>`
+            ? `<div class="module-note">这是网页试用版自带的示例邮箱，里面是示例邮件，写信和回复不会真的发出，刷新页面后恢复原样。试用版里不能绑定真实邮箱。</div></div>`
             : `<div class="mail-bound-actions"><button type="button" data-mail-action="verify" ${working ? "disabled" : ""}>${working ? "正在验证…" : "重新验证"}</button><button type="button" data-mail-action="bind">更换邮箱</button><button type="button" data-mail-action="unbind">解除绑定</button></div></div>`),
         `<button type="button" class="primary" data-action="close-modal">关闭</button>`,
         "mail-account",

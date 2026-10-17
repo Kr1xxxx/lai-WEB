@@ -155,3 +155,17 @@ test('the old 公海规则 dialog is gone', () => {
   const html = UI.markup(base(), { tab: 'groups' }, E, []);
   assert.ok(!html.includes('公海规则') && !html.includes('data-feature'));
 });
+
+test('the follow tab leaves out the actions of closed modules and keeps the checked state of the others', () => {
+  const s = CS.setFollowRules(base(), { contact: ['followup', 'mailSent', 'order'], followup: ['followup'] });
+  const off = { ...s, laiSettings: { ...s.laiSettings, featureSwitch: { off: ['mail', 'chat', 'opp'] } } };
+  const html = UI.markup(off, { tab: 'follow' }, E, []);
+  const values = (name) => [...html.matchAll(new RegExp(`name="${name}" value="([a-zA-Z]+)"`, 'g'))].map((m) => m[1]);
+  assert.deepEqual(values('contact'), ['followup', 'order', 'claim']);
+  assert.deepEqual(values('followup'), ['followup', 'order', 'claim']);
+  assert.doesNotMatch(html, /发出邮件|收到邮件|发出聊天或电话|收到聊天|新建或修改商机/);
+  assert.match(html, /name="contact" value="followup" checked/);
+  const mailOnly = UI.markup({ ...s, laiSettings: { ...s.laiSettings, featureSwitch: { off: ['chat'] } } }, { tab: 'follow' }, E, []);
+  assert.match(mailOnly, /发出邮件/);
+  assert.doesNotMatch(mailOnly, /收到聊天/);
+});

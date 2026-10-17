@@ -148,8 +148,9 @@ test('设置: currency list is longer and keeps an unusual saved currency; owner
     await page.locator('#toast.show', { hasText: '已保存' }).waitFor();
     assert.equal((await app.readData()).laiSettings.defaultCurrency, 'THB', '保存设置不会悄悄换掉币种');
     const text = await page.locator('body').innerText();
-    assert.ok(text.includes('切换账号后会跟着变成当前账号'));
-    assert.ok(text.includes('客户、订单、日程都存在这台电脑上，可以随时备份。'));
+    assert.ok(text.includes('新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。'));
+    assert.ok(text.includes('客户、订单、日程都保存在来财里，可以随时备份。'));
+    assert.ok(!text.includes('这台电脑') && !text.includes('打开数据目录'));
     assert.ok(!text.includes('统一客户与经营界面') && !text.includes('数据库'));
   } finally {
     await app.close();

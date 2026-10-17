@@ -35,7 +35,7 @@ test('every real entry of every menu is favoritable, in menu order; the reserved
   assert.deepEqual(F.catalog.map(e => e.id), ALL);
   assert.deepEqual(RM.favoritable().map(e => e.id), ALL);
   assert.equal(new Set(ALL).size, ALL.length, 'ids are unique');
-  const fromMenus = MENUS.flatMap(label => RM.menuFor(label).filter(row => row.kind !== 'feature').map(row => row.id));
+  const fromMenus = MENUS.flatMap(label => RM.menuFor(label).map(row => row.id));
   assert.deepEqual(fromMenus, ALL, 'the catalog is exactly the menus\' real rows');
   for (const row of MENUS.flatMap(label => RM.menuFor(label))) assert.equal(row.id, `${row.kind}:${row.target}`, row.label);
   for (const label of RESERVED) assert.equal(RM.menuFor(label), null, label + ' has no rows, so nothing to favorite');
@@ -232,7 +232,6 @@ function harness({settings, flush = true, failSave = null, route = 'customers', 
     history: {replaceState: (a, b, hash) => calls.hash.push(hash)},
     rememberCustomerListViewport() {}, closeModal: () => { calls.closeModal++; }, closeDropdowns() {}, removePopover() {},
     drawer: (...args) => calls.drawers.push(args),
-    featureNotice: name => calls.notices.push(name),
     list: () => { boundary.customerScreen = 'active'; boundary.shell('<CUSTOMER-LIST/>'); },
     detail: name => { calls.customers.push(['detail', name]); boundary.shell('<DETAIL/>'); },
     showCustomerScreen: screen => { calls.customers.push(['screen', screen]); boundary.customerScreen = screen; boundary.shell(`<CUSTOMER-${screen}/>`); },
@@ -715,9 +714,6 @@ test('the flyout opens favorites in 常用 mode and ordinary menu entries outsid
   hover(h, railItem('邮件'));
   await h.click(h.button('flyout', b => b.dataset.flyoutTarget === 'bulk'));
   assert.deepEqual([h.boundary.activeRoute, h.boundary.favoritesMode, h.calls.mailSelect], ['mail', false, ['bulk']]);
-  h = harness({settings: {}});
-  await h.run('activateRailFlyout("feature", "某保留入口")');
-  assert.deepEqual([h.calls.notices, h.calls.business], [['某保留入口'], []]);
 });
 
 test('clicking any other left menu leaves 常用 mode; each page highlights its own menu', async () => {
@@ -851,4 +847,11 @@ test('管理常用: ↑ ↓ step over entries the account cannot see instead of 
   // At the edge of the visible list nothing changes.
   assert.deepEqual(move(ids, 'screen:active', -1), ids);
   assert.deepEqual(move(ids, 'mail:inbox', 1), ids);
+});
+
+test('no placeholder entries are left: no reserved rows, no "功能入口已保留" text, no featureNotice handler (D-003)', () => {
+  for (const label of MENUS) for (const row of RM.menuFor(label)) assert.notEqual(row.kind, 'feature', `${label}/${row.label}`);
+  assert.doesNotMatch(app, /功能入口已保留|featureNotice|待后续实现/);
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '../src/rail-menu.js'), 'utf8'), /保留入口|kind 为 feature/);
+  assert.doesNotMatch(app, /kind === "feature"/);
 });
