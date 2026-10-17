@@ -157,9 +157,9 @@ for (const [id, spec] of Object.entries(MODULES)) {
     assert.ok(fav.includes('route:order-list') && fav.includes('screen:active'), 'the other favorites stay');
     assert.deepEqual((await data()).laiSettings.favoriteNav, FAVORITES, 'the saved 常用 list is not changed');
     const wb = await workbenchText();
-    const cards = { opp: ['商机阶段', '进行中商机', '新建商机'], mail: ['未读邮件'], team: ['本月目标'] }[id] || [];
+    const cards = { opp: ['商机看板', '新建商机'], mail: ['收件箱'], chat: ['WhatsApp'], team: ['本月成交', '经营统计'] }[id] || [];
     for (const text of cards) { assert.ok(before.wb.includes(text), `${text} was on the workbench`); assert.ok(!wb.includes(text), `${text} left the workbench`); }
-    assert.ok(wb.includes('有效订单') && wb.includes('待办任务'), 'orders and tasks are never switchable');
+    assert.ok(wb.includes('今天先做') && wb.includes('订单走到哪了'), 'orders and the queue are never switchable');
 
     // customer detail
     await openDetail();
@@ -192,7 +192,7 @@ for (const [id, spec] of Object.entries(MODULES)) {
     const back = { hub: await hubItems(), fav: await favoriteTargets(), wb: await workbenchText() };
     assert.deepEqual(back.hub, before.hub);
     assert.deepEqual(back.fav, before.fav);
-    assert.equal(back.wb.includes('有效订单'), true);
+    assert.equal(back.wb.includes('订单走到哪了'), true);
     for (const text of cards) assert.ok(back.wb.includes(text), `${text} back on the workbench`);
     await app.open(spec.route);
     await settle();
