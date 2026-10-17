@@ -52,9 +52,29 @@ const focused = (page) => page.evaluate(() => {
   const el = document.activeElement;
   return el ? { tag: el.tagName, id: el.id, select: el.dataset?.select ?? null, trigger: el.classList.contains('lai-select-trigger') ? el.previousElementSibling?.id : null } : null;
 });
+// Event listeners bound directly on the frame elements (not through document): with the frame kept, a page that
+// binds a listener on every draw would pile them up, so the total must not grow with navigation.
+async function frameListeners(page) {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    const n = await page.evaluate(() => {
+      window.__frameEls = [...document.querySelectorAll('#app > header.topbar, #app > header.topbar *, #app > nav.rail, #app > nav.rail *, #app > #app-subnav, #app > #app-subnav *')];
+      return window.__frameEls.length;
+    });
+    let total = 0;
+    for (let i = 0; i < n; i++) {
+      const { result } = await cdp.send('Runtime.evaluate', { expression: `window.__frameEls[${i}]` });
+      total += (await cdp.send('DOMDebugger.getEventListeners', { objectId: result.objectId })).listeners.length;
+    }
+    return total;
+  } finally {
+    await cdp.detach();
+  }
+}
 
 test('switching pages from the left rail keeps the topbar, rail and sub-navigation elements', async () => {
   const { page } = app;
+  const listenersAtStart = await frameListeners(page);
   await watchApp(page);
   const visits = [
     ['.rail-item[data-lai-route="dashboard"]', '#dashboard'],
@@ -80,6 +100,12 @@ test('switching pages from the left rail keeps the topbar, rail and sub-navigati
   await page.locator('main.main.customer-main .customer-table').waitFor();
   assert.equal(await page.locator('#app > .subnav-restore').count(), 1, 'the customer pages keep their expand button');
   assert.deepEqual((await frameState(page)).same, { topbar: true, rail: true, subnav: true, main: true });
+  for (const selector of ['.rail-item[data-lai-route="mail"]', '.rail-item[data-lai-route="order-list"]', '.rail-item[data-rail-menu="客户"]']) {
+    await page.locator(selector).click();
+    await page.waitForTimeout(300);
+  }
+  await page.locator('main.main.customer-main .customer-table').waitFor();
+  assert.equal(await frameListeners(page), listenersAtStart, 'no listeners piled up on the kept frame elements');
   assert.deepEqual(pageErrors(), []);
 });
 
