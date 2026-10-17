@@ -4093,7 +4093,7 @@
   }
   // 业务页面的清单取自 rail-menu.js，与「可设为常用」同一份来源。
   const businessRoutes = new Set(RM.favoritable().filter((entry) => entry.kind === "route").map((entry) => entry.target));
-  // 其他模块登记的页面（window.LaiExtraPages，见 business-ui.js）：不在左侧栏里，但地址栏和页面内的链接可以打开。
+  // 其他模块登记的页面（window.LaiExtraPages，见 business-ui.js）：汇率设置、任务设置、功能开关、线索设置、沟通等页面都在这里登记，并在左侧栏有入口。
   const isBusinessRoute = (route) => businessRoutes.has(route) || (!!route && Object.hasOwn(window.LaiExtraPages || {}, route));
   async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
     // 功能开关关掉的模块：地址栏、链接直接打开也不行，提示一下回工作台。
