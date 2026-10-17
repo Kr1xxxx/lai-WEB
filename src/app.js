@@ -5154,7 +5154,7 @@
     }
     if ((d.feature === "添加商机" || d.feature === "新建商机") && !allow("opp.create")) return;
     if (d.feature && customerOpportunityFeature(d.feature)) return;
-    // 其余带 data-feature 的按钮（商机按钮在没有可操作的商机时）不弹任何“待后续实现”的提示。
+    // 其余带 data-feature 的按钮（商机按钮在没有可操作的商机时）什么也不弹。
     if (d.feature) return;
     if (d.groupTab) {
       groupTab = d.groupTab;

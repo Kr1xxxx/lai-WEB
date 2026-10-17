@@ -848,3 +848,10 @@ test('管理常用: ↑ ↓ step over entries the account cannot see instead of 
   assert.deepEqual(move(ids, 'screen:active', -1), ids);
   assert.deepEqual(move(ids, 'mail:inbox', 1), ids);
 });
+
+test('no placeholder entries are left: no reserved rows, no "功能入口已保留" text, no featureNotice handler (D-003)', () => {
+  for (const label of MENUS) for (const row of RM.menuFor(label)) assert.notEqual(row.kind, 'feature', `${label}/${row.label}`);
+  assert.doesNotMatch(app, /功能入口已保留|featureNotice|待后续实现/);
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '../src/rail-menu.js'), 'utf8'), /保留入口|kind 为 feature/);
+  assert.doesNotMatch(app, /kind === "feature"/);
+});
