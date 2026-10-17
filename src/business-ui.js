@@ -2566,7 +2566,7 @@
       }
       if (["team-goals", "team-wall"].includes(route) && teamViewAction(d)) return;
       if (d.bizOrder) return need("order.view") && orderEditor(d.bizOrder);
-      if (d.bizCustomer) return ctx.openCustomer(d.bizCustomer);
+      if (d.bizCustomer) return d.bizFollowup !== undefined && ctx.writeFollowup ? ctx.writeFollowup(d.bizCustomer) : ctx.openCustomer(d.bizCustomer);
       // 工作台「等你回复」的「回复」：打开聊天页，并选中这位客户的对话。
       if (d.bizChat) return ctx.openChat ? ctx.openChat(d.bizChat) : ctx.navigate("chats");
       if (d.bizStage) {
