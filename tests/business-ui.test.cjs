@@ -341,10 +341,10 @@ test('analysis customer contributions merge legacy currency spelling the same wa
   const common={client:'Synthetic Customer',stage:'quote',createdAt:'2026-10-01',orderMonth:'2026-10'};
   const h=harness({clock:midnightClock,orders:[{...common,currency:'USD',amount:100},{...common,currency:' usd ',amount:50}]});
   h.controller.navigate('analysis');
-  const contribution=h.pageHtml.slice(h.pageHtml.indexOf('<h3>客户贡献</h3>'));
+  const contribution=h.pageHtml.slice(h.pageHtml.indexOf('<h3 class="k-card-title">客户贡献</h3>'));
   const rows=[...contribution.matchAll(/<tr><td>.*?<\/tr>/g)].map(match=>match[0]);
   assert.equal(rows.length,1);
-  assert.match(rows[0],/<td>2<\/td><td>150\.00 USD<\/td><\/tr>$/);
+  assert.match(rows[0],/<td class="k-num">2<\/td><td class="k-num">150\.00 USD<\/td><\/tr>$/);
   assert.equal(h.saveCalls,0);
 });
 

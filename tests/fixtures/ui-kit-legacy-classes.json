@@ -21,7 +21,6 @@
   "small-empty",
   "subnav-empty",
   "summary-search-empty",
-  "team-rank-empty",
   "wa-empty",
   "wa-list-empty",
   "wa-thread-empty"
@@ -39,11 +38,8 @@
   "import-preview",
   "import-records-table",
   "order-table",
-  "order-table fit-table",
   "order-table rate-table",
   "order-table role-table",
-  "order-table role-table role-list-table",
-  "order-table team-table",
-  "order-table team-table team-board"
+  "order-table role-table role-list-table"
  ]
 }
