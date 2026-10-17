@@ -88,6 +88,8 @@ test('turning 客户没跟进 on creates the tasks for the right owners and they
   const saved = (await data()).laiSettings.taskRules;
   assert.equal(saved.lastRun, TODAY);
   assert.deepEqual(saved.rules.map((rule) => [rule.type, rule.enabled]), [['noFollow', true], ['orderStage', false], ['oppClose', false], ['repurchase', false]]);
+  // the backend answers the save before the page redraws, so wait for the redraw before reading the preview
+  await page.waitForFunction(() => /现在会生成 0 个任务/.test(document.querySelector('[data-tr-preview="noFollow"]')?.textContent || ''), null, { timeout: 8000 }).catch(() => {});
   assert.match(await page.locator('[data-tr-preview="noFollow"]').innerText(), /现在会生成 0 个任务/);
   assert.equal(await page.locator('[data-tr-task]').count(), 2, 'the auto tasks are listed on the page');
   await go('calendar');
