@@ -91,17 +91,20 @@ test('the active rail item is a brand pill around icon and text; the batch bar i
   }
 });
 
-test('科技蓝: flat white panels, a navy rail with light icons and a cobalt active item, cobalt buttons, no glow blobs', () => {
+test('科技蓝 (light Linear look, D-033): flat white panels, a white rail with dark grey icons and a light grey active item with a cobalt icon, cobalt buttons, no glow blobs', () => {
   const tech = skin.slice(skin.indexOf(':root[data-skin="glass"][data-theme="tech"] {'));
   assert.ok(tech.length > 500, 'the tech section exists at the end, so it wins the cascade');
   // No glow blobs, no blur and white cards for every theme now (D-028): the base glass block says so once.
   assert.match(skin, /:root\[data-skin="glass"\] #app::before,\s*:root\[data-skin="glass"\] #app::after \{ content: none; display: none; \}/);
   assert.match(tokens, /--card-bg: #fff;/);
   assert.match(skin, /:root\[data-skin="glass"\] \{[^}]*--skin-blur: none;/);
-  assert.match(tech, /--nav-bg: var\(--brand-900\);/);
-  assert.match(tech, /--nav-active: var\(--brand-500\);/);
-  assert.match(tech, /\.rail \{ background: var\(--nav-bg\);/);
-  assert.match(tech, /\.rail-item\.active:hover \{ background: var\(--nav-active\); color: #fff;/);
+  assert.match(tech, /--nav-bg: #fff;/);
+  assert.match(tech, /--nav-fg: var\(--ink-700\);/);
+  assert.match(tech, /--nav-active: var\(--ink-100\);/);
+  assert.match(tech, /\.rail \{ background: var\(--nav-bg\); border-color: var\(--ink-200\);/);
+  assert.match(tech, /\.rail-item\.active:hover \{ background: var\(--nav-active\); color: var\(--ink-900\); box-shadow: inset 0 0 0 1px var\(--ink-200\);/);
+  assert.match(tech, /\.rail-item\.active :is\(\.icon, \.icon-duo\) \{ stroke: var\(--brand-500\);/, 'the current module is marked by the one accent colour');
+  assert.doesNotMatch(tech.replace(/\/\*[\s\S]*?\*\//g, ''), /brand-900/, 'no navy left in the tech skin');
   // Primary buttons are the brand colour in every theme (cobalt here), through --primary.
   assert.match(tokens, /--primary: var\(--brand-500\);/);
   assert.match(skin, /\[data-theme\] button\.primary,[\s\S]*?\{ background: var\(--primary\); border-color: var\(--primary\); color: var\(--primary-fg\); \}/);
@@ -119,25 +122,26 @@ test('科技蓝: flat white panels, a navy rail with light icons and a cobalt ac
   }
 });
 
-test('科技蓝 colours: text on white, on the cool page and on navy keeps the contrast, and the greys are cool, not warm', () => {
+test('科技蓝 colours (D-033): text on white and on the #fafafa page keeps the contrast, the greys are neutral, cobalt is the one accent', () => {
   const block = tokens.slice(tokens.indexOf(':root[data-theme="tech"]'));
   const get = (name) => block.match(new RegExp(name + ':\\s*(#[0-9a-fA-F]{6})'))[1];
-  assert.equal(get('--skin-page'), '#eef2f7');
+  assert.equal(get('--skin-page'), '#fafafa');
   assert.equal(get('--brand-500'), '#2f5bff');
   assert.ok(ratio(get('--brand-700'), '#ffffff') >= 4.5 && ratio(get('--brand-700'), get('--brand-50')) >= 4.5, 'brand text on white and on the light tint');
   assert.ok(ratio('#ffffff', get('--brand-500')) >= 4.5, 'white text on the cobalt button');
-  assert.ok(ratio('#ffffff', get('--brand-900')) >= 7, 'white on the navy rail');
-  assert.ok(ratio('#c4cad3', get('--brand-900')) >= 7, 'the rail text (74% white over navy is about this grey) on navy');
-  assert.ok(ratio(get('--brand-300'), get('--brand-900')) >= 4.5, 'light cobalt icons on navy');
-  // The glass skin turns the grey text tokens warm for pink and orange; the tech section sets them back to cool greys.
+  assert.ok(ratio(get('--ink-700'), '#ffffff') >= 7, 'rail text (dark grey) on the white rail');
+  assert.ok(ratio(get('--ink-900'), get('--ink-100')) >= 7, 'the current rail item: black text on light grey');
+  assert.ok(ratio(get('--brand-500'), get('--ink-100')) >= 3, 'the cobalt icon of the current rail item stands out (non-text contrast)');
+  // The glass skin turns the grey text tokens warm for pink and orange; the tech section sets them back to neutral greys.
   const muted = skin.slice(skin.indexOf('科技蓝（data-theme="tech"）'));
   for (const name of ['--muted', '--ink-500', '--ink-600', '--text-muted']) {
     const color = muted.match(new RegExp(name + ':\\s*(#[0-9a-fA-F]{6})'))[1];
     assert.ok(ratio(color, '#ffffff') >= 4.5, `${name} ${color} on white`);
-    assert.ok(ratio(color, '#eef2f7') >= 4.5, `${name} ${color} on the page`);
+    assert.ok(ratio(color, get('--skin-page')) >= 4.5, `${name} ${color} on the page`);
+    assert.ok(ratio(color, get('--ink-100')) >= 4.5, `${name} ${color} on a hovered row`);
   }
   for (const n of [900, 800, 700, 600, 500, 400, 300, 200, 100, 50]) {
     const [r, g, b] = rgb(get('--ink-' + n));
-    assert.ok(b >= g && g >= r - 2, `--ink-${n} is a cool grey`);
+    assert.ok(b >= g && g === r && b - r <= 10, `--ink-${n} is a neutral grey (zinc), not warm`);
   }
 });

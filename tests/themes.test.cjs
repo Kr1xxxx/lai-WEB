@@ -30,28 +30,29 @@ function page(route, { theme, defaultTheme } = {}) {
   return html;
 }
 
-test('设置: the picker lists the three colours (小满 removed, D-029) and marks pink as the default', () => {
+test('设置: the picker lists the three colours (小满 removed, D-029) and marks 科技蓝 as the default (D-033)', () => {
   const html = page('settings');
   const ids = [...html.matchAll(/data-biz-action="set-theme" data-theme-id="(\w+)"/g)].map((m) => m[1]);
   assert.deepEqual(ids, ['pink', 'orange', 'tech']);
   assert.doesNotMatch(html, /小满|xiaoman/);
-  assert.match(html, /<strong>粉色（默认）<\/strong>/);
-  assert.match(html, /<strong>科技蓝<\/strong>/);
+  assert.match(html, /<strong>科技蓝（默认）<\/strong>/);
+  assert.match(html, /<strong>粉色<\/strong>/);
   assert.match(html, /data-preview="tech"/);
-  assert.match(html, /class="theme-option selected" data-biz-action="set-theme" data-theme-id="pink"/, 'nothing chosen: the default is highlighted');
+  assert.match(html, /class="theme-option selected" data-biz-action="set-theme" data-theme-id="tech"/, 'nothing chosen: the default is highlighted');
 });
 
 test('设置: the chosen colour is highlighted, and the default label follows the one constant', () => {
-  assert.match(page('settings', { theme: 'tech' }), /class="theme-option selected" data-biz-action="set-theme" data-theme-id="tech"/);
-  const swapped = page('settings', { defaultTheme: 'tech' });
-  assert.match(swapped, /<strong>科技蓝（默认）<\/strong>/);
-  assert.match(swapped, /<strong>粉色<\/strong>/);
-  assert.match(swapped, /class="theme-option selected" data-biz-action="set-theme" data-theme-id="tech"/);
+  assert.match(page('settings', { theme: 'pink' }), /class="theme-option selected" data-biz-action="set-theme" data-theme-id="pink"/, 'a saved pink stays pink (D-033)');
+  assert.match(page('settings', { theme: 'orange' }), /class="theme-option selected" data-biz-action="set-theme" data-theme-id="orange"/);
+  const swapped = page('settings', { defaultTheme: 'pink' });
+  assert.match(swapped, /<strong>粉色（默认）<\/strong>/);
+  assert.match(swapped, /<strong>科技蓝<\/strong>/);
+  assert.match(swapped, /class="theme-option selected" data-biz-action="set-theme" data-theme-id="pink"/);
 });
 
 test('设置中心: the 界面配色 card names the current colour, and the note lists the three', () => {
-  assert.match(page('settings-hub', { theme: 'tech' }), /界面配色[\s\S]*?科技蓝/);
-  assert.match(page('settings-hub'), /粉色（默认）/);
+  assert.match(page('settings-hub', { theme: 'pink' }), /界面配色[\s\S]*?粉色/);
+  assert.match(page('settings-hub'), /科技蓝（默认）/);
   assert.match(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /粉色、橙色、科技蓝，/);
   assert.doesNotMatch(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /小满/);
 });
@@ -67,12 +68,12 @@ test('app.js: every theme uses the one (glass) layout, a saved xiaoman shows as 
   }
   for (const odd of ['toString', 'constructor', '__proto__']) {
     apply(odd);
-    assert.deepEqual({ ...root.dataset }, { theme: 'pink', skin: 'glass' }, odd);
+    assert.deepEqual({ ...root.dataset }, { theme: 'tech', skin: 'glass' }, odd);
   }
   apply('nonsense');
-  assert.deepEqual({ ...root.dataset }, { theme: 'pink', skin: 'glass' });
+  assert.deepEqual({ ...root.dataset }, { theme: 'tech', skin: 'glass' });
   apply(undefined);
-  assert.equal(root.dataset.theme, 'pink');
+  assert.equal(root.dataset.theme, 'tech', 'nothing chosen: 科技蓝 (D-033)');
 });
 
 // D-029: a saved 小满 theme is shown as 科技蓝; nothing is written on load, only the next normal settings save rewrites it.

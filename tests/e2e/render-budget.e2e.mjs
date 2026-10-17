@@ -201,11 +201,11 @@ test('typing in the order search redraws only the rows: no dropped characters, t
   assert.deepEqual(pageErrors(), []);
 });
 
-test('科技蓝: a theme change redraws the frame once, then the order search redraws only the table rows', async () => {
+test('粉色 (away from the default 科技蓝, D-033): a theme change redraws the frame once, then the order search redraws only the table rows', async () => {
   const { page } = app;
   await page.locator('.rail-item[data-rail-menu="设置"]').click();
-  await page.locator('[data-biz-action="set-theme"][data-theme-id="tech"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.theme === 'tech');
+  await page.locator('[data-biz-action="set-theme"][data-theme-id="pink"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'pink');
   assert.equal(await page.evaluate(() => document.documentElement.dataset.skin), 'glass', 'one layout for every theme (D-029)');
   await watchApp(page);
   await page.locator('.rail-item[data-lai-route="order-list"]').click();

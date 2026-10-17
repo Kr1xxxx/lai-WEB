@@ -22,7 +22,7 @@ test('the settings centre lists every group, and its theme entry shows the curre
   assert.deepEqual(await page.locator('.sh-group h3').allInnerTexts(), ['通用', '客户', '商机', '产品和单据', '沟通', '团队', '邮件']);
   assert.deepEqual(await page.locator('.sh-item strong').allInnerTexts(),
     ['默认录入', '界面配色', '常用导航', '功能开关', '列表字段', '客群管理', '客户设置', '商机设置', '产品设置', '单据模板', '汇率设置', '聊天模板', '目标管理', '邮箱设置']);
-  assert.match(await page.locator('[data-sh-item="theme"] .sh-now').innerText(), /粉色/);
+  assert.match(await page.locator('[data-sh-item="theme"] .sh-now').innerText(), /科技蓝/, 'nothing chosen: the default 科技蓝 (D-033)');
   assert.match(await page.locator('[data-sh-item="defaults"] .sh-now').innerText(), /USD/);
   assert.equal(await page.locator('.sh-page [data-feature]').count(), 0, 'no placeholder entries');
   assert.deepEqual(unexpectedErrors(), []);
@@ -77,12 +77,12 @@ test('the theme switch (粉色 / 橙色 / 科技蓝) takes effect at once and su
   const { page } = app;
   await app.open('settings');
   await page.locator('.theme-options').waitFor();
-  assert.deepEqual(await page.locator('.theme-option strong').allInnerTexts(), ['粉色（默认）', '橙色', '科技蓝']);
+  assert.deepEqual(await page.locator('.theme-option strong').allInnerTexts(), ['粉色', '橙色', '科技蓝（默认）']);
   const seen = {};
-  for (const [id, name] of [['orange', '橙色'], ['tech', '科技蓝'], ['pink', '粉色（默认）']]) {
+  for (const [id, name] of [['orange', '橙色'], ['pink', '粉色'], ['tech', '科技蓝（默认）']]) {
     const option = page.locator(`.theme-option[data-theme-id="${id}"]`);
     await option.click();
-    await page.waitForFunction((theme) => document.documentElement.getAttribute('data-theme') === theme || (theme === 'pink' && !document.documentElement.getAttribute('data-theme')), id);
+    await page.waitForFunction((theme) => document.documentElement.getAttribute('data-theme') === theme || (theme === 'tech' && !document.documentElement.getAttribute('data-theme')), id);
     assert.equal(await option.getAttribute('aria-pressed'), 'true', name);
     assert.equal(await option.locator('.theme-state').innerText(), '使用中');
     assert.equal(await page.locator('.theme-option[aria-pressed="true"]').count(), 1);
@@ -91,8 +91,8 @@ test('the theme switch (粉色 / 橙色 / 科技蓝) takes effect at once and su
     seen[id] = await page.evaluate(() => getComputedStyle(document.querySelector('.theme-option.selected .pv-nav')).backgroundColor);
   }
   assert.equal(new Set(Object.values(seen)).size, 3, 'each theme paints differently: ' + JSON.stringify(seen));
-  // Reload on 科技蓝 and on 橙色: the choice is still there, in the page and in the hub.
-  for (const [id, name] of [['tech', '科技蓝'], ['orange', '橙色']]) {
+  // Reload on 粉色 and on 橙色: a saved non-default choice is still there, in the page and in the hub (D-033 keeps it).
+  for (const [id, name] of [['pink', '粉色'], ['orange', '橙色']]) {
     await page.locator(`.theme-option[data-theme-id="${id}"]`).click();
     await settle(700);
     await page.reload();
