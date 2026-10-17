@@ -134,7 +134,7 @@ test('the list shows unread state, pending stars, attachments and the matching c
   const h = harness();
   try {
     await h.mail.select();
-    assert.match(h.page, /<h1>收件箱（2）<\/h1>/);
+    assert.match(h.page, /<h1 class="k-pageheader-title">收件箱（2）<\/h1>/);
     const rows = [...h.page.matchAll(/<div class="mail-row ([^"]*)" role="listitem">([\s\S]*?)<\/div>/g)].map(m => ({ unread: m[1].includes('unread'), html: m[2] }));
     assert.deepEqual(rows.map(r => r.unread), [true, false]);
     assert.match(rows[0].html, /data-mail-action="open" data-box="inbox" data-uid="4"/); assert.match(rows[0].html, /mail-row-who">李伟</); assert.match(rows[0].html, /mail-clip/); assert.match(rows[0].html, /data-mail-action="customer-open" data-name="深圳配件"/);
@@ -142,7 +142,7 @@ test('the list shows unread state, pending stars, attachments and the matching c
     assert.match(rows[1].html, /class="mail-pending on"[^>]*aria-pressed="true" aria-label="取消待处理"/); assert.match(rows[1].html, /Re: Quotation &lt;b&gt;/); assert.doesNotMatch(rows[1].html, /<b>|mail-clip/); assert.match(rows[1].html, /data-name="Nordic Lamps AB"/);
     assert.match(rows[0].html, /mail-row-snippet">您好， 样品已寄出 &lt;装箱单&gt;</, 'the body preview is shown, escaped'); assert.match(rows[1].html, /mail-row-snippet"><\/span>/);
     assert.match(rows[0].html, /data-mail-action="row-read" data-box="inbox" data-uid="4" aria-label="标为已读"/); assert.match(rows[1].html, /data-mail-action="row-read"[^>]*aria-label="标为未读"/); assert.match(rows[0].html, /data-mail-action="row-delete" data-box="inbox" data-uid="4"/);
-    assert.match(h.page, /class="module-page mail-page mail-split contact-auto"/); assert.match(h.page, /mail-reader-empty[\s\S]*选择一封邮件/, 'nothing is selected yet, so the reading pane says so');
+    assert.match(h.page, /class="k-card module-page mail-page mail-split contact-auto"/); assert.match(h.page, /mail-reader-idle[\s\S]*选择一封邮件/, 'nothing is selected yet, so the reading pane says so');
     assert.match(h.page, /共 2 封 · 第 1 \/ 1 页/); assert.match(h.page, /data-mail-action="page-prev" disabled/); assert.match(h.page, /data-mail-action="page-next" disabled/);
     h.act('customer-open', { name: '深圳配件' }); assert.deepEqual(h.opened, ['深圳配件']);
   } finally { h.dispose(); }
@@ -187,10 +187,10 @@ test('opening a message shows its details and attachments; html runs in a locked
     const opening = h.act('open', { box: 'inbox', uid: '4' });
     assert.match(h.page, /正在读取邮件内容/); await opening;
     assert.deepEqual(h.calls('/api/mail/message').at(-1).query, { box: 'inbox', uid: '4' });
-    assert.match(h.page, /<h1>收件箱（2）<\/h1>/, 'the list stays on screen beside the message'); assert.match(h.page, /mail-split reading contact-auto/);
+    assert.match(h.page, /<h1 class="k-pageheader-title">收件箱（2）<\/h1>/, 'the list stays on screen beside the message'); assert.match(h.page, /mail-split reading contact-auto/);
     assert.match(h.page, /<div class="mail-row  selected" role="listitem"><button type="button" class="mail-row-main" data-mail-action="open" data-box="inbox" data-uid="4" aria-current="true">/, 'the open message is highlighted in the list and no longer unread');
     assert.match(h.page, /<h2 class="mail-reader-subject">样品寄送确认<\/h2>/); assert.match(h.page, /mail-avatar"[^>]*>李<\/span>/); assert.match(h.page, /mail-reader-name">李伟<\/strong><span class="mail-reader-address">liwei@shenzhen-parts\.example</); assert.match(h.page, /Ops &lt;ops@example-trade\.com&gt;/); assert.match(h.page, /<dt>抄送<\/dt><dd>purchasing@/);
-    assert.match(h.page, /class="mail-quick-reply" data-mail-action="reply">.*回复 李伟…/);
+    assert.match(h.page, /class="k-btn mail-quick-reply" data-mail-action="reply">.*回复 李伟…/);
     assert.match(h.page, /<div class="mail-body-text">您好，\n样品已寄出。<\/div>/); assert.doesNotMatch(h.page, /<iframe/);
     assert.match(h.page, /附件（1）/); assert.match(h.page, /装箱单 &lt;1&gt;\.pdf/); assert.match(h.page, /2\.0 KB/); assert.match(h.page, /data-mail-action="attachment-save" data-index="0"/);
     for (const action of ['reply', 'reply-all', 'forward', 'mark-unread', 'toggle-pending', 'delete', 'back']) assert.match(h.page, new RegExp(`data-mail-action="${action}"`));
@@ -205,7 +205,7 @@ test('opening a message shows its details and attachments; html runs in a locked
     const doc = decode((/srcdoc="([^"]*)"/.exec(frame))[1]);
     assert.match(doc, /<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">/); assert.ok(doc.includes(html));
     assert.doesNotMatch(h.page.replace(frame, ''), /<script|onclick=/, 'message html never lands in the app document itself'); assert.match(h.page, /远程图片不会加载/);
-    await h.act('back'); assert.match(h.page, /<h1>收件箱/); assert.match(h.page, /mail-reader-empty/); assert.doesNotMatch(h.page.match(/<div class="mail-row [^"]*"/)[0], /unread|selected/);
+    await h.act('back'); assert.match(h.page, /<h1 class="k-pageheader-title">收件箱/); assert.match(h.page, /mail-reader-idle/); assert.doesNotMatch(h.page.match(/<div class="mail-row [^"]*"/)[0], /unread|selected/);
   } finally { h.dispose(); }
 });
 
@@ -214,7 +214,7 @@ test('a message that cannot be opened says why and returns to the list', async (
   try {
     await h.mail.select(); await h.act('open', { box: 'inbox', uid: '4' });
     assert.match(h.page, /无法打开这封邮件/); assert.match(h.page, /已经不在邮箱里了/);
-    await h.act('back'); assert.match(h.page, /<h1>收件箱/); assert.match(h.page, /mail-reader-empty/);
+    await h.act('back'); assert.match(h.page, /<h1 class="k-pageheader-title">收件箱/); assert.match(h.page, /mail-reader-idle/);
   } finally { h.dispose(); }
 });
 
@@ -229,10 +229,10 @@ test('pending, unread and delete change the mailbox through the service and upda
     failFlags = true; await h.act('toggle-pending', { box: 'inbox', uid: '3' }); assert.deepEqual(h.toasts, ['邮箱服务器拒绝了这个请求']); assert.match(h.page, /data-uid="3" aria-pressed="false"/, 'a failed change is not shown as done');
     failFlags = false; await h.act('open', { box: 'inbox', uid: '4' });
     const lists = h.calls('/api/mail/messages').length;
-    await h.act('mark-unread'); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 4, seen: false }); assert.match(h.page, /<h1>收件箱/); assert.equal(h.calls('/api/mail/messages').length, lists + 1, 'the list is re-read');
+    await h.act('mark-unread'); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 4, seen: false }); assert.match(h.page, /<h1 class="k-pageheader-title">收件箱/); assert.equal(h.calls('/api/mail/messages').length, lists + 1, 'the list is re-read');
     await h.act('open', { box: 'inbox', uid: '4' });
     h.act('delete'); assert.equal(h.dialog.type, 'mail-confirm'); assert.match(h.dialog.body, /删除「样品寄送确认」/); assert.match(h.dialog.body, /可以在 Zoho 里恢复/); assert.equal(h.calls('/api/mail/trash').length, 0, 'asking does not delete');
-    await h.act('delete-confirm'); assert.deepEqual(h.calls('/api/mail/trash').at(-1).payload, { box: 'inbox', uid: 4 }); assert.equal(h.closed, 1); assert.equal(h.toasts.at(-1), '已移到「已删除」'); assert.match(h.page, /<h1>收件箱/);
+    await h.act('delete-confirm'); assert.deepEqual(h.calls('/api/mail/trash').at(-1).payload, { box: 'inbox', uid: 4 }); assert.equal(h.closed, 1); assert.equal(h.toasts.at(-1), '已移到「已删除」'); assert.match(h.page, /<h1 class="k-pageheader-title">收件箱/);
   } finally { h.dispose(); }
 });
 
@@ -242,7 +242,7 @@ test('写信 opens a full page, not a drawer, with the editor, signature-free bo
     await h.mail.select();
     await h.act('compose');
     assert.equal(h.dialog, null, 'no drawer is opened'); assert.equal(h.mail.composing(), true);
-    assert.match(h.page, /<h1>写信<\/h1>/); assert.match(h.page, /data-mail-action="compose-close">.*返回/); assert.match(h.page, /id="mail-compose-submit">发送</); assert.match(h.page, /data-mail-action="compose-draft"/);
+    assert.match(h.page, /<h1 class="k-pageheader-title">写信<\/h1>/); assert.match(h.page, /data-mail-action="compose-close">.*返回/); assert.match(h.page, /id="mail-compose-submit">发送</); assert.match(h.page, /data-mail-action="compose-draft"/);
     assert.match(h.page, /<div class="mail-editor-toolbar"><\/div><div class="mail-editor" id="mail-compose-editor"/); assert.match(h.page, /mail-compose-address">sales@example-trade\.com</);
     assert.match(h.page, /data-mail-action="compose-cc"/); assert.equal(h.form('mail-compose-form').elements.cc, undefined);
     assert.equal(h.editor.html, '<div><br></div>'); assert.doesNotMatch(h.page.split('id="mail-compose-editor"')[1].split('</div>')[0], /\S</, 'body content is handed to the editor, never written into the page markup');
@@ -260,7 +260,7 @@ test('reply, reply-all and forward prefill the right recipients, subject, quoted
   try {
     await h.mail.select(); await h.act('open', { box: 'inbox', uid: '4' });
     await h.act('reply'); let f = h.form('mail-compose-form').elements;
-    assert.match(h.page, /<h1>回复<\/h1>/); assert.equal(f.to.value, '李伟 <liwei@shenzhen-parts.example>'); assert.equal(f.cc, undefined); assert.equal(f.subject.value, 'Re: 样品寄送确认');
+    assert.match(h.page, /<h1 class="k-pageheader-title">回复<\/h1>/); assert.equal(f.to.value, '李伟 <liwei@shenzhen-parts.example>'); assert.equal(f.cc, undefined); assert.equal(f.subject.value, 'Re: 样品寄送确认');
     assert.match(h.editor.html, /^<div><br><\/div><div><br><\/div><div>在 2026-10-06 \d\d:10，李伟 &lt;liwei@shenzhen-parts\.example&gt; 写道：<\/div><blockquote><div>您好，<\/div><div>样品已寄出。<\/div><\/blockquote>$/);
     await h.act('compose-close'); assert.equal(h.calls('/api/mail/drafts/save').length, 0, 'an untouched reply is not saved as a draft'); assert.match(h.page, /<h2 class="mail-reader-subject">样品寄送确认<\/h2>/, 'closing returns to the message');
     await h.act('reply-all'); f = h.form('mail-compose-form').elements;
@@ -271,7 +271,7 @@ test('reply, reply-all and forward prefill the right recipients, subject, quoted
     assert.match(sent.html, /^<div style="font-family:[^"]+"><div>好的<\/div>.*<blockquote style="margin:[^"]+"><div>您好，<\/div>/, 'outgoing html carries inline styles the recipient can render'); assert.match(sent.text, /^好的\n/);
     html = '<p>Original <b>html</b></p><script>alert(1)</script>';
     await h.act('refresh'); await h.act('forward'); f = h.form('mail-compose-form').elements;
-    assert.match(h.page, /<h1>转发<\/h1>/); assert.equal(f.to.value, ''); assert.equal(f.subject.value, 'Fwd: 样品寄送确认');
+    assert.match(h.page, /<h1 class="k-pageheader-title">转发<\/h1>/); assert.equal(f.to.value, ''); assert.equal(f.subject.value, 'Fwd: 样品寄送确认');
     assert.match(h.editor.html, /转发的邮件[\s\S]*发件人：李伟 &lt;liwei@[\s\S]*主题：样品寄送确认[\s\S]*<p>Original <b>html<\/b><\/p>/, 'the original html is quoted (the real editor sanitises it)');
     assert.doesNotMatch(h.page, /<script>alert|Original <b>html/, 'quoted html goes to the editor only, never into the page markup');
     assert.match(h.page, /name="forwardAttachments" checked> 附带原邮件的 1 个附件/);
@@ -309,7 +309,7 @@ test('composing validates, attaches files, sends once and reports the result', a
     assert.deepEqual({ ...payload, html: undefined }, { to: 'a@b.example', cc: 'c@d.example', bcc: '', subject: 'Hello', text: 'Body bold\n', html: undefined, inReplyTo: '', references: '', forwardOf: null, fromName: 'Kris', forwardAttachments: true, attachments: [{ filename: '报价.pdf', contentType: 'application/pdf', contentBase64: Buffer.from('%PDF').toString('base64') }] });
     assert.match(payload.html, /^<div style="[^"]+"><div>Body <b>bold<\/b><\/div><\/div>$/);
     assert.equal(h.mail.composing(), false); assert.equal(h.editors.at(-1).destroyed, true); assert.equal(h.toasts.at(-1), '已发送给 1 位收件人；c@d.example 被服务器拒绝，没有收到'); assert.equal(h.mail.account().senderName, 'Kris');
-    assert.match(h.page, /<h1>发件箱/); assert.equal(h.calls('/api/mail/messages').length, 2, 'the sent folder is shown again and re-read after sending');
+    assert.match(h.page, /<h1 class="k-pageheader-title">发件箱/); assert.equal(h.calls('/api/mail/messages').length, 2, 'the sent folder is shown again and re-read after sending');
   } finally { h.dispose(); }
 });
 
@@ -323,7 +323,7 @@ test('leaving an edited message saves it as a draft; drafts can be reopened, sen
     '/api/mail/send': ({ reply }) => reply(200, { ok: true, recipients: ['a@b.example'], rejected: [] }) } });
   try {
     await h.mail.select('drafts'); assert.match(h.page, /草稿箱是空的/); assert.match(h.page, /只保存在这台电脑上/);
-    await h.act('compose'); await h.act('compose-close'); assert.equal(stored.length, 0, 'an empty message is just closed'); assert.equal(h.mail.composing(), false); assert.match(h.page, /<h1>草稿箱/);
+    await h.act('compose'); await h.act('compose-close'); assert.equal(stored.length, 0, 'an empty message is just closed'); assert.equal(h.mail.composing(), false); assert.match(h.page, /<h1 class="k-pageheader-title">草稿箱/);
     await h.act('compose'); let f = h.form('mail-compose-form').elements; f.to.value = 'a@b.example'; f.subject.value = '报价 <1>';
     failSave = true; assert.equal(await h.mail.select('inbox'), false, 'switching folders is refused while the draft cannot be saved');
     assert.match(h.node('mail-compose-error').textContent, /草稿保存失败：storage unavailable 再点一次「返回」将放弃这封信/); assert.equal(h.mail.composing(), true); assert.equal(h.mail.folder(), 'drafts');
@@ -334,7 +334,7 @@ test('leaving an edited message saves it as a draft; drafts can be reopened, sen
     assert.equal(h.calls('/api/mail/drafts/save').at(-1).payload.id, 'a'.repeat(32), 'the same draft is updated, not duplicated'); assert.equal(h.calls('/api/mail/drafts/save').at(-1).payload.html, '<div>more <i>text</i></div>'); assert.equal(h.mail.composing(), false);
     assert.match(h.page, /草稿箱（1）/); assert.match(h.page, /发给 a@b\.example/); assert.match(h.page, /报价 &lt;1&gt;/);
     await h.act('draft-open', { id: 'a'.repeat(32) }); f = h.form('mail-compose-form').elements;
-    assert.match(h.page, /<h1>继续写信<\/h1>/); assert.deepEqual([f.to.value, f.subject.value, h.editor.html], ['a@b.example', '报价 <1>', '<div>more <i>text</i></div>'], 'formatting is kept in the draft');
+    assert.match(h.page, /<h1 class="k-pageheader-title">继续写信<\/h1>/); assert.deepEqual([f.to.value, f.subject.value, h.editor.html], ['a@b.example', '报价 <1>', '<div>more <i>text</i></div>'], 'formatting is kept in the draft');
     await h.act('compose-close'); assert.equal(h.calls('/api/mail/drafts/save').length, 3, 'reopening without changes does not save again');
     await h.act('draft-open', { id: 'a'.repeat(32) }); await h.submit('mail-compose-form');
     assert.equal(h.calls('/api/mail/send').at(-1).payload.draftId, 'a'.repeat(32)); assert.equal(h.calls('/api/mail/send').at(-1).payload.id, undefined);
@@ -352,13 +352,13 @@ test('the customer tab lists customers with addresses and shows their correspond
     assert.match(h.page, /选择一个客户/); assert.match(h.page, /2 个填写了邮箱的客户/); assert.doesNotMatch(h.mail.subnav(), /data-mail-folder/);
     await h.act('customer-select', { name: 'Nordic Lamps AB' });
     assert.deepEqual(h.calls('/api/mail/correspondence').at(-1).query, { addresses: 'anna@nordic-lamps.example' });
-    assert.match(h.page, /<h1>Nordic Lamps AB<\/h1>/); assert.match(h.page, /最近的 2 封/);
+    assert.match(h.page, /<h1 class="k-pageheader-title">Nordic Lamps AB<\/h1>/); assert.match(h.page, /最近的 2 封/);
     assert.deepEqual([...h.page.matchAll(/mail-direction (in|out)">(.)<\/span><span class="mail-row-who">([^<]*)</g)].map(m => m.slice(1)), [['in', '收', 'Anna Berg'], ['out', '发', 'Anna Berg']]);
-    await h.act('customer-compose'); assert.equal(h.form('mail-compose-form').elements.to.value, 'anna@nordic-lamps.example'); await h.act('compose-close'); assert.match(h.page, /<h1>Nordic Lamps AB<\/h1>/, 'closing returns to the customer view');
-    await h.act('open', { box: 'sent', uid: '6' }); assert.deepEqual(h.calls('/api/mail/message').at(-1).query, { box: 'sent', uid: '6' }); await h.act('back'); assert.match(h.page, /<h1>Nordic Lamps AB<\/h1>/);
+    await h.act('customer-compose'); assert.equal(h.form('mail-compose-form').elements.to.value, 'anna@nordic-lamps.example'); await h.act('compose-close'); assert.match(h.page, /<h1 class="k-pageheader-title">Nordic Lamps AB<\/h1>/, 'closing returns to the customer view');
+    await h.act('open', { box: 'sent', uid: '6' }); assert.deepEqual(h.calls('/api/mail/message').at(-1).query, { box: 'sent', uid: '6' }); await h.act('back'); assert.match(h.page, /<h1 class="k-pageheader-title">Nordic Lamps AB<\/h1>/);
     await h.act('customer-select', { name: '深圳配件' });
     assert.equal(h.calls('/api/mail/correspondence').at(-1).query.addresses, 'liwei@shenzhen-parts.example,wanglei@shenzhen-parts.example'); assert.match(h.page, /读取往来邮件失败/); assert.match(h.page, /无法连接邮箱服务器/);
-    await h.mail.showView('team'); assert.match(h.page, /<h1>下属邮件<\/h1>/); assert.match(h.page, /单机版/);
+    await h.mail.showView('team'); assert.match(h.page, /<h1 class="k-pageheader-title">下属邮件<\/h1>/); assert.match(h.page, /单机版/);
     await h.mail.showView('nope'); assert.equal(h.mail.view(), 'mail');
   } finally { h.dispose(); }
   const none = harness({ customers: { 'No Mail Co': {} } });
@@ -373,7 +373,7 @@ test('mailbox settings show the account, re-verify it, and unbind only after con
     await h.mail.select(); assert.match(h.page, /data-mail-action="account"/);
     h.act('account'); assert.equal(h.dialog.type, 'mail-account'); assert.match(h.dialog.body, /已绑定/); assert.match(h.dialog.body, /sales@example-trade\.com/); assert.match(h.dialog.body, /imappro\.zoho\.com\.cn:993/);
     await h.act('verify'); assert.deepEqual(h.toasts, ['验证通过，邮箱连接正常']); assert.equal(h.mail.account().verifiedAt, '2026-10-07T01:02:00.000Z'); assert.doesNotMatch(h.dialog.body, /disabled/);
-    ok = false; await h.act('verify'); assert.match(h.dialog.body, /id="mail-account-error" role="alert">登录被邮箱服务器拒绝</); assert.match(h.dialog.body, /class="error visible"/); assert.equal(h.mail.account().email, ACCOUNT.email, 'a failed check keeps the binding');
+    ok = false; await h.act('verify'); assert.match(h.dialog.footer, /<div class="k-error" id="mail-account-error" role="alert">登录被邮箱服务器拒绝</, 'the reason is in the error slot next to the buttons (shown because it is not empty)'); assert.equal(h.mail.account().email, ACCOUNT.email, 'a failed check keeps the binding');
     h.act('unbind'); assert.equal(h.dialog.type, 'mail-unbind'); assert.match(h.dialog.body, /密码会一并删除，本机草稿保留/); assert.equal(h.calls('/api/mail-account/unbind').length, 0);
     await h.act('unbind-confirm'); assert.equal(h.mail.account(), null); assert.equal(h.toasts.at(-1), '已解除绑定'); assert.match(h.page, /未绑定邮箱/); assert.doesNotMatch(h.page, /样品寄送确认/, 'mail from the old binding is cleared'); assert.doesNotMatch(h.mail.subnav(), /mail-count/);
   } finally { h.dispose(); }
@@ -474,7 +474,7 @@ test('bulk mail is a compose page that picks customers, previews the personalise
   try {
     await h.mail.select('bulk');
     await h.act('bulk-new');
-    assert.equal(h.dialog, null); assert.match(h.page, /<h1>新建群发<\/h1>/); assert.match(h.page, /看不到其他收件人/); assert.match(h.page, /已选 0 \/ 3 位客户/); assert.match(h.page, /data-mail-action="bulk-preview"/); assert.doesNotMatch(h.page, /compose-draft|name="to"/);
+    assert.equal(h.dialog, null); assert.match(h.page, /<h1 class="k-pageheader-title">新建群发<\/h1>/); assert.match(h.page, /看不到其他收件人/); assert.match(h.page, /已选 0 \/ 3 位客户/); assert.match(h.page, /data-mail-action="bulk-preview"/); assert.doesNotMatch(h.page, /compose-draft|name="to"/);
     assert.deepEqual([...h.page.matchAll(/data-mail-action="bulk-toggle" data-name="([^"]+)"[^>]*>.*?mail-bulk-address">([^<]*)</g)].map(m => m.slice(1)).sort(), [['Gulf &lt;b&gt;', 'omar@gulf.example'], ['Nordic Lamps AB', 'Anna Berg · anna@nordic-lamps.example'], ['深圳配件', '王磊 · wanglei@shenzhen-parts.example']]);
     const f = h.form('mail-compose-form').elements;
     assert.equal(h.editor.html, '<div><br></div><div><br></div><div class="lai-signature"><div>Kris</div><div>Lai &lt;Trading&gt;</div></div>', 'the signature is prefilled, escaped');
@@ -500,7 +500,7 @@ test('bulk mail is a compose page that picks customers, previews the personalise
       recipients: [{ customer: 'Nordic Lamps AB', name: 'Anna Berg', address: 'anna@nordic-lamps.example' }, { customer: '深圳配件', name: '王磊', address: 'wanglei@shenzhen-parts.example' }] });
     assert.match(started.html, /^<div style="[^"]+"><div>Hi \{\{ 姓名 \}\}，这是给<b>\{\{公司\}\}<\/b>的目录。<\/div><\/div>$/);
     assert.equal(h.mail.composing(), false); assert.equal(h.toasts.at(-1), '已开始向 2 位客户发送');
-    assert.deepEqual(h.calls('/api/mail/bulk/batch').at(-1).query, { id: 'c'.repeat(32) }); assert.match(h.page, /<h1>新品目录 &lt;2026&gt;<\/h1>/); assert.match(h.page, /已发 2 \/ 共 2/);
+    assert.deepEqual(h.calls('/api/mail/bulk/batch').at(-1).query, { id: 'c'.repeat(32) }); assert.match(h.page, /<h1 class="k-pageheader-title">新品目录 &lt;2026&gt;<\/h1>/); assert.match(h.page, /已发 2 \/ 共 2/);
   } finally { h.dispose(); }
 });
 
@@ -512,15 +512,15 @@ test('the bulk box lists batches, follows a sending batch until it finishes, and
     '/api/mail/bulk/cancel': ({ reply }) => { cancelled = true; return reply(200, { ok: true }); } } });
   try {
     await h.mail.select('bulk');
-    assert.match(h.page, /<h1>群发箱（2）<\/h1>/);
-    assert.deepEqual([...h.page.matchAll(/data-mail-action="bulk-open" data-id="(\w)\w+"><span class="mail-row-top"><span class="mail-dot"><\/span><span class="mail-row-who"><span class="mail-bulk-tag (\w+)">([^<]+)<\/span> ([^<]+)</g)].map(m => m.slice(1)), [['c', 'sending', '发送中', '已发 1 / 共 2'], ['d', 'stopped', '已停止', '已发 0 / 共 2 · 失败 1 · 未发 1']]);
+    assert.match(h.page, /<h1 class="k-pageheader-title">群发箱（2）<\/h1>/);
+    assert.deepEqual([...h.page.matchAll(/data-mail-action="bulk-open" data-id="(\w)\w+"><span class="mail-row-top"><span class="mail-dot"><\/span><span class="mail-row-who"><span class="k-badge k-badge--(\w+) mail-bulk-tag (\w+)">([^<]+)<\/span> ([^<]+)</g)].map(m => m.slice(1)), [['c', 'primary', 'sending', '发送中', '已发 1 / 共 2'], ['d', 'danger', 'stopped', '已停止', '已发 0 / 共 2 · 失败 1 · 未发 1']]);
     await h.act('bulk-open', { id: 'c'.repeat(32) });
     assert.match(h.page, /正在逐封发送/); assert.match(h.page, /data-mail-action="bulk-cancel"/); assert.match(h.page, /mail-item-status pending">待发送</); assert.match(h.page, /mail-item-status sent">已发送</);
     assert.match(h.page, /data-mail-action="customer-open" data-name="Nordic Lamps AB"/); assert.match(h.page, /附件 1 个/); assert.match(h.page, /Hi \{\{姓名\}\}/);
     for (let i = 0; i < 50 && reads < 3; i++) await new Promise(resolve => setTimeout(resolve, 5));
     await new Promise(resolve => setTimeout(resolve, 20));
     assert.equal(reads, 3, 'polling stops once the batch is no longer sending'); assert.match(h.page, /mail-bulk-tag done">已完成</); assert.match(h.page, /mail-item-status failed">失败</); assert.match(h.page, /收件人被拒绝 &lt;x&gt;/); assert.doesNotMatch(h.page, /bulk-cancel|正在逐封发送/);
-    const listReads = h.calls('/api/mail/bulk').length; await h.act('bulk-back'); assert.match(h.page, /<h1>群发箱（2）<\/h1>/);
+    const listReads = h.calls('/api/mail/bulk').length; await h.act('bulk-back'); assert.match(h.page, /<h1 class="k-pageheader-title">群发箱（2）<\/h1>/);
     await new Promise(resolve => setTimeout(resolve, 30)); assert.ok(h.calls('/api/mail/bulk').length > listReads + 1, 'the list keeps refreshing while a batch is sending');
     reads = 0; await h.act('bulk-open', { id: 'c'.repeat(32) }); await h.act('bulk-cancel');
     assert.deepEqual(h.calls('/api/mail/bulk/cancel').at(-1).payload, { id: 'c'.repeat(32) }); assert.match(h.page, /已手动停止/); assert.match(h.page, /mail-item-status skipped">未发送</);
@@ -536,11 +536,11 @@ test('写邮件 from the customer pages opens the compose page for one customer 
     assert.deepEqual(h.requests.map(r => r.route), ['/api/mail-account'], 'the binding is read first, without loading any mail');
     assert.deepEqual(h.opened, ['mail:inbox'], 'the app is asked to show the mail page'); assert.equal(h.mounted.length, 0); assert.equal(h.mail.composeDirty(), false, 'a compose page that is not shown yet never blocks the navigation');
     h.setActive(true); await h.mail.select('inbox');
-    assert.match(h.page, /<h1>写信<\/h1>/); assert.equal(h.form('mail-compose-form').elements.to.value, 'Anna Berg <anna@nordic-lamps.example>'); assert.equal(h.calls('/api/mail/messages').length, 0);
+    assert.match(h.page, /<h1 class="k-pageheader-title">写信<\/h1>/); assert.equal(h.form('mail-compose-form').elements.to.value, 'Anna Berg <anna@nordic-lamps.example>'); assert.equal(h.calls('/api/mail/messages').length, 0);
     await h.act('compose-close'); assert.deepEqual(back, ['customer'], 'closing goes back to where the user came from'); assert.equal(h.mail.composing(), false);
     await h.mail.composeFor(['No Mail Co']); assert.equal(h.toasts.at(-1), '这位客户还没有填写邮箱'); assert.equal(h.mail.composing(), false);
     await h.mail.composeFor(['No Mail Co', 'Nordic Lamps AB', '深圳配件', 'Nordic Lamps AB'], false, () => back.push('list'));
-    assert.equal(h.toasts.at(-1), '1 位客户没有填写邮箱，已略过'); assert.match(h.page, /<h1>新建群发<\/h1>/); assert.match(h.page, /已选 2 \/ 2 位客户/);
+    assert.equal(h.toasts.at(-1), '1 位客户没有填写邮箱，已略过'); assert.match(h.page, /<h1 class="k-pageheader-title">新建群发<\/h1>/); assert.match(h.page, /已选 2 \/ 2 位客户/);
     await h.act('compose-close'); assert.deepEqual(back, ['customer', 'list']);
     await h.mail.composeFor([]); await h.mail.composeFor(['No Mail Co', 'Unknown']); assert.equal(h.toasts.at(-1), '选中的客户都没有填写邮箱');
   } finally { h.dispose(); }
@@ -549,7 +549,7 @@ test('写邮件 from the customer pages opens the compose page for one customer 
     await away.mail.composeFor(['A', 'B']); away.setActive(true); await away.mail.select('inbox');
     const f = away.form('mail-compose-form').elements; f.subject.value = 's'; away.editor.html = '<div>t</div>';
     await away.submit('mail-compose-form'); await away.submit('mail-compose-form');
-    assert.deepEqual(away.calls('/api/mail/bulk/batch').at(-1).query, { id: 'c'.repeat(32) }); assert.match(away.page, /<h1>新品目录/, 'the batch that was just started is shown');
+    assert.deepEqual(away.calls('/api/mail/bulk/batch').at(-1).query, { id: 'c'.repeat(32) }); assert.match(away.page, /<h1 class="k-pageheader-title">新品目录/, 'the batch that was just started is shown');
   } finally { away.dispose(); }
   const unbound = harness({ account: null, active: false });
   try { await unbound.mail.composeFor(['Nordic Lamps AB']); assert.equal(unbound.toasts.at(-1), '请先绑定邮箱'); assert.equal(unbound.dialog.type, 'mail-bind'); } finally { unbound.dispose(); }
@@ -586,7 +586,7 @@ test('a message read once is shown again without another download; refresh re-re
     assert.equal(h.calls('/api/mail/flags').length, 0, 'an already-read message needs no flag change');
     await h.act('refresh'); assert.equal(h.calls('/api/mail/message').length, 3, 'refresh always asks the mailbox again');
     await h.act('row-read', { box: 'inbox', uid: '4' });
-    assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 4, seen: false }); assert.match(h.page, /mail-reader-empty/, 'marking the open message unread closes it'); assert.match(h.page, /<div class="mail-row unread" role="listitem"><button[^>]*data-uid="4"/); assert.match(h.mail.subnav(), /data-mail-folder="unread"[^>]*>.*?mail-count">1</);
+    assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 4, seen: false }); assert.match(h.page, /mail-reader-idle/, 'marking the open message unread closes it'); assert.match(h.page, /<div class="mail-row unread" role="listitem"><button[^>]*data-uid="4"/); assert.match(h.mail.subnav(), /data-mail-folder="unread"[^>]*>.*?mail-count">1</);
     await h.act('open', { box: 'inbox', uid: '4' });
     assert.equal(h.calls('/api/mail/message').length, 3); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 4, seen: true }, 'the mailbox is told it was read again');
     await h.act('row-read', { box: 'inbox', uid: '3' }); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 3, seen: false }); assert.match(h.page, /mail-reader-subject">uid 4</, 'marking another row leaves the open message alone');
@@ -610,10 +610,10 @@ test('keyboard shortcuts move through the list and act on the open message, but 
     h.key('Delete'); assert.equal(h.dialog.type, 'mail-confirm');
     assert.equal(h.key('ArrowDown').result, undefined, 'shortcuts wait while a dialog is open'); h.act('delete-confirm'); await settle();
     h.key('ArrowDown'); await settle(); h.key('r'); await settle();
-    assert.equal(h.mail.composing(), true); assert.match(h.page, /<h1>回复<\/h1>/);
+    assert.equal(h.mail.composing(), true); assert.match(h.page, /<h1 class="k-pageheader-title">回复<\/h1>/);
     assert.equal(h.key('ArrowDown').result, undefined, 'shortcuts are off on the compose page'); await h.act('compose-close');
-    h.key('Escape'); assert.match(h.page, /mail-reader-empty/);
-    h.key('c'); await settle(); assert.match(h.page, /<h1>写信<\/h1>/); await h.act('compose-close');
+    h.key('Escape'); assert.match(h.page, /mail-reader-idle/);
+    h.key('c'); await settle(); assert.match(h.page, /<h1 class="k-pageheader-title">写信<\/h1>/); await h.act('compose-close');
     assert.equal(h.key('ArrowDown', {}).result, true); h.setActive(false); assert.equal(h.key('ArrowDown').result, undefined, 'and off on other pages');
   } finally { h.dispose(); }
 });
@@ -630,7 +630,7 @@ test('deleting from the list asks first, then shows the next message; deleting a
     await h.act('delete-confirm'); assert.deepEqual(h.calls('/api/mail/trash').at(-1).payload, { box: 'inbox', uid: 4 }); assert.match(h.page, /mail-reader-subject">uid 3</, 'the message being read stays open'); assert.doesNotMatch(h.page, /data-uid="4"/);
     h.act('delete'); await h.act('delete-confirm');
     assert.deepEqual(h.calls('/api/mail/trash').at(-1).payload, { box: 'inbox', uid: 3 }); assert.match(h.page, /mail-reader-subject">uid 2</, 'the next message in the list is shown'); assert.equal(h.calls('/api/mail/message').at(-1).query.uid, '2');
-    h.act('delete'); await h.act('delete-confirm'); assert.match(h.page, /「收件箱」里没有邮件/); assert.match(h.page, /mail-reader-empty/);
+    h.act('delete'); await h.act('delete-confirm'); assert.match(h.page, /「收件箱」里没有邮件/); assert.match(h.page, /mail-reader-idle/);
   } finally { h.dispose(); }
 });
 
@@ -645,7 +645,7 @@ test('the contact panel shows who the message is with, their recent mail, and ca
     assert.deepEqual(h.calls('/api/mail/correspondence').at(-1).query, { addresses: 'liwei@shenzhen-parts.example,wanglei@shenzhen-parts.example' }, 'all of the customer’s addresses are searched');
     const panel = /<aside class="mail-contact"[\s\S]*<\/aside>/.exec(h.page)[0];
     assert.match(panel, /<strong>深圳配件<\/strong>/); assert.match(panel, /data-mail-action="customer-open" data-name="深圳配件"/); assert.match(panel, /data-mail-action="contact-compose" data-to="liwei@shenzhen-parts\.example"/);
-    assert.deepEqual([...panel.matchAll(/class="mail-contact-item" data-mail-action="open" data-box="(\w+)" data-uid="(\d+)">.*?mail-contact-subject">([^<]*)</g)].map(m => m.slice(1)), [['sent', '9', 'Earlier &lt;reply&gt;']], 'the message on screen is not listed again');
+    assert.deepEqual([...panel.matchAll(/class="k-btn k-btn--ghost k-btn--sm mail-contact-item" data-mail-action="open" data-box="(\w+)" data-uid="(\d+)">.*?mail-contact-subject">([^<]*)</g)].map(m => m.slice(1)), [['sent', '9', 'Earlier &lt;reply&gt;']], 'the message on screen is not listed again');
     await h.act('open', { box: 'inbox', uid: '3' }); await h.act('open', { box: 'inbox', uid: '4' }); assert.equal(asked, 1, 'recent mail for the same contact is not fetched again for every message');
     await h.act('open', { box: 'sent', uid: '9' }); assert.deepEqual(h.calls('/api/mail/message').at(-1).query, { box: 'sent', uid: '9' }, 'a recent message opens from the panel');
     await h.act('contact-compose', { to: 'liwei@shenzhen-parts.example' }); assert.equal(h.form('mail-compose-form').elements.to.value, 'liwei@shenzhen-parts.example'); await h.act('compose-close');
@@ -736,7 +736,7 @@ test('messages can be ticked and handled together; the selection clears when the
     await h.act('bulk-read'); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uids: [13, 12, 11], seen: true }); assert.doesNotMatch(h.page, /mail-bulkbar/, 'the selection is cleared after the action'); assert.doesNotMatch(h.mail.subnav(), /data-mail-folder="unread"[^>]*>[^/]*mail-count/);
     await h.act('pick', { box: 'inbox', uid: '12' }); await h.act('bulk-pending'); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uid: 12, pending: true });
     await h.act('open', { box: 'inbox', uid: '12' }); await h.act('pick', { box: 'inbox', uid: '12' }); await h.act('pick', { box: 'inbox', uid: '11' });
-    await h.act('bulk-unread'); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uids: [12, 11], seen: false }); assert.match(h.page, /mail-reader-empty/, 'the open message was marked unread, so it is closed');
+    await h.act('bulk-unread'); assert.deepEqual(h.calls('/api/mail/flags').at(-1).payload, { box: 'inbox', uids: [12, 11], seen: false }); assert.match(h.page, /mail-reader-idle/, 'the open message was marked unread, so it is closed');
     await h.act('pick', { box: 'inbox', uid: '13' }); await h.act('pick', { box: 'inbox', uid: '11' });
     h.act('bulk-delete'); assert.match(h.dialog.body, /删除这 2 封邮件？/); assert.equal(h.calls('/api/mail/trash').length, 0);
     await h.act('delete-confirm'); assert.deepEqual(h.calls('/api/mail/trash').at(-1).payload, { box: 'inbox', uids: [13, 11] }); assert.deepEqual(rowsIn(h.page).map(r => r.uid), ['12']); assert.doesNotMatch(h.page, /mail-bulkbar/);
@@ -898,7 +898,7 @@ test('the customer page panel lists mailbox correspondence, opens a message on t
     // 点开：进入邮件页的「客户」页签并打开那一封
     h.act('panel-open', { name: 'Nordic Lamps AB', box: 'sent', uid: '5' }); assert.deepEqual(h.opened, ['mail:inbox']);
     h.setActive(true); await h.mail.select('inbox');
-    assert.equal(h.mail.view(), 'customer'); assert.match(h.page, /<h1>Nordic Lamps AB<\/h1>/); assert.deepEqual(h.calls('/api/mail/message').at(-1).query, { box: 'sent', uid: '5' }); assert.match(h.page, /mail-reader-subject">Re: Order 88</);
+    assert.equal(h.mail.view(), 'customer'); assert.match(h.page, /<h1 class="k-pageheader-title">Nordic Lamps AB<\/h1>/); assert.deepEqual(h.calls('/api/mail/message').at(-1).query, { box: 'sent', uid: '5' }); assert.match(h.page, /mail-reader-subject">Re: Order 88</);
     assert.match(h.page, /data-mail-action="record" data-name="Nordic Lamps AB" data-box="sent" data-uid="5" disabled[^>]*>已记录</, 'the reading pane shows it is already recorded');
     await h.mail.select('inbox'); assert.equal(h.mail.view(), 'mail', 'the next visit to the mail page is an ordinary one');
   } finally { h.dispose(); }

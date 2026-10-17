@@ -249,7 +249,7 @@ test('mail settings (sender name and signature) save and persist after a reload'
   await page.locator('#mail-settings-name').waitFor();
   assert.equal(await page.locator('#mail-settings-name').inputValue(), '来财销售部');
   assert.match(await page.locator('#mail-settings-signature').inputValue(), /Example Trade Co\./);
-  await page.locator('button.primary[data-action="close-modal"]').click();
+  await page.locator('.mail-dialog .k-dialog-foot [data-action="close-modal"]').click();
   assert.deepEqual(unexpectedErrors(), []);
 });
 
