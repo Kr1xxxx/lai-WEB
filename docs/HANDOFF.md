@@ -5,7 +5,7 @@
 
 ## Status (2026-10-17)
 
-- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.11 built from `main` cca83b1 (#22 merged).
+- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.12 built from `main` c9d3232 (#23 merged).
 - The Mac app was removed (owner, 2026-10-17, D-026): web version only. The local backend stays as the data layer.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
@@ -16,7 +16,7 @@
 - How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". The owner wants no questions: consult the advisor and decide (CLAUDE.md).
 - UI direction (D-028): one component kit, shadcn/ui-style rules in 科技蓝 colours; 小满 style removed (D-029).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
-  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.11, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.12, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
   version top-left; every publish adds 0.01.
 
 ## Open PRs and branches
@@ -54,8 +54,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 25 | Split `src/app.js` (~5800 lines), `business-ui.js` (~3100), `mail-ui.js` by page | Todo (planned) | 15-slice plan with advisor review; starts after the render fix (Q1); one file in one wave at a time |
 | 31 | UI wave (advisor report 2026-10-17) | Todo | Q1 render only into main → Q2–Q8 quick wins → component kit (D-028) page by page with census/token ratchets |
 | 32 | Remove 小满 theme + classic skin (D-029) | Todo | After Q1; xiaoman shown as 科技蓝 |
-| 33 | Full overlap sweep + CI test | Done (PR) | `scripts/ui-audit/overlap-sweep.cjs` + `tests/e2e/overlap-sweep.e2e.mjs`; 0 findings in 4 themes × 9 widths |
-| 34 | Font subset (owner OK) | Done (PR) | MiSans hanzi cut to GB2312 + used chars; page 9.9 → 7.7 MB, pixel-identical; licence note in `vendor/fonts/SUBSET.md` |
+| 33 | Full overlap sweep + CI test | Done (#23) | `scripts/ui-audit/overlap-sweep.cjs` + `tests/e2e/overlap-sweep.e2e.mjs`; 0 findings in 4 themes × 9 widths |
+| 34 | Font subset (owner OK) | Done (#23) | MiSans hanzi cut to GB2312 + used chars; page 9.9 → 7.7 MB, pixel-identical; licence note in `vendor/fonts/SUBSET.md` |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
 | 27 | 新建商机: 客户 / 负责人 as real dropdowns | Todo | Now styled like dropdowns but still inputs with a datalist; needs controller changes in `business-ui.js` |
 
