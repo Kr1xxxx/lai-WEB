@@ -10,7 +10,7 @@ async function addFollowup(app, text) {
   await page.locator('.lcd-tabs [data-tab="activity"]').click();
   await page.locator('#followup-text').fill(text);
   await page.locator('#followup-form button[type=submit]').click();
-  await page.getByText('已保存到来财').first().waitFor();
+  await page.getByText('已保存跟进').first().waitFor();
 }
 const noteTexts = async (app) => (await app.readData()).customers['Northwind Lash Studio'].history.map((item) => item.text);
 
