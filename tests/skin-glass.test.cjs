@@ -97,7 +97,9 @@ test('科技蓝: flat white panels, a navy rail with light icons and a cobalt ac
   // Primary buttons are the brand colour in every theme (cobalt here), through --primary.
   assert.match(tokens, /--primary: var\(--brand-500\);/);
   assert.match(skin, /\[data-theme\] button\.primary,[\s\S]*?\{ background: var\(--primary\); border-color: var\(--primary\); color: var\(--primary-fg\); \}/);
-  assert.match(skin, /\.wb \{ --wb-primary: var\(--primary\); \}/);
+  // The workbench's 新建订单 is the kit's primary button (D-028), which is var(--primary) in every theme.
+  assert.match(read('src/workbench.js'), /class="k-btn k-btn--primary" data-biz-action="new-order"/);
+  assert.match(read('src/ui-kit.css'), /\.k-btn--primary \{ background: var\(--primary\); border-color: var\(--primary\); color: var\(--primary-fg\); \}/);
   // every tech rule is limited to the tech theme (the glass skin test above already pins data-skin)
   const rules = tech.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+\{/g);
   // The section shrinks on purpose as pages move onto the kit (their colours come from tokens), so this only checks

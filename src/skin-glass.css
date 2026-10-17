@@ -74,7 +74,6 @@
 :root[data-skin="glass"] .main { left: 260px; top: 68px; right: 12px; bottom: 12px; padding: 0; background: transparent; }
 :root[data-skin="glass"] .nav-collapsed .main,
 :root[data-skin="glass"] .subnav[hidden] ~ .main { left: 90px; }
-:root[data-skin="glass"] .wb { --wb-primary: var(--primary); }
 :root[data-skin="glass"] .panel { --customer-group-width: max(196px, calc((100vw - 284px) * 0.14)); }
 :root[data-skin="glass"] .nav-collapsed .panel { --customer-group-width: max(196px, calc((100vw - 114px) * 0.14)); }
 
