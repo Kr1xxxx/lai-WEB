@@ -445,12 +445,13 @@
   }
   // 页面画好以后，把页签放进页面标题那一行（标题后面）；不需要页签的页面什么也不放。
   function placeSectionTabs() {
-    const bar = document.querySelector("#app > main.main .pagebar");
+    // 旧页面的标题行是 .pagebar；改用统一组件的页面（例如设置中心）标题行是 .k-pageheader。
+    const bar = document.querySelector("#app > main.main .pagebar, #app > main.main .k-pageheader");
     if (!bar) return;
     bar.querySelector(":scope > .section-tabs")?.remove();
     const html = sectionTabsMarkup();
     if (!html) return;
-    const title = bar.querySelector(":scope > .business-title, :scope > .page-tabs");
+    const title = bar.querySelector(":scope > .business-title, :scope > .page-tabs, :scope > .k-pageheader-text");
     if (title) title.insertAdjacentHTML("afterend", html);
     else bar.insertAdjacentHTML("afterbegin", html);
   }
