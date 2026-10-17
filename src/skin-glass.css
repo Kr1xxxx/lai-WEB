@@ -294,4 +294,3 @@
 /* 商机卡片的「⋮」菜单：深海军蓝小卡片 */
 /* 写死过暖色（偏粉的灰、棕红）的几处，换成冷灰 */
 :root[data-skin="glass"][data-theme="tech"] .tag { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-200); }
-:root[data-skin="glass"][data-theme="tech"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }

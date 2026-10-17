@@ -77,9 +77,9 @@
    "hex": 0
   },
   "whatsapp.css": {
-   "fontSizePx": 7,
-   "radiusPx": 3,
-   "hex": 8
+   "fontSizePx": 0,
+   "radiusPx": 1,
+   "hex": 2
   }
  }
 }

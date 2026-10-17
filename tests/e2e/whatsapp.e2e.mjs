@@ -81,16 +81,24 @@ test('沟通 is in the rail with 聊天记录 and 聊天模板, and the empty pa
   assert.ok(text.includes('聊天记录') && text.includes('聊天模板'), text);
   assert.ok(!text.includes('功能入口已保留'));
   await page.mouse.move(700, 500);
-  assert.equal(await page.locator('.pagebar h1').innerText(), '聊天记录');
+  assert.equal(await page.locator('.k-pageheader .k-pageheader-title').innerText(), '聊天记录');
   const body = await page.locator('.wa-page').innerText();
   assert.ok(body.includes('还没有聊天记录'), body);
   assert.equal(await page.locator('.rail-item.active').getAttribute('data-rail-menu'), '沟通');
+  // kit look (D-028): the section tabs sit in the page header, one primary button, the empty state is a k-empty
+  assert.equal(await page.locator('.k-pageheader > .section-tabs').count(), 1, '聊天记录／聊天模板 tabs in the header');
+  assert.equal(await page.locator('.main .k-btn--primary').count(), 1);
+  assert.equal(await page.locator('.k-pageheader .k-btn--primary[data-chat-action="whatsapp"]').count(), 1);
+  assert.equal(await page.locator('.wa-page .k-empty .k-empty-title').innerText(), '还没有聊天记录');
 });
 
 test('import an exported chat: preview, confirm, shows in the customer 动态 and on the 沟通 page', async () => {
   const { page } = app;
   await go('chats');
-  await page.locator('.pagebar [data-chat-action="import"]').click();
+  await page.locator('.k-pageheader [data-chat-action="import"]').click();
+  // the drawer has the kit shell and the error slot sits in its footer
+  await page.locator('.drawer.k-drawer.wa-drawer .k-dialog-foot #wa-import-error.k-error').waitFor({ state: 'attached' });
+  assert.equal(await page.locator('.drawer .drawer-head.k-dialog-head').count(), 1);
   await page.locator('#wa-import-file').setInputFiles(FIXTURE('android-24h.txt'));
   await page.locator('.wa-preview').waitFor();
   const preview = await page.locator('.wa-preview').innerText();
@@ -135,7 +143,7 @@ test('importing the same file again skips every line, and 撤销 removes the fir
   const { page } = app;
   const before = lineCount(await chatEntries(MARIA));
   await go('chats');
-  await page.locator('.pagebar [data-chat-action="import"]').click();
+  await page.locator('.k-pageheader [data-chat-action="import"]').click();
   await page.locator('#wa-import-file').setInputFiles(FIXTURE('android-24h.txt'));
   await page.locator('.wa-preview').waitFor();
   await setSelect('#wa-import-me', 'Li Wei');
@@ -218,7 +226,7 @@ test('业务 Amy (本人) only sees her own customers: no match, no chat of anot
   const text = await page.locator('.main').innerText();
   assert.ok(!text.includes(MARIA) && !text.includes('SECRET-KRIS-LINE'), text);
   // Importing a file whose sender is "Maria Test": Kris's customer is neither suggested nor in the list.
-  await page.locator('.pagebar [data-chat-action="import"]').click();
+  await page.locator('.k-pageheader [data-chat-action="import"]').click();
   await page.locator('#wa-import-file').setInputFiles(FIXTURE('ios.txt'));
   await page.locator('.wa-preview').waitFor();
   await setSelect('#wa-import-me', 'Li Wei');
