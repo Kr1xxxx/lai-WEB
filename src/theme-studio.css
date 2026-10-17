@@ -653,30 +653,144 @@
 /* ===== /S4 ===== */
 
 /* ===== S5: tables-lists（表格、客户列表齐边、客群栏） ===== */
-/* ---------- 表格：表头无底色，小号灰字；行之间很淡的分隔线，悬停浅米色 ---------- */
-:root[data-theme="studio"] body th,
-:root[data-skin="glass"][data-theme="studio"] .k-table th {
-  background: var(--studio-surface); color: var(--ink-600); font-size: var(--studio-fs-sm); font-weight: 500; border-color: var(--ink-200);
+/* ---------- 通用表格（Gr8r views/table.css）：表头 34 高、12/500 次要字、白底、底线 border、列间细竖线 divider；
+   单元格 36 高、12.5、行线/列线 divider、内距 0 10px、悬停 surface-2。
+   元素级只换颜色（旧表、日期之类别的表不改尺寸）；尺寸写在 :where(.k-table, .cs-table) 上，优先级 (0,3,1) 只盖过套件默认值，
+   页面自己的微调（订单表上下 6px、客户详情 40 高、商机面板首列贴边）照旧生效。 ---------- */
+:root[data-theme="studio"] body th { background: var(--studio-surface); color: var(--studio-text-2); font-weight: var(--studio-fw-ui); border-color: var(--studio-border); }
+:root[data-theme="studio"] body td { border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) { font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) th {
+  height: var(--studio-th-h); padding: 0 10px; background: var(--studio-surface); color: var(--studio-text-2);
+  font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); line-height: 1.3; white-space: nowrap;
+  border-bottom: 1px solid var(--studio-border); border-right: 1px solid var(--studio-divider);
 }
-:root[data-theme="studio"] body td { border-color: var(--ink-100); }
-:root[data-skin="glass"][data-theme="studio"] .k-table td { border-color: var(--ink-100); }
-/* 客户列表：斑马纹、竖线是用户自己的列表设置，保留，只换成米白主题的淡色 */
-:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:nth-child(even) td { background: var(--studio-bg); }
-:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.vertical-lines :is(th, td) { border-right-color: var(--ink-100); }
-:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table tbody tr:hover td { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) td {
+  height: var(--studio-td-h); padding: 0 10px; font-size: var(--studio-fs-sm);
+  border-bottom: 1px solid var(--studio-divider); border-right: 1px solid var(--studio-divider);
+}
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) :where(th, td):last-child { border-right: 0; }
+/* 列间竖线只给齐边的大列表（Gr8r 的表格视图）；卡片里的小表照 Gr8r 成员表：只有行线，没有列线 */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-card:not(.op-list, .replica-panel), .cs-panel, .k-dialog, .k-drawer, .opp-panel, .lcd-root) :where(.k-table, .cs-table) :where(th, td) { border-right: 0; }
 :root[data-skin="glass"][data-theme="studio"] tbody tr:hover td,
-:root[data-skin="glass"][data-theme="studio"] .k-table tbody tr:hover td { background: var(--studio-sunken); }
-/* ---------- 客户列表左边的客群：下划线页签用黑色；当前客群是白色小卡片 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .group-tabs::before { background: var(--ink-200); }
-:root[data-skin="glass"][data-theme="studio"] .group-tabs button { font-size: var(--studio-fs-sm); font-weight: 500; color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .group-tabs button.active { color: var(--ink-900); font-weight: 500; }
-:root[data-skin="glass"][data-theme="studio"] .group-tabs button.active:after { background: var(--ink-900); border-radius: var(--studio-r-xs); }
-:root[data-skin="glass"][data-theme="studio"] .group-row { border-radius: var(--studio-r-sm); color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .group-row:hover { background: var(--studio-surface-2); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .group-row.active,
-:root[data-skin="glass"][data-theme="studio"] .group-row.active:hover {
-  background: var(--studio-surface); color: var(--ink-900); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table) tbody tr:hover td { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table) :is(th, td).k-num { font-variant-numeric: tabular-nums; }
+/* 贴着卡片边的表（角色列表、订单回收站）：首列、末列内距 16，和 Gr8r 成员表一样；卡片正文里有内距的表不再加 */
+:root[data-skin="glass"][data-theme="studio"] :is(.role-card > .k-table.role-table, .k-table.op-trash-table) :is(th, td):first-child { padding-left: 16px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.role-card > .k-table.role-table, .k-table.op-trash-table) :is(th, td):last-child { padding-right: 16px; }
+/* 团队表：合计行顶线 border；两行表头里分组格的左线 divider；没数据的那一格照旧留白 */
+:root[data-skin="glass"][data-theme="studio"] .team-table .team-total td { border-top-color: var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .team-board thead th[colspan],
+:root[data-skin="glass"][data-theme="studio"] .team-board thead th:has(> .team-sort) { border-left-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .team-table td.team-none { height: auto; padding: 24px 10px; }
+/* 设置表里的小节标题行 */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-table, .cs-table) .cs-subhead th { height: auto; padding: 14px 10px 6px; color: var(--studio-text); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-head); }
+
+/* ---------- 订单列表：和客户列表一样齐边（列表容器伸到主区两边，首列内距 = 页边距 24；翻页条顶线 + 8 24） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .op-page > .op-list { margin: 0 calc(-1 * var(--studio-gutter)); border: 0; border-radius: 0; box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .op-page > .op-list > .op-filters { padding-left: var(--studio-gutter); padding-right: var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .k-table.op-table :is(th, td):first-child { padding-left: var(--studio-gutter); }
+/* 编号列原本 116 宽、内距 12：首列内距变 24 后加宽 12，编号照样放得下 */
+:root[data-skin="glass"][data-theme="studio"] .k-table.op-table th:nth-child(1) { width: 128px; }
+:root[data-skin="glass"][data-theme="studio"] .k-table.op-table :is(th, td):last-child { padding-right: var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .op-list > .op-foot { min-height: var(--studio-toolbar-h); padding: 8px var(--studio-gutter); border-top: 1px solid var(--studio-border); font-size: var(--studio-fs-sm); color: var(--studio-text-3); }
+
+/* ---------- 客户列表：去掉卡片，齐边（工具行底线从客群栏横贯到窗口右边，客群内容和表格首列都在 24 的页边距上） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .customer-list-page > .replica-panel {
+  margin: 0 calc(-1 * var(--studio-gutter)); border: 0; border-radius: 0; box-shadow: none; background: var(--studio-surface);
 }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .replica-tools {
+  min-height: var(--studio-toolbar-h); padding: 8px var(--studio-gutter); gap: 8px; border-bottom: 1px solid var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .list-heading strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .list-heading span { font-size: var(--studio-fs-sm); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .batch-divider { background: var(--studio-border); }
+/* 收起客群栏后，列表仍然贴着主区左边（首列自带 24 内距，收起把手只压在内距上） */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel.groups-collapsed .list-area { padding-left: 0; }
+/* 翻页条：顶线 border，内距 8 24，和工具行一样高 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .pagination {
+  min-height: var(--studio-toolbar-h); padding: 8px var(--studio-gutter); border-top: 1px solid var(--studio-border);
+  font-size: var(--studio-fs-sm); color: var(--studio-text-3);
+}
+/* 表头 34 高（能排序的整格按钮表头也是）；单元格 40 高（紧凑 36）；内距 0 10px；勾选列首列内距 24 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table th { height: var(--studio-th-h); padding: 0 10px; line-height: 1.3; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table th:has(> .column-header) { padding: 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-header { height: var(--studio-th-h); min-height: var(--studio-th-h); padding: 0 10px; line-height: 1.3; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-header-flow { height: var(--studio-th-h); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-header:hover:not(:disabled) { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-sort { color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-sort .active { color: var(--studio-text); }
+/* 「紧凑」是默认的列表设置：40 高（Gr8r 列表行）；关掉紧凑仍是原来的 48 高 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table td { padding: 0 10px; background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.compact td { height: var(--studio-row-h); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table .check-col { padding: 0 8px 0 var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table .actions-col { padding: 0 8px; box-shadow: -1px 0 var(--studio-border); }
+/* 竖向分割线是用户的列表设置：关着就没有列线，开了才画 divider 色的竖线（冻结列的线随单元格一起停住） */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table :is(th, td) { border-right: 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.vertical-lines :is(th, td) { border-right: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.vertical-lines :is(th, td):last-child { border-right: 0; }
+/* 斑马纹（用户设置）偶数行 --studio-bg；悬停 surface-2 写在后面盖过斑马纹；
+   选中行是不透明的淡强调色（冻结列横向滚动时不能透出下面滚过去的字） */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:nth-child(even) td { background: var(--studio-bg); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table tbody tr:hover td,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:hover td { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table tbody tr:has(> .check-col input:checked) td,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:has(> .check-col input:checked) td,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table td:has(> .company-link:is(:active, .customer-opening)) { background: color-mix(in srgb, var(--studio-accent) 10%, var(--studio-surface)); }
+/* 空列表盖在表头下面：表头现在 34 高 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .table-wrap > .list-none { inset: var(--studio-th-h) 0 0; }
+
+/* ---------- 客群栏（照 Gr8r 侧栏）：右边 1px 线；内容左边落在 24 页边距上；「客群列表」是小字眉题；
+   行 30 高、0 8px、13.5/450、圆角 6、行距 0；悬停 surface-3；当前项白卡 + shadow-on；页签 36 高、字色下划线 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel { --customer-group-width: max(220px, calc((100vw - 284px) * 0.14 + 24px)); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel > .groups { border-right: 1px solid var(--studio-border); background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel.groups-collapsed > .groups { border-right-width: 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups-content { padding: 0 8px 0 var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs { gap: 20px; height: var(--studio-tab-h); min-height: var(--studio-tab-h); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs::before { background: var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button {
+  height: var(--studio-tab-h); min-height: var(--studio-tab-h); padding: 0 2px; line-height: var(--studio-tab-h);
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button:hover { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button.active { color: var(--studio-text); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button.active:after { height: 2px; background: var(--studio-text); border-radius: 0; }
+/* 「客群列表」：Gr8r 的分组眉题（24 高、12/600、字距 0.06em、text-3、上边距 14） */
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title,
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title.group-list-heading {
+  width: 100%; height: 24px; margin: 14px 0 2px; padding: 0 8px; gap: 4px; line-height: 24px;
+  font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-eyebrow); color: var(--studio-text-3);
+}
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title strong,
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title.group-list-heading strong { font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title .text-button { min-height: 20px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title .text-button:hover { color: var(--studio-text); }
+/* 行：所有客群行（含按 ID 定的手动分组行）统一 30 高、行距 0；缩进（28 / 44）沿用原来的层级 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups #group-branch-manual .group-row.nested {
+  height: var(--studio-side-row); min-height: var(--studio-side-row); margin: 0; gap: 6px; border-radius: var(--studio-r-sm);
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); line-height: var(--studio-side-row); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll > .group-row:not(.tree-heading) { padding: 0 8px 0 28px; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.tree-heading { padding: 0 8px 0 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.tree-heading i,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .tree-toggle { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .tree-toggle:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .won-tree-title { height: var(--studio-side-row); line-height: var(--studio-side-row); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-row small { font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-body); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.active,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.active:hover,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups #group-branch-manual .group-row.nested.active {
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui); box-shadow: var(--studio-shadow-on);
+}
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.active small { color: var(--studio-text-2); }
+/* 下面「新建条件客群」那一块：分隔线 divider */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-extra { padding: 8px 0; border-top: 1px solid var(--studio-divider); }
+/* 收起/展开客群栏的小把手：白底、1px 边 + 浅影 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .collapse-groups { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .collapse-groups:hover { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .collapse-groups::before { background: var(--studio-surface); border-radius: var(--studio-r); box-shadow: var(--studio-shadow-on); }
 /* ===== /S5 ===== */
 
 /* ===== S6: dashboard-board-stats（首页、商机看板与统计、团队目标） ===== */
