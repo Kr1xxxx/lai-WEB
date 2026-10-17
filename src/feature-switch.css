@@ -1,9 +1,17 @@
-/* 设置 › 功能开关：每个模块一行开关。只用主题变量，三套主题通用。 */
-.fs-page { display: flex; flex-direction: column; gap: 12px; }
-.fs-page .fs-item { flex: none; max-width: 860px; }
-.fs-page .fs-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.fs-page .fs-head h3 { margin: 0 0 4px; }
-.fs-page .fs-note { margin: 0; }
-.fs-page .fs-hint { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
-.fs-page .fs-switch { display: inline-flex; flex: none; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
-.fs-page .fs-fixed { max-width: 860px; }
+/* 设置 › 功能开关：页头、卡片、开关都来自组件套件（src/ui-kit.css，D-028）；这里只排一行一个模块，
+   和设置中心的行一样（左边名称和说明，右边开关）。只用 ui-tokens.css 的变量，三套主题通用。 */
+:root[data-skin] .fs-page { display: flex; flex-direction: column; gap: 12px; }
+:root[data-skin] .fs-page .fs-card { flex: none; }
+:root[data-skin] .fs-page .fs-list { display: flex; flex-direction: column; padding-top: 4px; padding-bottom: 6px; }
+:root[data-skin] .fs-page .fs-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--border); }
+:root[data-skin] .fs-page .fs-item:first-child { border-top: 0; }
+:root[data-skin] .fs-page .fs-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:root[data-skin] .fs-page .fs-text h3 { margin: 0; font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
+:root[data-skin] .fs-page :is(.fs-note, .fs-hint) { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .fs-page .fs-switch { display: inline-flex; flex: none; align-items: center; gap: 8px; min-width: 76px; font-size: var(--text-sm); color: var(--fg); cursor: pointer; white-space: nowrap; }
+:root[data-skin] .fs-page .fs-switch:has(.k-switch:not(:checked)) { color: var(--muted-fg); }
+:root[data-skin] .fs-page .fs-fixed { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+/* 皮肤里的 :root[data-skin="glass"] input[type="checkbox"] 比套件的 .k-switch 强一级，会把开关画回勾选框；
+   这里按套件的样子再写一遍尺寸和底色（套件 src/ui-kit.css 加强选择器后可以删掉这两条）。 */
+:root[data-skin] .fs-page input.k-switch { flex: none; width: 32px; height: 18px; border: 0; border-radius: var(--radius-pill); background: var(--input); }
+:root[data-skin] .fs-page input.k-switch:checked { background: var(--primary); }
