@@ -5,7 +5,7 @@
 
 ## Status (2026-10-17)
 
-- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.09 built from `main` 7dd7df4 (#20 merged).
+- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.10 built from `main` f701889 (#21 merged).
 - Desktop builds (Mac, Windows) are PAUSED (D-019): web version only. CI skips the Mac job; a manual run is still possible.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
@@ -15,7 +15,7 @@
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
 - How Claude works (D-017): Opus coordinates; Sonnet/Opus subagents in parallel git worktrees (`.claude/agents/`).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
-  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.09, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.10, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
   version top-left; every publish adds 0.01.
 
 ## Open PRs and branches
@@ -45,7 +45,7 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 8 | Module reviews (orders, workbench, stats) | Done | 2026-10-16 review: business/customer/data-safety/UI audits, fixes in the polish PR |
 | 9 | 沟通 module — WhatsApp (D-023) | Done (PR) | wa.me links, chat templates, import of exported chats, chat follow-ups; no receiving without a server (D-024) |
 | 28 | Export, lead settings, custom customer fields, exchange rates, task rules, feature switches | Done (PR) | Settings kept in `laiSettings` (no schema change); see VALIDATION.md |
-| 29 | Lead custom fields; custom fields in global search | Done (PR) | Lead list has fixed columns, so lead custom values show in editor, detail and export |
+| 29 | Lead custom fields; custom fields in global search | Done (#21) | Lead list has fixed columns, so lead custom values show in editor, detail and export |
 | 30 | Custom fields for orders | Todo | `field-model.js` ENTITIES has customer and lead only |
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | In progress | #17 merged; data-safety PR waits for 合并; web trial v1.06 published from `main` 9df7d37 |
