@@ -622,6 +622,34 @@ input::placeholder {
   gap: 8px;
   min-width: 0;
 }
+/* 只有两三个入口的菜单：入口是标题旁的页签，不再占一整栏二级导航（app.js placeSectionTabs）。 */
+.section-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 auto 0 12px;
+  min-width: 0;
+}
+.section-tabs .section-tab {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-600);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.section-tabs .section-tab:hover {
+  background: var(--brand-50);
+  color: var(--ink-700);
+}
+.section-tabs .section-tab.active {
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-weight: 600;
+}
 .page-tabs h1 {
   font-size: 18px;
   line-height: 28px;

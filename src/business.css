@@ -2202,35 +2202,6 @@ td.team-reached {
   background: var(--opp-won);
   pointer-events: none;
 }
-.opp-undo {
-  position: fixed;
-  left: 50%;
-  bottom: 28px;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  max-width: calc(100vw - 48px);
-  padding: 10px 12px 10px 16px;
-  border-radius: 10px;
-  background: #1f2d45;
-  box-shadow: 0 8px 24px rgba(31, 45, 69, 0.28);
-  color: #fff;
-  font-size: 13px;
-  transform: translateX(-50%);
-}
-.opp-undo button {
-  height: 28px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  font-weight: 600;
-}
-.opp-undo button:hover {
-  background: rgba(255, 255, 255, 0.26);
-}
 .opp-detail,
 .opp-detail * {
   --opp-ink: #1f2d45;
