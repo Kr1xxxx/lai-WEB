@@ -201,14 +201,15 @@ test('typing in the order search redraws only the rows: no dropped characters, t
   assert.deepEqual(pageErrors(), []);
 });
 
-test('小满 colours (classic skin): a theme change redraws the frame once, then the order search redraws only the table rows', async () => {
+test('科技蓝: a theme change redraws the frame once, then the order search redraws only the table rows', async () => {
   const { page } = app;
   await page.locator('.rail-item[data-rail-menu="设置"]').click();
-  await page.locator('[data-biz-action="set-theme"][data-theme-id="xiaoman"]').click();
-  await page.waitForFunction(() => document.documentElement.dataset.skin === 'classic');
+  await page.locator('[data-biz-action="set-theme"][data-theme-id="tech"]').click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'tech');
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.skin), 'glass', 'one layout for every theme (D-029)');
   await watchApp(page);
   await page.locator('.rail-item[data-lai-route="order-list"]').click();
-  await page.locator('#biz-order-scroll tbody').waitFor();
+  await page.locator('[data-order-row]').first().waitFor();
   assert.equal((await frameState(page)).same.rail, false, 'the theme change redraws the whole frame once');
   await watchApp(page);
   await page.evaluate(() => {
@@ -216,23 +217,23 @@ test('小满 colours (classic skin): a theme change redraws the frame once, then
     new MutationObserver((records) => { window.__mainChanges += records.filter((r) => r.removedNodes.length).length; }).observe(document.querySelector('main.main'), { childList: true });
     window.__input = document.getElementById('biz-search');
   });
-  assert.equal(await page.locator('#biz-order-scroll tbody tr').count(), 20);
+  assert.equal(await page.locator('[data-order-row]').count(), 20);
   const text = CUSTOMERS[1].slice(0, 8);
   await page.locator('#biz-search').click();
   await page.keyboard.type(text, { delay: 30 });
   await page.waitForTimeout(400);
   const expected = ORDERS.filter((o) => o.client.includes(text)).length;
-  assert.equal(await page.locator('#biz-order-scroll tbody tr').count(), expected);
-  assert.match(await page.locator('footer.pagination').innerText(), new RegExp(`共 ${expected} 笔订单`));
+  assert.equal(await page.locator('[data-order-row]').count(), expected);
+  assert.match(await page.locator('.op-foot').innerText(), new RegExp(`共 ${expected} 笔订单`));
   assert.deepEqual(await page.evaluate(() => ({ same: window.__input === document.getElementById('biz-search'), focus: document.activeElement === window.__input, value: window.__input.value, mainChanges: window.__mainChanges })), { same: true, focus: true, value: text, mainChanges: 0 });
   await page.locator('#biz-search').fill('zzz-none');
   await page.waitForTimeout(300);
-  assert.equal(await page.locator('#biz-order-scroll tbody tr').count(), 0);
-  assert.equal(await page.locator('#biz-order-scroll > .empty').count(), 1, 'one empty-state note');
+  assert.equal(await page.locator('[data-order-row]').count(), 0);
+  assert.equal(await page.locator('.op-empty').count(), 1, 'one empty-state note');
   await page.locator('#biz-search').fill('');
   await page.waitForTimeout(300);
-  assert.equal(await page.locator('#biz-order-scroll > .empty').count(), 0);
-  assert.equal(await page.locator('#biz-order-scroll tbody tr').count(), 20);
+  assert.equal(await page.locator('.op-empty').count(), 0);
+  assert.equal(await page.locator('[data-order-row]').count(), 20);
   const state = await frameState(page);
   assert.deepEqual(state.removedFrame, []);
   assert.deepEqual(state.same, { topbar: true, rail: true, subnav: true, main: true });

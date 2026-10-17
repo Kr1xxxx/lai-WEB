@@ -1,7 +1,7 @@
 // Browser end-to-end test for the 工作台 layout: nothing overlaps, nothing is clipped in the order cards, and the page
 // itself never scrolls sideways. The owner asked for exactly this ("注意不要 UI 重叠"). Panels are laid out by a grid, so this
 // guards the grid, the order line (it scrolls inside its own panel) and the text that must wrap instead of being cut off.
-// Windows: 1024, 1280, 1440, 1680 (plus a narrow 820 where the panels stack); themes: pink, orange, xiaoman, tech.
+// Windows: 1024, 1280, 1440, 1680 (plus a narrow 820 where the panels stack); themes: pink, orange, tech.
 // Style follows topbar-overlap.e2e.mjs.
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
@@ -54,7 +54,7 @@ before(async () => {
 after(async () => { await app?.close(); });
 
 const WIDTHS = [820, 1024, 1280, 1440, 1680];
-const THEMES = ['pink', 'orange', 'xiaoman', 'tech'];
+const THEMES = ['pink', 'orange', 'tech'];
 const real = (errors) => errors.filter((e) => !/\/api\/mail\//.test(e));
 
 // Everything measured inside the page, so a failure names the element.
@@ -124,7 +124,7 @@ test('no panels overlap, nothing is clipped in the order cards and the page neve
   for (const theme of THEMES) {
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 860 });
-      await page.evaluate((t) => { const html = document.documentElement; html.dataset.theme = t; html.dataset.skin = t === 'xiaoman' ? 'classic' : 'glass'; }, theme);
+      await page.evaluate((t) => { const html = document.documentElement; html.dataset.theme = t; }, theme);
       await page.waitForTimeout(80);
       const { problems, view } = await page.evaluate(measure);
       assert.deepEqual(problems, [], `${theme} ${width}: ${problems.join(' | ')}`);

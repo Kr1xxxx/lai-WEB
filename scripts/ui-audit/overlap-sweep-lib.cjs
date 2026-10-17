@@ -32,7 +32,7 @@ const POPOVERS = [
   ["order-list", ".lai-select-trigger", "订单筛选下拉"],
   ["customers", '.rail-item[data-rail-menu="交易"]', "左栏悬停菜单", "hover"],
 ];
-const THEMES = ["pink", "orange", "xiaoman", "tech"];
+const THEMES = ["pink", "orange", "tech"];
 const WIDTHS = [1024, 1152, 1200, 1280, 1366, 1440, 1680, 1920];
 // 默认窗口：每个宽度配 800 高，再加 1440×900
 const defaultSizes = (widths = WIDTHS) => [...widths.map((w) => [w, 800]), ...(widths.includes(1440) ? [[1440, 900]] : [])];
@@ -131,7 +131,7 @@ async function gotoScreen(page, screen, wait = 150) {
 async function setTheme(page, theme) {
   await page.evaluate((t) => {
     document.documentElement.dataset.theme = t;
-    document.documentElement.dataset.skin = t === "xiaoman" ? "classic" : "glass";
+    document.documentElement.dataset.skin = "glass";
   }, theme);
 }
 async function themeOk(page, theme) {
