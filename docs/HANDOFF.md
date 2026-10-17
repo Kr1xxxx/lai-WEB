@@ -54,13 +54,13 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 25 | Split `src/app.js` (~5800 lines), `business-ui.js` (~3100), `mail-ui.js` by page | Todo (planned) | 15-slice plan with advisor review; starts after the render fix (Q1); one file in one wave at a time |
 | 31 | UI wave (advisor report 2026-10-17) | Todo | Q1 render only into main → Q2–Q8 quick wins → component kit (D-028) page by page with census/token ratchets |
 | 32 | Remove 小满 theme + classic skin (D-029) | Todo | After Q1; xiaoman shown as 科技蓝 |
-| 33 | Full overlap sweep + CI test | In progress | Worker running; lands in the next PR |
+| 33 | Full overlap sweep + CI test | Done (PR) | `scripts/ui-audit/overlap-sweep.cjs` + `tests/e2e/overlap-sweep.e2e.mjs`; 0 findings in 4 themes × 9 widths |
+| 34 | Font subset (owner OK) | Done (PR) | MiSans hanzi cut to GB2312 + used chars; page 9.9 → 7.7 MB, pixel-identical; licence note in `vendor/fonts/SUBSET.md` |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
 | 27 | 新建商机: 客户 / 负责人 as real dropdowns | Todo | Now styled like dropdowns but still inputs with a datalist; needs controller changes in `business-ui.js` |
 
 ## Waiting on the owner
 
-- Font subsetting (page 9.9 MB → ~3–4 MB): proposed as a one-time subset committed to `vendor/fonts` (no build dependency); waiting for his 可以. Check the MiSans licence first.
 - Owner said 后续自动合并 (2026-10-17); Claude merges its own PRs once CI is green.
 - Whether `claude/theme-pink-orange` and `claude/order-lines` (1–2 unmerged commits each, superseded by later work) may go.
 
