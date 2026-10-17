@@ -107,55 +107,11 @@
 }
 
 /*
- * 界面配色：粉色（默认）、橙色、小满（原来的蓝色）和科技蓝（深海军蓝加钴蓝，冷灰底）。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
+ * 界面配色：粉色（默认）、橙色和科技蓝（深海军蓝加钴蓝，冷灰底）；小满已去掉（D-029），存着小满的按科技蓝显示。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
  * nav（深色左侧栏）和 chart（图表色）这四组变量；设置里的「界面配色」把选择存进
  * laiSettings.theme，并写到 <html data-theme="…">。新增颜色一律用这些变量，不要写死色值。
  * 邮件正文里的颜色是用户内容，不在主题范围内。
  */
-
-/* 小满：来财原来的蓝色界面。 */
-:root[data-theme="xiaoman"] {
-  --skin-page: #edf0f4;
-  --skin-ink-rgb: 29, 39, 62;
-  --skin-blob: #4d8fff;
-  --skin-gold: #f2c14e;
-  --brand-900: #0c163d;
-  --brand-900-rgb: 12, 22, 61;
-  --brand-700: #004fd9;
-  --brand-600: #0865f5;
-  --brand-500: #0a6aff;
-  --brand-rgb: 10, 106, 255;
-  --brand-300: #82a5f7;
-  --brand-200: #cfe2ff;
-  --brand-100: #eaf3ff;
-  --brand-50: #f1f7ff;
-  --nav-hover: #25305d;
-  --nav-line: #495174;
-  --nav-top: #1c1b52;
-  --nav-glow-rgb: 132, 72, 235;
-
-  --ink-900: #1d273e;
-  --ink-rgb: 29, 39, 62;
-  --ink-800: #3b4a62;
-  --ink-700: #53617b;
-  --ink-600: #727d90;
-  --ink-500: #8c95a5;
-  --ink-400: #aab1be;
-  --ink-300: #ccd3de;
-  --ink-200: #e6e9ef;
-  --ink-100: #edf0f4;
-  --ink-50: #f7f8fa;
-
-  --chart-1: #1a5cff;
-  --chart-2: #1f9d60;
-  --chart-3: #d99a24;
-  --chart-rank-1: #1f9d60;
-  --chart-rank-2: #4fc48b;
-  --chart-rank-3: #a3e0c2;
-  --chart-track: #eef1f6;
-  --opp-open-soft: #e6f5ec;
-  --opp-open-ink: #136c41;
-}
 
 /* 粉色：默认主题（没选过配色、或页面还没写上 data-theme 时用它）。 */
 :root,

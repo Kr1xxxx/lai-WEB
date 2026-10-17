@@ -1679,5 +1679,5 @@
   font-weight: 700;
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.28);
 }
-/* 右侧摘要栏只在新界面（粉色、橙色）里显示，小满主题保持两栏 */
+/* 右侧摘要栏由 skin-glass.css 显示（data-skin 一直是 glass） */
 .lcd-side { display: none; }

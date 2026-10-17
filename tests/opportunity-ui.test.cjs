@@ -46,7 +46,8 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   assert.doesNotMatch(html, /截止/, 'no open card in this sample is still within its date');
   assert.match(html, /<i class="opp-avatar" aria-hidden="true">A<\/i><span class="opp-owner-name">Amy<\/span>/);
   assert.match(html, /输单原因：价格原因/);
-  assert.match(ui.headerActions(board, {}, {}), /data-opp-view="board" aria-pressed="true"/);
+  assert.match(ui.boardMarkup(board, {}, {today: TODAY}), /data-opp-view="board" aria-pressed="true"/);
+  assert.doesNotMatch(ui.headerActions(board, {}, {}), /data-opp-view/, 'the view switch lives in the filter card only (D-029: no classic header copy)');
   const soon = ui.boardMarkup(O.board(add(base, 's1', {endDate: '2026-10-20'}), {}, TODAY), {}, {today: TODAY});
   assert.match(soon, /<span class="opp-due">10-20 截止<\/span>/, 'an open opportunity still within its date');
 });
@@ -67,7 +68,7 @@ test('list view shows the same opportunities as a table; long columns are paged'
   assert.doesNotMatch(html, /opp-board/);
   assert.equal((html.match(/data-opp-action="menu"/g) || []).length, 4);
   assert.match(html, /<td><span class="opp-chip opp-stage-chip opp-kind-won">已完成<\/span><\/td>/); assert.match(html, /<span class="opp-due is-overdue">逾期 2026-04-02<\/span>/);
-  assert.match(ui.headerActions(board, {}, {mode: 'list'}), /data-opp-view="list" aria-pressed="true"/);
+  assert.match(html, /data-opp-view="list" aria-pressed="true"/);
   let many = base;
   for (let i = 0; i < 65; i++) many = add(many, 'm' + i, {nameMode: 'custom', name: 'N' + String(i).padStart(2, '0')});
   const big = O.board(many, {}, TODAY);
