@@ -34,6 +34,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-025 | Complex tasks get their own audit before building | Accepted |
 | D-026 | Mac app removed; web only | Accepted |
 | D-027 | Claude agent tree: Opus 5.5 high coordinates, Opus 5.5 medium subagents, Fable 5.1 on call as advisor | Accepted |
+| D-028 | UI direction: one component kit with shadcn/ui-style rules (tidy, consistent) in the 科技蓝 colours | Accepted |
 
 ---
 
@@ -216,3 +217,16 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   picking a plan, when an error repeats, and before calling a task done. Replaces D-017's Sonnet default.
 - Consequences: `.claude/agents/*.md` carry the models; `.claude/settings.json` keeps the main session on Opus high.
   A session switched to another model with `/model` should be switched back to `claude-opus-5-5` to match.
+
+### D-028 UI direction: shadcn-style rules in 科技蓝 colours (2026-10-17)
+- Context: an advisor review found the pages inconsistent (100 button styles, 8 table headers, 6 pagers, 4 tab styles,
+  3 dialog designs) and pink used as paint rather than signal. The owner saw a shadcn/ui-style preview and the 科技蓝
+  workbench preview and chose: "整齐规则配上科技蓝的颜色" (the tidy rules, with the 科技蓝 colours).
+- Decision: build one component kit (buttons, inputs, selects, tabs, table + pager, dialog/drawer shell with an error
+  slot, empty state, toast, page header) following shadcn/ui's rules: one neutral scale, 1px borders, a small radius
+  scale, faint shadows, minimum 12px text, one primary colour used only for meaning (primary action, active item,
+  links, progress). Its reference colours are the 科技蓝 palette (navy rail, cobalt primary, cool grey). No shadcn/React
+  code or npm dependency: the look is rebuilt in the app's own CSS and tokens. Pages move onto the kit one per PR.
+- Consequences: the kit works through theme tokens, so pink, orange and 小满 keep working; the default theme stays pink
+  (D-008) until the owner switches it. New markup must use kit classes; a token ratchet test stops new literal colours,
+  font sizes and radii.
