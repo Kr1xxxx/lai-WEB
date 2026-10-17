@@ -6,7 +6,7 @@ import { after, before, test } from 'node:test';
 import { startApp } from './harness.mjs';
 
 let app;
-before(async () => { app = await startApp(); await openBoard(); });
+before(async () => { app = await startApp(); await addTeammate('Amy'); await openBoard(); });
 after(async () => { await app?.close(); });
 
 const settle = (ms = 400) => app.page.waitForTimeout(ms);
@@ -19,24 +19,34 @@ const clean = (text) => text.replace(/\s+/g, ' ').trim();
 const statsText = async () => clean(await app.page.locator('.opp-stats').innerText());
 const summary = async () => (await statsText()).replace(/ \d+ 个(?= [A-Z]{3} )/g, '');
 
+// 负责人只能从下拉里选：先把 Amy 加进团队成员（管理员仍是当前账号）。
+async function addTeammate(name) {
+  const loaded = await (await app.api('/api/data')).json();
+  const settings = loaded.data.laiSettings || {};
+  const me = settings.defaultOwner || '管理员';
+  const members = [{ id: 'm-me', name: me, roleId: 'admin' }, ...['Kris', name].filter((n) => n !== me).map((n) => ({ id: `m-${n}`, name: n, roleId: 'sales' }))];
+  loaded.data.laiSettings = { ...settings, roles: { ...(settings.roles || {}), members, current: 'm-me' } };
+  const saved = await app.api('/api/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: loaded, baseRevision: loaded.revision }) });
+  assert.equal(saved.status, 200, await saved.text());
+}
+
 async function openBoard() {
   await app.open('customers');
   await app.page.locator('.rail-item[data-rail-menu="商机"]').click();
   await app.page.locator('.opp-page').waitFor();
 }
 
-// Fills the 新建商机 form like a person would: pick the customer from the list, then the other fields.
+// Fills the 新建商机 form: pick the customer and owner from their dropdowns, then the other fields.
 async function createOpp({ client, owner, amount, end = '2030-01-31', currency }) {
   const { page } = app;
   await page.locator('[data-opp-action="new"]').first().click();
   await page.locator('#opp-form').waitFor();
   await settle();
-  await page.locator('#opp-form [name="client"]').fill(client);
-  await page.locator('.lai-suggestion').first().waitFor();
-  await page.locator('.lai-suggestion').first().click();
+  const full = await page.locator('#opp-client option', { hasText: client }).first().getAttribute('value');
+  await page.locator('#opp-form [name="client"]').selectOption(full, { force: true });
   await page.waitForFunction(() => document.querySelector('#opp-form select[name="contact"]')?.options.length > 1);
   await settle(300);
-  await page.locator('#opp-form [name="owner"]').fill(owner);
+  await page.locator('#opp-form [name="owner"]').selectOption(owner, { force: true });
   if (currency) await page.locator('#opp-form [name="currency"]').fill(currency);
   await page.locator('#opp-form [name="amount"]').fill(String(amount));
   await page.locator('#opp-form [name="endDate"]').evaluate((el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, end);
@@ -361,5 +371,35 @@ test('deleting needs a second click, removes the opportunity for good, and the t
   assert.ok(text.includes('总销售金额 USD 4,500'), text);
   await openBoard();
   assert.equal(await page.locator('.opp-card').count(), 2);
+  assert.deepEqual(app.errors, []);
+});
+
+test('新建商机: 客户 is a dropdown with a search box; picking a customer fills 关联联系人 and the save keeps it', async () => {
+  const { page } = app;
+  const before = new Set((await opps()).map((o) => o.id));
+  await page.locator('[data-opp-action="new"]').first().click();
+  await page.locator('#opp-form').waitFor();
+  await settle();
+  assert.equal(await page.locator('#opp-form input[name="client"], #opp-client-list, #opp-owner-list').count(), 0, 'no free-typing box for 客户');
+  assert.equal(await page.locator('#opp-form select[name="owner"]').count(), 1, '负责人 is a dropdown too');
+  await page.locator('#opp-client + .lai-select-trigger').click();
+  await page.locator('.lai-select-menu .lai-select-search').fill('Lumen');
+  assert.equal(await page.locator('.lai-select-menu .lai-select-option').count(), 1, 'the search narrows the customers');
+  await page.locator('.lai-select-menu .lai-select-option', { hasText: 'Lumen Lash Lab' }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll('#opp-form select[name="contact"] option')].some((o) => o.value === 'Greta Vogel'));
+  assert.equal(await page.locator('#opp-client').inputValue(), 'Lumen Lash Lab');
+  await page.locator('#opp-form select[name="contact"]').selectOption('Greta Vogel', { force: true });
+  await page.locator('#opp-form [name="owner"]').selectOption('Kris', { force: true });
+  await page.locator('#opp-form [name="amount"]').fill('321');
+  await page.locator('#opp-form [name="endDate"]').evaluate((el) => { el.value = '2030-03-01'; el.dispatchEvent(new Event('change', { bubbles: true })); });
+  await page.locator('button[type="submit"][form="opp-form"]').click();
+  await page.locator('#opp-form').waitFor({ state: 'detached' });
+  await settle(500);
+  const made = (await opps()).find((o) => !before.has(o.id));
+  assert.ok(made, 'saved');
+  assert.equal(made.client, 'Lumen Lash Lab');
+  assert.equal(made.contact, 'Greta Vogel');
+  assert.equal(made.owner, 'Kris');
+  assert.equal(made.amount, 321);
   assert.deepEqual(app.errors, []);
 });

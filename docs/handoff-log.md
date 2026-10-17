@@ -9,6 +9,14 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   copies missing blocks back before saving and never sends removals; schema_version gate (newer DB not opened, nothing
   written; Chinese message on boot); before-delete backup also when a top-level list loses >5 items; server sends only
   Chinese error text (by route). model 1467 / e2e 299. Backend change → PR is needs-owner (owner must say 合并).
+- 2026-10-17 — Claude (#03 thread) — Slice 0 of the app.js split (task 25): `tests/helpers/source.cjs` (`appSource()`
+  reads scripts/build.py's PREVIEW_APP list and joins the parts as build.py does); the 27 tests that read `src/app.js`
+  text now use it, no assertions changed. Split plan (advisor-reviewed): `/mnt/project-files/plans/03-split-app-js.md`;
+  the split itself waits until the restyle (#02) and contact-mail/商机 (#04) PRs merge.
+- 2026-10-17 — Claude — #26 (写邮件 on every contact card, addressed to that contact; extra-contact emails now count
+  as customer addresses for mail matching) and #27 (商机 客户/负责人 as real dropdowns, old values kept, owner locked
+  without 转移负责人) done by two parallel workers; the #27 worker hit the usage limit before committing, its saved work
+  was reviewed and committed by the coordinator. model 1455 / e2e 301; ui-audit 78 (no new). Rules in VALIDATION.md.
 - 2026-10-17 — Claude — D-032: Fable 5.1 `specialist` agent (medium, edits in a worktree) for complex slices and second
   passes; missing `researcher` agent file added; CLAUDE.md updated. Work otherwise still paused at the owner's request.
 - 2026-10-17 — Claude — #29 merged (`main` be707da); web trial v1.17 published. Then merged on the branch: 线索 removed

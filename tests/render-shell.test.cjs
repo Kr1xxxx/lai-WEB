@@ -4,8 +4,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { appSource } = require('./helpers/source.cjs');
 
-const app = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8');
+const app = appSource();
 const body = (name) => {
   const start = app.indexOf(`  function ${name}(`);
   assert.ok(start >= 0, `${name} exists`);

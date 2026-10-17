@@ -12,6 +12,7 @@ const TU = require('../src/team-ui.js');
 const B = require('../src/business-model.js');
 const RM = require('../src/rail-menu.js');
 const {escapeHtml} = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const ui = U.create(escapeHtml, O);
 const TODAY = '2026-10-06';
@@ -101,7 +102,7 @@ test('form: reference fields, required marks, and the parts that depend on what 
   assert.match(fresh, /<input type="hidden" name="flow" value="default">/);
   assert.equal((fresh.match(/<i class="opp-req" aria-hidden="true">\*<\/i>/g) || []).length, 8, 'name, customer, owner, amount, stage, end date, and the two hidden conditional ones');
   assert.match(fresh, /<option value="" selected>请先选择客户<\/option>/); assert.doesNotMatch(fresh, /name="contact" required/);
-  assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select class="k-select-trigger" name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
+  assert.match(fresh, /<select class="k-select-trigger" name="owner" id="opp-form-owner" style="width:100%" aria-required="true" required><option value="">请选择负责人<\/option><option value="Amy" selected>Amy<\/option><\/select>/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select class="k-select-trigger" name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
   const chosen = ui.formMarkup({...O.defaults(base, TODAY), client: 'Alpha <b>Co</b>', contact: 'Bo', nameMode: 'custom', name: '大单', currency: 'EUR', exchangeRate: 108, stage: 'lost', lostReason: '交期原因',
     collaborators: ['Bob', 'Cara'], tags: ['VIP'], products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B', quantity: 1, unitPrice: 4}]}, {contacts: ['Ann', 'Bo'], isNew: false});
   assert.match(chosen, /name="contact" aria-required="true" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
@@ -118,6 +119,23 @@ test('form: reference fields, required marks, and the parts that depend on what 
   assert.match(ui.formMarkup({stage: 'legacy'}, {}), /<option value="legacy" selected>原阶段：legacy<\/option>/);
   assert.match(ui.formMarkup({stage: 'lost', lostReason: '老原因'}, {}), /<option value="老原因" selected>老原因<\/option>/);
   assert.doesNotThrow(() => ui.formMarkup({products: [null, 'x', {name: 'A'}]}, {}));
+  // 客户、负责人是下拉，只能从名单里选；客户多，带搜索框
+  assert.doesNotMatch(fresh, /<datalist id="opp-(client|owner)-list"|name="(client|owner)" value=/, 'no free typing');
+  assert.match(fresh, /<select class="k-select-trigger" name="client" id="opp-client" data-searchable="true" style="width:100%" aria-required="true" required><option value="" selected>请选择客户<\/option>/);
+  for (const name of O.customerNames(base)) assert.ok(fresh.includes(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`), name);
+  const picked = ui.formMarkup({client: 'Beta Ltd', owner: 'Bob'}, {customers: ['Alpha', 'Beta Ltd'], owners: ['Amy', 'Bob']});
+  assert.match(picked, /<option value="">请选择客户<\/option><option value="Alpha">Alpha<\/option><option value="Beta Ltd" selected>Beta Ltd<\/option><\/select>/);
+  assert.match(picked, /<option value="">请选择负责人<\/option><option value="Amy">Amy<\/option><option value="Bob" selected>Bob<\/option><\/select>/);
+  // 旧数据里的客户、负责人不在名单中：仍然保留并选中，只出现一次
+  const old = ui.formMarkup({client: 'Gone Co', owner: 'Zed'}, {customers: ['Alpha'], owners: ['Amy']});
+  assert.match(old, /<option value="Alpha">Alpha<\/option><option value="Gone Co" selected>Gone Co<\/option><\/select>/);
+  assert.match(old, /<option value="Amy">Amy<\/option><option value="Zed" selected>Zed<\/option><\/select>/);
+  assert.equal((old.match(/value="Gone Co"/g) || []).length, 1);
+  // 没有「转移负责人」权限：负责人下拉只有当前这一位，保存时照常带上
+  const locked = U.create(escapeHtml, O, (key) => key !== 'opp.transfer');
+  const mine = locked.formMarkup({client: 'Alpha', owner: 'Amy'}, {customers: ['Alpha'], owners: ['Amy', 'Bob']});
+  assert.match(mine, /<select class="k-select-trigger" name="owner" id="opp-form-owner" style="width:100%" aria-required="true" required><option value="Amy" selected>Amy<\/option><\/select>/);
+  assert.doesNotMatch(mine, /value="Bob"/);
 });
 
 test('card menu offers the right actions for each state', () => {
@@ -324,7 +342,7 @@ test('controller: a failed save keeps the form and its content; analysis page an
 test('navigation: 商机 is a real menu with its own pages and highlight', () => {
   assert.deepEqual(RM.sectionFor('opportunities').entries.map(e => [e.label, e.target]), [['商机看板', 'opportunities'], ['商机分析', 'opp-analysis'], ['商机设置', 'opp-flows']]);
   assert.equal(RM.sectionFor('opp-analysis').label, '商机');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   assert.match(app, /\["globe", "商机", "opportunities"\]/);
   // 业务页面清单不再在 app.js 里另抄一份，而是取自 rail-menu.js（与「可设为常用」同一来源）。
   assert.match(app, /const businessRoutes = new Set\(RM\.favoritable\(\)\.filter/);
@@ -383,7 +401,7 @@ test('customer page: the controller API opens the form for that customer and ret
   c.page.navigate('analysis');
   c.page.newOpportunity('Beta Ltd');
   assert.equal(c.dialogs.at(-1)[0], '新建商机');
-  assert.match(c.dialogs.at(-1)[1], /name="client" id="opp-client" value="Beta Ltd"/);
+  assert.match(c.dialogs.at(-1)[1], /name="client" id="opp-client"[^>]*>[^]*?<option value="Beta Ltd" selected>Beta Ltd<\/option>/);
   const mountedBefore = c.mounted.length;
   await c.submit('opp-form', valid);
   assert.deepEqual(c.refreshed, ['Beta Ltd'], 'goes back to the customer instead of drawing the opportunity board');
@@ -407,7 +425,7 @@ test('customer page: the controller API opens the form for that customer and ret
 
 test('customer page: detail shows the current in-progress opportunity, real counts, and its buttons are handled', () => {
   const D = require('../src/customer-detail-ui.js');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = app.slice(app.indexOf('  const detailOpp = {'), app.indexOf('  function detailMarkup(c) {'));
   const s = sample();
   const calls = [];
@@ -447,7 +465,7 @@ test('customer page: detail shows the current in-progress opportunity, real coun
 
 test('customer page: 本部门 accounts see (and count) only their department\'s opportunities and orders in the detail, and own their new customers', () => {
   const R = require('../src/role-model.js');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = app.slice(app.indexOf('  const detailOpp = {'), app.indexOf('  function customerOpportunityFeature(')) +
     app.slice(app.indexOf('  function newCustomerOwner() {'), app.indexOf('  function editForm('));
   let s = {...sample(), orders: [{id: 'o1', client: 'Alpha <b>Co</b>', owner: 'Amy'}, {id: 'o2', client: 'Alpha <b>Co</b>', owner: 'Bob'}, {id: 'o3', client: 'Alpha <b>Co</b>', owner: 'Na<i>omi'}]};
@@ -484,7 +502,7 @@ test('customer page: 本部门 accounts see (and count) only their department\'s
 });
 
 test('customer editor: ticking 同时新建商机 no longer blocks saving; it opens the opportunity form afterwards', () => {
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   assert.doesNotMatch(app, /商机创建待后续实现/);
   assert.match(app, /wantOpportunity = !!fd\.get\("createOpportunity"\);/);
   assert.match(app, /toast\("已保存到来财"\);\s*if \(wantOpportunity && form\.id === "customer-form"\) business\.newOpportunity\(data\.name\.trim\(\)\);/);

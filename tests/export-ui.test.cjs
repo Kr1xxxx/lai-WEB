@@ -8,6 +8,7 @@ const U = require('../src/export-ui.js');
 const E = require('../src/export-model.js');
 const CustomerList = require('../src/customer-list-ui.js');
 const OrdersPage = require('../src/orders-page.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const customers = n => Array.from({ length: n }, (_, i) => ({ name: `Co ${i + 1}`, country: '法国', owner: '小王', email: `c${i + 1}@x.test`, contact: `P${i + 1}` }));
 const ctxFor = (extra = {}) => {
@@ -206,7 +207,7 @@ test('the new files are wired into the page build, the model loads first, and th
     assert.ok(template.includes(`<!--${marker}-->`), marker);
   }
   assert.ok(template.indexOf('<!--EXPORT_MODEL-->') < template.indexOf('<!--EXPORT_UI-->'));
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const business = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8');
   assert.match(app, /d\.exportKind === "customer"/);
   assert.match(business, /exportKind !== "customer"/);

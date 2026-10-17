@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { escapeHtml } = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 require('../src/mail-ui.js');
 const Mail = globalThis.LaiMailUI;
 
@@ -366,6 +367,22 @@ test('the customer tab lists customers with addresses and shows their correspond
   assert.deepEqual(Mail.customerAddresses({ email: ' A@B.co ', emails: ['a@b.co', 'c@d.io', 5, null], contacts: [null, { email: 'E@F.org' }, {}], alternateEmail: 'x' }), ['a@b.co', 'c@d.io', 'e@f.org']);
 });
 
+test('customerAddresses also counts extra contacts, after the existing addresses, so the primary stays first', () => {
+  assert.deepEqual(Mail.customerAddresses({ email: 'main@acme.example', emails: ['main@acme.example'], alternateEmail: 'alt@acme.example', extraContacts: [{ email: ' Maya@Acme.example ' }, { email: 'main@acme.example' }, {}, null, { email: 'bad' }] }), ['main@acme.example', 'alt@acme.example', 'maya@acme.example']);
+  assert.deepEqual(Mail.customerAddresses({ extraContacts: [{ email: 'only@acme.example' }] }), ['only@acme.example']);
+});
+
+test('写邮件 on a contact card addresses that contact when the address belongs to the customer, otherwise the primary address', async () => {
+  const h = harness({ active: false, customers: { Acme: { email: 'main@acme.example', contact: 'Main', extraContacts: [{ id: 'x', contact: 'Maya', email: 'maya@acme.example' }] }, Other: { email: 'other@else.example' } } });
+  try {
+    const to = async (pick) => { await h.mail.composeFor(['Acme'], false, null, pick); h.setActive(true); await h.mail.select('inbox'); const value = h.form('mail-compose-form').elements.to.value; await h.act('compose-close'); h.setActive(false); return value; };
+    assert.equal(await to({ to: 'Maya@Acme.example', contact: 'Maya' }), 'Maya <maya@acme.example>');
+    assert.equal(await to({ to: 'maya@acme.example', contact: '' }), 'maya@acme.example', 'no name: the bare address');
+    assert.equal(await to({ to: 'other@else.example', contact: 'Evil' }), 'Main <main@acme.example>', 'an address of another customer falls back');
+    assert.equal(await to(null), 'Main <main@acme.example>', 'the header button still writes to the primary contact');
+  } finally { h.dispose(); }
+});
+
 test('mailbox settings show the account, re-verify it, and unbind only after confirmation', async () => {
   let ok = true;
   const h = harness({ routes: { '/api/mail-account/verify': ({ reply }) => ok ? reply(200, { ok: true, available: true, account: { ...ACCOUNT, verifiedAt: '2026-10-07T01:02:00.000Z' } }) : reply(422, { ok: false, code: 'auth_failed', message: '登录被邮箱服务器拒绝' }), '/api/mail-account/unbind': ({ reply }) => reply(200, { ok: true, available: true, account: null }) } });
@@ -404,7 +421,7 @@ test('the page module only talks through the provided request and keeps no crede
   for (const banned of ['fetch(', 'XMLHttpRequest', 'WebSocket', 'localStorage', 'sessionStorage', 'console.', 'innerHTML = m.', 'eval(']) assert.ok(!source.includes(banned), banned);
   assert.deepEqual([...new Set([...source.matchAll(/"(\/api\/[^"?]+)"/g)].map(m => m[1]))].sort(), ['/api/mail-account', '/api/mail-account/bind', '/api/mail-account/settings', '/api/mail-account/unbind', '/api/mail-account/verify', '/api/mail/attachment/save', '/api/mail/bulk', '/api/mail/bulk/batch', '/api/mail/bulk/cancel', '/api/mail/bulk/start', '/api/mail/correspondence', '/api/mail/draft', '/api/mail/drafts', '/api/mail/drafts/delete', '/api/mail/drafts/save', '/api/mail/flags', '/api/mail/message', '/api/mail/messages', '/api/mail/send', '/api/mail/status', '/api/mail/templates', '/api/mail/templates/delete', '/api/mail/templates/save', '/api/mail/trash']);
   for (const marker of ['<!--MAIL_STYLE-->', '<!--LAI_MAIL_UI-->', '<!--LAI_MAIL_EDITOR-->']) { assert.equal(read('src/template.html').split(marker).length, 2, marker); assert.ok(read('scripts/build.py').includes(marker), marker); }
-  const app = read('src/app.js');
+  const app = appSource();
   assert.ok(app.includes('["mail", "邮件", "mail"]')); for (const hook of ['d.mailFolder', 'd.mailAction', 'd.mailView', 'mail?.composing() && !(await mail.leave())', 'mail?.composeDirty()', 'd.feature === "写邮件"', 'LaiMailEditor.create']) assert.ok(app.includes(hook), hook);
   const RM = require('../src/rail-menu.js');
   assert.deepEqual(RM.menuFor('邮件', {}).map(row => [row.label, row.kind, row.target]), Mail.folders.map(f => [f.label, 'mail', f.id]));
@@ -783,7 +800,7 @@ test('the background check does nothing while 邮件 is switched off (ctx.mailOn
     assert.equal(await h.mail.check(), true);
     assert.equal(h.requests.length, before + 1);
   } finally { h.dispose(); }
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src/app.js'), 'utf8'), /mailOn: \(\) => modOn\("mail"\)/, 'app.js passes mailOn');
+  assert.match(appSource(), /mailOn: \(\) => modOn\("mail"\)/, 'app.js passes mailOn');
 });
 
 test('templates can be saved from the message, inserted with the customer filled in, and deleted after a second click', async () => {

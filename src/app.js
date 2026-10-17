@@ -5347,7 +5347,9 @@
     if (d.feature === "写邮件") {
       if (!modOn("mail")) return toast("这个功能已关闭");
       const fromList = !!el.closest(".replica-batch"), name = currentName;
-      return mail.composeFor(fromList ? [...selected] : name ? [name] : [], e.detail > 0, () => navigateApp("customers", fromList ? "" : name, false));
+      // 联系人卡片上的按钮带着这位联系人的邮箱。
+      const pick = !fromList && d.mailTo ? { to: d.mailTo, contact: d.mailContact || "" } : null;
+      return mail.composeFor(fromList ? [...selected] : name ? [name] : [], e.detail > 0, () => navigateApp("customers", fromList ? "" : name, false), pick);
     }
     if ((d.feature === "添加商机" || d.feature === "新建商机") && !allow("opp.create")) return;
     if (d.feature && customerOpportunityFeature(d.feature)) return;

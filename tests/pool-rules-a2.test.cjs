@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const T = require('../src/customer-tools.js');
 const L = require('../src/modules.js');
 const CS = require('../src/customer-settings-model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const NOW = new Date('2026-10-09T12:00:00Z');
 const day = (n) => new Date(NOW.getTime() - n * 86400000).toISOString(); // n 天前
@@ -414,7 +415,7 @@ test('existing behaviour is kept: pool keeps lastPoolEntry/poolEntryCount, claim
 
 test('公海 rules also run when the window is focused again and on a 30-minute timer, not only at boot', () => {
   const fs = require('node:fs'), path = require('node:path');
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = app.slice(app.indexOf('  async function autoRunPoolRules()'), app.indexOf('  // 跟进时间不能晚于'));
   assert.match(body, /const POOL_AUTO_CHECK_MS = 30 \* 60 \* 1000;/);
   assert.match(body, /setInterval\(\(\) => autoRunPoolRules\(\), POOL_AUTO_CHECK_MS\)/);
