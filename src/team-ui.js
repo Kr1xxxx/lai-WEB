@@ -36,7 +36,7 @@
       const {months,series}=report.trend;
       return `<section class="business-section"><div class="section-head"><h3>近 ${months.length} 个月趋势</h3></div>${series.map(item=>{
         const max=Math.max(1,...months.map(entry=>entry.values[item.id]));
-        return `<h4 class="team-trend-title">${E(item.label)}</h4><div class="stage-bars">${months.map(entry=>`<div><span>${E(entry.month)}</span><div><i style="width:${Math.round(entry.values[item.id]/max*100)}%"></i></div><b>${text(entry.values[item.id],item.format,item.currency)}</b></div>`).join('')}</div>`;
+        return `<h4 class="team-trend-title">${E(item.label)}</h4><div class="stage-bars stage-bars-wide">${months.map(entry=>`<div><span>${E(entry.month)}</span><div><i style="width:${Math.round(entry.values[item.id]/max*100)}%"></i></div><b>${text(entry.values[item.id],item.format,item.currency)}</b></div>`).join('')}</div>`;
       }).join('')}</section>`;
     }
     const markup=report=>`<div class="business-scroll team-page">${scopeNote(report)}${tiles(report)}<section class="business-section"><div class="section-head"><h3>按跟进人</h3><span class="muted tiny">${E(report.scope)}</span></div>${table(report)}${report.notes.map(note=>`<p class="muted tiny team-note">${E(note)}</p>`).join('')}</section>${extra(report)}${trend(report)}</div>`;
@@ -110,7 +110,7 @@
     const sortButton=(attr,id,active,label)=>`<button type="button" class="team-sort" ${attr}="${id}" aria-label="按${E(COLUMNS[id].label)}排序">${label}<span aria-hidden="true">${active?(active==='asc'?' ▲':' ▼'):' ⇅'}</span></button>`;
     const trendBlocks=(overview,keep)=>overview.trend.series.filter(item=>keep(item.id)).map(item=>{
       const max=Math.max(1,...item.values);
-      return `<h4 class="team-trend-title">${E(item.label)}</h4><div class="stage-bars">${overview.trend.months.map((month,index)=>`<div><span>${E(month)}</span><div><i style="width:${Math.round(item.values[index]/max*100)}%"></i></div><b>${text(item.values[index],item.format,item.currency)}</b></div>`).join('')}</div>`;
+      return `<h4 class="team-trend-title">${E(item.label)}</h4><div class="stage-bars stage-bars-wide">${overview.trend.months.map((month,index)=>`<div><span>${E(month)}</span><div><i style="width:${Math.round(item.values[index]/max*100)}%"></i></div><b>${text(item.values[index],item.format,item.currency)}</b></div>`).join('')}</div>`;
     }).join('');
 
     function goalsMarkup(overview,view={}){

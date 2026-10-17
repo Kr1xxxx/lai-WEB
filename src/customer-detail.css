@@ -156,6 +156,11 @@
 @media (max-width: 1360px) {
   :root[data-skin="glass"] .lcd-columns[data-layout="left-large"] { grid-template-columns: minmax(360px, 1.2fr) minmax(0, 1fr); }
 }
+/* 小满外观的两列各有固定下限（380＋400），窗口窄于 1100（Mac 窗口最小 1100，只有浏览器里会遇到）时会撑出页面：改成两列都能缩 */
+@media (max-width: 1099px) {
+  .lcd-columns { grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1fr); }
+  .lcd-columns[data-layout="left-large"] { grid-template-columns: minmax(300px, 1.2fr) minmax(0, 1fr); }
+}
 .lcd-left,
 .lcd-right {
   min-width: 0;
