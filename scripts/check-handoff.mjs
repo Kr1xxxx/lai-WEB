@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export const APP_PATHS = /^(src|backend|native|vendor)\/|^package\.json$|^scripts\/build\.py$/;
+export const APP_PATHS = /^(src|backend|vendor)\/|^package\.json$|^scripts\/build\.py$/;
 
 export function checkHandoff(changed) {
   const touchesApp = changed.some((file) => APP_PATHS.test(file));
@@ -16,7 +16,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     .split('\n').map((line) => line.trim()).filter(Boolean);
   const { touchesApp, ok } = checkHandoff(changed);
   if (!ok) {
-    console.error('This PR changes the app (src/, backend/, native/, vendor/, package.json or scripts/build.py) but not docs/HANDOFF.md.');
+    console.error('This PR changes the app (src/, backend/, vendor/, package.json or scripts/build.py) but not docs/HANDOFF.md.');
     console.error('Update the status and task board in docs/HANDOFF.md and add an entry to docs/handoff-log.md.');
     process.exit(1);
   }

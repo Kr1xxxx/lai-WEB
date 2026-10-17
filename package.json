@@ -3,12 +3,8 @@
   "private": true,
   "version": "1.4.126",
   "scripts": {
-    "build": "python3 scripts/build.py",
-    "test": "node --test tests/*.test.cjs && node scripts/integration-test.mjs",
+    "test": "node --test tests/*.test.cjs",
     "test:model": "node --test tests/*.test.cjs",
-    "test:known-motion": "node scripts/known-motion-acceptance.mjs",
-    "test:info-segments": "node scripts/info-segments-acceptance.mjs",
-    "test:company-fields": "node scripts/company-fields-acceptance.mjs",
     "test:e2e": "node --test tests/e2e/*.e2e.mjs"
   }
 }

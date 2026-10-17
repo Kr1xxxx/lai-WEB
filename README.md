@@ -7,27 +7,22 @@
 - [源码结构、运行方式与字段规则](ARCHITECTURE.md)
 - [验证记录、复跑方法与未验范围](VALIDATION.md)
 
-独立的 macOS 客户与经营管理应用。此源码包包含当前客户列表、档案与联系人、客群、跟进，以及已有订单、工作台、日历和经营统计实现。功能完成和验收范围以实际交付为准，保留入口不代表深入功能已上线。
+本地运行的客户与经营管理应用（网页版；Mac 应用已于 2026-10-17 移除，D-026）。此源码包包含当前客户列表、档案与联系人、客群、跟进，以及已有订单、工作台、日历和经营统计实现。功能完成和验收范围以实际交付为准，保留入口不代表深入功能已上线。
 
-## 本地构建
+## 本地运行与测试
 
-需要 macOS 13.5+、支持 Swift 6 的 Xcode Command Line Tools、Python 3.9+，以及含 `node:sqlite` 的 Node 24+。不需要安装 TradeOrderSystem，不需要历史源码或客户种子文件。不自动下载运行时或安装依赖。
+需要 Python 3.9+，以及含 `node:sqlite` 的 Node 24+。不需要安装 TradeOrderSystem，不需要历史源码或客户种子文件。不自动下载运行时或安装依赖。
 
 ```sh
 node --version
 npm run test:model
 python3 -m unittest discover -s tests -p 'test_release_tools.py' -v
-python3 scripts/build.py --node-runtime "$(command -v node)"
-npm test
+npm run test:e2e   # 需要另装 Playwright，见 AGENTS.md
 ```
 
-**桌面版（Mac、Windows）自动构建已暂停（D-019，2026-10-10），目前只做网页版；需要时可手动运行一次 CI 来构建。** 暂停前：
+页面由 `scripts/build.py` 的 `assemble_html()` 从 `src/` 拼成一个 HTML 文件；本地后端在 `backend/`。网页试用版的构建方法见 `scripts/web-trial/README.md`。
 
-每个 PR 都会在 GitHub Actions 的 macOS 上自动测试、构建并跑集成测试（`.github/workflows/ci.yml`），构建出的 `.app` 压缩包可在该次运行页面的 Artifacts 里下载（保留 14 天）。
-
-输出 `dist/来财Lai.app`，采用本地 ad-hoc 签名，不属于 Apple 公证发行。`--output` 可以指定其他本地构建路径，禁止直接构建到 `/Applications`。
-
-构建包没有 `trade-order-data.json`。新数据目录从空库开始；已存在的 Lai 数据库按既有逻辑保留，不因空数据构建而重置。正式导入仍禁用。测试使用临时隔离数据库，不需要客户数据。
+新数据目录从空库开始；已存在的 Lai 数据库按既有逻辑保留。正式导入仍禁用。测试使用临时隔离数据库，不需要客户数据。
 
 ## 源码导出与数据边界
 

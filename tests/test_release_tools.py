@@ -21,77 +21,32 @@ def load_build():
     return module
 
 
-class PortableBuild(unittest.TestCase):
-    def fixture(self, directory):
-        for folder in ['src', 'backend', 'vendor']:
-            shutil.copytree(ROOT / folder, directory / folder)
-        (directory / 'assets').mkdir()
-        (directory / 'assets/AppIcon.icns').write_bytes(b'SYNTHETIC-ICON')
-        shutil.copy2(ROOT / 'package.json', directory / 'package.json')
-        (directory / 'native').mkdir()
-        (directory / 'compiled').mkdir()
-        (directory / 'compiled/Lai').write_bytes(b'SYNTHETIC-NATIVE')
-        runtime = directory / 'node'
-        runtime.write_bytes(b'SYNTHETIC-NODE')
-        runtime.chmod(0o755)
-        return runtime
+class AssembleHtml(unittest.TestCase):
+    def test_page_is_assembled_from_src_with_fonts_inlined(self):
+        html = load_build().assemble_html()
+        self.assertIn('来财', html)
+        self.assertNotRegex(html, r'<!--[A-Z][A-Z_]+-->', 'every template marker is replaced')
+        self.assertIn("url('data:font/woff2;base64,", html)
 
-    def test_clean_build_without_tos_baseline_or_business_seed(self):
-        with tempfile.TemporaryDirectory(prefix='lai-test-portable-build-') as temp:
-            root = Path(temp).resolve()
-            runtime = self.fixture(root)
-            build = load_build()
+    def test_missing_marker_is_refused(self):
+        build = load_build()
+        with tempfile.TemporaryDirectory(prefix='lai-test-assemble-') as temp:
+            root = Path(temp)
+            shutil.copytree(ROOT / 'src', root / 'src')
+            shutil.copytree(ROOT / 'vendor', root / 'vendor')
+            template = root / 'src/template.html'
+            template.write_text(template.read_text().replace('<!--PREVIEW_APP-->', '', 1))
             build.ROOT = root
-            build.BASELINE = root / 'nonexistent-baseline'
-            build.INSTALLED = root / 'nonexistent-TOS.app'
-            build.APP = root / 'dist/来财Lai.app'
-            commands = []
-            def run(args):
-                commands.append(args)
-                stdout = str(root / 'compiled') if '--show-bin-path' in args else ''
-                if args[0] == str(runtime):
-                    stdout = json.dumps({'version': 'v24.15.0', 'sqlite': True})
-                return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr='')
-            failure = None
-            with patch.object(build, 'run', run), patch.object(sys, 'argv', ['build.py', '--node-runtime', str(runtime)]):
-                try:
-                    with contextlib.redirect_stdout(io.StringIO()):
-                        build.main()
-                except Exception as error:
-                    failure = error
-            self.assertIsNone(failure, 'Clean empty-data build must not require private TOS/baseline/seed: ' + str(failure))
-            resources = root / 'dist/来财Lai.app/Contents/Resources'
-            self.assertFalse((resources / 'trade-order-data.json').exists())
-            self.assertEqual((resources / 'node-runtime').read_bytes(), b'SYNTHETIC-NODE')
-            self.assertIn('来财', (resources / 'trade-order-system.html').read_text())
-            self.assertTrue(any('--strict' in args for args in commands))
-
-    def test_compiler_failure_preserves_previous_bundle(self):
-        with tempfile.TemporaryDirectory(prefix='lai-test-portable-build-') as temp:
-            root = Path(temp).resolve()
-            runtime = self.fixture(root)
-            app = root / 'dist/来财Lai.app'
-            app.mkdir(parents=True)
-            (app / 'last-good').write_text('keep')
-            build = load_build()
-            build.ROOT, build.APP = root, app
-            def run(args):
-                if args[0] == str(runtime):
-                    return subprocess.CompletedProcess(args, 0, stdout=json.dumps({'version':'v24.15.0','sqlite':True}), stderr='')
-                raise RuntimeError('SYNTHETIC COMPILER FAILURE')
-            with patch.object(build, 'run', run), patch.object(sys, 'argv', ['build.py', '--node-runtime', str(runtime)]):
-                with self.assertRaises(RuntimeError):
-                    build.main()
-            self.assertEqual((app / 'last-good').read_text(), 'keep')
+            with self.assertRaises(RuntimeError):
+                build.assemble_html()
 
 
 class SourceExport(unittest.TestCase):
     def fixture(self, directory):
-        for folder in ['src','backend','native/Sources','tests/fixtures','vendor/sheetjs-0.20.3','vendor/mail-libs/build','vendor/squire','vendor/dompurify','vendor/flatpickr','scripts','assets']:
+        for folder in ['src','backend','tests/fixtures','vendor/sheetjs-0.20.3','vendor/mail-libs/build','vendor/squire','vendor/dompurify','vendor/flatpickr','scripts']:
             (directory / folder).mkdir(parents=True)
         for file, text in {
             'src/app.js':'// synthetic app', 'backend/server.js':'// synthetic server',
-            'native/Package.swift':'// synthetic package', 'native/Sources/main.swift':'// synthetic native',
             'tests/model.test.cjs':'// synthetic test', 'scripts/build.py':'# synthetic build',
             'scripts/export-source.py':'# synthetic exporter', '.gitignore':'data/\n',
             'package.json':'{"name":"synthetic","private":true}', 'README.github.md':'# Synthetic source',
@@ -106,7 +61,6 @@ class SourceExport(unittest.TestCase):
             **{'vendor/flatpickr/' + name: '// synthetic date picker' for name in ['flatpickr.min.js','flatpickr.min.css','l10n-zh.js','monthSelect.js','monthSelect.css','LICENSE','README.md']},
         }.items():
             (directory / file).write_text(text)
-        (directory / 'assets/AppIcon.icns').write_bytes(b'SYNTHETIC-ICON')
         for folder in ['data','backups','evidence','baseline','dist']:
             (directory / folder).mkdir()
             (directory / folder / 'customer-private.json').write_text('{"customers":{"PRIVATE-CUSTOMER":{}}}')

@@ -24,7 +24,7 @@ const VENDOR_FILES = [
 
 let cachedHtml;
 function assembledHtml() {
-  // Same assembly as the Mac build (scripts/build.py), without Swift or signing.
+  // The page is assembled by scripts/build.py (assemble_html), the same as the web trial build.
   cachedHtml ??= execFileSync('python3', ['-c', 'import sys; sys.path.insert(0, "scripts"); import build; sys.stdout.write(build.assemble_html())'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   return cachedHtml;
 }

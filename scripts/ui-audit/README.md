@@ -33,5 +33,5 @@ PLAYWRIGHT_CORE=/某处/node_modules/playwright-core node scripts/ui-audit/ui-au
 
 ## 局限
 
-- 在无头 Chromium 里跑，看不到 Mac 应用里的系统下拉菜单、系统日期选择、真实窗口拖动，这些仍要在 Mac 上确认（清单 E20）。
+- 在无头 Chromium 里跑，看不到真实浏览器里的系统下拉菜单、系统日期选择，这些仍要在真实浏览器里确认（清单 E20）。
 - 被遮挡检查在窗口很矮时会把「滚动区里被裁掉的内容」误报成遮挡；发现时先把那个区域滚到底看一眼再下结论。

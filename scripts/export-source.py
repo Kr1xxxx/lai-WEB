@@ -9,15 +9,14 @@ import shutil
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SINGLE_FILES = ['package.json', '.gitignore', 'README.github.md', 'native/Package.swift', 'assets/AppIcon.icns',
-                'vendor/sheetjs-0.20.3/xlsx.full.min.js', 'vendor/sheetjs-0.20.3/LICENSE', 'vendor/sheetjs-0.20.3/README.md',
+SINGLE_FILES = ['package.json', '.gitignore', 'README.github.md', 'vendor/sheetjs-0.20.3/xlsx.full.min.js', 'vendor/sheetjs-0.20.3/LICENSE', 'vendor/sheetjs-0.20.3/README.md',
                 'vendor/mail-libs/mail-libs.cjs', 'vendor/mail-libs/LICENSES.txt', 'vendor/mail-libs/README.md',
                 'vendor/mail-libs/build/entry.js', 'vendor/mail-libs/build/pino-stub.js', 'vendor/mail-libs/build/socks-stub.js',
                 'vendor/squire/squire-raw.js', 'vendor/squire/LICENSE', 'vendor/dompurify/purify.min.js', 'vendor/dompurify/LICENSE',
                 'vendor/flatpickr/flatpickr.min.js', 'vendor/flatpickr/flatpickr.min.css', 'vendor/flatpickr/l10n-zh.js',
                 'vendor/flatpickr/monthSelect.js', 'vendor/flatpickr/monthSelect.css', 'vendor/flatpickr/LICENSE', 'vendor/flatpickr/README.md',
                 'tests/fixtures/cus-list-003-fields.txt', 'tests/fixtures/cus-list-003-fields-provenance.json']
-TREES = [('src', {'.js', '.css', '.html'}), ('backend', {'.js'}), ('native/Sources', {'.swift'})]
+TREES = [('src', {'.js', '.css', '.html'}), ('backend', {'.js'})]
 SECRET_PATTERNS = [re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
                    re.compile(rb'gh[pousr]_[A-Za-z0-9]{36,}'),
                    re.compile(rb'github_pat_[A-Za-z0-9_]{40,}'),
@@ -49,8 +48,6 @@ def source_files(root):
     selected.extend((root / 'scripts').glob('*.mjs'))
     selected.extend((root / 'scripts').glob('*.cjs'))
     selected.extend(root / 'scripts' / name for name in ['build.py', 'export-source.py'])
-    selected.extend(file for name in ['native-drag-acceptance.py', 'native-drag-acceptance.swift']
-                    if (file := root / 'scripts' / name).exists())
     return sorted(set(selected))
 
 
@@ -61,7 +58,7 @@ def export_source(root, output):
         raise ValueError('Output already exists; use a new directory')
     destination = output.resolve()
     if destination == root or any(root / folder == destination or root / folder in destination.parents
-                                  for folder in ['src', 'backend', 'native', 'scripts', 'tests', 'assets', 'vendor', 'data']):
+                                  for folder in ['src', 'backend', 'scripts', 'tests', 'vendor', 'data']):
         raise ValueError('Output must not overlap source or data')
     entries = []
     for file in source_files(root):

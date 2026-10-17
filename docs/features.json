@@ -1,5 +1,5 @@
 {
- "_readme": "Feature verification list. Set browser or mac to true only after actually walking through the steps yourself; do not edit or remove steps to make them pass. browser = in a browser (npm run test:e2e or the web trial page); mac = the Mac app built from this repo, on a real Mac. e2e names the automated test file, if any. Earlier sessions recorded many browser checks in VALIDATION.md; walk a feature again before setting it true here.",
+ "_readme": "Feature verification list. Set browser to true only after actually walking through the steps yourself; do not edit or remove steps to make them pass. browser = in a browser (npm run test:e2e or the web trial page). The Mac app was removed (D-026, 2026-10-17), so the mac flag is no longer used and stays as it was. e2e names the automated test file, if any. Earlier sessions recorded many browser checks in VALIDATION.md; walk a feature again before setting it true here.",
  "features": [
   {
    "id": "customer-list",
