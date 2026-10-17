@@ -638,7 +638,7 @@ input::placeholder {
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--ink-600);
-  font-size: 14px;
+  font-size: var(--text-base);
   white-space: nowrap;
 }
 .section-tabs .section-tab:hover {
