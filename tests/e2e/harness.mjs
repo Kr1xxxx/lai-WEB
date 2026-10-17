@@ -81,8 +81,8 @@ export async function startApp({ seed = true, env = {} } = {}) {
   page.on('response', (response) => { if (response.status() >= 400 && !response.url().endsWith('/favicon.ico')) errors.push(`HTTP ${response.status()}: ${response.url()}`); });
   const open = async (hash = 'customers') => {
     await page.goto(`${base}/trade-order-system.html?token=${encodeURIComponent(token)}#${hash}`);
-    // The first request is answered with a redirect to #customers (it sets the session cookie), so any other
-    // start page is reached by switching the hash and booting the page again.
+    // The first request is answered with a redirect (it sets the session cookie); to be sure the page boots on the
+    // asked-for start page, any page other than customers is reached by switching the hash and booting again.
     if (hash !== 'customers') {
       // Let the first page finish booting before switching the hash: a page still booting would read the new
       // hash itself, act on it (and maybe move on to another page), and the reload below would start from there.

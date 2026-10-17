@@ -131,9 +131,10 @@ const server = http.createServer(async (req, res) => {
     const isDocument = req.method === 'GET' && ['/', '/trade-order-system.html'].includes(url.pathname);
     if (isDocument && url.searchParams.has('token')) {
       if (!auth.matches(url.searchParams.get('token'))) throw httpError(401, 'invalid API session token');
+      // No # in Location: the browser keeps the page the link asked for (npm start opens #dashboard).
       const redirect = new URL('/trade-order-system.html', `http://127.0.0.1:${port}`);
       for (const [key, value] of url.searchParams) if (key !== 'token') redirect.searchParams.append(key, value);
-      return send(res, 303, '', 'text/plain; charset=utf-8', { Location: redirect.pathname + redirect.search + '#customers', 'Set-Cookie': auth.cookie() });
+      return send(res, 303, '', 'text/plain; charset=utf-8', { Location: redirect.pathname + redirect.search, 'Set-Cookie': auth.cookie() });
     }
     if (req.method === 'GET' && url.pathname === '/api/health') {
       const details = store.health();
