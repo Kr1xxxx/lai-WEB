@@ -2729,18 +2729,6 @@ button.subnav-restore {
 .empty.role-blocked {
   min-height: 220px;
 }
-/* 字段权限：只能看的字段显示但不能改；没有“跟进动态·查看”权限时的提示 */
-.ce-locked {
-  opacity: 0.72;
-}
-.ce-locked :is(input, select, textarea, button) {
-  cursor: not-allowed;
-}
-.lcd-activity-denied {
-  margin: 20px 0;
-  color: var(--ink-500);
-  font-size: 13px;
-}
 
 /* kit: 客户列表 */
 /* 客户列表（路由 customers；markup 在 src/customer-list-ui.js，表格在 app.js 的 tableMarkup）。

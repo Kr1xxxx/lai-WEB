@@ -59,13 +59,13 @@ test("the app's forms check themselves and say what is required", () => {
   assert.match(app, /<form class="drawer-body" id="biz-order-form" novalidate data-form-check>/);
   assert.match(app, /<form id="biz-task-form" class="drawer-body" novalidate data-form-check>/);
   for (const id of ["biz-order-error", "biz-task-error", "opp-error", "lead-error", "product-error"])
-    assert.match(app, new RegExp(`footError\\("${id}"\\)`), `${id} sits in the drawer footer`);
+    assert.match(app, new RegExp(`footError\\("${id}"[,)]`), `${id} sits in the drawer footer`);
   assert.match(read("src/opportunity-ui.js"), /id="opp-form" novalidate data-form-check>/);
   assert.match(read("src/lead-ui.js"), /id="lead-form" novalidate data-form-check>/);
   assert.match(read("src/product-ui.js"), /id="product-form" class="drawer-body cs-group-form" novalidate data-form-check>/);
   const editor = read("src/customer-editor-ui.js");
   assert.match(editor, /id="customer-form"[^>]*novalidate data-form-check>/);
-  assert.match(editor, /<div class="error form-foot-error" id="form-error" role="alert" data-form-error><\/div><div class="ce-footer-actions">/);
+  assert.match(editor, /<div class="error form-foot-error k-error" id="form-error" role="alert" data-form-error><\/div><div class="ce-footer-actions">/);
   assert.match(editor, /aria-required="true" required/);
   // The browser's own English bubble never shows: every invalid event is cancelled and answered in Chinese.
   const check = read("src/date-picker.js");

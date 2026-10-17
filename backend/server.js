@@ -57,7 +57,13 @@ const mailRoutes = {
   'POST /api/mail/bulk/cancel': (_, body) => mailService.bulkCancel(body),
   'POST /api/mail-account/settings': (_, body) => mailAccounts.settings(body),
 };
-const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/backup-status', 'GET /api/import-log', 'POST /api/save', 'POST /api/save-changes', 'POST /api/manual-backup', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+const allowedRoutes = new Set(['GET /', 'GET /trade-order-system.html', 'GET /vendor/xlsx.full.min.js', 'GET /vendor/purify.min.js', 'GET /vendor/squire-raw.js', 'GET /api/health', 'GET /api/data', 'GET /api/backup-status', 'GET /api/import-log', 'POST /api/save', 'POST /api/save-changes', 'POST /api/manual-backup', 'GET /api/backups', 'POST /api/restore', 'GET /api/opportunity-file', 'POST /api/opportunity-file/upload', 'POST /api/opportunity-file/save', 'POST /api/opportunity-file/delete', 'GET /api/mail-account', 'POST /api/mail-account/bind', 'POST /api/mail-account/verify', 'POST /api/mail-account/unbind', ...Object.keys(mailRoutes)]);
+
+// 群发是否正在进行：mailService.bulkIdle() 在没有群发时返回已完成的 Promise，有群发时返回还没完成的那个。
+async function bulkSending() {
+  const idle = Symbol('idle');
+  return (await Promise.race([mailService.bulkIdle().then(() => idle), Promise.resolve().then(() => null)])) !== idle;
+}
 
 function securityHeaders(type = '') {
   return {
@@ -125,9 +131,10 @@ const server = http.createServer(async (req, res) => {
     const isDocument = req.method === 'GET' && ['/', '/trade-order-system.html'].includes(url.pathname);
     if (isDocument && url.searchParams.has('token')) {
       if (!auth.matches(url.searchParams.get('token'))) throw httpError(401, 'invalid API session token');
+      // No # in Location: the browser keeps the page the link asked for (npm start opens #dashboard).
       const redirect = new URL('/trade-order-system.html', `http://127.0.0.1:${port}`);
       for (const [key, value] of url.searchParams) if (key !== 'token') redirect.searchParams.append(key, value);
-      return send(res, 303, '', 'text/plain; charset=utf-8', { Location: redirect.pathname + redirect.search + '#customers', 'Set-Cookie': auth.cookie() });
+      return send(res, 303, '', 'text/plain; charset=utf-8', { Location: redirect.pathname + redirect.search, 'Set-Cookie': auth.cookie() });
     }
     if (req.method === 'GET' && url.pathname === '/api/health') {
       const details = store.health();
@@ -193,6 +200,18 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/manual-backup') {
       const backup = store.backup(true, 'manual');
       return send(res, backup.ok ? 200 : 503, JSON.stringify(backup));
+    }
+    if (url.pathname === '/api/backups') return send(res, 200, JSON.stringify({ ok: true, backups: store.listBackups() }));
+    if (url.pathname === '/api/restore') {
+      if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') throw httpError(415, 'Content-Type must be application/json');
+      const body = await readJsonBody(req);
+      // 群发还在发送时不恢复：发送记录会写进换上来的数据里。
+      if (await bulkSending()) throw httpError(409, '群发邮件还在发送，请等它发完或先停止，再恢复备份。', { code: 'bulk_sending' });
+      // 保存和恢复都是同步执行的（中间不让出），所以恢复不会和一次保存交错；保存要么在恢复前完成，要么在恢复后按版本号被拒（409）。
+      const result = store.restoreBackup(body?.name);
+      // 恢复后邮箱账号可能换了：丢掉旧的邮箱连接和缓存。
+      mailService.forget();
+      return send(res, 200, JSON.stringify(result));
     }
   } catch (error) {
     const status = Number.isInteger(error.status) ? error.status : 500;

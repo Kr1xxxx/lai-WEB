@@ -4,6 +4,16 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — Advisor item 1 + 3 done on the branch: `npm start` (scripts/start.cjs: assembles dist/app,
+  starts the real backend, opens 工作台; second start reuses the running one; never two servers on one data dir) and
+  backup restore (设置 → 本地数据: list + two-click 恢复, before-restore backup, crash-safe swap, refused while another
+  来财 has the data open; reviewer findings fixed). Kit on customer detail + editor, order form/detail, opportunity
+  detail/form/menu. ui-audit 81→78, census lower (button 93, headings 16, text colours 26). model 1561 / e2e 337.
+  Owner decisions D-030 (线索 removed) and D-031 (协同 incl. tasks removed) recorded; removal worker and 商机 polish
+  worker running. Owner: "完成手上的活就先暂停" — finish these, publish, then pause. Open for the owner: the data-dir
+  lock file proposal (needs his OK).
+- 2026-10-17 — Claude — #28 merged (`main` 4101b9c); web trial v1.16 published and opened; 功能一览 updated. Running:
+  `npm start` (done in a worker, held until #28 merged), backup restore, customer detail/editor kit, order/opp forms kit.
 - 2026-10-17 — Claude — 客户列表 on the kit merged (k-pageheader, k-tabs scope switch, k-card panel, k-table, k-pager,
   k-empty with 清空筛选). ui-audit covered spots 150→81; baseline rewritten to the new counts (1024x800 customers 7→8,
   same frozen 操作 column class, all other sizes tightened). Census baseline lowered (button 107→95, textColor 39→33,

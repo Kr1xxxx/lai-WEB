@@ -816,8 +816,9 @@ function openStorage({ seedFile }) {
     return last ? `${base}-${last + 1}.${ext}` : `${base}.${ext}`;
   }
 
-  // 备份文件名：自动 lai-data-时间.sqlite，大量删除前 before-delete-时间.sqlite，手动 manual-时间.sqlite。
-  const BACKUP_NAME = /^(lai-data|before-delete|manual)-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-(\d+))?\.sqlite$/;
+  // 备份文件名：自动 lai-data-时间.sqlite，大量删除前 before-delete-时间.sqlite，手动 manual-时间.sqlite，
+  // 恢复备份前 before-restore-时间.sqlite。
+  const BACKUP_NAME = /^(lai-data|before-delete|before-restore|manual)-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-(\d+))?\.sqlite$/;
   function parseBackupName(name) {
     const match = BACKUP_NAME.exec(name);
     if (!match) return null;
@@ -832,15 +833,16 @@ function openStorage({ seedFile }) {
     return b.localeCompare(a);
   }
   // 分层保留自动备份：最新 24 份全留；最近 14 天每天留最新一份；最近 8 周每周留最新一份；
-  // 刚做好的那份和最新一份总是留着。手动备份（manual-*）和旧的 .json 备份从不自动删除。
+  // 刚做好的那份和最新一份总是留着。手动备份（manual-*）、恢复前的备份（before-restore-*）和旧的 .json 备份从不自动删除。
   // 大量删除前的备份（before-delete-*）不占上面的名额，至少留 30 天，过了 30 天才按时间删。
+  // extraKeep：这次一定不删的备份（恢复时正要用的那份）。
   const BEFORE_DELETE_KEEP_MS = 30 * 86400000;
-  function pruneBackups(keepName) {
+  function pruneBackups(keepName, extraKeep = []) {
     const now = Date.now(), DAY = 86400000;
     const all = fs.readdirSync(backupDir).map(parseBackupName).filter(Boolean);
     const entries = all.filter(entry => entry.kind === 'lai-data').sort((a, b) => compareBackupNames(a.name, b.name));
-    const expired = all.filter(entry => entry.kind === 'before-delete' && entry.name !== keepName && now - entry.time >= BEFORE_DELETE_KEEP_MS);
-    const keep = new Set([keepName]);
+    const keep = new Set([keepName, ...extraKeep]);
+    const expired = all.filter(entry => entry.kind === 'before-delete' && !keep.has(entry.name) && now - entry.time >= BEFORE_DELETE_KEEP_MS);
     entries.slice(0, 24).forEach(entry => keep.add(entry.name));
     const days = new Set(), weeks = new Set();
     for (const entry of entries) {
@@ -951,7 +953,7 @@ function openStorage({ seedFile }) {
       }
     } catch (_) { /* 清不掉不影响备份本身。 */ }
   }
-  function performBackup(force = false, kind = 'auto') {
+  function performBackup(force = false, kind = 'auto', keep = []) {
     ensureStorage();
     if (storageMode !== 'sqlite' || !database) return { ok: false, message: storageError || 'SQLite unavailable' };
     removePartialBackups();
@@ -963,7 +965,7 @@ function openStorage({ seedFile }) {
       return { ok: true, skipped: true };
     }
     const extension = 'sqlite';
-    const prefix = kind === 'manual' ? 'manual' : kind === 'before-delete' ? 'before-delete' : 'lai-data';
+    const prefix = ['manual', 'before-delete', 'before-restore'].includes(kind) ? kind : 'lai-data';
     const backupName = availableFileName(backupDir, `${prefix}-${timestamp()}`, extension);
     const backupFile = path.join(backupDir, backupName);
     const stagingFile = backupFile + '.partial';
@@ -988,7 +990,7 @@ function openStorage({ seedFile }) {
       throw error;
     }
     // 备份文件已经做好：后面删旧备份、写备份记录出错，都不算这次备份失败。
-    try { pruneBackups(backupName); }
+    try { pruneBackups(backupName, keep); }
     catch (error) { console.warn('Lai: removing old backups failed:', error.message); }
     const metaSaved = writeBackupMeta({ lastBackupAt: now, lastBackupFile: backupFile, lastMailRevision: coveredMailRevision, lastBusinessRevision: coveredBusinessRevision, missingAttachments: copied.missing, invalidRows: copied.invalid });
     return { ok:true, file:backupFile, kind, attachmentsDir:backupFile + '.attachments', attachmentCount: copied.count, missingAttachments: copied.missing, invalidRows: copied.invalid, metaSaved };
@@ -1033,10 +1035,10 @@ function openStorage({ seedFile }) {
       backupFailure = '自动备份排队失败，请手动重试';
     }
   }
-  function createBackup(force = false, kind = 'auto') {
+  function createBackup(force = false, kind = 'auto', keep = []) {
     let result;
     try {
-      result = performBackup(force, kind);
+      result = performBackup(force, kind, keep);
       if (result.ok && !result.skipped) backupFailure = '';
     } catch (error) {
       cancelBackupTimer();
@@ -1106,6 +1108,327 @@ function openStorage({ seedFile }) {
       manualCount: backups.filter(name => name.startsWith('manual-')).length,
       latest: backups.includes(lastFile) ? lastFile : backups[0] || null
     };
+  }
+
+  // ---- 从备份恢复 ----
+  // 设置页「本地数据」列出备份，选一份恢复。恢复会把整个数据库（客户、订单、设置、邮件账号和草稿等）换成备份里的那份；
+  // 换之前先把现在的数据做一份 before-restore 备份（从不自动删除）。规则写在 VALIDATION.md。
+  const BACKUP_KIND_LABELS = { 'lai-data': 'auto', manual: 'manual', 'before-delete': 'before-delete', 'before-restore': 'before-restore' };
+  const RESTORE_TEMP = /^\.lai-data\.sqlite\.restore-[A-Za-z0-9-]+\.tmp(?:-journal)?$/;
+  const backupUnusable = () => httpError(422, '这份备份已损坏或不完整，不能用来恢复。现在的数据没有改动。', { code: 'backup_unusable' });
+  const backupUnsafe = () => httpError(400, '这份备份文件不是来财自己做的普通文件，为了安全没有使用。现在的数据没有改动。', { code: 'backup_unsafe' });
+  // 恢复做到一半被打断（比如断电）留下的临时文件：那时现在的数据库还没被换掉，临时文件可以直接删。
+  function removeRestoreLeftovers() {
+    try {
+      for (const name of fs.readdirSync(supportDir)) if (RESTORE_TEMP.test(name)) fs.rmSync(path.join(supportDir, name), { force: true });
+    } catch (_) { /* 清不掉不影响数据。 */ }
+  }
+  // 只认备份文件夹里按备份规则命名的普通文件：名字里不能有路径，不能是符号链接或硬链接（和数据目录的检查一样）。
+  function backupFileFor(name) {
+    const text = typeof name === 'string' ? name : '';
+    if (!text || text.length > 200 || /[\\/\0]/.test(text) || text !== path.basename(text) || !parseBackupName(text))
+      throw httpError(400, '找不到这份备份。', { code: 'invalid_backup_name' });
+    const dirStat = fs.lstatSync(backupDir);
+    if (dirStat.isSymbolicLink() || !dirStat.isDirectory()) throw backupUnsafe();
+    const file = path.join(backupDir, text);
+    if (path.dirname(file) !== backupDir) throw httpError(400, '找不到这份备份。', { code: 'invalid_backup_name' });
+    let stat;
+    try { stat = fs.lstatSync(file); }
+    catch (_) { throw httpError(404, '找不到这份备份，可能已经被删掉了。', { code: 'backup_not_found' }); }
+    if (stat.isSymbolicLink() || !stat.isFile() || stat.nlink > 1) throw backupUnsafe();
+    return { file, stat };
+  }
+  // 复制时不跟随符号链接（O_NOFOLLOW），打开后再查一次是不是普通文件、有没有硬链接；目标必须是新文件，写完 fsync。
+  function copyFileNoFollow(source, target) {
+    const input = fs.openSync(source, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    let output;
+    try {
+      const stat = fs.fstatSync(input);
+      if (!stat.isFile() || stat.nlink > 1) throw backupUnsafe();
+      output = fs.openSync(target, 'wx', 0o600);
+      const buffer = Buffer.allocUnsafe(1024 * 1024);
+      let read;
+      while ((read = fs.readSync(input, buffer, 0, buffer.length, null)) > 0) {
+        let offset = 0;
+        while (offset < read) offset += fs.writeSync(output, buffer, offset, read - offset);
+      }
+      fs.fsyncSync(output);
+    } finally {
+      fs.closeSync(input);
+      if (output !== undefined) fs.closeSync(output);
+    }
+  }
+  function fsyncFile(file) {
+    const descriptor = fs.openSync(file, 'r+');
+    try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+  }
+  function fsyncDirectory(dir) {
+    let descriptor;
+    try { descriptor = fs.openSync(dir, 'r'); fs.fsyncSync(descriptor); }
+    catch (_) { /* 有的系统不能对文件夹 fsync；改名本身已经是原子的。 */ }
+    finally { if (descriptor !== undefined) try { fs.closeSync(descriptor); } catch (_) {} }
+  }
+
+  // 每份备份：时间、种类、大小、客户数和订单数（只读打开）。读不了的也列出来，ok:false，页面上不给恢复按钮。
+  // 同一秒里做的不同种类的备份（比如手动备份后马上恢复）名字里的时间一样，按文件写入时间排先后。
+  function listBackups() {
+    ensureStorage();
+    const written = name => { try { return fs.lstatSync(path.join(backupDir, name)).mtimeMs; } catch (_) { return 0; } };
+    const names = fs.readdirSync(backupDir).filter(name => parseBackupName(name)).map(name => ({ name, parsed: parseBackupName(name), written: written(name) }));
+    names.sort((a, b) => b.parsed.stamp.localeCompare(a.parsed.stamp) || b.written - a.written || compareBackupNames(a.name, b.name));
+    return names.map(({ name, parsed }) => {
+      const entry = { name, kind: BACKUP_KIND_LABELS[parsed.kind], time: new Date(parsed.time).toISOString(), size: 0, customers: null, orders: null, ok: false };
+      try {
+        const { file, stat } = backupFileFor(name);
+        entry.size = stat.size;
+        const backup = new DatabaseSync(file, { readOnly: true });
+        try {
+          entry.customers = Number(backup.prepare('SELECT COUNT(*) AS count FROM customers').get().count);
+          entry.orders = Number(backup.prepare("SELECT COUNT(*) AS count FROM orders WHERE bucket = 'orders'").get().count);
+          entry.ok = true;
+        } finally { backup.close(); }
+      } catch (_) { entry.customers = null; entry.orders = null; }
+      return entry;
+    });
+  }
+
+  // 备份能不能用：完整性检查通过；有现在的代码要读的表和列；是初始化过的来财数据库；每一行存的内容都读得懂（否则恢复后页面打不开）。
+  const RESTORE_COLUMNS = {
+    metadata: ['key', 'value'],
+    orders: ['id', 'bucket', 'position', 'data_json'],
+    customers: ['name', 'data_json'],
+    tracking_lookups: ['id', 'position', 'data_json'],
+    order_attachments: ['order_id', 'position', 'data_json'],
+    order_logs: ['order_id', 'position', 'data_json'],
+    app_state: ['key', 'data_json']
+  };
+  function checkRestorableDatabase(db) {
+    let integrity;
+    try { integrity = String(db.prepare('PRAGMA integrity_check').get()?.integrity_check || ''); }
+    catch (_) { throw backupUnusable(); }
+    if (integrity !== 'ok') throw backupUnusable();
+    const tables = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map(row => row.name));
+    for (const [table, columns] of Object.entries(RESTORE_COLUMNS)) {
+      if (!tables.has(table)) throw backupUnusable();
+      const present = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(row => row.name));
+      if (columns.some(column => !present.has(column))) throw backupUnusable();
+    }
+    const meta = key => db.prepare('SELECT value FROM metadata WHERE key = ?').get(key)?.value;
+    if (String(meta('initialized') ?? '') !== '1') throw backupUnusable();
+    const schema = meta('schema_version');
+    if (schema !== undefined && String(schema) !== '1') throw backupUnusable();
+    const revision = Number(meta('revision') ?? '0');
+    if (!Number.isSafeInteger(revision) || revision < 0) throw backupUnusable();
+    for (const table of ['orders', 'customers', 'tracking_lookups', 'app_state']) {
+      for (const row of db.prepare(`SELECT data_json FROM ${table}`).iterate()) {
+        try { JSON.parse(row.data_json); } catch (_) { throw backupUnusable(); }
+      }
+    }
+    const buckets = db.prepare("SELECT COUNT(*) AS count FROM orders WHERE bucket NOT IN ('orders','trashOrders','deletedOrders')").get();
+    if (Number(buckets.count)) throw backupUnusable();
+    return { revision, mailRevision: Number(meta('mail_backup_revision') ?? '0') || 0 };
+  }
+
+  // 把备份复制成数据目录里的临时文件，检查后在临时文件里写好版本号等记号；返回临时文件路径。出错时临时文件删掉，现在的数据不动。
+  function prepareRestoreFile(backupFile, { liveRevision, liveMailRevision, databaseId, restoredFrom }) {
+    const temp = path.join(supportDir, `.lai-data.sqlite.restore-${process.pid}-${crypto.randomBytes(6).toString('hex')}.tmp`);
+    try {
+      copyFileNoFollow(backupFile, temp);
+      let db;
+      try { db = new DatabaseSync(temp); }
+      catch (_) { throw backupUnusable(); }
+      let revision;
+      try {
+        // 备份是 VACUUM INTO 做的（回滚日志模式）；万一是 WAL 模式的文件，也先改成回滚日志，改完的文件不依赖 -wal。
+        try { db.exec('PRAGMA journal_mode = DELETE'); } catch (_) { throw backupUnusable(); }
+        const found = checkRestorableDatabase(db);
+        // 恢复后的版本号比恢复前大：还开着旧页面的保存会收到 409（版本冲突），不会盖掉恢复的数据。
+        revision = Math.max(liveRevision, found.revision) + 1;
+        const mailRevision = Math.max(liveMailRevision, found.mailRevision) + 1;
+        const set = db.prepare('INSERT INTO metadata(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          set.run('revision', String(revision));
+          // 恢复的数据要进下一次自动备份；邮件记号也往上走，免得之后的邮件改动比“已备份到的版本”小而漏备份。
+          set.run('business_backup_revision', String(revision));
+          set.run('mail_backup_revision', String(mailRevision));
+          // 和数据目录里的标记文件对得上（sqlite-storage.json 记的是这个编号），重新打开时不会被当成别的数据库。
+          if (databaseId) set.run('database_id', databaseId);
+          set.run('last_saved_at', new Date().toISOString());
+          set.run('restored_from', restoredFrom);
+          set.run('restored_at', new Date().toISOString());
+          db.exec('COMMIT');
+        } catch (error) { try { db.exec('ROLLBACK'); } catch (_) {} throw error; }
+        if (String(db.prepare('PRAGMA quick_check').get()?.quick_check || '') !== 'ok') throw backupUnusable();
+      } finally { db.close(); }
+      fsyncFile(temp);
+      return { temp, revision };
+    } catch (error) {
+      fs.rmSync(temp, { force: true });
+      fs.rmSync(temp + '-journal', { force: true });
+      throw error;
+    }
+  }
+
+  // 备份里带着的附件，现在附件文件夹里没有的复制回去；已有的文件不覆盖，也从不删除现在的附件。
+  function restoreBackupAttachments(backupFile) {
+    const sourceRoot = backupFile + '.attachments';
+    let rootStat;
+    try { rootStat = fs.lstatSync(sourceRoot); } catch (_) { return 0; }
+    if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) return 0;
+    const liveRoot = path.resolve(attachmentsDir);
+    let copied = 0;
+    const walk = dir => {
+      for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+        const source = path.join(dir, item.name);
+        if (item.isSymbolicLink()) continue;
+        if (item.isDirectory()) { walk(source); continue; }
+        if (!item.isFile()) continue;
+        const relative = path.relative(sourceRoot, source);
+        const target = path.resolve(liveRoot, relative);
+        if (relative.startsWith('..') || path.isAbsolute(relative) || !target.startsWith(liveRoot + path.sep)) continue;
+        try { fs.lstatSync(target); continue; } catch (error) { if (error.code !== 'ENOENT') throw error; }
+        // 附件文件夹里的上级目录也不能是符号链接。
+        let parent = liveRoot;
+        for (const part of path.relative(liveRoot, path.dirname(target)).split(path.sep).filter(Boolean)) {
+          parent = path.join(parent, part);
+          let stat = null;
+          try { stat = fs.lstatSync(parent); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+          if (!stat) fs.mkdirSync(parent, { mode: 0o700 });
+          else if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('unsafe attachment folder');
+        }
+        const staging = path.join(path.dirname(target), `.${path.basename(target)}.restore-${crypto.randomBytes(6).toString('hex')}.tmp`);
+        try {
+          copyFileNoFollow(source, staging);
+          // 复制途中别处放进来了同名文件：保留那一份。
+          let appeared = true;
+          try { fs.lstatSync(target); } catch (error) { if (error.code === 'ENOENT') appeared = false; else throw error; }
+          if (appeared) { fs.rmSync(staging, { force: true }); continue; }
+          fs.renameSync(staging, target);
+        } catch (error) { fs.rmSync(staging, { force: true }); throw error; }
+        copied += 1;
+      }
+    };
+    walk(sourceRoot);
+    return copied;
+  }
+
+  // 别的程序（比如又启动了一次来财）还开着同一份数据库时不能换文件：它手里的是旧文件，换掉之后它照样往旧文件里存，
+  // 存的东西谁也看不到，而且它不会报错。规则写在 VALIDATION.md。
+  const dataInUse = () => httpError(409, '电脑上还开着另一个来财，也在用这份数据。请先关掉它再恢复（只关网页不够）。现在的数据没有改动。', { code: 'data_in_use' });
+  // 关掉现在的连接，返回是不是只有这一个连接开着数据库。
+  // 判断的办法：只剩这一个连接时，SQLite 关闭时会把 -wal 合进数据库并删掉 -wal；还有别的连接时它拿不到独占锁，-wal 会留下来
+  // （哪怕是空的）。所以关掉后 -wal 还在，就当作还有别的连接。查不了（不是“文件不存在”的错误）也当作还有，宁可不恢复。
+  function closeDatabaseAlone() {
+    cancelBackupTimer();
+    if (database) {
+      try { database.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch (_) { /* 有别的连接在读时可能做不完；下面看 -wal 判断。 */ }
+      database.close();
+      database = null;
+    }
+    storageMode = 'initializing';
+    try { fs.lstatSync(databaseFile + '-wal'); return false; }
+    catch (error) { return error.code === 'ENOENT'; }
+  }
+  // 恢复一开始（还什么都没做）先查一次：关掉、看一眼、马上按正常流程重新打开。换文件前还会再查一次。
+  function requireOnlyConnection() {
+    const alone = closeDatabaseAlone();
+    initializeStorage();
+    if (!alone) throw dataInUse();
+    requireDatabase();
+  }
+
+  // 把准备好的临时文件换成正式数据库。顺序保证任何时刻断电，数据目录里都有一份完整的数据库：
+  // 1. 做 TRUNCATE 检查点后关掉现在的连接，旧库的内容全在 lai-data.sqlite 里；
+  // 2. 关掉后 -wal 还在（还有别的连接开着这份数据，或检查点没做完）就停下，重新打开旧库，什么都没变；
+  // 3. beforeRename（恢复时把备份里缺的附件复制回来）；
+  // 4. 删掉旧库的 -wal 和 -shm（必须在改名之前：留着旧的 -wal，新库打开时会把旧的改动套上去）；
+  // 5. 改名（原子操作）把临时文件换成 lai-data.sqlite，再 fsync 文件夹；
+  // 6. 按正常启动的流程重新打开（建缺的表、完整性检查、核对标记文件）。打不开时 database 是 null，由调用的人处理。
+  // 改名之前出错：临时文件删掉，重新打开旧库，什么都没变。改名之后出错的错误带 databaseSwapped: true。
+  function swapInDatabase(temp, beforeRename) {
+    const wal = databaseFile + '-wal', shm = databaseFile + '-shm';
+    let renamed = false;
+    try {
+      if (!closeDatabaseAlone()) throw dataInUse();
+      if (beforeRename) beforeRename();
+      fs.rmSync(wal, { force: true });
+      fs.rmSync(shm, { force: true });
+      fs.renameSync(temp, databaseFile);
+      renamed = true;
+      fsyncDirectory(supportDir);
+    } catch (error) {
+      if (!renamed) {
+        fs.rmSync(temp, { force: true });
+        if (!database) initializeStorage();
+      } else if (error && typeof error === 'object') error.databaseSwapped = true;
+      throw error;
+    } finally {
+      if (renamed) initializeStorage();
+    }
+  }
+
+  function restoreBackup(name) {
+    ensureStorage();
+    requireDatabase();
+    removeRestoreLeftovers();
+    const { file } = backupFileFor(name);
+    const backupName = path.basename(file);
+    // 1. 先复制、检查、准备好（这时还没碰现在的数据）。
+    const prepared = prepareRestoreFile(file, {
+      liveRevision: Number(metadataValue('revision', '0')),
+      liveMailRevision: Number(metadataValue('mail_backup_revision', '0')) || 0,
+      databaseId: metadataValue('database_id', ''),
+      restoredFrom: backupName
+    });
+    let before = null, swapped = false;
+    try {
+      // 2. 还有别的来财开着这份数据就不恢复（这时什么都还没改，也不做恢复前的备份）。
+      requireOnlyConnection();
+      // 3. 把现在的数据先做一份备份；这份没成功就不恢复。正在用的那份备份这次不会被清理掉。
+      before = createBackup(true, 'before-restore', [backupName]);
+      if (!before.ok || !before.file) throw httpError(503, '恢复前的备份没有成功，这次没有恢复，现在的数据没有改动。请稍后再试。', { code: 'backup_before_restore_failed' });
+      // 备份文件和它在 backups/ 里的名字都要先落到磁盘上，再换数据库。
+      try { fsyncFile(before.file); }
+      catch (_) { throw httpError(503, '恢复前的备份没能写到磁盘上，这次没有恢复，现在的数据没有改动。请稍后再试。', { code: 'backup_before_restore_failed' }); }
+      fsyncDirectory(backupDir);
+      // 4. 换数据库。换之前（已经确认没有别的连接）把备份里有、现在缺的附件复制回来（只添不删，多出来的文件不影响现在的数据）。
+      let attachments = 0;
+      swapInDatabase(prepared.temp, () => {
+        try { attachments = restoreBackupAttachments(file); }
+        catch (_) { throw httpError(500, '备份里的附件没能复制回来，这次没有恢复，现在的数据没有改动。', { code: 'restore_attachments_failed' }); }
+      });
+      swapped = true;
+      if (!database || storageMode !== 'sqlite') {
+        // 换上的库打不开（不该发生：换之前检查过）：把恢复前的那份换回来，换完再看一次是不是真的打开了。
+        const beforeName = path.basename(before.file);
+        try {
+          const rollback = prepareRestoreFile(before.file, { liveRevision: prepared.revision, liveMailRevision: 0, databaseId: '', restoredFrom: beforeName });
+          swapInDatabase(rollback.temp);
+        } catch (_) { /* 下面按实际状态说明。 */ }
+        if (database && storageMode === 'sqlite') {
+          queueBackup();
+          throw httpError(500, `恢复没有成功，已换回恢复前的数据。恢复前的数据另外也存了一份：${beforeName}。`, { code: 'restore_failed', beforeRestore: beforeName });
+        }
+        throw restoreIncomplete(beforeName);
+      }
+      queueBackup();
+      let revision = prepared.revision;
+      try { revision = Number(metadataValue('revision', String(prepared.revision))); } catch (_) {}
+      return { ok: true, revision, restoredFrom: backupName, beforeRestore: path.basename(before.file), attachmentsRestored: attachments };
+    } catch (error) {
+      fs.rmSync(prepared.temp, { force: true });
+      // 关库时取消了自动备份的排队；库还开着就重新排上。
+      if (database && storageMode === 'sqlite') queueBackup();
+      if (Number.isInteger(error.status)) throw error;
+      // 文件已经换掉之后出的错：不能说“没有改动”。
+      if ((swapped || error.databaseSwapped) && before?.file) throw restoreIncomplete(path.basename(before.file));
+      throw httpError(500, /[一-鿿]/.test(String(error.message || '')) ? error.message : '恢复没有成功，现在的数据没有改动。请稍后再试。', { code: 'restore_failed' });
+    }
+  }
+  // 数据库文件已经换掉、又没能换回来（几乎不会发生）：说实话，并说出恢复前那份备份的名字。
+  function restoreIncomplete(beforeName) {
+    return httpError(500, `恢复没有完成，现在的数据暂时打不开。恢复前的数据已经另存为备份 ${beforeName}（在数据文件夹的 backups 里），请不要删除它，也先不要再操作来财，找人帮忙用这份备份恢复。`, { code: 'restore_incomplete', beforeRestore: beforeName });
   }
 
   function readSnapshot() {
@@ -1298,6 +1621,7 @@ function openStorage({ seedFile }) {
   }
 
   initializeStorage();
+  removeRestoreLeftovers();
   if (database && storageMode === 'sqlite') {
     removePartialBackups();
     // 旧数据库还没有“业务改动已备份到哪个版本”的记号：把当前版本记上，排一次备份覆盖它（只改备份记号，不动业务数据）。
@@ -1307,6 +1631,6 @@ function openStorage({ seedFile }) {
       .some(table => database.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get())) setMetadata('mail_backup_revision', '1');
     queueBackup();
   }
-  return { readSnapshot, save, saveChanges, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, backupStatus, health, close, directory: supportDir };
+  return { readSnapshot, save, saveChanges, readImportLog, readMailAccount, writeMailAccount, deleteMailAccount, listMailDrafts, writeMailDraft, deleteMailDraft, readMailDraftFiles, writeMailDraftFiles, listMailTemplates, writeMailTemplate, deleteMailTemplate, listMailBulk, readMailBulk, writeMailBulk, backup: createBackup, backupStatus, listBackups, restoreBackup, health, close, directory: supportDir };
 }
 module.exports = { openStorage };

@@ -18,11 +18,18 @@ test('the board has the view switch in the filter card only (the classic page-he
 });
 
 test('the card menu and form dock rules are scoped to the new skin; the board itself is on the kit', () => {
-  for (const rule of [':has(.opp-menu)', ':has(#opp-form)', ':has(#biz-order-form)', '.lcd-pagebar', '.lcd-card']) {
+  for (const rule of [':has(.opp-menu)', ':has(#opp-form)', ':has(#biz-order-form)']) {
     const line = glass.split('\n').find((l) => l.includes(rule));
     assert.ok(line, rule);
     assert.match(line, /:root\[data-skin="glass"\]/, rule);
   }
+  // 客户详情的页头和卡片是组件套件的 .k-pageheader／.k-card（D-028），排版在 customer-detail.css 的「kit: 客户详情」块里，皮肤里不再另画一遍。
+  const detailUi = read('src/customer-detail-ui.js');
+  assert.match(detailUi, /<header class="lcd-pagebar k-pageheader">/);
+  assert.match(detailUi, /<section class="lcd-card lcd-summary k-card">/);
+  assert.ok(!glass.split('\n').some((l) => l.includes('.lcd-')), 'no 客户详情 rules left in the skin');
+  const detailKit = read('src/customer-detail.css').split('/* kit: 客户详情 */')[1] || '';
+  for (const rule of ['.lcd-pagebar.k-pageheader', '.lcd-card.k-card']) assert.ok(detailKit.includes(rule), rule);
   // 看板的列、列头、卡片和金额卡片改用组件套件（D-028），样式只在 business.css 里，皮肤里不再另画一遍。
   for (const rule of ['.opp-board', '.opp-column', '.opp-stage ', '.opp-stage-name', '.opp-cards', '.opp-card ', '.opp-card:', '.opp-stat']) {
     assert.ok(!glass.split('\n').some((l) => l.includes(rule)), `${rule} is styled in business.css on the kit`);
@@ -30,10 +37,12 @@ test('the card menu and form dock rules are scoped to the new skin; the board it
 });
 
 test('the customer page greys use the readable token in the new skin and keep the old value elsewhere', () => {
+  // 迁到组件套件后（D-028），灰色文字一律是 --muted-fg（各主题都 ≥ 4.5:1），不再有写死的灰色。
   const css = read('src/customer-detail.css');
   assert.doesNotMatch(css, /^\s*color: #777;/m);
-  assert.match(css, /color: var\(--text-muted, #777\)/);
-  assert.match(css, /color: var\(--text-muted, #75777d\)/);
+  assert.doesNotMatch(css, /color:\s*(?:var\([^)]*,\s*)?#[0-9a-fA-F]{3,6}/, 'no literal text colours');
+  assert.match(css, /\.lcd-field dt \{[^}]*color: var\(--muted-fg\)/);
+  assert.match(css, /\.lcd-timeline time \{[^}]*color: var\(--muted-fg\)/);
 });
 
 test('focusing the view switch after a click picks the visible one when two exist', () => {
@@ -60,5 +69,5 @@ test('the customer page has a summary column with info, orders, documents and hi
   assert.match(withSide, /更新客户资料 &lt;b&gt;/);
   const css = read('src/customer-detail.css');
   assert.match(css, /\.lcd-side \{ display: none; \}/);
-  assert.match(glass, /:root\[data-skin="glass"\] \.lcd-side \{ display: flex;/);
+  assert.match(css, /:root\[data-skin="glass"\] \.lcd-side \{ display: flex;/);
 });

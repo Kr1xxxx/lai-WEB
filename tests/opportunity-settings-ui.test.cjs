@@ -172,8 +172,8 @@ test('the opportunity form: new fields appear, hidden ones disappear, multi and 
   const form = c.dialogs.at(-1)[1];
   assert.match(form, /商机编号/); assert.match(form, /保存后自动生成/);
   assert.match(form, /data-multi="sources"/); assert.match(form, /<input type="checkbox" value="常规获客 \/ 展会">/);
-  assert.match(form, /<select name="type"><option value="">请选择<\/option><option value="新客户商机">/);
-  assert.match(form, /<select name="leadId"><option value="">不选<\/option><option value="L1">Zed Lashes<\/option>/);
+  assert.match(form, /<select class="k-select-trigger" name="type"><option value="">请选择<\/option><option value="新客户商机">/);
+  assert.match(form, /<select class="k-select-trigger" name="leadId"><option value="">不选<\/option><option value="L1">Zed Lashes<\/option>/);
   assert.match(form, /<div class="form-section">自定义字段<\/div>/); assert.match(form, /data-multi="custom:pay"/); assert.match(form, /name="custom:dc" value="" inputmode="decimal" autocomplete="off" aria-required="true" required/);
   assert.ok(form.indexOf('补充信息') < form.indexOf('自定义字段'));
   // 保存：多选从勾选框收集，自定义字段按 custom:ID 收集
@@ -238,7 +238,7 @@ test('detail drawer: number, type, sources, lead and custom values; old opportun
   const html = ui.detailMarkup(O.detailOf(s, 'a', TODAY), {today: TODAY});
   assert.match(html, /<dt>商机编号<\/dt><dd>OPP-20261006-001<\/dd>/);
   assert.match(html, /<dt>商机类型<\/dt><dd>样品单<\/dd>/);
-  assert.match(html, /<dt>商机来源<\/dt><dd><span class="opp-chip">社媒<\/span> <span class="opp-chip">常规获客 \/ 展会<\/span><\/dd>/);
+  assert.match(html, /<dt>商机来源<\/dt><dd><span class="k-badge k-badge--neutral">社媒<\/span> <span class="k-badge k-badge--neutral">常规获客 \/ 展会<\/span><\/dd>/);
   assert.match(html, /<dt>来源线索<\/dt><dd>Zed &lt;b&gt;Lashes&lt;\/b&gt;<\/dd>/);
   assert.match(html, /<dt>付款方式<\/dt><dd>T\/T、L\/C<\/dd>/);
   assert.match(html, /<dt>说明<\/dt><dd>第一行<br>第二行<\/dd>/);

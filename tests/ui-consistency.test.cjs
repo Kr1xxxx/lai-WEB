@@ -33,7 +33,13 @@ test('the split 新建客户 button, page-header buttons and the customer form i
   assert.doesNotMatch(skin, /\.split-new/);
   assert.match(read('src/customer-list-ui.js'), /<div class="split-new">[^]*?class="k-btn k-btn--primary" data-action="new"[^]*?class="k-btn k-btn--primary split-caret" data-action="create-menu"/);
   assert.match(skin, /\.pagebar \.page-actions > button \{ height: 32px; min-height: 32px; \}/);
-  assert.match(skin, /\.ce-body :is\(input[^)]*\)[^{]*select, textarea\) \{ border-radius: 8px;/);
+  // 客户表单的输入框、下拉、多行是组件套件的 .k-input／.k-select-trigger／.k-textarea（D-028），圆角都是 --radius，皮肤和表单样式里不再另写
+  const editor = read('src/customer-editor-ui.js');
+  for (const cls of ['k-input', 'k-select-trigger', 'k-textarea']) assert.match(editor, new RegExp(`id="ce-\\$\\{name\\}" name="\\$\\{name\\}"[^>]*class="${cls}"`), cls);
+  assert.doesNotMatch(skin, /\.ce-body/);
+  const editorKit = read('src/customer-editor.css').split('/* kit: 客户编辑 */')[1] || '';
+  assert.match(editorKit, /\.ce-body/);
+  assert.doesNotMatch(editorKit, /border-radius:\s*\d+px/);
 });
 
 test('every left-menu entry has a tinted-line icon, each drawn from its own paths, and only that icon is drawn', () => {

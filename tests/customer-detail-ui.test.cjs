@@ -88,20 +88,20 @@ test('company detail mirrors the captured 9+4 fields without duplicating editor-
  assert.match(common,/<dt>公司网址<\/dt><dd>https:\/\/acme\.test<\/dd>/);
  assert.doesNotMatch(common,/客户标签|默认付款计划|客户账期/);
  assert.doesNotMatch(other,/客户标签|默认付款计划|客户账期|公司网址/);
- assert.match(html,/class="lcd-tags">标签：<span class="lcd-tag tag-0">VIP<\/span>/);
+ assert.match(html,/class="lcd-tags">标签：<span class="lcd-tag k-badge">VIP<\/span>/);
  assert.match(html,/data-action="company-display-settings"/);
 });
 
 test('detail schedule exposes local add, edit and calendar actions for the saved follow date',()=>{
  const state={orders:[],customers:{Acme:{}}};
  const empty=D.render(M.buildCustomers(state)[0],{state,escape:M.escapeHtml});
- const emptyCard=empty.match(/<section class="lcd-card lcd-schedule">([\s\S]*?)<\/section>/)?.[1]||'';
+ const emptyCard=empty.match(/<section class="lcd-card lcd-schedule k-card">([\s\S]*?)<\/section>/)?.[1]||'';
  assert.match(emptyCard,/计划日程 （0）/);
  assert.match(emptyCard,/data-action="schedule-edit"/);
  assert.doesNotMatch(emptyCard,/data-action="schedule-view"/);
  const scheduled={...state,customers:{Acme:{nextFollow:'2026-11-05'}}};
  const filled=D.render(M.buildCustomers(scheduled)[0],{state:scheduled,escape:M.escapeHtml});
- const card=filled.match(/<section class="lcd-card lcd-schedule">([\s\S]*?)<\/section>/)?.[1]||'';
+ const card=filled.match(/<section class="lcd-card lcd-schedule k-card">([\s\S]*?)<\/section>/)?.[1]||'';
  assert.match(card,/计划日程 （1）/);
  assert.match(card,/2026-11-05/);
  assert.match(card,/data-action="schedule-edit"/);
@@ -253,7 +253,7 @@ test('a nameless primary contact keeps saved email and phone in the detail card'
  const row=M.buildCustomers(state)[0];
  const html=D.render(row,{state,escape:M.escapeHtml});
  assert.match(html,/联系人\(1\)/);
- assert.match(html,/class="lcd-main-contact">主<\/span>/);
+ assert.match(html,/class="lcd-main-contact k-badge k-badge--primary">主<\/span>/);
  assert.match(html,/class="lcd-contact-title"><strong>—<\/strong>/);
  assert.match(html,/aria-label="未命名联系人的更多操作"/);
  assert.match(html,/sales@example\.test/);
@@ -551,7 +551,7 @@ test('trade metrics use saved opportunity fields without substituting order tota
   const emptyMetrics = emptyHtml.match(/<div class="lcd-metrics">([\s\S]*?)<\/div><div class="lcd-table-scroll">/)?.[1] || '';
   assert.match(emptyMetrics, /赢单商机金额\(USD\)<\/span><strong>—<\/strong>/);
   assert.match(emptyHtml, /进行中的商机 （—）/);
-  assert.match(emptyHtml, /class="lcd-card lcd-opportunity is-empty"/);
+  assert.match(emptyHtml, /class="lcd-card lcd-opportunity is-empty k-card"/);
   assert.doesNotMatch(emptyHtml, /class="lcd-opportunity-row"|class="lcd-phases"/);
   assert.doesNotMatch(emptyMetrics, /9000/);
 });
@@ -559,7 +559,7 @@ test('trade metrics use saved opportunity fields without substituting order tota
 test('saved zero active opportunities render the captured single-row detail empty state', () => {
   const state={orders:[],customers:{Acme:{activeOpportunityCount:0}}};
   const html=D.render(M.buildCustomers(state)[0],{state,escape:M.escapeHtml});
-  assert.match(html,/class="lcd-card lcd-opportunity is-empty"/);
+  assert.match(html,/class="lcd-card lcd-opportunity is-empty k-card"/);
   assert.match(html,/进行中的商机 （0）/);
   assert.doesNotMatch(html,/class="lcd-opportunity-row"|class="lcd-phases"/);
   assert.match(html,/计划日程 （0）/);

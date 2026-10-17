@@ -122,7 +122,10 @@
       `<div class="k-pageheader${cls ? " " + cls : ""}"><div class="k-pageheader-text"><h1 class="k-pageheader-title">${title}</h1><span class="k-pageheader-desc">${description}</span></div><div class="k-pageheader-actions">${actions}</div></div>`;
     // 必填标记，和抽屉底栏里保存按钮旁的错误条（表单出错时字写在这里，不会被滚到看不见的地方）。
     const REQ = '<span class="required" aria-hidden="true">*</span>';
-    const footError = (id) => `<div class="error form-foot-error" id="${id}" role="alert" data-form-error></div>`;
+    const footError = (id, cls = "") => `<div class="error form-foot-error${cls ? " " + cls : ""}" id="${id}" role="alert" data-form-error></div>`;
+    // 组件套件的按钮（k-btn）：variant 是 "k-btn--primary"、"k-btn--ghost k-btn--sm" 这样的附加类名。
+    const kitButton = (action, text, extra = "", variant = "") =>
+      `<button type="button" class="k-btn${variant ? " " + variant : ""}" data-biz-action="${action}" ${extra}>${text}</button>`;
     // 列表页头的「导出」按钮：只有有对应导出权限的账号才看得到。
     const exportButton = (kind, cls = "") =>
       root.LaiExportUI && can(`${kind}.export`) ? `<button type="button"${cls ? ` class="${cls}"` : ""} data-export-kind="${kind}">导出</button>` : "";
@@ -724,7 +727,7 @@
             setup: OM().formSetup(pickState()),
             isNew: next.isNew,
           }),
-          `${footError("opp-error")}<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>`,
+          `${footError("opp-error", "k-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button><button class="k-btn k-btn--primary" type="submit" form="opp-form">保存商机</button>`,
           "business-opportunity",
         );
       } catch (error) {
@@ -799,7 +802,7 @@
       if (oppBlocked(id)) return;
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-      ctx.dialog(E(card.name), OU().menuMarkup(card, oppArmed === id), '<button type="button" data-action="close-modal">关闭</button>', "opp-menu");
+      ctx.dialog(E(card.name), OU().menuMarkup(card, oppArmed === id), '<button type="button" class="k-btn" data-action="close-modal">关闭</button>', "opp-menu");
       anchorOppMenu(id);
     }
     // 「⋮」菜单是贴着那张卡片的小菜单（找不到卡片时留在右侧，见 skin-glass.css）。
@@ -922,7 +925,7 @@
       ctx.dialog(
         E(detail.name),
         detailBody(id),
-        `<button type="button" data-action="close-modal">关闭</button><button type="button" data-opp-action="menu" data-id="${E(id)}">更多操作</button>${can("opp.edit") ? `<button class="primary" type="button" data-opp-action="edit" data-id="${E(id)}">编辑商机</button>` : ""}`,
+        `<button type="button" class="k-btn" data-action="close-modal">关闭</button><button type="button" class="k-btn" data-opp-action="menu" data-id="${E(id)}">更多操作</button>${can("opp.edit") ? `<button class="k-btn k-btn--primary" type="button" data-opp-action="edit" data-id="${E(id)}">编辑商机</button>` : ""}`,
         "opp-detail",
       );
       hydratePreview();
@@ -1785,7 +1788,7 @@
         currentTheme = THEME_CHOICES.some(([id]) => id === savedTheme(settings)) ? savedTheme(settings) : DEFAULT_THEME;
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section local-data-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="restore-history"><div class="restore-history-head"><h4>备份记录</h4><span class="muted tiny">可以把数据恢复到其中一份；恢复前会先把现在的数据另存一份</span></div><div id="biz-restore-list">${backupListMarkup()}</div></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2074,6 +2077,7 @@
       if (typeof html === "string") ctx.mount(html);
       if (extraPage && typeof extraPage.afterRender === "function") extraPage.afterRender(extraCtx());
       if (route === "dashboard") loadWorkbenchMail();
+      if (route === "settings" && !denied) loadBackups();
       if (oppPosition) {
         const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
         if (page) page.scrollTop = oppPosition.top;
@@ -2120,31 +2124,39 @@
         if (!UI || !OF) return "";
         return readOnly ? UI.detailMarkup(E, OF.customView(state(), order)) : UI.formMarkup(E, { defs: OF.customFields(state()), values: order.custom, isNew });
       };
+      // 每个字段：标签文字和必填星号一行（<span>），下面是控件（组件套件 k-input／k-select-trigger／k-textarea；日期框用统一日期控件，不加 k-input）。
+      const MUST = ["num", "client", "amount", "createdAt"];
       const field = (name, title, type = "text", wide = false) =>
-        `<label class="field ${wide ? "wide" : ""}">${title}${["num", "client", "amount", "createdAt"].includes(name) ? REQ : ""}<input name="${name}" type="${type}" value="${E(type === "date" ? localDay(shown[name]) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? 'aria-required="true" required' : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="any"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
+        `<label class="field${wide ? " wide" : ""}"><span>${title}${MUST.includes(name) ? REQ : ""}</span><input${type === "date" ? "" : ' class="k-input"'} name="${name}" type="${type}" value="${E(type === "date" ? localDay(shown[name]) : (shown[name] ?? ""))}"${MUST.includes(name) ? ' aria-required="true" required' : ""}${["amount", "paidAmount"].includes(name) ? ' min="0" step="any"' : ""}${name === "client" ? ' list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
+      const select = (name, title, options) => `<label class="field"><span>${title}</span><select class="k-select-trigger" name="${name}">${options}</select></label>`;
+      const currencies = [...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("");
+      const customerNames = Object.keys(pickState().customers || {})
+        .filter((n) => root.LaiModules.bucket(pickState().customers[n]) !== "trash")
+        .map((n) => `<option value="${E(n)}">`)
+        .join("");
+      const docButtons = can("doc.create")
+        ? `<div class="order-doc-actions"><span class="order-doc-label">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => kitButton("order-doc", E(name), `data-type="${E(type)}"`, "k-btn--sm")).join("")}</div>`
+        : "";
       ctx.dialog(
         old ? (locked ? "订单详情" : "编辑订单") : "新建订单",
-        `<form class="drawer-body" id="biz-order-form" novalidate data-form-check>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div>${orderCustomMarkup(o, locked, !old)}<div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>${can("doc.create") ? `<div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div>` : ""}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
-          pickState().customers || {},
-        )
-          .filter(
-            (n) => root.LaiModules.bucket(pickState().customers[n]) !== "trash",
-          )
-          .map((n) => `<option value="${E(n)}">`)
-          .join(
-            "",
-          )}</datalist>${old ? `<p class="muted tiny">已有历史与附件资料会保留。已发货 / 已完成按订单全额计已收款。</p>` : ""}</form>`,
-        `${footError("biz-order-error")}${old && can("order.delete") ? button("archive-order", "移入回收站", `data-id="${E(old.id)}"`) : ""}${button("close-editor", locked ? "关闭" : "取消")}${locked ? "" : '<button class="primary" type="submit" form="biz-order-form">保存订单</button>'}`,
+        `<form class="drawer-body" id="biz-order-form" novalidate data-form-check>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}`
+          + `<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("createdAt", "创建日期", "date")}${field("client", "客户名称", "text", true)}${field("country", "国家地区")}${field("owner", "跟进人")}${field("productType", "产品", "text", true)}${select("stage", "订单阶段", B.stages.map((s) => option(s.id, s.label, o.stage)).join(""))}<label class="business-check order-draft-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div>`
+          + `<div class="form-section">金额</div><div class="form-grid">${field("amount", "订单金额", "number")}${select("currency", "币种", currencies)}${field("paidAmount", "已收款", "number")}</div>`
+          + `<div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>`
+          + `<div class="form-section">物流与备注</div><div class="form-grid">${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}${field("next", "下一步", "text", true)}<label class="field wide"><span>订单备注</span><textarea class="k-textarea" name="note" rows="3">${E(o.note || "")}</textarea></label></div>`
+          + `${orderCustomMarkup(o, locked, !old)}${docButtons}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${customerNames}</datalist>${old ? `<p class="order-form-note">已有历史与附件资料会保留。已发货 / 已完成按订单全额计已收款。</p>` : ""}</form>`,
+        `${footError("biz-order-error", "k-error")}${old && can("order.delete") ? kitButton("archive-order", "移入回收站", `data-id="${E(old.id)}"`, "k-btn--danger order-archive") : ""}${kitButton("close-editor", locked ? "关闭" : "取消")}${locked ? "" : '<button class="k-btn k-btn--primary" type="submit" form="biz-order-form">保存订单</button>'}`,
         "business-order",
       );
       if (locked) document.querySelectorAll?.("#biz-order-form input,#biz-order-form select,#biz-order-form textarea").forEach((el) => (el.disabled = true));
     }
     // ---------- 订单产品明细（从产品库选）和由订单生成单据 ----------
+    // 产品明细：每行一个产品，下面是数量、单价和小计；最后是合计和「添加产品」。数字右对齐、等宽。
     function orderItemsMarkup(currency) {
       const products = orderProducts();
       const items = draft?.items || [];
       if (!products.length && !items.length)
-        return !can("product.view") ? "" :  '<p class="muted tiny order-items-empty">还没有产品。先到 交易 → 产品 添加产品，就能在这里选；也可以直接在上面“产品”里写文字。</p>';
+        return !can("product.view") ? "" : '<p class="order-items-hint">还没有产品。先到 交易 → 产品 添加产品，就能在这里选；也可以直接在上面“产品”里写文字。</p>';
       const rows = items
         .map((item, i) => {
           const known = products.some((p) => p.id === item.productId);
@@ -2152,13 +2164,13 @@
             .map((p) => `<option value="${E(p.id)}" ${p.id === item.productId ? "selected" : ""}>${E(p.name)}${p.code ? " · " + E(p.code) : ""}</option>`)
             .join("")}`;
           const unit = item.unit ? `（${E(item.unit)}）` : "";
-          return `<div class="order-item" data-item-row="${i}"><div class="order-item-top"><select data-item-product="${i}" aria-label="第 ${i + 1} 行产品">${choices}</select>${draft?.locked ? "" : button("order-item-remove", "删除", `data-index="${i}" class="text-button"`)}</div><div class="order-item-nums"><label>数量${unit}<input data-item-field="qty" data-item-index="${i}" type="number" min="0" step="any" value="${E(item.qty ?? "")}"></label><label>单价<input data-item-field="price" data-item-index="${i}" type="number" min="0" step="any" value="${E(item.price ?? "")}"></label><span class="order-item-amount" data-item-amount="${i}">${money(Number(item.qty || 0) * Number(item.price || 0), currency)}</span></div></div>`;
+          return `<div class="order-item" data-item-row="${i}"><div class="order-item-top"><span class="order-item-no">${i + 1}</span><select class="k-select-trigger" data-item-product="${i}" aria-label="第 ${i + 1} 行产品">${choices}</select>${draft?.locked ? "" : kitButton("order-item-remove", "删除", `data-index="${i}" aria-label="删除第 ${i + 1} 行"`, "k-btn--ghost k-btn--sm")}</div><div class="order-item-nums"><label><span>数量${unit}</span><input class="k-input" data-item-field="qty" data-item-index="${i}" type="number" min="0" step="any" value="${E(item.qty ?? "")}"></label><label><span>单价</span><input class="k-input" data-item-field="price" data-item-index="${i}" type="number" min="0" step="any" value="${E(item.price ?? "")}"></label><span class="order-item-sub"><span>小计</span><span class="order-item-amount" data-item-amount="${i}">${money(Number(item.qty || 0) * Number(item.price || 0), currency)}</span></span></div></div>`;
         })
         .join("");
-      const table = items.length
-        ? `<div class="order-items">${rows}</div><p class="order-items-total">合计 <strong data-items-total>${money(B.itemsTotal(items), currency)}</strong></p>`
-        : '<p class="muted tiny">选了产品后，订单金额按明细自动合计。</p>';
-      return `${table}${products.length && !draft?.locked ? button("order-item-add", "＋ 添加产品") : ""}`;
+      const add = products.length && !draft?.locked ? kitButton("order-item-add", "＋ 添加产品", "", "k-btn--sm") : "";
+      return items.length
+        ? `<div class="order-items">${rows}</div><div class="order-items-foot">${add}<p class="order-items-total">合计 <strong data-items-total>${money(B.itemsTotal(items), currency)}</strong></p></div>`
+        : `<p class="order-items-hint">选了产品后，订单金额按明细自动合计。</p>${add ? `<div class="order-items-foot">${add}</div>` : ""}`;
     }
     const orderForm = () => document.getElementById("biz-order-form");
     function renderOrderItems() {
@@ -2209,7 +2221,7 @@
       draft.doc = type;
       draft.docView = "";
       const doc = orderDocData(type);
-      box.innerHTML = `<div class="order-doc-preview" data-order-doc="${E(type)}"><div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("order-doc-save", "保存单据", `data-type="${E(type)}"`, true)}${button("order-doc-print", "打印 / 存为 PDF", `data-type="${E(type)}"`)}${button("order-doc-close", "收起")}</span></div><div class="error" id="biz-order-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这张表里现在填的内容。订单保存过之后，点“保存单据”才会生成单据编号并记下来；公司信息、银行和条款在 交易 → 单据模板 里改。</p></div>`;
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc="${E(type)}"><div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${kitButton("order-doc-save", "保存单据", `data-type="${E(type)}"`, "k-btn--primary k-btn--sm")}${kitButton("order-doc-print", "打印 / 存为 PDF", `data-type="${E(type)}"`, "k-btn--sm")}${kitButton("order-doc-close", "收起", "", "k-btn--ghost k-btn--sm")}</span></div><div class="error" id="biz-order-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="order-form-note">用的是这张表里现在填的内容。订单保存过之后，点“保存单据”才会生成单据编号并记下来；公司信息、银行和条款在 交易 → 单据模板 里改。</p></div>`;
     }
     // 保存过的单据显示在订单表单下面（用保存时的内容，订单后来改了也不变）。
     function showOrderSaved(id) {
@@ -2218,7 +2230,7 @@
       docVoidArmed = "";
       draft.doc = "";
       draft.docView = id;
-      box.innerHTML = `<div class="order-doc-preview" data-order-doc-saved="${E(id)}"><div class="dt-side-head"><strong>${E(doc.snapshot.typeName)} ${E(doc.number)}</strong><span class="order-doc-buttons">${docVoidButton(doc)}${doc.status === "已作废" ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(id)}"`, true)}${button("order-doc-close", "收起")}</span></div>${DU().paperMarkup(doc)}</div>`;
+      box.innerHTML = `<div class="order-doc-preview" data-order-doc-saved="${E(id)}"><div class="dt-side-head"><strong>${E(doc.snapshot.typeName)} ${E(doc.number)}</strong><span class="order-doc-buttons">${docVoidButton(doc)}${doc.status === "已作废" ? "" : kitButton("docrec-print", "打印 / 存为 PDF", `data-id="${E(id)}"`, "k-btn--primary k-btn--sm")}${kitButton("order-doc-close", "收起", "", "k-btn--ghost k-btn--sm")}</span></div>${DU().paperMarkup(doc)}</div>`;
     }
     function saveOrderDoc(type) {
       // 单据的来源是这笔订单：订单还没保存时，来源记不上，所以要先保存订单。
@@ -2261,19 +2273,19 @@
     function oppDocMarkup() {
       const saved = oppDoc.saved && DM().getDocument(state(), oppDoc.saved);
       if (saved) {
-        return `<div class="dt-side-head"><strong>${E(saved.snapshot.typeName)} ${E(saved.number)}</strong><span class="order-doc-buttons">${button("oppdoc-print", "打印 / 存为 PDF", "", true)}</span></div>${DU().paperMarkup(saved)}<p class="muted tiny">已保存。以后可以在 交易 → 单据模板 → 单据记录 里找到它，也能在这个商机的详情里看到。</p>`;
+        return `<div class="dt-side-head"><strong>${E(saved.snapshot.typeName)} ${E(saved.number)}</strong><span class="order-doc-buttons">${kitButton("oppdoc-print", "打印 / 存为 PDF", "", "k-btn--primary k-btn--sm")}</span></div>${DU().paperMarkup(saved)}<p class="muted tiny">已保存。以后可以在 交易 → 单据模板 → 单据记录 里找到它，也能在这个商机的详情里看到。</p>`;
       }
       const input = oppDocInput();
       if (!input) return '<p class="muted">商机不存在，可能已被删除。</p>';
       const doc = oppDocPreview(input);
-      return `<div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${button("oppdoc-save", "保存单据", "", true)}${button("oppdoc-print", "打印 / 存为 PDF")}</span></div><div class="error" id="opp-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这个商机的客户、币种和关联产品（没有关联产品就用商机金额）。点“保存单据”才会生成单据编号并记下来。</p>`;
+      return `<div class="dt-side-head"><strong>${E(doc.typeName)}预览</strong><span class="order-doc-buttons">${kitButton("oppdoc-save", "保存单据", "", "k-btn--primary k-btn--sm")}${kitButton("oppdoc-print", "打印 / 存为 PDF", "", "k-btn--sm")}</span></div><div class="error" id="opp-doc-error" role="alert"></div><div class="dt-paper">${DU().documentMarkup(doc)}</div><p class="muted tiny">用的是这个商机的客户、币种和关联产品（没有关联产品就用商机金额）。点“保存单据”才会生成单据编号并记下来。</p>`;
     }
     function showOppDoc(id, type) {
       if (!need("doc.create") || oppBlocked(id)) return;
       if (!DM() || !DM().TYPES.some(([t]) => t === type)) return;
       oppDoc = { id, type, saved: "" };
       if (!oppDocInput()) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
-      ctx.dialog(E(`生成${DU().typeLabel(type)}`), `<div class="drawer-body opp-doc" id="opp-doc-box">${oppDocMarkup()}</div>`, '<button type="button" data-action="close-modal">关闭</button>', "opp-doc");
+      ctx.dialog(E(`生成${DU().typeLabel(type)}`), `<div class="drawer-body opp-doc" id="opp-doc-box">${oppDocMarkup()}</div>`, '<button type="button" class="k-btn" data-action="close-modal">关闭</button>', "opp-doc");
     }
     function oppDocAction(action) {
       if (!oppDoc) return;
@@ -2430,7 +2442,7 @@
       ctx.dialog(
         "移入订单回收站",
         `<div class="drawer-body"><p>归档 ${E(allOrders().find((o) => o.id === id)?.num || "此订单")}？</p><div class="module-note">订单和客户资料保留，可从订单回收站恢复。</div><div id="biz-order-error" class="error" role="alert"></div></div>`,
-        `${button("cancel-archive", "返回编辑", `data-id="${E(id)}"`)}${button("confirm-archive", "确认归档", `data-id="${E(id)}"`, true)}`,
+        `${kitButton("cancel-archive", "返回编辑", `data-id="${E(id)}"`)}${kitButton("confirm-archive", "确认归档", `data-id="${E(id)}"`, "k-btn--primary")}`,
         "business-order",
       );
     }
@@ -2446,11 +2458,106 @@
         if (!response.ok || result.ok === false) throw Error(result.message || "");
         if (target) target.textContent = "备份已保存到来财数据目录。";
         ctx.toast("备份完成");
+        loadBackups();
       } catch (e) {
         // 不把原始的英文错误给用户看：中文提示照用，其余换成一句说明。
         const message = /[\u4e00-\u9fff]/.test(String(e?.message || "")) ? e.message : "备份没有成功，数据没有受影响。请稍后再试。";
         if (target) target.textContent = message;
         ctx.toast(message);
+      }
+    }
+    // ---- 本地数据：备份记录和恢复 ----
+    // 列表向 /api/backups 要（网页试用版回 501，照它的话说明）。恢复要点两次：第一次只把按钮换成「确认恢复到这一份」并说明后果，
+    // 第二次才恢复。恢复成功后整页重新载入：从 /api/data 读回恢复后的数据，页面里的缓存、草稿和版本号都跟着换掉；载入后再提示一句。
+    // 恢复会替换全部数据，比「立即备份」更危险：除了「设置（默认录入、数据备份）」权限，还要是系统管理员。
+    let backups = { status: "idle", items: [], message: "" },
+      restoreArmed = "",
+      restoring = false;
+    const RESTORE_NOTICE = "lai-restore-notice";
+    const BACKUP_KINDS = { auto: "自动备份", manual: "手动备份", "before-delete": "删除前自动备份", "before-restore": "恢复前自动备份" };
+    const canRestore = () => can("settings.general") && (!RM() || RM().isAdmin(state()));
+    const chineseOr = (text, fallback) => (/[\u4e00-\u9fff]/.test(String(text || "")) ? String(text) : fallback);
+    function backupWhen(iso) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "某个时间";
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear() === new Date().getFullYear() ? "" : `${d.getFullYear()}年`}${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function backupListMarkup() {
+      if (backups.status === "idle" || backups.status === "loading") return '<p class="muted tiny restore-loading">正在读取备份记录…</p>';
+      if (backups.status === "trial") return `<div class="k-empty restore-none"><p class="k-empty-title">${E(backups.message)}</p><span>想留一份，请到设置中心的“测试数据”里备份。</span></div>`;
+      if (backups.status === "error") return `<div class="k-empty restore-none" role="alert"><p class="k-empty-title">${E(backups.message)}</p></div>`;
+      if (!backups.items.length) return '<div class="k-empty restore-none"><p class="k-empty-title">还没有备份</p><span>点「立即备份」做一份；有改动时来财也会每小时自动备份。</span></div>';
+      const allowed = canRestore();
+      const row = (item) => {
+        const armed = restoreArmed === item.name;
+        const counts = item.ok ? `客户 ${Number(item.customers) || 0} · 订单 ${Number(item.orders) || 0}` : "无法读取";
+        const actions = !item.ok || !allowed ? "" : armed
+          ? `<button type="button" class="k-btn k-btn--danger k-btn--sm" data-biz-action="restore-backup" data-name="${E(item.name)}"${restoring ? " disabled" : ""}>${restoring ? "正在恢复…" : "确认恢复到这一份"}</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-biz-action="restore-cancel" aria-label="取消恢复"${restoring ? " disabled" : ""}>取消</button>`
+          : `<button type="button" class="k-btn k-btn--sm" data-biz-action="restore-backup" data-name="${E(item.name)}" aria-label="恢复到 ${E(backupWhen(item.time))} 的备份"${restoring ? " disabled" : ""}>恢复</button>`;
+        return `<li class="restore-row${armed ? " is-armed" : ""}"><span class="restore-when">${E(backupWhen(item.time))}</span><span class="k-badge k-badge--neutral restore-kind">${E(BACKUP_KINDS[item.kind] || "备份")}</span><span class="restore-counts${item.ok ? "" : " is-unreadable"}">${counts}</span><span class="restore-actions">${actions}</span>${armed ? '<p class="restore-warning">现在的数据会先自动备份一份，然后换成这份备份里的数据。</p>' : ""}</li>`;
+      };
+      return `${allowed ? "" : '<p class="muted tiny">只有系统管理员可以恢复备份。</p>'}<ul class="restore-list" aria-label="备份记录">${backups.items.map(row).join("")}</ul>`;
+    }
+    function paintBackups() {
+      const box = document.getElementById("biz-restore-list");
+      if (box) box.innerHTML = backupListMarkup();
+    }
+    async function loadBackups() {
+      if (!can("settings.general")) return;
+      backups = { status: "loading", items: [], message: "" };
+      restoreArmed = "";
+      paintBackups();
+      try {
+        const response = await fetch("/api/backups", { cache: "no-store" });
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 501) backups = { status: "trial", items: [], message: chineseOr(result.message, "网页试用版没有备份") };
+        else if (!response.ok || result.ok === false) throw Error(result.message || "");
+        else backups = { status: "ready", items: Array.isArray(result.backups) ? result.backups : [], message: "" };
+      } catch (e) {
+        backups = { status: "error", items: [], message: chineseOr(e?.message, "备份记录读不出来，请稍后再试。") };
+      }
+      paintBackups();
+      // 恢复后整页重新载入：载入完回到这一页时补上提示。
+      let notice = "";
+      try {
+        notice = sessionStorage.getItem(RESTORE_NOTICE) || "";
+        sessionStorage.removeItem(RESTORE_NOTICE);
+      } catch (_) {}
+      if (notice) {
+        const status = document.getElementById("biz-backup-status");
+        if (status) status.textContent = notice;
+        ctx.toast(notice);
+      }
+    }
+    async function restoreAction(name) {
+      if (!need("settings.general") || restoring) return;
+      if (!canRestore()) return ctx.toast("只有系统管理员可以恢复备份");
+      const item = backups.items.find((entry) => entry.name === name);
+      if (!item?.ok) return;
+      const status = document.getElementById("biz-backup-status");
+      if (restoreArmed !== name) {
+        restoreArmed = name;
+        paintBackups();
+        document.querySelector(`#biz-restore-list [data-biz-action="restore-backup"][data-name="${CSS.escape(name)}"]`)?.focus();
+        return;
+      }
+      restoring = true;
+      paintBackups();
+      if (status) status.textContent = "正在恢复…";
+      try {
+        const response = await fetch("/api/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.ok !== true) throw Error(result.message || "");
+        const notice = `已恢复到 ${backupWhen(item.time)} 的备份，原来的数据已另存一份`;
+        try { sessionStorage.setItem(RESTORE_NOTICE, notice); } catch (_) {}
+        if (status) status.textContent = notice;
+        root.location.reload();
+      } catch (e) {
+        restoring = false;
+        if (status) status.textContent = chineseOr(e?.message, "恢复没有成功，现在的数据没有改动。请稍后再试。");
+        // 恢复前的备份可能已经做好：重新读一次列表。
+        loadBackups();
       }
     }
     // 导出：行来自页面上已经按账号范围筛好的列表（scoped()）；商机、线索的列走字段权限（自定义字段的权限键是 custom.<id>）。
@@ -2647,6 +2754,11 @@
         return render();
       }
       if (action === "backup") return localAction();
+      if (action === "restore-backup") return restoreAction(d.name);
+      if (action === "restore-cancel") {
+        restoreArmed = "";
+        return paintBackups();
+      }
     });
     document.addEventListener("input", (e) => {
       if (extra()?.input?.(extraCtx(), e) === true) return;

@@ -142,21 +142,21 @@
   }
 
   // ---- 订单表单 ----
-  // 一种类型一个输入。新建时必填的字段带浏览器自己的 required；编辑旧订单时不带，旧订单里本来空着的必填字段不拦（见 order-fields-model.js）。
+  // 一种类型一个输入（组件套件的 k-input／k-textarea／k-select-trigger；日期用统一日期控件）。新建时必填的字段带浏览器自己的 required；编辑旧订单时不带，旧订单里本来空着的必填字段不拦（见 order-fields-model.js）。
   function control(E,def,value,isNew){
     const name=`custom.${def.id}`,id=`order-custom-${def.id}`,must=def.required&&isNew&&def.type!=='multi'?' required':'';
-    if(def.type==='textarea')return `<textarea id="${E(id)}" name="${E(name)}" rows="3" maxlength="${FM().LIMITS.textarea}" placeholder="请输入"${must}>${E(value??'')}</textarea>`;
-    if(def.type==='number')return `<input id="${E(id)}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value??'')}" placeholder="请输入数字" autocomplete="off"${must}>`;
+    if(def.type==='textarea')return `<textarea id="${E(id)}" name="${E(name)}" rows="3" maxlength="${FM().LIMITS.textarea}" placeholder="请输入" class="k-textarea"${must}>${E(value??'')}</textarea>`;
+    if(def.type==='number')return `<input id="${E(id)}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value??'')}" placeholder="请输入数字" autocomplete="off" class="k-input"${must}>`;
     if(def.type==='date')return `<input id="${E(id)}" name="${E(name)}" type="date" value="${E(value??'')}"${must}>`;
     if(def.type==='select'){
       const current=typeof value==='string'?value:'';
-      return `<select id="${E(id)}" name="${E(name)}"${must}><option value="">请选择</option>${[...new Set([...def.options,...(current?[current]:[])])].map(item=>`<option value="${E(item)}"${item===current?' selected':''}>${E(item)}</option>`).join('')}</select>`;
+      return `<select id="${E(id)}" name="${E(name)}" class="k-select-trigger"${must}><option value="">请选择</option>${[...new Set([...def.options,...(current?[current]:[])])].map(item=>`<option value="${E(item)}"${item===current?' selected':''}>${E(item)}</option>`).join('')}</select>`;
     }
     if(def.type==='multi'){
       const picked=Array.isArray(value)?value.map(String):[];
       return `<span class="order-multi" id="${E(id)}" role="group" aria-label="${E(def.name)}">${[...new Set([...def.options,...picked])].map(item=>`<label class="order-multi-option"><input type="checkbox" name="${E(name)}" value="${E(item)}"${picked.includes(item)?' checked':''}> ${E(item)}</label>`).join('')}</span>`;
     }
-    return `<input id="${E(id)}" name="${E(name)}" type="text" value="${E(value??'')}" maxlength="${FM().LIMITS.text}" placeholder="请输入" autocomplete="off"${must}>`;
+    return `<input id="${E(id)}" name="${E(name)}" type="text" value="${E(value??'')}" maxlength="${FM().LIMITS.text}" placeholder="请输入" autocomplete="off" class="k-input"${must}>`;
   }
   // defs：设置里的自定义字段；values：订单上的 custom；isNew：新建订单。
   function formMarkup(E,{defs,values,isNew}){

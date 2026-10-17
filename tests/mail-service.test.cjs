@@ -322,6 +322,24 @@ test('local drafts are created, updated, listed newest first and deleted', async
   } finally { await h.close(); }
 });
 
+test('a send that finishes after the data was replaced (restore) does not write a bare or foreign account row', async () => {
+  const h = await harness();
+  try {
+    // The account disappears while the message is on its way (a restored backup without a mail account).
+    const sending = h.service.send({ to: 'li@x.example', subject: 'during restore', text: 'x', fromName: 'Kris' });
+    h.account = null;
+    assert.equal((await sending).recipients.length, 1);
+    assert.equal(h.account, null, 'no account row made of only a sender name');
+    // The account is swapped for another mailbox while sending: the other account keeps its own sender name.
+    h.account = { provider: 'zoho', email: me.address, password: SECRET, site: 'cn', accountType: 'organization', host: 'imappro.zoho.com.cn', port: 993 };
+    const second = h.service.send({ to: 'li@x.example', subject: 'during restore 2', text: 'x', fromName: 'Kris' });
+    const other = { provider: 'zoho', email: 'other@example-trade.com', password: 'other', site: 'cn', accountType: 'organization', senderName: 'Other' };
+    h.account = other;
+    await second;
+    assert.deepEqual(h.account, other);
+  } finally { await h.close(); }
+});
+
 test('sending servers are fixed per site and account type', () => {
   const server = (email, site, accountType) => smtpClient.resolveServer({ email, site, accountType });
   assert.deepEqual(server('a@zoho.com.cn', 'cn', 'auto'), { host: 'smtp.zoho.com.cn', port: 465 }); assert.deepEqual(server('a@corp.example', 'cn', 'auto'), { host: 'smtppro.zoho.com.cn', port: 465 });

@@ -415,7 +415,11 @@ function createMailService({ store, endpoints = {}, now = () => new Date(), down
         inReplyTo: messageIds(draft.inReplyTo)[0] || '', references: messageIds(draft.references), date: now() } }, smtpOptions);
     } catch (error) { throw asHttp(error); }
     // 发出之后的收尾都不能让用户以为没发出去：失败只忽略。
-    try { if (senderName !== (current.senderName || '')) store.writeMailAccount({ ...store.readMailAccount(), senderName }); } catch (_) {}
+    // 发信途中数据可能被换过（从备份恢复）：那时已经没有邮箱账号、或换成了别的邮箱，就不记发件人名字，免得凭空写出一条账号记录。
+    try {
+      const stored = store.readMailAccount();
+      if (stored && stored.email === current.email && senderName !== (stored.senderName || '')) store.writeMailAccount({ ...stored, senderName });
+    } catch (_) {}
     try { if (draftId(request.draftId)) store.deleteMailDraft(draftId(request.draftId)); } catch (_) {}
     return { ok: true, messageId: result.messageId, recipients: result.accepted, rejected: result.rejected, attachmentCount: attachments.length };
   }
