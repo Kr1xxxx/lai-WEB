@@ -319,7 +319,7 @@ test('业务: a record that is not hers cannot be opened or changed by id', asyn
 
 test('业务: pages she may not open show the no-permission notice instead of the page', () => {
   const c = controller(amy);
-  for (const [route, text] of [['settings', '设置'], ['opp-flows', '商机设置'], ['team-goals', '团队数据'], ['team-targets', '目标管理'], ['doc-templates', '单据模版设置']]) {
+  for (const [route, text] of [['settings', '设置'], ['opp-flows', '商机设置'], ['team-goals', '团队数据'], ['team-targets', '目标管理'], ['doc-templates', '单据模板设置']]) {
     c.ui.navigate(route);
     assert.match(c.html, /class="empty role-blocked" role="status"/, route);
     assert.match(c.html, /没有“/, route);

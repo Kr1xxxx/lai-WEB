@@ -22,7 +22,7 @@
     ['跟进动态',[['activity.view','查看']]],
     ['邮件',[['mail.view','查看'],['mail.send','写信和回复']]],
     ['沟通',[['chat.view','查看聊天记录'],['chat.send','打开 WhatsApp 聊天和记聊天'],['chat.import','导入和撤销聊天记录'],['chat.template','管理聊天模板']]],
-    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模版设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理'],['settings.lead','线索设置'],['settings.rate','汇率设置'],['settings.task','任务设置'],['settings.switch','功能开关']]],
+    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模板设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理'],['settings.lead','线索设置'],['settings.rate','汇率设置'],['settings.task','任务设置'],['settings.switch','功能开关']]],
   ].map(([name,items])=>Object.freeze([name,Object.freeze(items.map(item=>Object.freeze(item)))])));
   const KEYS=Object.freeze(GROUPS.flatMap(([,items])=>items.map(([key])=>key)));
   const labelOf=key=>{for(const [group,items] of GROUPS){const hit=items.find(item=>item[0]===key);if(hit)return `${group}·${hit[1]}`;}return key;};
