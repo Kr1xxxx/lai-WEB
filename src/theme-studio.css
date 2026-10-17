@@ -395,61 +395,144 @@
 /* ===== /S1 ===== */
 
 /* ===== S2: controls（按钮、输入、下拉、分段页签、徽标、分页、开关、勾选） ===== */
-/* ---------- 按钮 ---------- */
-:root[data-theme="studio"] body button { border-radius: var(--studio-r-sm); border-color: rgba(29, 28, 26, 0.16); color: var(--ink-900); }
+/* 数值取自 Gr8r components.css：按钮 .btn/.btn-sm、输入 .input/.select、分段 .seg、徽标 .badge、勾选 .check/.radio、开关 .toggle。 */
+/* ---------- 元素级（比皮肤强、比组件套件弱）：没有套件类名的旧按钮和输入框 ---------- */
+:root[data-theme="studio"] body :is(button, input, select, textarea) { border-radius: var(--studio-r-sm); }
+:root[data-theme="studio"] body button { border-color: var(--studio-border-strong); color: var(--studio-text); }
 /* 悬停不再描靛蓝边（皮肤里的规则），只是边稍深；比组件套件的幽灵按钮弱一级，所以它们仍是无边 */
-:root[data-theme="studio"] body button:hover:not(:disabled) { border-color: rgba(29, 28, 26, 0.24); }
+:root[data-theme="studio"] body button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
+:root[data-theme="studio"] body :is(input, select, textarea) { border-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] :is(input:not([type="checkbox"], [type="radio"]), select, textarea):focus,
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea):focus { border-color: var(--studio-accent); box-shadow: var(--studio-focus); outline: none; }
+:root[data-skin="glass"][data-theme="studio"] input::placeholder,
+:root[data-skin="glass"][data-theme="studio"] textarea::placeholder,
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea)::placeholder { color: var(--studio-text-3); opacity: 1; }
+/* ---------- 按钮：30 高、0 11px、12.5/500、圆角 6；按下缩到 0.97 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-btn {
+  height: var(--studio-h-md); min-height: var(--studio-h-md); padding: 0 11px; gap: 6px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui);
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: var(--studio-dur); transition-timing-function: var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-btn:active:not(:disabled) { transform: scale(0.97); }
+/* 次要（默认）：白底、深一档的边、细阴影；悬停 surface-2，按下 surface-3 */
+:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost, .k-btn--danger) {
+  background: var(--studio-surface); border-color: var(--studio-border-strong); color: var(--studio-text); box-shadow: var(--studio-shadow-sm);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost, .k-btn--danger):hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-border-strong); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost, .k-btn--danger):active:not(:disabled) { background: var(--studio-surface-3); }
+/* 主按钮：强调色、底边一道暗线；悬停、按下逐级加深 */
 :root[data-skin="glass"][data-theme="studio"] button.primary,
 :root[data-skin="glass"][data-theme="studio"] .primary,
 :root[data-skin="glass"][data-theme="studio"] .k-btn--primary {
-  background: var(--brand-500); border-color: var(--brand-500); color: var(--studio-surface); font-weight: 500;
-  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  background: var(--studio-accent); border-color: var(--studio-accent); color: var(--studio-on-accent); font-weight: var(--studio-fw-ui);
+  box-shadow: var(--studio-shadow-primary);
 }
 :root[data-skin="glass"][data-theme="studio"] button.primary:hover:not(:disabled),
-:root[data-skin="glass"][data-theme="studio"] .k-btn--primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--studio-surface); }
-:root[data-skin="glass"][data-theme="studio"] .k-btn {
-  height: 30px; min-height: 30px; padding: 0 11px; border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: 500;
+:root[data-skin="glass"][data-theme="studio"] .k-btn--primary:hover:not(:disabled) { background: var(--studio-accent-hover); border-color: var(--studio-accent-hover); color: var(--studio-on-accent); }
+:root[data-skin="glass"][data-theme="studio"] button.primary:active:not(:disabled),
+:root[data-skin="glass"][data-theme="studio"] .k-btn--primary:active:not(:disabled) { background: var(--studio-accent-active); border-color: var(--studio-accent-active); }
+/* 幽灵：无边无底、text-2；悬停 surface-2 黑字，按下 surface-3 */
+:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost { background: transparent; border-color: transparent; color: var(--studio-text-2); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost:hover:not(:disabled) { background: var(--studio-surface-2); border-color: transparent; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost:active:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text); }
+/* 危险：来财的危险按钮是白底红字（删除确认里用），边同次要按钮；悬停浅红底 */
+:root[data-skin="glass"][data-theme="studio"] .k-btn--danger { background: var(--studio-surface); border-color: var(--studio-border-strong); color: var(--studio-red); box-shadow: var(--studio-shadow-sm); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--danger:hover:not(:disabled) { background: var(--studio-red-soft); border-color: var(--studio-red); color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--sm { height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding: 0 8px; font-size: var(--studio-fs-xs); }
+/* 文字按钮（没有边框的小按钮）：像 Gr8r 的幽灵按钮 */
+:root[data-skin="glass"][data-theme="studio"] .text-button { border-radius: var(--studio-r-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .text-button:hover:not(:disabled) { background: var(--studio-surface-2); color: var(--studio-text); }
+/* ---------- 输入框、下拉：30 高、0 10px、13.5、border-strong；悬停边加深，聚焦强调色 + 3px 浅色环 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger, .lai-select-trigger) {
+  border-radius: var(--studio-r-sm); border-color: var(--studio-border-strong); background-color: var(--studio-surface); color: var(--studio-text); font-size: var(--studio-fs);
 }
-:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost) { border-color: var(--ink-300); box-shadow: var(--studio-shadow-sm); }
-:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost):hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] .k-btn--sm { height: 26px; min-height: 26px; padding: 0 8px; font-size: var(--studio-fs-xs); }
-:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost { color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost:hover:not(:disabled) { background: var(--studio-surface-2); color: var(--ink-900); }
-/* ---------- 输入框、下拉 ---------- */
-:root[data-theme="studio"] body :is(input, select, textarea) { border-radius: var(--studio-r-sm); border-color: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] :is(input:not([type="checkbox"], [type="radio"]), select, textarea):focus,
-:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea):focus { border-color: var(--brand-500); box-shadow: 0 0 0 3px var(--studio-accent-soft); outline: none; }
-:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-select-trigger, .lai-select-trigger) { height: 30px; min-height: 30px; line-height: 28px; border-radius: var(--studio-r-sm); border-color: var(--ink-300); font-size: var(--studio-fs-sm); }
-:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger):hover:not(:disabled) { border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
-:root[data-skin="glass"][data-theme="studio"] input::placeholder,
-:root[data-skin="glass"][data-theme="studio"] textarea::placeholder { color: var(--ink-600); }
-:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"] { border-radius: var(--studio-r-xs); border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
-/* ---------- 页签（分段式）：浅灰槽、选中白色小卡片 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-select-trigger:not(.lai-select-trigger)) { height: var(--studio-h-md); min-height: var(--studio-h-md); padding-left: 10px; line-height: 28px; }
+:root[data-skin="glass"][data-theme="studio"] .k-input { padding-right: 10px; }
+:root[data-skin="glass"][data-theme="studio"] .k-textarea { padding: 8px 10px; line-height: 1.5; }
+/* 统一下拉的高度只走 --dd-h（S0 设成 30；表单里 36 是来财自己的设定），这里只让行高跟着它 */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-trigger { line-height: calc(var(--dd-h) - 2px); font-weight: var(--studio-fw-body); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-trigger[data-empty="true"] { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger, .lai-select-trigger):hover:not(:disabled) { border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-select-trigger, .lai-select-trigger):is([aria-expanded="true"], :focus-visible) { border-color: var(--studio-accent); box-shadow: var(--studio-focus); outline: none; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger, .lai-select-trigger):disabled { background-color: var(--studio-surface-2); color: var(--studio-text-3); }
+/* 商机、产品筛选条的搜索框：皮肤里那条规则更强，这里用完整前缀重写边和圆角 */
+:root[data-skin="glass"][data-theme="studio"] .opp-toolbar input[type="search"] { border-radius: var(--studio-r-sm); border-color: var(--studio-border-strong); }
+/* ---------- 页签（分段式）：surface-3 槽、2px 内距；项 24 高、0 9px、12/500、圆角 5；选中白卡片 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .k-tabs { padding: 2px; gap: 2px; border-radius: var(--studio-r-sm); background: var(--studio-surface-3); }
-:root[data-skin="glass"][data-theme="studio"] .k-tab { height: 24px; min-height: 24px; padding: 0 9px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .k-tab {
+  height: calc(var(--studio-h-sm) - 2px); min-height: calc(var(--studio-h-sm) - 2px); padding: 0 9px; gap: 5px;
+  border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-tab:hover:not(:disabled) { color: var(--studio-text); }
 :root[data-skin="glass"][data-theme="studio"] .k-tab:is([aria-selected="true"], .is-active),
 :root[data-skin="glass"][data-theme="studio"] .k-tab:is([aria-selected="true"], .is-active):hover:not(:disabled) {
-  background: var(--studio-surface); color: var(--ink-900); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--ink-200);
+  background: var(--studio-surface); color: var(--studio-text); box-shadow: var(--studio-shadow-seg);
 }
-/* 竖排页签（设置类页面左边的分类）：和二级导航一样，选中白卡片黑字 */
-:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical { background: transparent; padding: 0; }
-:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab { height: 30px; min-height: 30px; font-size: var(--studio-fs); color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--ink-900); }
+/* 竖排页签（设置类页面左边的分类）：同 Gr8r 侧栏行，30 高、行距 0、0 8px、13.5/450、圆角 6；选中白卡片 500 */
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical { gap: 0; padding: 0; border-radius: 0; background: transparent; }
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab {
+  height: var(--studio-side-row); min-height: var(--studio-side-row); padding: 0 8px; gap: 9px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text); }
 :root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active),
 :root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active):hover:not(:disabled) {
-  background: var(--studio-surface); color: var(--ink-900); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui); box-shadow: var(--studio-shadow-on);
 }
+/* ---------- 分页：26 高的幽灵小按钮，当前页是白底次要按钮 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-pager button {
+  min-width: var(--studio-h-sm); height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding: 0 8px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-pager button:hover:not(:disabled) { background: var(--studio-surface-2); border-color: transparent; color: var(--studio-text); }
 :root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"],
-:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"]:hover:not(:disabled) { border-color: var(--ink-300); color: var(--ink-900); background: var(--studio-surface); box-shadow: var(--studio-shadow-sm); }
-/* ---------- 徽标、标签：5px 圆角、20 高、细边 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .k-badge { height: 20px; padding: 0 7px; border-radius: var(--studio-r-badge); }
+:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"]:hover:not(:disabled) {
+  border-color: var(--studio-border-strong); background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui); box-shadow: var(--studio-shadow-sm);
+}
+/* ---------- 徽标、标签：20 高、0 7px、圆角 5、12/500；中性 surface-2 + 细边，彩色是浅底无边 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-badge {
+  height: var(--studio-badge-h); padding: 0 7px; gap: 5px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui);
+}
 :root[data-skin="glass"][data-theme="studio"] .k-badge--neutral,
-:root[data-skin="glass"][data-theme="studio"] .k-badge:not([class*="k-badge--"]) { background: var(--studio-surface-2); border-color: var(--ink-200); color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .tag { color: var(--ink-700); background: var(--studio-surface-2); border-color: var(--ink-200); border-radius: var(--studio-r-badge); }
-:root[data-skin="glass"][data-theme="studio"] .tag.green { color: var(--success-fg); background: var(--color-success-soft); border-color: transparent; }
-/* ---------- 勾选框、单选框、开关：靛蓝 ---------- */
-:root[data-skin="glass"][data-theme="studio"] input.k-switch { background: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] input.k-switch:checked { background: var(--brand-500); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge:not([class*="k-badge--"]) { background: var(--studio-surface-2); border-color: var(--studio-border); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--success { background: var(--studio-green-soft); border-color: transparent; color: var(--studio-green); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--warning { background: var(--studio-amber-soft); border-color: transparent; color: var(--studio-amber); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--danger { background: var(--studio-red-soft); border-color: transparent; color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--primary { background: var(--studio-accent-soft); border-color: transparent; color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .tag {
+  padding: 0 7px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); line-height: 18px;
+  color: var(--studio-text-2); background: var(--studio-surface-2); border-color: var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .tag.green { color: var(--studio-green); background: var(--studio-green-soft); border-color: transparent; }
+/* ---------- 勾选框 15、圆角 4、1.5 边；单选框 15 圆；开关 30×18、圆钮 14、位移 12 ---------- */
+:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"]:not(.k-switch) {
+  flex-basis: var(--studio-check); width: var(--studio-check); height: var(--studio-check);
+  border: 1.5px solid var(--studio-border-strong); border-radius: var(--studio-r-xs); background-size: 10px;
+}
+:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"]:not(.k-switch):hover:not(:disabled) { border-color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"]:not(.k-switch):is(:checked, :indeterminate) { border-color: var(--studio-accent); background-color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input) {
+  flex-basis: var(--studio-check); width: var(--studio-check); height: var(--studio-check); border: 1.5px solid var(--studio-border-strong); border-radius: var(--studio-r-full);
+}
+:root[data-skin="glass"][data-theme="studio"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):hover:not(:disabled) { border-color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):checked {
+  border-color: var(--studio-accent); background: radial-gradient(circle, var(--studio-accent) 0 3.5px, var(--studio-surface) 4px);
+}
+:root[data-skin="glass"][data-theme="studio"] input.k-switch {
+  width: var(--studio-toggle-w); height: var(--studio-toggle-h); border: 0; border-radius: var(--studio-r-full); background: var(--studio-border-strong);
+}
+:root[data-skin="glass"][data-theme="studio"] input.k-switch::after {
+  width: var(--studio-toggle-knob); height: var(--studio-toggle-knob); background: var(--studio-surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] input.k-switch:checked { background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] input.k-switch:checked::after { transform: translateX(calc(var(--studio-toggle-w) - var(--studio-toggle-knob) - 4px)); }
+/* ---------- 键盘焦点：2px 强调色外框、离 1px（无圆角的元素给 4px）；文字输入框用上面的浅色环，不再加外框 ---------- */
+:root[data-theme="studio"] :where(button, a, summary, [tabindex], [role="button"], [role="tab"]):focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 1px; }
+:root[data-theme="studio"] :where(a, summary, [tabindex]:not(button, input, select, textarea)):focus-visible { border-radius: var(--studio-r-xs); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-btn, .k-tab, .k-pager button, .k-switch, .k-checkbox, input[type="checkbox"], input[type="radio"]):focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 1px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea):focus-visible { outline: none; }
 /* ===== /S2 ===== */
 
 /* ===== S3: headers-cards-empty（页头、标题旁页签、工具行、卡片、空状态） ===== */
