@@ -31,7 +31,7 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   assert.match(html, /共 <b>4<\/b> 个商机/);
   for (const id of ['opp-search', 'opp-sort', 'opp-owner', 'opp-date-field', 'opp-from', 'opp-to', 'opp-archived', 'opp-currency']) assert.ok(html.includes(`id="${id}"`), id);
   assert.doesNotMatch(html, /opp-flow/, 'only one sales flow exists, so there is nothing to choose');
-  assert.deepEqual([...html.matchAll(/<div class="opp-stat k-card is-(\w+)"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<\/span><b><small>(\w+)<\/small>([^<]+)<\/b><\/div>/g)].map(m => [m[1], m[2], `${m[3]} ${m[4]}`]),
+  assert.deepEqual([...html.matchAll(/<div class="opp-stat k-card is-(\w+)"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<\/span><b><small>(\w+)<\/small> ([^<]+)<\/b><\/div>/g)].map(m => [m[1], m[2], `${m[3]} ${m[4]}`]),
     [['total', '总销售金额', 'USD 631.74'], ['open', '进行中', 'USD 431.74'], ['won', '赢单', 'USD 200.00'], ['lost', '输单', 'USD 50.00']]);
   assert.match(html, /另有 1 个其他币种的商机/);
   assert.deepEqual([...html.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span class="opp-stage-name"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<\/span><span class="opp-stage-count k-badge k-badge--\w+">(\d+)<\/span><span class="opp-stage-amount">([^<]+)</g)].map(m => [m[1], m[2], `${m[3]}(${m[4]})`, m[5]]),
@@ -250,7 +250,7 @@ test('controller: filters, views, paging and drag-and-drop', async () => {
   const c = controller(sample());
   c.page.navigate('opportunities');
   c.change({id: 'opp-currency', value: 'EUR'});
-  assert.match(c.mounted.at(-1), /总销售金额<\/span><b><small>EUR<\/small>70\.00<\/b>/);
+  assert.match(c.mounted.at(-1), /总销售金额<\/span><b><small>EUR<\/small> 70\.00<\/b>/);
   c.change({id: 'opp-currency', value: 'USD'}); c.change({id: 'opp-search', value: '26100602'});
   assert.match(c.mounted.at(-1), /共 <b>1<\/b> 个商机/);
   c.change({id: 'opp-search', value: ''}); c.change({id: 'opp-archived', value: 'all'}); c.change({id: 'opp-owner', value: 'amy'});
@@ -501,7 +501,7 @@ test('board and analysis show one sales flow at a time; the flow picker appears 
   const sampleBoard = ui.boardMarkup(O.board(s, {flow: 'fs'}, TODAY), {}, {today: TODAY});
   assert.deepEqual([...sampleBoard.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span class="opp-stage-name"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<\/span><span class="opp-stage-count k-badge k-badge--\w+">(\d+)<\/span><span class="opp-stage-amount">([^<]+)</g)].map(m => m.slice(1)),
     [['open', 'sending', '寄样中', '1', 'USD 10.00'], ['won', 'confirmed', '已确认', '1', 'USD 20.00'], ['lost', 'lost', '输单', '0', 'USD 0.00']]);
-  assert.match(sampleBoard, /总销售金额<\/span><b><small>USD<\/small>30\.00<\/b>/);
+  assert.match(sampleBoard, /总销售金额<\/span><b><small>USD<\/small> 30\.00<\/b>/);
   const list = ui.boardMarkup(O.board(s, {flow: 'fs'}, TODAY), {mode: 'list'}, {today: TODAY});
   assert.match(list, /<span class="k-badge k-badge--success">已确认<\/span>/);
   const report = ui.analysisMarkup(O.analysis(s, {flow: 'fs'}, TODAY));

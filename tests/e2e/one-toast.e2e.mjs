@@ -55,7 +55,7 @@ for (const [width, height] of [[1440, 900], [1280, 800]]) {
 
     // The toast does not cover the header buttons, the header tabs or the board toolbar.
     const toastBox = await toast.boundingBox();
-    for (const selector of ['.pagebar button', '.opp-page button', '.opp-page input']) {
+    for (const selector of ['.k-pageheader button', '.opp-page button', '.opp-page input']) {
       for (const el of await page.locator(selector).all()) {
         if (!(await el.isVisible())) continue;
         const box = await el.boundingBox();

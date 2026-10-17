@@ -49,7 +49,7 @@
     }
     // 金额汇总：每个数字一张中性的 k-card，大号等宽数字；颜色只用在名称前的小圆点上（进行中＝主色，赢单＝绿，输单＝灰）。
     function totals(board){
-      const stat=(label,value,kind)=>`<div class="opp-stat k-card is-${kind}"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"></i>${label}</span><b><small>${E(board.currency)}</small>${number(value)}</b></div>`;
+      const stat=(label,value,kind)=>`<div class="opp-stat k-card is-${kind}"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"></i>${label}</span><b><small>${E(board.currency)}</small> ${number(value)}</b></div>`;
       return `<div class="opp-stats"><label class="opp-stat opp-stat-currency k-card"><span class="opp-stat-label">币种</span><select id="opp-currency" class="k-select-trigger" aria-label="币种">${(board.currencies.length?board.currencies:[board.currency]).map(code=>option(code,code,board.currency)).join('')}</select></label>`
         +stat('总销售金额',board.totals.total,'total')+stat('进行中',board.totals.open,'open')+stat('赢单',board.totals.won,'won')+stat('输单',board.totals.lost,'lost')
         +(board.otherCurrencyCount?`<p class="opp-stats-note">另有 ${board.otherCurrencyCount} 个其他币种的商机，切换币种查看；不同币种不折算。</p>`:'')

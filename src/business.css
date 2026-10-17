@@ -957,6 +957,8 @@ td.team-reached {
    颜色只表示意义：进行中＝主色，赢单＝绿，输单＝灰，逾期＝红；用在小圆点、数量徽标和日期上，卡片本身是中性的。
    要压过套件（:root[data-skin] .k-*）的地方也以 :root[data-skin] 开头。 */
 .opp-header { box-sizing: border-box; height: 60px; padding: 0; }
+/* 和旧页头一样：窄于 1350 时不显示说明，给标题后的页签和顶部提示留位置 */
+@media (max-width: 1350px) { .opp-header .k-pageheader-desc { display: none; } }
 .opp-kind-open, .opp-stat.is-open { --opp-accent: var(--primary); }
 .opp-kind-won, .opp-stat.is-won { --opp-accent: var(--success); }
 .opp-kind-lost, .opp-stat.is-lost { --opp-accent: var(--ink-400); }
@@ -978,7 +980,7 @@ td.team-reached {
 .opp-stat { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 0; padding: 12px 16px; }
 .opp-stat-label { display: flex; align-items: center; min-width: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
 .opp-stat b { min-width: 0; overflow: hidden; font-size: var(--text-2xl); font-weight: 600; line-height: 30px; color: var(--fg); font-variant-numeric: tabular-nums; white-space: nowrap; text-overflow: ellipsis; }
-.opp-stat b small { margin-right: 4px; font-size: var(--text-xs); font-weight: 500; color: var(--muted-fg); }
+.opp-stat b small { font-size: var(--text-xs); font-weight: 500; color: var(--muted-fg); }
 :root[data-skin] .opp-stat-currency .k-select-trigger { width: 100%; max-width: 140px; }
 .opp-stats-note { grid-column: 1 / -1; margin: -4px 0 0; font-size: var(--text-xs); color: var(--muted-fg); }
 

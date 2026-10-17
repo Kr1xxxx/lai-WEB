@@ -14,7 +14,7 @@ after(async () => { await app?.close(); });
 
 // No mailbox is set up in the test data, so the mail page's own 409 is expected.
 const unexpectedErrors = () => app.errors.filter((error) => !/HTTP 409: .*\/api\/mail\//.test(error));
-const tabs = () => app.page.locator('#app > main.main .pagebar .section-tabs .section-tab');
+const tabs = () => app.page.locator('#app > main.main :is(.pagebar, .k-pageheader) .section-tabs .section-tab');
 const tabState = () => tabs().evaluateAll((els) => els.map((el) => [el.textContent.trim(), el.getAttribute('aria-current')]));
 const subnavHidden = () => app.page.locator('#app-subnav').evaluate((el) => el.hidden && getComputedStyle(el).display === 'none');
 
