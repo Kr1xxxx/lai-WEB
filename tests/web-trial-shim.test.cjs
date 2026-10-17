@@ -58,17 +58,16 @@ test('save needs the current revision, bumps it, and survives a re-read', async 
   assert.equal(broken.status, 400);
 });
 
-test('other URLs pass through; backup and data folder explain themselves', async () => {
+test('other URLs pass through; backup explains itself; the removed data-folder route is not answered by the shim', async () => {
   const { window, passed } = load();
   assert.equal(await window.fetch('/something-else'), 'inner');
   assert.deepEqual(passed, ['/something-else']);
-  for (const url of ['/api/manual-backup', '/api/open-data-folder']) {
-    const response = await window.fetch(url, { method: 'POST' });
-    const body = await response.json();
-    assert.equal(response.status, 501);
-    assert.equal(body.ok, false);
-    assert.ok(body.message);
-  }
+  const response = await window.fetch('/api/manual-backup', { method: 'POST' });
+  const body = await response.json();
+  assert.equal(response.status, 501);
+  assert.equal(body.ok, false);
+  assert.ok(body.message);
+  assert.equal(await window.fetch('/api/open-data-folder', { method: 'POST' }), 'inner', 'the data-folder route no longer exists, so the shim leaves it alone');
 });
 
 test('import log is stored per id', async () => {

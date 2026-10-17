@@ -13,20 +13,23 @@
   const GROUPS = Object.freeze([
     { id: "general", title: "通用", items: [
       { id: "defaults", title: "默认录入", note: "公司资料（名称、地址、电话、银行）、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
-      { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，只影响这台电脑", open: ["route", "settings"], current: "theme", perm: "settings.general" },
+      { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，配色跟着数据一起保存", open: ["route", "settings"], current: "theme", perm: "settings.general" },
       { id: "favorites", title: "常用导航", note: "管理左侧栏“常用”里的快捷入口：添加、排序、移除", open: ["action", "favorite-nav-manage"] },
       { id: "feature-switch", title: "功能开关", note: "线索、商机、产品、单据、邮件、沟通、团队数据可以关掉不用；数据都保留，重新打开就能用", open: ["route", "feature-switch"], perm: "settings.switch" },
     ] },
+    { id: "lead", title: "线索", items: [
+      { id: "lead-settings", title: "线索设置", note: "无效原因、线索字段、自定义字段", open: ["route", "lead-settings"], module: "lead", perm: "settings.lead" },
+    ] },
     { id: "customer", title: "客户", items: [
-      { id: "columns", title: "列表字段", note: "客户列表显示哪些字段、顺序和冻结列", open: ["action", "settings"] },
-      { id: "segments", title: "客群管理", note: "新建、编辑、归档客群", open: ["action", "manage-segments"] },
+      { id: "columns", title: "列表字段", note: "客户列表显示哪些字段、顺序和冻结列", open: ["action", "settings"], perm: "customer.view" },
+      { id: "segments", title: "客群管理", note: "新建、编辑、归档客群", open: ["action", "manage-segments"], perm: "customer.view" },
       { id: "customer-settings", title: "客户设置", note: "客户相关设置的入口页", open: ["screen", "customer-settings"], anyPerm: ["settings.customer", "settings.dedupe", "settings.source"] },
     ] },
     { id: "opportunity", title: "商机", items: [
       { id: "flows", title: "商机设置", note: "销售流程、输单原因和商机字段", open: ["route", "opp-flows"], module: "opp", perm: "settings.opportunity" },
     ] },
     { id: "product", title: "产品和单据", items: [
-      { id: "product-settings", title: "产品设置", note: "产品分组、字段、规格和布局；打开产品页后点上方的设置页签", open: ["route", "products"], module: "product", perm: ["product.view", "settings.product"] },
+      { id: "product-settings", title: "产品设置", note: "产品分组、产品字段、规格管理、布局", open: ["route", "products"], module: "product", perm: ["product.view", "settings.product"] },
       { id: "doc-templates", title: "单据模板", note: "报价单、形式发票、销售订单、发货通知的样式，并可预览", open: ["route", "doc-templates"], module: "doc", perm: "settings.docTemplate" },
       { id: "rates", title: "汇率设置", note: "每 100 外币折合多少美元，用来把外币订单折成美元", open: ["route", "rates"], perm: "settings.rate" },
     ] },
