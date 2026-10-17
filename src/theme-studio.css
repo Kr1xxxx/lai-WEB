@@ -620,6 +620,13 @@
 :root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .op-filters) {
   box-sizing: border-box; min-height: var(--studio-toolbar-h); margin: 0; padding: 8px var(--studio-gutter); border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; background: transparent; box-shadow: none;
 }
+/* 工具行、翻页条里的控件（Gr8r .search-sm / .toolbar .btn-ghost）：26 高、12.5 字，工具行才能是 44；统一下拉和日期框跟着 --dd-h */
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .opp-toolbar, .op-filters, .business-toolbar, .replica-panel .pagination) { --dd-h: var(--studio-h-sm); --dd-font: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .opp-toolbar, .op-filters, .business-toolbar, .replica-panel .pagination) :is(.k-input, input[type="search"], input[type="text"], .lai-select-trigger, .k-select-trigger, .k-btn:not(.k-btn--primary), .text-button) {
+  height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding-top: 0; padding-bottom: 0; line-height: calc(var(--studio-h-sm) - 2px);
+}
+/* 字号：输入、下拉 12.5；工具行里的幽灵按钮保持套件的 12（Gr8r .toolbar .btn-ghost 是 fs-xs） */
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .opp-toolbar, .op-filters, .business-toolbar, .replica-panel .pagination) :is(.k-input, input[type="search"], input[type="text"], .lai-select-trigger, .k-select-trigger, .text-button) { font-size: var(--studio-fs-sm); }
 
 /* ---------- 空状态（Gr8r .empty）：无边框、居中、56/24（卡片里 28/16）、标题 14.5/600、文字 12.5 text-2 ----------
    :where 让页面自己调过的空状态（看板列、团队排行、客户详情侧栏…）保持原样，只换套件的默认值。 */
