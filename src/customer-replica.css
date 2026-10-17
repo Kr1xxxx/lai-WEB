@@ -2762,6 +2762,9 @@ button.subnav-restore {
 :root[data-skin] .replica-panel > .groups { border-right: 1px solid var(--border); }
 :root[data-skin] .replica-panel.groups-collapsed > .groups { border-right-width: 0; }
 :root[data-skin] .replica-panel .list-area { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; padding: 0; }
+/* 客群栏收起后左边留一条窄边放「展开」把手，把手不压在工具条和表格上 */
+:root[data-skin] .replica-panel.groups-collapsed .list-area { padding-left: var(--space-3); }
+:root[data-skin] .replica-panel.groups-motion .list-area { transition: padding-left var(--motion-filter-drawer) ease; }
 
 /* 工具条：左边当前客群和人数，右边快捷筛选 */
 :root[data-skin] .replica-panel .replica-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; min-height: 52px; padding: 0 16px; border-bottom: 1px solid var(--border); }
