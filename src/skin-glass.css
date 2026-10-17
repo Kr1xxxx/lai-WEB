@@ -429,5 +429,4 @@
 :root[data-skin="glass"][data-theme="tech"] .tag { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-200); }
 :root[data-skin="glass"][data-theme="tech"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }
 :root[data-skin="glass"][data-theme="tech"] .lcd-person span { background: #5d6c80; }
-:root[data-skin="glass"][data-theme="tech"] :is(.opp-stage-count, .opp-card-menu:hover) { background: var(--ink-100); }
 :root[data-skin="glass"][data-theme="tech"] .lcd-side-order { background: var(--ink-50); }
