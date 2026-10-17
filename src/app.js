@@ -2635,7 +2635,7 @@
     if (f.id === "level") return E(customerLevelForRow(c) || '—');
     if (f.id === "tags")
       return (
-        c.tags.map((t) => `<span class="tag">${E(t)}</span>`).join("") || "—"
+        c.tags.map((t) => `<span class="k-badge k-badge--neutral">${E(t)}</span>`).join("") || "—"
       );
     if (f.id === "country") return E(C.countryLabel(c.country));
     // 自定义字段：按字段类型显示（数字不加金额符号，多选用“、”隔开）。
@@ -2687,8 +2687,8 @@
     const tooltip = (c, f) => f.id === "level" ? customerLevelForRow(c)
       : f.type === "boolean" ? booleanLabel(c[f.id])
       : Array.isArray(c[f.id]) ? c[f.id].join("、") : (c[f.id] ?? "");
-    const body = p.items.map((c) => `<tr><td class="check-col frozen" style="left:0"><input type="checkbox" data-select="${E(c.name)}" aria-label="选择 ${E(c.name)}" ${selected.has(c.name) ? "checked" : ""}></td>${fields.map((f) => `<td ${attrs.get(f.id)} title="${E(tooltip(c, f))}">${displayCell(c, f)}</td>`).join("")}<td class="actions-col"><button class="text-button row-more" data-row-more="${E(c.name)}" aria-label="${E(c.name)}的操作">⋮</button></td></tr>`).join("");
-    return `<table class="customer-table ${prefs.striped ? "striped" : ""} ${prefs.compact ? "compact" : ""} ${prefs.verticalLines ? "vertical-lines" : ""}" style="width:${fields.reduce((n, f) => n + f.width, selectionWidth + actionsWidth)}px"><colgroup><col style="width:${selectionWidth}px">${fields.map((f) => `<col style="width:${f.width}px">`).join("")}<col style="width:${actionsWidth}px"></colgroup><thead><tr><th class="check-col frozen" style="left:0"><input type="checkbox" aria-label="选择本页客户" id="select-page" ${p.items.length && p.items.every((c) => selected.has(c.name)) ? "checked" : ""}></th>${fields.map((f) => headerCell(f)).join("")}<th class="actions-col">操作</th></tr></thead><tbody>${body}</tbody></table>`;
+    const body = p.items.map((c) => `<tr><td class="check-col frozen" style="left:0"><input type="checkbox" data-select="${E(c.name)}" aria-label="选择 ${E(c.name)}" ${selected.has(c.name) ? "checked" : ""}></td>${fields.map((f) => `<td ${attrs.get(f.id)} title="${E(tooltip(c, f))}">${displayCell(c, f)}</td>`).join("")}<td class="actions-col"><button type="button" class="k-btn k-btn--ghost k-btn--sm row-more" data-row-more="${E(c.name)}" aria-label="${E(c.name)}的操作">${icon("more")}</button></td></tr>`).join("");
+    return `<table class="k-table customer-table ${prefs.striped ? "striped" : ""} ${prefs.compact ? "compact" : ""} ${prefs.verticalLines ? "vertical-lines" : ""}" style="width:${fields.reduce((n, f) => n + f.width, selectionWidth + actionsWidth)}px"><colgroup><col style="width:${selectionWidth}px">${fields.map((f) => `<col style="width:${f.width}px">`).join("")}<col style="width:${actionsWidth}px"></colgroup><thead><tr><th class="check-col frozen" style="left:0"><input type="checkbox" aria-label="选择本页客户" id="select-page" ${p.items.length && p.items.every((c) => selected.has(c.name)) ? "checked" : ""}></th>${fields.map((f) => headerCell(f)).join("")}<th class="actions-col">操作</th></tr></thead><tbody>${body}</tbody></table>`;
   }
   function settings(pointerActivated = false) {
     columnDraft = tablePrefs();

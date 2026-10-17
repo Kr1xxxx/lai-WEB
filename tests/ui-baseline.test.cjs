@@ -37,7 +37,8 @@ test('customer surfaces consume shared tokens for core hierarchy and floating la
   const suggestions = read('src/customer-suggestions.css');
   assert.match(shared, /background:\s*var\(--color-primary-500\)/);
   assert.match(shared, /box-shadow:\s*var\(--shadow-focus\)/);
-  assert.match(customer, /\.panel\s*\{[^}]*box-shadow:\s*var\(--shadow-card\)/s);
+  // 客户列表的白色面板是组件套件的卡片（.k-card，D-028）：边框、圆角、底色都来自 ui-kit.css 的变量
+  assert.match(read('src/customer-list-ui.js'), /class="panel replica-panel [^>]*k-card">/);
   assert.match(customer, /\.popover\s*\{[^}]*box-shadow:\s*var\(--shadow-popover\)/s);
   assert.match(select, /\.lai-select-menu\s*\{[^}]*box-shadow:\s*var\(--shadow-popover\)/s);
   assert.match(suggestions, /box-shadow:\s*var\(--shadow-popover\)/);

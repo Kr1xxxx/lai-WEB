@@ -17,9 +17,9 @@
    "hex": 51
   },
   "customer-replica.css": {
-   "fontSizePx": 98,
-   "radiusPx": 56,
-   "hex": 142
+   "fontSizePx": 82,
+   "radiusPx": 47,
+   "hex": 112
   },
   "customer-select.css": {
    "fontSizePx": 1,
@@ -68,8 +68,8 @@
   },
   "skin-glass.css": {
    "fontSizePx": 14,
-   "radiusPx": 24,
-   "hex": 60
+   "radiusPx": 21,
+   "hex": 54
   },
   "styles.css": {
    "fontSizePx": 52,
