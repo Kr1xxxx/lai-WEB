@@ -50,7 +50,7 @@
       return [{ name: '客户', ...EM.customerRows(rows, { gate, columns, state: ctx.state }) }];
     }
     if (kind === 'order') {
-      const sheets = [{ name: '订单', ...EM.orderRows(rows, { gate }) }];
+      const sheets = [{ name: '订单', ...EM.orderRows(rows, { gate, state: ctx.state }) }];
       if (choice.format !== 'csv' && choice.format !== 'tsv') sheets.push({ name: '产品明细', ...EM.orderItemRows(rows) });
       return sheets;
     }

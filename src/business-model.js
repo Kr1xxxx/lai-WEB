@@ -96,6 +96,7 @@
     if(items.length)return items.map(item=>({code:trim(item.code),name:trim(item.name),model:trim(item.model),unit:trim(item.unit),qty:amount(item.qty),price:amount(item.price)}));
     return [{code:'',name:trim(order&&order.productType)||'订单货款',model:'',unit:'',qty:1,price:amount(order&&order.amount)}];
   }
+  const orderFields=()=>typeof module!=='undefined'&&module.exports?require('./order-fields-model.js'):root.LaiOrderFields;
   function upsertOrder(state,id,input){
     requireId(id);
     const orders=state.orders||[],previous=orders.find(order=>order.id===id);
@@ -133,6 +134,9 @@
       if(!next.orderMonth||(Object.hasOwn(input,'createdAt')&&(!previous?.orderMonth||previous.orderMonth===oldMonth)))next.orderMonth=datePart(next.createdAt).slice(0,7);
     }
     if(!validMonth(next.orderMonth))throw new Error('订单月份无效');
+    // 自定义字段（设置 → 订单字段，见 order-fields-model.js）：整理表单传来的值、检查必填；没带 custom 的调用（改阶段等）原值不动。
+    const OF=orderFields();
+    if(OF){const custom=OF.applyCustom(state,previous,input);if(custom!==undefined)next.custom=custom;else delete next.custom;}
     assertUnique(state,id,next.num,previous?'orders':undefined);
     const customers={...(state.customers||{})};
     const clientKey=customerKey(next.client);
