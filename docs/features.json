@@ -887,6 +887,25 @@
     "browser": true,
     "mac": false
    }
+  },
+  {
+   "id": "order-custom-fields",
+   "area": "orders",
+   "description": "设置 → 订单字段: add, rename, move, require and delete order fields (text, textarea, number, date, select, multi) and their options; values in the order form (required only for new orders and for fields touched on old ones), a read-only list for accounts without 编辑订单, and order export columns; deleted fields keep their values in the data but are no longer shown or exported",
+   "steps": [
+    "Open 设置 → 设置, scroll to 订单字段, add a 文本 field marked 必填 and a 单选 field with two options",
+    "新建订单: both fields are under 自定义字段; saving without the required one says 请填写<field>",
+    "Fill them, save, open the order again: the values are there",
+    "Open an older order whose required field is empty and change only 备注: it saves",
+    "Export orders: the fields are the last columns with the values",
+    "Delete a field (two clicks): it leaves the form and the export, the stored value stays",
+    "Type something in 默认录入 without saving, then add an order field: the typed text and the scroll position stay"
+   ],
+   "e2e": "order-custom-fields.e2e.mjs",
+   "verified": {
+    "browser": true,
+    "mac": false
+   }
   }
  ]
 }

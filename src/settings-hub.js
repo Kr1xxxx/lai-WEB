@@ -12,7 +12,7 @@
   // 没写就谁都能看到。markup 的 info.can(key) 决定当前账号有没有，没传时全部显示。
   const GROUPS = Object.freeze([
     { id: "general", title: "通用", items: [
-      { id: "defaults", title: "默认录入", note: "公司资料（名称、地址、电话、银行）、订单编号前缀、默认币种、默认跟进人", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
+      { id: "defaults", title: "默认录入", note: "公司资料（名称、地址、电话、银行）、订单编号前缀、默认币种、默认跟进人、订单字段", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
       { id: "theme", title: "界面配色", note: "粉色、橙色、小满，选中后立即生效，配色跟着数据一起保存", open: ["route", "settings"], current: "theme", perm: "settings.general" },
       { id: "favorites", title: "常用导航", note: "管理左侧栏“常用”里的快捷入口：添加、排序、移除", open: ["action", "favorite-nav-manage"] },
       { id: "feature-switch", title: "功能开关", note: "线索、商机、产品、单据、邮件、沟通、团队数据可以关掉不用；数据都保留，重新打开就能用", open: ["route", "feature-switch"], perm: "settings.switch" },

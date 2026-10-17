@@ -2921,12 +2921,17 @@ td.team-reached {
 /* 角色字段权限：只读字段看得出不能改 */
 :is(.opp-form, #product-form) :is(input, select, textarea):is(:disabled, [readonly]), .opp-form fieldset:disabled { background: var(--ink-50); color: var(--ink-600); cursor: not-allowed; }
 /* 订单自定义字段：设置页里的「订单字段」、订单表单里的多选、详情里的取值 */
-.of-section { flex: none; max-width: 860px; }
+/* 和同一页的「默认录入」「界面配色」一样宽 */
+.of-section { flex: none; }
 .of-section .cf-add input[name="options"] { flex: 1 1 260px; max-width: 360px; }
 .of-section .cf-field .cs-row { flex-wrap: wrap; }
+/* 名称框按名称长短放宽（--of-name 是字数），最长 30 个字也能看全；窄屏时照常缩小 */
+.of-section .cf-name { flex: 0 1 max(240px, calc(var(--of-name, 0) * 1em + 26px)); max-width: 100%; }
 .of-section .of-error { margin-bottom: 10px; }
 .order-multi { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 4px 0; }
 .order-multi-option { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; cursor: pointer; }
 .field .order-multi-option input[type="checkbox"] { width: auto; height: auto; }
 .order-custom-head { margin-top: 24px; }
 .order-custom-head + .form-grid, .order-custom-infos { margin-bottom: 24px; }
+.order-custom-infos .order-custom-wide { grid-column: 1 / -1; }
+.order-custom-infos .order-custom-wide dd { white-space: pre-line; }
