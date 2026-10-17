@@ -33,7 +33,7 @@ function page(route, { theme, defaultTheme } = {}) {
 test('设置: the picker lists the three colours (小满 removed, D-029) and marks pink as the default', () => {
   const html = page('settings');
   const ids = [...html.matchAll(/data-biz-action="set-theme" data-theme-id="(\w+)"/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['pink', 'orange', 'tech']);
+  assert.deepEqual(ids, ['pink', 'orange', 'tech', 'studio']);
   assert.doesNotMatch(html, /小满|xiaoman/);
   assert.match(html, /<strong>粉色（默认）<\/strong>/);
   assert.match(html, /<strong>科技蓝<\/strong>/);
@@ -52,7 +52,7 @@ test('设置: the chosen colour is highlighted, and the default label follows th
 test('设置中心: the 界面配色 card names the current colour, and the note lists the three', () => {
   assert.match(page('settings-hub', { theme: 'tech' }), /界面配色[\s\S]*?科技蓝/);
   assert.match(page('settings-hub'), /粉色（默认）/);
-  assert.match(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /粉色、橙色、科技蓝，/);
+  assert.match(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /粉色、橙色、科技蓝、米白，/);
   assert.doesNotMatch(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /小满/);
 });
 
@@ -61,7 +61,7 @@ test('app.js: every theme uses the one (glass) layout, a saved xiaoman shows as 
   const root = { dataset: {} };
   const apply = applyTheme({ documentElement: root });
   assert.deepEqual({ ...root.dataset }, { skin: 'glass' }, 'the layout is set before any data is loaded');
-  for (const [id, theme] of [['pink', 'pink'], ['orange', 'orange'], ['tech', 'tech'], ['xiaoman', 'tech']]) {
+  for (const [id, theme] of [['pink', 'pink'], ['orange', 'orange'], ['tech', 'tech'], ['studio', 'studio'], ['xiaoman', 'tech']]) {
     apply(id);
     assert.deepEqual({ ...root.dataset }, { theme, skin: 'glass' });
   }

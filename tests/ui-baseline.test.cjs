@@ -98,7 +98,7 @@ test('every theme (pink, orange, tech) defines the same colour variables and not
 test('the chosen theme is stored in laiSettings.theme, applied to <html>, and switched from 设置', () => {
   const app = appSource();
   const ui = read('src/business-ui.js');
-  assert.match(app, /const THEME_IDS = \["pink", "orange", "tech"\];/);
+  assert.match(app, /const THEME_IDS = \["pink", "orange", "tech", "studio"\];/);
   assert.match(app, /const RETIRED_THEMES = \{ xiaoman: "tech" \};/, 'a saved 小满 is shown as 科技蓝 (D-029)');
   assert.match(app, /const DEFAULT_THEME = "pink";/, 'the default colour is one constant');
   assert.match(app, /const theme = THEME_IDS\.includes\(shown\) \? shown : DEFAULT_THEME;/);
@@ -127,14 +127,14 @@ test('the workbench and menus with three or fewer entries have no second-level n
 test('pink is the default colour, and every colour option in 设置 has its own preview picture', () => {
   const ui = read('src/business-ui.js');
   const css = read('src/business.css');
-  assert.match(ui, /THEME_CHOICES = \[\["pink", "粉色"\], \["orange", "橙色"\], \["tech", "科技蓝"\]\]\.map/);
+  assert.match(ui, /THEME_CHOICES = \[\["pink", "粉色"\], \["orange", "橙色"\], \["tech", "科技蓝"\], \["studio", "米白"\]\]\.map/);
   assert.match(ui, /const DEFAULT_THEME = ctx\.defaultTheme \|\| "pink";/);
   assert.match(ui, /savedTheme\(settings\)\) \? savedTheme\(settings\) : DEFAULT_THEME/, 'the picker highlights the default colour when nothing was chosen');
   assert.match(tokens, /:root,\s*:root\[data-theme="pink"\]\s*\{/, 'pink also applies before data-theme is written');
   assert.doesNotMatch(tokens, /:root,\s*:root\[data-theme="xiaoman"\]/);
   assert.doesNotMatch(css, /data-preview="xiaoman"/, 'no 小满 preview any more (D-029)');
-  for (const id of ['pink', 'orange', 'tech']) {
+  for (const id of ['pink', 'orange', 'tech', 'studio']) {
     assert.match(ui, /class="theme-preview" data-preview="\$\{id\}"/);
-    if (id !== 'pink') assert.match(css, new RegExp(`\\.theme-preview\\[data-preview="${id}"\\]\\s*\\{[^}]*--pv-nav`), `${id} preview has its own colours`);
+    if (id !== 'pink') assert.match(id === 'studio' ? read('src/theme-studio.css') : css, new RegExp(`\\.theme-preview\\[data-preview="${id}"\\]\\s*\\{[^}]*--pv-nav`), `${id} preview has its own colours`);
   }
 });

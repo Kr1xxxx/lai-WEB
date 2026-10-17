@@ -271,17 +271,18 @@
   {
    "id": "themes",
    "area": "settings",
-   "description": "Switch colour template between 小满, pink and orange",
+   "description": "Switch colour template between pink, orange, 科技蓝 and 米白 (Gr8r Studio look)",
    "steps": [
     "设置 → 外观 → 粉色",
-    "Whole app recolours; text stays readable"
+    "Whole app recolours; text stays readable",
+    "设置 → 界面配色 → 米白: Gr8r Studio colours, sizes and spacing; lists full width; back to 粉色 restores the old look"
    ],
    "e2e": "settings-hub.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false
    },
-   "note": "UI names: the section is 设置 → 设置 → 界面配色 (not 外观); pink is the default."
+   "note": "UI names: the section is 设置 → 设置 → 界面配色 (not 外观); pink is the default. 米白 walked 2026-10-17 at 1440×900 and 1024×768 (all pages, dialogs, drawers, menus)."
   },
   {
    "id": "settings-hub",

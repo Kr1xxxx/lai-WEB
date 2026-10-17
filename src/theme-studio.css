@@ -1,0 +1,1520 @@
+/* ===== 米白（data-theme="studio"）=====
+   照开源项目 Gr8r Studio（github.com/gr8rstudio/gr8r-studio）的设计做的浅色主题：颜色、间距、尺寸、圆角、字号层级、密度都取自它的
+   src/styles/tokens.css。计划和对照表：项目共享文件 plans/09-gr8r-theme.md。
+   规矩（tests/theme-studio.test.cjs 检查）：
+   · 每条规则都以 :root[data-theme="studio"] 或 :root[data-skin="glass"][data-theme="studio"] 开头，只在选了「米白」时生效；
+     唯一例外是 S9 的预览图颜色（设置页要同时画出每个配色的预览）。
+   · 字面量（font-size px、border-radius px、hex 颜色）只能写在 S0 的第一个块里，其它地方一律用 var(--studio-*)。
+   · 元素级规则写成 :root[data-theme="studio"] body button：比皮肤 skin-glass.css（0,2,1）强、比组件套件 ui-kit.css（0,3,0）弱。
+   · 分区：S0 令牌（协调者）｜S1 外框｜S2 控件｜S3 页头卡片空状态｜S4 弹层｜S5 表格列表｜S6 首页看板统计｜S7 设置表单｜S8 次级页面｜S9 预览。
+   本文件排在所有样式最后（template.html 的 THEME_STUDIO_STYLE），同样强的规则以这里为准。 */
+
+/* ===== S0: tokens（只有协调者改；Gr8r 的令牌原样搬来，文字最小 12px 是仓库规则） ===== */
+:root[data-theme="studio"] {
+  /* 面 */
+  --studio-bg: #fbfaf8;
+  --studio-side: #f4f3f0;
+  --studio-surface: #ffffff;
+  --studio-surface-2: #f6f5f2;
+  --studio-surface-3: #eeede9;
+  --studio-sunken: #f7f6f3;
+  --studio-overlay: rgba(24, 22, 19, 0.28);
+  /* 线 */
+  --studio-border: #e9e7e2;
+  --studio-border-strong: #dad7d0;
+  --studio-divider: #f0eeea;
+  /* 字 */
+  --studio-text: #1d1c1a;
+  --studio-text-2: #57544e;
+  --studio-text-3: #6b6760;
+  --studio-text-4: #8c8880;
+  --studio-text-inv: #ffffff;
+  /* 强调色 */
+  --studio-accent: #4b5bd6;
+  --studio-on-accent: #ffffff;
+  --studio-accent-soft: color-mix(in srgb, var(--studio-accent) 10%, transparent);
+  --studio-accent-line: color-mix(in srgb, var(--studio-accent) 38%, transparent);
+  --studio-accent-hover: color-mix(in srgb, var(--studio-accent) 88%, var(--studio-text));
+  --studio-accent-active: color-mix(in srgb, var(--studio-accent) 78%, var(--studio-text));
+  --studio-accent-ink: color-mix(in srgb, var(--studio-accent) 80%, var(--studio-text));
+  /* 语义色 */
+  --studio-green: #25754b;
+  --studio-amber: #8f5e0e;
+  --studio-red: #b23c30;
+  --studio-blue: #3570c4;
+  --studio-violet: #7652c2;
+  --studio-teal: #1e8580;
+  --studio-rose: #bc4270;
+  --studio-orange: #c0612b;
+  --studio-gray: #8a867e;
+  --studio-green-soft: color-mix(in srgb, var(--studio-green) 11%, transparent);
+  --studio-amber-soft: color-mix(in srgb, var(--studio-amber) 12%, transparent);
+  --studio-red-soft: color-mix(in srgb, var(--studio-red) 10%, transparent);
+  --studio-violet-soft: color-mix(in srgb, var(--studio-violet) 11%, transparent);
+  /* 状态圆点（订单阶段、商机阶段） */
+  --studio-st-backlog: #a29e96;
+  --studio-st-todo: #7c7870;
+  --studio-st-progress: #c88a14;
+  --studio-st-review: #7652c2;
+  --studio-st-done: #2e8456;
+  /* rgb 三元组（旧样式里写成 rgba(var(--…-rgb), a) 的地方） */
+  --studio-text-rgb: 29, 28, 26;
+  --studio-accent-rgb: 75, 91, 214;
+  /* 阴影 */
+  --studio-shadow-sm: 0 1px 2px rgba(28, 25, 20, 0.05);
+  --studio-shadow-card: 0 1px 2px rgba(28, 25, 20, 0.04), 0 0 0 1px var(--studio-border);
+  --studio-shadow-pop: 0 12px 32px -8px rgba(28, 25, 20, 0.16), 0 2px 6px -2px rgba(28, 25, 20, 0.06), 0 0 0 1px var(--studio-border);
+  --studio-shadow-drag: 0 16px 36px -10px rgba(28, 25, 20, 0.28), 0 0 0 1px var(--studio-border-strong);
+  --studio-shadow-drawer: -18px 0 40px -24px rgba(0, 0, 0, 0.25);
+  --studio-shadow-on: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--studio-border);
+  --studio-shadow-seg: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--studio-border);
+  --studio-shadow-primary: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  --studio-shadow-kcard-hover: 0 2px 6px -2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--studio-border-strong);
+  --studio-focus: 0 0 0 3px var(--studio-accent-soft);
+  /* 圆角 */
+  --studio-r-xs: 4px;
+  --studio-r-sm: 6px;
+  --studio-r: 8px;
+  --studio-r-lg: 10px;
+  --studio-r-xl: 12px;
+  --studio-r-badge: 5px;
+  --studio-r-full: 999px;
+  /* 字阶（Gr8r 2xs 是 11px，仓库规则最小 12px） */
+  --studio-fs-2xs: 12px;
+  --studio-fs-xs: 12px;
+  --studio-fs-sm: 12.5px;
+  --studio-fs: 13.5px;
+  --studio-fs-md: 14.5px;
+  --studio-fs-lg: 16px;
+  --studio-fs-xl: 19px;
+  --studio-fs-2xl: 23px;
+  --studio-fs-stat: 22px;
+  --studio-lh: 1.45;
+  --studio-ls-h1: -0.022em;
+  --studio-ls-title: -0.018em;
+  --studio-ls-stat: -0.02em;
+  --studio-ls-h2: -0.01em;
+  --studio-ls-eyebrow: 0.06em;
+  --studio-fw-body: 400;
+  --studio-fw-nav: 450;
+  --studio-fw-ui: 500;
+  --studio-fw-head: 600;
+  /* 控件与行高 */
+  --studio-h-xs: 22px;
+  --studio-h-sm: 26px;
+  --studio-h-md: 30px;
+  --studio-h-lg: 36px;
+  --studio-side-row: 30px;
+  --studio-row-h: 40px;
+  --studio-th-h: 34px;
+  --studio-td-h: 36px;
+  --studio-mini-h: 38px;
+  --studio-toolbar-h: 44px;
+  --studio-tab-h: 36px;
+  --studio-badge-h: 20px;
+  --studio-check: 15px;
+  --studio-toggle-w: 30px;
+  --studio-toggle-h: 18px;
+  --studio-toggle-knob: 14px;
+  --studio-av: 22px;
+  --studio-av-md: 26px;
+  /* 外框（左栏 72 是结构，二级导航 180，合起来 252 = Gr8r 侧栏宽） */
+  --studio-topbar-h: 46px;
+  --studio-rail-w: 72px;
+  --studio-subnav-w: 180px;
+  --studio-side-w: 252px;
+  --studio-gutter: 24px;
+  --studio-page-top: 24px;
+  --studio-page-bottom: 72px;
+  --studio-ph-gap: 20px;
+  --studio-panel-pad: 14px;
+  --studio-card-pad: 10px;
+  --studio-grid-gap: 16px;
+  --studio-board-gap: 12px;
+  --studio-bcol-w: 284px;
+  --studio-bcol-pad: 4px 8px 8px;
+  --studio-stat-pad: 14px 16px;
+  --studio-sec-gap: 26px;
+  --studio-modal-w: 560px;
+  --studio-modal-sm-w: 420px;
+  --studio-modal-lg-w: 720px;
+  --studio-drawer-w: 620px;
+  --studio-drawer-h: 46px;
+  --studio-drawer-pad: 20px 24px 32px;
+  --studio-pop-min-w: 200px;
+  --studio-pop-pad: 4px;
+  --studio-mi-h: 30px;
+  --studio-search-w: 300px;
+  --studio-scope-w: 84px;
+  /* 动效 */
+  --studio-dur: 140ms;
+  --studio-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --studio-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --studio-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --studio-dur-pop: 160ms;
+  --studio-dur-modal: 260ms;
+  --studio-dur-drawer: 340ms;
+  --studio-dur-fade: 180ms;
+}
+
+/* 把来财已有的变量（各页样式、组件套件都在用）指到上面的令牌：不写字面量，整个应用的字号、圆角、颜色一起换 */
+:root[data-skin="glass"][data-theme="studio"] {
+  /* 灰阶（--ink-500 取 text-3 而不是 text-4：它在旧样式里也当正文用，text-4 对白只有 3.5:1） */
+  --ink-900: var(--studio-text);
+  --ink-800: color-mix(in srgb, var(--studio-text) 86%, var(--studio-surface));
+  --ink-700: var(--studio-text-2);
+  --ink-600: var(--studio-text-3);
+  --ink-500: var(--studio-text-3);
+  --ink-400: var(--studio-gray);
+  --ink-300: var(--studio-border-strong);
+  --ink-200: var(--studio-border);
+  --ink-100: var(--studio-divider);
+  --ink-50: var(--studio-sunken);
+  --ink-rgb: var(--studio-text-rgb);
+  --skin-ink-rgb: var(--studio-text-rgb);
+  /* 主色梯度 */
+  --brand-900: color-mix(in srgb, var(--studio-accent) 60%, var(--studio-text));
+  --brand-900-rgb: var(--studio-text-rgb);
+  --brand-700: var(--studio-accent-ink);
+  --brand-600: var(--studio-accent-active);
+  --brand-500: var(--studio-accent);
+  --brand-rgb: var(--studio-accent-rgb);
+  --brand-300: color-mix(in srgb, var(--studio-accent) 50%, var(--studio-surface));
+  --brand-200: color-mix(in srgb, var(--studio-accent) 28%, var(--studio-surface));
+  --brand-100: color-mix(in srgb, var(--studio-accent) 16%, var(--studio-surface));
+  --brand-50: color-mix(in srgb, var(--studio-accent) 8%, var(--studio-surface));
+  --nav-glow-rgb: var(--studio-accent-rgb);
+  /* 语义层（ui-kit.css 只用这一层）；--bg 在套件里是行悬停色，Gr8r 的行悬停是 surface-2，真正的页面底由 S1 写白色 */
+  --bg: var(--studio-surface-2);
+  --fg: var(--studio-text);
+  --card-bg: var(--studio-surface);
+  --card-line: var(--studio-border);
+  --popover-bg: var(--studio-surface);
+  --border: var(--studio-border);
+  --input: var(--studio-border-strong);
+  --ring: var(--studio-accent);
+  --primary: var(--studio-accent);
+  --primary-hover: var(--studio-accent-hover);
+  --primary-fg: var(--studio-on-accent);
+  --secondary-bg: var(--studio-surface);
+  --secondary-fg: var(--studio-text);
+  --muted-bg: var(--studio-surface-3);
+  --muted-fg: var(--studio-text-3);
+  --accent-bg: var(--studio-accent-soft);
+  --accent-fg: var(--studio-accent-ink);
+  --danger: var(--studio-red);
+  --danger-bg: var(--studio-red-soft);
+  --danger-fg: var(--studio-red);
+  --warning: var(--studio-amber);
+  --warning-bg: var(--studio-amber-soft);
+  --warning-fg: var(--studio-amber);
+  --success: var(--studio-green);
+  --success-bg: var(--studio-green-soft);
+  --success-fg: var(--studio-green);
+  --color-success: var(--studio-green);
+  --color-success-soft: var(--studio-green-soft);
+  --color-warning: var(--studio-amber);
+  --color-warning-soft: var(--studio-amber-soft);
+  --color-danger: var(--studio-red);
+  --color-danger-soft: var(--studio-red-soft);
+  --color-logo: var(--studio-accent);
+  /* 皮肤层（skin-glass.css）和左栏 */
+  --skin-page: var(--studio-surface);
+  --skin-blob: var(--studio-accent);
+  --skin-gold: var(--studio-accent);
+  --glass-bg: var(--studio-surface);
+  --glass-soft: var(--studio-side);
+  --glass-line: var(--studio-border);
+  --nav-bg: var(--studio-side);
+  --nav-top: var(--studio-side);
+  --nav-fg: var(--studio-text-2);
+  --nav-active: var(--studio-surface);
+  --nav-hover: var(--studio-surface-3);
+  --nav-line: var(--studio-border);
+  --muted: var(--studio-text-2);
+  --color-neutral-500: var(--studio-text-3);
+  --color-neutral-600: var(--studio-text-2);
+  --text-muted: var(--studio-text-3);
+  --text-faint: var(--studio-text-3);
+  /* 图表 */
+  --chart-1: var(--studio-accent);
+  --chart-2: var(--studio-teal);
+  --chart-3: var(--studio-orange);
+  --chart-rank-1: color-mix(in srgb, var(--studio-accent) 70%, var(--studio-text));
+  --chart-rank-2: var(--studio-accent);
+  --chart-rank-3: color-mix(in srgb, var(--studio-accent) 55%, var(--studio-surface));
+  --chart-track: var(--studio-surface-3);
+  --opp-open-soft: var(--studio-accent-soft);
+  --opp-open-ink: var(--studio-accent-ink);
+  /* 字号 */
+  --text-xs: var(--studio-fs-xs);
+  --text-sm: var(--studio-fs-sm);
+  --text-base: var(--studio-fs);
+  --text-lg: var(--studio-fs-lg);
+  --text-xl: var(--studio-fs-xl);
+  --text-2xl: var(--studio-fs-2xl);
+  --font-size-assist: var(--studio-fs-xs);
+  --font-size-body: var(--studio-fs);
+  --font-size-section: var(--studio-fs-md);
+  --font-size-page: var(--studio-fs-xl);
+  --font-size-metric: var(--studio-fs-stat);
+  /* 圆角（来财的 --r-sm 用在徽标上 → 5） */
+  --r-sm: var(--studio-r-badge);
+  --r-md: var(--studio-r-sm);
+  --r-lg: var(--studio-r);
+  --r-xl: var(--studio-r-lg);
+  --radius: var(--studio-r-sm);
+  --radius-sm: var(--studio-r-xs);
+  --radius-md: var(--studio-r-badge);
+  --radius-lg: var(--studio-r-sm);
+  --radius-xl: var(--studio-r);
+  --radius-pill: var(--studio-r-full);
+  --skin-radius: var(--studio-r-lg);
+  --dd-radius: var(--studio-r-sm);
+  /* 阴影 */
+  --shadow-1: var(--studio-shadow-sm);
+  --shadow-2: var(--studio-shadow-pop);
+  --shadow-card: var(--studio-shadow-sm);
+  --shadow-popover: var(--studio-shadow-pop);
+  --shadow-drawer: var(--studio-shadow-drawer);
+  --shadow-focus: var(--studio-focus);
+  /* 统一下拉 */
+  --dd-h: var(--studio-h-md);
+  --dd-font: var(--studio-fs);
+  --dd-ink: var(--studio-text);
+  --dd-border: var(--studio-border-strong);
+  /* 动效 */
+  --motion-fast: var(--studio-dur);
+  --motion-normal: var(--studio-dur);
+  --motion-slow: var(--studio-dur-pop);
+  --ease-standard: var(--studio-ease);
+  --ease-out: var(--studio-ease);
+  --ease-drawer: var(--studio-ease-drawer);
+  --ease-bounce: var(--studio-spring);
+  background: var(--studio-surface);
+}
+/* ===== /S0 ===== */
+
+/* ===== S1: frame（外框：顶栏、左栏、二级导航、主区、停靠表单偏移） ===== */
+/* 对照 Gr8r shell.css：顶栏 46 高白底底线；左边一整列 252 米灰（.side）；导航行 30、分组标题 24；主区白底、内容离边 24。
+   来财的左列是 72 图标栏 + 180 二级导航，两块同一种米灰、只在最右边画一条线，看起来就是 Gr8r 的一整列。 */
+:root[data-skin="glass"][data-theme="studio"] body {
+  background: var(--studio-surface);
+  color: var(--studio-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+:root[data-skin="glass"][data-theme="studio"] #app { background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] ::selection { background: color-mix(in srgb, var(--studio-accent) 22%, transparent); }
+/* 二级导航收起或这一页没有二级导航时，左边那列只剩左栏的宽度（顶栏左段和主区都跟着这个变量走） */
+:root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]),
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) { --studio-side-w: var(--studio-rail-w); }
+/* ---------- 顶栏：左段米灰（和左列连成一片，右边一条线），其余白色；底线横贯 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .topbar {
+  top: 0; left: 0; right: 0; height: var(--studio-topbar-h); padding: 0 12px 0 0; gap: 6px;
+  border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: linear-gradient(to right, var(--studio-side) 0, var(--studio-side) calc(var(--studio-side-w) - 1px), var(--studio-border) calc(var(--studio-side-w) - 1px), var(--studio-border) var(--studio-side-w), var(--studio-surface) var(--studio-side-w));
+}
+:root[data-skin="glass"][data-theme="studio"] .topbar-left-drag-region { width: var(--studio-side-w); min-width: 0; padding-left: 16px; }
+/* 左列只剩 72 时放不下品牌（标志 + 来财 + 版本号约 150 宽）：顶栏整条白色，品牌区按内容宽，竖线不会穿过字标 */
+:root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .topbar,
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .topbar { background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .topbar-left-drag-region,
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .topbar-left-drag-region { width: auto; min-width: var(--studio-rail-w); padding-right: 16px; }
+:root[data-skin="glass"][data-theme="studio"] .brand { height: var(--studio-h-md); }
+:root[data-skin="glass"][data-theme="studio"] .brand-mark { width: 24px; height: 24px; margin-right: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .brand-cn text { fill: var(--studio-text); stroke: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .brand sup { color: var(--studio-text-3); border-color: var(--studio-border-strong); border-radius: var(--studio-r-xs); }
+:root[data-skin="glass"][data-theme="studio"] .app-version { border-color: var(--studio-border-strong); border-radius: var(--studio-r-badge); color: var(--studio-text-3); background: transparent; }
+:root[data-skin="glass"][data-theme="studio"] .app-version:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+/* ---------- 顶栏搜索：Gr8r 的「Search or jump to…」，26 高浅底细边，排在右侧按钮左边（不再绝对定位，窄窗口也不会压到品牌） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .global-search {
+  position: static; left: auto; right: auto; top: auto; margin: 0 4px 0 auto; flex: 0 1 var(--studio-search-w); width: var(--studio-search-w); min-width: 0; height: var(--studio-h-sm);
+  border: 1px solid var(--studio-border); border-radius: var(--studio-r-sm); background: var(--studio-sunken); box-sizing: border-box; overflow: hidden;
+  transition: border-color var(--studio-dur) var(--studio-ease), box-shadow var(--studio-dur) var(--studio-ease), background var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .global-search:hover { border-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .global-search:has(> input:focus) { border-color: var(--studio-accent); background: var(--studio-surface); box-shadow: var(--studio-focus); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button { min-height: 0; height: 100%; padding: 0 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child { width: var(--studio-scope-w); flex: 0 0 var(--studio-scope-w); border-right: 1px solid var(--studio-border); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-body); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child:hover,
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child[aria-expanded="true"] { background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > input { height: 100%; padding: 0 9px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > input::placeholder { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:last-child { width: 28px; padding: 0; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:last-child:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+/* 右侧按钮：Gr8r 的 .ibtn 30×30 圆角 6，悬停 surface-2；头像 26 圆 */
+:root[data-skin="glass"][data-theme="studio"] .top-actions { margin-left: 0; gap: 2px; }
+:root[data-skin="glass"][data-theme="studio"] .top-actions > i { display: none; }
+:root[data-skin="glass"][data-theme="studio"] .top-actions button { height: var(--studio-h-md); min-height: var(--studio-h-md); min-width: var(--studio-h-md); padding: 0 7px; justify-content: center; border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text-2); transition: background var(--studio-dur) var(--studio-ease), color var(--studio-dur) var(--studio-ease); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions button:hover { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button:hover { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .avatar { width: var(--studio-av-md); height: var(--studio-av-md); min-height: var(--studio-av-md); min-width: var(--studio-av-md); margin-left: 4px; padding: 0; border-radius: 50%; background: var(--brand-100); color: var(--studio-accent-ink); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .avatar:hover { background: var(--brand-200); color: var(--studio-accent-ink); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .avatar .icon { width: 16px; height: 16px; }
+:root[data-skin="glass"][data-theme="studio"] .save-status { top: calc(var(--studio-topbar-h) + 6px); right: 12px; }
+/* ---------- 左栏：米灰底，没有圆角和外框；入口是灰色图标加小字，悬停浅灰，当前模块是白色小卡片 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .rail {
+  left: 0; top: var(--studio-topbar-h); bottom: 0; width: var(--studio-rail-w); padding: 8px 8px; border: 0; border-radius: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: var(--studio-side); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .rail,
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .rail { box-shadow: inset -1px 0 0 var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item { border-radius: var(--studio-r-sm); color: var(--studio-text-2); font-weight: var(--studio-fw-nav); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item :is(.icon, .icon-duo) { color: var(--studio-text-4); stroke: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item .icon-duo .tint { fill: currentColor; fill-opacity: 0; }
+:root[data-skin="glass"][data-theme="studio"] .rail-item:hover { background: var(--studio-surface-3); color: var(--studio-text); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .rail-item:hover :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item:hover:not(.active) .icon-duo .tint { fill-opacity: 0; }
+:root[data-skin="glass"][data-theme="studio"] .rail-item.active,
+:root[data-skin="glass"][data-theme="studio"] .rail-item.active:hover {
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui);
+  box-shadow: var(--studio-shadow-on);
+}
+:root[data-skin="glass"][data-theme="studio"] .rail-item.active :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item.active .icon-duo .tint { fill: currentColor; fill-opacity: 0; }
+:root[data-skin="glass"][data-theme="studio"] .rail-badge { background: var(--studio-accent); color: var(--studio-on-accent); box-shadow: 0 0 0 2px var(--studio-side); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item.active .rail-badge { box-shadow: 0 0 0 2px var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh .icon { stroke: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh:hover .icon { stroke: var(--studio-text-2); }
+/* ---------- 二级导航：和左栏同一块米灰，右边一条细线；分组标题 24、入口 30 行距 0，当前项白色小卡片 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .subnav {
+  left: var(--studio-rail-w); top: var(--studio-topbar-h); bottom: 0; width: var(--studio-subnav-w); padding: 4px 8px 12px;
+  border: 0; border-radius: 0; box-shadow: inset -1px 0 0 var(--studio-border); background: var(--studio-side);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+:root[data-skin="glass"][data-theme="studio"] .subnav h3 {
+  height: 24px; padding: 0 8px; margin: 14px 0 0;
+  font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-head); line-height: 24px; letter-spacing: var(--studio-ls-eyebrow); color: var(--studio-text-3);
+}
+/* 收起按钮：原来是贴着左列边的圆形小钮，这里放回分组标题右端，像 Gr8r 分组标题旁的小图标钮 */
+:root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle { top: 18px; left: auto; right: 8px; width: 24px; height: 24px; min-height: 24px; border-radius: var(--studio-r-xs); background: transparent; border-color: transparent; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .nav-row { height: var(--studio-side-row); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry {
+  height: var(--studio-side-row); min-height: var(--studio-side-row); padding: 0 8px; gap: 9px; border-radius: var(--studio-r-sm);
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); line-height: var(--studio-side-row); color: var(--studio-text-2);
+  transition: background var(--studio-dur) var(--studio-ease), color var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .nav-row .nav-entry { padding-right: 26px; }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry :is(.icon, .icon-duo) { color: var(--studio-text-4); stroke: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry .icon-duo .tint { fill-opacity: 0; }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry:hover :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active,
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active:hover {
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui);
+  box-shadow: var(--studio-shadow-on);
+}
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .nav-heart { top: 1px; right: 2px; height: 28px; min-height: 28px; border-radius: var(--studio-r-xs); color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .nav-heart:hover { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active ~ .nav-heart { color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active ~ .nav-heart:hover { color: var(--studio-text-2); }
+/* ---------- 主区：白色，从顶栏下面一直到底；内容离左右和顶 24，底边由各页自己留 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .main { left: var(--studio-side-w); top: var(--studio-topbar-h); right: 0; bottom: 0; padding: var(--studio-page-top) var(--studio-gutter) 0; background: var(--studio-surface); box-sizing: border-box; }
+:root[data-skin="glass"][data-theme="studio"] .nav-collapsed .main,
+:root[data-skin="glass"][data-theme="studio"] .subnav[hidden] ~ .main { left: var(--studio-rail-w); }
+/* 收起二级导航后的「展开」小钮贴在主区左边线上，顶部对齐分组标题 */
+:root[data-skin="glass"][data-theme="studio"] button.subnav-restore { top: calc(var(--studio-topbar-h) + 18px); left: var(--studio-rail-w); height: 24px; min-height: 24px; background: var(--studio-surface-2); color: var(--studio-text-3); box-shadow: 0 0 0 1px var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] button.subnav-restore:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+/* ---------- 订单、商机表单停靠在右边：贴着顶栏下面和右边，主区让出它的宽度 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form) .drawer,
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#opp-form) .drawer { top: var(--studio-topbar-h); right: 0; bottom: 0; border-radius: 0; }
+:root[data-skin="glass"][data-theme="studio"]:has(#biz-order-form) .main,
+:root[data-skin="glass"][data-theme="studio"]:has(#opp-form) .main { right: var(--dock-w); }
+/* ===== /S1 ===== */
+
+/* ===== S2: controls（按钮、输入、下拉、分段页签、徽标、分页、开关、勾选） ===== */
+/* 数值取自 Gr8r components.css：按钮 .btn/.btn-sm、输入 .input/.select、分段 .seg、徽标 .badge、勾选 .check/.radio、开关 .toggle。 */
+/* ---------- 元素级（比皮肤强、比组件套件弱）：没有套件类名的旧按钮和输入框 ---------- */
+:root[data-theme="studio"] body :is(button, input, select, textarea) { border-radius: var(--studio-r-sm); }
+:root[data-theme="studio"] body button { border-color: var(--studio-border-strong); color: var(--studio-text); }
+/* 悬停不再描靛蓝边（皮肤里的规则），只是边稍深；比组件套件的幽灵按钮弱一级，所以它们仍是无边 */
+:root[data-theme="studio"] body button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
+:root[data-theme="studio"] body :is(input, select, textarea) { border-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] :is(input:not([type="checkbox"], [type="radio"]), select, textarea):focus,
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea):focus { border-color: var(--studio-accent); box-shadow: var(--studio-focus); outline: none; }
+:root[data-skin="glass"][data-theme="studio"] input::placeholder,
+:root[data-skin="glass"][data-theme="studio"] textarea::placeholder,
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea)::placeholder { color: var(--studio-text-3); opacity: 1; }
+/* ---------- 按钮：30 高、0 11px、12.5/500、圆角 6；按下缩到 0.97 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-btn {
+  height: var(--studio-h-md); min-height: var(--studio-h-md); padding: 0 11px; gap: 6px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui);
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: var(--studio-dur); transition-timing-function: var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-btn:active:not(:disabled) { transform: scale(0.97); }
+/* 次要（默认）：白底、深一档的边、细阴影；悬停 surface-2，按下 surface-3 */
+:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost, .k-btn--danger) {
+  background: var(--studio-surface); border-color: var(--studio-border-strong); color: var(--studio-text); box-shadow: var(--studio-shadow-sm);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost, .k-btn--danger):hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-border-strong); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost, .k-btn--danger):active:not(:disabled) { background: var(--studio-surface-3); }
+/* 主按钮：强调色、底边一道暗线；悬停、按下逐级加深 */
+:root[data-skin="glass"][data-theme="studio"] button.primary,
+:root[data-skin="glass"][data-theme="studio"] .primary,
+:root[data-skin="glass"][data-theme="studio"] .k-btn--primary {
+  background: var(--studio-accent); border-color: var(--studio-accent); color: var(--studio-on-accent); font-weight: var(--studio-fw-ui);
+  box-shadow: var(--studio-shadow-primary);
+}
+:root[data-skin="glass"][data-theme="studio"] button.primary:hover:not(:disabled),
+:root[data-skin="glass"][data-theme="studio"] .k-btn--primary:hover:not(:disabled) { background: var(--studio-accent-hover); border-color: var(--studio-accent-hover); color: var(--studio-on-accent); }
+:root[data-skin="glass"][data-theme="studio"] button.primary:active:not(:disabled),
+:root[data-skin="glass"][data-theme="studio"] .k-btn--primary:active:not(:disabled) { background: var(--studio-accent-active); border-color: var(--studio-accent-active); }
+/* 幽灵：无边无底、text-2；悬停 surface-2 黑字，按下 surface-3 */
+:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost { background: transparent; border-color: transparent; color: var(--studio-text-2); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost:hover:not(:disabled) { background: var(--studio-surface-2); border-color: transparent; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--ghost:active:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text); }
+/* 危险：来财的危险按钮是白底红字（删除确认里用），边同次要按钮；悬停浅红底 */
+:root[data-skin="glass"][data-theme="studio"] .k-btn--danger { background: var(--studio-surface); border-color: var(--studio-border-strong); color: var(--studio-red); box-shadow: var(--studio-shadow-sm); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--danger:hover:not(:disabled) { background: var(--studio-red-soft); border-color: var(--studio-red); color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--sm { height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding: 0 8px; font-size: var(--studio-fs-xs); }
+/* 文字按钮（没有边框的小按钮）：像 Gr8r 的幽灵按钮 */
+:root[data-skin="glass"][data-theme="studio"] .text-button { border-radius: var(--studio-r-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .text-button:hover:not(:disabled) { background: var(--studio-surface-2); color: var(--studio-text); }
+/* ---------- 输入框、下拉：30 高、0 10px、13.5、border-strong；悬停边加深，聚焦强调色 + 3px 浅色环 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger, .lai-select-trigger) {
+  border-radius: var(--studio-r-sm); border-color: var(--studio-border-strong); background-color: var(--studio-surface); color: var(--studio-text); font-size: var(--studio-fs);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-select-trigger:not(.lai-select-trigger)) { height: var(--studio-h-md); min-height: var(--studio-h-md); padding-left: 10px; line-height: 28px; }
+:root[data-skin="glass"][data-theme="studio"] .k-input { padding-right: 10px; }
+:root[data-skin="glass"][data-theme="studio"] .k-textarea { padding: 8px 10px; line-height: 1.5; }
+/* 统一下拉的高度只走 --dd-h（S0 设成 30；表单里 36 是来财自己的设定），这里只让行高跟着它 */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-trigger { line-height: calc(var(--dd-h) - 2px); font-weight: var(--studio-fw-body); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-trigger[data-empty="true"] { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger, .lai-select-trigger):hover:not(:disabled) { border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-select-trigger, .lai-select-trigger):is([aria-expanded="true"], :focus-visible) { border-color: var(--studio-accent); box-shadow: var(--studio-focus); outline: none; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger, .lai-select-trigger):disabled { background-color: var(--studio-surface-2); color: var(--studio-text-3); }
+/* 商机、产品筛选条的搜索框：皮肤里那条规则更强，这里用完整前缀重写边和圆角 */
+:root[data-skin="glass"][data-theme="studio"] .opp-toolbar input[type="search"] { border-radius: var(--studio-r-sm); border-color: var(--studio-border-strong); }
+/* ---------- 页签（分段式）：surface-3 槽、2px 内距；项 24 高、0 9px、12/500、圆角 5；选中白卡片 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-tabs { padding: 2px; gap: 2px; border-radius: var(--studio-r-sm); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .k-tab {
+  height: calc(var(--studio-h-sm) - 2px); min-height: calc(var(--studio-h-sm) - 2px); padding: 0 9px; gap: 5px;
+  border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-tab:hover:not(:disabled) { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-tab:is([aria-selected="true"], .is-active),
+:root[data-skin="glass"][data-theme="studio"] .k-tab:is([aria-selected="true"], .is-active):hover:not(:disabled) {
+  background: var(--studio-surface); color: var(--studio-text); box-shadow: var(--studio-shadow-seg);
+}
+/* 竖排页签（设置类页面左边的分类）：同 Gr8r 侧栏行，30 高、行距 0、0 8px、13.5/450、圆角 6；选中白卡片 500 */
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical { gap: 0; padding: 0; border-radius: 0; background: transparent; }
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab {
+  height: var(--studio-side-row); min-height: var(--studio-side-row); padding: 0 8px; gap: 9px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active),
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active):hover:not(:disabled) {
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui); box-shadow: var(--studio-shadow-on);
+}
+/* ---------- 分页：26 高的幽灵小按钮，当前页是白底次要按钮 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-pager button {
+  min-width: var(--studio-h-sm); height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding: 0 8px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-pager button:hover:not(:disabled) { background: var(--studio-surface-2); border-color: transparent; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"],
+:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"]:hover:not(:disabled) {
+  border-color: var(--studio-border-strong); background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui); box-shadow: var(--studio-shadow-sm);
+}
+/* ---------- 徽标、标签：20 高、0 7px、圆角 5、12/500；中性 surface-2 + 细边，彩色是浅底无边 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-badge {
+  height: var(--studio-badge-h); padding: 0 7px; gap: 5px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui);
+}
+:root[data-skin="glass"][data-theme="studio"] .k-badge--neutral,
+:root[data-skin="glass"][data-theme="studio"] .k-badge:not([class*="k-badge--"]) { background: var(--studio-surface-2); border-color: var(--studio-border); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--success { background: var(--studio-green-soft); border-color: transparent; color: var(--studio-green); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--warning { background: var(--studio-amber-soft); border-color: transparent; color: var(--studio-amber); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--danger { background: var(--studio-red-soft); border-color: transparent; color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--primary { background: var(--studio-accent-soft); border-color: transparent; color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .tag {
+  padding: 0 7px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); line-height: 18px;
+  color: var(--studio-text-2); background: var(--studio-surface-2); border-color: var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .tag.green { color: var(--studio-green); background: var(--studio-green-soft); border-color: transparent; }
+/* ---------- 勾选框 15、圆角 4、1.5 边；单选框 15 圆；开关 30×18、圆钮 14、位移 12 ---------- */
+:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"]:not(.k-switch) {
+  flex-basis: var(--studio-check); width: var(--studio-check); height: var(--studio-check);
+  border: 1.5px solid var(--studio-border-strong); border-radius: var(--studio-r-xs); background-size: 10px;
+}
+:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"]:not(.k-switch):hover:not(:disabled) { border-color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"]:not(.k-switch):is(:checked, :indeterminate) { border-color: var(--studio-accent); background-color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input) {
+  flex-basis: var(--studio-check); width: var(--studio-check); height: var(--studio-check); border: 1.5px solid var(--studio-border-strong); border-radius: var(--studio-r-full);
+}
+:root[data-skin="glass"][data-theme="studio"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):hover:not(:disabled) { border-color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):checked {
+  border-color: var(--studio-accent); background: radial-gradient(circle, var(--studio-accent) 0 3.5px, var(--studio-surface) 4px);
+}
+:root[data-skin="glass"][data-theme="studio"] input.k-switch {
+  width: var(--studio-toggle-w); height: var(--studio-toggle-h); border: 0; border-radius: var(--studio-r-full); background: var(--studio-border-strong);
+}
+:root[data-skin="glass"][data-theme="studio"] input.k-switch::after {
+  width: var(--studio-toggle-knob); height: var(--studio-toggle-knob); background: var(--studio-surface); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] input.k-switch:checked { background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] input.k-switch:checked::after { transform: translateX(calc(var(--studio-toggle-w) - var(--studio-toggle-knob) - 4px)); }
+/* ---------- 键盘焦点：2px 强调色外框、离 1px（无圆角的元素给 4px）；文字输入框用上面的浅色环，不再加外框 ---------- */
+:root[data-theme="studio"] :where(button, a, summary, [tabindex], [role="button"], [role="tab"]):focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 1px; }
+:root[data-theme="studio"] :where(a, summary, [tabindex]:not(button, input, select, textarea)):focus-visible { border-radius: var(--studio-r-xs); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-btn, .k-tab, .k-pager button, .k-switch, .k-checkbox, input[type="checkbox"], input[type="radio"]):focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 1px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea):focus-visible { outline: none; }
+/* ===== /S2 ===== */
+
+/* ===== S3: headers-cards-empty（页头、标题旁页签、工具行、卡片、空状态） ===== */
+/* ---------- 页头（Gr8r .ph）：标题 23 一行、说明另起一行、离内容 20、按钮间距 6 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader, .pagebar) { height: auto; min-height: 0; padding: 0; margin: 0 0 var(--studio-ph-gap); align-items: flex-start; gap: 12px; }
+/* 只有标题和说明的页头改成上下两行；标题行里还放着页签、下拉、按钮、搜索的（客户列表、客户详情、邮件）保持一行 */
+:root[data-skin="glass"][data-theme="studio"] .k-pageheader-text:not(:has(> :is(.k-tabs, .k-select-trigger, select, button, label, form))),
+:root[data-skin="glass"][data-theme="studio"] .business-title { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; gap: 4px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader-title, .page-tabs h1, .business-title h1) { margin: 0; font-size: var(--studio-fs-2xl); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-h1); line-height: 1.2; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader-desc, .business-title > span) { margin: 0; font-size: var(--studio-fs); line-height: 20px; color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader-actions, .page-actions) { gap: 6px; }
+/* 页头高度不再固定 60：页头下面那块（.business-scroll / 聊天 / 邮件面板）原来按 calc(100% - 60px) 定高，改成占满剩下的高度 */
+:root[data-skin="glass"][data-theme="studio"] main.main:has(> :is(.k-pageheader, .pagebar) + :is(.business-scroll, .wa-page, .module-page)) { display: flex; flex-direction: column; }
+:root[data-skin="glass"][data-theme="studio"] main.main > :is(.k-pageheader, .pagebar) { flex: none; }
+:root[data-skin="glass"][data-theme="studio"] main.main > :is(.k-pageheader, .pagebar) + :is(.business-scroll, .wa-page, .module-page) { flex: 1 1 0; height: auto; min-height: 0; }
+/* 团队、订单页的外层已有 12 的间距：页头到内容合计仍是 20 */
+:root[data-skin="glass"][data-theme="studio"] :is(.team-page, .op-page) > .k-pageheader { margin-bottom: calc(var(--studio-ph-gap) - 12px); }
+
+/* ---------- 标题旁的页签（商机看板｜商机分析｜商机设置）：Gr8r 的下划线页签 ----------
+   位置由 app.js 决定（标题后面），这里只换样子：有页签的页头底部画一条横线，页签坐在线上，
+   页签文字和说明（没有说明时和标题）对齐在同一条基线上，选中项的 2px 黑线压在页头横线上。 */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader, .pagebar):has(> .section-tabs) { border-bottom: 1px solid var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-pageheader, .pagebar):has(> .section-tabs) > :is(.k-pageheader-text, .business-title, .page-tabs) { align-self: last baseline; }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs { align-self: last baseline; gap: 2px; margin: 0 auto -1px var(--studio-gutter); border-bottom: 1px solid var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab {
+  position: relative; height: var(--studio-tab-h); min-height: var(--studio-tab-h); padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text-2); transition: color var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab:hover { background: transparent; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab.active { background: transparent; color: var(--studio-text); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab.active::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: calc(var(--studio-r-xs) / 2); background: var(--studio-text); }
+
+/* ---------- 卡片（Gr8r panel）：1px 边、10 圆角、无阴影；头 12/14/10、标题 13.5/600、体 0 14 14 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-card, .business-section, .module-page, .duplicate-card) {
+  border: 1px solid var(--studio-border); border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: none;
+}
+:root[data-skin="glass"][data-theme="studio"] .k-card-head { gap: 8px; padding: 12px var(--studio-panel-pad) 10px; }
+:root[data-skin="glass"][data-theme="studio"] .k-card-title { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-h2); line-height: 20px; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .k-card-desc { font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .k-card-body { padding: 0 var(--studio-panel-pad) var(--studio-panel-pad); }
+
+/* ---------- 工具行（Gr8r .toolbar）：不再是卡片，44 高、底线；齐到主区边的负外边距在 S5 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.opp-toolbar, .business-toolbar) {
+  box-sizing: border-box; min-height: var(--studio-toolbar-h); margin: 0; padding: 8px 0; border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; background: transparent; box-shadow: none;
+}
+/* 在卡片里的工具行（客户列表、订单列表）左右留出和表格首列一样的 24 */
+/* 工具行下面直接是内容（商机页的金额格、看板）：留 16，别贴着底线（Gr8r 的看板区也有 16 的上内距） */
+:root[data-skin="glass"][data-theme="studio"] .opp-toolbar { margin-bottom: var(--studio-grid-gap); }
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .op-filters) {
+  box-sizing: border-box; min-height: var(--studio-toolbar-h); margin: 0; padding: 8px var(--studio-gutter); border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; background: transparent; box-shadow: none;
+}
+/* 工具行、翻页条里的控件（Gr8r .search-sm / .toolbar .btn-ghost）：26 高、12.5 字，工具行才能是 44；统一下拉和日期框跟着 --dd-h */
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .opp-toolbar, .op-filters, .business-toolbar, .replica-panel .pagination) { --dd-h: var(--studio-h-sm); --dd-font: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .opp-toolbar, .op-filters, .business-toolbar, .replica-panel .pagination) :is(.k-input, input[type="search"], input[type="text"], .lai-select-trigger, .k-select-trigger, .k-btn:not(.k-btn--primary), .text-button) {
+  height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding-top: 0; padding-bottom: 0; line-height: calc(var(--studio-h-sm) - 2px);
+}
+/* 字号：输入、下拉 12.5；工具行里的幽灵按钮保持套件的 12（Gr8r .toolbar .btn-ghost 是 fs-xs） */
+:root[data-skin="glass"][data-theme="studio"] :is(.replica-tools, .opp-toolbar, .op-filters, .business-toolbar, .replica-panel .pagination) :is(.k-input, input[type="search"], input[type="text"], .lai-select-trigger, .k-select-trigger, .text-button) { font-size: var(--studio-fs-sm); }
+
+/* ---------- 空状态（Gr8r .empty）：无边框、居中、56/24（卡片里 28/16）、标题 14.5/600、文字 12.5 text-2 ----------
+   :where 让页面自己调过的空状态（看板列、团队排行、客户详情侧栏…）保持原样，只换套件的默认值。 */
+:root[data-skin="glass"][data-theme="studio"] :where(.k-empty) { gap: 4px; padding: 56px 24px; border: 0; font-size: var(--studio-fs-sm); line-height: var(--studio-lh); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .k-card :where(.k-empty) { padding: 28px 16px; border: 0; border-radius: 0; }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-empty > span, .empty > span) { max-width: 340px; }
+:root[data-skin="glass"][data-theme="studio"] .k-empty-title { margin: 0; font-size: var(--studio-fs-md); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .empty { gap: 4px; padding: 56px 24px; font-size: var(--studio-fs-sm); line-height: var(--studio-lh); color: var(--studio-text-2); text-align: center; }
+:root[data-skin="glass"][data-theme="studio"] .empty strong { font-size: var(--studio-fs-md); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .small-empty { padding: 28px 16px; font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+/* ===== /S3 ===== */
+
+/* ===== S4: overlays（遮罩、弹窗、抽屉、菜单、下拉菜单、日期、提示条、左栏浮层） ===== */
+/* Gr8r 的 overlays.css：遮罩 rgba(24,22,19,.28)；居中弹窗 560 宽、12 圆角、头 14px 16px 0（标题 14.5/600）、体 14px 16px、脚 12px 16px 顶线；
+   右侧抽屉左边线 + 抽屉阴影、头 46（标题 19/600/-0.018em）、体 20px 24px 32px；菜单 10 圆角 4 内距、项 30 高 13.5 圆角 6、悬停 surface-2、
+   选中 500 + 勾；提示条深底白字 8 圆角。抽屉宽度凡是表单排版要用的（客户编辑 840、单据 760……）都不动。 */
+/* ---------- 遮罩：暖灰。客户编辑、列表设置、显示设置、条件客群的遮罩画在 ::before 上（overlay 本身透明）；停靠的订单/商机表单和商机「⋮」菜单没有遮罩 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .overlay { background: var(--studio-overlay); }
+:root[data-skin="glass"][data-theme="studio"] .overlay:is(:has(.drawer.customer-editor), :has(#segment-form [name="match"]), :has(.columns-dialog), :has(.summary-dialog), :has(.drawer.company-display), :has(.opp-menu)) { background: transparent; }
+:root[data-skin="glass"][data-theme="studio"] .overlay:is(:has(.drawer.customer-editor), :has(#segment-form [name="match"]), :has(.columns-dialog), :has(.summary-dialog), :has(.drawer.company-display))::before { background: var(--studio-overlay); }
+
+/* ---------- 右侧抽屉（旧 .drawer 与套件 .k-drawer）：白底、左边一条线、抽屉阴影，无圆角 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .drawer {
+  border: 0; border-left: 1px solid var(--studio-border); border-radius: 0;
+  background: var(--studio-surface); box-shadow: var(--studio-shadow-drawer); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer.filter { width: min(var(--studio-drawer-w), 100vw); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-head, .k-dialog-head) {
+  flex: none; height: var(--studio-drawer-h); min-height: var(--studio-drawer-h); padding: 0 10px 0 24px; gap: 4px;
+  border-bottom: 1px solid var(--studio-border); background: transparent;
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-head, .k-dialog-head) :is(h2, h3) {
+  font-size: var(--studio-fs-xl); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-title); line-height: 1.3; color: var(--studio-text);
+}
+/* 标题左边 24px，和正文（20px 24px 32px）对齐：Gr8r 抽屉的标题本来就在正文里；停靠表单的正文是 16px，头也是 16px（见下）。
+   头部右边的关闭（客户编辑还有关注 ♡）：30×30 的图标钮，平时 text-2，悬停 surface-2 */
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-head, .k-dialog-head) > :is([aria-label="关闭"], .editor-follow) {
+  position: static; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: var(--studio-h-md); min-width: var(--studio-h-md); height: var(--studio-h-md); min-height: var(--studio-h-md); padding: 0;
+  border: 1px solid transparent; border-radius: var(--studio-r-sm); background: transparent; box-shadow: none; color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-head, .k-dialog-head) > :is([aria-label="关闭"], .editor-follow):hover:not(:disabled) { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .customer-editor .drawer-head .k-btn.editor-follow.is-followed,
+:root[data-skin="glass"][data-theme="studio"] .customer-editor .drawer-head .k-btn.editor-follow.is-followed:hover:not(:disabled) { color: var(--studio-amber); }
+:root[data-skin="glass"][data-theme="studio"] .drawer:not(.columns-dialog, .summary-dialog) :is(.drawer-body, .k-dialog-body) { padding: var(--studio-drawer-pad); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot) {
+  flex: none; height: auto; min-height: 0; padding: 12px 16px; gap: 8px;
+  border-top: 1px solid var(--studio-border); background: var(--studio-surface);
+}
+/* 旧抽屉、旧弹窗脚里没有套件类名的按钮（筛选抽屉、列表设置……）：和套件按钮一样 30 高、0 11px、12.5/500、圆角 6；
+   筛选抽屉的按钮包在 .filter-footer 里。普通的是次要按钮（白底、深一档的边、细阴影），.primary 是主按钮，.text-button 是幽灵按钮 */
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn) {
+  height: var(--studio-h-md); min-height: var(--studio-h-md); padding: 0 11px;
+  border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 1;
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn, .primary, .text-button) {
+  border: 1px solid var(--studio-border-strong); background: var(--studio-surface); color: var(--studio-text); box-shadow: var(--studio-shadow-sm);
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn, .primary, .text-button):hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-border-strong); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn, .primary, .text-button):active:not(:disabled) { background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.primary:not(.k-btn) {
+  border: 1px solid var(--studio-accent); background: var(--studio-accent); color: var(--studio-on-accent); box-shadow: var(--studio-shadow-primary);
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.primary:not(.k-btn):hover:not(:disabled) { background: var(--studio-accent-hover); border-color: var(--studio-accent-hover); color: var(--studio-on-accent); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.primary:not(.k-btn):active:not(:disabled) { background: var(--studio-accent-active); border-color: var(--studio-accent-active); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.text-button:not(.k-btn) { border: 1px solid transparent; background: transparent; color: var(--studio-text-2); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button.text-button:not(.k-btn):hover:not(:disabled) { background: var(--studio-surface-2); border-color: transparent; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .drawer :is(.drawer-footer, .k-dialog-foot, .drawer-footer > .filter-footer) > button:not(.k-btn):active:not(:disabled) { transform: scale(0.97); }
+/* 条件客群抽屉的头、底原来按 id 定了 66／64 高 */
+:root[data-skin="glass"][data-theme="studio"] .drawer:has(#segment-form [name="match"]) .drawer-head { height: var(--studio-drawer-h); min-height: var(--studio-drawer-h); padding: 0 10px 0 24px; }
+:root[data-skin="glass"][data-theme="studio"] .drawer:has(#segment-form [name="match"]) .drawer-head h2 { font-weight: var(--studio-fw-head); line-height: 1.3; }
+:root[data-skin="glass"][data-theme="studio"] .drawer:has(#segment-form [name="match"]) .drawer-footer { flex: none; height: auto; }
+
+/* ---------- 居中弹窗（套件 .k-dialog、列表设置等 .center-dialog、批量跟进等 .feature-dialog）：12 圆角、浮层阴影、无边 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-dialog { width: min(var(--studio-modal-w), calc(100vw - 32px)); }
+:root[data-skin="glass"][data-theme="studio"] .drawer:is(.k-dialog, .center-dialog, .feature-dialog) { border: 0; border-radius: var(--studio-r-xl); box-shadow: var(--studio-shadow-pop); }
+:root[data-skin="glass"][data-theme="studio"] .drawer:is(.k-dialog, .center-dialog, .feature-dialog) :is(.drawer-head, .k-dialog-head) {
+  flex: none; height: auto; min-height: 0; padding: 14px 16px 0; gap: 8px; border-bottom: 0;
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer:is(.k-dialog, .center-dialog, .feature-dialog) :is(.drawer-head, .k-dialog-head) :is(h2, h3) {
+  font-size: var(--studio-fs-md); font-weight: var(--studio-fw-head); letter-spacing: 0; line-height: var(--studio-lh);
+}
+:root[data-skin="glass"][data-theme="studio"] .drawer:is(.k-dialog, .center-dialog, .feature-dialog):not(.columns-dialog, .summary-dialog) :is(.drawer-body, .k-dialog-body) { padding: 14px 16px; }
+:root[data-skin="glass"][data-theme="studio"] .drawer.k-dialog .k-dialog-body { display: flex; flex-direction: column; gap: 14px; }
+:root[data-skin="glass"][data-theme="studio"] .drawer:is(.k-dialog, .center-dialog, .feature-dialog) :is(.drawer-footer, .k-dialog-foot) { border-radius: 0 0 var(--studio-r-xl) var(--studio-r-xl); }
+:root[data-skin="glass"][data-theme="studio"] .k-error { font-size: var(--studio-fs-sm); color: var(--studio-red); }
+
+/* ---------- 订单、商机表单（停靠在右边）和商机详情：抽屉的样子；位置在 S1，正文排版在 S7 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form, #opp-form, .opp-detail) .drawer {
+  border: 0; border-left: 1px solid var(--studio-border); border-radius: 0; background: var(--studio-surface); box-shadow: var(--studio-shadow-drawer);
+}
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form, #opp-form, .opp-detail) .drawer-head { height: var(--studio-drawer-h); min-height: var(--studio-drawer-h); padding: 0 10px 0 16px; }
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form, #opp-form, .opp-detail) .drawer-head h2 { font-size: var(--studio-fs-xl); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-title); line-height: 1.3; }
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form, #opp-form, .opp-detail) .drawer-footer { min-height: 0; padding: 12px 16px; background: var(--studio-surface); }
+
+/* ---------- 浮层菜单 .popover：10 圆角、4 内距、浮层阴影（含 1px 描边），项 30 高 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .popover { border: 0; border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: var(--studio-shadow-pop); color: var(--studio-text); font-size: var(--studio-fs); }
+/* 菜单类浮层 4px 内距；面板类浮层（表格设置、标签、动态筛选、跟进模板、国家树、搜索范围）保留自己的内距 */
+:root[data-skin="glass"][data-theme="studio"] .popover:not(.global-search-scope-menu, .activity-filter-popover, .tag-popover, .table-popover, .followup-template-popover, .country-tree) { padding: var(--studio-pop-pad); }
+:root[data-skin="glass"][data-theme="studio"] .popover > button {
+  width: 100%; height: var(--studio-mi-h); min-height: var(--studio-mi-h); padding: 0 8px;
+  border: 0; border-radius: var(--studio-r-sm); background: transparent; box-shadow: none;
+  color: var(--studio-text); font-size: var(--studio-fs); font-weight: var(--studio-fw-body); line-height: var(--studio-lh); text-align: left; white-space: nowrap;
+}
+:root[data-skin="glass"][data-theme="studio"] .popover > button:is(:hover, :focus-visible) { background: var(--studio-surface-2); color: var(--studio-text); outline: none; }
+:root[data-skin="glass"][data-theme="studio"] .popover > button:is([aria-checked="true"], [aria-pressed="true"]) { background: transparent; color: var(--studio-text); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .popover > button:is([aria-checked="true"], [aria-pressed="true"]):is(:hover, :focus-visible) { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .popover > button svg { color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .popover hr { border: 0; border-top: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .popover:not(.global-search-scope-menu, .activity-filter-popover, .tag-popover, .table-popover, .followup-template-popover, .country-tree) hr { margin: 4px -4px; }
+/* 表格设置：一行一个设置，「紧凑／宽松」用分段页签的样子 */
+:root[data-skin="glass"][data-theme="studio"] .table-popover > div { min-height: 36px; font-size: var(--studio-fs); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .table-popover .option-pair { gap: 0; padding: 2px; border: 0; border-radius: var(--studio-r-sm); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .table-popover .option-pair button { height: 24px; min-height: 24px; padding: 0 9px; border: 0; border-radius: var(--studio-r-badge); background: transparent; color: var(--studio-text-2); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .table-popover .option-pair button.active { margin: 0; border: 0; background: var(--studio-surface); color: var(--studio-text); box-shadow: var(--studio-shadow-seg); }
+:root[data-skin="glass"][data-theme="studio"] .popover.account-menu :is(.account-head, .account-label) { padding-left: 8px; padding-right: 8px; }
+:root[data-skin="glass"][data-theme="studio"] .popover.account-menu .account-head { color: var(--studio-text-2); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .popover.account-menu .account-head strong { color: var(--studio-text); font-size: var(--studio-fs-md); }
+:root[data-skin="glass"][data-theme="studio"] .popover.account-menu .account-label { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
+
+/* ---------- 统一下拉的菜单：同上，项 30 高、左右各缩 4px；选中不再涂主色底，改成字重 500 + 右边主色勾 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu {
+  padding: 4px 0; border: 0; border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: var(--studio-shadow-pop);
+  color: var(--studio-text); font-size: var(--studio-fs);
+}
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group { padding: var(--studio-pop-pad); }
+/* 项高由脚本写在行内（data-option-height，默认 36），所以这里要 !important；客群树（is-customer-group）有自己的缩进行，不改高度 */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu:not(.is-customer-group) .lai-select-option {
+  height: var(--studio-mi-h) !important; min-height: var(--studio-mi-h); margin: 0 4px; padding: 0 28px 0 8px; border-radius: var(--studio-r-sm);
+  background: transparent; color: var(--studio-text); font-size: var(--studio-fs); font-weight: var(--studio-fw-body); line-height: var(--studio-mi-h);
+}
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu .lai-select-option[aria-selected="true"] { background: transparent; color: var(--studio-text); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu .lai-select-option[aria-selected="true"]::after { right: 8px; color: var(--studio-accent); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu .lai-select-option:is(.is-active, :hover):not([aria-disabled="true"]) { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-option[aria-disabled="true"] { color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-empty { color: var(--studio-text-3); }
+/* 菜单里的搜索框：和输入框一样 30 高、13.5、border-strong，聚焦强调色 + 3px 浅色环 */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu input.lai-select-search {
+  height: var(--studio-h-md); min-height: var(--studio-h-md); border-color: var(--studio-border-strong); border-radius: var(--studio-r-sm);
+  background: var(--studio-surface); color: var(--studio-text); font-size: var(--studio-fs);
+}
+/* 客户列表快捷筛选的搜索框盖在 30 高的触发框上：原来 32 高、往上多出 2px，这里下移 2px 正好盖住 */
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-inline-search input.lai-select-search { margin-top: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu input.lai-select-search:focus { border-color: var(--studio-accent); box-shadow: var(--studio-focus); outline: none; }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group .lai-select-option { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group .lai-select-option-label { border-radius: var(--studio-r-sm); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group .lai-select-option.is-active .lai-select-option-label { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .lai-select-menu.is-customer-group .lai-select-option[aria-selected="true"] .lai-select-option-label { background: var(--studio-surface-3); color: var(--studio-text); font-weight: var(--studio-fw-ui); }
+
+/* ---------- 顶栏搜索的「范围」菜单（位置在 S1）：左栏 sunken 底，项 30 高，当前分类白卡片 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .popover.global-search-scope-menu { padding: 0; border: 0; border-radius: var(--studio-r-lg); box-shadow: var(--studio-shadow-pop); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-categories { padding: 4px; gap: 0; background: var(--studio-sunken); border-right: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-fields { padding: 4px; gap: 0; }
+:root[data-skin="glass"][data-theme="studio"] .global-search-scope-menu button {
+  flex: 0 0 var(--studio-mi-h); height: var(--studio-mi-h); min-height: var(--studio-mi-h); padding: 0 26px 0 8px; border-radius: var(--studio-r-sm);
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-body); line-height: var(--studio-mi-h); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .global-search-scope-menu button:is(:hover, :focus-visible) { background: var(--studio-surface-2); outline: 0; }
+:root[data-skin="glass"][data-theme="studio"] .global-search-categories button:is(:hover, :focus-visible) { background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-categories button.active { background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui); box-shadow: var(--studio-shadow-on); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-categories .icon { top: 8px; right: 6px; color: var(--studio-text-4); }
+
+/* ---------- 商机卡片的「⋮」菜单（位置在皮肤里）：浮层样子，项 30 高，分组标题是小号灰字 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(.opp-menu) .drawer { border: 0; border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: var(--studio-shadow-pop); }
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(.opp-menu) .drawer-head { height: auto; min-height: 36px; padding: 0 4px 0 12px; border-bottom: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(.opp-menu) .drawer-head h2 { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); letter-spacing: 0; line-height: var(--studio-lh); }
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(.opp-menu) .drawer-head > [aria-label="关闭"] { width: var(--studio-h-sm); min-width: var(--studio-h-sm); height: var(--studio-h-sm); min-height: var(--studio-h-sm); }
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(.opp-menu) .opp-menu { padding: var(--studio-pop-pad); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu-summary { margin: 0 0 4px; padding: 6px 8px 10px; border-bottom: 1px solid var(--studio-divider); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu-summary b { font-size: var(--studio-fs-md); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu h3 { margin: 0; padding: 8px 8px 4px; font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-eyebrow); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item {
+  height: var(--studio-mi-h); min-height: var(--studio-mi-h); padding: 0 8px; gap: 9px; border: 0; border-radius: var(--studio-r-sm);
+  background: transparent; box-shadow: none; color: var(--studio-text); font-size: var(--studio-fs); font-weight: var(--studio-fw-body);
+}
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item:is(:hover, :focus-visible):not(:disabled) { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item:is(.is-main, .is-accent) { font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item.is-accent,
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item.is-accent:is(:hover, :focus-visible):not(:disabled) { color: var(--studio-accent-ink); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item.is-danger,
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item.is-danger:is(:hover, :focus-visible):not(:disabled) { color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item.is-danger:is(:hover, :focus-visible):not(:disabled),
+:root[data-skin="glass"][data-theme="studio"] .opp-menu .opp-menu-item.team-danger { background: var(--studio-red-soft); }
+
+/* ---------- 左栏悬停浮层：同菜单 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout { left: 76px; }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-panel {
+  min-width: var(--studio-pop-min-w); padding: var(--studio-pop-pad); border: 0; border-radius: var(--studio-r-lg);
+  background: var(--studio-surface); box-shadow: var(--studio-shadow-pop); color: var(--studio-text);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item {
+  height: var(--studio-mi-h); min-height: var(--studio-mi-h); padding: 0 32px 0 8px; border-radius: var(--studio-r-sm);
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-body); line-height: var(--studio-mi-h); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item:is(:hover, :focus-visible) { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart { top: 1px; right: 4px; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart:hover { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart.is-favorite,
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart.is-favorite:hover { color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-note { padding: 8px; font-size: var(--studio-fs-sm); color: var(--studio-text-3); }
+
+/* ---------- 日期浮层（flatpickr）：白底 10 圆角浮层阴影；今天主色边、选中主色底白字；悬停 surface-2 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .flatpickr-calendar.lai-date-calendar {
+  border: 0; border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: var(--studio-shadow-pop);
+  color: var(--studio-text); font-size: var(--studio-fs);
+}
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-current-month { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-current-month :is(span.cur-month, input.cur-year) { font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-months :is(.flatpickr-prev-month, .flatpickr-next-month) { color: var(--studio-text-3); fill: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-months :is(.flatpickr-prev-month, .flatpickr-next-month):hover svg { fill: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar span.flatpickr-weekday { font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-day { border-radius: var(--studio-r-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-day:is(.prevMonthDay, .nextMonthDay, .flatpickr-disabled) { color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-day:is(:hover, :focus) { border-color: var(--studio-surface-2); background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-day.today { border-color: var(--studio-accent); color: var(--studio-accent-ink); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-day.selected,
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-day.selected:is(:hover, :focus) { border-color: var(--studio-accent); background: var(--studio-accent); color: var(--studio-on-accent); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-monthSelect-month { border-radius: var(--studio-r-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-monthSelect-month:hover { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-monthSelect-month.today { background: transparent; box-shadow: inset 0 0 0 1px var(--studio-accent); color: var(--studio-accent-ink); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-calendar .flatpickr-monthSelect-month.selected { background: var(--studio-accent); color: var(--studio-on-accent); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-footer { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-footer button { border-radius: var(--studio-r-sm); color: var(--studio-accent-ink); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .lai-date-footer button:hover { background: var(--studio-surface-2); }
+
+/* ---------- 提示条：深色底白字、8 圆角、40 高，放在右下角离边 20px（Gr8r #toasts）；带「撤销」按钮时按钮白字 600 ---------- */
+:root[data-skin="glass"][data-theme="studio"] #toast {
+  top: auto; bottom: 20px; left: auto; right: 20px;
+  transform: translateY(var(--toast-distance)) scale(var(--toast-scale));
+  display: flex; align-items: center; gap: 10px; box-sizing: border-box; min-height: 40px; max-width: min(400px, calc(100vw - 40px)); padding: 8px 12px;
+  border: 0; border-radius: var(--studio-r); background: var(--studio-text); color: var(--studio-text-inv); box-shadow: var(--studio-shadow-pop);
+  font-size: var(--studio-fs-sm); line-height: var(--studio-lh);
+}
+:root[data-skin="glass"][data-theme="studio"] #toast.show { transform: none; }
+/* 抽屉、表单开着时，右下角是它们的「保存／确定」：提示条抬到底栏上面，不挡按钮 */
+:root[data-skin="glass"][data-theme="studio"]:has(.overlay :is(.drawer-footer, .k-dialog-foot)) #toast { bottom: 76px; }
+:root[data-skin="glass"][data-theme="studio"] #toast.has-action { gap: 10px; padding: 8px 8px 8px 12px; }
+:root[data-skin="glass"][data-theme="studio"] :is(#toast .toast-action, .k-toast button) {
+  height: 24px; min-height: 24px; padding: 0 8px; border: 0; border-radius: var(--studio-r-badge);
+  background: transparent; box-shadow: none; color: var(--studio-text-inv); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-head); opacity: 0.9;
+}
+:root[data-skin="glass"][data-theme="studio"] :is(#toast .toast-action, .k-toast button):hover { background: color-mix(in srgb, var(--studio-text-inv) 14%, transparent); color: var(--studio-text-inv); opacity: 1; }
+:root[data-skin="glass"][data-theme="studio"] .k-toast {
+  gap: 10px; min-height: 40px; padding: 8px 8px 8px 12px; border: 0; border-radius: var(--studio-r);
+  background: var(--studio-text); color: var(--studio-text-inv); box-shadow: var(--studio-shadow-pop); font-size: var(--studio-fs-sm);
+}
+/* ===== /S4 ===== */
+
+/* ===== S5: tables-lists（表格、客户列表齐边、客群栏） ===== */
+/* ---------- 通用表格（Gr8r views/table.css）：表头 34 高、12/500 次要字、白底、底线 border、列间细竖线 divider；
+   单元格 36 高、12.5、行线/列线 divider、内距 0 10px、悬停 surface-2。
+   元素级只换颜色（旧表、日期之类别的表不改尺寸）；尺寸写在 :where(.k-table, .cs-table) 上，优先级 (0,3,1) 只盖过套件默认值，
+   页面自己的微调（订单表上下 6px、客户详情 40 高、商机面板首列贴边）照旧生效。 ---------- */
+:root[data-theme="studio"] body th { background: var(--studio-surface); color: var(--studio-text-2); font-weight: var(--studio-fw-ui); border-color: var(--studio-border); }
+:root[data-theme="studio"] body td { border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) { font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) th {
+  height: var(--studio-th-h); padding: 0 10px; background: var(--studio-surface); color: var(--studio-text-2);
+  font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); line-height: 1.3; white-space: nowrap;
+  border-bottom: 1px solid var(--studio-border); border-right: 1px solid var(--studio-divider);
+}
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) td {
+  height: var(--studio-td-h); padding: 0 10px; font-size: var(--studio-fs-sm);
+  border-bottom: 1px solid var(--studio-divider); border-right: 1px solid var(--studio-divider);
+}
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table, .cs-table) :where(th, td):last-child { border-right: 0; }
+/* 列间竖线只给齐边的大列表（Gr8r 的表格视图）；卡片里的小表照 Gr8r 成员表：只有行线，没有列线 */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-card:not(.op-list, .replica-panel), .cs-panel, .k-dialog, .k-drawer, .opp-panel, .lcd-root) :where(.k-table, .cs-table) :where(th, td) { border-right: 0; }
+:root[data-skin="glass"][data-theme="studio"] tbody tr:hover td,
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table) tbody tr:hover td { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] :where(.k-table) :is(th, td).k-num { font-variant-numeric: tabular-nums; }
+/* 贴着卡片边的表（角色列表、订单回收站）：首列、末列内距 16，和 Gr8r 成员表一样；卡片正文里有内距的表不再加 */
+:root[data-skin="glass"][data-theme="studio"] :is(.role-card > .k-table.role-table, .k-table.op-trash-table) :is(th, td):first-child { padding-left: 16px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.role-card > .k-table.role-table, .k-table.op-trash-table) :is(th, td):last-child { padding-right: 16px; }
+/* 团队表：合计行顶线 border；两行表头里分组格的左线 divider；没数据的那一格照旧留白 */
+:root[data-skin="glass"][data-theme="studio"] .team-table .team-total td { border-top-color: var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .team-board thead th[colspan],
+:root[data-skin="glass"][data-theme="studio"] .team-board thead th:has(> .team-sort) { border-left-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .team-table td.team-none { height: auto; padding: 24px 10px; }
+/* 设置表里的小节标题行 */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-table, .cs-table) .cs-subhead th { height: auto; padding: 14px 10px 6px; color: var(--studio-text); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-head); }
+
+/* ---------- 订单列表：和客户列表一样齐边（列表容器伸到主区两边，首列内距 = 页边距 24；翻页条顶线 + 8 24） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .op-page > .op-list { margin: 0 calc(-1 * var(--studio-gutter)); border: 0; border-radius: 0; box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .op-page > .op-list > .op-filters { padding-left: var(--studio-gutter); padding-right: var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .k-table.op-table :is(th, td):first-child { padding-left: var(--studio-gutter); }
+/* 编号列原本 116 宽、内距 12：首列内距变 24 后加宽 12，编号照样放得下 */
+:root[data-skin="glass"][data-theme="studio"] .k-table.op-table th:nth-child(1) { width: 128px; }
+:root[data-skin="glass"][data-theme="studio"] .k-table.op-table :is(th, td):last-child { padding-right: var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .op-list > .op-foot { min-height: var(--studio-toolbar-h); padding: 8px var(--studio-gutter); border-top: 1px solid var(--studio-border); font-size: var(--studio-fs-sm); color: var(--studio-text-3); }
+
+/* ---------- 客户列表：去掉卡片，齐边（工具行底线从客群栏横贯到窗口右边，客群内容和表格首列都在 24 的页边距上） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .customer-list-page > .replica-panel {
+  margin: 0 calc(-1 * var(--studio-gutter)); border: 0; border-radius: 0; box-shadow: none; background: var(--studio-surface);
+}
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .replica-tools {
+  min-height: var(--studio-toolbar-h); padding: 8px var(--studio-gutter); gap: 8px; border-bottom: 1px solid var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .list-heading strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .list-heading span { font-size: var(--studio-fs-sm); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .batch-divider { background: var(--studio-border); }
+/* 收起客群栏后，列表仍然贴着主区左边（首列自带 24 内距，收起把手只压在内距上） */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel.groups-collapsed .list-area { padding-left: 0; }
+/* 翻页条：顶线 border，内距 8 24，和工具行一样高 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .pagination {
+  min-height: var(--studio-toolbar-h); padding: 8px var(--studio-gutter); border-top: 1px solid var(--studio-border);
+  font-size: var(--studio-fs-sm); color: var(--studio-text-3);
+}
+/* 表头 34 高（能排序的整格按钮表头也是）；单元格 40 高（紧凑 36）；内距 0 10px；勾选列首列内距 24 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table th { height: var(--studio-th-h); padding: 0 10px; line-height: 1.3; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table th:has(> .column-header) { padding: 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-header { height: var(--studio-th-h); min-height: var(--studio-th-h); padding: 0 10px; line-height: 1.3; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-header-flow { height: var(--studio-th-h); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-header:hover:not(:disabled) { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-sort { color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table .column-sort .active { color: var(--studio-text); }
+/* 「紧凑」是默认的列表设置：40 高（Gr8r 列表行）；关掉紧凑仍是原来的 48 高 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table td { padding: 0 10px; background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.compact td { height: var(--studio-row-h); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table .check-col { padding: 0 8px 0 var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table .actions-col { padding: 0 8px; box-shadow: -1px 0 var(--studio-border); }
+/* 竖向分割线是用户的列表设置：关着就没有列线，开了才画 divider 色的竖线（冻结列的线随单元格一起停住） */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table :is(th, td) { border-right: 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.vertical-lines :is(th, td) { border-right: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.vertical-lines :is(th, td):last-child { border-right: 0; }
+/* 斑马纹（用户设置）偶数行 --studio-bg；悬停 surface-2 写在后面盖过斑马纹；
+   选中行是不透明的淡强调色（冻结列横向滚动时不能透出下面滚过去的字） */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:nth-child(even) td { background: var(--studio-bg); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table tbody tr:hover td,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:hover td { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table tbody tr:has(> .check-col input:checked) td,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:has(> .check-col input:checked) td,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .customer-table td:has(> .company-link:is(:active, .customer-opening)) { background: color-mix(in srgb, var(--studio-accent) 10%, var(--studio-surface)); }
+/* 空列表盖在表头下面：表头现在 34 高 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .table-wrap > .list-none { inset: var(--studio-th-h) 0 0; }
+
+/* ---------- 客群栏（照 Gr8r 侧栏）：右边 1px 线；内容左边落在 24 页边距上；「客群列表」是小字眉题；
+   行 30 高、0 8px、13.5/450、圆角 6、行距 0；悬停 surface-3；当前项白卡 + shadow-on；页签 36 高、字色下划线 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel { --customer-group-width: max(220px, calc((100vw - 284px) * 0.14 + 24px)); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel > .groups { border-right: 1px solid var(--studio-border); background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel.groups-collapsed > .groups { border-right-width: 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups-content { padding: 0 8px 0 var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs { gap: 20px; height: var(--studio-tab-h); min-height: var(--studio-tab-h); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs::before { background: var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button {
+  height: var(--studio-tab-h); min-height: var(--studio-tab-h); padding: 0 2px; line-height: var(--studio-tab-h);
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button:hover { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button.active { color: var(--studio-text); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-tabs button.active:after { height: 2px; background: var(--studio-text); border-radius: 0; }
+/* 「客群列表」：Gr8r 的分组眉题（24 高、12/600、字距 0.06em、text-3、上边距 14） */
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title,
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title.group-list-heading {
+  width: 100%; height: 24px; margin: 14px 0 2px; padding: 0 8px; gap: 4px; line-height: 24px;
+  font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-eyebrow); color: var(--studio-text-3);
+}
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title strong,
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title.group-list-heading strong { font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title .text-button { min-height: 20px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .groups .group-title .text-button:hover { color: var(--studio-text); }
+/* 行：所有客群行（含按 ID 定的手动分组行）统一 30 高、行距 0；缩进（28 / 44）沿用原来的层级 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups #group-branch-manual .group-row.nested {
+  height: var(--studio-side-row); min-height: var(--studio-side-row); margin: 0; gap: 6px; border-radius: var(--studio-r-sm);
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); line-height: var(--studio-side-row); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll > .group-row:not(.tree-heading) { padding: 0 8px 0 28px; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.tree-heading { padding: 0 8px 0 0; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.tree-heading i,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .tree-toggle { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .tree-toggle:hover { background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .won-tree-heading .won-tree-title { height: var(--studio-side-row); line-height: var(--studio-side-row); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-row small { font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-body); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.active,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.active:hover,
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups #group-branch-manual .group-row.nested.active {
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui); box-shadow: var(--studio-shadow-on);
+}
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-scroll .group-row.active small { color: var(--studio-text-2); }
+/* 下面「新建条件客群」那一块：分隔线 divider */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .groups .group-extra { padding: 8px 0; border-top: 1px solid var(--studio-divider); }
+/* 收起/展开客群栏的小把手：白底、1px 边 + 浅影 */
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .collapse-groups { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .collapse-groups:hover { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .collapse-groups::before { background: var(--studio-surface); border-radius: var(--studio-r); box-shadow: var(--studio-shadow-on); }
+/* ===== /S5 ===== */
+
+/* ===== S6: dashboard-board-stats（首页、商机看板与统计、团队目标） ===== */
+/* 对照 Gr8r：panels.css（.panel-h/.stats/.stat）、views/list.css（.mini）、components.css（.prog）、views/board.css（.bcol/.kcard） */
+
+/* ---------- 首页（工作台）：卡片头 12/14/10，卡片体 0/14/14；行 38 起、左右 14、行线 divider ---------- */
+:root[data-skin="glass"][data-theme="studio"] .wb-hello .wb-sum { margin-top: 4px; font-size: var(--studio-fs); line-height: var(--studio-lh); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .wb-sum b { font-weight: 600; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ph.k-card-head { gap: 2px 8px; padding: 12px var(--studio-panel-pad) 10px; }
+:root[data-skin="glass"][data-theme="studio"] .wb-ph .k-card-desc { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ph .wb-link { margin: -4px -6px -4px auto; }
+:root[data-skin="glass"][data-theme="studio"] .wb-list { padding: 0; }
+:root[data-skin="glass"][data-theme="studio"] .wb-row,
+:root[data-skin="glass"][data-theme="studio"] button.wb-row { gap: 10px; min-height: var(--studio-mini-h); padding: 6px var(--studio-panel-pad); border-top: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .wb-row + .wb-row,
+:root[data-skin="glass"][data-theme="studio"] button.wb-row + .wb-row { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] button.wb-row:hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .wb-who b { font-weight: var(--studio-fw-ui); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-who .wb-next { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-m time { font-size: var(--studio-fs-xs); color: var(--studio-text-2); font-variant-numeric: tabular-nums; }
+/* 行首徽标：20 高、0 7px、5 圆角、12/500 */
+:root[data-skin="glass"][data-theme="studio"] .wb-tag.k-badge,
+:root[data-skin="glass"][data-theme="studio"] .wb-ch.k-badge { height: var(--studio-badge-h); padding: 0 7px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); line-height: var(--studio-badge-h); }
+:root[data-skin="glass"][data-theme="studio"] .wb-foot { margin: 0; padding: 10px var(--studio-panel-pad) 12px; border-top: 1px solid var(--studio-divider); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-note { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+/* 卡片体 = Gr8r .panel-b */
+:root[data-skin="glass"][data-theme="studio"] .wb-body { gap: var(--studio-grid-gap); padding: 0 var(--studio-panel-pad) var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fun { padding: 0 var(--studio-panel-pad) var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wb-linescroll { padding: 4px var(--studio-panel-pad) var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wb-meter-top { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+/* 大数字：22/600/-0.02em，等宽数字（Gr8r .stat .v） */
+:root[data-skin="glass"][data-theme="studio"] .wb-big { font-size: var(--studio-fs-stat); font-weight: 600; line-height: 1.1; letter-spacing: var(--studio-ls-stat); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-big .wb-sub { font-size: var(--studio-fs-sm); letter-spacing: 0; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-split > div { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .wb-split b { font-size: var(--studio-fs-lg); letter-spacing: var(--studio-ls-h2); font-variant-numeric: tabular-nums; }
+:root[data-skin="glass"][data-theme="studio"] .wb-split span { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+/* 进度条：4 高、surface-3 底、4 圆角、主色（Gr8r .prog） */
+:root[data-skin="glass"][data-theme="studio"] .wb-bar { height: 4px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-bar i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .wb-mini .wb-bar { height: 4px; }
+:root[data-skin="glass"][data-theme="studio"] .wb-mini { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.wb-mini, .wb-fr) em { color: var(--studio-text); font-variant-numeric: tabular-nums; }
+/* 商机漏斗：条按金额画，6 高（Gr8r .stackbar）；进行中主色、赢单绿、输单灰 */
+:root[data-skin="glass"][data-theme="studio"] .wb-fr { font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr .wb-bar { height: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr .wb-bar i { background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr.won .wb-bar i { background: var(--studio-green); }
+:root[data-skin="glass"][data-theme="studio"] .wb-fr.lost .wb-bar i { background: var(--studio-st-backlog); }
+/* 订单阶段线：圆点 22，用 Gr8r 的状态色（空阶段 backlog、有订单 progress、已完成 done） */
+:root[data-skin="glass"][data-theme="studio"] .wb-stn::before,
+:root[data-skin="glass"][data-theme="studio"] .wb-stn::after { top: 11px; border-top-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.fl::before,
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.fr::after { top: 10px; border-top-color: var(--studio-st-progress); }
+:root[data-skin="glass"][data-theme="studio"] .wb-dot { width: var(--studio-h-xs); height: var(--studio-h-xs); border: 1.5px solid var(--studio-st-backlog); background: var(--studio-surface); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.has .wb-dot { border-color: var(--studio-st-progress); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn.fin .wb-dot { border-color: var(--studio-st-done); background: var(--studio-st-done); color: var(--studio-text-inv); }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn h3 { font-size: var(--studio-fs-sm); font-weight: 600; }
+:root[data-skin="glass"][data-theme="studio"] .wb-stn h3 .wb-num { font-weight: var(--studio-fw-ui); color: var(--studio-text-3); }
+/* 阶段下的订单小卡 = Gr8r .kcard */
+:root[data-skin="glass"][data-theme="studio"] .wb-ocards { gap: 6px; }
+:root[data-skin="glass"][data-theme="studio"] button.wb-ocard { gap: 2px; padding: var(--studio-card-pad) 12px; border: 0; border-radius: var(--studio-r); background: var(--studio-surface); box-shadow: var(--studio-shadow-card); transition: box-shadow var(--studio-dur) var(--studio-ease); }
+:root[data-skin="glass"][data-theme="studio"] button.wb-ocard:hover:not(:disabled) { background: var(--studio-surface); box-shadow: var(--studio-shadow-kcard-hover); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ocard b { font-weight: var(--studio-fw-nav); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ocard .wb-amt { font-weight: 600; letter-spacing: var(--studio-ls-h2); }
+:root[data-skin="glass"][data-theme="studio"] .wb-ocard small { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wb-doneSum { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+
+/* ---------- 商机：四个金额合成一个框，格间竖线（Gr8r .stats/.stat） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .opp-stats { gap: 0; border: 1px solid var(--studio-border); border-radius: var(--studio-r-lg); background: var(--studio-surface); overflow: hidden; }
+/* 每格都画左线和上线、再往左上挪 1px：第一列/第一行的线被外框裁掉；格子换行（商机分析六格、窄窗口）时格间线也对 */
+:root[data-skin="glass"][data-theme="studio"] .opp-stat.k-card { gap: 6px; margin: -1px 0 0 -1px; padding: var(--studio-stat-pad); border: 0; border-top: 1px solid var(--studio-border); border-left: 1px solid var(--studio-border); border-radius: 0; background: var(--studio-surface); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat-label { font-size: var(--studio-fs-sm); line-height: 18px; color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat-count { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat b { font-size: var(--studio-fs-stat); font-weight: 600; line-height: 1.1; letter-spacing: var(--studio-ls-stat); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat b small { margin-right: 2px; font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); letter-spacing: 0; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat-note { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+@container (max-width: 230px) { :root[data-skin="glass"][data-theme="studio"] .opp-page .opp-stat b { font-size: var(--studio-fs-xl); } }
+@container (max-width: 170px) { :root[data-skin="glass"][data-theme="studio"] .opp-page .opp-stat b { font-size: var(--studio-fs-lg); } }
+/* 框里的说明行（其他币种 / 其他流程）：整行、上线 */
+:root[data-skin="glass"][data-theme="studio"] .opp-stats > .opp-stats-note { margin: -1px 0 0; padding: 8px 16px; border-top: 1px solid var(--studio-border); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+
+/* ---------- 商机页头 → 工具行（Gr8r board：页签底线下直接是 .toolbar，工具行下 12 到列区）。只改商机页头，别的页头保留 20 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-pageheader.opp-header { margin-bottom: 0; }
+:root[data-skin="glass"][data-theme="studio"] .opp-page > .opp-toolbar { margin-bottom: 12px; }
+
+/* ---------- 商机看板：列 ≤284、间距 12；列 sunken 底、divider 边、10 圆角（Gr8r .bcol） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .opp-page > .opp-board { grid-auto-columns: minmax(232px, var(--studio-bcol-w)); gap: var(--studio-board-gap); }
+:root[data-skin="glass"][data-theme="studio"] .opp-column { border: 1px solid var(--studio-divider); border-radius: var(--studio-r-lg); background: var(--studio-sunken); }
+:root[data-skin="glass"][data-theme="studio"] .opp-column.is-drop-target { border-color: var(--studio-accent-line); background: color-mix(in srgb, var(--studio-accent) 6%, var(--studio-sunken)); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .opp-column .opp-stage { gap: 2px 7px; padding: 10px 8px 6px 12px; border-radius: var(--studio-r-lg) var(--studio-r-lg) 0 0; background: inherit; font-size: var(--studio-fs-sm); font-weight: 600; }
+:root[data-skin="glass"][data-theme="studio"] .opp-stage-name { font-weight: 600; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stage .opp-stage-count,
+:root[data-skin="glass"][data-theme="studio"] .opp-stage .opp-stage-count.k-badge--success { min-width: 0; height: auto; padding: 0; border: 0; background: transparent; font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: inherit; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-stage-amount { padding-right: 4px; font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-body); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-cards { gap: 6px; padding: var(--studio-bcol-pad); }
+:root[data-skin="glass"][data-theme="studio"] .opp-cards > .opp-drop-hint { border-color: var(--studio-border-strong); border-radius: var(--studio-r); color: var(--studio-text-3); }
+/* 卡片 = Gr8r .kcard：8 圆角、无边、shadow-card、10/12 内距；悬停加深的环 */
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card { padding: var(--studio-card-pad) 12px; border: 0; border-radius: var(--studio-r); background: var(--studio-surface); box-shadow: var(--studio-shadow-card); transition: box-shadow var(--studio-dur) var(--studio-ease); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card:hover { box-shadow: var(--studio-shadow-kcard-hover); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card:focus-within { box-shadow: var(--studio-focus), 0 0 0 1px var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card.is-dragging { box-shadow: 0 0 0 1px var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card.k-card.is-archived { background: var(--studio-surface); }
+/* 卡片标题是客户名（Gr8r .kcard .title 13.5/450/1.4）；商机编号一行是 meta（12 text-3） */
+:root[data-skin="glass"][data-theme="studio"] .opp-card-head .opp-card-client { height: auto; min-height: 0; padding: 0; border: 0; box-shadow: none; font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); line-height: 1.4; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-head .opp-card-menu { width: var(--studio-h-xs); height: var(--studio-h-xs); min-height: 0; margin: -2px -6px -2px 0; padding: 0; border: 0; border-radius: var(--studio-r-sm); background: transparent; box-shadow: none; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-head .opp-card-menu:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card > .opp-card-name { margin-top: 2px; font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card > .opp-card-name:hover { color: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-amount { font-size: var(--studio-fs-md); font-weight: 600; line-height: 20px; letter-spacing: var(--studio-ls-h2); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-amount small { font-size: var(--studio-fs-xs); letter-spacing: 0; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-foot { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-foot .opp-owner-name { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .opp-avatar { width: 20px; height: 20px; border-radius: var(--studio-r-full); background: color-mix(in srgb, var(--studio-accent) 17%, var(--studio-surface)); font-size: var(--studio-fs-2xs); font-weight: 600; line-height: 20px; color: var(--studio-accent-ink); }
+
+/* ---------- 商机分析：阶段分布条 6 高、surface-3 底、主色（赢单绿、输单灰） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .opp-bar { padding: 9px 0; border-bottom-color: var(--studio-divider); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-label { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-track { height: 6px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-track i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar.opp-kind-won .opp-bar-track i { background: var(--studio-green); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar.opp-kind-lost .opp-bar-track i { background: var(--studio-st-backlog); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-count { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .opp-bar-amount { letter-spacing: var(--studio-ls-h2); color: var(--studio-text); }
+
+/* ---------- 团队数据：目标卡、统计格 = Gr8r .stat 的字（k 12.5 text-2、v 22/600、d 12 text-3）；条 4/6 高 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .team-goal.k-card,
+:root[data-skin="glass"][data-theme="studio"] .team-tile.k-card { gap: 6px; padding: var(--studio-stat-pad); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-head { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-head > span { font-weight: var(--studio-fw-ui); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal > strong,
+:root[data-skin="glass"][data-theme="studio"] .team-tile > strong,
+:root[data-skin="glass"][data-theme="studio"] .team-figures strong,
+:root[data-skin="glass"][data-theme="studio"] .team-card-number > strong { font-size: var(--studio-fs-stat); font-weight: 600; line-height: 1.1; letter-spacing: var(--studio-ls-stat); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .team-tile > span { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.team-goal-note, .team-cap, .team-note, .team-hint, .team-scope-note) { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-foot { font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-bar { height: 4px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal-bar i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal.team-goal-new { border: 1px dashed var(--studio-border-strong); border-radius: var(--studio-r-lg); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-goal.team-goal-new:hover:not(:disabled) { border-color: var(--studio-text-4); background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars > div { font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars span { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars > div > div,
+:root[data-skin="glass"][data-theme="studio"] .team-segbar { height: 6px; border-radius: var(--studio-r-xs); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-bars i,
+:root[data-skin="glass"][data-theme="studio"] .team-segbar i { border-radius: var(--studio-r-xs); background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .team-ring-track { stroke: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .team-block-title,
+:root[data-skin="glass"][data-theme="studio"] .team-trend-title { font-size: var(--studio-fs); font-weight: 600; color: var(--studio-text); }
+/* ===== /S6 ===== */
+
+/* ===== S7: settings-forms（设置页、设置中心、客户/商机表单） ===== */
+/* 照 Gr8r pages/settings.css：设置中心、功能开关、设置页的分组不装卡片，改成 .sblock 的样子——
+   小节标题 13.5/600 下面一条 border 线、组距 28；设置项是 .srow：上下 14、行线 divider、标题 13.5/500、说明 12.5 text-2。
+   表单字段照 components.css 的 .field/.label/.hint：字段 gap 6、标签 12.5/500 正文色、提示 12 text-3。
+   客户设置/产品设置/单据模板的面板保留卡片（计划 S7），只改内距与行。 */
+
+/* —— 设置中心（settings-hub）—— */
+:root[data-skin="glass"][data-theme="studio"] .sh-page { gap: 28px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-group, .fs-card).k-card {
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible;
+}
+:root[data-skin="glass"][data-theme="studio"] .sh-group > .k-card-head {
+  min-height: 0; margin: 0; padding: 0 0 8px; border-bottom: 1px solid var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .sh-group > .k-card-head .k-card-title {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-head); line-height: var(--studio-lh); letter-spacing: 0; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-list, .fs-list).k-card-body { padding: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-item, .fs-page .fs-item) {
+  gap: 24px; min-height: 0; padding: 14px 0; border-top: 1px solid var(--studio-divider);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-item, .fs-page .fs-item):first-child { border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-item, .fs-page .fs-item):last-child { border-bottom: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-text, .fs-page .fs-text) { gap: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-text strong, .fs-page .fs-text h3) {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); line-height: var(--studio-lh); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.sh-text span, .fs-page .fs-note) {
+  margin-top: 2px; font-size: var(--studio-fs-sm); line-height: var(--studio-lh); color: var(--studio-text-2);
+}
+
+/* —— 功能开关（feature-switch）：同设置中心的行；没有小节标题，用一条 border 线起头 —— */
+:root[data-skin="glass"][data-theme="studio"] .fs-page { gap: 12px; }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-list.k-card-body { border-top: 1px solid var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-item:first-child { border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-switch { font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .fs-page .fs-switch:has(.k-switch:not(:checked)) { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .fs-page :is(.fs-hint, .fs-fixed) { font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+
+/* —— 设置（settings）：每张 .st-card 是一个 .sblock —— */
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-form { gap: 28px; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-card.k-card {
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible;
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-card > .k-card-head {
+  min-height: 0; margin: 0; padding: 0 0 8px; border-bottom: 1px solid var(--studio-border);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-head .k-card-title {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-head); line-height: var(--studio-lh); letter-spacing: 0; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-head .k-card-desc { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-card > .k-card-body { padding: 16px 0 0; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-grid.k-card-body { gap: 16px 24px; padding: 16px 0 0; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-field { gap: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-label {
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-label .required { color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout :is(.st-hint, .st-copy) {
+  font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3);
+}
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-actions { gap: 8px; }
+:root[data-skin="glass"][data-theme="studio"] .settings-layout .st-actions--start { margin: 14px 0 8px; }
+
+/* —— 界面配色卡（.tcard）：边 border、10 圆角、内距 8；选中 accent 边 + 焦点环；预览 84 高 6 圆角 —— */
+:root[data-skin="glass"][data-theme="studio"] .theme-options { gap: 12px; margin: 0 0 12px; }
+:root[data-skin="glass"][data-theme="studio"] .theme-option {
+  gap: 8px; padding: 8px; border: 1px solid var(--studio-border); border-radius: var(--studio-r-lg);
+  background: var(--studio-surface); box-shadow: none;
+  transition: border-color var(--studio-dur) var(--studio-ease), box-shadow var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .theme-option:hover { border-color: var(--studio-border-strong); background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] :is(.theme-option.selected, .theme-option.selected:hover) {
+  border-color: var(--studio-accent); box-shadow: var(--studio-focus);
+}
+:root[data-skin="glass"][data-theme="studio"] .theme-option .theme-preview {
+  height: 84px; border-radius: var(--studio-r-sm); outline: 1px solid rgba(128, 128, 128, 0.2); outline-offset: -1px;
+}
+:root[data-skin="glass"][data-theme="studio"] .theme-line { min-height: 20px; padding: 0 2px; }
+:root[data-skin="glass"][data-theme="studio"] .theme-line strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); color: var(--studio-text); }
+
+/* —— 客户设置 / 产品设置 / 单据模板（.cs-*）—— */
+:root[data-skin="glass"][data-theme="studio"] .cs-page { gap: 24px; padding: 4px 0 24px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-nav.k-tabs { gap: 0; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .cs-nav :is(.gh, h3, .cs-nav-group) {
+  margin: 0; padding: 14px 8px 4px; font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-head);
+  letter-spacing: var(--studio-ls-eyebrow); line-height: 16px; color: var(--studio-text-3);
+}
+:root[data-skin="glass"][data-theme="studio"] .cs-nav :is(.gh, h3, .cs-nav-group):first-child { padding-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-panel.k-card > .k-card-head { padding: 20px 24px 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-panel.k-card > .k-card-body { padding: 14px 24px 20px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-panel > h2 { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] :is(.cs-note, .cs-hint) { font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .cs-list {
+  border: 0; border-radius: 0; border-top: 1px solid var(--studio-divider); border-bottom: 1px solid var(--studio-divider);
+}
+:root[data-skin="glass"][data-theme="studio"] .cs-list > li { border-top: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .cs-list > li:first-child { border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-row { gap: 12px; min-height: 0; padding: 14px 0; }
+:root[data-skin="glass"][data-theme="studio"] .cs-child > .cs-row { padding: 10px 12px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-row strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .cs-row .cs-use { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .cs-section { margin: 0 0 24px; padding-top: 20px; border-top: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .cs-section:first-of-type { padding-top: 0; border-top: 0; }
+:root[data-skin="glass"][data-theme="studio"] :is(.cs-section h3, .dt-group h3) { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .cs-field { gap: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .cs-field > :is(span, legend) {
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .cs-field em { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .cs-layout-card { border-color: var(--studio-border); border-radius: var(--studio-r-lg); }
+:root[data-skin="glass"][data-theme="studio"] .cs-layout-card:hover { border-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .cs-layout-card.active { border-color: var(--studio-accent); box-shadow: var(--studio-focus); }
+:root[data-skin="glass"][data-theme="studio"] .cs-confirm { border-radius: var(--studio-r); background: var(--studio-surface-2); }
+
+/* —— 客户编辑字段（.ce-*；抽屉壳归 S4）—— */
+:root[data-skin="glass"][data-theme="studio"] .ce-body :is(.ce-field > label, .ce-label) {
+  margin: 0 0 6px; font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .ce-body .ce-required { color: var(--studio-red); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .ce-body :is(h3, .ce-section-heading h3, .ce-contact-heading strong) {
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-head); line-height: var(--studio-lh); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .ce-body :is(.ce-hint, .ce-main-hint) { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+
+/* —— 商机表单字段（停靠卡片壳归 S1/S4）—— */
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-field { gap: 6px; font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-field-label {
+  font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); line-height: 18px; color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-req { color: var(--studio-red); }
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-field-hint {
+  font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-body); line-height: 18px; color: var(--studio-text-3);
+}
+/* 表单控件统一 30 高（business.css 把 #opp-form 的 --dd-h 设成 32）；字段值用正文字重 400，
+   不跟 .opp-field 的 500（标签仍是 12.5/500）；币种代码保留原来的加粗 */
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form, #biz-order-form, #biz-order-form .form-grid) { --dd-h: var(--studio-h-md); }
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-static { min-height: var(--studio-h-md); }
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form, #biz-order-form) :is(.k-input:not(.opp-group-currency), .k-textarea, .lai-select-trigger, .lai-date-trigger) {
+  font-weight: var(--studio-fw-body);
+}
+
+/* —— 角色与成员（非表格部分）—— */
+:root[data-skin="glass"][data-theme="studio"] .role-hint { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .role-foot-note { padding: 12px 14px 14px; border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .role-section-title { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(.role-note, .role-lock-note) {
+  border-color: var(--studio-border); border-radius: var(--studio-r); background: var(--studio-surface-2);
+  font-size: var(--studio-fs-sm); color: var(--studio-text-2);
+}
+:root[data-skin="glass"][data-theme="studio"] :is(.role-edit, .role-dialog) .field {
+  gap: 6px; font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text);
+}
+:root[data-skin="glass"][data-theme="studio"] .role-basic.k-card { gap: 16px 24px; padding: 14px; }
+:root[data-skin="glass"][data-theme="studio"] .role-group legend { min-height: 44px; padding: 10px 14px; border-bottom-color: var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .role-group-name { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] .role-perms { gap: 10px 16px; padding: 14px; }
+:root[data-skin="glass"][data-theme="studio"] .role-check { font-size: var(--studio-fs); }
+:root[data-skin="glass"][data-theme="studio"] :is(.role-members-total, .role-members-none) { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+/* ===== /S7 ===== */
+
+/* ===== S8: secondary-pages（客户详情、邮件、聊天、订单页细节） ===== */
+/* 行密度照 Gr8r 首页右栏（.mini / .nrow / .fitem）：行 38 起、行线 divider、悬停 surface-2、时间 12 text-3 等宽数字。 */
+
+/* ---------- 客户详情（.lcd-*） ---------- */
+/* 栏距、卡距 16（Gr8r .grid2 / .stack） */
+:root[data-skin="glass"][data-theme="studio"] .lcd-columns { gap: var(--studio-grid-gap); }
+:root[data-skin="glass"][data-theme="studio"] :is(.lcd-left, .lcd-right, .lcd-side) { gap: var(--studio-grid-gap); }
+/* 页头停在顶上时底色跟主区一样白（原来是 --bg，米白里是 surface-2，会露出一条灰带） */
+:root[data-skin="glass"][data-theme="studio"] .lcd-pagebar.k-pageheader { background: var(--studio-surface); }
+/* 吸顶后上方还有主区 24 的上内距，滚过去的内容会从这条缝里透出来：页头上方加一条同色白条盖住它（不挡点击） */
+:root[data-skin="glass"][data-theme="studio"] .lcd-pagebar.k-pageheader::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--studio-page-top); background: var(--studio-surface);
+}
+/* 返回：26 高的幽灵按钮 */
+:root[data-skin="glass"][data-theme="studio"] .lcd-pagebar .lcd-return.k-btn {
+  height: var(--studio-h-sm); min-height: var(--studio-h-sm); padding: 0 8px 0 6px; border-color: transparent; background: transparent; box-shadow: none;
+  color: var(--studio-text-2); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui);
+}
+:root[data-skin="glass"][data-theme="studio"] .lcd-pagebar .lcd-return.k-btn:hover:not(:disabled) { border-color: transparent; background: var(--studio-surface-2); color: var(--studio-text); }
+/* 卡片内距 14（Gr8r panel-h / panel-b） */
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-summary { padding: var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root :is(.lcd-schedule, .lcd-contacts) { padding: 0 var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-opportunity { padding: 0 var(--studio-panel-pad) 12px; }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-opportunity.is-empty { padding-bottom: 0; }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-side-card { padding: 12px var(--studio-panel-pad) var(--studio-panel-pad); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-body { padding: var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-tabs.k-tabs { margin: 12px var(--studio-panel-pad) 0; max-width: calc(100% - 28px); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .k-btn.lcd-tabs-more { right: var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-tabs-overflow-menu { right: var(--studio-panel-pad); }
+/* 卡片、分区标题 13.5/600（Gr8r panel-h h2 / .dsec-h h3） */
+:root[data-skin="glass"][data-theme="studio"] .lcd-root :is(.lcd-section-head h3, .lcd-side-head h3) { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); letter-spacing: 0; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-side-head { margin-bottom: 8px; }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root :is(.lcd-contacts > .lcd-section-head, .lcd-contact, .lcd-summary-fields, .lcd-side-doc, .lcd-side-hist) { border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-identity h2 { font-size: var(--studio-fs-lg); letter-spacing: var(--studio-ls-h2); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-rule { background: var(--studio-divider); }
+/* 分区之间 26（Gr8r 抽屉 .dsec）：资料页签的分组、写跟进和历史动态之间、数字和表格之间 */
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-info-section + .lcd-info-section { margin-top: 26px; }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-followup-form { margin-bottom: 26px; }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-metrics { margin-bottom: 26px; }
+/* 动态：一条一行，行间 divider；时间 12 text-3；分组头照 Gr8r .day-h */
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-timeline { border-left-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-timeline article,
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-timeline.is-activity .lcd-quick-record { padding-bottom: 12px; }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-timeline article:not(:last-child) { margin-bottom: 12px; border-bottom: 1px solid var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root :is(.lcd-timeline time, .lcd-operation-head time) { font-size: var(--studio-fs-xs); color: var(--studio-text-3); font-variant-numeric: tabular-nums; }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-timeline.is-activity .lcd-event-body { border-radius: var(--studio-r); background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root button.lcd-time-group-head {
+  min-height: 0; padding: 14px 0 4px; border-bottom: 0; color: var(--studio-text-3); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-eyebrow);
+}
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-activity-list button[data-activity-filter] { font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-activity-list [data-activity-filter] + [data-activity-filter]::before { background: var(--studio-divider); }
+/* 右栏小卡：标签 12 text-3 */
+:root[data-skin="glass"][data-theme="studio"] .lcd-root :is(.lcd-side-row span, .lcd-side-order > span, .lcd-side-doc small, .lcd-side-hist small) { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-side-order { border-color: var(--studio-border); border-radius: var(--studio-r); }
+/* 动态里的往来邮件块 */
+:root[data-skin="glass"][data-theme="studio"] .lcd-mail-panel { border-color: var(--studio-border); border-radius: var(--studio-r-lg); background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-mail-head { min-height: var(--studio-toolbar-h); padding: 0 var(--studio-panel-pad); border-bottom-color: var(--studio-divider); font-size: var(--studio-fs); font-weight: var(--studio-fw-head); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(.lcd-mail-head button, .lcd-mail-row > button:not(.lcd-mail-open)) { height: var(--studio-h-sm); min-height: var(--studio-h-sm); border-radius: var(--studio-r-sm); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-mail-note { padding: 10px var(--studio-panel-pad); color: var(--studio-text-2); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-mail-row { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-mail-open { min-height: var(--studio-mini-h); padding: 4px var(--studio-panel-pad); font-size: var(--studio-fs); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-mail-open:hover { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-mail-snippet { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
+/* 沟通入口按钮 */
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-chat-tools button { height: var(--studio-h-md); padding: 0 12px; border-color: var(--studio-border-strong); border-radius: var(--studio-r-sm); background: var(--studio-surface); box-shadow: var(--studio-shadow-sm); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .lcd-root .lcd-chat-tools button:hover { background: var(--studio-surface-2); }
+
+/* ---------- 邮件（.mail-*） ---------- */
+/* 文件夹栏 = 侧栏：行 30、行距 0、当前项白卡 + shadow-on */
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-folders, .mail-customers) { gap: 0; }
+:root[data-skin="glass"][data-theme="studio"] .mail-folders .nav-row { height: var(--studio-side-row); }
+:root[data-skin="glass"][data-theme="studio"] .mail-folders .nav-row .nav-entry { height: var(--studio-side-row); min-height: var(--studio-side-row); padding: 0 25px 0 8px; gap: 8px; }
+:root[data-skin="glass"][data-theme="studio"] .mail-folders .nav-entry.active { background: var(--studio-surface); box-shadow: var(--studio-shadow-on); }
+/* 未读数：Gr8r 侧栏的计数是纯数字（12 text-3），不带底 */
+:root[data-skin="glass"][data-theme="studio"] .mail-count { min-width: 0; padding: 0; background: transparent; color: var(--studio-text-3); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active .mail-count { background: transparent; color: var(--studio-text-2); }
+/* 列表行：最小 38，发件人与主题 13.5，摘要 12.5 text-2，时间 12 text-3，行线 divider */
+:root[data-skin="glass"][data-theme="studio"] .mail-row { border-bottom-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-row:hover, .mail-row:focus-within) { --row-bg: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-row.selected, .mail-row.picked) { --row-bg: color-mix(in srgb, var(--studio-accent) 7%, var(--studio-surface)); }
+:root[data-skin="glass"][data-theme="studio"] .mail-row-main { gap: 1px; min-height: var(--studio-mini-h); padding: 9px 14px 9px 8px; font-size: var(--studio-fs); line-height: var(--studio-lh); }
+:root[data-skin="glass"][data-theme="studio"] .mail-list.wide .mail-row-main { padding: 10px 20px 10px 14px; }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-row-who, .mail-row-subject) { font-size: var(--studio-fs); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .mail-row:not(.unread) .mail-row-subject { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .mail-row-snippet { min-height: 18px; font-size: var(--studio-fs-sm); line-height: 18px; color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .mail-row-time { font-size: var(--studio-fs-xs); color: var(--studio-text-3); font-variant-numeric: tabular-nums; }
+:root[data-skin="glass"][data-theme="studio"] .mail-row.unread .mail-dot { background: var(--studio-accent); }
+:root[data-skin="glass"][data-theme="studio"] .mail-check { top: 11px; width: var(--studio-check); height: var(--studio-check); min-height: var(--studio-check); border-color: var(--studio-border-strong); border-radius: var(--studio-r-xs); }
+:root[data-skin="glass"][data-theme="studio"] .mail-thread-count { background: var(--studio-surface-3); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-thread-note, .mail-bulkbar) { border-bottom-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .mail-thread-note { padding: 10px var(--studio-panel-pad); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .k-pager.mail-pager { min-height: var(--studio-toolbar-h); padding: 0 var(--studio-panel-pad); border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .mail-pager span { color: var(--studio-text-3); }
+/* 阅读区：工具行 44、标题 19/600/-0.018em、空状态照 Gr8r .empty-state（图标 22 text-4，说明 12.5 text-2 最宽 340） */
+:root[data-skin="glass"][data-theme="studio"] .mail-reader-bar { min-height: var(--studio-toolbar-h); padding: 4px 12px; }
+:root[data-skin="glass"][data-theme="studio"] .mail-reader-scroll { padding: 20px var(--studio-gutter) 8px; }
+:root[data-skin="glass"][data-theme="studio"] .mail-reader-subject { font-size: var(--studio-fs-xl); font-weight: var(--studio-fw-head); letter-spacing: var(--studio-ls-title); line-height: 1.3; }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-reader-address, .mail-reader-time, .mail-reader-facts dt) { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-body-frame, .mail-body-text) { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .k-empty.mail-unbound { gap: 6px; padding: 56px var(--studio-gutter); }
+:root[data-skin="glass"][data-theme="studio"] .k-empty.mail-unbound .mail-unbound-art { width: 22px; height: 22px; margin-bottom: 4px; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .mail-unbound > span { max-width: 340px; font-size: var(--studio-fs-sm); line-height: var(--studio-lh); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .mail-unbound > span.mail-keys,
+:root[data-skin="glass"][data-theme="studio"] .mail-unbound .mail-keys { max-width: 340px; font-size: var(--studio-fs-xs); line-height: 1.7; color: var(--studio-text-3); }
+/* 会话折叠条、联系人栏 */
+:root[data-skin="glass"][data-theme="studio"] .mail-thread-strip { border-color: var(--studio-border); border-radius: var(--studio-r); }
+:root[data-skin="glass"][data-theme="studio"] .mail-thread-item { min-height: var(--studio-mini-h); padding: 4px 12px; background: var(--studio-surface-2); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .mail-thread-item + .mail-thread-item { border-top-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .mail-thread-item:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .mail-contact { padding: 20px var(--studio-panel-pad); background: var(--studio-bg); }
+:root[data-skin="glass"][data-theme="studio"] .mail-contact h3 { border-top-color: var(--studio-divider); color: var(--studio-text-3); letter-spacing: var(--studio-ls-eyebrow); }
+:root[data-skin="glass"][data-theme="studio"] .k-btn.mail-contact-item { min-height: var(--studio-side-row); font-size: var(--studio-fs-sm); }
+/* 写信页：标签 12.5/500 text-2（S7 的字段标签），行线 divider，正文工具栏按钮 26 高 */
+:root[data-skin="glass"][data-theme="studio"] .mail-compose-form { padding: 0 var(--studio-gutter) 16px; }
+:root[data-skin="glass"][data-theme="studio"] .mail-compose-row { min-height: var(--studio-toolbar-h); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .mail-compose-row > span:first-child { color: var(--studio-text-2); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .mail-compose-row.slim { min-height: 0; }
+:root[data-skin="glass"][data-theme="studio"] .mail-compose-row.tall > span:first-child { line-height: var(--studio-h-md); }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-editor-toolbar, .mail-compose-files, .mail-compose-from) { border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-editor-toolbar button, .mail-editor-toolbar select, .mail-editor-link input) { height: var(--studio-h-sm); min-height: var(--studio-h-sm); border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .mail-editor-toolbar button:hover:not(:disabled) { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .mail-editor-toolbar select { border-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .mail-editor { font-size: var(--studio-fs); line-height: 1.6; }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-compose-files .tiny, .mail-compose-address) { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] :is(.mail-attachments li, .mail-compose-files li) { border-color: var(--studio-border); border-radius: var(--studio-r); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] .mail-attachments li { background: var(--studio-surface-2); }
+/* 群发收件人：行 38，行线 divider */
+:root[data-skin="glass"][data-theme="studio"] .mail-bulk-recipients { border-color: var(--studio-border); border-radius: var(--studio-r); }
+:root[data-skin="glass"][data-theme="studio"] .mail-bulk-pick { min-height: var(--studio-mini-h); padding: 4px 12px; border-bottom-color: var(--studio-divider); font-size: var(--studio-fs); }
+:root[data-skin="glass"][data-theme="studio"] .mail-bulk-pick:hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .mail-bulk-box { flex-basis: var(--studio-check); width: var(--studio-check); height: var(--studio-check); border-color: var(--studio-border-strong); border-radius: var(--studio-r-xs); }
+:root[data-skin="glass"][data-theme="studio"] .mail-bulk-address { color: var(--studio-text-3); font-size: var(--studio-fs-sm); }
+
+/* ---------- 聊天（.wa-*） ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.wa-page, .wa-split) { gap: var(--studio-grid-gap); }
+:root[data-skin="glass"][data-theme="studio"] .wa-tools { padding: 12px var(--studio-panel-pad) 10px; }
+/* 会话列表：同邮件行 */
+:root[data-skin="glass"][data-theme="studio"] .wa-row { gap: 1px; min-height: var(--studio-mini-h); padding: 9px var(--studio-panel-pad); border-bottom-color: var(--studio-divider); font-size: var(--studio-fs); line-height: var(--studio-lh); }
+:root[data-skin="glass"][data-theme="studio"] .wa-row:hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] :is(.wa-row.selected, .wa-row.selected:hover:not(:disabled)) { background: color-mix(in srgb, var(--studio-accent) 7%, var(--studio-surface)); }
+:root[data-skin="glass"][data-theme="studio"] .wa-row-top strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); }
+:root[data-skin="glass"][data-theme="studio"] .wa-row.selected .wa-row-top strong { color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] :is(.wa-row time, .wa-row-sub em) { color: var(--studio-text-3); font-size: var(--studio-fs-xs); font-variant-numeric: tabular-nums; }
+:root[data-skin="glass"][data-theme="studio"] .wa-row-text { color: var(--studio-text-2); font-size: var(--studio-fs-sm); }
+/* 聊天：白底；对方气泡 surface-2，我方 accent-soft，圆角 10，无边框；时间 12 text-3 */
+:root[data-skin="glass"][data-theme="studio"] .wa-thread-head { min-height: var(--studio-toolbar-h); padding: 0 12px 0 var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wa-thread-head strong { font-size: var(--studio-fs); font-weight: var(--studio-fw-head); }
+:root[data-skin="glass"][data-theme="studio"] :is(.wa-thread-head span, .wa-thread-head small) { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .wa-thread-body { gap: 6px; padding: 14px var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wa-thread-pane .wa-thread-body { background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .wa-bubble { padding: 7px 12px 6px; border: 0; border-radius: var(--studio-r-lg); background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wa-bubble.out { background: var(--studio-accent-soft); }
+:root[data-skin="glass"][data-theme="studio"] .wa-bubble p { font-size: var(--studio-fs); line-height: var(--studio-lh); }
+:root[data-skin="glass"][data-theme="studio"] .wa-bubble time { margin-top: 2px; color: var(--studio-text-3); font-size: var(--studio-fs-xs); font-variant-numeric: tabular-nums; }
+/* 日期分隔：20 高的中性徽标（Gr8r .lbl：surface-2 + 边、5 圆角、12/500） */
+:root[data-skin="glass"][data-theme="studio"] .wa-day {
+  box-sizing: border-box; height: var(--studio-badge-h); margin: 10px 0 4px; padding: 0 7px; border: 1px solid var(--studio-border); border-radius: var(--studio-r-badge);
+  background: var(--studio-surface-2); color: var(--studio-text-2); font-size: var(--studio-fs-xs); font-weight: var(--studio-fw-ui); line-height: 18px; font-variant-numeric: tabular-nums;
+}
+:root[data-skin="glass"][data-theme="studio"] .wa-entry-note { color: var(--studio-text-3); }
+/* 客户动态里的聊天条目：38 高的标题行，下面白底气泡 */
+:root[data-skin="glass"][data-theme="studio"] .wa-entry { border-color: var(--studio-border); border-radius: var(--studio-r-lg); background: var(--studio-surface); overflow: hidden; }
+:root[data-skin="glass"][data-theme="studio"] .wa-entry > summary { align-items: center; gap: 8px; min-height: var(--studio-mini-h); padding: 0 var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] .wa-entry > summary:hover { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .wa-entry-title { font-size: var(--studio-fs); font-weight: var(--studio-fw-ui); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .wa-entry-contact { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .wa-entry-body { border-top-color: var(--studio-divider); background: var(--studio-surface); }
+/* 导入记录、聊天模板、选客户的行 */
+:root[data-skin="glass"][data-theme="studio"] .wa-imports li { min-height: var(--studio-mini-h); border-bottom-color: var(--studio-divider); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] :is(.wa-imports li time, .wa-imports li.undone) { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .wa-tpl-group li { min-height: var(--studio-mini-h); padding: 6px 12px 6px var(--studio-panel-pad); border-bottom-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .wa-tpl-group > .k-card-head { min-height: var(--studio-toolbar-h); padding: 0 12px 0 var(--studio-panel-pad); }
+:root[data-skin="glass"][data-theme="studio"] :is(.wa-picks, .wa-import .wa-facts) { border-color: var(--studio-border); border-radius: var(--studio-r); }
+:root[data-skin="glass"][data-theme="studio"] .wa-pick { height: var(--studio-mini-h); min-height: var(--studio-mini-h); border-bottom-color: var(--studio-divider); font-size: var(--studio-fs); }
+:root[data-skin="glass"][data-theme="studio"] .wa-pick:hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--studio-divider); }
+
+/* ---------- 订单页细节（.op-*；筛选条归 S3、表格归 S5） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .op-legend { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .op-date { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .op-total { font-size: var(--studio-fs-xs); color: var(--studio-text-3); font-variant-numeric: tabular-nums; }
+:root[data-skin="glass"][data-theme="studio"] .op-foot { min-height: var(--studio-toolbar-h); padding: 0 var(--studio-panel-pad); border-top-color: var(--studio-divider); }
+/* 回收站：卡片头照 panel-h，空的时候是 Gr8r 的小空状态（28px 16px、12.5 text-2、无边框） */
+:root[data-skin="glass"][data-theme="studio"] .op-trash .k-card-head { padding: 12px var(--studio-panel-pad) 10px; border-bottom-color: var(--studio-divider); }
+:root[data-skin="glass"][data-theme="studio"] .op-trash .k-card-title { font-size: var(--studio-fs); }
+:root[data-skin="glass"][data-theme="studio"] .op-trash .k-card-desc { color: var(--studio-text-3); font-size: var(--studio-fs-xs); }
+:root[data-skin="glass"][data-theme="studio"] .op-trash .k-empty { padding: 28px 16px; border: 0; background: transparent; color: var(--studio-text-2); font-size: var(--studio-fs-sm); }
+/* ===== /S8 ===== */
+
+/* ===== S9: preview（设置页「界面配色」的小预览图：不管现在用哪个配色都要画出来，所以不带米白前缀） ===== */
+.theme-preview[data-preview="studio"] { --pv-page: #ffffff; --pv-nav: #f4f3f0; --pv-brand: #4b5bd6; --pv-tint: #eeede9; }
+/* ===== /S9 ===== */

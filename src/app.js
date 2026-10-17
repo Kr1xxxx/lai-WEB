@@ -219,7 +219,7 @@
     }
   }
   // 界面配色：laiSettings.theme 存「pink」「orange」或「tech」（科技蓝），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
-  const THEME_IDS = ["pink", "orange", "tech"];
+  const THEME_IDS = ["pink", "orange", "tech", "studio"]; // studio：米白（照 Gr8r Studio 的样子做的浅色主题，样式全在 theme-studio.css）
   // 去掉的配色显示成哪个（D-029）：以前存的「xiaoman」（小满）按科技蓝显示；存的值不在这里改，下次保存设置时才写成 tech。
   const RETIRED_THEMES = { xiaoman: "tech" };
   // 没选过配色时用哪个。想换默认配色就改这一行（设置页会自动给它加「（默认）」）；

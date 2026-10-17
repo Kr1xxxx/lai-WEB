@@ -73,13 +73,13 @@ for (const [id, ...checks] of destinations) {
   });
 }
 
-test('the theme switch (粉色 / 橙色 / 科技蓝) takes effect at once and survives a reload', async () => {
+test('the theme switch (粉色 / 橙色 / 科技蓝 / 米白) takes effect at once and survives a reload', async () => {
   const { page } = app;
   await app.open('settings');
   await page.locator('.theme-options').waitFor();
-  assert.deepEqual(await page.locator('.theme-option strong').allInnerTexts(), ['粉色（默认）', '橙色', '科技蓝']);
+  assert.deepEqual(await page.locator('.theme-option strong').allInnerTexts(), ['粉色（默认）', '橙色', '科技蓝', '米白']);
   const seen = {};
-  for (const [id, name] of [['orange', '橙色'], ['tech', '科技蓝'], ['pink', '粉色（默认）']]) {
+  for (const [id, name] of [['orange', '橙色'], ['tech', '科技蓝'], ['studio', '米白'], ['pink', '粉色（默认）']]) {
     const option = page.locator(`.theme-option[data-theme-id="${id}"]`);
     await option.click();
     await page.waitForFunction((theme) => document.documentElement.getAttribute('data-theme') === theme || (theme === 'pink' && !document.documentElement.getAttribute('data-theme')), id);
@@ -90,9 +90,9 @@ test('the theme switch (粉色 / 橙色 / 科技蓝) takes effect at once and su
     assert.equal((await laiSettings()).theme, id, 'theme saved to the backend');
     seen[id] = await page.evaluate(() => getComputedStyle(document.querySelector('.theme-option.selected .pv-nav')).backgroundColor);
   }
-  assert.equal(new Set(Object.values(seen)).size, 3, 'each theme paints differently: ' + JSON.stringify(seen));
+  assert.equal(new Set(Object.values(seen)).size, 4, 'each theme paints differently: ' + JSON.stringify(seen));
   // Reload on 科技蓝 and on 橙色: the choice is still there, in the page and in the hub.
-  for (const [id, name] of [['tech', '科技蓝'], ['orange', '橙色']]) {
+  for (const [id, name] of [['tech', '科技蓝'], ['studio', '米白'], ['orange', '橙色']]) {
     await page.locator(`.theme-option[data-theme-id="${id}"]`).click();
     await settle(700);
     await page.reload();
