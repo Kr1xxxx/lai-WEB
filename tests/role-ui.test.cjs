@@ -76,14 +76,14 @@ test('edit view: one block per group, checkboxes follow the role perms', () => {
   }
   assert.ok(html.includes('type="submit"') && html.includes('取消'));
   assert.ok(html.includes('role="alert"'));
-  assert.ok(html.includes('本人＝只看自己负责的客户、线索、商机和订单'));
+  assert.ok(html.includes('本人＝只看自己负责的客户、商机和订单'));
   assert.match(html, /<option value="self" selected>本人<\/option>/);
 });
 
 test('a group shows 全选 checked only when every item is on', () => {
   const html = ui.editMarkup(base(), 'sales');
   const group = (name) => html.match(new RegExp(`<fieldset class="role-group"[^>]*><legend><span class="role-group-name">${name}</span>.*?</legend>`))[0];
-  assert.ok(!/data-role-all[^>]* checked/.test(group('线索')), '线索 has 删除 off');
+  assert.ok(!/data-role-all[^>]* checked/.test(group('商机')), '商机 has 删除 off');
   assert.ok(/data-role-all[^>]* checked/.test(group('邮件')), '邮件 is all on');
 });
 
@@ -144,7 +144,7 @@ test('member dialogs', () => {
   assert.match(add, /<option value="sales" selected>业务<\/option>/);
   const rename = ui.renameMarkup({ id: 'm1', name: 'Amy' });
   assert.ok(rename.includes('value="Amy"') && rename.includes('data-id="m1"'));
-  assert.ok(rename.includes('会把这个人负责的客户、线索、订单、商机一起改名'), 'renaming warns about the records that follow');
+  assert.ok(rename.includes('会把这个人负责的客户、订单、商机一起改名'), 'renaming warns about the records that follow');
 });
 
 test('no permission: the notice replaces the page content', () => {
@@ -167,8 +167,8 @@ test('user text is escaped', () => {
 
 // ---------- 可见范围、字段权限、布局权限 ----------
 const FIELD_LIST = {
-  lead: [{ key: 'phone', label: '电话' }, { key: 'email', label: '邮箱', group: '联系方式' }, { key: 'wechat', label: '微信', group: '联系方式' }],
-  opp: [], customer: [], pool: [], product: [{ key: 'cost', label: '成本价' }],
+  opp: [{ key: 'phone', label: '电话' }, { key: 'email', label: '邮箱', group: '联系方式' }, { key: 'wechat', label: '微信', group: '联系方式' }],
+  customer: [], pool: [], product: [{ key: 'cost', label: '成本价' }],
 };
 const deps = { fields: { list: (state, module) => FIELD_LIST[module] || [] }, layouts: () => [{ id: 'default', name: '默认布局' }, { id: 'l1', name: '外贸布局' }] };
 const ui2 = RU.create(E, R, deps);
@@ -177,45 +177,46 @@ test('edit view: scope has 本人 / 本部门 / 全公司, with a hint for the s
   const html = ui.editMarkup(base(), 'sales');
   const options = [...html.match(/<select name="scope"[^>]*>(.*?)<\/select>/)[1].matchAll(/<option value="(\w+)"[^>]*>(.*?)<\/option>/g)].map((m) => [m[1], m[2]]);
   assert.deepEqual(options, [['self', '本人'], ['dept', '本部门'], ['all', '全公司']]);
-  assert.ok(html.includes('id="role-scope-hint">本人＝只看自己负责的客户、线索、商机和订单。'));
+  assert.ok(html.includes('id="role-scope-hint">本人＝只看自己负责的客户、商机和订单。'));
   assert.ok(ui.editMarkup(base(), 'deptAdmin').includes('本部门＝看自己和本部门（含下级部门）成员负责的'));
   assert.ok(ui.editMarkup(base(), 'admin').includes('全公司＝都能看'));
-  assert.equal(ui.scopeHint('dept'), '本部门＝看自己和本部门（含下级部门）成员负责的客户、线索、商机和订单。');
+  assert.equal(ui.scopeHint('dept'), '本部门＝看自己和本部门（含下级部门）成员负责的客户、商机和订单。');
 });
 
-test('edit view: 设置字段权限 sits next to 线索 商机 客户 公海客户 产品, 设置布局权限 only next to 产品', () => {
+test('edit view: 设置字段权限 sits next to 商机 客户 公海客户 产品, 设置布局权限 only next to 产品', () => {
   const html = ui2.editMarkup(base(), 'sales');
   const group = (name) => html.match(new RegExp(`<fieldset class="role-group"[^>]*><legend><span class="role-group-name">${name}</span>.*?</legend>`))[0];
-  for (const [name, module] of [['线索', 'lead'], ['商机', 'opp'], ['客户', 'customer'], ['公海客户', 'pool'], ['产品', 'product']]) {
+  assert.ok(!html.includes('role-group-name">线索<') && !html.includes('data-module="lead"'), '线索 is gone (D-030)');
+  for (const [name, module] of [['商机', 'opp'], ['客户', 'customer'], ['公海客户', 'pool'], ['产品', 'product']]) {
     assert.ok(group(name).includes(`data-role-action="fields" data-module="${module}">设置字段权限<`), name);
   }
-  for (const name of ['订单', '邮件', '线索', '跟进动态']) assert.ok(!group(name).includes('设置布局权限'), name);
+  for (const name of ['订单', '邮件', '商机', '跟进动态']) assert.ok(!group(name).includes('设置布局权限'), name);
   assert.ok(group('产品').includes('data-role-action="layouts">设置布局权限<'));
   assert.ok(!group('订单').includes('设置字段权限') && !group('跟进动态').includes('设置字段权限'));
-  assert.ok(html.includes('跟进动态') && html.includes('彻底删除（回收站）') && html.includes('编辑目标值') && html.includes('导出成员排行'));
+  assert.ok(html.includes('跟进动态') && html.includes('编辑目标值') && html.includes('导出成员排行'));
 });
 
 test('edit view: the count shows how many listed fields the draft restricts', () => {
   const none = ui2.editMarkup(base(), 'sales');
-  assert.match(none, /data-role-limit="lead" hidden><\/span>/);
-  const html = ui2.editMarkup(base(), 'sales', { fields: { lead: { phone: 'read', email: 'hidden', gone: 'read' }, product: { cost: 'hidden' } } });
-  assert.match(html, /data-role-limit="lead">已限制 2 个<\/span>/, 'a field that is no longer listed is not counted');
+  assert.match(none, /data-role-limit="opp" hidden><\/span>/);
+  const html = ui2.editMarkup(base(), 'sales', { fields: { opp: { phone: 'read', email: 'hidden', gone: 'read' }, product: { cost: 'hidden' } } });
+  assert.match(html, /data-role-limit="opp">已限制 2 个<\/span>/, 'a field that is no longer listed is not counted');
   assert.match(html, /data-role-limit="product">已限制 1 个<\/span>/);
-  assert.match(html, /data-role-limit="opp" hidden>/);
+  assert.match(html, /data-role-limit="customer" hidden>/);
   assert.match(html, /data-role-layout-tag hidden>/);
   assert.match(ui2.editMarkup(base(), 'sales', { layouts: { product: { form: 'l1', detail: '' } } }), /data-role-layout-tag>已指定布局</);
-  assert.equal(ui2.limitCount(base(), 'lead', { lead: { phone: 'read' } }), 1);
+  assert.equal(ui2.limitCount(base(), 'opp', { opp: { phone: 'read' } }), 1);
 });
 
 test('edit view of 系统管理员 still has the links (they open read-only) and every input stays disabled', () => {
   const html = ui2.editMarkup(base(), 'admin');
-  assert.equal((html.match(/data-role-action="fields"/g) || []).length, 5);
+  assert.equal((html.match(/data-role-action="fields"/g) || []).length, 4, '商机 客户 公海客户 产品');
   assert.ok(html.includes('设置布局权限'));
   for (const input of html.match(/<(input|select)\b[^>]*>/g)) assert.ok(/ disabled/.test(input), input);
 });
 
 test('field dialog: a row per field with 可编辑 / 只读 / 隐藏, grouped, with the saved level checked', () => {
-  const html = ui2.fieldsMarkup(base(), 'lead', { phone: 'read', email: 'hidden' });
+  const html = ui2.fieldsMarkup(base(), 'opp', { phone: 'read', email: 'hidden' });
   const rows = html.match(/<div class="role-field-row"[^>]*>.*?<\/span><\/div>/g);
   assert.equal(rows.length, 3);
   const level = (key) => rows.find((r) => r.includes(`data-field-key="${key}"`)).match(/value="(\w+)" checked/)[1];
@@ -226,15 +227,15 @@ test('field dialog: a row per field with 可编辑 / 只读 / 隐藏, grouped, w
   assert.equal((html.match(/class="role-field-group"/g) || []).length, 1, 'one heading for the 联系方式 group');
   assert.ok(html.indexOf('联系方式') > html.indexOf('电话') && html.indexOf('联系方式') < html.indexOf('邮箱'));
   assert.ok(html.includes('data-level="edit">全部可编辑<') && html.includes('data-level="read">全部只读<'));
-  assert.ok(html.includes('data-role-form="fields"') && html.includes('data-module="lead"'));
+  assert.ok(html.includes('data-role-form="fields"') && html.includes('data-module="opp"'));
 });
 
 test('field dialog: empty module says so, read-only view disables everything and shows 可编辑', () => {
-  const empty = ui2.fieldsMarkup(base(), 'opp', {});
+  const empty = ui2.fieldsMarkup(base(), 'customer', {});
   assert.ok(empty.includes('这个模块还没有可以单独设置的字段'));
   assert.ok(!empty.includes('type="radio"') && !empty.includes('全部只读'));
-  assert.ok(ui.fieldsMarkup(base(), 'lead', {}).includes('这个模块还没有可以单独设置的字段'), 'no deps at all');
-  const ro = ui2.fieldsMarkup(base(), 'lead', { phone: 'hidden' }, { readOnly: true });
+  assert.ok(ui.fieldsMarkup(base(), 'opp', {}).includes('这个模块还没有可以单独设置的字段'), 'no deps at all');
+  const ro = ui2.fieldsMarkup(base(), 'opp', { phone: 'hidden' }, { readOnly: true });
   const radios = ro.match(/<input type="radio"[^>]*>/g);
   assert.equal(radios.length, 9);
   for (const radio of radios) assert.ok(/ disabled/.test(radio));
@@ -330,8 +331,8 @@ test('department dialogs: 新建部门 with 上级部门 (default 我的企业),
 test('department and field names are escaped', () => {
   let state = R.addDepartment(base(), { name: '<i>x</i>' });
   for (const html of [ui.membersMarkup(state), ui.addMemberMarkup(state), ui.deptAddMarkup(state), ui.membersMarkup(state, { dept: R.deptTree(state)[0].id })]) assert.ok(!html.includes('<i>x</i>'));
-  state = R.updateRole(state, 'sales', { fields: { lead: { '"><b>': 'read' } } });
+  state = R.updateRole(state, 'sales', { fields: { opp: { '"><b>': 'read' } } });
   const field = RU.create(E, R, { fields: { list: () => [{ key: '"><b>', label: '<u>名</u>' }] } });
-  const html = field.fieldsMarkup(state, 'lead', {});
+  const html = field.fieldsMarkup(state, 'opp', {});
   assert.ok(!html.includes('<u>名</u>') && !html.includes('"><b>'));
 });

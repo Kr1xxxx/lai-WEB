@@ -46,35 +46,33 @@ test('系统管理员 opens read-only', async () => {
   await page.locator('.role-table').waitFor();
 });
 
-test('edit 业务: 全选 follows the items, saving keeps 线索·删除 after a reload', async () => {
+test('edit 业务: 全选 follows the items, saving keeps 商机·删除 after a reload', async () => {
   const { page } = app;
   await rowOf('业务').locator('.role-actions button', { hasText: '编辑' }).click();
   await page.locator('#role-edit-form').waitFor();
-  const leadGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("线索")') });
-  const del = leadGroup.locator('input[value="lead.delete"]');
+  assert.equal(await page.locator('.role-group-name:text-is("线索")').count(), 0, '线索 is gone (D-030)');
+  const oppGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("商机")') });
+  const del = oppGroup.locator('input[value="opp.delete"]');
   assert.equal(await del.isChecked(), false);
-  assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), false);
+  assert.equal(await oppGroup.locator('[data-role-all]').isChecked(), false);
   await del.check();
-  // 彻底删除（回收站） is a separate permission now, so 全选 turns on only after it is ticked too.
-  assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), false);
-  await leadGroup.locator('input[value="lead.purge"]').check();
-  // 导出线索 is another permission of the group (admin only by default), so it has to be ticked as well.
-  assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), false);
-  await leadGroup.locator('input[value="lead.export"]').check();
-  assert.equal(await leadGroup.locator('[data-role-all]').isChecked(), true, 'the last item turns 全选 on');
+  // 导出商机 is another permission of the group (admin only by default), so 全选 turns on only after it is ticked too.
+  assert.equal(await oppGroup.locator('[data-role-all]').isChecked(), false);
+  await oppGroup.locator('input[value="opp.export"]').check();
+  assert.equal(await oppGroup.locator('[data-role-all]').isChecked(), true, 'the last item turns 全选 on');
   await page.locator('#role-scope').selectOption('all');
   await page.locator('#role-edit-form button[type=submit]').click();
   await page.locator('.role-table').waitFor();
   await settle();
   const sales = (await stored()).roles.find((role) => role.id === 'sales');
-  assert.equal(sales.perms['lead.delete'], true);
+  assert.equal(sales.perms['opp.delete'], true);
   assert.equal(sales.scope, 'all');
   await app.open('customers');
   await openPage('角色权限');
   assert.equal(await rowOf('业务').locator('td').nth(1).innerText(), '全公司');
   await rowOf('业务').locator('.role-actions button', { hasText: '编辑' }).click();
   await page.locator('#role-edit-form').waitFor();
-  assert.equal(await page.locator('input[value="lead.delete"]').isChecked(), true);
+  assert.equal(await page.locator('input[value="opp.delete"]').isChecked(), true);
   // 全选 on a whole group, then back to the list without saving: nothing is stored.
   await page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("产品")') }).locator('[data-role-all]').check();
   assert.equal(await page.locator('input[value="product.delete"]').isChecked(), true);
@@ -108,7 +106,7 @@ test('新增角色 "经理" copies 业务 and opens its edit view; it can be del
   await page.locator('button[form="role-add-form"]').click();
   await page.locator('#role-edit-form').waitFor();
   assert.equal(await page.locator('#role-edit-form input[name=name]').inputValue(), '经理');
-  assert.equal(await page.locator('input[value="lead.delete"]').isChecked(), true, 'copied from 业务');
+  assert.equal(await page.locator('input[value="opp.delete"]').isChecked(), true, 'copied from 业务');
   await page.locator('[data-role-action="back"]').click();
   await rowOf('经理').waitFor();
   assert.ok((await stored()).roles.some((role) => role.name === '经理'));

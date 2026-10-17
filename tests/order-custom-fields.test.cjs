@@ -29,12 +29,11 @@ function withFields() {
   return state;
 }
 
-test('order is a field entity: the settings live under fieldSettings.order and do not touch leads or customers', () => {
+test('order is a field entity: the settings live under fieldSettings.order and do not touch customers', () => {
   assert.ok(FM.ENTITIES.includes('order'));
   const state = OF.addCustomField(base(), { name: '合同号', type: 'text' });
   assert.deepEqual(Object.keys(state.laiSettings.fieldSettings), ['order']);
   assert.equal(state.laiSettings.fieldSettings.order.customFields.length, 1);
-  assert.deepEqual(FM.get(state, 'lead').customFields, []);
   assert.deepEqual(FM.get(state, 'customer').customFields, []);
 });
 
@@ -189,8 +188,8 @@ test('detail view: only the filled fields and the required ones, formatted', () 
   const note = idOf(state, '特殊要求');
   state = save(state, 'c', { custom: { [pay]: 'TT', [note]: '第一行\n第二行' } });
   const wide = UI.detailMarkup(escapeHtml, OF.customView(state, order(state, 'c')));
-  assert.match(wide, /<div class="lead-info order-custom-wide"><dt>特殊要求<\/dt><dd>第一行\n第二行<\/dd>/, 'a 多行文本 value takes the whole line and keeps its line breaks');
-  assert.match(wide, /<div class="lead-info"><dt>付款方式<\/dt>/);
+  assert.match(wide, /<div class="field-info order-custom-wide"><dt>特殊要求<\/dt><dd>第一行\n第二行<\/dd>/, 'a 多行文本 value takes the whole line and keeps its line breaks');
+  assert.match(wide, /<div class="field-info"><dt>付款方式<\/dt>/);
 });
 
 test('export: custom fields are columns after the built-in ones; number / date / multi; formula guard; deleted and hidden columns are gone', () => {

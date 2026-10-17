@@ -1,4 +1,4 @@
-// 导出 in the real page with the real backend: the 导出 button on the customer, order, opportunity and lead lists, the
+// 导出 in the real page with the real backend: the 导出 button on the customer, order and opportunity lists, the
 // dialog (范围 / 列 / 格式 / preview), real downloads read back with SheetJS, a 本人 account exporting only its own rows,
 // a role that hides fields getting no such column, an account without the export permission seeing no button, and the
 // web trial (no download, 复制表格).
@@ -12,14 +12,13 @@ const require = createRequire(import.meta.url);
 const XLSX = require('../../vendor/sheetjs-0.20.3/xlsx.full.min.js');
 const B = require('../../src/business-model.js');
 const O = require('../../src/opportunity-model.js');
-const L = require('../../src/lead-model.js');
 const NOW = '2026-10-01T00:00:00.000Z';
 
-const EXPORT_PERMS = ['customer.view', 'customer.export', 'order.view', 'order.export', 'opp.view', 'opp.export', 'lead.view', 'lead.export'];
+const EXPORT_PERMS = ['customer.view', 'customer.export', 'order.view', 'order.export', 'opp.view', 'opp.export'];
 const perms = (keys) => Object.fromEntries(keys.map((key) => [key, true]));
 const roles = [
   { id: 'exporter', name: '可导出', scope: 'self', perms: perms(EXPORT_PERMS), v: 2 },
-  { id: 'masked', name: '隐藏字段', scope: 'self', perms: perms(EXPORT_PERMS), v: 2, fields: { customer: { 'contact.email': 'hidden', 'contact.phone': 'hidden' }, lead: { email: 'hidden' }, opp: { contact: 'hidden' } } },
+  { id: 'masked', name: '隐藏字段', scope: 'self', perms: perms(EXPORT_PERMS), v: 2, fields: { customer: { 'contact.email': 'hidden', 'contact.phone': 'hidden' }, opp: { contact: 'hidden' } } },
 ];
 const members = [
   { id: 'm-kris', name: 'Kris', roleId: 'admin' }, { id: 'm-amy', name: 'Amy', roleId: 'sales' },
@@ -49,7 +48,6 @@ async function start(current = 'm-kris') {
   data.laiSettings = { ...(data.laiSettings || {}), defaultOwner: 'Kris', roles: { roles, members, current } };
   for (const owner of ['Kris', 'Ben', 'Cy']) {
     const id = owner.toLowerCase();
-    data = L.upsert(data, `lead-${id}`, { name: `${owner} Lead`, contact: `${owner} Contact`, email: `${id}@lead.test`, owner }, { now: NOW });
     data = B.upsertOrder(data, `order-${id}`, { num: `SO-${owner}`, client: buyerOf[owner], country: 'US', productType: 'Lash', amount: '100', currency: 'USD', paidAmount: '0', stage: 'quote', createdAt: '2026-10-01', owner, isDraft: false, items: [{ code: 'P1', name: 'Lash', model: 'M1', qty: '2', price: '50' }] });
     data = O.upsert(data, `opp-${id}`, { name: `${owner} Deal`, client: buyerOf[owner], contact: contactOf[owner], amount: '10', currency: 'USD', owner, stage: 'open', endDate: '2026-11-05' }, { now: NOW, today: '2026-10-01' });
   }
@@ -63,7 +61,7 @@ const go = async (app, route) => {
   await app.page.evaluate((target) => { const b = document.createElement('button'); b.dataset.laiRoute = target; document.body.appendChild(b); b.click(); b.remove(); }, route);
   await settle(app, 600);
 };
-const PAGES = { customer: 'customers', order: 'order-list', opp: 'opportunities', lead: 'leads' };
+const PAGES = { customer: 'customers', order: 'order-list', opp: 'opportunities' };
 const exportButton = (app, kind) => app.page.locator(`[data-export-kind="${kind}"]`);
 const openDialog = async (app, kind) => {
   if (kind !== 'customer') await go(app, PAGES[kind]);
@@ -119,7 +117,7 @@ test('admin: 导出 on the customer list, the dialog, a real .xlsx download, 已
   } finally { await app.close(); }
 });
 
-test('admin: orders (with 产品明细), opportunities and leads download; CSV has a BOM and the header first', async () => {
+test('admin: orders (with 产品明细) and opportunities download; CSV has a BOM and the header first', async () => {
   const app = await start('m-kris');
   try {
     await openDialog(app, 'order');
@@ -140,14 +138,15 @@ test('admin: orders (with 产品明细), opportunities and leads download; CSV h
     assert.equal(rowsOf(opps.book).length, 4);
     assert.ok(rowsOf(opps.book)[0].includes('联系人'));
 
-    await openDialog(app, 'lead');
-    assert.ok((await dialogText(app)).includes('导出线索'));
+    await openDialog(app, 'opp');
+    assert.ok((await dialogText(app)).includes('导出商机'));
     await app.page.locator('input[name="export-format"][value="csv"]').check();
-    const leads = await download(app, confirm(app));
-    assert.equal(leads.name, `来财-线索-${today()}.csv`);
-    const csv = fs.readFileSync(leads.path, 'utf8');
-    assert.ok(csv.startsWith('﻿名称,'), 'BOM then the header');
+    const oppCsv = await download(app, confirm(app));
+    assert.equal(oppCsv.name, `来财-商机-${today()}.csv`);
+    const csv = fs.readFileSync(oppCsv.path, 'utf8');
+    assert.ok(csv.startsWith('﻿编号,'), 'BOM then the header');
     assert.equal(csv.split('\r\n').length, 4);
+    assert.equal(await exportButton(app, 'lead').count(), 0, 'no lead export any more (D-030)');
     assert.deepEqual(app.errors, []);
   } finally { await app.close(); }
 });
@@ -166,7 +165,7 @@ test('a 本人 account exports only its own rows, in the filtered and the all-vi
     assert.equal(rows.length, 2);
     assert.ok(JSON.stringify(rows).includes('Maple') && !JSON.stringify(rows).includes('Northwind') && !JSON.stringify(rows).includes('Lumen'));
 
-    for (const [kind, own, others] of [['order', 'SO-Ben', ['SO-Kris', 'SO-Cy']], ['opp', 'Ben', ['Kris', 'Cy']], ['lead', 'Ben Lead', ['Kris Lead', 'Cy Lead']]]) {
+    for (const [kind, own, others] of [['order', 'SO-Ben', ['SO-Kris', 'SO-Cy']], ['opp', 'Ben', ['Kris', 'Cy']]]) {
       await openDialog(app, kind);
       await app.page.locator('input[name="export-scope"][value="all"]').check();
       const file = await download(app, confirm(app));
@@ -192,12 +191,6 @@ test('a role that hides email, phone and contact gets no such column, in the fil
     assert.ok(header.includes('公司名称') && !header.includes('邮箱') && !header.includes('联系电话'));
     assert.ok(!JSON.stringify(rowsOf(customers.book)).includes('buyer.test'));
 
-    await openDialog(app, 'lead');
-    const leads = await download(app, confirm(app));
-    assert.ok(!rowsOf(leads.book)[0].includes('邮箱'));
-    assert.ok(rowsOf(leads.book)[0].includes('联系人'));
-    assert.ok(!JSON.stringify(rowsOf(leads.book)).includes('lead.test'));
-
     await openDialog(app, 'opp');
     const opps = await download(app, confirm(app));
     assert.ok(!rowsOf(opps.book)[0].includes('联系人'));
@@ -211,7 +204,7 @@ test('业务 without the export permission sees no 导出 button on any list, an
   try {
     await app.page.locator('tbody tr').first().waitFor({ state: 'attached' }).catch(() => {});
     assert.equal(await exportButton(app, 'customer').count(), 0);
-    for (const kind of ['order', 'opp', 'lead']) {
+    for (const kind of ['order', 'opp']) {
       await go(app, PAGES[kind]);
       assert.equal(await exportButton(app, kind).count(), 0, kind);
       await app.page.evaluate((k) => { const b = document.createElement('button'); b.dataset.exportKind = k; document.body.appendChild(b); b.click(); b.remove(); }, kind);

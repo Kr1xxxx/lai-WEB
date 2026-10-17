@@ -107,14 +107,13 @@
       );
     const legacyOperation = /^(?:新建客户档案|更新客户资料|更新：|合并客户档案：|批量(?:添加|移除)客户标签：)/;
     const isOperation = (item) => item.type === "operation" || (!item.type && legacyOperation.test(String(item.text || item.content || item.note || "").trim()));
-    // 功能开关：关着的模块（线索、邮件、沟通）在这页上的入口和字段不显示（数据还在）。
+    // 功能开关：关着的模块（邮件、沟通）在这页上的入口和字段不显示（数据还在）。
     let switchTools = root.LaiFeatureSwitch;
     if (!switchTools && typeof require === "function") { try { switchTools = require("./feature-switch-model.js"); } catch (_) { switchTools = null; } }
     const modOn = (module) => !switchTools || switchTools.enabled(state, module);
     const offFields = new Set([
       ...(modOn("mail") ? [] : ["最近发件时间", "最近收件时间"]),
       ...(modOn("chat") ? [] : ["最近WhatsApp沟通时间"]),
-      ...(modOn("lead") ? [] : ["关联线索", "最近转化线索创建时间", "来源线索"]),
     ]);
     if (!modOn("mail") && activityFilter === "email") { activityFilter = "all"; mailPanel = ""; }
     // 聊天记录：没有“查看聊天记录”权限的角色，动态里看不到聊天条目。
@@ -290,9 +289,8 @@
         ["原跟进人", profile.previousOwner || (profile.laiBucket === "pool" ? profile.laiPreviousOwner : "")],
         ["客户通跟进人", profile.customerConnectOwner],
         ["客户通原跟进人", profile.customerConnectPreviousOwner],
-        ["创建方式", profile.creationMethod], ["关联线索", profile.linkedLead],
-        timeField("最近转化线索创建时间", profile.lastConvertedLeadCreated),
-        ["来源线索", profile.sourceLead], ["来源详情", profile.sourceDetail],
+        // 关联线索、最近转化线索创建时间、来源线索是从小满导入的旧值：线索功能已去掉（D-030），这里不显示，数据原样保留。
+        ["创建方式", profile.creationMethod], ["来源详情", profile.sourceDetail],
         ["客群", c.segments ?? profile.segments],
         timeField("关联客户通客户首次同步时间", profile.customerConnectFirstSync),
         timeField("关联客户通客户最近同步时间", profile.customerConnectLastSync),

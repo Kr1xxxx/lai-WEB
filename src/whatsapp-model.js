@@ -544,8 +544,8 @@ UA 380,UG 256,US 1,UY 598,UZ 998,VA 39,VC 1,VE 58,VG 1,VI 1,VN 84,VU 678,WF 681,
     }
     return {score:best,why};
   }
-  // 按电话和名字找可能对应的客户（只在 visible(name) 为真的客户里找），也找线索。
-  // 返回 {candidates:[{name,score,reasons,contact,phone}],leadMatches:[{id,name,contact,phone,status,score,reasons}]}。
+  // 按电话和名字找可能对应的客户（只在 visible(name) 为真的客户里找）。
+  // 返回 {candidates:[{name,score,reasons,contact,phone}]}。
   // 结果只是建议，要由人确认。
   function matchCustomers(state,query={},visible=()=>true){
     const peers=[...new Set(arr(query.peers).map(item=>toE164(item)).filter(Boolean))];
@@ -570,19 +570,7 @@ UA 380,UG 256,US 1,UY 598,UZ 998,VA 39,VC 1,VE 58,VG 1,VI 1,VN 84,VU 678,WF 681,
       candidates.push({name,score,reasons,contact,phone});
     }
     candidates.sort((a,b)=>b.score-a.score||String(a.name).localeCompare(String(b.name),'zh'));
-    const leadSee=typeof query.leadVisible==='function'?query.leadVisible:()=>true;
-    const leadMatches=[];
-    for(const lead of arr(state?.laiLeads)){
-      if(!isObj(lead)||!lead.id||lead.trashed||!['new','following'].includes(lead.status||'new')||!leadSee(lead))continue;
-      let score=0;const reasons=[];
-      const e164=toE164(lead.phone,{country:lead.country});
-      if(e164&&peers.includes(e164)){score=100;reasons.push('phone');}
-      const byName=nameScore(wanted,trim(lead.name),[],[trim(lead.contact)].filter(Boolean));
-      if(byName.score>=60){score+=byName.score;reasons.push(byName.why);}
-      if(score)leadMatches.push({id:lead.id,name:trim(lead.name),contact:trim(lead.contact),phone:trim(lead.phone),status:lead.status||'new',score,reasons});
-    }
-    leadMatches.sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name,'zh'));
-    return {candidates:candidates.slice(0,20),leadMatches:leadMatches.slice(0,20)};
+    return {candidates:candidates.slice(0,20)};
   }
 
   const api={LIMITS,DIAL_CODES,TEMPLATE_VARS,countryIso,dialCodeOf,dialOptions,toE164,waLink,peersFromSenders,chatNameFromFile,renderTemplate,

@@ -62,7 +62,7 @@ function fakeModel(overrides = {}) {
     mergeImport: (s, customer, entries, row) => (calls.push(['merge', customer, entries, row]), { state: { ...s, merged: customer }, added: 2, skipped: 1 }),
     undoImport: (s, id) => (calls.push(['undo', id]), { ...s, undoneId: id }),
     logChat: (s, customer, entry) => (calls.push(['log', customer, entry]), { ...s, logged: customer }),
-    matchCustomers: (s, q, visible) => (calls.push(['match', q, visible]), { customers: [{ name: 'Nordic Lamps <AB>', score: 1, contact: 'Anna', peer: '+447700900123' }, { name: '别人的客户', score: 1, contact: '', peer: '' }], leads: [] }),
+    matchCustomers: (s, q, visible) => (calls.push(['match', q, visible]), { customers: [{ name: 'Nordic Lamps <AB>', score: 1, contact: 'Anna', peer: '+447700900123' }, { name: '别人的客户', score: 1, contact: '', peer: '' }] }),
     ...overrides,
   };
   return model;
@@ -321,44 +321,29 @@ test('dialog: builds the link from number and text, copies, then asks to log wit
   h.dispose();
 });
 
-test('dialog for a lead: its own country fills the code, templates work, and 记一笔 goes to onLog instead of a customer', async () => {
-  const logged = [];
+test('a country passed in fills the code; a target with no customer profile opens but is not logged (the lead mode is gone, D-030)', async () => {
   const h = harness({ model: fakeModel({ toE164: withCountry }) });
-  h.ui.openDialog({ lead: { id: 'L1', name: 'Berlin <GmbH>', country: '德国' }, contact: 'Hans', phone: '0151 23456789', onLog: async (text) => { logged.push(text); return '已记到线索跟进'; } });
+  h.ui.openDialog({ customer: 'Berlin <GmbH>', country: '德国', contact: 'Hans', phone: '0151 23456789' });
   assert.equal(h.dialog.title, '打开 WhatsApp');
   assert.match(h.dialog.body, /class="wa-dlg-who">Berlin &lt;GmbH&gt; · Hans/);
   assert.doesNotMatch(h.dialog.body, /wa-dlg-customer/, 'the target is fixed: no customer picker');
-  assert.match(h.dialog.body, /id="wa-dlg-template"/, 'templates are offered for leads too');
   assert.match(h.dialog.body, /将打开 \+4915123456789/);
-  await h.fire('wa-dlg-form', 'change', { target: { id: 'wa-dlg-template', value: 'g1|t1' } });
-  assert.equal(h.node('wa-dlg-text').value, '你好 Hans，Berlin <GmbH> 的报价来了');
-  h.act('dlg-open');
-  assert.match(h.externals[0], /^https:\/\/wa\.me\/4915123456789\?text=/);
-  assert.equal(h.dialog.title, '发出去了吗？');
-  assert.match(h.dialog.body, /记到这条线索的跟进里/);
-  await h.act('dlg-log');
-  assert.deepEqual(logged, ['你好 Hans，Berlin <GmbH> 的报价来了']);
-  assert.equal(h.model.calls.some((c) => c[0] === 'log'), false, 'never written to a customer');
-  assert.equal(h.persisted.length, 0);
-  assert.equal(h.toasts.at(-1), '已记到线索跟进');
-  h.dispose();
-});
-
-test('dialog for a lead: without onLog it does not ask 发出去了吗; a failing onLog shows the error and keeps the dialog', async () => {
-  const h = harness({ model: fakeModel({ toE164: withCountry }) });
-  h.ui.openDialog({ lead: { name: 'Berlin', country: '德国' }, contact: 'Hans', phone: '0151 23456789' });
   h.node('wa-dlg-text').value = '你好';
   h.act('dlg-open');
   assert.equal(h.externals.length, 1);
+  assert.notEqual(h.dialog.title, '发出去了吗？', 'nowhere to log it, so it does not ask');
   assert.equal(h.model.calls.some((c) => c[0] === 'log'), false);
+  assert.equal(h.persisted.length, 0);
   h.dispose();
+  // an old caller passing { lead, onLog } gets the plain dialog: no lead wording, onLog is never called
   const g = harness({ model: fakeModel({ toE164: withCountry }) });
-  g.ui.openDialog({ lead: { name: 'Berlin', country: '德国' }, contact: 'Hans', phone: '0151 23456789', onLog: async () => { throw new Error('线索已被删除'); } });
+  let called = 0;
+  g.ui.openDialog({ lead: { name: 'Berlin', country: '德国' }, contact: 'Hans', phone: '+49 151 23456789', onLog: async () => { called++; } });
+  assert.doesNotMatch(g.dialog.body, /线索/);
   g.node('wa-dlg-text').value = '你好';
   g.act('dlg-open');
   await g.act('dlg-log');
-  assert.equal(g.node('wa-ask-error').textContent, '线索已被删除');
-  assert.equal(g.dialog.title, '发出去了吗？');
+  assert.equal(called, 0);
   g.dispose();
 });
 

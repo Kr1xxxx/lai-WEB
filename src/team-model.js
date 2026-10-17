@@ -468,7 +468,7 @@
     };
     const tasks=Array.isArray(state.laiTasks)?state.laiTasks.filter(task=>task&&typeof task==='object'&&sees(taskOwner(task))):state.laiTasks;
     const targets=Array.isArray(state.laiTargets)?state.laiTargets.filter(target=>target&&typeof target==='object'&&target.owner!==null&&target.owner!==undefined&&sees(target.owner)):state.laiTargets;
-    return {...state,customers,orders:keepList(state.orders),trashOrders:keepList(state.trashOrders),laiOpportunities:keepList(state.laiOpportunities),laiLeads:keepList(state.laiLeads),laiTasks:tasks,laiTargets:targets};
+    return {...state,customers,orders:keepList(state.orders),trashOrders:keepList(state.trashOrders),laiOpportunities:keepList(state.laiOpportunities),laiTasks:tasks,laiTargets:targets};
   }
   const reports={assets,followups,tasks,orders};
   const kinds=Object.freeze(Object.keys(reports));

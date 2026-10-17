@@ -325,8 +325,7 @@
   font-size: var(--font-size-assist);
   font-style: normal;
 }
-.wa-warn,
-.wa-lead {
+.wa-warn {
   margin: 8px 0;
   padding: 8px 12px;
   border-radius: var(--radius-md);

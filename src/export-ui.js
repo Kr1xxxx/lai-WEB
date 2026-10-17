@@ -1,6 +1,6 @@
 (function (root) {
   'use strict';
-  // 导出窗口：客户、订单、商机、线索四个列表共用。window.LaiExportUI.open(kind, ctx)。
+  // 导出窗口：客户、订单、商机三个列表共用。window.LaiExportUI.open(kind, ctx)。
   // 只读：不改数据、不写日志。行永远来自页面上已经按账号范围筛好的列表（ctx.scopes），列过字段权限（ctx.gate）。
   // ctx = {
   //   state, can(key), toast(text), dialog(title, body, footer, type), closeDialog(), denied?(key),
@@ -16,7 +16,6 @@
     customer: { perm: 'customer.export', title: '导出客户', file: '客户', unit: '位客户' },
     order: { perm: 'order.export', title: '导出订单', file: '订单', unit: '笔订单' },
     opp: { perm: 'opp.export', title: '导出商机', file: '商机', unit: '个商机' },
-    lead: { perm: 'lead.export', title: '导出线索', file: '线索', unit: '条线索' },
   };
   const HINT = '表里有客户联系方式，请妥善保管。';
   const TRIAL_NOTE = '网页试用版不能下载文件。';
@@ -55,7 +54,6 @@
       return sheets;
     }
     if (kind === 'opp') return [{ name: '商机', ...EM.opportunityRows(rows, ctx.state, { gate }) }];
-    if (kind === 'lead') return [{ name: '线索', ...EM.leadRows(rows, ctx.state, { gate }) }];
     throw new Error('不能导出这个列表');
   }
 

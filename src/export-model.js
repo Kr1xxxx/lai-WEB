@@ -146,27 +146,6 @@
     return build(columns, source, options.gate);
   }
 
-  const LEAD_STATUS = { new: '新线索', following: '跟进中', converted: '已转客户', invalid: '无效' };
-  function leadRows(leads, state, options = {}) {
-    const source = list(leads).filter(l => l && typeof l === 'object' && (options.includeTrash || !l.trashed));
-    cap(source.length);
-    const columns = [
-      ['name', '名称', l => text(l.name)], ['contact', '联系人', l => text(l.contact)], ['email', '邮箱', l => text(l.email)],
-      ['phone', '电话', l => text(l.phone)], ['country', '国家', l => text(l.country)], ['source', '来源', l => text(l.source)],
-      ['website', '网址', l => text(l.website)], ['product', '意向产品', l => text(l.product)], ['note', '备注', l => text(l.note)],
-      ['status', '状态', l => l.trashed ? '回收站' : LEAD_STATUS[l.status] || LEAD_STATUS.new],
-      ['owner', '跟进人', l => text(l.owner)], ['nextFollow', '下次跟进', l => localDay(l.nextFollow)],
-      ['lastFollowAt', '最近跟进', l => localDay(l.lastFollowAt)], ['createdAt', '创建时间', l => localDay(l.createdAt)],
-      ['invalidReason', '无效原因', l => text(l.invalidReason)], ['convertedTo', '已转客户', l => text(l.convertedTo)],
-      // 自定义字段（线索设置 → 自定义字段）：设置里还在的字段，列 id 是 custom:<字段ID>，字段权限走 custom.<字段ID>。
-      ...(FM() ? FM().get(state, 'lead').customFields : []).map(field => ['custom:' + field.id, field.name, l => {
-        const value = l.custom && typeof l.custom === 'object' ? l.custom[field.id] : undefined;
-        return field.type === 'number' ? num(value) : field.type === 'date' ? localDay(value) || text(value) : text(value);
-      }]),
-    ];
-    return build(columns, source, options.gate);
-  }
-
   // ---- output ----
   function sheetName(name, used) {
     const base = String(name || '表格').replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 31) || '表格';
@@ -202,6 +181,6 @@
   const toCSV = (sheet, options = {}) => (options.bom === false ? '' : '﻿') + serialise(sheet, ',', '\r\n');
   const toTSV = sheet => serialise(sheet, '\t', '\n');
 
-  const api = { MAX_ROWS, MAX_ERROR, customerRows, orderRows, orderItemRows, opportunityRows, leadRows, toWorkbook, toCSV, toTSV, localDay, guard };
+  const api = { MAX_ROWS, MAX_ERROR, customerRows, orderRows, orderItemRows, opportunityRows, toWorkbook, toCSV, toTSV, localDay, guard };
   if (node) module.exports = api; else root.LaiExportModel = api;
 })(typeof window !== 'undefined' ? window : globalThis);

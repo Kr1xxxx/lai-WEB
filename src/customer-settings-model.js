@@ -25,9 +25,6 @@ const DEDUPE_FIELDS = Object.freeze([
 ]);
 const DEDUPE_MODES = Object.freeze(["allow", "block", "off"]);
 const DEFAULT_DEDUPE = Object.freeze({ customerCode: "block", email: "allow", phone: "allow", landline: "off", socialAccount: "off", website: "off", shortName: "off", companyAddress: "off", alibabaId: "off" });
-// 新线索与已有客户的判重：线索的这四项和客户资料比对（小满第二个判重页签）。
-const LEAD_DEDUPE_FIELDS = Object.freeze([["name", "公司名称"], ["website", "公司网址"], ["email", "邮箱"], ["phone", "联系电话"]]);
-const DEFAULT_LEAD_DEDUPE = Object.freeze({ name: "block", website: "block", email: "block", phone: "block" });
 const LIMITS = Object.freeze({ sources: 100, sourceChildren: 30, stages: 30, types: 50, groups: 100, children: 30, blacklist: 500, name: 20, cap: 100000 });
 
 // 哪些动作算“最近联系 / 最近跟进”。
@@ -56,7 +53,6 @@ const DEFAULTS = Object.freeze({
   caps: { defaultLimit: 0, perOwner: {} },
   duplicateFields: ["country"],
   dedupe: DEFAULT_DEDUPE,
-  leadDedupe: DEFAULT_LEAD_DEDUPE,
   sources: [],
   layout: "left-small",
   followRules: DEFAULT_FOLLOW_RULES,
@@ -225,7 +221,6 @@ function readSettings(raw) {
     duplicateFields,
     sources: normalizeSources(raw.sources),
     dedupe: Object.fromEntries(DEDUPE_FIELDS.map(([key]) => [key, raw.dedupe && DEDUPE_MODES.includes(raw.dedupe[key]) ? raw.dedupe[key] : DEFAULT_DEDUPE[key]])),
-    leadDedupe: Object.fromEntries(LEAD_DEDUPE_FIELDS.map(([key]) => [key, raw.leadDedupe && DEDUPE_MODES.includes(raw.leadDedupe[key]) ? raw.leadDedupe[key] : DEFAULT_LEAD_DEDUPE[key]])),
     layout: raw.layout === "left-large" ? "left-large" : "left-small",
     followRules: {
       contact: normalizeFollowList(raw.followRules && raw.followRules.contact, DEFAULT_FOLLOW_RULES.contact),
@@ -240,7 +235,7 @@ function readSettings(raw) {
   };
 }
 function put(state, patch) {
-  // 保存的设置里有本版本不认识的项（比如以后版本加的），原样留着，不能因为改别的设置就丢掉。
+  // 保存的设置里有本版本不认识的项（比如以后版本加的，或已去掉的线索判重 leadDedupe，D-030），原样留着，不能因为改别的设置就丢掉。
   const stored = state && state.laiSettings && state.laiSettings.customerSettings;
   const next = { ...(stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {}), ...get(state), ...patch };
   return { ...state, laiSettings: { ...(state.laiSettings || {}), customerSettings: next } };
@@ -577,7 +572,7 @@ function setCaps(state, { defaultLimit, perOwner } = {}) {
 }
 
 // ============ 来源设置 ============
-// 线索来源、客户来源、商机来源共用一份名单：最多两级，可以隐藏、排序。子来源写成“上级 / 子级”。
+// 客户来源、商机来源共用一份名单：最多两级，可以隐藏、排序。子来源写成“上级 / 子级”。
 function sourcePath(parent, child) { return child ? `${parent.name}${SEP}${child.name}` : parent.name; }
 function sourceChoices(state) {
   const list = get(state).sources;
@@ -681,15 +676,6 @@ function setDedupe(state, modes) {
     next[key] = mode;
   }
   return put(state, { dedupe: next });
-}
-function setLeadDedupe(state, modes) {
-  const next = {};
-  for (const [key, label] of LEAD_DEDUPE_FIELDS) {
-    const mode = modes && modes[key];
-    if (!DEDUPE_MODES.includes(mode)) throw new Error(`请选择“${label}”的判重方式`);
-    next[key] = mode;
-  }
-  return put(state, { leadDedupe: next });
 }
 const dedupeKey = (key, value) => {
   const text = trim(value);
@@ -1116,7 +1102,7 @@ const api = {
   addBlacklist, removeBlacklist, blacklistHit, assertEmailsAllowed, splitEmails, manualSegmentNamed,
   limitFor, ownerCount, assertCanTake, capRows, setCaps,
   sourceChoices, sourcePath, sourceUse, addSource, renameSource, setSourceHidden, moveSource, deleteSource,
-  setDuplicateFields, duplicateValue, setLayout, setDedupe, setLeadDedupe, LEAD_DEDUPE_FIELDS, assertNotDuplicate, dedupeValues,
+  setDuplicateFields, duplicateValue, setLayout, setDedupe, assertNotDuplicate, dedupeValues,
   FOLLOW_ACTIONS, visibleFollowActions, hiddenFollowKeys, setFollowRules, contactTimes,
   setDealRule, lastDealDate, lastWonDate,
   setActivity, autoMailSince,

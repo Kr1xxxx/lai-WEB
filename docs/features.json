@@ -508,22 +508,6 @@
    }
   },
   {
-   "id": "leads",
-   "area": "leads",
-   "description": "线索: list with status tabs, new/edit, 写跟进, mark invalid, convert to a new customer or link an existing one, trash/restore/delete",
-   "steps": [
-    "Open 线索 in the left rail",
-    "Add a lead, write a follow-up (status becomes 跟进中)",
-    "Convert it to a customer (country required)",
-    "Trash and restore it, reload"
-   ],
-   "e2e": "leads.e2e.mjs",
-   "verified": {
-    "browser": true,
-    "mac": false
-   }
-  },
-  {
    "id": "customer-settings-dedupe",
    "area": "customers",
    "description": "客户设置: 判重设置 chooses per field whether a repeat is allowed, blocked or ignored; blocked repeats stop the save and name the other customer",
@@ -540,7 +524,7 @@
   {
    "id": "customer-settings-sources",
    "area": "customers",
-   "description": "客户设置: 来源设置 keeps a two-level 来源 list that feeds the customer editor and lead forms; hidden entries disappear from the dropdown",
+   "description": "客户设置: 来源设置 keeps a two-level 来源 list that feeds the customer editor and the opportunity form; hidden entries disappear from the dropdown",
    "steps": [
     "客户设置 → 来源设置: add 常规获客, add 子来源 展会",
     "编辑 a customer: 客户来源 offers '常规获客 / 展会' only",
@@ -620,7 +604,7 @@
   {
    "id": "opportunity-settings",
    "area": "opportunities",
-   "description": "商机设置: tabs 销售流程 / 输单原因 (editable) / 商机字段 (system fields show/required, 商机类型 list, custom fields); opportunity form gains 商机来源 (shared source list), 商机类型, 来源线索, OPP-YYYYMMDD-NNN 编号 and custom fields; analysis by 商机来源",
+   "description": "商机设置: tabs 销售流程 / 输单原因 (editable) / 商机字段 (system fields show/required, 商机类型 list, custom fields); opportunity form gains 商机来源 (shared source list), 商机类型, OPP-YYYYMMDD-NNN 编号 and custom fields; analysis by 商机来源",
    "steps": [
     "商机 → 商机设置 → 输单原因: add one, move it up",
     "商机字段: add a 单选 custom field with two options",
@@ -629,21 +613,6 @@
     "Open the opportunity: values and an OPP- number are shown"
    ],
    "e2e": "opportunity-settings.e2e.mjs",
-   "verified": {
-    "browser": true,
-    "mac": false
-   }
-  },
-  {
-   "id": "lead-dedupe",
-   "area": "leads",
-   "description": "判重设置 → 新线索与已有客户: 公司名称/公司网址/邮箱/联系电话 each allow/block/off; lead save blocks or warns",
-   "steps": [
-    "客户设置 → 判重设置 → 新线索与已有客户: 邮箱 = 判重，不允许保存; save",
-    "线索 → 新建线索 with an existing customer's email: refused",
-    "Set 邮箱 = 判重，允许保存: first save warns, 仍然保存 saves"
-   ],
-   "e2e": "lead-dedupe.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false
@@ -701,9 +670,9 @@
    "area": "settings",
    "description": "企业管理: 角色权限 (系统管理员 view-only, 业务, add roles, grouped permission checkboxes, scope 本人/全公司) and 成员管理 (test accounts); switch account in the avatar menu; lists, buttons and pages follow the account's role",
    "steps": [
-    "企业管理 → 角色权限: 系统管理员 row only has 查看; edit 业务, tick 线索·删除, save",
+    "企业管理 → 角色权限: 系统管理员 row only has 查看; edit 业务, tick 商机·删除, save",
     "成员管理: 测试业务 (or another owner) is 业务; avatar menu → 切换测试账号 → that member",
-    "客户列表, 线索, 商机, 订单 show only that member's records; 导入 / 删除 buttons are gone; 企业管理 is hidden",
+    "客户列表, 商机, 订单 show only that member's records; 导入 / 删除 buttons are gone; 企业管理 is hidden",
     "Avatar menu → switch back to the admin: everything is back"
    ],
    "e2e": "roles.e2e.mjs, roles-customers.e2e.mjs, roles-business.e2e.mjs",
@@ -715,14 +684,14 @@
   {
    "id": "roles-departments-fields",
    "area": "settings",
-   "description": "Departments with 本部门 scope and built-in 部门管理员; per-role field permissions (可编辑/只读/隐藏) for 线索, 商机, 客户, 公海客户, 产品; product layouts per role; split permissions 编辑目标值, 产品编号, 跟进动态·查看, 线索·彻底删除, 导出成员排行",
+   "description": "Departments with 本部门 scope and built-in 部门管理员; per-role field permissions (可编辑/只读/隐藏) for 商机, 客户, 公海客户, 产品; product layouts per role; split permissions 编辑目标值, 产品编号, 跟进动态·查看, 导出成员排行",
    "steps": [
     "成员管理: 新建部门 销售一部, put Mia in it; 角色权限: give 业务 scope 本部门",
     "编辑 业务 → 客户 设置字段权限: 邮箱 隐藏, 备注 只读; 产品 设置布局权限: pick a layout",
     "Switch to Mia: customer list/detail/editor have no 邮箱, 备注 is grey; edit and save, then switch back to Kris: 邮箱 and 备注 unchanged",
     "As Mia, products use the chosen layout; 客户详情 shows only her department's customers"
    ],
-   "e2e": "roles-departments.e2e.mjs, roles-customer-fields.e2e.mjs, roles-lead-opp-fields.e2e.mjs, roles-product-team.e2e.mjs, roles-opp-leaks.e2e.mjs",
+   "e2e": "roles-departments.e2e.mjs, roles-customer-fields.e2e.mjs, roles-opp-fields.e2e.mjs, roles-product-team.e2e.mjs, roles-opp-leaks.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false
@@ -741,23 +710,6 @@
     "Switch to a 业务 account (本人): another owner's customer and chats are not listed or suggested; turn 查看聊天记录 off for 业务: 沟通 page, rail menu and 聊天记录 entries are gone"
    ],
    "e2e": "whatsapp.e2e.mjs",
-   "verified": {
-    "browser": true,
-    "mac": false
-   }
-  },
-  {
-   "id": "lead-settings",
-   "area": "leads",
-   "description": "线索设置 (Leads → 设置): 无效原因 add/rename/move/delete (in-use reasons cannot be deleted), 线索字段 show/required for the lead form, links to 客户设置 for 来源 and 判重",
-   "steps": [
-    "Hover Leads in the left rail, click 设置: the 线索设置 page opens with 无效原因 (6 default reasons), 线索字段 and the two links to 客户设置",
-    "Add the reason 价格太高; 线索 → open a lead → 标记无效: 价格太高 is in the list; mark it",
-    "Back in 线索设置 delete 价格太高 (click twice): refused with 还有 1 条线索用了这个原因; rename it to 报价太高: the lead shows the new reason",
-    "Untick 显示 for 网址 and tick 必填 for 邮箱; 线索 → 新建线索: no 网址 box, saving without 邮箱 says 请填写邮箱",
-    "Switch to a 业务 account: 线索设置 is blocked"
-   ],
-   "e2e": "lead-settings.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false
@@ -801,14 +753,14 @@
   {
    "id": "export",
    "area": "data",
-   "description": "导出 (customer, order, opportunity and lead lists): 范围 / 列 / 格式 dialog, .xlsx and CSV download, own rows only for a 本人 account, hidden fields leave the file, web trial 复制表格",
+   "description": "导出 (customer, order and opportunity lists): 范围 / 列 / 格式 dialog, .xlsx and CSV download, own rows only for a 本人 account, hidden fields leave the file, web trial 复制表格",
    "steps": [
     "As the administrator open 客户列表: the 导出 button is next to 新建客户. Click it: 导出客户 shows 范围 (当前筛选结果 / 全部我能看到的 with counts), 列, 格式, the hint 表里有客户联系方式，请妥善保管。 and a preview of the first 5 rows",
     "Tick one customer, click 导出: 已选的（1 条） is there and chosen; pick 全部字段 and 导出: a file 来财-客户-YYYYMMDD.xlsx downloads with a header row and 1 customer, toast 已导出 1 位客户",
-    "订单, 商机 and 线索 lists each have 导出; the order file has the sheets 订单 and 产品明细; choose CSV for 线索 and the file opens in Excel with correct Chinese",
-    "Switch to a 本人 account that has the export permissions: the files hold only that account's customers, orders, opportunities and leads",
-    "Switch to a role that hides 邮箱 and 电话 (customer), 邮箱 (lead) and 联系人 (opportunity): those columns are not in the preview or the file",
-    "Switch to 业务 without the export permission: no 导出 button on any of the four lists",
+    "订单 and 商机 lists each have 导出; the order file has the sheets 订单 and 产品明细; choose CSV for 商机 and the file opens in Excel with correct Chinese",
+    "Switch to a 本人 account that has the export permissions: the files hold only that account's customers, orders and opportunities",
+    "Switch to a role that hides 邮箱 and 电话 (customer) and 联系人 (opportunity): those columns are not in the preview or the file",
+    "Switch to 业务 without the export permission: no 导出 button on any of the three lists",
     "In the web trial page: 导出 shows 网页试用版不能下载文件。 and 复制表格; click it and paste into a spreadsheet: tab-separated rows, no file is downloaded"
    ],
    "e2e": "export.e2e.mjs",
@@ -838,36 +790,18 @@
   {
    "id": "feature-switch",
    "area": "settings",
-   "description": "设置 → 功能开关 (FS): switch 线索, 商机, 产品, 单据, 邮件, 沟通, 团队数据 off; they leave the rail, flyouts, 设置中心, 常用 (read time), workbench and customer detail; direct links say 这个功能已关闭; no mail requests while 邮件 is off; data is kept",
+   "description": "设置 → 功能开关 (FS): switch 商机, 产品, 单据, 邮件, 沟通, 团队数据 off; they leave the rail, flyouts, 设置中心, 常用 (read time), workbench and customer detail; direct links say 这个功能已关闭; no mail requests while 邮件 is off; data is kept",
    "steps": [
-    "As the administrator open 设置 → 功能开关: seven switches, all 已开启, the sentence 关掉后，这个功能不再显示；数据都保留，重新打开就能用。 and a note that 客户、订单、工作台、协同、设置、企业管理不能关闭",
+    "As the administrator open 设置 → 功能开关: six switches, all 已开启, the sentence 关掉后，这个功能不再显示；数据都保留，重新打开就能用。 and a note that 客户、订单、工作台、协同、设置、企业管理不能关闭",
     "Switch 商机 off: 商机 leaves the left rail at once; 商机设置 is gone from 设置中心; the workbench has no 商机阶段 / 进行中商机 / 新建商机; a customer's detail has no 进行中的商机 card; opening #opportunities shows 这个功能已关闭 and lands on the workbench",
-    "Mark 线索, 产品 and 邮件 entries as 常用, then switch each off: they disappear from 常用 but come back, in the same order, when switched on again",
+    "Mark 商机, 产品 and 邮件 entries as 常用, then switch each off: they disappear from 常用 but come back, in the same order, when switched on again",
     "Switch 产品 off: 交易 keeps 全部订单, 订单回收站, 单据模板, 汇率设置 but not 产品; the order form takes the product as free text. Switch 单据 off: 生成单据 is gone from the order form",
     "Switch 邮件 off and reload: no request to /api/mail is made, the workbench has no 未读邮件, the customer detail has no 写邮件 or 往来邮件; switch it on and the mail checks start again",
-    "Switch 线索 off: Leads and 线索 leave the rail and 客户设置 → 判重设置 shows no 新线索与已有客户 tab. Switch 商机 off with 客户设置 → 成交规则 set to 按商机: 最近成交时间 follows the orders until 商机 is on again",
+    "Switch 商机 off with 客户设置 → 成交规则 set to 按商机: 最近成交时间 follows the orders until 商机 is on again",
     "Turn the task rule 商机快到结束日期 on, switch 商机 off: reloading creates no task for it and the rule stays switched on; switch 商机 on and reload: the task is created",
-    "Switch everything off and on again: leads, opportunities, products, customers, orders and 常用 are the same as before"
+    "Switch everything off and on again: stored leads, opportunities, products, customers, orders and 常用 are the same as before"
    ],
    "e2e": "feature-switch.e2e.mjs",
-   "verified": {
-    "browser": true,
-    "mac": false
-   }
-  },
-  {
-   "id": "lead-custom-fields",
-   "area": "leads",
-   "description": "线索设置 → 自定义字段: add, rename, move, require and delete lead fields (text, textarea, number, date, select, multi); values in the lead editor, detail and export; conversion copies values into same-name, same-type customer fields; role field permissions hide or lock them",
-   "steps": [
-    "Open 线索设置 → 自定义字段, add a 单选 field with two options and mark it required",
-    "新建线索: the field is in the form and saving without it says 请填写<field>",
-    "Fill it, save, open the lead: the detail shows the value",
-    "Export leads: the field is offered as a column",
-    "Convert the lead to a new customer that has a same-name 单选 field: the customer gets the value",
-    "Delete the field: it disappears from form, detail and export"
-   ],
-   "e2e": "lead-custom-fields.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false

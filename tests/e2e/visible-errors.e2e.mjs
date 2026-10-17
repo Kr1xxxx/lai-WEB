@@ -142,12 +142,11 @@ test('new customer: an empty company name shows 请填写公司名称 in the foo
   assert.deepEqual(pageErrors(), []);
 });
 
-test('every form that used the browser check still refuses empty required input (task, opportunity, lead, product)', async () => {
+test('every form that used the browser check still refuses empty required input (task, opportunity, product)', async () => {
   const { page } = app;
   const cases = [
     { route: 'dashboard', open: '[data-biz-action="new-task"]', form: '#biz-task-form', slot: '#biz-task-error', text: '请填写任务名称', field: 'title', clear: '[name="title"]' },
     { route: 'opportunities', open: '[data-biz-action="new-opportunity"], [data-opp-action="new"]', form: '#opp-form', slot: '#opp-error', text: '请填写客户', field: 'client' },
-    { route: 'leads', open: '[data-biz-action="new-lead"], [data-lead-action="new"]', form: '#lead-form', slot: '#lead-error', text: '请填写线索名称', field: 'name' },
     { route: 'products', open: '[data-prod-action="new"], [data-biz-action="new-product"]', form: '#product-form', slot: '#product-error', text: '请填写产品名称', field: 'name' },
   ];
   for (const c of cases) {

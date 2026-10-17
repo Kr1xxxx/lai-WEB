@@ -17,7 +17,6 @@ const DIALOGS = [
   ["opportunities", '[data-opp-action="new"]', "新建商机"],
   ["opportunities", ".opp-card-name", "商机详情"],
   ["customers", ".split-new .primary", "新建客户"],
-  ["leads", '[data-lead-action="new"]', "新建线索"],
   ["customers", '[data-action="version-history"]', "版本记录"],
   ["customers", '[data-action="about"]', "帮助"],
 ];

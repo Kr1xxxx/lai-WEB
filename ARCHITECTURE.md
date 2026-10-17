@@ -22,14 +22,13 @@
 | `src/customer-list-ui.js`、`customer-fields.js` | 列表绘制与字段目录。目录中有字段不代表对应外部服务上线 |
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
 | `src/nav-favorites.js` | 常用导航：哪些既有导航条目被设为常用及其顺序（存于`laiSettings.favoriteNav`，只存条目ID如`screen:active`、`route:order-list`、`mail:inbox`，不含业务字段）；从未设置过时为空。可设为常用的清单不在这里另抄，直接取自`rail-menu.js`，所以在菜单里加页面就自动能设为常用。依赖`rail-menu.js` |
-| `src/rail-menu.js` | 左侧栏各菜单有哪些真实页面入口（悬停浮层、各菜单二级导航、可设为常用的清单都读这一份）；沟通有聊天记录、聊天模板两项（WhatsApp）；Leads 里还留着一个保留入口。不依赖其他模块，装载在`nav-favorites.js`之前 |
+| `src/rail-menu.js` | 左侧栏各菜单有哪些真实页面入口（悬停浮层、各菜单二级导航、可设为常用的清单都读这一份）；沟通有聊天记录、聊天模板两项（WhatsApp）。不依赖其他模块，装载在`nav-favorites.js`之前 |
 | `src/workbench.js` | 所有配色共用的工作台页面（问候一行、今天先做、钱和目标、订单走到哪了、商机、客户来消息）：纯函数 `markup(input, escape)` 生成整页 HTML；合并排序（`queue`）、订单线分组（`orderLine`）、钱和目标（`moneySummary`）、消息合并（`inbox`、`chatSummaries`）也是纯函数，都有单元测试；不碰 DOM、不发请求。样式在 `business.css` 的「工作台」一节，只用主题变量。邮件列表（收件箱最近一页）由 `business-ui.js` 在页面画好后向 `ctx.mailSummary()` 要，再只换页面上带 `data-wb` 的三处（问候句、今天先做、客户来消息）；「回复」经 `ctx.openChat` 打开聊天页 |
 | `src/settings-hub.js` | 设置中心页面（设置 → 设置中心）：纯函数 `markup(info, escape)` 生成整页 HTML；`GROUPS` 列出每一项设置和它打开的真实页面或弹窗，不重复实现任何设置 |
 | `src/orders-page.js` | 全部订单页面（新界面）：纯函数 `markup(input, escape)` 生成设计稿 Orders 的整页 HTML，`inPeriod` 按本月／上月／本季度／今年筛选；按钮和输入框沿用 `data-biz-*` 和 id，处理代码仍在 `business-ui.js`；所有配色都用它（D-029 去掉了小满的旧订单表） |
-| `src/lead-model.js`、`lead-ui.js` | 线索：数据保存在`laiLeads`；model 负责校验、跟进记录、状态流转、查重提示、转为客户（新建客户档案走`model.js`的`upsertCustomer`，或关联已有客户）、列表筛选与计数，ui 只生成标记；页面事件和保存接在`business-ui.js`里 |
 | `src/opportunity-model.js`、`opportunity-ui.js` | 商机：数据保存在`laiOpportunities`；model 负责校验、命名、阶段流转、看板汇总、分析和客户维度统计，ui 只生成看板、表单、菜单、分析页的标记；控制逻辑在`business-ui.js`。销售流程（每个流程一组阶段）保存在`laiOpportunityFlows`，没保存过时用内置默认流程；阶段的类别（进行中／赢单／输单）一律通过`stageOf(state, item)`按商机所在流程取，其他模块不要直接用`STAGES`。附件：商机里只存元数据（`attachments`），文件由本机服务存到 `attachments/opportunities/<商机>/`（`backend/opportunity-files.js`，上传请求体就是文件字节；读取只放行两层路径，图片内联、其余下载），备份靠 `fileUrl` 被现有的附件备份逻辑扫到；手动排序存在商机的 `sortRank`，`reorder` 只改这一列里需要变的商机；上传和删除的先后顺序（先存文件再存数据／先存数据再删文件）见 VALIDATION.md |
 | `src/whatsapp-model.js`、`whatsapp-ui.js`、`whatsapp.css` | 沟通（WhatsApp，D-023）：model 负责电话转国际格式、wa.me 链接、模板变量、解析导出的聊天文件（含 .zip）、把聊天写进客户动态、导入记录与撤销、按电话和名字找客户、合并客户时聊天去重；ui 生成聊天记录页、聊天模板页、导入／记一笔／打开 WhatsApp 的抽屉和动态里的聊天条目（`create(ctx)` 控制器，按钮用 `data-chat-action`）。接线在 `app.js`：model 经一个适配层给页面用（找客户的参数和返回值不同），页面登记为 `LaiExtraPages.chats`／`chat-templates`。聊天放在客户的 `history`，导入记录放在 `laiChatImports`，没有改数据库结构 |
-| `src/export-model.js`、`field-model.js` | 导出（把页面已经筛好的行变成表格、CSV、TSV）和通用自定义字段（客户、线索共用）的纯逻辑，暂时还没有页面入口 |
+| `src/export-model.js`、`field-model.js` | 导出（把页面已经筛好的行变成表格、CSV、TSV）和通用自定义字段（客户、订单共用）的纯逻辑，暂时还没有页面入口 |
 | `src/mail-ui.js`、`mail.css` | 邮件页：邮件／客户／下属页签、文件夹列表、阅读、独立的写信页（回复／转发／群发共用）、附件、草稿、邮箱绑定与设置、按客户查看往来邮件。只通过本机接口通信，界面不保存密码；收到的邮件 HTML 放在禁用脚本的隔离框里，远程图片不加载 |
 | `src/mail-editor.js` | 写信用的富文本编辑器：开源编辑器 Squire 加一条工具栏；放进编辑器的 HTML（含引用的原邮件）先经 DOMPurify 净化，两个库缺失时退回纯文本 |
 | `backend/mail-libs.js` | 加载 `vendor/mail-libs` 里打包好的第三方邮件库（imapflow、nodemailer、postal-mime） |

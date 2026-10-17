@@ -7,11 +7,10 @@
   const trim=value=>String(value??'').trim();
   const norm=value=>trim(value).toLowerCase();
   const LIMITS=Object.freeze({roles:20,members:100,name:20,departments:50,depth:5,fields:300});
-  // 可见范围：本人＝只看自己做跟进人/负责人的客户、线索、商机、订单；本部门＝自己和本部门（含下级部门）成员的；全公司＝都能看。
+  // 可见范围：本人＝只看自己做跟进人/负责人的客户、商机、订单；本部门＝自己和本部门（含下级部门）成员的；全公司＝都能看。
   const SCOPES=Object.freeze([['self','本人'],['dept','本部门'],['all','全公司']].map(item=>Object.freeze(item)));
   // 权限清单：[模块, [[key, 名称], ...]]。只列来财真有的功能。
   const GROUPS=Object.freeze([
-    ['线索',[['lead.view','查看'],['lead.create','创建'],['lead.edit','编辑'],['lead.delete','删除'],['lead.purge','彻底删除（回收站）'],['lead.reassign','重新分配'],['lead.convert','转为客户'],['lead.export','导出线索']]],
     ['商机',[['opp.view','查看'],['opp.create','创建'],['opp.edit','编辑'],['opp.delete','删除'],['opp.transfer','转移负责人'],['opp.archive','商机归档'],['opp.fileDownload','下载文件'],['opp.fileDelete','删除文件'],['opp.export','导出商机']]],
     ['客户',[['customer.view','查看'],['customer.create','创建'],['customer.edit','编辑'],['customer.reassign','重新分配'],['customer.removeOwner','移除跟进人'],['customer.unfollow','取消关注'],['customer.toPool','移入公海'],['customer.merge','合并客户'],['customer.batchFollow','批量写跟进'],['customer.duplicates','客户查重页面-查看'],['customer.trash','移入回收站'],['customer.import','导入客户'],['customer.export','导出客户']]],
     ['公海客户',[['pool.view','查看'],['pool.claim','移入私海（领取）'],['pool.assign','分配客户'],['pool.edit','编辑'],['pool.delete','删除']]],
@@ -22,14 +21,14 @@
     ['跟进动态',[['activity.view','查看']]],
     ['邮件',[['mail.view','查看'],['mail.send','写信和回复']]],
     ['沟通',[['chat.view','查看聊天记录'],['chat.send','打开 WhatsApp 聊天和记聊天'],['chat.import','导入和撤销聊天记录'],['chat.template','管理聊天模板']]],
-    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模板设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理'],['settings.lead','线索设置'],['settings.rate','汇率设置'],['settings.task','任务设置'],['settings.switch','功能开关']]],
+    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模板设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理'],['settings.rate','汇率设置'],['settings.task','任务设置'],['settings.switch','功能开关']]],
   ].map(([name,items])=>Object.freeze([name,Object.freeze(items.map(item=>Object.freeze(item)))])));
   const KEYS=Object.freeze(GROUPS.flatMap(([,items])=>items.map(([key])=>key)));
   const labelOf=key=>{for(const [group,items] of GROUPS){const hit=items.find(item=>item[0]===key);if(hit)return `${group}·${hit[1]}`;}return key;};
   const ADMIN='admin',SALES='sales',TEST_SALES='测试业务';
   const all=()=>Object.fromEntries(KEYS.map(key=>[key,true]));
   // “业务”默认权限：照老板小满“普通用户”角色的勾选（字段与权限详细附录），只取来财有的项目。
-  const SALES_DEFAULT=Object.freeze(['lead.view','lead.create','lead.edit','lead.reassign','lead.convert',
+  const SALES_DEFAULT=Object.freeze([
     'opp.view','opp.create','opp.edit','opp.transfer','opp.archive','opp.fileDownload','opp.fileDelete',
     'customer.view','customer.create','customer.edit','customer.unfollow','customer.toPool','customer.merge','customer.batchFollow','customer.duplicates',
     'pool.view','pool.claim','pool.edit',
@@ -43,7 +42,7 @@
     'settings.source']);
   const DEPT_ADMIN='deptAdmin';
   // 部门管理员：照业务的权限，再加看团队数据、编辑目标值、重新分配客户；看本部门。小满有这个内置角色，具体勾选可以改。
-  const DEPT_ADMIN_DEFAULT=Object.freeze([...SALES_DEFAULT,'team.view','team.goalEdit','team.export','customer.reassign','lead.delete','pool.assign']);
+  const DEPT_ADMIN_DEFAULT=Object.freeze([...SALES_DEFAULT,'team.view','team.goalEdit','team.export','customer.reassign','pool.assign']);
   const BUILTIN=Object.freeze({
     [ADMIN]:Object.freeze({id:ADMIN,name:'系统管理员',scope:'all',builtin:true,locked:true}),
     [SALES]:Object.freeze({id:SALES,name:'业务',scope:'self',builtin:true,locked:false,defaults:SALES_DEFAULT}),
@@ -57,7 +56,6 @@
     out['activity.view']=true;                       // 以前跟进动态谁都能看
     if(out['team.targets'])out['team.goalEdit']=true; // 以前“目标管理”也管编辑目标值
     if(out['team.view'])out['team.export']=true;     // 以前能看团队数据就能导出
-    if(out['lead.delete'])out['lead.purge']=true;    // 以前删除线索也包括彻底删除
     if(out['product.create'])out['product.codeNew']=true;
     if(out['product.edit'])out['product.codeEdit']=true;
     return out;
@@ -76,7 +74,7 @@
   const cleanPerms=raw=>Object.fromEntries(KEYS.filter(key=>raw&&raw[key]===true).map(key=>[key,true]));
   const cleanScope=value=>SCOPES.some(([id])=>id===value)?value:'self';
   // 字段权限：哪些模块能按字段设。字段本身由各模块提供（role-ui.js 读），这里只认“模块 + 字段名 → 只读/隐藏”。没写的字段都是可编辑。
-  const FIELD_MODULES=Object.freeze([['lead','线索'],['opp','商机'],['customer','客户'],['pool','公海客户'],['product','产品']].map(item=>Object.freeze(item)));
+  const FIELD_MODULES=Object.freeze([['opp','商机'],['customer','客户'],['pool','公海客户'],['product','产品']].map(item=>Object.freeze(item)));
   const FIELD_LEVELS=Object.freeze([['edit','可编辑'],['read','只读'],['hidden','隐藏']].map(item=>Object.freeze(item)));
   function cleanFields(raw){
     const out={};
@@ -197,7 +195,7 @@
   // 只存可改的部分；系统管理员的权限固定，不存。
   // “默认跟进人”（laiSettings.defaultOwner）是用户在设置里自己填的值，这里不改它：换账号、改名都不碰。
   // 给当前账号改名时，如果默认跟进人正好是这个账号的旧名字，由 renameOwnerEverywhere 一起改成新名字。
-  // 新建客户、线索、商机、订单时实际用谁，见 defaultOwner()：只能看本人或本部门的账号，默认是它自己。
+  // 新建客户、商机、订单时实际用谁，见 defaultOwner()：只能看本人或本部门的账号，默认是它自己。
   function put(state,next){
     const roles=next.roles.filter(r=>r.id!==ADMIN).map(r=>{
       const row={id:r.id,name:r.name,scope:r.scope,perms:cleanPerms(r.perms),v:VERSION,known:[...KEYS]};
@@ -220,16 +218,15 @@
   function roleOf(state,member=currentMember(state)){const s=settings(state);return s.roles.find(r=>r.id===member?.roleId)||s.roles.find(r=>r.id===SALES);}
   // ---------- 功能开关：权限、页面属于哪个模块 ----------
   // 开关存在 state.laiSettings.featureSwitch.off（模块 id 列表）；这里直接读它，不依赖功能开关模型先装载。
-  // 可以关的模块：lead 线索、opp 商机、product 产品、doc 单据、mail 邮件、chat 沟通、team 团队数据（名单在 feature-switch-model.js）。
-  const KEY_MODULE=Object.freeze({lead:'lead',opp:'opp',product:'product',doc:'doc',mail:'mail',chat:'chat',team:'team'});
-  const SETTINGS_MODULE=Object.freeze({'settings.lead':'lead','settings.opportunity':'opp','settings.product':'product','settings.docTemplate':'doc'});
+  // 可以关的模块：opp 商机、product 产品、doc 单据、mail 邮件、chat 沟通、team 团队数据（名单在 feature-switch-model.js）。
+  const KEY_MODULE=Object.freeze({opp:'opp',product:'product',doc:'doc',mail:'mail',chat:'chat',team:'team'});
+  const SETTINGS_MODULE=Object.freeze({'settings.opportunity':'opp','settings.product':'product','settings.docTemplate':'doc'});
   const ROUTE_MODULE=Object.freeze({
-    leads:'lead','lead-trash':'lead','lead-settings':'lead',
     opportunities:'opp','opp-analysis':'opp','opp-flows':'opp',
     products:'product','doc-templates':'doc',mail:'mail',
     chats:'chat','chat-templates':'chat',
     'team-goals':'team','team-targets':'team','team-wall':'team',analysis:'team','team-assets':'team','team-followups':'team','team-tasks':'team','team-orders':'team'});
-  // 权限 key → 模块：lead.*、opp.*、product.*、doc.*、mail.*、chat.*、team.* 和对应的设置项；其它（客户、订单、设置……）返回 ''。
+  // 权限 key → 模块：opp.*、product.*、doc.*、mail.*、chat.*、team.* 和对应的设置项；其它（客户、订单、设置……）返回 ''。
   function moduleOfKey(key){
     const text=String(key||'');
     if(Object.hasOwn(SETTINGS_MODULE,text))return SETTINGS_MODULE[text];
@@ -257,7 +254,7 @@
   const isAdmin=state=>roleOf(state)?.id===ADMIN;
   const scopeOf=state=>roleOf(state)?.scope||'self';
   const meName=state=>currentMember(state)?.name||'';
-  // 新建客户、线索、商机、订单时默认的跟进人。可看全公司的账号用设置里填的“默认跟进人”；
+  // 新建客户、商机、订单时默认的跟进人。可看全公司的账号用设置里填的“默认跟进人”；
   // 只能看本人或本部门的账号，新建的资料默认归它自己（不然建完自己都看不到）。
   function defaultOwner(state){
     if(scopeOf(state)!=='all'&&meName(state))return meName(state);
@@ -394,7 +391,8 @@
     return put(state,next);
   }
   // 成员改名后，他负责的记录跟着改名（记录里存的是名字，不是成员编号）。不分大小写匹配，纯函数，不碰没变的记录。
-  // 改的地方：客户的负责人、线索、订单（含订单回收站）、商机的负责人和协同跟进人、任务、目标里的成员，以及默认跟进人。
+  // 改的地方：客户的负责人、订单（含订单回收站）、商机的负责人和协同跟进人、目标里的成员，以及默认跟进人。
+  // laiLeads 的功能已去掉（D-030），存着的数据也一起改名，免得以后找回功能时名字对不上。
   function renameOwnerEverywhere(state,oldName,newName){
     const from=norm(oldName),to=trim(newName);
     if(!from||!to||!state||typeof state!=='object')return state;
@@ -468,11 +466,11 @@
   }
   // 每个页面要什么权限才能打开。kind 同 rail-menu.js：route／screen／mail。没列的页面谁都能开（工作台、日历、设置中心）。
   const PAGE_PERMS=Object.freeze({
-    route:Object.freeze({leads:'lead.view','lead-trash':'lead.view',opportunities:'opp.view','opp-analysis':'opp.view','opp-flows':'settings.opportunity',
+    route:Object.freeze({opportunities:'opp.view','opp-analysis':'opp.view','opp-flows':'settings.opportunity',
       'order-list':'order.view','order-trash':'order.view',products:'product.view','doc-templates':'settings.docTemplate',
       'team-goals':'team.view','team-targets':'team.targets','team-wall':'team.wall',analysis:'team.view','team-assets':'team.view','team-followups':'team.view','team-tasks':'team.view','team-orders':'team.view',
       settings:'settings.general',roles:'settings.roles',members:'settings.roles',
-      chats:'chat.view','chat-templates':'chat.template','lead-settings':'settings.lead',rates:'settings.rate','task-settings':'settings.task','feature-switch':'settings.switch'}),
+      chats:'chat.view','chat-templates':'chat.template',rates:'settings.rate','task-settings':'settings.task','feature-switch':'settings.switch'}),
     screen:Object.freeze({active:'customer.view',pool:'pool.view',duplicates:'customer.duplicates','customer-settings':'settings.customer'}),
     mail:'mail.view',
   });
@@ -481,7 +479,7 @@
     if(typeof table==='string')return table;
     return table&&Object.hasOwn(table,target)?table[target]:null;
   }
-  // canOpen(state,'route','leads')：当前账号能不能打开这个页面。
+  // canOpen(state,'route','opportunities')：当前账号能不能打开这个页面。
   function canOpen(state,kind,target){if(!moduleOnFor(state,moduleOfEntry(kind,target)))return false;const key=pagePerm(kind,target);return !key||can(state,key);}
   // ---------- 修改：部门 ----------
   function requireDept(next,id){const dept=next.departments.find(d=>d.id===id);if(!dept)throw new Error('没有找到这个部门');return dept;}

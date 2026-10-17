@@ -39,7 +39,7 @@ test('settings page source: wider currency list, owner hint, short local-data no
   const src = read('business-ui.js');
   for (const code of ['USD', 'EUR', 'GBP', 'CNY', 'CAD', 'AUD', 'JPY', 'HKD', 'SGD', 'RUB', 'AED', 'INR', 'BRL', 'MXN']) assert.ok(src.includes(`"${code}"`), code);
   assert.match(src, /\[\.\.\.new Set\(\[current, \.\.\.CURRENCIES\]/);
-  assert.ok(src.includes('新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。'));
+  assert.ok(src.includes('新建客户、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。'));
   assert.ok(!src.includes('切换账号后会跟着变成当前账号'), 'switching accounts no longer rewrites the default owner');
   assert.ok(src.includes('客户、订单、日程都保存在来财里，可以随时备份。'));
   assert.ok(!src.includes('存在这台电脑上') && !src.includes('打开数据目录') && !src.includes('open-folder'), 'no Mac-only wording or data-folder button');
@@ -50,9 +50,9 @@ test('business forms read names from the scoped state and refuse customers outsi
   const src = read('business-ui.js');
   assert.match(src, /customers: OM\(\)\.customerNames\(pickState\(\)\)/);
   assert.match(src, /setup: OM\(\)\.formSetup\(pickState\(\)\)/);
-  assert.match(src, /customers: LD\(\)\.customerNames\(pickState\(\)\)/);
   assert.ok(!/OM\(\)\.formSetup\(state\(\)\)/.test(src));
-  assert.equal((src.match(/throw new Error\(HIDDEN_CUSTOMER\)/g) || []).length, 3, 'order, opportunity and lead convert');
+  // 线索（和它的“转为客户”）已去掉（D-030），剩下订单和商机两处。
+  assert.equal((src.match(/throw new Error\(HIDDEN_CUSTOMER\)/g) || []).length, 2, 'order and opportunity');
   assert.ok(src.includes('这个客户不在你的范围内'));
   assert.ok(src.includes('can("product.view") ? PM().list(state())'));
 });

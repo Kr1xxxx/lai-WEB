@@ -60,10 +60,8 @@ test("setDedupe rejects an unknown mode and the duplicates page lists extra fiel
 });
 
 test("sources: unconfigured gives no list; two levels, hide, sort, rename follows customers, delete refuses while in use", () => {
-  const LM = require("../src/lead-model.js");
   let s = base();
   assert.equal(CS.sourceChoices(s), null);
-  assert.ok(LM.sourceNames(s).includes("展会"), "old suggestions stay until a list is made");
   s = CS.addSource(s, { name: "常规获客" });
   s = CS.addSource(s, { name: "社媒" });
   const top = CS.get(s).sources;
@@ -72,7 +70,6 @@ test("sources: unconfigured gives no list; two levels, hide, sort, rename follow
   assert.throws(() => CS.addSource(s, { name: "展会", parentId: top[0].id }), /同名/);
   assert.throws(() => CS.addSource(s, { name: "a/b" }), /“\/”/);
   assert.deepEqual(CS.sourceChoices(s), ["常规获客 / 展会", "常规获客 / 熟人介绍", "社媒"]);
-  assert.deepEqual(LM.sourceNames(s), CS.sourceChoices(s));
   const kids = CS.get(s).sources[0].children;
   s = CS.setSourceHidden(s, kids[1].id, true);
   assert.deepEqual(CS.sourceChoices(s), ["常规获客 / 展会", "社媒"]);

@@ -184,7 +184,7 @@
         ${contactField("primaryContactMethod", "主要联系方式", contactSelect("primaryContactMethod", "请选择", ["WhatsApp", "邮件", "阿里巴巴", "iMessage"]))}
         ${contactField("phone", "联系电话", `<div class="ce-paired">${contactSelect("phoneCountryCode", "电话区号", ["+1", "+44", "+33", "+49", "+61", "+86"])}${contactInput("phone", "WhatsApp")}<button class="ce-plus k-btn k-btn--ghost" type="button" data-editor-action="add-method" data-method-type="phone" aria-label="添加联系电话">${glyph("plus")}</button></div>${methodList("phone", record.additionalPhones)}`, true)}
         <details class="ce-extra ce-contact-extra"><summary><span>展开全部 (选填)</span>${glyph("down")}</summary><div class="ce-extra-content">
-          ${contactField("alibabaId", "Alibaba会员ID", contactInput("alibabaId", "阿里客户从线索中创建"))}
+          ${contactField("alibabaId", "Alibaba会员ID", contactInput("alibabaId"))}
           ${contactField("address", "地址", `<textarea id="ce-${id("address")}" name="${name("address")}" rows="3" placeholder="请输入" class="k-textarea">${E(record.address || "")}</textarea>`)}
           ${contactField("alternateEmail", "备用邮箱", contactInput("alternateEmail"))}
           ${contactField("birthday", "生日", contactInput("birthday", "请选择", "date"))}
