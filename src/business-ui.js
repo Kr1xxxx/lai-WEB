@@ -315,7 +315,8 @@
     // 团队数据和经营统计的页面：组件套件的页头＋内容，整页一起滚动（排版在 business.css「团队数据」一节）。
     const teamPage = (head, body) => `<div class="team-page">${head}${body}</div>`;
     // 月份框仍是统一的日期框（date-picker.js 把 class 带到看得见的框上），外观是 k-input。
-    const monthInput = () => `<input type="month" id="biz-month" class="k-input team-month" value="${month}" aria-label="统计月份">`;
+    // 团队数据各页用套件输入框（k-input team-month）；商机分析的页头还是旧版，传 false 保持原样，否则 k-input 的 100% 宽会压住页签。
+    const monthInput = (kit = true) => `<input type="month" id="biz-month"${kit ? ' class="k-input team-month"' : ""} value="${month}" aria-label="统计月份">`;
     // 周期：按月看所选月份，按季度看所选月份所在的自然季度。
     const periodKey = () => (teamView.period === "quarter" ? root.LaiTeamModel.quarterOf(month) : month);
     const periodSwitch = () =>
@@ -520,7 +521,7 @@
         header(
           "商机分析",
           `${E(label)} · 按商机创建时间统计`,
-          `${OU().analysisControls(report)}<span class="k-tabs opp-range-tabs" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput() : ""}`,
+          `${OU().analysisControls(report)}<span class="k-tabs opp-range-tabs" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput(false) : ""}`,
         ) + OU().analysisMarkup(report)
       );
     }
