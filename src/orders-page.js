@@ -54,7 +54,7 @@
     const ship = [o.carrier, o.trackingNumber].filter(Boolean).join(" ") || "—";
     return `<tr class="op-row" data-order-row="${E(o.id)}">`
       + `<td class="op-num"><button type="button" class="op-link" data-biz-order="${E(o.id)}">${E(o.num || "未编号")}</button>${o.isDraft ? '<span class="k-badge k-badge--neutral">草稿</span>' : ""}</td>`
-      + `<td class="op-client"><button type="button" class="op-link op-plain" data-biz-customer="${E(o.client)}">${E(o.client)}</button><small>${E(o.country || "—")}</small></td>`
+      + `<td class="op-client"><button type="button" class="op-link" data-biz-customer="${E(o.client)}">${E(o.client)}</button><small>${E(o.country || "—")}</small></td>`
       + `<td><span class="op-cell op-clamp">${E(o.productType || "—")}</span></td>`
       + `<td class="k-num op-strong">${E(money(o.amount, code))}</td>`
       + `<td class="k-num">${E(money(received, code))}</td>`
