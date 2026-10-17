@@ -1,9 +1,8 @@
 'use strict';
-// 字段权限 for 线索 and 商机: the field lists, the markup that hides / disables fields, and the save-time locking.
+// 字段权限 for 商机: the field list, the markup that hides / disables fields, and the save-time locking.
+// (The 线索 half went with the leads module, D-030.)
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const L = require('../src/lead-model.js');
-const LU = require('../src/lead-ui.js');
 const O = require('../src/opportunity-model.js');
 const OU = require('../src/opportunity-ui.js');
 const R = require('../src/role-model.js');
@@ -19,95 +18,21 @@ function withRole(state, fields, current = 'm-amy') {
     laiSettings: {
       ...(state.laiSettings || {}),
       defaultOwner: 'Amy',
-      roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', perms: { 'lead.view': true, 'lead.edit': true, 'opp.view': true, 'opp.edit': true, 'opp.create': true, 'lead.create': true }, fields }], members: [{ id: 'm-kris', name: 'Kris', roleId: 'admin' }, { id: 'm-amy', name: 'Amy', roleId: 'sales' }], current },
+      roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', perms: { 'opp.view': true, 'opp.edit': true, 'opp.create': true }, fields }], members: [{ id: 'm-kris', name: 'Kris', roleId: 'admin' }, { id: 'm-amy', name: 'Amy', roleId: 'sales' }], current },
     },
   };
 }
 const levelOf = (state, module) => key => R.fieldLevel(state, module, key);
 
 // ---------- field lists ----------
-test('LaiLeadModel.roleFieldList lists the optional lead fields by their stored names', () => {
-  const rows = L.roleFieldList({});
-  assert.deepEqual(rows.map(row => row.key), ['contact', 'email', 'phone', 'country', 'website', 'source', 'product', 'note']);
-  assert.ok(rows.every(row => row.label && row.group));
-  for (const banned of ['name', 'owner', 'status', 'createdAt', 'updatedAt', 'nextFollow']) assert.ok(!rows.some(row => row.key === banned), banned);
-});
-
 test('LaiOpportunityModel.roleFieldList lists optional fields plus custom.<id>; required and automatic ones are left out', () => {
   let state = O.addCustomField({}, { name: '客户等级', type: 'text' }, { id: 'c1' });
   state = O.addCustomField(state, { name: '采购量', type: 'number', required: true }, { id: 'c2' });
   const rows = O.roleFieldList(state);
-  assert.deepEqual(rows.map(row => row.key), ['contact', 'collaborators', 'endDate', 'exchangeRate', 'type', 'leadId', 'sources', 'tags', 'note', 'products', 'custom.c1', 'custom.c2']);
+  assert.deepEqual(rows.map(row => row.key), ['contact', 'collaborators', 'endDate', 'exchangeRate', 'type', 'sources', 'tags', 'note', 'products', 'custom.c1', 'custom.c2']);
   assert.deepEqual(rows.filter(row => row.key.startsWith('custom.')).map(row => [row.label, row.group]), [['客户等级', '自定义字段'], ['采购量', '自定义字段']]);
-  for (const banned of ['client', 'name', 'amount', 'currency', 'stage', 'flow', 'owner', 'number', 'lostReason']) assert.ok(!rows.some(row => row.key === banned), banned);
+  for (const banned of ['client', 'name', 'amount', 'currency', 'stage', 'flow', 'owner', 'number', 'lostReason', 'leadId']) assert.ok(!rows.some(row => row.key === banned), banned);
   assert.ok(!O.roleFieldList({}).some(row => row.key.startsWith('custom.')));
-});
-
-// ---------- leads ----------
-test('a hidden or read-only lead field survives an edit, and cannot be set when creating', () => {
-  let state = L.upsert({ laiSettings: {}, customers: {}, orders: [] }, 'l1', { name: 'Acme', contact: 'Ann', email: 'ann@acme.example', note: 'secret note', owner: 'Amy' }, { now: NOW });
-  state = withRole(state, { lead: { email: 'hidden', note: 'read' } });
-  const before = L.list(state)[0];
-  // The form has no email input and a disabled note, so only the other fields arrive; someone also tries to push a note.
-  const input = R.keepLocked(state, 'lead', before, { name: 'Acme Ltd', contact: 'Ann B', note: 'hacked', owner: 'Amy' });
-  const saved = L.upsert(state, 'l1', input, { now: NOW, mustExist: true });
-  const lead = L.list(saved)[0];
-  assert.equal(lead.name, 'Acme Ltd');
-  assert.equal(lead.contact, 'Ann B');
-  assert.equal(lead.email, 'ann@acme.example');
-  assert.equal(lead.note, 'secret note');
-  // Creating: locked fields are dropped, the rest is saved.
-  const created = R.keepLocked(state, 'lead', null, { name: 'New', email: 'x@y.example', note: 'n', contact: 'C' });
-  const made = L.list(L.upsert(state, 'l2', created, { now: NOW })).find(item => item.id === 'l2');
-  assert.equal(made.email, '');
-  assert.equal(made.note, '');
-  assert.equal(made.contact, 'C');
-  // Admin is never locked.
-  const admin = withRole(state, { lead: { email: 'hidden' } }, 'm-kris');
-  assert.deepEqual(R.lockedFields(admin, 'lead'), []);
-});
-
-test('lead search and the source filter ignore a hidden field', () => {
-  let state = L.upsert({ customers: {}, orders: [] }, 'l1', { name: 'Acme', email: 'ann@acme.example', source: '展会', owner: 'Amy' }, { now: NOW });
-  state = L.upsert(state, 'l2', { name: 'Beta', source: '官网询盘', owner: 'Amy' }, { now: NOW });
-  assert.equal(L.page(state, { search: 'ann@acme' }, TODAY).rows.length, 1);
-  assert.equal(L.page(state, { search: 'ann@acme' }, TODAY, ['email']).rows.length, 0);
-  assert.equal(L.page(state, { source: '展会' }, TODAY).rows.length, 1);
-  const hidden = L.page(state, { source: '展会' }, TODAY, ['source']);
-  assert.equal(hidden.rows.length, 2);
-  assert.deepEqual(hidden.sources, []);
-});
-
-test('lead markup: hidden fields are gone from the list, detail and form; read-only ones are disabled', () => {
-  const state = L.upsert({ customers: {}, orders: [] }, 'l1', { name: 'Acme', contact: 'Ann', email: 'ann@acme.example', phone: '123456', country: 'US', source: '展会', product: 'lashes', website: 'acme.example', note: 'private memo', owner: 'Amy' }, { now: NOW });
-  const roleState = withRole(state, { lead: { email: 'hidden', phone: 'hidden', source: 'hidden', note: 'hidden', product: 'hidden', country: 'read', website: 'read' } });
-  const ui = LU.create(escapeHtml, L, () => true, levelOf(roleState, 'lead'));
-  const hidden = ['email', 'phone', 'source', 'note', 'product'];
-  const page = L.page(state, {}, TODAY, hidden);
-  const list = ui.pageMarkup(page, {}, TODAY);
-  assert.ok(!list.includes('ann@acme.example') && !list.includes('lashes') && !list.includes('展会') && !list.includes('lead-source'), list);
-  assert.ok(!list.includes('<th>来源</th>'));
-  assert.ok(list.includes('<th>国家地区</th>') && list.includes('<th>联系人</th>') && list.includes('Ann'));
-  assert.match(list, /placeholder="搜索名称、联系人"/);
-  const detail = ui.detailMarkup(L.detail(state, 'l1', TODAY), TODAY);
-  assert.ok(!detail.includes('ann@acme.example') && !detail.includes('private memo') && !detail.includes('lashes') && !detail.includes('展会'), detail);
-  assert.ok(detail.includes('acme.example') && detail.includes('US'));
-  const form = ui.formMarkup(L.list(state)[0], { sources: [], owners: [] });
-  for (const name of ['email', 'phone', 'source', 'note', 'product']) assert.ok(!form.includes(`name="${name}"`), name);
-  assert.match(form, /name="country"[^>]*disabled/);
-  assert.match(form, /name="website"[^>]*disabled/);
-  assert.match(form, /name="contact"(?![^>]*disabled)/);
-  const trash = ui.trashMarkup(L.trash(L.setTrashed(state, 'l1', true), TODAY), '', TODAY);
-  assert.ok(!trash.includes('ann@acme.example') && !trash.includes('<th>来源</th>'));
-});
-
-test('彻底删除 in the lead trash needs lead.purge', () => {
-  const state = L.setTrashed(L.upsert({ customers: {}, orders: [] }, 'l1', { name: 'Acme', owner: 'Amy' }, { now: NOW }), 'l1', true);
-  const rows = L.trash(state, TODAY);
-  const make = keys => LU.create(escapeHtml, L, key => keys.includes(key)).trashMarkup(rows, '', TODAY);
-  assert.ok(make(['lead.edit', 'lead.delete']).includes('data-lead-action="restore"'));
-  assert.ok(!make(['lead.edit', 'lead.delete']).includes('data-lead-action="delete"'), 'lead.delete alone does not purge');
-  assert.ok(make(['lead.edit', 'lead.purge']).includes('data-lead-action="delete"'));
 });
 
 // ---------- opportunities ----------
@@ -132,6 +57,8 @@ test('a read-only opportunity custom field and other locked fields cannot change
   assert.equal(saved.note, 'old note');
   assert.deepEqual(saved.products, before.products);
   assert.deepEqual(saved.custom, { c1: 'gold', c2: 'must' });
+  // Admin is never locked.
+  assert.deepEqual(R.lockedFields(withRole(oppState(), { opp: { note: 'hidden' } }, 'm-kris'), 'opp'), []);
 });
 
 test('a locked required field never blocks saving, and a new record gets default values for locked fields', () => {

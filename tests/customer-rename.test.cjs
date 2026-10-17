@@ -52,7 +52,7 @@ test('editing an unchanged company name tolerates its case-variant active order 
  assert.deepEqual(state,before);
 });
 
-test('restoring a renamed customer order keeps one customer and the original group and calendar links',()=>{
+test('restoring a renamed customer order keeps one customer and the original group, order and follow-up links',()=>{
  const state=fixture();
  const renamed=S.renameMember(M.upsertCustomer(state,'Old Company',{name:'New Company'}),'Old Company','New Company');
  const restored=B.restoreOrder(renamed,'archived');
@@ -62,7 +62,11 @@ test('restoring a renamed customer order keeps one customer and the original gro
  assert.equal(customer.orderCount,2);
  assert.equal(customer.total,300);
  assert.deepEqual(restored.previewSegments.map(item=>item.members),[['New Company','Other Company'],['New Company']]);
- assert.deepEqual(B.calendarEvents(restored,'2026-09').map(event=>[event.id,event.customer]).sort(),[['New Company','New Company'],['active','New Company'],['archived','New Company']]);
+ assert.deepEqual(restored.orders.map(order=>[order.id,order.client]).sort(),[['active','New Company'],['archived','New Company']]);
+ assert.equal(restored.customers['New Company'].nextFollow,'2026-09-20');
+ assert.equal(restored.customers['Old Company'],undefined);
+ const W=require('../src/workbench.js');
+ assert.deepEqual(W.queue({today:'2026-09-21',follow:Object.entries(restored.customers).filter(([,c])=>c.nextFollow)}).rows.map(row=>row.title),['跟进 New Company'],'the follow-up date follows the new name');
  assert.equal(restored.orders.find(order=>order.id==='archived').trashedAt,undefined);
  assert.equal(restored.deletedOrders.length,1);
 });

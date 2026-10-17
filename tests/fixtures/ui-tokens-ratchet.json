@@ -51,11 +51,6 @@
    "radiusPx": 0,
    "hex": 0
   },
-  "lead-settings.css": {
-   "fontSizePx": 3,
-   "radiusPx": 0,
-   "hex": 1
-  },
   "mail.css": {
    "fontSizePx": 72,
    "radiusPx": 43,
@@ -75,11 +70,6 @@
    "fontSizePx": 52,
    "radiusPx": 18,
    "hex": 12
-  },
-  "task-rule.css": {
-   "fontSizePx": 0,
-   "radiusPx": 0,
-   "hex": 0
   },
   "ui-kit.css": {
    "fontSizePx": 0,

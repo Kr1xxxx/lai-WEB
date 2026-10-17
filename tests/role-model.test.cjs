@@ -33,7 +33,7 @@ test('admin can do everything, 业务 follows its defaults and scope', () => {
   assert.equal(R.canSee(state, 'Kris'), false);
   assert.equal(R.canSee(state, ''), false);
   assert.equal(R.canOpen(state, 'route', 'roles'), false);
-  assert.equal(R.canOpen(state, 'route', 'leads'), true);
+  assert.equal(R.canOpen(state, 'route', 'opportunities'), true);
   assert.equal(R.canOpen(state, 'route', 'dashboard'), true);
   assert.equal(R.canOpen(state, 'mail', 'inbox'), true);
   assert.throws(() => R.addRole(state, { name: 'x' }), /角色权限和成员管理/);
@@ -195,12 +195,15 @@ test('product layouts per role are stored on the role', () => {
 
 test('roles saved before the permission split keep what they could do', () => {
   const old = { laiSettings: { roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', perms: { 'team.targets': true, 'lead.delete': true, 'product.edit': true, 'team.view': true } }], members: [{ id: '1', name: 'K', roleId: 'admin' }] } } };
+  // lead.* went with 线索 (D-030): an old 'lead.delete' is simply not a permission any more.
   const perms = R.settings(old).roles.find(r => r.id === 'sales').perms;
-  for (const key of ['activity.view', 'team.goalEdit', 'lead.purge', 'product.codeEdit', 'team.export']) assert.equal(perms[key], true, key);
+  for (const key of ['activity.view', 'team.goalEdit', 'product.codeEdit', 'team.export']) assert.equal(perms[key], true, key);
+  assert.equal(perms['lead.delete'], undefined);
+  assert.equal(perms['lead.purge'], undefined);
   assert.equal(perms['product.codeNew'], undefined);
-  const saved = R.updateRole({ ...old, laiSettings: { ...old.laiSettings, defaultOwner: 'K' } }, 'sales', { perms: { 'lead.view': true } });
+  const saved = R.updateRole({ ...old, laiSettings: { ...old.laiSettings, defaultOwner: 'K' } }, 'sales', { perms: { 'opp.view': true } });
   assert.equal(saved.laiSettings.roles.roles.find(r => r.id === 'sales').v, 2);
-  assert.deepEqual(R.settings(saved).roles.find(r => r.id === 'sales').perms, { 'lead.view': true }, 'v2 roles are not upgraded again');
+  assert.deepEqual(R.settings(saved).roles.find(r => r.id === 'sales').perms, { 'opp.view': true }, 'v2 roles are not upgraded again');
 });
 
 test('renaming a member renames their records everywhere (case-insensitive), in one state', () => {
@@ -242,17 +245,17 @@ test('renameOwnerEverywhere: no-ops, and the current account renaming carries th
 });
 
 test('a saved 业务 role gets permissions added after it was saved (by its known list), but never re-enables ones it knew', () => {
-  const stored = known => ({ laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known, perms: { 'lead.view': true } }, { id: 'rx', name: '自建', scope: 'self', v: 2, known, perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } });
+  const stored = known => ({ laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known, perms: { 'opp.view': true } }, { id: 'rx', name: '自建', scope: 'self', v: 2, known, perms: { 'opp.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } });
   const all = R.KEYS.filter(key => key !== 'mail.send' && key !== 'doc.create');
   // The role was saved when mail.send and doc.create did not exist yet: both are granted (both are in the default 业务 list).
   let s = R.settings(stored(all));
   const sales = s.roles.find(r => r.id === 'sales');
   assert.equal(sales.perms['mail.send'], true);
   assert.equal(sales.perms['doc.create'], true);
-  assert.equal(sales.perms['lead.view'], true);
-  assert.equal(sales.perms['lead.edit'], undefined, 'known and left off: stays off');
+  assert.equal(sales.perms['opp.view'], true);
+  assert.equal(sales.perms['opp.edit'], undefined, 'known and left off: stays off');
   // A key outside the default 业务 list is never granted; a custom role never gets defaults.
-  assert.equal(sales.perms['lead.delete'], undefined);
+  assert.equal(sales.perms['opp.delete'], undefined);
   assert.equal(s.roles.find(r => r.id === 'rx').perms['mail.send'], undefined);
   // Everything known at save time: nothing is added.
   s = R.settings(stored([...R.KEYS]));
@@ -268,10 +271,13 @@ test('a saved 业务 role gets permissions added after it was saved (by its know
 test('沟通 and export/settings keys: groups, defaults, page routes', () => {
   const group = R.GROUPS.find(([name]) => name === '沟通');
   assert.deepEqual(group[1].map(([key, label]) => [key, label]), [['chat.view', '查看聊天记录'], ['chat.send', '打开 WhatsApp 聊天和记聊天'], ['chat.import', '导入和撤销聊天记录'], ['chat.template', '管理聊天模板']]);
-  for (const key of ['customer.export', 'lead.export', 'opp.export', 'order.export', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch', 'chat.view', 'chat.send', 'chat.import', 'chat.template']) assert.ok(R.KEYS.includes(key), key);
+  for (const key of ['customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.switch', 'chat.view', 'chat.send', 'chat.import', 'chat.template']) assert.ok(R.KEYS.includes(key), key);
+  assert.ok(!R.KEYS.includes('settings.task'), '任务设置 is gone (D-031)');
+  assert.ok(!R.KEYS.some(key => key.startsWith('lead.') || key === 'settings.lead'), '线索 permissions are gone (D-030)');
+  assert.ok(!R.GROUPS.some(([name]) => name === '线索'));
   // 业务 defaults: the three chat keys yes, template and every export / new settings key no (admin only).
   for (const key of ['chat.view', 'chat.send', 'chat.import']) assert.ok(R.SALES_DEFAULT.includes(key), key);
-  for (const key of ['chat.template', 'customer.export', 'lead.export', 'opp.export', 'order.export', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch']) {
+  for (const key of ['chat.template', 'customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.switch']) {
     assert.ok(!R.SALES_DEFAULT.includes(key), key);
     assert.ok(!R.DEPT_ADMIN_DEFAULT.includes(key), key);
   }
@@ -282,15 +288,16 @@ test('沟通 and export/settings keys: groups, defaults, page routes', () => {
   const asSales = R.switchTo(base(), R.settings(base()).members.find(m => m.name === 'Amy').id);
   assert.equal(R.can(base(), 'settings.switch'), true);
   assert.equal(R.canOpen(asSales, 'route', 'chats'), true);
-  for (const route of ['chat-templates', 'lead-settings', 'rates', 'task-settings', 'feature-switch']) assert.equal(R.canOpen(asSales, 'route', route), false, route);
+  for (const route of ['chat-templates', 'rates', 'feature-switch']) assert.equal(R.canOpen(asSales, 'route', route), false, route);
   assert.equal(R.canOpen(base(), 'route', 'feature-switch'), true);
-  assert.deepEqual(['chats', 'chat-templates', 'lead-settings', 'rates', 'task-settings', 'feature-switch'].map(route => R.pagePerm('route', route)), ['chat.view', 'chat.template', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch']);
+  assert.deepEqual(['chats', 'chat-templates', 'rates', 'feature-switch'].map(route => R.pagePerm('route', route)), ['chat.view', 'chat.template', 'settings.rate', 'settings.switch']);
+  for (const route of ['leads', 'lead-trash', 'lead-settings', 'task-settings', 'team-tasks', 'calendar']) assert.equal(R.pagePerm('route', route), null, route);
 });
 
 test('a role saved before the chat keys existed gets the 业务 chat defaults but no template or export rights', () => {
-  const fresh = new Set(['chat.view', 'chat.send', 'chat.import', 'chat.template', 'customer.export', 'lead.export', 'opp.export', 'order.export', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch']);
+  const fresh = new Set(['chat.view', 'chat.send', 'chat.import', 'chat.template', 'customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.switch']);
   const oldKeys = R.KEYS.filter(key => !fresh.has(key));
-  const stored = { laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: oldKeys, perms: { 'lead.view': true } }, { id: 'deptAdmin', name: '部门管理员', scope: 'dept', v: 2, known: oldKeys, perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } };
+  const stored = { laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: oldKeys, perms: { 'opp.view': true } }, { id: 'deptAdmin', name: '部门管理员', scope: 'dept', v: 2, known: oldKeys, perms: { 'opp.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } };
   const s = R.settings(stored);
   for (const id of ['sales', 'deptAdmin']) {
     const role = s.roles.find(r => r.id === id);
@@ -301,7 +308,7 @@ test('a role saved before the chat keys existed gets the 业务 chat defaults bu
   assert.equal(R.can(amy, 'chat.view'), true);
   assert.equal(R.can(amy, 'chat.template'), false);
   // A role that knew the keys and turned them off stays off.
-  const off = { laiSettings: { roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: [...R.KEYS], perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm2' } } };
+  const off = { laiSettings: { roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: [...R.KEYS], perms: { 'opp.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm2' } } };
   assert.equal(R.can(off, 'chat.view'), false);
 });
 
@@ -345,18 +352,15 @@ test('默认跟进人: renaming the current account leaves a value that is someo
   assert.equal(R.renameMember(state0, me.id, 'Chris').laiSettings.defaultOwner, 'Chris');
 });
 
-test('默认跟进人: new leads and opportunities use the account itself when it only sees its own or its department', () => {
-  const L = require('../src/lead-model.js'), O = require('../src/opportunity-model.js');
+test('默认跟进人: new opportunities use the account itself when it only sees its own or its department', () => {
+  const O = require('../src/opportunity-model.js');
   let state = { laiSettings: { defaultOwner: 'Kris' }, customers: {}, orders: [] };
   const sales = R.settings(state).members.find(m => m.roleId === 'sales');
   state = typed(R.switchTo(state, R.currentMember(state).id), '王小明');
-  assert.equal(L.defaults(state).owner, '王小明');
   assert.equal(O.defaults(state, '2026-10-17').owner, '王小明');
   const asSales = scope => R.switchTo(R.updateRole(state, 'sales', { scope }), sales.id);
   for (const scope of ['self', 'dept']) {
-    assert.equal(L.defaults(asSales(scope)).owner, sales.name, scope);
     assert.equal(O.defaults(asSales(scope), '2026-10-17').owner, sales.name, scope);
   }
-  assert.equal(L.defaults(asSales('all')).owner, '王小明');
   assert.equal(O.defaults(asSales('all'), '2026-10-17').owner, '王小明');
 });

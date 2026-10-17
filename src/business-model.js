@@ -168,70 +168,6 @@
     const restored={...order};delete restored.trashedAt;
     return {...state,orders:[restored,...(state.orders||[])],trashOrders:state.trashOrders.filter(item=>item.id!==id)};
   }
-  function archivedCustomer(state,name,profile){
-    if(profile.laiBucket==='trash'||profile.trashedAt||profile.deletedAt||profile.archived===true)return true;
-    for(const bucket of ['trashCustomers','deletedCustomers']){
-      const value=state[bucket];
-      if(Array.isArray(value)&&value.some(item=>typeof item==='string'?item===name:item?.name===name||item?.client===name))return true;
-      if(value&&!Array.isArray(value)&&typeof value==='object'&&Object.hasOwn(value,name))return true;
-    }
-    return false;
-  }
-  function calendarEvents(state,month){
-    if(!validMonth(month))throw new Error('请选择有效月份');
-    const events=[];
-    const add=(value,event)=>{const date=datePart(value);if(date&&date.startsWith(`${month}-`))events.push({date,...event});};
-    for(const order of state.orders||[])add(order.createdAt,{title:`订单 ${order.num||''}`,kind:'order',id:order.id,customer:order.client||''});
-    for(const [name,profile]of Object.entries(state.customers||{})){
-      if(!profile||archivedCustomer(state,name,profile))continue;
-      add(profile.nextFollow,{title:`跟进 ${name}`,kind:'followup',id:name,customer:name});
-    }
-    for(const task of state.laiTasks||[])add(task.date,{title:task.title||'',kind:'task',id:task.id,customer:task.customer||'',owner:taskOwner(state,task)});
-    return events.sort((a,b)=>a.date.localeCompare(b.date)||a.kind.localeCompare(b.kind)||String(a.id).localeCompare(String(b.id)));
-  }
-  // 待办属于一个人（D-022）。负责人：任务自己的 owner；老任务没有 owner 时，跟着所关联客户的跟进人；都没有就是空（未分配）。
-  function taskOwner(state,task){
-    const own=trim(task&&task.owner);
-    if(own)return own;
-    const customers=(state&&state.customers)||{};
-    const name=trim(task&&task.customer);
-    return name&&Object.hasOwn(customers,name)?trim(customers[name]&&customers[name].owner):'';
-  }
-  // 当前账号看得到的待办。sees(owner)＝角色模型的 canSee：全公司看全部（含未分配），本人／本部门只看负责人在范围内的，未分配的不看。
-  function visibleTasks(state,sees){
-    const list=state&&state.laiTasks;
-    if(!Array.isArray(list)||typeof sees!=='function')return list;
-    return list.filter(task=>task&&typeof task==='object'&&sees(taskOwner(state,task)));
-  }
-  // 自己没有负责人的未完成待办（老数据）。管理员在日历上看到“有 N 条待办没有负责人”。
-  function unassignedTasks(state){
-    return (Array.isArray(state&&state.laiTasks)?state.laiTasks:[]).filter(task=>task&&typeof task==='object'&&!trim(task.owner)&&task.done!==true);
-  }
-  // opts（可选）：{me:当前账号名, canReassign:能不能改负责人, members:可选的成员名}。
-  // 带 me 时：新待办的负责人默认是 me；只有 canReassign 才能指定别人或改负责人，其他人传来的 owner 一律忽略。
-  // 不带 me 时（只改完成状态等）：不碰负责人。
-  function setTask(state,id,input,opts={}){
-    requireId(id);
-    const previous=(state.laiTasks||[]).find(task=>task.id===id);
-    const next={...(previous||{}),id};
-    if(Object.hasOwn(input,'title'))next.title=trim(input.title);
-    if(!next.title)throw new Error('请输入任务名称');
-    if(Object.hasOwn(input,'date'))next.date=trim(input.date);
-    if(!datePart(next.date)||next.date.length!==10)throw new Error('请选择有效任务日期');
-    if(Object.hasOwn(input,'done'))next.done=input.done;
-    else if(!previous)next.done=false;
-    if(typeof next.done!=='boolean')throw new Error('任务完成状态无效');
-    const me=trim(opts&&opts.me),wanted=trim(input&&input.owner);
-    if(me&&!previous&&!(opts.canReassign&&wanted))next.owner=me;
-    if(opts&&opts.canReassign&&wanted&&wanted.toLowerCase()!==trim(previous&&previous.owner).toLowerCase()){
-      if(Array.isArray(opts.members)){
-        const hit=opts.members.find(name=>trim(name).toLowerCase()===wanted.toLowerCase());
-        if(!hit)throw new Error('请选择有效的负责人');
-        next.owner=trim(hit);
-      }else next.owner=wanted;
-    }
-    return {...state,laiTasks:previous?state.laiTasks.map(task=>task.id===id?next:task):[next,...(state.laiTasks||[])]};
-  }
   // 建议的新订单号：前缀＋日期＋三位序号。序号取现有订单、回收站、已删除订单里同前缀同日期的最大序号加 1，并保证整个库里没人用过。
   function nextOrderNumber(state,prefix,date){
     const base=`${trim(prefix)||'L'}${trim(date||localDate()).replaceAll('-','')}-`,head=base.toLowerCase();
@@ -246,6 +182,6 @@
     while(used.has(next.toLowerCase())){seq++;next=base+String(seq).padStart(3,'0');}
     return next;
   }
-  const api={stages,localDate,orderMetrics,monthlyAnalysis,ITEM_LIMIT,cleanItems,itemsTotal,itemsSummary,itemFromProduct,linkItems,docLines,upsertOrder,nextOrderNumber,archiveOrder,restoreOrder,calendarEvents,setTask,taskOwner,visibleTasks,unassignedTasks};
+  const api={stages,localDate,orderMetrics,monthlyAnalysis,ITEM_LIMIT,cleanItems,itemsTotal,itemsSummary,itemFromProduct,linkItems,docLines,upsertOrder,nextOrderNumber,archiveOrder,restoreOrder};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiBusinessModel=api;
 })(typeof window!=='undefined'?window:globalThis);

@@ -7,8 +7,8 @@ const path = require("path");
 
 const CHECKS = fs.readFileSync(path.join(__dirname, "overlap-checks.js"), "utf8");
 
-// ui-audit 扫的 19 个页面；扫描时还会加上左侧菜单（LaiRailMenu）和 LaiExtraPages 里登记的其他页面。
-const BASE_ROUTES = ["customers", "dashboard", "mail", "opportunities", "opp-analysis", "opp-flows", "order-list", "order-trash", "team-goals", "team-targets", "team-wall", "analysis", "team-assets", "team-followups", "team-tasks", "team-orders", "calendar", "settings", "settings-hub"];
+// ui-audit 扫的 17 个页面；扫描时还会加上左侧菜单（LaiRailMenu）和 LaiExtraPages 里登记的其他页面。
+const BASE_ROUTES = ["customers", "dashboard", "mail", "opportunities", "opp-analysis", "opp-flows", "order-list", "order-trash", "team-goals", "team-targets", "team-wall", "analysis", "team-assets", "team-followups", "team-orders", "settings", "settings-hub"];
 // 客户页里的子页面（点左侧二级导航）
 const CUSTOMER_SCREENS = ["pool", "duplicates", "customer-settings", "trash"];
 // 弹窗／抽屉：[打开前先去的页面, 按钮选择器, 名字]
@@ -17,7 +17,6 @@ const DIALOGS = [
   ["opportunities", '[data-opp-action="new"]', "新建商机"],
   ["opportunities", ".opp-card-name", "商机详情"],
   ["customers", ".split-new .primary", "新建客户"],
-  ["leads", '[data-lead-action="new"]', "新建线索"],
   ["customers", '[data-action="version-history"]', "版本记录"],
   ["customers", '[data-action="about"]', "帮助"],
 ];
@@ -37,7 +36,7 @@ const WIDTHS = [1024, 1152, 1200, 1280, 1366, 1440, 1680, 1920];
 // 默认窗口：每个宽度配 800 高，再加 1440×900
 const defaultSizes = (widths = WIDTHS) => [...widths.map((w) => [w, 800]), ...(widths.includes(1440) ? [[1440, 900]] : [])];
 
-/** 页面里能找到的全部路由（ui-audit 的 19 个 + 左侧菜单 + 其他模块登记的页面），去重。 */
+/** 页面里能找到的全部路由（ui-audit 的 17 个 + 左侧菜单 + 其他模块登记的页面），去重。 */
 async function discoverRoutes(page) {
   const found = await page.evaluate(() => {
     const out = [];

@@ -1,5 +1,5 @@
 // 角色权限 in the business pages, in the real page with the real backend: the same data is opened as 业务 (Amy)
-// and as 系统管理员 (Kris). 业务 only sees her own leads, opportunities and orders and has no delete / new / sync buttons.
+// and as 系统管理员 (Kris). 业务 only sees her own opportunities and orders and has no delete / new / sync buttons.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
@@ -8,7 +8,6 @@ import { startApp } from './harness.mjs';
 const require = createRequire(import.meta.url);
 const B = require('../../src/business-model.js');
 const O = require('../../src/opportunity-model.js');
-const L = require('../../src/lead-model.js');
 const NOW = '2026-10-01T00:00:00.000Z';
 
 // Two members; `current` decides who is looking at the page.
@@ -20,7 +19,6 @@ async function start(current) {
   let data = loaded.data;
   data.laiSettings = { ...(data.laiSettings || {}), defaultOwner: current === 'm-kris' ? 'Kris' : 'Amy', roles: { roles: [], members: [{ id: 'm-kris', name: 'Kris', roleId: 'admin' }, { id: 'm-amy', name: 'Amy', roleId: 'sales' }], current } };
   for (const [id, owner] of [['a', 'Amy'], ['k', 'Kris']]) {
-    data = L.upsert(data, `lead-${id}`, { name: `${owner} Lead`, owner }, { now: NOW });
     data = B.upsertOrder(data, `order-${id}`, { num: `L-${owner}`, client: `${owner} Buyer`, country: 'US', productType: 'Lash', amount: '100', currency: 'USD', paidAmount: '0', stage: 'quote', createdAt: '2026-10-01', owner, isDraft: false, items: [] });
     data = O.upsert(data, `opp-${id}`, { client: `${owner} Buyer`, amount: '10', currency: 'USD', owner, stage: 'open', endDate: '2026-11-05' }, { now: NOW, today: '2026-10-01' });
   }
@@ -42,19 +40,9 @@ test('业务 (Amy) sees only her own records and has no delete, new or sync butt
   const app = await start('m-amy');
   try {
     const { page } = app;
-    await go(app, 'leads');
-    assert.equal(await count(app, '.lead-table tbody tr'), 1);
-    let text = await body(app);
-    assert.ok(text.includes('Amy Lead') && !text.includes('Kris Lead'));
-    await page.locator('.lead-table [data-lead-action="open"]').first().click();
-    await settle(app);
-    assert.equal(await count(app, '.lead-detail-actions [data-lead-action="edit"]'), 1);
-    assert.equal(await count(app, '.lead-detail-actions [data-lead-action="trash"]'), 0, '线索没有删除按钮');
-    await page.locator('[data-action="close-modal"]').first().click();
-
     await go(app, 'opportunities');
     assert.equal(await count(app, '.opp-card'), 1);
-    text = await body(app);
+    let text = await body(app);
     assert.ok(text.includes('Amy') && !text.includes('Kris'), '看板只有 Amy 的商机');
     await page.locator('.opp-card [data-opp-action="menu"]').first().click();
     await settle(app);
@@ -99,13 +87,6 @@ test('系统管理员 (Kris) sees everything and keeps every button', async () =
   const app = await start('m-kris');
   try {
     const { page } = app;
-    await go(app, 'leads');
-    assert.equal(await count(app, '.lead-table tbody tr'), 2);
-    await page.locator('.lead-table [data-lead-action="open"]').first().click();
-    await settle(app);
-    assert.equal(await count(app, '.lead-detail-actions [data-lead-action="trash"]'), 1);
-    await page.locator('[data-action="close-modal"]').first().click();
-
     await go(app, 'opportunities');
     assert.equal(await count(app, '.opp-card'), 2);
     await page.locator('.opp-card [data-opp-action="menu"]').first().click();

@@ -72,7 +72,6 @@
     note: { tint: "M5.5 8h13l-.9 11.2a1.5 1.5 0 0 1-1.5 1.3H7.9a1.5 1.5 0 0 1-1.5-1.3z", line: "M5.5 8h13l-.9 11.2a1.5 1.5 0 0 1-1.5 1.3H7.9a1.5 1.5 0 0 1-1.5-1.3z M9 8V7a3 3 0 0 1 6 0v1" },
     chart: { tint: "M4.5 12.5h3.5v7H4.5z M10.2 5.5h3.6v14h-3.6z M16 9.5h3.5v10H16z", line: "M5.5 12.5h1.5a1 1 0 0 1 1 1v6H4.5v-6a1 1 0 0 1 1-1z M11.2 5.5h1.6a1 1 0 0 1 1 1v13h-3.6v-13a1 1 0 0 1 1-1z M17 9.5h1.5a1 1 0 0 1 1 1v9H16v-9a1 1 0 0 1 1-1z" },
     folder: { tint: "M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z", line: "M3.5 7.5A2 2 0 0 1 5.5 5.5h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" },
-    calendar: { tint: "M3.5 8.5a2.5 2.5 0 0 1 2.5-2.5h12a2.5 2.5 0 0 1 2.5 2.5V18a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18z", line: "M3.5 8.5a2.5 2.5 0 0 1 2.5-2.5h12a2.5 2.5 0 0 1 2.5 2.5V18a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18z M3.5 11h17 M8 3.5v4 M16 3.5v4" },
     building: { tint: "M5 5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5V20.5H5z", line: "M5 20.5V5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5v15 M15 10h3.5a1.5 1.5 0 0 1 1.5 1.5v9 M3 20.5h18 M8.5 8h3 M8.5 11.5h3 M8.5 15h3" },
   };
   // 菜单里要换成淡色底图标的名字 -> 淡色底图标名（其余图标原样输出）
@@ -423,7 +422,7 @@
       : "m12 12 12 12-12 12m12-24 12 12-12 12";
     return `<button type="button" class="subnav-toggle ${collapse ? "subnav-collapse" : "subnav-restore"}" data-action="${action}" aria-label="${label}" aria-expanded="${expanded}" aria-controls="app-subnav"><svg aria-hidden="true" viewBox="0 0 48 48" fill="none"><path d="${path}" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
   }
-  // 二级导航只有三个或更少入口的菜单（线索、商机、沟通、协同、设置、企业管理；工作台、Leads 只有一个）：整栏不显示，给表格让出地方；
+  // 二级导航只有三个或更少入口的菜单（商机、沟通、设置、企业管理；工作台只有一个）：整栏不显示，给表格让出地方；
   // 有两三个入口时，入口画成页面标题旁的页签（placeSectionTabs）。客户和邮件有自己的列表和文件夹，二级导航照常显示；常用模式下也照常显示。
   const SECTION_TABS_MAX = 3;
   function sectionTabEntries() {
@@ -1810,18 +1809,6 @@
       });
     }
     if (a === "schedule-edit") return scheduleDialog(e.detail > 0);
-    if (a === "schedule-view") {
-      const name = currentName;
-      const date = String(state.customers?.[name]?.nextFollow || "").slice(0, 10);
-      let event;
-      try {
-        event = window.LaiBusinessModel.calendarEvents(state, date.slice(0, 7))
-          .find((entry) => entry.kind === "followup" && entry.customer === name && entry.date === date);
-      } catch { /* Legacy invalid dates have no calendar event. */ }
-      if (!event) return toast("该日程日期无效，请重新设置");
-      if (await navigateApp("calendar")) business.selectCalendarDate(event.date);
-      return;
-    }
     if (a === "add-contact") {
       editForm(false, e.detail > 0);
       $(".ce-add-contact")?.click();
@@ -2036,7 +2023,7 @@
     if (a === "about")
       drawer(
         "关于来财Lai",
-        `<div class="drawer-body"><h2>来财Lai ${APP_VERSION}</h2><p>独立的客户与经营管理软件。</p><div class="drawer-note">客户、订单、工作台、统计、日历与设置共享来财数据库。</div><h3>使用说明</h3><p>客户客群、横向字段、跟进、公海和回收站，与订单、统计、日历使用同一套界面。所有模块共享来财本地数据。</p><h3>字体</h3><p>中文使用小米 MiSans 字体，英文和数字使用 Inter 字体。</p></div>`,
+        `<div class="drawer-body"><h2>来财Lai ${APP_VERSION}</h2><p>独立的客户与经营管理软件。</p><div class="drawer-note">客户、订单、工作台、统计与设置共享来财数据库。</div><h3>使用说明</h3><p>客户客群、横向字段、跟进、公海和回收站，与订单、统计使用同一套界面。所有模块共享来财本地数据。</p><h3>字体</h3><p>中文使用小米 MiSans 字体，英文和数字使用 Inter 字体。</p></div>`,
         `<button class="primary" data-action="close-modal">知道了</button>`,
         "about",
         e.detail > 0,
@@ -2441,29 +2428,6 @@
       status("");
     } finally {
       poolAutoRunning = false;
-      // 任务设置里的规则跟在公海规则后面跑（同样的时机：启动、切回窗口、每 30 分钟）。
-      await autoRunTaskRules();
-    }
-  }
-  // 每天按任务设置里开着的规则自动建待办（task-rule-model.js）。跳过的条件同公海规则；不弹提示，一天只跑一次。
-  let taskAutoRunning = false;
-  async function autoRunTaskRules() {
-    const TR = window.LaiTaskRuleModel;
-    if (!TR || taskAutoRunning) return;
-    taskAutoRunning = true;
-    try {
-      if (separateCustomerWindow || pending || hasUnsavedWork() || !TR.due(state)) return;
-      // 用到关着的模块的规则（商机快到结束日期）这次不跑；规则的开关不动，模块重新打开后接着跑。
-      const result = FS.runTaskRules(TR, state);
-      if (!result) return;
-      // 只加待办和改规则的运行记录，不动客户资料，所以走默认的字段保护也不会改到什么。
-      await persist(result.state);
-      if (result.created.length && ["calendar", "dashboard", "task-settings"].includes(activeRoute)) refresh();
-    } catch (_) {
-      // 这次没成功就算了，下次再试；不留“保存失败”的提示。
-      status("");
-    } finally {
-      taskAutoRunning = false;
     }
   }
   // 页面开着跨过零点时也要按规则跑：切回窗口时、以及每 30 分钟检查一次；有窗口或草稿开着就等下次（规则同 autoRunPoolRules）。
@@ -3299,7 +3263,7 @@
       const primary = form.elements.primary.value;
       const p = draw(primary);
       $("#merge-preview").innerHTML = p
-        ? `将 <strong>${p.others.map(E).join("、")}</strong> 并入 <strong>${E(primary)}</strong>：${p.count.orders} 个订单、${p.count.tasks} 个任务、${p.count.opportunities} 个商机、${p.count.segments} 个客群、${p.count.contacts} 条联系人资料、${p.count.followups} 条动态`
+        ? `将 <strong>${p.others.map(E).join("、")}</strong> 并入 <strong>${E(primary)}</strong>：${p.count.orders} 个订单、${p.count.opportunities} 个商机、${p.count.segments} 个客群、${p.count.contacts} 条联系人资料、${p.count.followups} 条动态`
         : "";
     };
     form.addEventListener("change", update);
@@ -3980,7 +3944,7 @@
 
   const L = window.LaiModules;
   let customerScreen = "active";
-  let csTab = "groups", csEditing = null, csDedupeSub = "customer";
+  let csTab = "groups", csEditing = null;
   // 本人、本部门范围的账号只看看得到的跟进人的客户；公海客户没有跟进人，看有没有“公海查看”权限。
   const customerVisible = (c) =>
     L.bucket(state.customers?.[c.name]) === "pool" ? can("pool.view") : R.canSee(state, c.owner);
@@ -4026,13 +3990,10 @@
       ["grid", "工作台", "dashboard"],
       ["mail", "邮件", "mail"],
       ["chat", "沟通", "chats"],
-      ["lead", "线索", "leads"],
       ["people", "客户", "customers"],
       ["globe", "商机", "opportunities"],
-      ["search", "Leads", "lead-settings"],
       ["note", "交易", "order-list"],
       ["chart", "团队数据", "team-goals"],
-      ["folder", "协同", "calendar", "calendar"],
       ["settings", "设置", "settings", "sliders"],
       ["building", "企业管理", "roles", "building"],
     ];
@@ -4159,7 +4120,7 @@
       .join("");
     drawer(
       "管理常用",
-      `<div class="drawer-body favorite-nav-body">${items.length ? `<ul class="favorite-nav-list">${rows}</ul>` : `<div class="feature-state"><strong>还没有常用导航</strong>${FAVORITE_HINT}</div>`}<p class="module-note">点名称可直接跳转；用 ↑ ↓ 调整顺序。客户、工作台、邮件、交易、团队数据、日历与待办、设置里的页面都可以设为常用。</p></div>`,
+      `<div class="drawer-body favorite-nav-body">${items.length ? `<ul class="favorite-nav-list">${rows}</ul>` : `<div class="feature-state"><strong>还没有常用导航</strong>${FAVORITE_HINT}</div>`}<p class="module-note">点名称可直接跳转；用 ↑ ↓ 调整顺序。客户、工作台、邮件、交易、团队数据、设置里的页面都可以设为常用。</p></div>`,
       `<button class="primary" data-action="close-modal">关闭</button>`,
       "favorites",
       pointerActivated,
@@ -4312,7 +4273,7 @@
     if (!section) return "";
     section.entries = section.entries.filter(entryAllowed);
     if (!section.entries.length) return "";
-    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", "feature-switch": "settings", chats: "chat", "chat-templates": "folder" };
+    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-orders": "note", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", settings: "settings", "settings-hub": "settings", "feature-switch": "settings", chats: "chat", "chat-templates": "folder" };
     const entryButton = (entry) =>
       navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${menuIcon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
     const groups = [...new Set(section.entries.map((entry) => entry.group).filter(Boolean))];
@@ -4329,7 +4290,7 @@
   }
   // 业务页面的清单取自 rail-menu.js，与「可设为常用」同一份来源。
   const businessRoutes = new Set(RM.favoritable().filter((entry) => entry.kind === "route").map((entry) => entry.target));
-  // 其他模块登记的页面（window.LaiExtraPages，见 business-ui.js）：汇率设置、任务设置、功能开关、线索设置、沟通等页面都在这里登记，并在左侧栏有入口。
+  // 其他模块登记的页面（window.LaiExtraPages，见 business-ui.js）：汇率设置、功能开关、沟通等页面都在这里登记，并在左侧栏有入口。
   const isBusinessRoute = (route) => businessRoutes.has(route) || (!!route && Object.hasOwn(window.LaiExtraPages || {}, route));
   async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
     // 功能开关关掉的模块：地址栏、链接直接打开也不行，提示一下回工作台。
@@ -5016,7 +4977,7 @@
   // 每个页签、每种表单要的权限。
   const csTabPerm = (tabId) => (tabId === "dedupe" ? "settings.dedupe" : tabId === "sources" ? "settings.source" : "settings.customer");
   const csFormPerm = (kind) =>
-    ["dedupe", "lead-dedupe"].includes(kind) ? "settings.dedupe" : ["add-source", "rename-source"].includes(kind) ? "settings.source" : "settings.customer";
+    kind === "dedupe" ? "settings.dedupe" : ["add-source", "rename-source"].includes(kind) ? "settings.source" : "settings.customer";
   function customerSettings(keepModal = false) {
     window.LaiActivityCategoryNavigation.mount(null);
     rememberCustomerListViewport();
@@ -5036,7 +4997,7 @@
     const sameTab = document.querySelector(`.cs-panel[data-cs-panel="${csTab}"]`);
     const scrolled = sameTab ? sameTab.closest("main")?.scrollTop || 0 : 0;
     renderShell(
-      window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing, dedupeSub: csDedupeSub, hiddenTabs: csHiddenTabs(), canOpenSettings: R.canOpen(state, "route", "settings") }, E, ownerChoices()),
+      window.LaiCustomerSettingsUI.markup(state, { tab: csTab, editing: csEditing, hiddenTabs: csHiddenTabs(), canOpenSettings: R.canOpen(state, "route", "settings") }, E, ownerChoices()),
     );
     // 常用入口（列表字段、客群、标签……）属于「客户设置」权限。
     if (!can("settings.customer")) $(".cs-shortcuts")?.remove();
@@ -5109,7 +5070,7 @@
     const csPage = activeRoute === "customers" && customerScreen === "customer-settings" ? el.closest(".cs-page") : null;
     if (csPage && !allow(csTabPerm(d.csTab || csPage.querySelector(".cs-panel")?.dataset.csPanel))) return true;
     if ((d.csSourceMove || d.csSourceHide || d.csSourceSub || d.csDelete === "source") && !allow("settings.source")) return true;
-    if ((d.csDedupeSub || d.csTab === "dedupe") && !allow("settings.dedupe")) return true;
+    if (d.csTab === "dedupe" && !allow("settings.dedupe")) return true;
     if (d.csTab === "sources" && !allow("settings.source")) return true;
     if (d.csRuleToggle) {
       const id = d.csRuleToggle, enabled = el.checked;
@@ -5183,11 +5144,6 @@
     }
     if (d.csTplDelete) {
       csSave(() => CSM.deleteTemplate(state, d.tplGroup, d.csTplDelete));
-      return true;
-    }
-    if (d.csDedupeSub) {
-      csDedupeSub = d.csDedupeSub === "lead" ? "lead" : "customer";
-      customerSettings();
       return true;
     }
     if (d.csTab) {
@@ -5321,7 +5277,6 @@
       if (kind === "add-source") return CSM.addSource(state, { name: text("name"), parentId: form.dataset.parent || "" });
       if (kind === "rename-source") return CSM.renameSource(state, form.dataset.id, text("name"));
       if (kind === "dedupe") return CSM.setDedupe(state, Object.fromEntries(CSM.DEDUPE_FIELDS.map(([key]) => [key, text(`dedupe:${key}`)])));
-      if (kind === "lead-dedupe") return CSM.setLeadDedupe(state, Object.fromEntries(CSM.LEAD_DEDUPE_FIELDS.map(([key]) => [key, text(`dedupe:${key}`)])));
       if (kind === "duplicates") return CSM.setDuplicateFields(state, data.getAll("field").map(String));
       if (kind === "caps") {
         const perOwner = {};
@@ -5894,7 +5849,7 @@
       return navigateApp("chats");
     },
     defaultTheme: DEFAULT_THEME,
-    // 线索、商机里的 WhatsApp 按钮：和客户资料用同一个对话框，对象（客户或线索）由按钮所在的页面明确传进来，不看“最近打开的客户”。
+    // 商机里的 WhatsApp 按钮：和客户资料用同一个对话框，对象（客户）由按钮所在的页面明确传进来，不看“最近打开的客户”。
     openWhatsApp: (options) => wa.openDialog(options),
     toast,
     dialog: drawer,
@@ -5959,24 +5914,20 @@
   // ---- 沟通：WhatsApp（D-023）----
   // 来财不收发消息：只做打开聊天链接、记一笔、导入手机导出的聊天。页面和对话框在 whatsapp-ui.js，规则在 whatsapp-model.js。
   const WAM = window.LaiWhatsAppModel;
-  // 模型和页面在“找客户”上的约定不一样：模型要一个判断函数、返回 {candidates, leadMatches}；页面传名字数组、要 {customers, leads}。这里接起来。
+  // 模型和页面在“找客户”上的约定不一样：模型要一个判断函数、返回 {candidates}；页面传名字数组、要 {customers}。这里接起来。
   const waModel = {
     ...WAM,
     matchCustomers(snapshot, query, visibleNames) {
       const seeable = new Set(Array.isArray(visibleNames) ? visibleNames : []);
       const peers = (query?.peers || []).map((peer) => WAM.toE164(peer)).filter(Boolean);
-      const found = WAM.matchCustomers(
-        snapshot,
-        { ...query, leadVisible: (lead) => R.can(snapshot, "lead.view") && R.canSee(snapshot, lead.owner) },
-        (name) => seeable.has(name),
-      );
+      const found = WAM.matchCustomers(snapshot, query, (name) => seeable.has(name));
       const peerOf = (hit) => {
         if (!hit.reasons.includes("phone")) return "";
         const profile = snapshot.customers?.[hit.name] || {};
         const e164 = WAM.toE164(hit.phone, { code: profile.phoneCountryCode, country: profile.country });
         return peers.includes(e164) ? e164 : peers[0] || "";
       };
-      return { customers: found.candidates.map((hit) => ({ ...hit, peer: peerOf(hit) })), leads: found.leadMatches };
+      return { customers: found.candidates.map((hit) => ({ ...hit, peer: peerOf(hit) })) };
     },
   };
   // 聊天存进客户动态后，正在看这位客户的话把动态或资料当场更新。

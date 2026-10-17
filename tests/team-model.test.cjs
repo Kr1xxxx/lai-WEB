@@ -51,7 +51,8 @@ test('month helpers use local calendar months and ignore malformed dates', () =>
   assert.deepEqual(T.monthsEnding('2026-02'), ['2025-09', '2025-10', '2025-11', '2025-12', '2026-01', '2026-02']);
   assert.throws(() => T.report('assets', state, '2026-1'), /有效月份/);
   assert.throws(() => T.report('nope', state, '2026-10'), /不支持/);
-  assert.deepEqual([...T.kinds], ['assets', 'followups', 'tasks', 'orders']);
+  assert.deepEqual([...T.kinds], ['assets', 'followups', 'orders'], '任务完成 went with 协同 (D-031)');
+  assert.throws(() => T.report('tasks', state, '2026-10'), /不支持/);
 });
 
 test('客户资产: in-list customers, new customers, owner rows, source split, trend', () => {
@@ -78,19 +79,6 @@ test('跟进情况: only followup-type records, by month, current owner, trash e
   assert.deepEqual(r.trend.months.map(m => m.values.records), [0, 0, 0, 0, 1, 4]);
   const sept = T.report('followups', state, '2026-09');
   assert.deepEqual(sept.rows.map(row => [row.label, ...cells(row, ['records', 'customers'])]), [['Amy', 1, 1], ['Bob', 0, 0]]);
-});
-
-test('任务完成: counts, completion rate, unassigned fallback, bad dates ignored', () => {
-  const r = T.report('tasks', state, '2026-10');
-  assert.deepEqual(r.rows.map(row => [row.label, ...cells(row, ['total', 'done', 'rate'])]), [['Amy', 2, 1, 50], ['Bob', 1, 1, 100], ['未分配', 2, 1, 50]]);
-  assert.deepEqual(cells({cells: r.total}, ['total', 'done', 'rate']), [5, 3, 60]);
-  assert.deepEqual(r.tiles.map(t => [t.label, t.value, t.format]), [['任务数', 5, 'count'], ['已完成', 3, 'count'], ['完成率', 60, 'percent']]);
-  assert.deepEqual(find(r, '').cells.total.items.map(i => i.title).sort(), ['孤立任务', '整理资料']);
-  assert.equal(find(r, 'Amy').cells.rate.items.length, 2, 'rate cell lists the tasks it is computed from');
-  assert.deepEqual(r.trend.months.map(m => [m.values.total, m.values.done]), [[0, 0], [0, 0], [0, 0], [0, 0], [1, 1], [5, 3]]);
-  const empty = T.report('tasks', state, '2026-03');
-  assert.equal(empty.total.rate.value, null, 'no tasks -> no rate, not 0%');
-  assert.equal(find(empty, 'Amy').cells.rate.value, null);
 });
 
 test('订单业绩: same figures as 经营统计, by owner and currency, drafts excluded, no conversion', () => {
@@ -126,29 +114,30 @@ test('building a report never changes the saved data', () => {
   assert.equal(JSON.stringify(state), snapshot);
 });
 
-test('member overview merges the four reports per 跟进人 without changing any figure', () => {
+test('member overview merges the reports per 跟进人 without changing any figure', () => {
   const o = T.overview(state, '2026-10');
-  assert.deepEqual(o.members.map(m => [m.label, m.added, m.orders, m.amounts.map(a => `${a.currency}:${a.total}`).join(','), m.amount, m.records, m.customers, m.tasksTotal, m.tasksDone, m.taskRate]), [
-    ['Amy', 1, 2, 'USD:300', 300, 3, 2, 2, 1, 50],
-    ['Bob', 1, 2, 'USD:75', 75, 0, 0, 1, 1, 100],
-    ['未分配', 1, 1, 'EUR:70', 0, 1, 1, 2, 1, 50]
+  assert.deepEqual(o.members.map(m => [m.label, m.added, m.orders, m.amounts.map(a => `${a.currency}:${a.total}`).join(','), m.amount, m.records, m.customers]), [
+    ['Amy', 1, 2, 'USD:300', 300, 3, 2],
+    ['Bob', 1, 2, 'USD:75', 75, 0, 0],
+    ['未分配', 1, 1, 'EUR:70', 0, 1, 1]
   ]);
+  assert.ok(o.members.every(m => !('tasksDone' in m) && !('taskRate' in m)), 'no task figures any more (D-031)');
   assert.equal(o.primaryCurrency, 'USD', 'ranking currency is the one with the largest amount this month');
-  assert.deepEqual(o.total, {added: 3, orders: 5, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 375}], newDeal: 2, repeat: 1, records: 4, customers: 3, tasksTotal: 5, tasksDone: 3, taskRate: 60, ...NO_OPP});
+  assert.deepEqual(o.total, {added: 3, orders: 5, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 375}], newDeal: 2, repeat: 1, records: 4, customers: 3, ...NO_OPP});
   assert.deepEqual(o.trend.months, ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']);
   const series = Object.fromEntries(o.trend.series.map(s => [s.id, s.values]));
-  assert.deepEqual(Object.keys(series), ['amount:EUR', 'amount:USD', 'repeat', 'newDeal', 'added', 'orders', 'records', 'tasksDone', 'oppWon', 'oppNew']);
+  assert.deepEqual(Object.keys(series), ['amount:EUR', 'amount:USD', 'repeat', 'newDeal', 'added', 'orders', 'records', 'oppWon', 'oppNew']);
   assert.deepEqual(series['amount:USD'], [0, 0, 0, 0, 300, 375]);
   assert.deepEqual(series['amount:EUR'], [0, 0, 0, 0, 0, 70]);
-  assert.deepEqual([series.added, series.orders, series.records, series.tasksDone], [[0, 0, 0, 0, 1, 3], [0, 0, 0, 0, 1, 5], [0, 0, 0, 0, 1, 4], [0, 0, 0, 0, 1, 3]]);
-  for (const id of ['amount', 'added', 'orders', 'records', 'customers', 'tasksDone']) assert.ok(o.rules[id].length > 8, id);
+  assert.deepEqual([series.added, series.orders, series.records], [[0, 0, 0, 0, 1, 3], [0, 0, 0, 0, 1, 5], [0, 0, 0, 0, 1, 4]]);
+  for (const id of ['amount', 'added', 'orders', 'records', 'customers']) assert.ok(o.rules[id].length > 8, id);
+  assert.equal(o.rules.tasksDone, undefined);
 });
 
 test('overview totals always equal the individual report pages', () => {
   const o = T.overview(state, '2026-10');
   assert.equal(o.total.added, T.report('assets', state, '2026-10').total.added.value);
   assert.equal(o.total.records, T.report('followups', state, '2026-10').total.records.value);
-  assert.equal(o.total.tasksDone, T.report('tasks', state, '2026-10').total.done.value);
   assert.deepEqual(o.total.amounts.map(a => a.total), T.report('orders', state, '2026-10').totals.map(t => t.cells.total.value));
   assert.equal(o.members.reduce((sum, m) => sum + m.orders, 0), o.total.orders);
   assert.equal(o.members.reduce((sum, m) => sum + m.added, 0), o.total.added);
@@ -156,7 +145,7 @@ test('overview totals always equal the individual report pages', () => {
 
 test('overview with no data or equal currencies stays well defined', () => {
   const empty = T.overview({}, '2026-10');
-  assert.deepEqual([empty.members, empty.primaryCurrency, empty.total.amounts, empty.total.taskRate], [[], '', [], null]);
+  assert.deepEqual([empty.members, empty.primaryCurrency, empty.total.amounts], [[], '', []]);
   assert.throws(() => T.overview(state, 'x'), /有效月份/);
   const tie = T.overview({orders: [
     {id: '1', num: 'a', client: 'A', owner: 'Z', amount: 10, currency: 'USD', stage: 'quote', orderMonth: '2026-10'},
@@ -183,10 +172,10 @@ test('a quarter adds up its three months, but counts each followed customer once
   later.laiTasks.push({id: 't8', title: '十二月任务', date: '2026-12-01', customer: 'Gamma Inc', done: true});
   const q4 = T.overview(later, '2026-Q4');
   assert.deepEqual([q4.period, q4.periodType, q4.periodLabel, q4.month, q4.months], ['2026-Q4', 'quarter', '2026 年第 4 季度', '2026-12', ['2026-10', '2026-11', '2026-12']]);
-  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], newDeal: 2, repeat: 1, records: 5, customers: 3, tasksTotal: 6, tasksDone: 4, taskRate: 67, ...NO_OPP});
+  assert.deepEqual(q4.total, {added: 3, orders: 6, amounts: [{currency: 'EUR', total: 70}, {currency: 'USD', total: 385}], newDeal: 2, repeat: 1, records: 5, customers: 3, ...NO_OPP});
   assert.deepEqual(q4.members.find(m => m.owner === 'Amy').customers, 2, 'Beta followed in Oct and Nov is still one customer');
   const q3 = T.overview(later, '2026-Q3');
-  assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], newDeal: 1, repeat: 0, records: 1, customers: 1, tasksTotal: 1, tasksDone: 1, taskRate: 100, ...NO_OPP});
+  assert.deepEqual(q3.total, {added: 1, orders: 1, amounts: [{currency: 'USD', total: 300}], newDeal: 1, repeat: 0, records: 1, customers: 1, ...NO_OPP});
   assert.deepEqual(q4.trend.months.at(-1), '2026-12');
   const month = T.overview(later, '2026-10');
   assert.deepEqual([month.periodType, month.month, month.total.orders], ['month', '2026-10', 5], 'month view is unchanged by later months');
@@ -319,7 +308,7 @@ test('owner names that differ only by case are one member, shown in the most com
   };
   const snapshotBefore = JSON.stringify(data);
   const o = T.overview(data, '2026-10');
-  assert.deepEqual(o.members.map(m => [m.label, m.added, m.orders, m.amount, m.records, m.tasksDone]), [['Amy', 3, 2, 150, 2, 1], ['Amy Lin', 1, 0, 0, 0, 0], ['BOB', 1, 1, 7, 0, 0]],
+  assert.deepEqual(o.members.map(m => [m.label, m.added, m.orders, m.amount, m.records]), [['Amy', 3, 2, 150, 2], ['Amy Lin', 1, 0, 0, 0], ['BOB', 1, 1, 7, 0]],
     'Amy/amy/AMY merge (Amy is the most common); BOB vs bob is a tie and takes the earlier character order; a different name stays separate');
   assert.deepEqual(T.report('orders', data, '2026-10').rows.map(r => [r.label, r.cells.count.value]), [['Amy', 2], ['BOB', 1]]);
   assert.deepEqual(T.report('assets', data, '2026-10').rows.map(r => [r.label, r.cells.customers.value]), [['Amy', 3], ['Amy Lin', 1], ['BOB', 1]]);
@@ -479,11 +468,11 @@ const withTargets = {...state, laiTargets: [
   {metric: 'added', period: '2026-10', owner: 'Amy', value: 2},
   {metric: 'added', period: '2026-10', owner: 'Bob', value: 3}]};
 
-test('scopeState: 本人 keeps only own customers, orders, tasks and member targets', () => {
+test('scopeState: 本人 keeps only own customers, orders and member targets; stored tasks are left as they are', () => {
   const scoped = T.scopeState(withTargets, mine('Amy'));
   assert.deepEqual(Object.keys(scoped.customers).sort(), ['Alpha Co', 'Beta Ltd', 'Trash Co']);
   assert.ok(scoped.orders.every((order) => order.owner === 'Amy'));
-  assert.deepEqual(scoped.laiTasks.map((task) => task.id).sort(), ['t1', 't2', 't6', 't7']);
+  assert.equal(scoped.laiTasks, withTargets.laiTasks, 'tasks are no longer read, so they are passed through untouched (D-031)');
   assert.deepEqual(scoped.laiTargets.map((target) => target.owner), ['Amy']);
   assert.equal(withTargets.laiTargets.length, 3, 'the full state is not changed');
 });

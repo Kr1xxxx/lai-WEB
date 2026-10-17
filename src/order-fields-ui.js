@@ -174,7 +174,7 @@
     const list=Array.isArray(entries)?entries:[];
     if(!list.length)return '';
     // 多行文本占整行、保留换行，别的两个一行。
-    return `<div class="form-section order-custom-head">自定义字段</div><dl class="lead-infos order-custom-infos" data-order-custom-infos>${list.map(entry=>`<div class="lead-info${entry.type==='textarea'?' order-custom-wide':''}"><dt>${E(entry.name)}</dt><dd>${entry.text?E(entry.text):'<span class="lead-muted">—</span>'}</dd></div>`).join('')}</dl>`;
+    return `<div class="form-section order-custom-head">自定义字段</div><dl class="field-infos order-custom-infos" data-order-custom-infos>${list.map(entry=>`<div class="field-info${entry.type==='textarea'?' order-custom-wide':''}"><dt>${E(entry.name)}</dt><dd>${entry.text?E(entry.text):'<span class="field-muted">—</span>'}</dd></div>`).join('')}</dl>`;
   }
   // 表单提交时收成 order.custom 的输入：名字是 custom.字段ID（多选有好几个）。只收账号能改、表单里确实有的字段，其余原样保留。
   function collect(form,defs,editable=()=>true){

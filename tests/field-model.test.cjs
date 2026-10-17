@@ -48,21 +48,31 @@ test('add, rename, move, delete with validation', () => {
 
 test('limit 30', () => {
   let s = empty;
-  for (let i = 0; i < 30; i++) s = mk(s, 'lead', 'f' + i);
-  assert.throws(() => mk(s, 'lead', 'extra'), /最多添加 30/);
+  for (let i = 0; i < 30; i++) s = mk(s, 'order', 'f' + i);
+  assert.throws(() => mk(s, 'order', 'extra'), /最多添加 30/);
   assert.equal(F.get(mk(s, 'customer', 'f0'), 'customer').customFields.length, 1);
 });
 
 test('entities are separate', () => {
   let s = mk(empty, 'customer', '等级', 'select', {options: ['A']});
-  s = mk(s, 'lead', '等级', 'text');
-  s = F.setSystemRequired(s, 'lead', 'country', true);
+  s = mk(s, 'order', '等级', 'text');
+  s = F.setSystemRequired(s, 'order', 'country', true);
   assert.equal(F.get(s, 'customer').customFields[0].type, 'select');
-  assert.equal(F.get(s, 'lead').customFields[0].type, 'text');
+  assert.equal(F.get(s, 'order').customFields[0].type, 'text');
   assert.deepEqual(F.get(s, 'customer').required, {});
-  assert.deepEqual(F.get(s, 'lead').required, {country: true});
-  s = F.deleteField(s, 'lead', '等级');
+  assert.deepEqual(F.get(s, 'order').required, {country: true});
+  s = F.deleteField(s, 'order', '等级');
   assert.equal(F.get(s, 'customer').customFields.length, 1);
+});
+
+test('lead fields are gone (D-030) but stored lead field settings are kept on every write', () => {
+  assert.throws(() => F.get({}, 'lead'), /无效/);
+  const lead = {customFields: [{id: 'l1', name: '意向', type: 'text'}], required: {country: true}};
+  let s = {laiSettings: {fieldSettings: {lead}}};
+  s = mk(s, 'customer', '等级', 'text');
+  s = mk(s, 'order', '批次', 'text');
+  s = F.deleteField(s, 'order', '批次');
+  assert.deepEqual(s.laiSettings.fieldSettings.lead, lead);
 });
 
 test('setOptions: add, reorder, delete', () => {

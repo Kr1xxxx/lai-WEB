@@ -8,7 +8,6 @@ const R = require('../src/role-model.js');
 const RM = require('../src/rail-menu.js');
 const NF = require('../src/nav-favorites.js');
 const CS = require('../src/customer-settings-model.js');
-const T = require('../src/task-rule-model.js');
 const Hub = require('../src/settings-hub.js');
 const W = require('../src/workbench.js');
 const B = require('../src/business-model.js');
@@ -22,51 +21,55 @@ const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')
 const off = (...ids) => ids.reduce((s, id) => FS.set(s, id, false), {});
 
 test('everything is on by default: no setting, an empty setting, junk and unknown ids all mean on', () => {
-  for (const state of [undefined, null, {}, { laiSettings: {} }, { laiSettings: { featureSwitch: {} } }, { laiSettings: { featureSwitch: { off: 'lead' } } }, { laiSettings: { featureSwitch: 5 } }]) {
+  for (const state of [undefined, null, {}, { laiSettings: {} }, { laiSettings: { featureSwitch: {} } }, { laiSettings: { featureSwitch: { off: 'opp' } } }, { laiSettings: { featureSwitch: 5 } }]) {
     for (const id of FS.IDS) assert.equal(FS.enabled(state, id), true, id);
     assert.deepEqual(FS.offList(state), []);
   }
-  assert.deepEqual(FS.IDS, ['lead', 'opp', 'product', 'doc', 'mail', 'chat', 'team']);
-  assert.deepEqual(FS.MODULES.map((m) => m.label), ['线索', '商机', '产品', '单据', '邮件', '沟通', '团队数据']);
+  assert.deepEqual(FS.IDS, ['opp', 'product', 'doc', 'mail', 'chat', 'team']);
+  assert.deepEqual(FS.MODULES.map((m) => m.label), ['商机', '产品', '单据', '邮件', '沟通', '团队数据']);
   const junk = { laiSettings: { featureSwitch: { off: ['mail', 'nope', 'mail', 42] } } };
   assert.deepEqual(FS.offList(junk), ['mail'], 'unknown and repeated entries are ignored');
   assert.equal(FS.enabled(junk, 'mail'), false);
-  assert.equal(FS.enabled(junk, 'lead'), true);
+  assert.equal(FS.enabled(junk, 'opp'), true);
+  // 线索已去掉（D-030）：以前存下的 'lead' 不再是开关，读的时候忽略
+  const oldLead = { laiSettings: { featureSwitch: { off: ['lead', 'mail'] } } };
+  assert.deepEqual(FS.offList(oldLead), ['mail']);
+  assert.ok(FS.MODULES.every((m) => !/线索/.test(m.label + m.note)));
 });
 
 test('modules that are not switchable are always on, even if someone wrote them into the list', () => {
-  const state = { laiSettings: { featureSwitch: { off: ['customers', 'orders', 'dashboard', 'calendar', 'settings', 'roles', 'lead'] } } };
-  for (const id of ['customers', 'orders', 'dashboard', 'calendar', 'settings', 'roles', '', undefined]) assert.equal(FS.enabled(state, id), true, String(id));
-  assert.equal(FS.enabled(state, 'lead'), false);
-  assert.deepEqual(FS.offList(state), ['lead']);
+  const state = { laiSettings: { featureSwitch: { off: ['customers', 'orders', 'dashboard', 'calendar', 'settings', 'roles', 'lead', 'opp'] } } };
+  for (const id of ['customers', 'orders', 'dashboard', 'calendar', 'settings', 'roles', 'lead', '', undefined]) assert.equal(FS.enabled(state, id), true, String(id));
+  assert.equal(FS.enabled(state, 'opp'), false);
+  assert.deepEqual(FS.offList(state), ['opp']);
+  assert.throws(() => FS.set({}, 'lead', false), /不能关闭/, '线索 is gone (D-030)');
 });
 
 test('set turns one module off or on, keeps the order and every other setting, and never changes the old state', () => {
   const base = { orders: [1], laiSettings: { theme: 'pink', featureSwitch: { off: ['team'], note: 'x' } } };
-  const a = FS.set(base, 'lead', false);
-  assert.deepEqual(a.laiSettings.featureSwitch.off, ['lead', 'team'], 'fixed module order');
+  const a = FS.set(base, 'opp', false);
+  assert.deepEqual(a.laiSettings.featureSwitch.off, ['opp', 'team'], 'fixed module order');
   assert.equal(a.laiSettings.theme, 'pink');
   assert.equal(a.laiSettings.featureSwitch.note, 'x');
   assert.equal(a.orders, base.orders);
   assert.deepEqual(base.laiSettings.featureSwitch.off, ['team']);
   const b = FS.set(a, 'team', true);
-  assert.deepEqual(b.laiSettings.featureSwitch.off, ['lead']);
-  assert.deepEqual(FS.set(b, 'lead', true).laiSettings.featureSwitch.off, [], 'back to all on');
-  assert.deepEqual(FS.set(a, 'lead', false).laiSettings.featureSwitch.off, ['lead', 'team'], 'turning off twice is the same');
+  assert.deepEqual(b.laiSettings.featureSwitch.off, ['opp']);
+  assert.deepEqual(FS.set(b, 'opp', true).laiSettings.featureSwitch.off, [], 'back to all on');
+  assert.deepEqual(FS.set(a, 'opp', false).laiSettings.featureSwitch.off, ['opp', 'team'], 'turning off twice is the same');
   assert.deepEqual(FS.set(undefined, 'doc', false).laiSettings.featureSwitch.off, ['doc']);
   assert.throws(() => FS.set({}, 'customers', false), /不能关闭/);
   assert.throws(() => FS.set({}, 'mail', 'no'), /开关状态无效/);
 });
 
-test('every menu entry maps to the right module; customer, orders, workbench, collaboration, settings and company admin never do', () => {
+test('every menu entry maps to the right module; customer, orders, workbench, settings and company admin never do', () => {
   const owner = (label) => [...new Set(RM.menuFor(label).map((row) => FS.moduleOfEntry(row.kind, row.target)))];
-  assert.deepEqual(owner('线索'), ['lead']);
-  assert.deepEqual(owner('Leads'), ['lead']);
   assert.deepEqual(owner('商机'), ['opp']);
   assert.deepEqual(owner('邮件'), ['mail']);
   assert.deepEqual(owner('沟通'), ['chat']);
   assert.deepEqual(owner('团队数据'), ['team']);
-  for (const label of ['客户', '工作台', '协同', '设置', '企业管理']) assert.deepEqual(owner(label), [''], label);
+  for (const label of ['客户', '工作台', '设置', '企业管理']) assert.deepEqual(owner(label), [''], label);
+  for (const gone of ['协同', '线索', 'Leads']) assert.equal(RM.menuFor(gone), null, `${gone} is gone (D-030 / D-031)`);
   assert.deepEqual(RM.menuFor('交易').map((row) => [row.target, FS.moduleOfEntry(row.kind, row.target)]),
     [['order-list', ''], ['order-trash', ''], ['products', 'product'], ['doc-templates', 'doc'], ['rates', '']]);
   assert.equal(FS.moduleOfRoute('mail'), 'mail');
@@ -75,15 +78,15 @@ test('every menu entry maps to the right module; customer, orders, workbench, co
 });
 
 test('permission keys map to modules; settings.switch and the other keys belong to none', () => {
-  const expect = { 'lead.view': 'lead', 'lead.convert': 'lead', 'settings.lead': 'lead', 'opp.create': 'opp', 'settings.opportunity': 'opp', 'product.edit': 'product', 'settings.product': 'product',
+  const expect = { 'opp.create': 'opp', 'settings.opportunity': 'opp', 'product.edit': 'product', 'settings.product': 'product',
     'doc.create': 'doc', 'doc.void': 'doc', 'settings.docTemplate': 'doc', 'mail.send': 'mail', 'chat.template': 'chat', 'team.targets': 'team', 'team.wall': 'team' };
   for (const [key, id] of Object.entries(expect)) assert.equal(FS.moduleOfKey(key), id, key);
-  for (const key of ['settings.switch', 'settings.general', 'settings.rate', 'settings.task', 'settings.roles', 'customer.view', 'order.view', 'pool.view', 'activity.view', '', undefined, 'lead', 'toString.x']) assert.equal(FS.moduleOfKey(key), '', String(key));
+  for (const key of ['settings.switch', 'settings.general', 'settings.rate', 'settings.task', 'settings.roles', 'customer.view', 'order.view', 'pool.view', 'activity.view', '', undefined, 'lead', 'lead.view', 'settings.lead', 'toString.x']) assert.equal(FS.moduleOfKey(key), '', String(key));
   // every permission the role matrix lists falls in exactly the module its group names, nothing leaks to another module
-  const groupModule = { 线索: 'lead', 商机: 'opp', 产品: 'product', 单据: 'doc', 邮件: 'mail', 沟通: 'chat', 目标与团队数据: 'team' };
+  const groupModule = { 商机: 'opp', 产品: 'product', 单据: 'doc', 邮件: 'mail', 沟通: 'chat', 目标与团队数据: 'team' };
   for (const [group, items] of R.GROUPS) for (const [key] of items) {
     const want = Object.hasOwn(groupModule, group) ? groupModule[group] : '';
-    if (!want && FS.moduleOfKey(key)) assert.ok(['settings.lead', 'settings.opportunity', 'settings.product', 'settings.docTemplate'].includes(key), key);
+    if (!want && FS.moduleOfKey(key)) assert.ok(['settings.opportunity', 'settings.product', 'settings.docTemplate'].includes(key), key);
     if (want) assert.equal(FS.moduleOfKey(key), want, key);
   }
 });
@@ -103,7 +106,7 @@ test('effective access is role AND module: off wins for everyone including the a
     assert.equal(adminOn(noOpp, 'order.view'), true, 'other modules are not touched');
     assert.equal(adminOn(noOpp, 'settings.switch'), true, 'the switch page stays open');
     assert.equal(R.canOpen(noOpp, 'route', 'opportunities'), false);
-    assert.equal(R.canOpen(noOpp, 'route', 'leads'), true);
+    assert.equal(R.canOpen(noOpp, 'route', 'order-list'), true);
     assert.equal(R.canOpen(FS.set(base, 'mail', false), 'mail', 'inbox'), false);
     // a salesperson who has the permission is closed out too, and has it again once the module is back
     const seeded = R.addMember({ laiSettings: { defaultOwner: 'Kris' } }, { name: 'Amy' });
@@ -129,7 +132,8 @@ test('the key/route/entry → module tables live in role-model.js and feature-sw
   for (const key of keys) assert.equal(FS.moduleOfKey(key), R.moduleOfKey(key), String(key));
   for (const route of [...Object.keys(FS.ROUTE_MODULE), 'customers', 'dashboard', 'toString']) assert.equal(FS.moduleOfRoute(route), R.moduleOfRoute(route), route);
   assert.equal(R.moduleOfEntry('mail', 'inbox'), 'mail');
-  assert.equal(R.moduleOfEntry('route', 'leads'), 'lead');
+  assert.equal(R.moduleOfEntry('route', 'opportunities'), 'opp');
+  assert.equal(R.moduleOfEntry('route', 'leads'), '', '线索 is gone (D-030)');
   assert.equal(R.moduleOfEntry('screen', 'active'), '');
   // every route the page table ties to a switchable permission is also mapped to the module that permission belongs to
   for (const [route, key] of Object.entries(R.PAGE_PERMS.route)) {
@@ -154,15 +158,14 @@ test('entryAllowed in app.js is the module check AND the role check; menus, flyo
   // the same rule, evaluated here against the real menus
   {
     const open = (state) => (row) => FS.entryOn(state, row.kind, row.target) && R.canOpen(state, row.kind, row.target);
-    const rail = (state) => ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户'].filter((label) => RM.menuFor(label).some(open(state)));
-    assert.deepEqual(rail({}), ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户']);
-    for (const [id, label] of [['lead', '线索'], ['opp', '商机'], ['mail', '邮件'], ['chat', '沟通'], ['team', '团队数据']]) {
+    const rail = (state) => ['商机', '邮件', '沟通', '交易', '团队数据', '设置', '企业管理', '客户'].filter((label) => RM.menuFor(label).some(open(state)));
+    assert.deepEqual(rail({}), ['商机', '邮件', '沟通', '交易', '团队数据', '设置', '企业管理', '客户']);
+    for (const [id, label] of [['opp', '商机'], ['mail', '邮件'], ['chat', '沟通'], ['team', '团队数据']]) {
       const state = FS.set({}, id, false);
       assert.ok(!rail(state).includes(label), `${label} leaves the rail`);
-      assert.equal(rail(state).length, 11 - (id === 'lead' ? 2 : 1), 'and nothing else does (线索 takes Leads with it)');
+      assert.equal(rail(state).length, 7, 'and nothing else does');
       assert.equal(RM.menuFor(label).filter(open(state)).length, 0, `${label} flyout is empty`);
     }
-    assert.ok(!rail(FS.set({}, 'lead', false)).includes('Leads'), 'Leads (线索设置) goes with 线索');
     // 交易 stays; only 产品 and 单据模板 rows go
     assert.deepEqual(RM.menuFor('交易').filter(open(off('product'))).map((row) => row.target), ['order-list', 'order-trash', 'doc-templates', 'rates']);
     assert.deepEqual(RM.menuFor('交易').filter(open(off('doc'))).map((row) => row.target), ['order-list', 'order-trash', 'products', 'rates']);
@@ -173,19 +176,19 @@ test('entryAllowed in app.js is the module check AND the role check; menus, flyo
     assert.deepEqual(RM.menuFor('客户').filter(open(none)).length, 4);
     assert.deepEqual(RM.menuFor('工作台').filter(open(none)).map((row) => row.target), ['dashboard']);
     // canOpen alone already hides the entries of a switched-off module
-    assert.equal(RM.menuFor('线索').filter((row) => R.canOpen(FS.set({}, 'lead', false), row.kind, row.target)).length, 0);
+    assert.equal(RM.menuFor('商机').filter((row) => R.canOpen(FS.set({}, 'opp', false), row.kind, row.target)).length, 0);
   }
 });
 
 test('常用 is hidden at read time: the saved list is not touched, and the entries come back when the module is on again', () => {
-  const saved = ['route:leads', 'screen:active', 'mail:inbox', 'route:products', 'route:team-wall', 'route:order-list'];
+  const saved = ['route:opportunities', 'screen:active', 'mail:inbox', 'route:products', 'route:team-wall', 'route:order-list'];
   const state = { laiSettings: { favoriteNav: saved } };
   const shown = (s) => NF.entries(s.laiSettings).filter((row) => FS.entryOn(s, row.kind, row.target)).map((row) => row.id);
   assert.deepEqual(shown(state), saved);
-  const closed = FS.set(FS.set(state, 'lead', false), 'mail', false);
+  const closed = FS.set(FS.set(state, 'opp', false), 'mail', false);
   assert.deepEqual(shown(closed), ['screen:active', 'route:products', 'route:team-wall', 'route:order-list']);
   assert.deepEqual(closed.laiSettings.favoriteNav, saved, 'nothing was removed from the saved list');
-  const opened = FS.set(FS.set(closed, 'lead', true), 'mail', true);
+  const opened = FS.set(FS.set(closed, 'opp', true), 'mail', true);
   assert.deepEqual(shown(opened), saved, 'order and entries come back');
   assert.deepEqual(NF.list(opened.laiSettings), saved);
   assert.match(read('src/app.js'), /const favoriteEntries = \(\) => NF\.entries\(state\.laiSettings\)\.filter\(entryAllowed\)/);
@@ -197,8 +200,8 @@ test('a direct route to an off module says 这个功能已关闭 and goes to the
   assert.match(nav, /if \(!FS\.routeOn\(state, route\)\) \{\s*toast\("这个功能已关闭"\);\s*if \(route === "dashboard"\) return false;\s*return navigateApp\("dashboard"\);/);
   assert.ok(nav.indexOf('FS.routeOn') < nav.indexOf('activeRoute = route'), 'checked before anything changes');
   const closed = off(...FS.IDS);
-  for (const route of ['dashboard', 'order-list', 'order-trash', 'rates', 'calendar', 'task-settings', 'settings', 'settings-hub', 'feature-switch', 'roles', 'members']) assert.equal(FS.routeOn(closed, route), true, route);
-  for (const route of ['leads', 'lead-trash', 'lead-settings', 'opportunities', 'opp-analysis', 'opp-flows', 'products', 'doc-templates', 'mail', 'chats', 'chat-templates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) assert.equal(FS.routeOn(closed, route), false, route);
+  for (const route of ['dashboard', 'order-list', 'order-trash', 'rates', 'settings', 'settings-hub', 'feature-switch', 'roles', 'members']) assert.equal(FS.routeOn(closed, route), true, route);
+  for (const route of ['opportunities', 'opp-analysis', 'opp-flows', 'products', 'doc-templates', 'mail', 'chats', 'chat-templates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-orders']) assert.equal(FS.routeOn(closed, route), false, route);
   assert.equal(FS.routeOn(closed, 'customers'), true);
 });
 
@@ -214,16 +217,16 @@ test('the 设置中心 hides items of a module that is off, shows the switch pag
   assert.ok(!hub(off('chat')).includes('chat-templates'));
   assert.ok(!hub(off('team')).includes('targets'));
   assert.ok(!hub(off('mail')).includes('mail-account'));
-  assert.ok(all.includes('lead-settings'), '线索设置 is in the hub');
-  assert.deepEqual(hub(off('lead')), all.filter((id) => id !== 'lead-settings'), '线索 off hides 线索设置 only');
+  assert.ok(!all.includes('lead-settings'), '线索设置 is gone (D-030)');
+  assert.deepEqual(hub(off('opp')), all.filter((id) => id !== 'flows'), '商机 off hides 商机设置 only');
   const nothing = hub(off(...FS.IDS));
-  for (const keep of ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'rates', 'task-settings']) assert.ok(nothing.includes(keep), keep);
+  for (const keep of ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'rates']) assert.ok(nothing.includes(keep), keep);
   assert.ok(!ids({ can: (key) => key !== 'settings.switch' }).includes('feature-switch'), 'permission settings.switch is required');
   // through the role model the same thing happens without moduleOn
   {
     const viaRoles = (state) => ids({ can: (key) => R.can(state, key) });
     assert.ok(!viaRoles(off('opp')).includes('flows'));
-    assert.ok(viaRoles(off('lead')).includes('feature-switch'));
+    assert.ok(viaRoles(off('opp')).includes('feature-switch'));
   }
 });
 
@@ -231,14 +234,14 @@ test('the switch page: one switch per module, the fixed sentence, switches disab
   const ctx = (state, can = () => true) => ({ escape: E, can: (key) => can(key) });
   const html = FUI.markup({}, ctx({}));
   assert.equal([...html.matchAll(/data-fs-toggle="(\w+)"/g)].map((m) => m[1]).join(), FS.IDS.join());
-  assert.equal((html.match(/checked/g) || []).length, 7, 'all on by default');
+  assert.equal((html.match(/checked/g) || []).length, 6, 'all on by default');
   assert.match(html, /关掉后，这个功能不再显示；数据都保留，重新打开就能用。/);
-  assert.match(html, /客户、订单、工作台、协同、设置、企业管理是基础功能，不能关闭/);
+  assert.match(html, /客户、订单、工作台、设置、企业管理是基础功能，不能关闭/);
   const mixed = FUI.markup(off('mail', 'chat'), ctx({}));
-  assert.equal((mixed.match(/checked/g) || []).length, 5);
+  assert.equal((mixed.match(/checked/g) || []).length, 4);
   assert.match(/data-fs-toggle="mail"[^>]*aria-label="邮件功能开关"><span>已关闭/.exec(mixed)?.[0] || '', /已关闭/);
   const locked = FUI.markup({}, ctx({}, () => false));
-  assert.equal((locked.match(/ disabled/g) || []).length, 7);
+  assert.equal((locked.match(/ disabled/g) || []).length, 6);
   // 成交 follows 商机 note
   const oppRule = CS.setDealRule(off('opp'), 'opportunity');
   assert.match(FUI.markup(oppRule, ctx({})), /商机关着时先按订单算/);
@@ -265,9 +268,9 @@ test('toggling saves through the page, needs settings.switch, and redraws the wh
   assert.match(toasts[1], /邮件已开启/);
   assert.equal(FUI.page.change(c, { target: { dataset: {}, checked: true } }), false, 'other controls are not ours');
   const denied = { ...c, need: () => false, save: async () => { throw new Error('must not save'); } };
-  FUI.page.change(denied, { target: { dataset: { fsToggle: 'lead' }, checked: false } });
+  FUI.page.change(denied, { target: { dataset: { fsToggle: 'opp' }, checked: false } });
   await new Promise((r) => setImmediate(r));
-  assert.equal(FS.enabled(state, 'lead'), true);
+  assert.equal(FS.enabled(state, 'opp'), true);
 });
 
 test('workbench: blocks of an off module are not drawn, and the 新建商机 button goes too', () => {
@@ -309,52 +312,16 @@ test('成交 follows the order rule while 商机 is off, and goes back to the sa
   assert.doesNotMatch(read('src/feature-switch-model.js'), /patchDealDate|\.lastDealDate\s*=/, 'nothing is patched at load time');
 });
 
-test('task rules: 商机快到结束日期 does not run while 商机 is off; the rule keeps its switch and runs again later', () => {
-  const NOW = new Date(2026, 9, 16, 12, 0, 0);
-  const base = {
-    laiSettings: { defaultOwner: 'Kris' }, customers: { Stale: { client: 'Stale', owner: 'Kris', lastFollowup: '2026-09-01T09:00:00', history: [] } }, orders: [], laiTasks: [],
-    laiOpportunities: [{ id: 'p1', name: 'Big deal', client: 'Stale', owner: 'Amy', endDate: '2026-10-20', flow: 'default', stage: 'open' }],
-  };
-  const autos = (state) => (state.laiTasks || []).filter((task) => task.auto).map((task) => task.auto.key).sort();
-  let state = T.setRule(base, 'oppClose', { enabled: true, days: 7 });
-  const closed = FS.set(state, 'opp', false);
-  assert.equal(FS.ruleBlocked(closed, 'oppClose'), true);
-  assert.equal(FS.ruleBlocked(closed, 'noFollow'), false);
-  assert.equal(FS.runTaskRules(T, closed, { now: NOW }), null, 'only that rule is on: nothing to run, nothing to save');
-  // with another rule also on, only that one runs, lastRun is recorded, and oppClose stays switched on
-  const both = T.setRule(closed, 'noFollow', { enabled: true, days: 30 });
-  const result = FS.runTaskRules(T, both, { now: NOW });
-  assert.equal(autos(result.state).length, 1);
-  assert.match(autos(result.state)[0], /^noFollow\|/);
-  assert.equal(autos(result.state).some((key) => key.startsWith('oppClose')), false);
-  const cfg = T.config(result.state);
-  assert.equal(cfg.rules.find((rule) => rule.type === 'oppClose').enabled, true, 'the saved switch is kept');
-  assert.equal(cfg.lastRun, '2026-10-16');
-  // 商机 on again: the rule runs as it did before
-  const reopened = FS.set(result.state, 'opp', true);
-  const next = FS.runTaskRules(T, { ...reopened, laiSettings: { ...reopened.laiSettings, taskRules: { ...reopened.laiSettings.taskRules, lastRun: '' } } }, { now: NOW });
-  assert.deepEqual(autos(next.state).filter((key) => key.startsWith('oppClose')), ['oppClose|p1|2026-10-20']);
-  // the same day: 商机 turned back on, the skipped rule runs now without waiting for tomorrow
-  assert.equal(cfg.lastRun, '2026-10-16');
-  assert.deepEqual(cfg.skipped, ['oppClose'], 'the skipped rule is remembered');
-  assert.equal(FS.runTaskRules(T, result.state, { now: NOW }), null, 'still off: nothing more to run today');
-  assert.equal(T.due(result.state, NOW), true, 'due() sees the skipped rule, so the app does not stop at "ran today"');
-  const sameDay = FS.runTaskRules(T, reopened, { now: NOW });
-  assert.deepEqual(autos(sameDay.state).filter((key) => key.startsWith('oppClose')), ['oppClose|p1|2026-10-20'], 'ran again the same day');
-  assert.deepEqual(T.config(sameDay.state).skipped, [], 'nothing skipped any more');
-  assert.equal(FS.runTaskRules(T, sameDay.state, { now: NOW }), null, 'and it is not repeated');
-  // nothing blocked: same as T.run when due, null when not
-  assert.equal(FS.runTaskRules(T, base, { now: NOW }), null);
-  assert.equal(autos(FS.runTaskRules(T, state, { now: NOW }).state).length, 1);
+test('the task-rule pieces went with 协同 (D-031): no rule run, no rule check', () => {
+  for (const gone of ['ruleBlocked', 'runTaskRules']) assert.equal(FS[gone], undefined, gone);
+  assert.ok(FS.MODULES.every((m) => !/任务|待办/.test(m.note)), 'no module note mentions tasks');
 });
 
-test('客户设置: the 新线索 dedupe tab goes when 线索 is off, and the 成交规则 tab explains the fallback', () => {
+test('客户设置: the dedupe tab only has the customer rule (新线索 went with 线索, D-030), and the 成交规则 tab explains the fallback', () => {
   const html = (state, ui = {}) => CSUI.markup(state, { tab: 'dedupe', ...ui }, E);
-  assert.match(html({}), /data-cs-dedupe-sub="lead"/);
-  assert.doesNotMatch(html(off('lead')), /data-cs-dedupe-sub="lead"/);
-  assert.doesNotMatch(html(off('lead'), { dedupeSub: 'lead' }), /data-cs-form="lead-dedupe"/, 'a remembered 新线索 tab falls back to 新客户');
-  assert.match(html(off('lead'), { dedupeSub: 'lead' }), /data-cs-form="dedupe"/);
-  assert.match(html(off('lead')), /data-cs-dedupe-sub="customer"/);
+  assert.doesNotMatch(html({}), /data-cs-dedupe-sub|lead-dedupe|新线索/);
+  assert.doesNotMatch(html({}, { dedupeSub: 'lead' }), /data-cs-form="lead-dedupe"/, 'a remembered 新线索 tab shows the customer rule');
+  assert.match(html({}, { dedupeSub: 'lead' }), /data-cs-form="dedupe"/);
   const deal = (state) => CSUI.markup(state, { tab: 'deal' }, E);
   assert.doesNotMatch(deal(CS.setDealRule({}, 'opportunity')), /data-cs-deal-off/);
   assert.match(deal(CS.setDealRule(off('opp'), 'opportunity')), /data-cs-deal-off/);

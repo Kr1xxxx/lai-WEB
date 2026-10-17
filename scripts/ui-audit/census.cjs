@@ -26,7 +26,7 @@ const opt = (name, fallback) => {
 const flag = (name) => args.includes("--" + name);
 const URL_BASE = opt("url", process.env.TRIAL_URL || "http://127.0.0.1:8766/");
 const THEMES = opt("themes", "pink,tech").split(",");
-const ALL_ROUTES = ["dashboard", "customers", "leads", "opportunities", "opp-flows", "order-list", "products", "chats", "team-goals", "analysis", "calendar", "settings", "settings-hub", "roles", "members", "mail", "rates", "doc-templates", "task-settings"];
+const ALL_ROUTES = ["dashboard", "customers", "opportunities", "opp-flows", "order-list", "products", "chats", "team-goals", "analysis", "settings", "settings-hub", "roles", "members", "mail", "rates", "doc-templates"];
 const ROUTES = opt("routes", "") ? opt("routes", "").split(",") : ALL_ROUTES;
 const BASELINE = path.join(__dirname, "census-baseline.json");
 const DIALOGS = [

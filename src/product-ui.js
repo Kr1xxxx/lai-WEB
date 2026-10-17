@@ -29,7 +29,7 @@
       const config=M.settings(state).fields;
       const shows=key=>!hidden.has(key)&&(!config[key]||config[key].visible);
       const hint=[['name','名称'],['code','编号'],['model','型号'],['remark','备注']].filter(([key])=>shows(key)).map(item=>item[1]).join('、');
-      const toolbar=`<div class="opp-toolbar lead-toolbar"><input type="search" id="prod-search" value="${E(view.search||'')}" placeholder="搜索${hint}" aria-label="搜索产品">`
+      const toolbar=`<div class="opp-toolbar product-toolbar"><input type="search" id="prod-search" value="${E(view.search||'')}" placeholder="搜索${hint}" aria-label="搜索产品">`
         +(shows('group')?`<select id="prod-group" aria-label="产品分组"><option value="">全部分组</option>${groups.map(g=>option(g,g,view.group)).join('')}</select>`:'')
         +`${can('product.create')?'<button type="button" class="primary" data-prod-action="new">新建产品</button>':''}</div>`;
       if(!total)return toolbar+empty(can('product.create')?'还没有产品。点“新建产品”添加；字段、分组、规格可以先在其他页签里设置。':'还没有产品。');
@@ -100,7 +100,7 @@
     function syncTab(state,view){
       const tasks=M.syncTasks(state);
       const latest=M.undoableTask(state);
-      const toolbar=`<div class="opp-toolbar lead-toolbar"><button type="button" class="primary" data-prod-action="sync-open">从表格导入产品</button></div>`;
+      const toolbar=`<div class="opp-toolbar product-toolbar"><button type="button" class="primary" data-prod-action="sync-open">从表格导入产品</button></div>`;
       if(!tasks.length)return toolbar+empty('还没有导入过。点“从表格导入产品”，选一个 Excel 或 CSV 文件，先看预览，确认后才会写入。');
       const body=tasks.map(t=>{
         const r=t.result;

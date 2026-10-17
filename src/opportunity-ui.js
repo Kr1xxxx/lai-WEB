@@ -165,7 +165,7 @@
         +fact(detail.kind==='won'?'赢单时间':detail.kind==='lost'?'输单时间':'',detail.kind!=='open'&&detail.closedAt?E(stamp(detail.closedAt)):'')
         +fact('输单原因',detail.lostReason?E(detail.lostReason+(detail.lostNote?`（${detail.lostNote}）`:'')):'')
         +fact('商机编号',E(detail.number||'—'))+(vis('type')?fact('商机类型',E(detail.type)):'')
-        +(vis('sources')?fact('商机来源',(detail.sources||[]).length?detail.sources.map(source=>`<span class="k-badge k-badge--neutral">${E(source)}</span>`).join(' '):''):'')+(vis('leadId')?fact('来源线索',E(detail.leadName)):'')
+        +(vis('sources')?fact('商机来源',(detail.sources||[]).length?detail.sources.map(source=>`<span class="k-badge k-badge--neutral">${E(source)}</span>`).join(' '):''):'')
         +(detail.custom||[]).filter(row=>vis(`custom.${row.id}`)).map(row=>fact(E(row.name),E(row.value).replace(/\n/g,'<br>'),row.type==='textarea')).join('')
         +(vis('tags')?fact('标签',detail.tags.length?detail.tags.map(tag=>`<span class="k-badge k-badge--neutral">${E(tag)}</span>`).join(' '):''):'')
         +fact('关联订单',detail.orderId?`<button type="button" class="company-link" data-biz-order="${E(detail.orderId)}">查看关联订单</button>`:'')
@@ -222,7 +222,6 @@
       const flows=context.flows||[],stages=context.stages||model.STAGES;
       const flow=flows.length>1?field('销售流程',`<select class="k-select-trigger" name="flow" id="opp-form-flow">${flows.map(item=>option(item.id,item.label,v.flow||'default')).join('')}</select>`,{required:true}):`<input type="hidden" name="flow" value="${E(v.flow||'default')}">`;
       const chosenSources=Array.isArray(v.sources)?v.sources.map(String):[];
-      const leadOptions=(setup.leads||[]).map(lead=>option(lead.id,lead.name,v.leadId)).join('')+(v.leadId&&!(setup.leads||[]).some(lead=>lead.id===v.leadId)?`<option value="${E(v.leadId)}" selected>（已删除的线索）</option>`:'');
       const sourceChoices=Array.isArray(setup.sources)?setup.sources:[];
       const customValue=def=>v.custom&&typeof v.custom==='object'?v.custom[def.id]:undefined;
       const customControl=def=>{
@@ -239,7 +238,6 @@
       const classify=[
         `<div class="opp-field"><span class="opp-field-label">商机编号</span><span class="opp-static" id="opp-number">${E(v.number||(context.isNew?'保存后自动生成':'—'))}</span>${context.isNew?'<span class="opp-field-hint">格式：OPP-日期-当天序号</span>':''}</div>`,
         cfg.type.show&&vis('type')?field('商机类型',choose('type',setup.types||[],String(v.type||''),'请选择'),{required:cfg.type.required}):'',
-        cfg.leadId.show&&vis('leadId')?field('来源线索',`<select class="k-select-trigger" name="leadId"${dis('leadId')}><option value="">不选</option>${leadOptions}</select>`,{required:cfg.leadId.required}):'',
         cfg.sources.show&&vis('sources')?multi('sources','商机来源',sourceChoices,chosenSources,{lock:dis('sources'),required:cfg.sources.required,hint:sourceChoices.length?'':'先在 客户设置 → 来源设置 里添加来源'}):''
       ].join('');
       const extra=[

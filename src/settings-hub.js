@@ -15,10 +15,7 @@
       { id: "defaults", title: "默认录入", note: "公司资料（名称、地址、电话、银行）、订单编号前缀、默认币种、默认跟进人、订单字段", open: ["route", "settings"], current: "defaults", perm: "settings.general" },
       { id: "theme", title: "界面配色", note: "粉色、橙色、科技蓝，选中后立即生效，配色跟着数据一起保存", open: ["route", "settings"], current: "theme", perm: "settings.general" },
       { id: "favorites", title: "常用导航", note: "管理左侧栏“常用”里的快捷入口：添加、排序、移除", open: ["action", "favorite-nav-manage"] },
-      { id: "feature-switch", title: "功能开关", note: "线索、商机、产品、单据、邮件、沟通、团队数据可以关掉不用；数据都保留，重新打开就能用", open: ["route", "feature-switch"], perm: "settings.switch" },
-    ] },
-    { id: "lead", title: "线索", items: [
-      { id: "lead-settings", title: "线索设置", note: "无效原因、线索字段、自定义字段", open: ["route", "lead-settings"], module: "lead", perm: "settings.lead" },
+      { id: "feature-switch", title: "功能开关", note: "商机、产品、单据、邮件、沟通、团队数据可以关掉不用；数据都保留，重新打开就能用", open: ["route", "feature-switch"], perm: "settings.switch" },
     ] },
     { id: "customer", title: "客户", items: [
       { id: "columns", title: "列表字段", note: "客户列表显示哪些字段、顺序和冻结列", open: ["action", "settings"], perm: "customer.view" },
@@ -35,9 +32,6 @@
     ] },
     { id: "chat", title: "沟通", items: [
       { id: "chat-templates", title: "聊天模板", note: "WhatsApp 常用话术：新建、修改、删除", open: ["route", "chat-templates"], module: "chat", perm: "chat.template" },
-    ] },
-    { id: "task", title: "协同", items: [
-      { id: "task-settings", title: "任务设置", note: "按规则自动建待办：客户没跟进、订单到了某阶段、商机快到期、复购提醒", open: ["route", "task-settings"], perm: "settings.task" },
     ] },
     { id: "team", title: "团队", items: [
       { id: "targets", title: "目标管理", note: "团队和个人的月度和季度目标", open: ["route", "team-targets"], module: "team", perm: "team.targets" },

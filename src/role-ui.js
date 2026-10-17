@@ -9,7 +9,7 @@
     const levelName=id=>(M.FIELD_LEVELS.find(([key])=>key===id)||[])[1]||'';
     const option=(value,title,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(title)}</option>`;
     const scopeName=id=>(M.SCOPES.find(([key])=>key===id)||[])[1]||'';
-    const SCOPE_HINTS={self:'本人＝只看自己负责的客户、线索、商机和订单。',dept:'本部门＝看自己和本部门（含下级部门）成员负责的客户、线索、商机和订单。',all:'全公司＝都能看到所有人的客户、线索、商机和订单。'};
+    const SCOPE_HINTS={self:'本人＝只看自己负责的客户、商机和订单。',dept:'本部门＝看自己和本部门（含下级部门）成员负责的客户、商机和订单。',all:'全公司＝都能看到所有人的客户、商机和订单。'};
     const scopeHint=id=>SCOPE_HINTS[id]||SCOPE_HINTS.self;
     const SCOPE_HINT=SCOPE_HINTS.self;
     // 部门下拉框：缩进表示层级。
@@ -171,7 +171,7 @@
     }
     function renameMarkup(member){
       return `<form id="member-rename-form" class="drawer-body" data-role-form="member-rename" data-id="${E(member.id)}" novalidate><label class="field">名字<input name="name" value="${E(member.name)}" maxlength="${M.LIMITS.name}" autocomplete="off" required></label>`
-        +`<p class="cs-hint" id="member-rename-warn">会把这个人负责的客户、线索、订单、商机一起改名。</p>`
+        +`<p class="cs-hint" id="member-rename-warn">会把这个人负责的客户、订单、商机一起改名。</p>`
         +`<div class="error" id="member-rename-error" role="alert"></div></form>`;
     }
     function deptAddMarkup(state,parentId=''){

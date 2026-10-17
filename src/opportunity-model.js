@@ -4,7 +4,7 @@
   // 销售流程（每个流程有自己的一组阶段）保存在 state.laiOpportunityFlows；没保存过时用下面的默认流程。
   const node=typeof module!=='undefined'&&module.exports;
   const LM=node?require('./modules.js'):root.LaiModules;
-  // 来源名单与线索、客户共用一份（客户设置 → 来源设置）；读不到时按没有名单处理。
+  // 来源名单与客户共用一份（客户设置 → 来源设置）；读不到时按没有名单处理。
   const CSM=node?require('./customer-settings-model.js'):root.LaiCustomerSettings;
   const trim=value=>String(value??'').trim();
   // 新商机的默认负责人：只能看本人或本部门的账号是它自己，其他账号用设置里填的“默认跟进人”（见 role-model.js 的 defaultOwner）。
@@ -198,7 +198,7 @@
     ['endDate','结束日期','日期','fixed'],['owner','负责人','下拉单选','fixed'],['flow','销售流程','下拉单选','fixed'],['lostReason','输单原因','下拉单选','fixed'],
     ['number','商机编号','编号','auto'],
     ['contact','关联联系人','下拉单选','config'],['collaborators','协同跟进人','多人','config'],['sources','商机来源','下拉多选','config'],['type','商机类型','下拉单选','config'],
-    ['leadId','来源线索','下拉单选','config'],['exchangeRate','汇率','数值','rate'],['tags','商机标签','多个标签','config'],['note','备注','多行文本','config'],['products','关联产品','产品明细','config']
+    ['exchangeRate','汇率','数值','rate'],['tags','商机标签','多个标签','config'],['note','备注','多行文本','config'],['products','关联产品','产品明细','config']
   ].map(([id,label,type,mode])=>Object.freeze({id,label,type,mode})));
   const REQUIRED_BY_DEFAULT=new Set(['contact','exchangeRate']);
   const plainObject=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
@@ -413,7 +413,7 @@
     return customFields(state).filter(field=>hasValue(values[field.id])).map(field=>({id:field.id,name:field.name,type:field.type,value:Array.isArray(values[field.id])?values[field.id].join('、'):String(values[field.id])}));
   }
 
-  // 商机来源、来源线索、商机编号
+  // 商机来源、商机编号
   function sourceList(state){
     try{const choices=CSM&&CSM.sourceChoices?CSM.sourceChoices(state):null;return Array.isArray(choices)?choices:null;}catch{return null;}
   }
@@ -423,9 +423,6 @@
     const hit=source&&(sourceList(state)||[]).find(entry=>sameName(entry,source));
     return hit?[hit]:[];
   }
-  const leadsOf=state=>(Array.isArray(state?.laiLeads)?state.laiLeads:[]).filter(lead=>lead&&typeof lead==='object'&&typeof lead.id==='string'&&lead.id);
-  const leadChoices=state=>leadsOf(state).filter(lead=>!lead.trashed).map(lead=>({id:lead.id,name:trim(lead.name)||'（未命名线索）'})).sort((a,b)=>a.name.localeCompare(b.name,'zh'));
-  const leadName=(state,id)=>{const lead=leadsOf(state).find(entry=>entry.id===id);return lead?trim(lead.name)||'（未命名线索）':'（已删除的线索）';};
   // 编号：OPP-年月日-当天序号（三位）。序号取当天已有编号里最大的加一，已存着的编号不会重复。
   function nextNumber(state,day){
     const prefix=`OPP-${day.replaceAll('-','')}-`;
@@ -436,7 +433,8 @@
     }
     return `${prefix}${String(highest+1).padStart(3,'0')}`;
   }
-  // upsert 里处理新增的几个字段：来源、类型、来源线索、自定义字段。隐藏的字段不动（next 本来就带着原来的值）。
+  // upsert 里处理新增的几个字段：来源、类型、自定义字段。隐藏的字段不动（next 本来就带着原来的值）。
+  // 以前的「来源线索」（leadId）随线索一起去掉了（D-030）：存着的值不读不改，原样留在商机上。
   function applyExtras(state,next,previous,value,has,input,cfg,need,locked=new Set()){
     const setOrDrop=(key,val)=>{if(hasValue(val))next[key]=val;else delete next[key];};
     // 商机来源（多选）：新选的必须在来源名单里，原来就有的可以留着。
@@ -457,14 +455,6 @@
       // 类型名单被删光时没有可选项，不能再要求必填。
       if(typeChoices(state).length)need('type','商机类型',next.type);
     }
-    // 来源线索：新选的必须是还在的线索。
-    if(cfg.leadId.show){
-      const id=trim(value('leadId'));
-      if(id&&id!==trim(previous?.leadId)&&!leadChoices(state).some(lead=>lead.id===id))throw new Error('来源线索不存在或已在回收站，请重新选择');
-      setOrDrop('leadId',id);
-      // 没有可选的线索时不能要求必填。
-      if(leadChoices(state).length)need('leadId','来源线索',next.leadId);
-    }
     // 自定义字段：只处理设置里还有的字段；其余已存的值原样留着。
     const stored=plainObject(previous?.custom),given=has('custom')?plainObject(input.custom):{},custom={...stored};
     for(const def of customFields(state)){
@@ -480,7 +470,7 @@
   // 能设的商机字段，键就是商机上保存的字段名；自定义字段是 custom.<字段ID>，值在商机的 custom 里。
   // 商机名称、客户、销售金额／币种、销售阶段、销售流程、负责人、输单原因、编号是保存必须有或自动生成的，不在清单里。
   const ROLE_FIELDS=Object.freeze([['contact','基本信息'],['collaborators','基本信息'],['endDate','基本信息'],['exchangeRate','基本信息'],
-    ['type','来源与分类'],['leadId','来源与分类'],['sources','来源与分类'],['tags','补充信息'],['note','补充信息'],['products','补充信息']]);
+    ['type','来源与分类'],['sources','来源与分类'],['tags','补充信息'],['note','补充信息'],['products','补充信息']]);
   function roleFieldList(state){
     const label=id=>SYSTEM_FIELDS.find(def=>def.id===id)?.label||id;
     return [...ROLE_FIELDS.map(([key,group])=>({key,label:label(key),group})),
@@ -506,7 +496,7 @@
   }
   // 表单需要的设置：字段显示与必填、各名单、自定义字段。
   function formSetup(state){
-    return {fields:fieldMap(state),reasons:lostReasons(state),types:typeChoices(state),sources:sourceList(state),leads:leadChoices(state),customFields:customFields(state)};
+    return {fields:fieldMap(state),reasons:lostReasons(state),types:typeChoices(state),sources:sourceList(state),customFields:customFields(state)};
   }
 
   function applyStage(state,next,previous,stageId,input,now){
@@ -807,7 +797,7 @@
   // 新建表单的默认值。
   function defaults(state,today=isoDay(new Date())){
     return {nameMode:'auto',name:'',client:'',contact:'',amount:'',endDate:addDays(today,30),flow:'default',exchangeRate:100,currency:defaultCurrency(state),
-      stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(defaultOwnerOf(state)),collaborators:[],tags:[],products:[],lostReason:'',lostNote:'',sources:[],type:'',leadId:'',custom:{}};
+      stage:flowOf(state,'default').stages[0].id,note:'',owner:cleanName(defaultOwnerOf(state)),collaborators:[],tags:[],products:[],lostReason:'',lostNote:'',sources:[],type:'',custom:{}};
   }
   // 由赢单商机生成订单时预填的内容（交给现有的订单表单，由用户确认保存）。
   // 商机里的产品带到订单的产品明细；产品都没填单价时不带（不然订单金额会变成 0），只留“产品”文字。
@@ -1028,7 +1018,7 @@
       createdAt:trim(item.createdAt),updatedAt:trim(item.updatedAt),closedAt:trim(item.closedAt),lostNote:trim(item.lostNote),
       history:(Array.isArray(item.stageHistory)?item.stageHistory:[]).filter(entry=>entry&&typeof entry==='object').map(entry=>({stage:trim(entry.stage),label:label(trim(entry.stage))?.label||trim(entry.label)||'已删除的阶段',kind:label(trim(entry.stage))?.kind||'open',at:trim(entry.at)})),
       attachments:attachmentsOf(item),number:trim(item.number),sources:Array.isArray(item.sources)?item.sources.map(trim).filter(Boolean):[],type:trim(item.type),
-      leadId:trim(item.leadId),leadName:trim(item.leadId)?leadName(state,trim(item.leadId)):'',custom:customRows(state,item)};
+      custom:customRows(state,item)};
   }
   // 把商机放到某个阶段的某张卡片之前（before 为空表示放到最后）；阶段不同时同时换阶段。
   // 只改动这一列里 sortRank 需要变的商机；其他商机的更新时间不变。
@@ -1050,6 +1040,6 @@
       return item.sortRank===rank.get(item.id)?item:{...item,sortRank:rank.get(item.id)};
     })};
   }
-  const api={SET_LIMITS,addChoice,renameChoice,moveChoice,removeChoice,DEFAULT_TYPES,CUSTOM_TYPES,SYSTEM_FIELDS,lostReasons,addLostReason,renameLostReason,moveLostReason,removeLostReason,typeChoices,addType,renameType,moveType,removeType,choiceUse,fieldRows,fieldMap,setField,customFields,customTypeLabel,addCustomField,updateCustomField,moveCustomField,removeCustomField,customUse,cleanCustomValue,customRows,roleFieldList,lockInput,sourceList,sourcesFromCustomer,leadChoices,leadName,nextNumber,formSetup,ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,prefillRate,orderDraft,customerNames,contactsOf,contactPhone,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
+  const api={SET_LIMITS,addChoice,renameChoice,moveChoice,removeChoice,DEFAULT_TYPES,CUSTOM_TYPES,SYSTEM_FIELDS,lostReasons,addLostReason,renameLostReason,moveLostReason,removeLostReason,typeChoices,addType,renameType,moveType,removeType,choiceUse,fieldRows,fieldMap,setField,customFields,customTypeLabel,addCustomField,updateCustomField,moveCustomField,removeCustomField,customUse,cleanCustomValue,customRows,roleFieldList,lockInput,sourceList,sourcesFromCustomer,nextNumber,formSetup,ATTACHMENT_LIMITS,BLOCKED_EXTENSIONS,PREVIEW_TYPES,attachmentName,checkFile,attachmentsOf,addAttachments,renameAttachment,removeAttachment,filesOf,previewKind,detailOf,reorder,KIND_LABELS,currencyOf,flowsOf,flowOf,stageOf,flowSummary,addFlow,renameFlow,removeFlow,addFlowStage,renameFlowStage,moveFlowStage,removeFlowStage,STAGES,FLOWS,LOST_REASONS,SORTS,list,cardOf,customerStats,upsert,moveStage,setArchived,remove,linkOrder,board,analysis,defaults,prefillRate,orderDraft,customerNames,contactsOf,contactPhone,ownerNames,autoName,parseProducts,productsText,addDays,localDay,validDate};
   if(node)module.exports=api;else root.LaiOpportunityModel=api;
 })(typeof window!=='undefined'?window:globalThis);

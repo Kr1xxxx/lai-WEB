@@ -1,5 +1,6 @@
-// 线索和商机的跟进 in the real page with the real backend: the opportunity form takes the rate from 汇率设置 (and keeps
-// what the user typed), and the lead / opportunity details open WhatsApp and record the chat (lead 跟进, customer 动态).
+// 商机的跟进 in the real page with the real backend: the opportunity form takes the rate from 汇率设置 (and keeps
+// what the user typed), and the opportunity detail opens WhatsApp and records the chat in the customer 动态.
+// (The 线索 half went with the leads module, D-030.)
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { after, before, test } from 'node:test';
@@ -7,7 +8,6 @@ import { startApp } from './harness.mjs';
 
 const require = createRequire(import.meta.url);
 const O = require('../../src/opportunity-model.js');
-const L = require('../../src/lead-model.js');
 
 const CLIENT = 'Wa Follow Ltd';
 let app;
@@ -65,10 +65,6 @@ before(async () => {
     let next = O.upsert(d, 'o-hundred', { ...fields, currency: 'EUR', exchangeRate: '100' }, opt);
     next = O.upsert(next, 'o-own', { ...fields, currency: 'EUR', exchangeRate: '99' }, opt);
     next = O.upsert(next, 'o-usd', { ...fields, currency: 'USD' }, opt);
-    next = L.upsert(next, 'lead-wa', { name: 'Phone Lead GmbH', contact: 'Hans', phone: '0151 2345 6789', country: '德国', owner: 'Kris' }, { now: '2026-10-10T04:00:00.000Z' });
-    next = L.upsert(next, 'lead-done', { name: 'Closed Lead GmbH', contact: 'Eva', phone: '0151 2345 6700', country: '德国', owner: 'Kris' }, { now: '2026-10-10T04:30:00.000Z' });
-    next = { ...next, laiLeads: next.laiLeads.map((x) => (x.id === 'lead-done' ? { ...x, status: 'invalid', invalidReason: 'test' } : x)) };
-    next = L.upsert(next, 'lead-bad', { name: 'No Number Lead', phone: 'ask the office' }, { now: '2026-10-10T05:00:00.000Z' });
     return next;
   });
   await app.open('opportunities');
@@ -111,69 +107,6 @@ test('editing: exactly 100 on a foreign opportunity is filled from the table, an
   await closeDialog();
 });
 
-test('lead detail: a WhatsApp button for a phone that can be dialled; the chat is recorded in the lead 跟进', async () => {
-  const { page } = app;
-  await go('leads');
-  await page.locator('[data-lead-action="open"][data-id="lead-wa"]').first().click();
-  await page.locator('.lead-detail').waitFor();
-  assert.equal(await page.locator('.lead-detail [data-lead-action="wa"]').count(), 1);
-  await closeDialog();
-  await page.locator('[data-lead-action="open"][data-id="lead-bad"]').first().click();
-  await page.locator('.lead-detail').waitFor();
-  assert.equal(await page.locator('.lead-detail [data-lead-action="wa"]').count(), 0, 'not a number: no button');
-  await closeDialog();
-  await page.locator('[data-lead-action="open"][data-id="lead-wa"]').first().click();
-  await page.locator('.lead-detail').waitFor();
-  await stubOpen();
-  await page.locator('.lead-detail [data-lead-action="wa"]').click();
-  await page.locator('#wa-dlg-form').waitFor();
-  assert.match(await page.locator('#wa-dlg-note').innerText(), /\+4915123456789/, 'the lead country supplies the code');
-  await page.locator('#wa-dlg-text').fill('Hallo, wir senden das Angebot.');
-  await page.locator('[data-chat-action="dlg-open"]').click();
-  await settle();
-  const urls = await opened();
-  assert.equal(urls.length, 1);
-  assert.match(urls[0], /^https:\/\/wa\.me\/4915123456789\?text=/);
-  assert.match(await page.locator('.wa-ask').innerText(), /发出去了吗/);
-  await page.locator('[data-chat-action="dlg-log"]').click();
-  await page.locator('.lead-detail').waitFor();
-  await settle();
-  assert.match(await page.locator('.lead-timeline').innerText(), /WhatsApp 聊天：Hallo, wir senden das Angebot\./);
-  const lead = ((await app.readData()).laiLeads || []).find((x) => x.id === 'lead-wa');
-  assert.equal(lead.history[0].type, 'followup');
-  assert.equal(lead.status, 'following');
-  await closeDialog();
-});
-
-test('lead and opportunity WhatsApp use the same dialog as customers: templates are offered, and an invalid lead is not asked 发出去了吗', async () => {
-  const { page } = app;
-  await go('leads');
-  await page.locator('[data-lead-action="open"][data-id="lead-wa"]').first().click();
-  await page.locator('.lead-detail').waitFor();
-  await page.locator('.lead-detail [data-lead-action="wa"]').click();
-  await page.locator('#wa-dlg-form').waitFor();
-  assert.match(await page.locator('.wa-dlg-who').innerText(), /Phone Lead GmbH · Hans/);
-  assert.equal(await page.locator('#wa-dlg-customer').count(), 0, 'the lead is fixed, no customer picker');
-  const options = await page.locator('#wa-dlg-template option').count();
-  assert.ok(options > 1, 'the chat templates are listed');
-  await page.locator('#wa-dlg-template').selectOption({ index: 1 });
-  assert.equal(await page.locator('#wa-dlg-text').inputValue(), '你好 Hans，Phone Lead GmbH 的报价来了', 'the template takes the lead contact and name');
-  await closeDialog();
-  await closeDialog().catch(() => {});
-  await go('leads');
-  await page.locator('[data-lead-action="open"][data-id="lead-done"]').first().click();
-  await page.locator('.lead-detail').waitFor();
-  await stubOpen();
-  await page.locator('.lead-detail [data-lead-action="wa"]').click();
-  await page.locator('#wa-dlg-form').waitFor();
-  await page.locator('#wa-dlg-text').fill('Hello Eva');
-  await page.locator('[data-chat-action="dlg-open"]').click();
-  await settle();
-  assert.equal((await opened()).length, 1);
-  assert.equal(await page.locator('.wa-ask').count(), 0, 'an invalid lead is not asked, nothing is recorded');
-  assert.deepEqual(pageErrors(), []);
-});
-
 test('opportunity detail: WhatsApp for the linked contact\'s phone; the chat is recorded in the customer 动态', async () => {
   const { page } = app;
   await go('opportunities');
@@ -185,6 +118,11 @@ test('opportunity detail: WhatsApp for the linked contact\'s phone; the chat is 
   await button.click();
   await page.locator('#wa-dlg-form').waitFor();
   assert.match(await page.locator('#wa-dlg-note').innerText(), /\+447700900123/);
+  // the same dialog as customers: the customer is fixed and the chat templates are offered
+  assert.equal(await page.locator('#wa-dlg-customer').count(), 0, 'the customer is fixed, no customer picker');
+  assert.ok((await page.locator('#wa-dlg-template option').count()) > 1, 'the chat templates are listed');
+  await page.locator('#wa-dlg-template').selectOption({ index: 1 });
+  assert.equal(await page.locator('#wa-dlg-text').inputValue(), `你好 Ann Lee，${CLIENT} 的报价来了`, 'the template takes the contact and the customer');
   await page.locator('#wa-dlg-text').fill('Quote sent.');
   await page.locator('[data-chat-action="dlg-open"]').click();
   await settle();

@@ -145,6 +145,7 @@ const state = () => ({
     'Hidden Co': customer({ client: 'Hidden Co', country: '英国', phone: '07700 900127', owner: 'Bob' }),
     'Trash Co': customer({ client: 'Trash Co', country: '英国', phone: '07700 900123', laiBucket: 'trash' }),
   },
+  // 线索已去掉（D-030）：存着的 laiLeads 不再参与匹配
   laiLeads: [
     { id: 'l1', name: 'Lead One', contact: 'Nina Lead', phone: '07700 900130', country: '英国', status: 'new' },
     { id: 'l2', name: 'Lead Two', phone: '07700 900131', country: '英国', status: 'converted' },
@@ -201,11 +202,8 @@ test('matchCustomers only looks at customers the account may see', () => {
   assert.ok(!calls.includes('Trash Co'));
 });
 
-test('matchCustomers also reports open leads by phone', () => {
+test('matchCustomers only looks at customers: stored leads are ignored (D-030)', () => {
   const s = state();
   const result = W.matchCustomers(s, { peers: ['+447700900130', '+447700900131', '+447700900132'], names: ['Nina Lead'] });
-  assert.deepEqual(result.candidates, []);
-  assert.deepEqual(result.leadMatches.map(item => item.id), ['l1']);
-  assert.ok(result.leadMatches[0].reasons.includes('phone'));
-  assert.deepEqual(W.matchCustomers(s, { peers: ['+447700900130'], leadVisible: () => false }).leadMatches, []);
+  assert.deepEqual(result, { candidates: [] });
 });

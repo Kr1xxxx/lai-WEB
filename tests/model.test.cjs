@@ -203,8 +203,9 @@ test('followup explicitly clears a scheduled date while omission keeps it',()=>{
  assert.equal(M.addFollowup(state,'Alpha','Customer called','').customers.Alpha.nextFollow,'');
  assert.equal(M.addFollowup(state,'Alpha','Customer called',undefined).customers.Alpha.nextFollow,'2026-09-22');
 });
-test('customer schedule sets or clears only the next follow date and flows into the calendar',()=>{
- const B=require('../src/business-model.js');
+test('customer schedule sets or clears only the next follow date and flows into the 工作台 queue',()=>{
+ const W=require('../src/workbench.js');
+ const due=(s)=>W.queue({today:'2026-11-05',follow:Object.entries(s.customers).filter(([,c])=>c&&c.nextFollow)}).rows.filter(row=>row.kind==='follow').map(row=>row.title);
  const state={orders:[{id:'o1',client:'Alpha',createdAt:'2026-09-01'}],customers:{
   Alpha:{nextFollow:'2026-10-01',lastFollowup:'2026-09-20T10:00:00Z',history:[{type:'followup',text:'Called'}],unknown:{keep:true}},
   Beta:{nextFollow:'2026-10-03'},
@@ -218,10 +219,10 @@ test('customer schedule sets or clears only the next follow date and flows into 
  assert.equal(scheduled.customers.Alpha.lastFollowup,state.customers.Alpha.lastFollowup);
  assert.deepEqual(scheduled.customers.Alpha.unknown,{keep:true});
  assert.equal(scheduled.customers.Alpha.history[0].type,'operation');
- assert.deepEqual(B.calendarEvents(scheduled,'2026-11').filter(event=>event.kind==='followup').map(event=>event.customer),['Alpha']);
+ assert.ok(due(scheduled).includes('跟进 Alpha'));
  const cleared=M.setCustomerNextFollow(scheduled,'Alpha','','2026-09-23T11:00:00Z');
  assert.equal(cleared.customers.Alpha.nextFollow,'');
- assert.equal(B.calendarEvents(cleared,'2026-11').filter(event=>event.kind==='followup').length,0);
+ assert.ok(!due(cleared).includes('跟进 Alpha'));
  assert.equal(cleared.customers.Alpha.history[0].type,'operation');
 });
 test('customer schedule rejects impossible dates, missing or archived customers, and no-op changes',()=>{

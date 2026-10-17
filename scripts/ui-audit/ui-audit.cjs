@@ -32,7 +32,7 @@ const flag = (name) => args.includes("--" + name);
 const URL_BASE = opt("url", process.env.TRIAL_URL || "http://127.0.0.1:8766/");
 const THEMES = opt("themes", "pink,orange,tech").split(",");
 const VIEWS = opt("views", "1440x900,1280x720,1440x640,1200x800,1024x800").split(",").map((v) => v.split("x").map(Number));
-const ALL_ROUTES = ["customers", "dashboard", "mail", "opportunities", "opp-analysis", "opp-flows", "order-list", "order-trash", "team-goals", "team-targets", "team-wall", "analysis", "team-assets", "team-followups", "team-tasks", "team-orders", "calendar", "settings", "settings-hub"];
+const ALL_ROUTES = ["customers", "dashboard", "mail", "opportunities", "opp-analysis", "opp-flows", "order-list", "order-trash", "team-goals", "team-targets", "team-wall", "analysis", "team-assets", "team-followups", "team-orders", "settings", "settings-hub"];
 const ROUTES = opt("routes", "") ? opt("routes", "").split(",") : ALL_ROUTES;
 const OUT = opt("out", "") || fs.mkdtempSync(path.join(os.tmpdir(), "ui-audit-"));
 fs.mkdirSync(OUT, { recursive: true });
@@ -44,7 +44,6 @@ const DIALOGS = [
   ["order-list", 'button:has-text("新建订单")', "新建订单"],
   ["opportunities", '[data-opp-action="new"]', "新建商机"],
   ["customers", ".split-new .primary", "新建客户"],
-  ["calendar", '[data-action="new-task"]', "新建日程"],
 ];
 
 // 点击前后要比较的控件：下拉、带弹出的按钮、各种输入框

@@ -98,8 +98,8 @@ test('events are not forwarded on other routes, to a page that is not showing, o
 
 test('a registered page cannot replace a built-in page, and an unknown route still falls back to the dashboard', () => {
   const h = setup();
-  h.window.LaiExtraPages.calendar = { render: () => '<p>hijacked</p>' };
-  h.controller.navigate('calendar');
+  h.window.LaiExtraPages.analysis = { render: () => '<p>hijacked</p>' };
+  h.controller.navigate('analysis');
   assert.ok(!h.calls.mount.at(-1).includes('hijacked'));
   h.controller.navigate('nothing-here');
   assert.ok(h.calls.mount.at(-1).length > 0 && !h.calls.mount.at(-1).includes('hijacked'));
