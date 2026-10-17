@@ -295,102 +295,134 @@
 /* ===== /S0 ===== */
 
 /* ===== S1: frame（外框：顶栏、左栏、二级导航、主区、停靠表单偏移） ===== */
+/* 对照 Gr8r shell.css：顶栏 46 高白底底线；左边一整列 252 米灰（.side）；导航行 30、分组标题 24；主区白底、内容离边 24。
+   来财的左列是 72 图标栏 + 180 二级导航，两块同一种米灰、只在最右边画一条线，看起来就是 Gr8r 的一整列。 */
 :root[data-skin="glass"][data-theme="studio"] body {
   background: var(--studio-surface);
-  color: var(--ink-900);
+  color: var(--studio-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 :root[data-skin="glass"][data-theme="studio"] #app { background: var(--studio-surface); }
 :root[data-skin="glass"][data-theme="studio"] ::selection { background: color-mix(in srgb, var(--studio-accent) 22%, transparent); }
-/* ---------- 外框：左边米灰一整列（左栏 + 二级导航），顶栏和主区白色，用细线分开 ---------- */
-/* 二级导航收起或这一页没有二级导航时，左边那列只剩左栏的宽度 */
+/* 二级导航收起或这一页没有二级导航时，左边那列只剩左栏的宽度（顶栏左段和主区都跟着这个变量走） */
 :root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]),
 :root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) { --studio-side-w: var(--studio-rail-w); }
+/* ---------- 顶栏：左段米灰（和左列连成一片，右边一条线），其余白色；底线横贯 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .topbar {
-  top: 0; left: 0; right: 0; height: var(--studio-topbar-h); padding: 0 14px 0 0;
-  border: 0; border-bottom: 1px solid var(--ink-200); border-radius: 0; box-shadow: none;
-  background: linear-gradient(to right, var(--studio-side) 0, var(--studio-side) calc(var(--studio-side-w) - 1px), var(--ink-200) calc(var(--studio-side-w) - 1px), var(--ink-200) var(--studio-side-w), var(--studio-surface) var(--studio-side-w));
+  top: 0; left: 0; right: 0; height: var(--studio-topbar-h); padding: 0 12px 0 0; gap: 6px;
+  border: 0; border-bottom: 1px solid var(--studio-border); border-radius: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: linear-gradient(to right, var(--studio-side) 0, var(--studio-side) calc(var(--studio-side-w) - 1px), var(--studio-border) calc(var(--studio-side-w) - 1px), var(--studio-border) var(--studio-side-w), var(--studio-surface) var(--studio-side-w));
 }
-:root[data-skin="glass"][data-theme="studio"] .topbar-left-drag-region { width: var(--studio-side-w); padding-left: 16px; }
+:root[data-skin="glass"][data-theme="studio"] .topbar-left-drag-region { width: var(--studio-side-w); min-width: 0; padding-left: 16px; }
+/* 左列只剩 72 时放不下品牌（标志 + 来财 + 版本号约 150 宽）：顶栏整条白色，品牌区按内容宽，竖线不会穿过字标 */
 :root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .topbar,
 :root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .topbar { background: var(--studio-surface); }
-:root[data-skin="glass"][data-theme="studio"] .brand-mark { width: 24px; height: 24px; }
-:root[data-skin="glass"][data-theme="studio"] .brand-cn text { fill: var(--ink-900); stroke: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .brand sup { color: var(--ink-600); border-color: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] .app-version { border-color: var(--ink-300); color: var(--ink-600); background: transparent; }
-/* 左栏：米灰底，没有圆角和外框；入口是灰色图标加小字，悬停浅灰，当前模块是白色小卡片 */
+:root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .topbar-left-drag-region,
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .topbar-left-drag-region { width: auto; min-width: var(--studio-rail-w); padding-right: 16px; }
+:root[data-skin="glass"][data-theme="studio"] .brand { height: var(--studio-h-md); }
+:root[data-skin="glass"][data-theme="studio"] .brand-mark { width: 24px; height: 24px; margin-right: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .brand-cn text { fill: var(--studio-text); stroke: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .brand sup { color: var(--studio-text-3); border-color: var(--studio-border-strong); border-radius: var(--studio-r-xs); }
+:root[data-skin="glass"][data-theme="studio"] .app-version { border-color: var(--studio-border-strong); border-radius: var(--studio-r-badge); color: var(--studio-text-3); background: transparent; }
+:root[data-skin="glass"][data-theme="studio"] .app-version:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+/* ---------- 顶栏搜索：Gr8r 的「Search or jump to…」，26 高浅底细边，排在右侧按钮左边（不再绝对定位，窄窗口也不会压到品牌） ---------- */
+:root[data-skin="glass"][data-theme="studio"] .global-search {
+  position: static; left: auto; right: auto; top: auto; margin: 0 4px 0 auto; flex: 0 1 var(--studio-search-w); width: var(--studio-search-w); min-width: 0; height: var(--studio-h-sm);
+  border: 1px solid var(--studio-border); border-radius: var(--studio-r-sm); background: var(--studio-sunken); box-sizing: border-box; overflow: hidden;
+  transition: border-color var(--studio-dur) var(--studio-ease), box-shadow var(--studio-dur) var(--studio-ease), background var(--studio-dur) var(--studio-ease);
+}
+:root[data-skin="glass"][data-theme="studio"] .global-search:hover { border-color: var(--studio-border-strong); }
+:root[data-skin="glass"][data-theme="studio"] .global-search:has(> input:focus) { border-color: var(--studio-accent); background: var(--studio-surface); box-shadow: var(--studio-focus); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button { min-height: 0; height: 100%; padding: 0 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child { width: var(--studio-scope-w); flex: 0 0 var(--studio-scope-w); border-right: 1px solid var(--studio-border); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-body); color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child:hover,
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child[aria-expanded="true"] { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > input { height: 100%; padding: 0 9px; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-size: var(--studio-fs-sm); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > input::placeholder { color: var(--studio-text-3); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:last-child { width: 28px; padding: 0; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:last-child:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+/* 右侧按钮：Gr8r 的 .ibtn 30×30 圆角 6，悬停 surface-2；头像 26 圆 */
+:root[data-skin="glass"][data-theme="studio"] .top-actions { margin-left: 0; gap: 2px; }
+:root[data-skin="glass"][data-theme="studio"] .top-actions > i { display: none; }
+:root[data-skin="glass"][data-theme="studio"] .top-actions button { height: var(--studio-h-md); min-height: var(--studio-h-md); min-width: var(--studio-h-md); padding: 0 7px; justify-content: center; border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: var(--studio-fw-ui); color: var(--studio-text-2); transition: background var(--studio-dur) var(--studio-ease), color var(--studio-dur) var(--studio-ease); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions button:hover { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button:hover { background: var(--studio-surface-2); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .avatar { width: var(--studio-av-md); height: var(--studio-av-md); min-height: var(--studio-av-md); min-width: var(--studio-av-md); margin-left: 4px; padding: 0; border-radius: 50%; background: var(--brand-100); color: var(--studio-accent-ink); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .avatar:hover { background: var(--brand-200); color: var(--studio-accent-ink); }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .avatar .icon { width: 16px; height: 16px; }
+:root[data-skin="glass"][data-theme="studio"] .save-status { top: calc(var(--studio-topbar-h) + 6px); right: 12px; }
+/* ---------- 左栏：米灰底，没有圆角和外框；入口是灰色图标加小字，悬停浅灰，当前模块是白色小卡片 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .rail {
-  left: 0; top: var(--studio-topbar-h); bottom: 0; width: var(--studio-rail-w); padding: 10px 8px; border: 0; border-radius: 0; box-shadow: none;
-  background: var(--studio-side); color: var(--nav-fg);
+  left: 0; top: var(--studio-topbar-h); bottom: 0; width: var(--studio-rail-w); padding: 8px 8px; border: 0; border-radius: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: var(--studio-side); color: var(--studio-text-2);
 }
 :root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .rail,
-:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .rail { box-shadow: inset -1px 0 0 var(--ink-200); }
-:root[data-skin="glass"][data-theme="studio"] .rail-item { border-radius: var(--studio-r-sm); color: var(--ink-700); font-weight: 450; }
-:root[data-skin="glass"][data-theme="studio"] .rail-item :is(.icon, .icon-duo) { color: var(--ink-500); stroke: var(--ink-500); }
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .rail { box-shadow: inset -1px 0 0 var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item { border-radius: var(--studio-r-sm); color: var(--studio-text-2); font-weight: var(--studio-fw-nav); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item :is(.icon, .icon-duo) { color: var(--studio-text-4); stroke: var(--studio-text-4); }
 :root[data-skin="glass"][data-theme="studio"] .rail-item .icon-duo .tint { fill: currentColor; fill-opacity: 0; }
-:root[data-skin="glass"][data-theme="studio"] .rail-item:hover { background: var(--studio-surface-3); color: var(--ink-900); box-shadow: none; }
-:root[data-skin="glass"][data-theme="studio"] .rail-item:hover :is(.icon, .icon-duo) { color: var(--ink-700); stroke: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item:hover { background: var(--studio-surface-3); color: var(--studio-text); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .rail-item:hover :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
 :root[data-skin="glass"][data-theme="studio"] .rail-item:hover:not(.active) .icon-duo .tint { fill-opacity: 0; }
 :root[data-skin="glass"][data-theme="studio"] .rail-item.active,
 :root[data-skin="glass"][data-theme="studio"] .rail-item.active:hover {
-  background: var(--studio-surface); color: var(--ink-900); font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui);
+  box-shadow: var(--studio-shadow-on);
 }
-:root[data-skin="glass"][data-theme="studio"] .rail-item.active :is(.icon, .icon-duo) { color: var(--ink-800); stroke: var(--ink-800); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item.active :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
 :root[data-skin="glass"][data-theme="studio"] .rail-item.active .icon-duo .tint { fill: currentColor; fill-opacity: 0; }
-:root[data-skin="glass"][data-theme="studio"] .rail-badge { background: var(--brand-500); color: var(--studio-surface); box-shadow: 0 0 0 2px var(--studio-side); }
-:root[data-skin="glass"][data-theme="studio"] .rail-refresh { color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .rail-refresh .icon { stroke: var(--ink-500); }
-:root[data-skin="glass"][data-theme="studio"] .rail-refresh:hover { background: var(--studio-surface-3); color: var(--ink-900); }
-/* 二级导航：和左栏同一块米灰，右边一条细线；入口 30 高，当前项白色小卡片 */
+:root[data-skin="glass"][data-theme="studio"] .rail-badge { background: var(--studio-accent); color: var(--studio-on-accent); box-shadow: 0 0 0 2px var(--studio-side); }
+:root[data-skin="glass"][data-theme="studio"] .rail-item.active .rail-badge { box-shadow: 0 0 0 2px var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh .icon { stroke: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .rail-refresh:hover .icon { stroke: var(--studio-text-2); }
+/* ---------- 二级导航：和左栏同一块米灰，右边一条细线；分组标题 24、入口 30 行距 0，当前项白色小卡片 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .subnav {
-  left: var(--studio-rail-w); top: var(--studio-topbar-h); bottom: 0; width: var(--studio-subnav-w); padding: 10px 8px 12px 4px;
-  border: 0; border-radius: 0; box-shadow: inset -1px 0 0 var(--ink-200); background: var(--studio-side);
+  left: var(--studio-rail-w); top: var(--studio-topbar-h); bottom: 0; width: var(--studio-subnav-w); padding: 4px 8px 12px;
+  border: 0; border-radius: 0; box-shadow: inset -1px 0 0 var(--studio-border); background: var(--studio-side);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 :root[data-skin="glass"][data-theme="studio"] .subnav h3 {
-  height: 28px; padding: 0 2px 0 8px; margin-bottom: 4px;
-  font-size: var(--studio-fs-2xs); font-weight: 600; letter-spacing: 0.06em; color: var(--ink-600);
+  height: 24px; padding: 0 8px; margin: 14px 0 0;
+  font-size: var(--studio-fs-2xs); font-weight: var(--studio-fw-head); line-height: 24px; letter-spacing: var(--studio-ls-eyebrow); color: var(--studio-text-3);
 }
-:root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle { background: transparent; border-color: transparent; color: var(--ink-500); }
-:root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle:hover { background: var(--studio-surface-3); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .nav-row { height: 32px; }
+/* 收起按钮：原来是贴着左列边的圆形小钮，这里放回分组标题右端，像 Gr8r 分组标题旁的小图标钮 */
+:root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle { top: 18px; left: auto; right: 8px; width: 24px; height: 24px; min-height: 24px; border-radius: var(--studio-r-xs); background: transparent; border-color: transparent; color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .nav-row { height: var(--studio-side-row); }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry {
-  height: 30px; min-height: 30px; padding: 0 8px; gap: 9px; border-radius: var(--studio-r-sm);
-  font-size: var(--studio-fs); font-weight: 450; line-height: 30px; color: var(--ink-700);
+  height: var(--studio-side-row); min-height: var(--studio-side-row); padding: 0 8px; gap: 9px; border-radius: var(--studio-r-sm);
+  font-size: var(--studio-fs); font-weight: var(--studio-fw-nav); line-height: var(--studio-side-row); color: var(--studio-text-2);
+  transition: background var(--studio-dur) var(--studio-ease), color var(--studio-dur) var(--studio-ease);
 }
-:root[data-skin="glass"][data-theme="studio"] .nav-entry :is(.icon, .icon-duo) { color: var(--ink-500); stroke: var(--ink-500); }
+:root[data-skin="glass"][data-theme="studio"] .nav-row .nav-entry { padding-right: 26px; }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry :is(.icon, .icon-duo) { color: var(--studio-text-4); stroke: var(--studio-text-4); }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry .icon-duo .tint { fill-opacity: 0; }
-:root[data-skin="glass"][data-theme="studio"] .nav-entry:hover { background: var(--studio-surface-3); color: var(--ink-900); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry:hover :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry.active,
 :root[data-skin="glass"][data-theme="studio"] .nav-entry.active:hover {
-  background: var(--studio-surface); color: var(--ink-900); font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
+  background: var(--studio-surface); color: var(--studio-text); font-weight: var(--studio-fw-ui);
+  box-shadow: var(--studio-shadow-on);
 }
-:root[data-skin="glass"][data-theme="studio"] .nav-entry.active :is(.icon, .icon-duo) { color: var(--ink-700); stroke: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .nav-heart { top: 1px; }
-/* 主区：白色，从顶栏下面一直到底，内容离边 24px */
-:root[data-skin="glass"][data-theme="studio"] .main { left: var(--studio-side-w); top: var(--studio-topbar-h); right: 0; bottom: 0; padding: 20px 24px 20px; background: var(--studio-surface); box-sizing: border-box; }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active :is(.icon, .icon-duo) { color: var(--studio-text-2); stroke: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .nav-heart { top: 1px; right: 2px; height: 28px; min-height: 28px; border-radius: var(--studio-r-xs); color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .nav-heart:hover { color: var(--studio-text-2); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active ~ .nav-heart { color: var(--studio-text-4); }
+:root[data-skin="glass"][data-theme="studio"] .nav-entry.active ~ .nav-heart:hover { color: var(--studio-text-2); }
+/* ---------- 主区：白色，从顶栏下面一直到底；内容离左右和顶 24，底边由各页自己留 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .main { left: var(--studio-side-w); top: var(--studio-topbar-h); right: 0; bottom: 0; padding: var(--studio-page-top) var(--studio-gutter) 0; background: var(--studio-surface); box-sizing: border-box; }
 :root[data-skin="glass"][data-theme="studio"] .nav-collapsed .main,
 :root[data-skin="glass"][data-theme="studio"] .subnav[hidden] ~ .main { left: var(--studio-rail-w); }
-/* ---------- 顶栏搜索：像 Gr8r 的「Search or jump to…」，浅灰底、细边、靠右 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .global-search {
-  left: auto; right: 196px; top: 9px; width: 380px; height: 30px;
-  border: 1px solid var(--ink-200); border-radius: var(--studio-r-sm); background: var(--studio-sunken);
-}
-:root[data-skin="glass"][data-theme="studio"] .global-search:hover { border-color: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] .global-search:has(> input:focus) { border-color: var(--brand-500); background: var(--studio-surface); box-shadow: 0 0 0 3px var(--studio-accent-soft); }
-:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child { width: 92px; flex-basis: 92px; border-right-color: var(--ink-200); font-size: var(--studio-fs-sm); color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child:hover,
-:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child[aria-expanded="true"] { background: var(--studio-surface-3); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .global-search > input { font-size: var(--studio-fs-sm); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .global-search > input::placeholder { color: var(--ink-600); }
-:root[data-skin="glass"][data-theme="studio"] .global-search > button:last-child { width: 32px; color: var(--ink-500); }
-:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button { color: var(--ink-700); border-radius: var(--studio-r-sm); }
-:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button:hover { background: var(--studio-surface-2); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .top-actions .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--brand-100); color: var(--brand-700); }
-:root[data-skin="glass"][data-theme="studio"] .pagebar .page-actions > button { height: 30px; min-height: 30px; }
-/* ---------- 订单、商机表单停靠在右边：贴着顶栏下面和右边 ---------- */
+/* 收起二级导航后的「展开」小钮贴在主区左边线上，顶部对齐分组标题 */
+:root[data-skin="glass"][data-theme="studio"] button.subnav-restore { top: calc(var(--studio-topbar-h) + 18px); left: var(--studio-rail-w); height: 24px; min-height: 24px; background: var(--studio-surface-2); color: var(--studio-text-3); box-shadow: 0 0 0 1px var(--studio-border); }
+:root[data-skin="glass"][data-theme="studio"] button.subnav-restore:hover { background: var(--studio-surface-3); color: var(--studio-text); }
+/* ---------- 订单、商机表单停靠在右边：贴着顶栏下面和右边，主区让出它的宽度 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form) .drawer,
 :root[data-skin="glass"][data-theme="studio"] .overlay:has(#opp-form) .drawer { top: var(--studio-topbar-h); right: 0; bottom: 0; border-radius: 0; }
 :root[data-skin="glass"][data-theme="studio"]:has(#biz-order-form) .main,
