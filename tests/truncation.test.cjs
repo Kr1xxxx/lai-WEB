@@ -68,10 +68,8 @@ test("鼠标进入行里没被碰到的文字，也会补上 title（邮件主�
   for (const name of [".wb-next", ".calendar-event", ".mail-row-subject", ".mail-row-snippet"]) assert.ok(T.TEXTS.includes(name));
 });
 
-test("订单编号列不加省略号，并且全局截断提示已接入构建", () => {
-  const css = fs.readFileSync(path.join(__dirname, "../src/business.css"), "utf8");
-  assert.match(css, /\.unified-orders td:first-child \.company-link\s*\{[^}]*text-overflow:\s*clip/);
-  assert.match(css, /\.unified-orders td:first-child\s*\{[^}]*min-width:\s*128px/);
+// 小满旧订单表（.unified-orders）的编号列规则随 D-029 删掉了；全部订单页的编号由重叠扫描检查不被切掉。
+test("全局截断提示已接入构建", () => {
   assert.match(fs.readFileSync(path.join(__dirname, "../scripts/build.py"), "utf8"), /truncation-title\.js/);
   assert.match(fs.readFileSync(path.join(__dirname, "../src/template.html"), "utf8"), /<!--UI_TRUNCATION-->/);
 });
