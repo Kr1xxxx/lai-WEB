@@ -4,6 +4,8 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — PR #37 (kit migration) merged after the owner wrote 合并 (`main` e0a83f0); web trial v1.20
+  published from e0a83f0 (`build.py --bump --publish`), checked in a browser at 1440×900.
 - 2026-10-17 — Claude — Kit migration of the remaining pages (owner: 继续, restyle 邮件, 沟通, 团队数据 and the settings
   pages). Advisor before the plan: add a shared vertical tab list and switch to the kit first (done: `.k-tabs--vertical`,
   `.k-switch`, `.k-checkbox`; selectors are `input.k-*` so the glass checkbox rule does not win), keep the `cs-` family in
