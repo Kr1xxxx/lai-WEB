@@ -7,17 +7,17 @@
    "hex": 141
   },
   "customer-detail.css": {
-   "fontSizePx": 34,
-   "radiusPx": 33,
-   "hex": 110
+   "fontSizePx": 0,
+   "radiusPx": 0,
+   "hex": 0
   },
   "customer-editor.css": {
-   "fontSizePx": 34,
-   "radiusPx": 13,
-   "hex": 51
+   "fontSizePx": 10,
+   "radiusPx": 4,
+   "hex": 7
   },
   "customer-replica.css": {
-   "fontSizePx": 82,
+   "fontSizePx": 81,
    "radiusPx": 47,
    "hex": 112
   },
@@ -67,9 +67,9 @@
    "hex": 0
   },
   "skin-glass.css": {
-   "fontSizePx": 14,
-   "radiusPx": 21,
-   "hex": 54
+   "fontSizePx": 8,
+   "radiusPx": 15,
+   "hex": 44
   },
   "styles.css": {
    "fontSizePx": 52,

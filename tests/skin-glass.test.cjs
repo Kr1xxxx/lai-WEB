@@ -34,7 +34,6 @@ test('badges, tags and tinted labels in the glass skin keep a text contrast of a
   const pairs = [
     ['.new-badge', '#ffffff', decl(':root[data-skin="glass"] .new-badge', 'background')],
     ['.team-rank-1', '#ffffff', decl(':root[data-skin="glass"] .team-rank-1', 'background')],
-    ['.lcd-person span', '#ffffff', decl(':root[data-skin="glass"] .lcd-person span', 'background')],
     ['.tag', decl(':root[data-skin="glass"] .tag', 'color'), '#fae7e4'],
     ['.tag.green', decl(':root[data-skin="glass"] .tag.green', 'color'), '#ecf8f1'],
     ['.calendar-event.task', decl(':root[data-skin="glass"] .calendar-event.task', 'color'), '#fff5e9'],
@@ -43,9 +42,12 @@ test('badges, tags and tinted labels in the glass skin keep a text contrast of a
 });
 
 test('buttons with a coloured background keep white text instead of the dark default button text', () => {
-  for (const selector of ['.lcd-root .lcd-primary']) {
-    assert.match(skin, new RegExp(':root\\[data-skin="glass"\\] ' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^{]*\\{[^}]*color:\\s*#fff'), selector);
-  }
+  // 客户详情（D-028 组件套件）：「写邮件」「保存跟进」是 .k-btn--primary，白字来自组件；身份标签（私海客户）是中性徽标的颜色
+  const detail = read('src/customer-detail-ui.js');
+  assert.match(detail, /feature\("写邮件", "写邮件", "k-btn k-btn--primary"\)/);
+  assert.match(detail, /<button type="submit" class="k-btn k-btn--primary">保存跟进<\/button>/);
+  assert.doesNotMatch(skin, /lcd-primary|lcd-person/);
+  assert.match(read('src/customer-detail.css'), /\.lcd-person > span \{[^}]*background: var\(--muted-bg\); color: var\(--muted-fg\)/);
   // 客户列表（D-028 组件套件）：「团队客户」和「新建客户」是 .k-tab／.k-btn--primary，白字来自组件，不再要皮肤单独补
   const list = read('src/customer-list-ui.js');
   assert.match(list, /class="k-btn k-btn--primary" data-action="new"/);

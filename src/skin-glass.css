@@ -164,18 +164,12 @@
 :root[data-skin="glass"] button.lai-select-trigger[data-empty="true"] { color: rgba(var(--skin-ink-rgb), 0.6); }
 :root[data-skin="glass"] input::placeholder,
 :root[data-skin="glass"] textarea::placeholder { color: rgba(var(--skin-ink-rgb), 0.6); opacity: 1; }
-/* 带颜色底的按钮：文字保持白色（否则被全局的深色按钮文字盖住） */
-:root[data-skin="glass"] .lcd-root .lcd-primary,
-:root[data-skin="glass"] .lcd-root .lcd-primary:hover { color: #fff; }
 /* 标签和徽标 */
 :root[data-skin="glass"] .tag { color: #a3433b; }
 :root[data-skin="glass"] .tag.green { color: #1f6f52; }
 :root[data-skin="glass"] .new-badge { background: #25773f; }
 :root[data-skin="glass"] .team-rank-1 { background: #966300; }
-:root[data-skin="glass"] .lcd-person span { background: #7a6872; }
 :root[data-skin="glass"] .calendar-event.task { color: #84560f; }
-:root[data-skin="glass"] .lcd-ai-empty p { color: #6b5d66; }
-:root[data-skin="glass"] .ce-required { color: #c42f2f; }
 
 /* ===== 只有底线或分隔线的控件：不要被全局按钮样式加上圆角和灰色边框 =====
    标签页（结果目标/过程目标/商机目标）、日历格子、日程行、“新建目标”格子原来只有一两边的线、没有圆角，
@@ -231,55 +225,7 @@
 :root[data-skin="glass"] .opp-menu .opp-chip { background: rgba(255,255,255,.14); color: #fff; }
 :root[data-skin="glass"] .opp-menu .error { color: #FFB8A8; }
 
-/* ===== 客户详情（设计画布 CustomerDetail.dc.html）：卡片、页头、按钮 ===== */
-:root[data-skin="glass"] .lcd-root { background: transparent; padding: 0 0 12px; }
-:root[data-skin="glass"] .lcd-pagebar { height: 48px; padding: 0 4px; gap: 10px; justify-content: flex-start; background: transparent; }
-:root[data-skin="glass"] .lcd-pagebar h1 { font-size: 18px; font-weight: 700; color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .lcd-pagebar > div { display: contents; }
-:root[data-skin="glass"] .lcd-pagebar .lcd-return { order: -1; width: auto; height: 28px; padding: 0 10px 0 6px; border: 1px solid var(--ink-200); border-radius: 8px; background: #fff; color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .lcd-pagebar .lcd-return::after { content: "返回客户列表"; margin-left: 2px; font-size: 12px; }
-:root[data-skin="glass"] .lcd-pagebar > div > :first-child { margin-left: auto; }
-:root[data-skin="glass"] .lcd-pagebar > div > .lcd-return:first-child { margin-left: 0; }
-:root[data-skin="glass"] .lcd-root .lcd-pill { height: 30px; padding: 0 12px; border-radius: 8px; border-color: var(--ink-200); font-size: 12px; font-weight: 500; }
-:root[data-skin="glass"] .lcd-root .lcd-pill:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
-:root[data-skin="glass"] .lcd-root .lcd-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); font-weight: 700; }
-:root[data-skin="glass"] .lcd-root .lcd-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
-:root[data-skin="glass"] .lcd-columns { gap: 10px; }
-:root[data-skin="glass"] .lcd-left, :root[data-skin="glass"] .lcd-right { gap: 10px; }
-:root[data-skin="glass"] .lcd-card { border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-menu-summary b { color: #fff; }
-
-/* 客户详情的第三栏：资料、销售订单、文档、操作历史（设计稿 CustomerDetail） */
-:root[data-skin="glass"] .lcd-columns { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr) minmax(250px, 290px); }
-:root[data-skin="glass"] .lcd-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-@media (max-width: 1360px) {
-  :root[data-skin="glass"] .lcd-columns { grid-template-columns: clamp(320px, 36%, 420px) minmax(0, 1fr); }
-  :root[data-skin="glass"] .lcd-side { display: none; }
-}
-:root[data-skin="glass"] .lcd-side-card { padding: 12px 14px; font-size: 12px; }
-:root[data-skin="glass"] .lcd-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-:root[data-skin="glass"] .lcd-side-head h3 { margin: 0; font-size: 14px; font-weight: 700; }
-:root[data-skin="glass"] .lcd-side-link { padding: 2px 8px; height: auto; border: 1px solid var(--ink-200); border-radius: 6px; background: #fff; color: rgb(var(--skin-ink-rgb)); font-size: var(--text-xs); cursor: pointer; }
-:root[data-skin="glass"] .lcd-side-link:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
-:root[data-skin="glass"] .lcd-side-card > .lcd-side-link { margin-top: 8px; border-color: transparent; background: transparent; color: var(--brand-700); padding-left: 0; }
-:root[data-skin="glass"] .lcd-side-card > .lcd-side-link:hover:not(:disabled) { background: transparent; border-color: transparent; text-decoration: underline; }
-:root[data-skin="glass"] .lcd-side-rows { display: flex; flex-direction: column; gap: 6px; }
-:root[data-skin="glass"] .lcd-side-row { display: flex; justify-content: space-between; gap: 10px; }
-:root[data-skin="glass"] .lcd-side-row span, :root[data-skin="glass"] .lcd-side-order > span, :root[data-skin="glass"] .lcd-side-doc small, :root[data-skin="glass"] .lcd-side-hist small, :root[data-skin="glass"] .lcd-side-empty { color: var(--text-muted); }
-:root[data-skin="glass"] .lcd-side-row b { font-weight: 500; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-skin="glass"] .lcd-side-order { display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; margin-bottom: 6px; border-radius: 9px; background: #f8f3f6; }
-:root[data-skin="glass"] .lcd-side-order > div { display: flex; justify-content: space-between; gap: 8px; }
-:root[data-skin="glass"] .lcd-side-order .lcd-blue { padding: 0; border: 0; background: transparent; font-weight: 700; color: rgb(var(--skin-ink-rgb)); cursor: pointer; }
-:root[data-skin="glass"] .lcd-side-doc, :root[data-skin="glass"] .lcd-side-hist { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; border-top: 1px solid var(--ink-100); }
-:root[data-skin="glass"] .lcd-side-doc:first-of-type, :root[data-skin="glass"] .lcd-side-hist:first-of-type { border-top: 0; }
-:root[data-skin="glass"] .lcd-side-doc span, :root[data-skin="glass"] .lcd-side-hist span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-skin="glass"] .lcd-side-empty { margin: 0; padding: 6px 0; }
-/* 中间栏比原来窄：商机那一行改成两行的网格，卡片高度跟着内容走 */
-:root[data-skin="glass"] .lcd-opportunity:not(.is-empty) { height: auto; padding-bottom: 12px; }
-:root[data-skin="glass"] .lcd-opportunity-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; height: auto; row-gap: 6px; font-size: 13px; }
-:root[data-skin="glass"] .lcd-opportunity-row > div { flex: none; padding: 0 10px; min-width: 0; border-right: 0; }
-:root[data-skin="glass"] .lcd-opportunity-row > div:first-child { padding: 0; }
-:root[data-skin="glass"] .lcd-opportunity-row > button { grid-column: 3; grid-row: 1; }
 
 /* ===== 深色强调色改浅（2026-10-08 用户确认）：只留主按钮一处深色 ===== */
 /* 左栏选中的模块（2026-10-09 用户选了药丸效果，并要求把文字也包进去）：整个菜单项（图标加文字）是一块玫红药丸，图标和文字都变白，
@@ -332,8 +278,6 @@
 :root[data-skin="glass"] .rail-item .icon-duo .tint { fill: currentColor; fill-opacity: .12; }
 :root[data-skin="glass"] .rail-item:hover:not(.active) .icon-duo .tint { fill-opacity: .32; }
 :root[data-skin="glass"] .follow-options input { width: 16px !important; height: 16px !important; }
-/* 客户编辑表单（快速新建、编辑客户）的输入框原来是 4px 圆角、灰边，和其他输入框的 8px 不一致 */
-:root[data-skin="glass"] .ce-body :is(input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), select, textarea) { border-radius: 8px; border-color: rgba(var(--skin-ink-rgb), 0.14); }
 
 /* 左栏：窗口矮时入口变紧凑（要放在 .icon-duo 的尺寸规则之后） */
 @media (max-height: 800px) {
@@ -348,10 +292,8 @@
 
 /* 主按钮：每个主题都用主色（--primary），不再是黑色（D-028）。带 [data-theme] 是为了和原来科技蓝那条一样强，盖过各页自己的按钮色。 */
 :root[data-skin="glass"][data-theme] button.primary,
-:root[data-skin="glass"][data-theme] .primary,
-:root[data-skin="glass"][data-theme] .lcd-root .lcd-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
-:root[data-skin="glass"][data-theme] button.primary:hover:not(:disabled),
-:root[data-skin="glass"][data-theme] .lcd-root .lcd-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
+:root[data-skin="glass"][data-theme] .primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
+:root[data-skin="glass"][data-theme] button.primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
 
 /* ===== 科技蓝（data-theme="tech"）=====
    和粉色、橙色用同一套新界面，只改“气质”：
@@ -397,5 +339,3 @@
 /* 写死过暖色（偏粉的灰、棕红）的几处，换成冷灰 */
 :root[data-skin="glass"][data-theme="tech"] .tag { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-200); }
 :root[data-skin="glass"][data-theme="tech"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }
-:root[data-skin="glass"][data-theme="tech"] .lcd-person span { background: #5d6c80; }
-:root[data-skin="glass"][data-theme="tech"] .lcd-side-order { background: var(--ink-50); }

@@ -1,11 +1,9 @@
+/* 客户详情（路由 customers 打开一位客户；markup 在 src/customer-detail-ui.js）。
+   这里上半部分只放「机制」：进出场动画、栏宽、折叠、隐藏状态、读屏专用文字、动态类别条的滚动、可滚动区域。
+   外观（页头、卡片、按钮、输入框、页签、表格、徽标、空状态）都来自组件套件（src/ui-kit.css，D-028），
+   这一页自己的排版写在文件末尾的「kit: 客户详情」块里。 */
 .lcd-root {
-  color: #333;
-  font-family: var(--font-ui);
-  font-size: 14px;
-  line-height: 1.45;
-  background: var(--ink-100);
   min-width: 0;
-  padding: 0 0 24px;
 }
 .lcd-view-enter {
   animation: lai-detail-enter var(--motion-detail-enter) var(--ease-out) both;
@@ -47,25 +45,10 @@
     transform: translateY(0);
   }
 }
-@keyframes lai-detail-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes lai-detail-fade-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
 .lcd-root * {
   box-sizing: border-box;
 }
+/* 没换成组件的小按钮（折叠、类别、展开详情、链接）只有文字；组件按钮 .k-btn 的规则更强，不受影响 */
 .lcd-root button {
   font: inherit;
   cursor: pointer;
@@ -75,88 +58,32 @@
   padding: 0;
   line-height: 1.4;
 }
-.lcd-root button:hover {
-  color: var(--brand-500);
-}
-.lcd-root button:focus-visible,
-.lcd-root input:focus-visible,
-.lcd-root textarea:focus-visible {
-  outline: 2px solid var(--brand-500);
-  outline-offset: 2px;
-}
 .lcd-root .icon {
   width: 16px;
   height: 16px;
   vertical-align: middle;
   flex-shrink: 0;
 }
-.lcd-pagebar {
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: var(--ink-100);
-}
-.lcd-pagebar h1 {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0;
-}
-.lcd-pagebar > div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.lcd-root .lcd-pill {
-  height: 32px;
-  padding: 0 20px;
-  border: 1px solid var(--ink-300);
-  background: #fff;
-  border-radius: 18px;
-  white-space: nowrap;
-}
-.lcd-root .lcd-primary {
-  color: #fff;
-  background: var(--brand-500);
-  border: 1px solid var(--brand-500);
-}
-.lcd-root .lcd-primary:hover {
-  color: #fff;
-  background: var(--brand-500);
-}
-.lcd-root .lcd-icon {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #686c74;
-  flex-shrink: 0;
-}
-.lcd-root .lcd-icon.lcd-filter-active { color: var(--color-primary-500); }
-.lcd-return {
-  margin-left: 1px;
-}
+
+/* 三栏：左边资料、联系人；中间商机和页签；右边摘要栏（窗口窄于 1360 时右栏收起） */
 .lcd-columns {
   display: grid;
-  grid-template-columns: clamp(380px, 32.75%, 480px) minmax(400px, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr) minmax(250px, 290px);
+  gap: 12px;
   align-items: start;
 }
 /* 客户设置 → 布局设置：左大右小 */
 .lcd-columns[data-layout="left-large"] {
-  grid-template-columns: minmax(420px, 1.3fr) minmax(360px, 1fr);
-}
-:root[data-skin="glass"] .lcd-columns[data-layout="left-large"] {
   grid-template-columns: minmax(340px, 1.2fr) minmax(0, 1fr) minmax(250px, 290px);
 }
+.lcd-side { display: none; }
+:root[data-skin="glass"] .lcd-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 @media (max-width: 1360px) {
-  :root[data-skin="glass"] .lcd-columns[data-layout="left-large"] { grid-template-columns: minmax(360px, 1.2fr) minmax(0, 1fr); }
+  .lcd-columns { grid-template-columns: clamp(320px, 36%, 420px) minmax(0, 1fr); }
+  .lcd-columns[data-layout="left-large"] { grid-template-columns: minmax(360px, 1.2fr) minmax(0, 1fr); }
+  :root[data-skin="glass"] .lcd-side { display: none; }
 }
-/* 小满外观的两列各有固定下限（380＋400），窗口窄于 1100（Mac 窗口最小 1100，只有浏览器里会遇到）时会撑出页面：改成两列都能缩 */
+/* 窗口窄于 1100（只有浏览器里会遇到）时两栏都能缩，不撑出页面 */
 @media (max-width: 1099px) {
   .lcd-columns { grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1fr); }
   .lcd-columns[data-layout="left-large"] { grid-template-columns: minmax(300px, 1.2fr) minmax(0, 1fr); }
@@ -166,646 +93,10 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-.lcd-card {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.lcd-summary {
-  padding: 16px;
-}
-.lcd-identity {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  min-height: 59px;
-}
-.lcd-person {
-  width: 56px;
-  height: 56px;
-  flex: 0 0 56px;
-  background: linear-gradient(135deg, var(--brand-50), var(--brand-50));
-  border-radius: 4px;
-  overflow: hidden;
-  text-align: center;
-}
-.lcd-person svg {
-  display: block;
-  height: 36px;
-  width: 42px;
-  margin: 0 auto;
-}
-.lcd-person span {
-  display: block;
-  color: #fff;
-  background: var(--ink-400);
-  font-size: 12px;
-  line-height: 20px;
-}
-.lcd-identity-text {
-  min-width: 0;
-  flex: 1;
-}
-.lcd-identity h2 {
-  margin: 0 0 9px;
-  font-size: 18px;
-  line-height: 25px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.lcd-identity h2 button {
-  vertical-align: middle;
-}
-.lcd-identity-text > div {
-  font-size: 12px;
-  line-height: 20px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.lcd-follow {
-  font-size: 22px !important;
-  line-height: 24px !important;
-  color: #65676b !important;
-  padding: 0 4px !important;
-}
-.lcd-follow.on {
-  color: #e5a629 !important;
-}
-.lcd-tags {
-  margin-top: 8px;
-  padding-left: 4px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: #666;
-  min-height: 30px;
-  flex-wrap: wrap;
-}
-.lcd-tag {
-  padding: 2px 5px;
-  line-height: 18px;
-  border: 1px solid transparent;
-  font-size: 12px;
-  border-radius: 2px;
-  color: #6e65bc;
-  background: #f6f2fd;
-}
-.lcd-tag.tag-0 {
-  background: #ffefed;
-  color: #cb8577;
-}
-.lcd-tag.tag-1 {
-  border-color: #8a77d4;
-  background: #fff;
-  color: #7460b7;
-}
-.lcd-root .lcd-add-tag {
-  height: 23px;
-  width: 23px;
-  border: 1px dashed #bbb;
-  color: #a0a0a0;
-  line-height: 20px;
-}
-.lcd-owner {
-  margin-top: 4px;
-  padding-left: 4px;
-  color: #666;
-  line-height: 22px;
-}
-.lcd-owner span {
-  background: #f7f7f8;
-  border-radius: 2px;
-  padding: 2px 5px;
-  color: #333;
-}
-.lcd-summary-fields {
-  display: flex;
-  align-items: flex-start;
-  margin-top: 16px;
-  padding-top: 0;
-  container-type: inline-size;
-}
-.lcd-summary-fields > dl {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  flex: 1;
-  margin: 0;
-  gap: 5px 8px;
-}
-/* Captured summary cells; the existing field identity controls value spacing. */
-.lcd-summary-fields .lcd-field {
-  padding: 4px;
-  border-radius: 4px;
-}
-.lcd-summary-fields .lcd-field dt {
-  margin: 0 0 2px;
-  min-height: 20px;
-  line-height: 20px;
-}
-.lcd-summary-fields :is(
-  [data-summary-field="stage"],
-  [data-summary-field="group"],
-  [data-summary-field="source"],
-  [data-summary-field="website"],
-  [data-summary-field="productType"]
-) dd {
-  min-height: 28px;
-}
-.lcd-field {
-  min-width: 0;
-}
-.lcd-field dt {
-  margin: 0 0 3px;
-  color: var(--text-muted, #75777d);
-  line-height: 22px;
-}
-.lcd-field dd {
-  margin: 0;
-  line-height: 22px;
-  overflow-wrap: anywhere;
-}
-.lcd-stars {
-  display: inline-block;
-  font-size: 16px;
-  line-height: 25.144px;
-  color: #d9d9d9;
-  white-space: nowrap;
-}
-.lcd-stars .lcd-star {
-  display: inline-block;
-  width: 16px;
-  margin-right: 1px;
-}
-.lcd-stars svg {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  position: relative;
-  top: 4.289px;
-}
-.lcd-stars .filled {
-  color: #f4a127;
-}
-/* The settings affordance occupies 28px beside the measured 372px grid switch. */
-@container (max-width: 399.99px) {
-  .lcd-summary-fields > dl { gap: 0; }
-  .lcd-summary-fields .lcd-field dd { line-height: 20px; }
-  .lcd-summary-fields [data-summary-field="customerStars"] dd { line-height: 21px; }
-  .lcd-stars { line-height: 20px; }
-  .lcd-stars svg { top: 3.789px; }
-}
-.lcd-section-head {
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.lcd-section-head h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-}
-.lcd-caret {
-  font-size: 14px;
-  font-weight: 400;
-  color: #555;
-  position: relative;
-  top: -2px;
-}
-.lcd-blue {
-  color: var(--brand-500) !important;
-}
-.lcd-analysis {
-  border-top: 1px solid #eee;
-  margin-top: 8px;
-}
-.lcd-analysis-caption {
-  font-size: 12px;
-  color: var(--text-muted, #777);
-  line-height: 20px;
-  margin: 13px 0 8px;
-}
-.lcd-ai-report {
-  border-left: 2px solid var(--ink-200);
-  background: var(--ink-50);
-  padding: 8px 12px;
-  min-height: 106px;
-  line-height: 20px;
-}
-.lcd-ai-empty {
-  display: flex;
   gap: 12px;
-  align-items: center;
-  min-height: 88px;
-  color: #8c8d99;
 }
-.lcd-ai-empty p {
-  flex: 1;
-  margin: 0;
-}
-.lcd-ai-spark {
-  font-size: 20px;
-  color: #a7aff0;
-}
-.lcd-root .lcd-outline-blue {
-  color: var(--brand-500);
-  border: 1px solid var(--brand-200);
-  border-radius: 4px;
-  padding: 5px 12px;
-  background: #fff;
-}
-.lcd-contacts {
-  padding: 0 16px;
-}
-.lcd-contacts .lcd-card-panel-inner {
-  padding-bottom: 16px;
-}
-.lcd-contacts > .lcd-section-head {
-  height: 48px;
-  gap: 24px;
-  border-bottom: 1px solid #eee;
-}
-.lcd-contacts > .lcd-section-head h3 {
-  font-weight: 700;
-}
-.lcd-contact-header-actions {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  height: 28px;
-}
-.lcd-contact-search-controls {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  height: 28px;
-}
-.lcd-contact-search-row {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 1;
-  display: flex;
-  height: 32px;
-  background: #fff;
-  font-size: 14px;
-  line-height: 22px;
-}
-.lcd-contact-search-row[hidden],
-.lcd-contact[hidden],
-.lcd-contact-search-empty[hidden],
-.lcd-contact-search-input > button[hidden] {
-  display: none;
-}
-.lcd-contact-search-input {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-items: center;
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 4px 0 0 4px;
-  transition: border-color 300ms;
-}
-.lcd-contact-search-input:focus-within {
-  border-color: var(--brand-700);
-}
-.lcd-contact-search-row input {
-  flex: 1;
-  min-width: 0;
-  width: 0;
-  height: 22px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 0;
-  font-size: 14px;
-  line-height: 22px;
-  background: transparent;
-}
-.lcd-contact-search-row input:focus {
-  outline: none;
-  box-shadow: none;
-}
-.lcd-contact-search-row input::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-}
-.lcd-contact-search-input > button {
-  flex: 0 0 18px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-faint, #bfbfbf);
-}
-.lcd-contact-search-input > button svg { width: 14px; height: 14px; }
-.lcd-contact-search-row > button {
-  flex: 0 0 40px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--color-neutral-300);
-  border-left: 0;
-  border-radius: 0 4px 4px 0;
-  background: #fff;
-  color: var(--color-neutral-600);
-  cursor: pointer;
-}
-.lcd-contact-search-row > button svg { width: 16px; height: 16px; }
-.lcd-contact-search-feedback {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-@keyframes lai-contact-search-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.lcd-contact {
-  padding: 14px 0 16px;
-  border-bottom: 1px solid #eee;
-}
-.lcd-contact:last-child {
-  border: 0;
-}
-.lcd-contact-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 28px;
-  margin-bottom: 10px;
-}
-.lcd-contact-title strong {
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.lcd-main-contact {
-  font-size: 12px;
-  line-height: 19px;
-  padding: 0 5px;
-  background: var(--brand-50);
-  color: var(--brand-500);
-  border-radius: 2px;
-}
-.lcd-contact-actions {
-  margin-left: auto;
-  display: flex;
-}
-.lcd-contact dl {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-}
-.lcd-contact .lcd-field {
-  display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
-  gap: 8px;
-}
-.lcd-contact .lcd-field dt {
-  margin: 0;
-}
-.lcd-opportunity {
-  height: 124px;
-  padding: 0 16px 16px;
-}
-.lcd-opportunity.is-empty {
-  height: 48px;
-  padding-bottom: 0;
-}
-.lcd-opportunity > .lcd-section-head {
-  height: 48px;
-}
-.lcd-opportunity-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  height: 28px;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-.lcd-opportunity-row > div {
-  flex: 1;
-  padding: 0 16px;
-  border-right: 1px solid var(--ink-200);
-  color: #72757a;
-  display: flex;
-  gap: 8px;
-  white-space: nowrap;
-}
-.lcd-opportunity-row > div:first-child {
-  padding: 0;
-  align-items: center;
-  color: #333;
-}
-.lcd-opportunity-row > div b {
-  font-weight: 400;
-  color: #333;
-}
-.lcd-phases {
-  display: flex;
-  gap: 0;
-  height: 24px;
-  overflow: hidden;
-}
-.lcd-root .lcd-phase {
-  background: var(--ink-100);
-  position: relative;
-  flex: 1;
-  color: var(--text-muted, #777);
-  font-weight: 600;
-  line-height: 24px;
-  clip-path: polygon(
-    0 0,
-    calc(100% - 18px) 0,
-    100% 50%,
-    calc(100% - 18px) 100%,
-    0 100%,
-    18px 50%
-  );
-  margin-left: -10px;
-  padding-left: 12px;
-}
-.lcd-root .lcd-phase:first-child {
-  clip-path: polygon(
-    0 0,
-    calc(100% - 18px) 0,
-    100% 50%,
-    calc(100% - 18px) 100%,
-    0 100%
-  );
-  margin-left: 0;
-  padding-left: 0;
-}
-.lcd-root .lcd-phase:last-child {
-  clip-path: none;
-  margin-left: 5px;
-  flex: 0.92;
-  padding-left: 0;
-}
-.lcd-root .lcd-phase:hover {
-  background: var(--brand-100);
-  color: var(--brand-500);
-}
-.lcd-schedule {
-  padding: 0 16px;
-  min-height: 48px;
-}
-.lcd-schedule > .lcd-section-head {
-  height: 48px;
-}
-.lcd-schedule-entry {
-  padding: 0 0 12px 17px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  color: var(--text-muted, #777);
-}
-.lcd-schedule-entry button {
-  margin-left: auto;
-}
-.lcd-tabs {
-  display: flex;
-  position: relative;
-  gap: 20px;
-  height: 46px;
-  margin: 0 16px;
-  padding: 8px 0 0;
-  border-bottom: 1px solid #eee;
-  white-space: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.lcd-tabs-card {
-  position: relative;
-  overflow: visible;
-}
-.lcd-tabs.has-overflow {
-  margin-right: 62px;
-}
-.lcd-tabs-more {
-  position: absolute;
-  right: 16px;
-  top: 8px;
-  width: 46px;
-  height: 38px;
-  padding: 8px 16px;
-  color: #333;
-  background: #fff;
-  z-index: 2;
-}
-.lcd-root .lcd-tabs-more:hover {
-  color: #333;
-}
-.lcd-tabs-more svg {
-  width: 14px;
-  height: 14px;
-  vertical-align: middle;
-}
-.lcd-tabs-overflow-menu {
-  position: absolute;
-  right: 16px;
-  top: 46px;
-  z-index: 8;
-  width: 120px;
-  padding: 8px 0;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
-}
-.lcd-tabs-more[hidden],
-.lcd-tabs-overflow-menu[hidden],
-.lcd-tabs-overflow-menu button[hidden] {
-  display: none;
-}
-.lcd-tabs-overflow-menu button {
-  display: block;
-  width: 100%;
-  height: 36px;
-  padding: 5px 12px;
-  color: #333;
-  font-size: 14px;
-  line-height: 26px;
-  text-align: left;
-  background: #fff;
-  transition: background-color 300ms ease;
-}
-.lcd-root .lcd-tabs-overflow-menu button:hover,
-.lcd-tabs-overflow-menu button:focus-visible {
-  color: #333;
-  background: #f5f5f5;
-}
-.lcd-tabs button {
-  position: relative;
-  height: 38px;
-  padding: 0 4px;
-  flex-shrink: 0;
-  font-size: 14px;
-  transition: color var(--motion-tab-indicator) ease, background-color var(--motion-tab-indicator) ease, border-color var(--motion-tab-indicator) ease;
-}
-.lcd-tabs button.active {
-  color: var(--color-primary-500);
-  font-weight: 600;
-}
-.lcd-tabs.lcd-tabs-instant-commit button {
-  /* Commit label geometry before measuring an immediate keyboard/reduced ink. */
-  transition-property: color;
-}
-.lcd-root .lcd-tabs button:hover {
-  color: var(--color-primary-500);
-}
-.lcd-active-indicator {
-  position: absolute;
-  width: 1px;
-  height: 2px;
-  background: var(--color-primary-500);
-  bottom: 0;
-  left: 0;
-  pointer-events: none;
-  transform-origin: left center;
-}
-.lcd-active-indicator.ready {
-  transition: transform var(--motion-tab-indicator) ease;
-}
-.lcd-body {
-  padding: 14px 16px 16px;
-}
-.lcd-body-info {
-  padding-top: 16px;
-}
-.lcd-info-toggle,
-.lcd-card-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.lcd-info-toggle:focus-visible,
-.lcd-card-toggle:focus-visible {
-  outline: 2px solid var(--color-primary-500);
-  outline-offset: 3px;
-  border-radius: 2px;
-}
-.lcd-info-section > .lcd-section-head,
-.lcd-analysis > .lcd-section-head {
-  height: 32px;
-}
+
+/* 折叠：卡片和资料分组 */
 .lcd-info-panel,
 .lcd-card-panel {
   display: flex;
@@ -820,116 +111,66 @@
 [data-detail-card][data-collapsed="true"] > .lcd-card-panel {
   display: none;
 }
-.lcd-info-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 8%;
-  row-gap: 22px;
-  margin: 6px 8px 20px;
-}
-.lcd-info-section .lcd-info-fields {
-  margin-bottom: 4px;
-}
-.lcd-info-fields .lcd-field {
-  min-height: 40px;
-}
-.lcd-rule {
-  height: 1px;
-  background: #eee;
-  margin: 16px 0 0;
-}
-.lcd-ai-disclosure {
-  text-align: center;
-  color: #a0a1a5;
-  font-size: 12px;
-  margin: 0;
-  line-height: 20px;
-}
-.lcd-body-history {
-  padding-top: 22px;
-  min-height: 285px;
-}
-.lcd-timeline {
-  margin: 0 0 12px 4px;
-  border-left: 1px solid var(--ink-200);
-}
-.lcd-timeline article {
+
+/* 联系人搜索：搜索框盖在标题右侧的按钮上；结果只念给读屏 */
+.lcd-contact-header-actions {
   position: relative;
-  margin-left: 20px;
-  padding: 0 0 22px;
-  min-height: 68px;
-}
-.lcd-timeline article:before {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--brand-500);
-  background: #fff;
-  border-radius: 50%;
-  left: -26px;
-  top: 2px;
-}
-.lcd-timeline time {
-  display: block;
-  color: #909195;
-  font-size: 14px;
-  margin-bottom: 3px;
-}
-.lcd-event-body {
-  position: relative;
-  line-height: 23px;
-  border-bottom: 1px solid #eee;
-  padding-right: 30px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.lcd-root .lcd-event-expand {
-  position: absolute;
-  right: 0;
-  top: -24px;
-  color: #888;
-}
-.lcd-timeline .lcd-operation-record:before {
-  top: 7px;
-}
-.lcd-root .lcd-operation-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 45px;
-  text-align: left;
-}
-.lcd-operation-head-main {
+  flex: 1;
   min-width: 0;
-  padding-right: 8px;
+  height: 28px;
 }
-.lcd-operation-head time,
-.lcd-operation-description {
-  display: block;
-  margin: 0;
-  font-size: 14px;
-  line-height: 22px;
-  font-weight: 400;
+.lcd-contact-search-row {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  display: flex;
 }
-.lcd-operation-head time { color: var(--text-muted, #8c8c8c); }
-.lcd-operation-description {
-  color: #333;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.lcd-contact-search-row[hidden],
+.lcd-contact[hidden],
+.lcd-contact-search-feedback[hidden],
+.lcd-contact-search-input > button[hidden] {
+  display: none;
 }
-.lcd-operation-chevron {
-  flex: none;
-  color: #666;
-  font-size: 18px;
-  line-height: 18px;
-  margin-top: 1px;
-  transition: none;
+.lcd-contact-search-row input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
 }
-.lcd-operation-record.is-expanded .lcd-operation-chevron {
-  transform: rotate(180deg);
+.lcd-contact-search-feedback {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
+
+/* 页签：放不下时右边出现「更多」按钮，被挤掉的页签进下拉菜单 */
+.lcd-tabs-card {
+  position: relative;
+}
+.lcd-tabs {
+  position: relative;
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.lcd-tabs-more[hidden],
+.lcd-tabs-overflow-menu[hidden],
+.lcd-tabs-overflow-menu button[hidden] {
+  display: none;
+}
+.lcd-tabs.lcd-tabs-instant-commit button {
+  /* Commit label geometry before measuring an immediate keyboard/reduced ink. */
+  transition-property: color;
+}
+/* 分段页签自己就标出当前页，下划线指示条不再画（位置仍由 customer-motion.js 计算） */
+.lcd-active-indicator {
+  display: none;
+}
+
+/* 动态、操作历史：展开详情 */
 .lcd-operation-detail,
 .lcd-activity-detail {
   display: grid;
@@ -947,313 +188,22 @@
   grid-template-rows: 1fr;
   opacity: 1;
 }
-.lcd-operation-detail dl,
-.lcd-activity-detail dl {
-  margin: 8px 0 0;
-  padding: 12px 16px;
-  background: var(--ink-50);
-  border-radius: 4px;
+.lcd-operation-record.is-expanded .lcd-operation-chevron {
+  transform: rotate(180deg);
 }
-.lcd-operation-detail dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 16px;
-  padding: 16px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-}
-.lcd-operation-detail dl > div,
-.lcd-activity-detail dl > div {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 12px;
-  margin: 4px 0;
-}
-.lcd-operation-detail dl > div {
-  display: block;
-  min-width: 0;
-  margin: 0;
-}
-.lcd-operation-detail dl > div:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-}
-.lcd-operation-detail dt,
-.lcd-operation-detail dd {
-  line-height: 22px;
-}
-.lcd-operation-detail dt,
-.lcd-activity-detail dt { color: var(--text-muted, #777); }
-.lcd-operation-detail dd,
-.lcd-activity-detail dd { margin: 0; overflow-wrap: anywhere; }
 .lcd-activity-instant .lcd-activity-detail { transition: none; }
-@media (max-width: 1200px) {
-  .lcd-operation-detail dl { grid-template-columns: minmax(0, 1fr); }
-  .lcd-operation-detail dl > div:last-child:nth-child(odd) { grid-column: auto; }
-}
-.lcd-timeline-owner {
-  margin: 5px 0 10px;
-}
-.lcd-timeline-owner span {
-  color: #555;
-}
-.lcd-timeline.is-activity article:before {
-  width: 13px;
-  height: 13px;
-  border: 4px solid var(--brand-100);
-  background: var(--brand-300);
-  left: -28px;
-  box-shadow: 0 0 0 3px var(--brand-50);
-}
-.lcd-timeline.is-activity .lcd-event-body {
-  background: var(--ink-50);
-  border: 0;
-  border-radius: 5px;
-  padding: 14px 16px;
-  min-height: 66px;
-}
-.lcd-timeline.is-activity .lcd-event-expand {
-  position: static;
-  color: var(--brand-500);
-  margin-left: 12px;
-}
-.lcd-timeline.is-activity:has(.lcd-quick-record):not(:has(> article:not(.lcd-quick-record))) {
-  border-left: 0;
-}
-.lcd-timeline.is-activity .lcd-quick-record {
-  margin-left: 26px;
-  padding-bottom: 20px;
-  min-height: 0;
-}
-.lcd-timeline.is-activity .lcd-quick-record:before {
+.lcd-time-group-body[hidden],
+.lcd-activity-tools-buttons[hidden],
+.lcd-activity-search-row[hidden] {
   display: none;
 }
-.lcd-quick-record:not(:last-child):after {
-  content: "";
-  position: absolute;
-  top: 10px;
-  bottom: 0;
-  left: -21.5px;
-  border-left: 1px dashed #d9d9d9;
-}
-.lcd-quick-record .lcd-activity-icon {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  left: -33px;
-  top: .5px;
-  z-index: 1;
-}
-.lcd-quick-record time {
-  color: #666;
-  line-height: 22px;
-  margin: 0;
-}
-.lcd-quick-record .lcd-timeline-owner {
-  display: flex;
-  align-items: center;
-  min-height: 28px;
-  line-height: 28px;
-  margin: 0;
-  color: #333;
-}
-.lcd-quick-record .lcd-activity-separator {
-  width: 1px;
-  height: 13px;
-  margin: 0 8px;
-  background: #333;
-  flex: none;
-}
-.lcd-quick-record .lcd-activity-actor {
-  color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.lcd-timeline.is-activity .lcd-quick-record .lcd-timeline-owner .lcd-event-expand {
-  margin-left: auto;
-  flex: none;
-  font-size: 12px;
-  line-height: 20px;
-  height: 28px;
-  min-height: 28px;
-  padding: 0 4px;
-}
-.lcd-timeline.is-activity .lcd-quick-record .lcd-event-body {
-  background: var(--ink-50);
-  padding: 12px;
-  border-radius: 8px;
-  min-height: 0;
-  line-height: 20px;
-  margin-top: 8px;
-  color: #333;
-}
-.lcd-quick-record .lcd-activity-content {
-  display: block;
-}
-.lcd-quick-record .lcd-activity-contact {
-  margin-top: 4px;
-  color: #333;
-}
-.lcd-quick-record .lcd-activity-contact > span {
-  color: #666;
-}
-.lcd-followup-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 3px 0 8px;
-}
-.lcd-followup-label > div {
-  display: flex;
-  gap: 16px;
-}
-.lcd-ai-text {
-  background: linear-gradient(90deg, #91cfdb, #aa8be6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent !important;
-}
-.lcd-followup-form {
-  margin: 0 0 24px;
-}
-.lcd-followup-form textarea {
-  display: block;
-  width: 100%;
-  height: 32px;
-  min-height: 32px;
-  resize: vertical;
-  border: 1px solid var(--ink-300);
-  border-radius: 3px;
-  font: inherit;
-  line-height: 22px;
-  padding: 4px 12px;
-  color: #333;
-  background: #fff;
-}
-.lcd-followup-form textarea::placeholder {
-  color: #b7b8ba;
-}
-.lcd-followup-form:focus-within textarea,
-.lcd-followup-form.has-draft textarea {
-  min-height: 108px;
-}
+/* 写跟进：框有焦点或有草稿时才展开底下的日期和按钮 */
 .lcd-followup-footer {
   display: none;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-  gap: 12px;
 }
 .lcd-followup-form:focus-within .lcd-followup-footer,
 .lcd-followup-form.has-draft .lcd-followup-footer {
   display: flex;
-}
-.lcd-followup-footer input {
-  font: inherit;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  padding: 5px;
-  width: 150px;
-}
-.lcd-followup-footer label {
-  min-width: 0;
-  color: var(--text-muted, #777);
-}
-.lcd-followup-footer > div {
-  display: flex;
-  flex-shrink: 0;
-  margin-left: auto;
-  gap: 8px;
-}
-.lcd-followup-footer button {
-  padding: 5px 12px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-}
-.lcd-followup-footer input[type="datetime-local"] {
-  width: 200px;
-}
-.lcd-pool-notice {
-  margin: 0 0 12px;
-  padding: 8px 12px;
-  border: 1px solid var(--color-warning);
-  border-radius: 4px;
-  background: var(--color-warning-soft);
-  color: #7a5200;
-  font-size: 13px;
-}
-.lcd-pool-notice.is-due {
-  border-color: var(--color-danger);
-  background: var(--color-danger-soft);
-  color: #a8071a;
-}
-.lcd-root button[disabled][data-action="edit"] {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-.popover.followup-template-popover {
-  width: min(320px, calc(100vw - 24px));
-  max-height: min(360px, calc(100vh - 80px));
-  overflow-y: auto;
-  padding: 10px;
-  z-index: 30;
-}
-.followup-template-group h5 {
-  margin: 6px 4px 4px;
-  font-size: 12px;
-  color: var(--ink-500, #888);
-}
-.followup-template-item {
-  display: block;
-  width: 100%;
-  margin: 0 0 4px;
-  padding: 6px 8px;
-  border: 1px solid var(--ink-200, #e5e5e5);
-  border-radius: 4px;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-.followup-template-item:hover {
-  background: var(--ink-100, #f5f5f5);
-}
-.followup-template-empty {
-  margin: 4px 4px 10px;
-  color: var(--ink-500, #888);
-}
-.followup-template-settings {
-  padding: 5px 12px;
-  border: 1px solid var(--ink-300, #ddd);
-  border-radius: 4px;
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-.lcd-journey {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  gap: 8px;
-}
-.lcd-activity-tools,
-.lcd-activity-tools-buttons {
-  display: flex;
-  align-items: center;
-}
-.lcd-journey > .lcd-button-group { flex: 1 1 auto; }
-.lcd-activity-tools { margin-left: auto; }
-.lcd-activity-tools-buttons[hidden] { display: none; }
-.lcd-activity-refresh-status {
-  color: var(--color-neutral-600);
-  font-size: 12px;
-  white-space: nowrap;
 }
 .lcd-activity-refreshing svg {
   animation: lai-activity-refresh-pulse 700ms ease-in-out infinite;
@@ -1261,103 +211,6 @@
 @keyframes lai-activity-refresh-pulse {
   50% { opacity: .45; transform: rotate(-12deg); }
 }
-.lcd-button-group {
-  display: flex;
-  white-space: nowrap;
-}
-.lcd-button-group button {
-  height: 32px;
-  padding: 4px 14px;
-  border: 1px solid #d9d9df;
-  border-right: 0;
-  line-height: 22px;
-}
-.lcd-button-group button:first-child {
-  border-radius: 4px 0 0 4px;
-}
-.lcd-button-group button:last-child {
-  border-right: 1px solid #d9d9df;
-  border-radius: 0 4px 4px 0;
-}
-.lcd-button-group .selected {
-  color: var(--brand-500);
-  border-color: var(--brand-300);
-  box-shadow: 1px 0 0 var(--brand-300);
-  z-index: 1;
-}
-.lcd-activity-filters {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  white-space: nowrap;
-}
-.lcd-activity-search-row {
-  display: flex;
-  align-items: center;
-  position: relative;
-  height: 32px;
-  max-width: 320px;
-  padding-right: 1px;
-  font-size: 14px;
-}
-.lcd-activity-search-row[hidden] {
-  display: none;
-}
-.lcd-activity-search-field {
-  display: inline-flex;
-  align-items: center;
-  height: 32px;
-  padding: 4px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px 0 0 4px;
-  transition: border-color 300ms;
-}
-.lcd-activity-search-field:focus-within { border-color: var(--brand-700); }
-.lcd-root .lcd-activity-search-field input {
-  width: 156px;
-  min-width: 0;
-  height: 22px;
-  padding: 0;
-  line-height: 22px;
-  border: 0;
-  border-radius: 0;
-  outline: none;
-  box-shadow: none;
-}
-.lcd-root .lcd-activity-search-field > button {
-  width: 18px;
-  height: 14px;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  margin-left: 4px;
-  padding: 0 0 0 4px;
-  border: 0;
-  border-radius: 0;
-  color: var(--text-faint, #bfbfbf);
-  background: transparent;
-}
-.lcd-root .lcd-activity-search-field > button:hover { color: #aaa; }
-.lcd-activity-search-field > button svg { width: 14px; height: 14px; }
-.lcd-root .lcd-activity-search-field > button[hidden] { display: none; }
-.lcd-root .lcd-activity-search-row > button {
-  width: 40px;
-  height: 32px;
-  min-height: 32px;
-  padding: 0;
-  margin-left: -1px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #d9d9d9;
-  border-radius: 0 4px 4px 0;
-  color: var(--text-faint, #bfbfbf);
-}
-.lcd-root .lcd-activity-search-row > button:hover {
-  color: var(--brand-500);
-  border-color: var(--brand-500);
-}
-.lcd-activity-search-row > button svg { width: 16px; height: 16px; }
 #activity-search-status {
   position: absolute;
   width: 1px;
@@ -1367,317 +220,303 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.lcd-activity-query-hint {
-  margin: 16px 0 0;
-  font-size: 12px;
-  line-height: 16px;
-  color: #666;
-}
-.lcd-activity-list [data-activity-filter] {
-  padding: 0 12px;
-  position: relative;
-  font-size: 14px;
-}
-.lcd-activity-list [data-activity-filter]:first-child {
-  padding-left: 0;
-}
-.lcd-activity-list [data-activity-filter] + [data-activity-filter]:before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 4px;
-  height: 12px;
-  width: 1px;
-  background: #e3e3e6;
-}
-.lcd-activity-filters .selected {
-  color: var(--brand-500);
-  font-weight: 600;
-}
-.lcd-body-activity > .lcd-section-head {
-  height: 38px;
-}
-.lcd-body-activity > .lcd-section-head h3 {
-  font-size: 14px;
-  font-weight: 400;
-}
-.lcd-time-group-head {
-  display: block;
-  width: 100%;
-  min-height: 38px;
-  padding: 7px 0;
-  border: 0;
-  border-bottom: 1px solid var(--color-neutral-200);
-  background: transparent;
-  color: var(--color-neutral-900);
-  text-align: left;
-  font-size: 14px;
-  cursor: pointer;
-}
-.lcd-time-group-head .lcd-caret {
-  display: inline-block;
-  width: 15px;
-  color: var(--color-neutral-600);
-}
-.lcd-time-group-body[hidden] {
-  display: none;
-}
-.lcd-heading-inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-.lcd-heading-inline > .lcd-icon {
-  margin-left: auto;
-}
-.lcd-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0 0 16px;
-}
-.lcd-metrics > div {
-  padding: 8px;
-  background: var(--ink-50);
-  border: 1px solid #ededf2;
-  border-radius: 2px;
-  min-height: 60px;
-}
-.lcd-metrics span {
-  color: var(--text-muted, #777);
-  display: block;
-  line-height: 20px;
-}
-.lcd-metrics strong {
-  display: block;
-  font-weight: 600;
-  margin-top: 4px;
-  font-size: 14px;
-}
-.lcd-table-scroll {
-  overflow: auto;
-}
-.lcd-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  white-space: nowrap;
-  font-size: 14px;
-}
-.lcd-table th {
-  background: var(--ink-50);
-  font-weight: 500;
-  height: 44px;
-  padding: 8px;
-  border-bottom: 1px solid var(--ink-100);
-}
-.lcd-table th + th {
-  border-left: 1px solid var(--ink-100);
-}
-.lcd-table td {
-  padding: 9px 8px;
-  height: 40px;
-  border-bottom: 1px solid #eee;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lcd-table .lcd-no-data {
-  text-align: center;
-  height: 70px;
-  color: var(--text-muted, #999);
-}
-.lcd-pagination {
-  height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  color: var(--text-muted, #777);
-  white-space: pre;
-}
-.lcd-pagination button {
-  border: 1px solid #ddd;
-  padding: 2px 9px;
-  border-radius: 3px;
-}
-.lcd-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 170px;
-  color: #444;
-  gap: 8px;
-}
-.lcd-empty svg {
-  height: 76px;
-  width: 88px;
-}
-.lcd-doc-toolbar {
-  height: 46px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 5px 0 9px;
-}
-.lcd-doc-search {
-  height: 32px;
-  width: 240px;
-  border: 1px solid var(--ink-200);
-  border-radius: 3px;
-  display: flex;
-}
-.lcd-doc-search input {
-  width: 198px;
-  min-width: 0;
-  font: inherit;
-  padding: 5px 12px;
-  border: 0;
-  background: transparent;
-}
-.lcd-doc-search input::placeholder {
-  color: #babcc1;
-}
-.lcd-doc-search button {
-  border-left: 1px solid var(--ink-200);
-  width: 39px !important;
-  height: 30px !important;
-}
-.lcd-doc-layout {
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  min-height: 496px;
-}
-.lcd-doc-layout > aside {
-  border-right: 1px solid #eee;
-  padding: 0 8px 0 24px;
-}
-.lcd-doc-layout > aside button {
-  width: 100%;
-  text-align: left;
-  border-radius: 4px;
-  padding: 8px 5px;
-  background: var(--brand-50);
-  color: var(--brand-500);
-  font-weight: 600;
-}
-.lcd-doc-layout > section {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-#document-results {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-}
-.lcd-doc-grid {
-  min-height: 440px;
-  flex: 1;
-  overflow: auto;
-  border-bottom: 5px solid #eee;
-  border-radius: 3px;
-}
-.lcd-doc-grid .lcd-empty {
-  min-height: 168px;
-  border-bottom: 1px solid #eee;
-}
-.lcd-doc-grid table {
-  min-width: 700px;
-}
-#document-results .lcd-pagination {
-  gap: 12px;
-  padding: 0 12px;
-  white-space: nowrap;
-}
-#document-results .lcd-pagination > button:not([data-action="document-page-size"]) {
-  border: 0;
-  padding: 2px 4px;
-  font-size: 20px;
-  line-height: 1;
-}
-#document-results .lcd-pagination button:disabled {
-  color: var(--ink-300);
-  cursor: default;
-}
-#document-results .lcd-doc-selected {
-  margin-right: auto;
-  color: var(--brand-500);
-}
-#document-results .lcd-doc-selected button {
-  margin-left: 8px;
-  border: 0;
-  color: var(--brand-500);
-  padding: 0;
-}
-.lcd-feature-view {
-  min-height: 325px;
-}
-.lcd-feature-view > .lcd-outline-blue {
-  display: block;
-  margin: 0 auto 30px;
-}
-.lcd-root .error:empty {
-  display: none;
-}
-.lcd-root .error {
-  margin-top: 5px;
-  color: #d14343;
-}
-@media (max-width: 1380px) {
-  .lcd-opportunity-row > div {
-    padding: 0 8px;
-  }
-  .lcd-contact .lcd-field {
-    grid-template-columns: 80px minmax(0, 1fr);
-  }
-}
-/* Captured field rows advance 64 px; allow full detail-page scrolling. */
+/* 动态类别条：左右两个箭头和一个可平移的视口（activity-category-navigation.js 计算位置） */
+.lcd-activity-filters { display: flex; align-items: center; white-space: nowrap; }
+.lcd-activity-clip { flex: 1; min-width: 0; overflow: hidden; height: 24px; }
+.lcd-activity-list { display: flex; position: relative; width: max-content; white-space: nowrap; transition: transform 300ms ease; }
+.lcd-root .lcd-activity-arrow[hidden] { display: none; }
+
+/* 详情页整页可以滚动 */
 .customer-main:has(.lcd-root) {
   overflow-x: auto;
   overflow-y: auto;
-}
-.customer-main:has(.lcd-root)::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.customer-main:has(.lcd-root)::-webkit-scrollbar-thumb {
-  background: #9ea1a8;
-  border-radius: 12px;
-}
-.customer-main:has(.lcd-root)::-webkit-scrollbar-track {
-  background: var(--ink-100);
-  border-radius: 3px;
-}
-.lcd-info-fields {
-  row-gap: 17px;
-  column-gap: 6%;
-}
-.lcd-root .lcd-add-tag {
-  min-height: 23px;
-}
-.lcd-root .lcd-icon {
-  min-height: 28px;
-}
-.lcd-tabs {
-  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--input) transparent;
 }
 
-/* Captured category strip: two24×22 arrows and a local transform viewport. */
-.lcd-activity-clip { flex: 1; min-width: 0; overflow: hidden; height: 22px; }
-.lcd-activity-list { display: flex; position: relative; width: max-content; white-space: nowrap; transition: transform 300ms ease; }
-.lcd-root .lcd-activity-list [data-activity-filter] { flex-shrink: 0; min-height: 22px; height: 22px; line-height: 22px; transform: none; }
-.lcd-root .lcd-activity-list [data-activity-filter]:focus-visible { outline-offset: -2px; }
-.lcd-root .lcd-activity-arrow { width: 24px; height: 22px; min-height: 22px; flex: 0 0 24px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 0; color: #333; background: transparent; transform: none; }
-.lcd-root .lcd-activity-arrow:hover { color: #333; background: transparent; }
-.lcd-root .lcd-activity-arrow[hidden] { display: none; }
-.lcd-activity-arrow .icon { width: 14px; height: 14px; }
+/* kit: 客户详情 */
+/* 客户详情的排版。页头 .k-pageheader，卡片 .k-card，按钮 .k-btn（图标按钮 .k-btn--ghost + .lcd-icon 定成 28×28），
+   页签 .k-tabs，输入 .k-input / .k-textarea，表格 .k-table，翻页 .k-pager，徽标 .k-badge，空状态 .k-empty 都来自组件套件；
+   这里只放这一页自己的排版。只用 ui-tokens.css 的变量；每条规则带 :root[data-skin]，
+   并且比组件的同名规则多一级，才能盖过后加载的 ui-kit.css。颜色只表示意义：主色是当前选中、链接和主按钮。 */
+:root[data-skin] .lcd-root { padding: 0 0 var(--space-3); background: transparent; color: var(--fg); font-family: var(--font-ui); font-size: var(--text-sm); line-height: 1.5; }
+/* 被 hidden 藏起来的东西一定不显示（下面有些规则给了 display） */
+:root[data-skin] .lcd-root [hidden] { display: none !important; }
+:root[data-skin] .lcd-root :is(button, input, textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+:root[data-skin] .lcd-root .k-btn.lcd-icon { width: 28px; height: 28px; min-height: 28px; padding: 0; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .k-btn.lcd-icon:hover:not(:disabled) { color: var(--fg); }
+:root[data-skin] .lcd-root .k-btn.lcd-filter-active,
+:root[data-skin] .lcd-root .k-btn.lcd-filter-active:hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-fg); }
+:root[data-skin] .lcd-root .k-btn:disabled[data-action="edit"] { cursor: not-allowed; }
+/* 链接样式的文字按钮 */
+:root[data-skin] .lcd-root button.lcd-blue,
+:root[data-skin] .lcd-root button.lcd-blue:hover:not(:disabled) { padding: 0; border: 0; background: transparent; color: var(--primary); font-weight: 500; cursor: pointer; }
+:root[data-skin] .lcd-root button.lcd-blue:hover:not(:disabled) { text-decoration: underline; }
 
-.lcd-phases .lcd-phase.is-current {
-  font-weight: 700;
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.28);
+/* 页头：返回按钮和标题在左，操作在右；滚动时停在顶上 */
+:root[data-skin] .lcd-pagebar.k-pageheader { position: sticky; top: 0; z-index: 5; min-height: 48px; padding: 0 0 var(--space-3); background: var(--bg); }
+:root[data-skin] .lcd-pagebar .k-pageheader-text { align-items: center; flex-wrap: nowrap; gap: var(--space-3); }
+:root[data-skin] .lcd-pagebar .k-pageheader-title { white-space: nowrap; }
+:root[data-skin] .lcd-pagebar .lcd-return { gap: 4px; padding: 0 10px 0 6px; }
+:root[data-skin] .lcd-pagebar .lcd-return .icon { width: 14px; height: 14px; }
+:root[data-skin] .lcd-pagebar .k-pageheader-actions { flex-wrap: nowrap; }
+
+/* 公海提醒：琥珀色是「快到期」，红色是「已到期」 */
+:root[data-skin] .lcd-root .lcd-pool-notice { margin: 0 0 var(--space-3); padding: 8px 12px; border: 1px solid var(--warning); border-radius: var(--r-lg); background: var(--warning-bg); color: var(--warning-fg); font-size: var(--text-sm); }
+:root[data-skin] .lcd-root .lcd-pool-notice.is-due { border-color: var(--danger); background: var(--danger-bg); color: var(--danger-fg); }
+
+/* 卡片和卡片标题 */
+:root[data-skin] .lcd-root .lcd-card.k-card { overflow: hidden; }
+:root[data-skin] .lcd-root .lcd-tabs-card.k-card { overflow: visible; }
+:root[data-skin] .lcd-root .lcd-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 44px; }
+:root[data-skin] .lcd-root .lcd-section-head h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-base); font-weight: 600; line-height: 22px; white-space: nowrap; color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-caret { display: inline-block; width: 12px; font-size: var(--text-sm); font-weight: 400; color: var(--muted-fg); text-align: center; }
+:root[data-skin] .lcd-root button:is(.lcd-card-toggle, .lcd-info-toggle) { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+:root[data-skin] .lcd-root .lcd-heading-inline { display: flex; align-items: center; gap: 4px; flex: 1; justify-content: flex-end; }
+:root[data-skin] .lcd-root .k-empty { min-height: 120px; padding: var(--space-6) var(--space-4); }
+
+/* 左栏：身份卡 */
+:root[data-skin] .lcd-root .lcd-summary { padding: var(--space-4); }
+:root[data-skin] .lcd-root .lcd-identity { display: flex; align-items: flex-start; gap: var(--space-3); }
+:root[data-skin] .lcd-root .lcd-person { display: flex; flex: 0 0 56px; flex-direction: column; align-items: center; gap: 6px; }
+:root[data-skin] .lcd-root .lcd-person svg { display: block; width: 44px; height: 44px; padding: 9px 8px 0; border-radius: var(--r-lg); background: var(--muted-bg); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-person svg :is(circle, path) { fill: var(--ink-400); }
+:root[data-skin] .lcd-root .lcd-person > span { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: var(--r-sm); background: var(--muted-bg); color: var(--muted-fg); font-size: var(--text-xs); font-weight: 500; white-space: nowrap; }
+:root[data-skin] .lcd-root .lcd-identity-text { flex: 1; min-width: 0; }
+:root[data-skin] .lcd-root .lcd-identity h2 { margin: 0 0 4px; font-size: var(--text-lg); font-weight: 600; line-height: 24px; overflow-wrap: anywhere; color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-identity-text > div { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .k-btn.lcd-follow { flex: none; width: 28px; height: 28px; min-height: 28px; padding: 0; color: var(--muted-fg); font-size: var(--text-lg); }
+:root[data-skin] .lcd-root .k-btn.lcd-follow.on,
+:root[data-skin] .lcd-root .k-btn.lcd-follow.on:hover:not(:disabled) { color: var(--warning); }
+:root[data-skin] .lcd-root .lcd-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 28px; margin-top: var(--space-3); font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .k-btn.lcd-add-tag { width: 24px; height: 24px; min-height: 24px; }
+:root[data-skin] .lcd-root .lcd-owner { margin-top: 6px; font-size: var(--text-xs); line-height: 20px; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-owner span { font-size: var(--text-sm); color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-summary-fields { display: flex; align-items: flex-start; gap: 8px; margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+:root[data-skin] .lcd-root .lcd-summary-fields > dl { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; margin: 0; }
+:root[data-skin] .lcd-root .lcd-field { min-width: 0; }
+:root[data-skin] .lcd-root .lcd-field dt { margin: 0 0 2px; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-field dd { margin: 0; line-height: 20px; overflow-wrap: anywhere; color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-stars { display: inline-flex; gap: 2px; color: var(--input); white-space: nowrap; vertical-align: middle; }
+:root[data-skin] .lcd-root .lcd-star { display: inline-flex; }
+:root[data-skin] .lcd-root .lcd-stars svg { width: 14px; height: 14px; }
+:root[data-skin] .lcd-root .lcd-star.filled { color: var(--warning); }
+
+/* 左栏：计划日程、联系人 */
+:root[data-skin] .lcd-root .lcd-schedule { padding: 0 var(--space-4); }
+:root[data-skin] .lcd-root .lcd-schedule-entry { display: flex; align-items: center; gap: 8px; padding: 0 0 var(--space-3); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-schedule-entry > .k-btn { margin-left: auto; }
+:root[data-skin] .lcd-root .lcd-contacts { padding: 0 var(--space-4); }
+:root[data-skin] .lcd-root .lcd-contacts > .lcd-section-head { gap: var(--space-4); border-bottom: 1px solid var(--border); }
+:root[data-skin] .lcd-root .lcd-contacts .lcd-card-panel-inner { padding-bottom: var(--space-2); }
+:root[data-skin] .lcd-root .lcd-contact-search-controls { display: flex; align-items: center; justify-content: flex-end; height: 28px; }
+:root[data-skin] .lcd-root .lcd-contact-search-row { height: 32px; background: var(--card-bg); }
+:root[data-skin] .lcd-root .lcd-contact-search-input { display: flex; flex: 1; align-items: center; min-width: 0; border: 1px solid var(--input); border-right: 0; border-radius: var(--radius) 0 0 var(--radius); transition: border-color var(--motion-fast) var(--ease-standard); }
+:root[data-skin] .lcd-root .lcd-contact-search-input:focus-within { border-color: var(--ring); }
+:root[data-skin] .lcd-root .lcd-contact-search-row input { flex: 1; width: 0; min-width: 0; height: 30px; padding: 0 10px; border: 0; border-radius: 0; background: transparent; color: var(--fg); font: inherit; outline: none; box-shadow: none; }
+:root[data-skin] .lcd-root .lcd-contact-search-input > button:not(.k-btn) { flex: 0 0 22px; height: 22px; color: var(--input); }
+:root[data-skin] .lcd-root .lcd-contact-search-input > button svg { width: 14px; height: 14px; }
+:root[data-skin] .lcd-root .lcd-contact-search-row > button:not(.k-btn) { display: inline-flex; flex: 0 0 36px; align-items: center; justify-content: center; height: 32px; border: 1px solid var(--input); border-radius: 0 var(--radius) var(--radius) 0; background: var(--card-bg); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-contact-search-row > button:not(.k-btn):hover:not(:disabled) { background: var(--muted-bg); border-color: var(--input); }
+:root[data-skin] .lcd-root .lcd-contact-search-row > button svg { width: 16px; height: 16px; }
+:root[data-skin] .lcd-root .lcd-contact { padding: var(--space-3) 0; border-bottom: 1px solid var(--border); }
+:root[data-skin] .lcd-root .lcd-contact:last-child { border-bottom: 0; }
+:root[data-skin] .lcd-root .lcd-contact-title { display: flex; align-items: center; gap: 8px; min-height: 28px; margin-bottom: 6px; }
+:root[data-skin] .lcd-root .lcd-contact-title strong { font-weight: 600; overflow-wrap: anywhere; }
+:root[data-skin] .lcd-root .lcd-contact-actions { display: flex; margin-left: auto; }
+:root[data-skin] .lcd-root .lcd-contact dl { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+:root[data-skin] .lcd-root .lcd-contact .lcd-field { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px; }
+:root[data-skin] .lcd-root .lcd-contact .lcd-field dt { margin: 0; font-size: var(--text-sm); line-height: 20px; }
+
+/* 中栏：进行中的商机 */
+:root[data-skin] .lcd-root .lcd-opportunity { padding: 0 var(--space-4) var(--space-3); }
+:root[data-skin] .lcd-root .lcd-opportunity.is-empty { padding-bottom: 0; }
+:root[data-skin] .lcd-root .lcd-opportunity-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; row-gap: 6px; margin-bottom: var(--space-2); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-opportunity-row > div { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 10px; white-space: nowrap; }
+:root[data-skin] .lcd-root .lcd-opportunity-row > div:first-child { padding: 0; color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-opportunity-row > div b { font-weight: 500; color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-opportunity-row > button { grid-column: 3; grid-row: 1; }
+/* 商机阶段：箭头条；当前阶段用浅主色 */
+:root[data-skin] .lcd-root .lcd-phases { display: flex; height: 24px; overflow: hidden; }
+:root[data-skin] .lcd-root button.lcd-phase {
+  position: relative; flex: 1; margin-left: -10px; padding-left: 12px; border-radius: 0; background: var(--muted-bg); color: var(--muted-fg);
+  font-size: var(--text-xs); font-weight: 500; line-height: 24px;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 18px 50%);
 }
-/* 右侧摘要栏由 skin-glass.css 显示（data-skin 一直是 glass） */
-.lcd-side { display: none; }
+:root[data-skin] .lcd-root button.lcd-phase:first-child { margin-left: 0; padding-left: 0; clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%); }
+:root[data-skin] .lcd-root button.lcd-phase:last-child { flex: 0.92; margin-left: 5px; padding-left: 0; clip-path: none; }
+:root[data-skin] .lcd-root button.lcd-phase:hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-fg); }
+:root[data-skin] .lcd-root button.lcd-phase.is-current { background: var(--accent-bg); color: var(--accent-fg); font-weight: 600; }
+
+/* 中栏：页签卡片 */
+:root[data-skin] .lcd-root .lcd-tabs.k-tabs { display: flex; width: fit-content; max-width: calc(100% - 32px); margin: var(--space-3) var(--space-4) 0; }
+:root[data-skin] .lcd-root .lcd-tabs.has-overflow { max-width: calc(100% - 72px); }
+:root[data-skin] .lcd-root .lcd-tabs .k-tab { flex-shrink: 0; transition: color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard); }
+:root[data-skin] .lcd-root .k-btn.lcd-tabs-more { position: absolute; top: var(--space-3); right: var(--space-4); z-index: 2; width: 32px; height: 32px; min-height: 32px; padding: 0; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-tabs-more svg { width: 14px; height: 14px; }
+:root[data-skin] .lcd-root .lcd-tabs-overflow-menu { position: absolute; top: 48px; right: var(--space-4); z-index: 8; width: 128px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--popover-bg); box-shadow: var(--shadow-2); }
+:root[data-skin] .lcd-root .lcd-tabs-overflow-menu button:not(.k-btn) { display: block; width: 100%; height: 32px; padding: 0 8px; border-radius: var(--r-md); text-align: left; color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-tabs-overflow-menu button:not(.k-btn):is(:hover, :focus-visible) { background: var(--muted-bg); color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-body { padding: var(--space-4); }
+:root[data-skin] .lcd-root .lcd-rule { height: 1px; margin: var(--space-3) 0 0; background: var(--border); }
+
+/* 资料页签：分组里两列字段 */
+:root[data-skin] .lcd-root .lcd-info-section > .lcd-section-head { height: 36px; }
+:root[data-skin] .lcd-root .lcd-info-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 6%; margin: 4px 18px 8px; }
+:root[data-skin] .lcd-root .lcd-info-fields .lcd-field { min-height: 40px; }
+
+/* 动态页签：写跟进 */
+:root[data-skin] .lcd-root .lcd-followup-label { display: flex; align-items: center; justify-content: space-between; margin: 0 0 var(--space-2); }
+:root[data-skin] .lcd-root .lcd-followup-label > button:not(.k-btn) strong { font-size: var(--text-base); font-weight: 600; }
+:root[data-skin] .lcd-root .lcd-followup-label .k-btn .icon { width: 14px; height: 14px; }
+:root[data-skin] .lcd-root .lcd-followup-form { margin: 0 0 var(--space-5); }
+:root[data-skin] .lcd-root .lcd-followup-form .k-textarea { display: block; height: 36px; min-height: 36px; resize: vertical; }
+:root[data-skin] .lcd-root .lcd-followup-form:is(:focus-within, .has-draft) .k-textarea { min-height: 108px; }
+:root[data-skin] .lcd-root .lcd-followup-footer { flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-2); }
+:root[data-skin] .lcd-root .lcd-followup-footer label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-followup-footer .k-input { width: 150px; }
+:root[data-skin] .lcd-root .lcd-followup-footer .k-input[type="datetime-local"] { width: 200px; }
+:root[data-skin] .lcd-root .lcd-followup-footer > div { display: flex; flex-shrink: 0; gap: 8px; margin-left: auto; }
+:root[data-skin] .lcd-root .error { margin: 6px 0 0; padding: 0; background: transparent; color: var(--danger-fg); font-size: var(--text-sm); }
+:root[data-skin] .lcd-root .error:empty { display: none; }
+
+/* 动态页签：历史动态、工具、类别 */
+:root[data-skin] .lcd-root .lcd-journey { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: var(--space-3); }
+:root[data-skin] .lcd-root .lcd-journey > .lcd-button-group { flex: 0 0 auto; }
+:root[data-skin] .lcd-root :is(.lcd-activity-tools, .lcd-activity-tools-buttons) { display: flex; align-items: center; gap: 2px; }
+:root[data-skin] .lcd-root .lcd-activity-tools { margin-left: auto; }
+:root[data-skin] .lcd-root .lcd-activity-refresh-status { margin-right: 4px; font-size: var(--text-xs); color: var(--muted-fg); white-space: nowrap; }
+:root[data-skin] .lcd-root .lcd-activity-search-row { position: relative; display: flex; align-items: center; max-width: 320px; height: 32px; }
+:root[data-skin] .lcd-root .lcd-activity-search-field { display: inline-flex; align-items: center; height: 32px; padding: 0 10px; border: 1px solid var(--input); border-right: 0; border-radius: var(--radius) 0 0 var(--radius); transition: border-color var(--motion-fast) var(--ease-standard); }
+:root[data-skin] .lcd-root .lcd-activity-search-field:focus-within { border-color: var(--ring); }
+:root[data-skin] .lcd-root .lcd-activity-search-field input { width: 156px; min-width: 0; height: 30px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--fg); font: inherit; outline: none; box-shadow: none; }
+:root[data-skin] .lcd-root .lcd-activity-search-field > button:not(.k-btn) { display: flex; align-items: center; width: 18px; height: 14px; margin-left: 4px; color: var(--input); }
+:root[data-skin] .lcd-root .lcd-activity-search-field > button:not(.k-btn)[hidden] { display: none; }
+:root[data-skin] .lcd-root .lcd-activity-search-field > button svg { width: 14px; height: 14px; }
+:root[data-skin] .lcd-root .lcd-activity-search-row > button:not(.k-btn) { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 32px; border: 1px solid var(--input); border-radius: 0 var(--radius) var(--radius) 0; background: var(--card-bg); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-activity-search-row > button:not(.k-btn):hover:not(:disabled) { background: var(--muted-bg); border-color: var(--input); }
+:root[data-skin] .lcd-root .lcd-activity-search-row > button svg { width: 16px; height: 16px; }
+:root[data-skin] .lcd-root .lcd-activity-query-hint { margin: var(--space-4) 0 0; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-activity-filters { margin-bottom: var(--space-2); }
+:root[data-skin] .lcd-root .lcd-activity-list button[data-activity-filter] { position: relative; flex-shrink: 0; height: 24px; padding: 0 12px; color: var(--muted-fg); line-height: 24px; }
+:root[data-skin] .lcd-root .lcd-activity-list button[data-activity-filter]:first-child { padding-left: 0; }
+:root[data-skin] .lcd-root .lcd-activity-list [data-activity-filter] + [data-activity-filter]::before { content: ""; position: absolute; left: 0; top: 6px; width: 1px; height: 12px; background: var(--border); }
+:root[data-skin] .lcd-root .lcd-activity-list button[data-activity-filter]:hover:not(:disabled) { color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-activity-list [data-activity-filter]:focus-visible { outline-offset: -2px; }
+:root[data-skin] .lcd-root .lcd-activity-filters button.selected,
+:root[data-skin] .lcd-root .lcd-activity-filters button.selected:hover:not(:disabled) { color: var(--primary); font-weight: 600; }
+:root[data-skin] .lcd-root button.lcd-activity-arrow { display: inline-flex; flex: 0 0 24px; align-items: center; justify-content: center; width: 24px; height: 24px; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-body-activity > .lcd-section-head { height: 36px; }
+:root[data-skin] .lcd-root .lcd-body-activity > .lcd-section-head h3 { font-size: var(--text-sm); font-weight: 500; }
+:root[data-skin] .lcd-root button.lcd-time-group-head { display: block; width: 100%; min-height: 36px; padding: 8px 0; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--fg); font-weight: 500; text-align: left; }
+
+/* 时间线：中性的圆点；动态记录是浅灰底的块 */
+:root[data-skin] .lcd-root .lcd-timeline { margin: var(--space-3) 0 var(--space-3) 6px; border-left: 1px solid var(--border); }
+:root[data-skin] .lcd-root .lcd-timeline article { position: relative; min-height: 0; margin-left: 20px; padding: 0 0 var(--space-5); }
+:root[data-skin] .lcd-root .lcd-timeline article::before { content: ""; position: absolute; left: -25px; top: 5px; width: 9px; height: 9px; border: 2px solid var(--input); border-radius: 50%; background: var(--card-bg); }
+:root[data-skin] .lcd-root .lcd-timeline time { display: block; margin-bottom: 2px; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-timeline-owner { margin: 2px 0 6px; color: var(--fg); }
+:root[data-skin] .lcd-root .lcd-timeline-owner span { color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-event-body { position: relative; padding-right: 30px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
+:root[data-skin] .lcd-root .lcd-timeline.is-activity .lcd-event-body { padding: 10px 12px; border-radius: var(--r-lg); background: var(--bg); }
+:root[data-skin] .lcd-root button.lcd-event-expand { position: absolute; top: -24px; right: 0; color: var(--primary); font-size: var(--text-xs); }
+:root[data-skin] .lcd-root .lcd-timeline.is-activity button.lcd-event-expand { position: static; margin-left: 12px; }
+:root[data-skin] .lcd-root button.lcd-event-expand:hover:not(:disabled) { color: var(--primary-hover); }
+/* 快速记录：前面一个小图标，没有圆点，虚线连到下一条 */
+:root[data-skin] .lcd-root .lcd-timeline.is-activity:has(.lcd-quick-record):not(:has(> article:not(.lcd-quick-record))) { border-left: 0; }
+:root[data-skin] .lcd-root .lcd-timeline.is-activity .lcd-quick-record { margin-left: 26px; padding-bottom: var(--space-4); }
+:root[data-skin] .lcd-root .lcd-timeline.is-activity .lcd-quick-record::before { display: none; }
+:root[data-skin] .lcd-root .lcd-quick-record:not(:last-child)::after { content: ""; position: absolute; top: 10px; bottom: 0; left: -21.5px; border-left: 1px dashed var(--input); }
+:root[data-skin] .lcd-root .lcd-quick-record .lcd-activity-icon { position: absolute; left: -33px; top: 0; z-index: 1; width: 24px; height: 24px; }
+:root[data-skin] .lcd-root .lcd-quick-record time { margin: 0; line-height: 22px; }
+:root[data-skin] .lcd-root .lcd-quick-record .lcd-timeline-owner { display: flex; align-items: center; min-height: 28px; margin: 0; line-height: 28px; }
+:root[data-skin] .lcd-root .lcd-quick-record .lcd-activity-separator { flex: none; width: 1px; height: 12px; margin: 0 8px; background: var(--border); }
+:root[data-skin] .lcd-root .lcd-quick-record .lcd-activity-actor { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-timeline.is-activity .lcd-quick-record .lcd-timeline-owner button.lcd-event-expand { flex: none; height: 28px; margin-left: auto; padding: 0 4px; line-height: 20px; }
+:root[data-skin] .lcd-root .lcd-timeline.is-activity .lcd-quick-record .lcd-event-body { margin-top: 6px; line-height: 20px; }
+:root[data-skin] .lcd-root .lcd-quick-record .lcd-activity-content { display: block; }
+:root[data-skin] .lcd-root .lcd-quick-record .lcd-activity-contact { margin-top: 4px; }
+:root[data-skin] .lcd-root .lcd-quick-record .lcd-activity-contact > span { color: var(--muted-fg); }
+/* 展开的详情：浅底小表 */
+:root[data-skin] .lcd-root :is(.lcd-operation-detail, .lcd-activity-detail) dl { margin: 8px 0 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); }
+:root[data-skin] .lcd-root .lcd-activity-detail dl > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; margin: 4px 0; }
+:root[data-skin] .lcd-root .lcd-operation-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+:root[data-skin] .lcd-root .lcd-operation-detail dl > div { min-width: 0; }
+:root[data-skin] .lcd-root .lcd-operation-detail dl > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+:root[data-skin] .lcd-root :is(.lcd-operation-detail, .lcd-activity-detail) dt { line-height: 20px; color: var(--muted-fg); }
+:root[data-skin] .lcd-root :is(.lcd-operation-detail, .lcd-activity-detail) dd { margin: 0; line-height: 20px; overflow-wrap: anywhere; }
+@media (max-width: 1200px) {
+  :root[data-skin] .lcd-root .lcd-operation-detail dl { grid-template-columns: minmax(0, 1fr); }
+  :root[data-skin] .lcd-root .lcd-operation-detail dl > div:last-child:nth-child(odd) { grid-column: auto; }
+}
+/* 操作历史 */
+:root[data-skin] .lcd-root .lcd-body-history { min-height: 240px; }
+:root[data-skin] .lcd-root .lcd-timeline .lcd-operation-record::before { top: 6px; }
+:root[data-skin] .lcd-root button.lcd-operation-head { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; min-height: 44px; text-align: left; }
+:root[data-skin] .lcd-root .lcd-operation-head-main { min-width: 0; padding-right: 8px; }
+:root[data-skin] .lcd-root :is(.lcd-operation-head time, .lcd-operation-description) { display: block; margin: 0; line-height: 22px; font-weight: 400; }
+:root[data-skin] .lcd-root .lcd-operation-head time { font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-operation-description { color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; }
+:root[data-skin] .lcd-root .lcd-operation-chevron { flex: none; margin-top: 2px; color: var(--muted-fg); font-size: var(--text-base); line-height: 18px; }
+
+/* 商机和订单：几个数字、两张表 */
+:root[data-skin] .lcd-root .lcd-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 var(--space-4); }
+:root[data-skin] .lcd-root .lcd-metrics > div { min-height: 60px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card-bg); }
+:root[data-skin] .lcd-root .lcd-metrics span { display: block; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-metrics strong { display: block; margin-top: 4px; font-size: var(--text-base); font-weight: 600; font-variant-numeric: tabular-nums; }
+:root[data-skin] .lcd-root .lcd-table-scroll { overflow: auto; border: 1px solid var(--border); border-radius: var(--r-lg); }
+:root[data-skin] .lcd-root .k-table { white-space: nowrap; }
+:root[data-skin] .lcd-root .k-table td { max-width: 260px; height: 40px; overflow: hidden; text-overflow: ellipsis; }
+:root[data-skin] .lcd-root .k-table tbody tr:last-child td { border-bottom: 0; }
+:root[data-skin] .lcd-root .k-table .lcd-no-data { height: 64px; color: var(--muted-fg); text-align: center; }
+:root[data-skin] .lcd-root .lcd-pagination { display: flex; align-items: center; justify-content: flex-end; min-height: 44px; color: var(--muted-fg); white-space: pre; }
+
+/* 文档：搜索框、左边分类、右边表格和翻页 */
+:root[data-skin] .lcd-root .lcd-doc-toolbar { display: flex; align-items: flex-start; justify-content: space-between; padding: 0 0 var(--space-3); }
+:root[data-skin] .lcd-root .lcd-doc-search { position: relative; width: 240px; }
+:root[data-skin] .lcd-root .lcd-doc-search .k-input { padding-right: 36px; }
+:root[data-skin] .lcd-root .lcd-doc-search .k-btn.lcd-icon { position: absolute; top: 2px; right: 2px; }
+:root[data-skin] .lcd-root .lcd-doc-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); min-height: 420px; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+:root[data-skin] .lcd-root .lcd-doc-layout > aside { padding: var(--space-2); border-right: 1px solid var(--border); }
+:root[data-skin] .lcd-root .lcd-doc-layout > aside button:not(.k-btn) { width: 100%; height: 32px; padding: 0 10px; border-radius: var(--r-md); text-align: left; }
+:root[data-skin] .lcd-root .lcd-doc-layout > aside button.selected { background: var(--accent-bg); color: var(--accent-fg); font-weight: 500; }
+:root[data-skin] .lcd-root .lcd-doc-layout > section { display: flex; flex-direction: column; min-width: 0; }
+:root[data-skin] .lcd-root #document-results { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+:root[data-skin] .lcd-root .lcd-doc-grid { flex: 1; min-height: 360px; overflow: auto; }
+:root[data-skin] .lcd-root .lcd-doc-grid table { min-width: 640px; }
+:root[data-skin] .lcd-root .lcd-pagination.k-pager { gap: 8px; padding: 0 12px; border-top: 1px solid var(--border); white-space: nowrap; }
+:root[data-skin] .lcd-root .lcd-pagination.k-pager > span[aria-label] { min-width: 28px; height: 28px; border: 1px solid var(--primary); border-radius: var(--r-md); color: var(--primary); font-weight: 600; line-height: 26px; text-align: center; }
+:root[data-skin] .lcd-root .lcd-doc-selected { margin-right: auto; color: var(--fg); }
+:root[data-skin] .lcd-root .k-pager .lcd-doc-selected button { min-width: 0; height: auto; min-height: 0; margin-left: 8px; padding: 0; color: var(--primary); }
+:root[data-skin] .lcd-root .k-pager .lcd-doc-selected button:hover:not(:disabled) { background: transparent; text-decoration: underline; }
+
+/* 右栏：资料、订单、文档、操作历史四张小卡 */
+:root[data-skin] .lcd-root .lcd-side-card { padding: var(--space-3) var(--space-4); font-size: var(--text-xs); }
+:root[data-skin] .lcd-root .lcd-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; margin-bottom: var(--space-2); }
+:root[data-skin] .lcd-root .lcd-side-head h3 { margin: 0; font-size: var(--text-base); font-weight: 600; }
+:root[data-skin] .lcd-root .lcd-side-card > .lcd-side-link { display: inline-flex; margin-top: var(--space-2); color: var(--primary); font-weight: 500; }
+:root[data-skin] .lcd-root .lcd-side-card > .lcd-side-link:hover:not(:disabled) { color: var(--primary-hover); text-decoration: underline; }
+:root[data-skin] .lcd-root .lcd-side-rows { display: flex; flex-direction: column; gap: 6px; }
+:root[data-skin] .lcd-root .lcd-side-row { display: flex; justify-content: space-between; gap: 10px; }
+:root[data-skin] .lcd-root :is(.lcd-side-row span, .lcd-side-order > span, .lcd-side-doc small, .lcd-side-hist small) { color: var(--muted-fg); }
+:root[data-skin] .lcd-root .lcd-side-row b { min-width: 0; overflow: hidden; font-weight: 500; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .lcd-root .lcd-side-order { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-lg); }
+:root[data-skin] .lcd-root .lcd-side-order > div { display: flex; justify-content: space-between; gap: 8px; }
+:root[data-skin] .lcd-root :is(.lcd-side-doc, .lcd-side-hist) { display: flex; flex-direction: column; gap: 1px; padding: 6px 0; border-top: 1px solid var(--border); }
+:root[data-skin] .lcd-root :is(.lcd-side-doc, .lcd-side-hist):first-of-type { border-top: 0; }
+:root[data-skin] .lcd-root :is(.lcd-side-doc, .lcd-side-hist) span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .lcd-root .k-empty.lcd-side-none { align-items: flex-start; min-height: 0; margin: 0; padding: 4px 0; font-size: var(--text-xs); }
+
+/* 选跟进模板的小浮层（挂在 body 上，不在 .lcd-root 里） */
+:root[data-skin] .popover.followup-template-popover { width: min(320px, calc(100vw - 24px)); max-height: min(360px, calc(100vh - 80px)); overflow-y: auto; padding: 8px; z-index: 30; }
+:root[data-skin] .followup-template-group h5 { margin: 6px 4px 4px; font-size: var(--text-xs); font-weight: 500; color: var(--muted-fg); }
+:root[data-skin] .followup-template-item { display: block; width: 100%; margin: 0 0 4px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r-md); background: transparent; color: var(--fg); font: inherit; font-size: var(--text-sm); text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+:root[data-skin] .followup-template-item:hover:not(:disabled) { border-color: var(--border); background: var(--muted-bg); }
+:root[data-skin] .k-empty.followup-template-none { gap: 8px; padding: var(--space-4) var(--space-2); }
+
+/* 详情页滚动条 */
+:root[data-skin] .customer-main:has(.lcd-root)::-webkit-scrollbar { width: 8px; height: 8px; }
+:root[data-skin] .customer-main:has(.lcd-root)::-webkit-scrollbar-thumb { border-radius: var(--r-lg); background: var(--input); }
+:root[data-skin] .customer-main:has(.lcd-root)::-webkit-scrollbar-track { background: transparent; }
+/* 角色没有「跟进动态·查看」权限时的提示 */
+:root[data-skin] .lcd-root .lcd-activity-denied { margin: var(--space-5) 0; color: var(--muted-fg); font-size: var(--text-sm); }
