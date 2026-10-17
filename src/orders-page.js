@@ -65,16 +65,28 @@
       + `</div>`;
   }
 
+  // 表格里的订单行（没有订单时是空状态）。搜索框打字时只换这一段和下面的合计、页码，不重画整页。
+  function rowsMarkup(input, escape) {
+    const E = escape || ((s) => String(s));
+    const can = typeof input.can === "function" ? input.can : () => true;
+    return input.items.map((o) => row(o, input.stages, E, can)).join("")
+      || `<div class="op-empty"><strong>没有符合条件的订单</strong><span>${can("order.create") ? "调整筛选条件，或新建一笔订单。" : "调整筛选条件再看。"}</span></div>`;
+  }
+  // 表格下方：筛选后的订单数和翻页。
+  function footMarkup(input) {
+    const { total, page, pages } = input;
+    return `<div class="op-foot"><span class="op-sub">共 ${total} 笔订单 · 已完成按订单全额计已收款</span><div class="op-pages"><button type="button" class="op-btn" data-biz-action="prev" aria-label="上一页"${page <= 1 ? " disabled" : ""}>‹</button><span class="op-page-now">${page}</span><span class="op-sub">/ ${pages}</span><button type="button" class="op-btn" data-biz-action="next" aria-label="下一页"${page >= pages ? " disabled" : ""}>›</button></div></div>`;
+  }
+
   // input：{ items（当前页的订单）, all（全部订单，用来算汇总）, total（筛选后的订单数）, filters:{search,stage,currency,period}, stages, currencies, page, pages, trash, can }
   // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
   function markup(input, escape) {
     const E = escape || ((s) => String(s));
-    const { items, all, total, filters, stages, currencies, page, pages, trash } = input;
+    const { all, filters, stages, currencies, trash } = input;
     const can = typeof input.can === "function" ? input.can : () => true;
     const sum = summary(all);
     const stageLine = stages.map((s) => E(s.label)).join(" → ");
-    const rows = items.map((o) => row(o, stages, E, can)).join("")
-      || `<div class="op-empty"><strong>没有符合条件的订单</strong><span>${can("order.create") ? "调整筛选条件，或新建一笔订单。" : "调整筛选条件再看。"}</span></div>`;
+    const rows = rowsMarkup(input, E);
     const trashRows = trash.map((t) => `<div class="op-trash-row"><b>${E(t.num)}</b><span>${E(t.client)}</span><span class="op-money op-bold">${E(money(t.amount, t.currency || "USD"))}</span><span>${E(stages.find((s) => s.id === t.stage)?.label || t.stage || "—")}</span><small>归档时间 ${E(day(t.trashedAt) || "—")}</small>${can("order.edit") ? `<button type="button" class="op-mini op-restore" data-biz-action="restore-order" data-id="${E(t.id)}">恢复订单</button>` : ""}</div>`).join("")
       || '<div class="op-empty op-empty-small"><span>回收站是空的。</span></div>';
     return `<div class="op-page">`
@@ -85,10 +97,10 @@
       + `<select class="op-input" id="biz-period" aria-label="时间">${PERIODS.map(([v, t]) => option(E, v, t, filters.period)).join("")}</select>`
       + `<button type="button" class="op-btn op-ghost" data-biz-action="clear-filters">清除筛选</button><span class="op-sub op-legend">阶段：${stageLine}</span></div>`
       + `<div class="op-scroll" id="biz-order-scroll"><div class="op-table" role="table"><div class="op-head op-grid" role="row"><span>订单编号</span><span>客户名称</span><span>产品</span><span class="op-r">订单金额</span><span class="op-r">已收款</span><span class="op-r">待收款</span><span>订单阶段</span><span>创建日期</span><span>跟进人</span><span>物流 · 下一步</span><span>操作</span></div>${rows}</div></div>`
-      + `<div class="op-foot"><span class="op-sub">共 ${total} 笔订单 · 已完成按订单全额计已收款</span><div class="op-pages"><button type="button" class="op-btn" data-biz-action="prev" aria-label="上一页"${page <= 1 ? " disabled" : ""}>‹</button><span class="op-page-now">${page}</span><span class="op-sub">/ ${pages}</span><button type="button" class="op-btn" data-biz-action="next" aria-label="下一页"${page >= pages ? " disabled" : ""}>›</button></div></div></section>`
+      + footMarkup(input) + `</section>`
       + `<section class="op-card op-trash"><div class="op-trash-head"><h2>订单回收站</h2><span class="op-sub">${trash.length} 笔 · 已归档订单可恢复 · 不计入统计</span></div>${trashRows}</section>`
       + `</div>`;
   }
 
-  return { PERIODS, inPeriod, summary, markup };
+  return { PERIODS, inPeriod, summary, markup, rowsMarkup, footMarkup };
 });

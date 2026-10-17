@@ -118,6 +118,34 @@ test('a mail from a customer address is linked to that customer, a stranger is n
   await rowOf('Re: Sample order for lipstick').waitFor();
 });
 
+// The customer filter sits in the sub-navigation, which keeps its elements when the mail page redraws
+// (app.js renderShell): it must be bound once, not once per redraw, and still filter after redraws.
+test('the 往来邮件 customer filter is bound once and still filters after the page redraws', async () => {
+  const { page } = app;
+  for (let i = 0; i < 3; i++) {
+    await page.locator('[data-mail-view="customer"]').click();
+    await page.locator('#mail-customer-filter').waitFor();
+    await page.locator('[data-mail-view="mail"]').click();
+    await rowOf('Re: Sample order for lipstick').waitFor();
+  }
+  await page.locator('[data-mail-view="customer"]').click();
+  const filter = page.locator('#mail-customer-filter');
+  await filter.waitFor();
+  const cdp = await page.context().newCDPSession(page);
+  const { result } = await cdp.send('Runtime.evaluate', { expression: 'document.getElementById("mail-customer-filter")' });
+  const { listeners } = await cdp.send('DOMDebugger.getEventListeners', { objectId: result.objectId });
+  await cdp.detach();
+  assert.equal(listeners.filter((l) => l.type === 'input').length, 1, 'one input listener on the filter');
+  const all = await page.locator('.mail-customers [data-name]').count();
+  assert.ok(all > 1);
+  await filter.fill('maple');
+  assert.deepEqual(await page.locator('.mail-customers [data-name]:not([hidden])').evaluateAll((els) => els.map((el) => el.dataset.name)), ['Maple & Moss Cosmetics']);
+  await filter.fill('');
+  assert.equal(await page.locator('.mail-customers [data-name]:not([hidden])').count(), all);
+  await page.locator('[data-mail-view="mail"]').click();
+  await rowOf('Re: Sample order for lipstick').waitFor();
+});
+
 test('opening a mail shows its body without running scripts or onerror', async () => {
   const { page } = app;
   await rowOf('Re: Sample order for lipstick').locator('.mail-row-main').click();

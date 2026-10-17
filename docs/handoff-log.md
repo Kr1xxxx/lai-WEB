@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #23 merged (`main` c9d3232); web trial v1.12 published and opened. Q1+Q2 (advisor): `renderShell`
+  draws the frame once and morphs it in place; pages render only into `main`; focus kept on same-view re-renders; order
+  search debounced and patches only rows/footer; mail filter listener bound once. Fable before-done check: ship.
+  model 1518 / e2e 323 green. A container restart killed the first Q1 worker before it saved anything; restarted.
 - 2026-10-17 — Claude — #22 merged (`main` cca83b1); web trial v1.11 published and opened for the owner; 功能一览 page
   updated. Then: full overlap sweep merged (new detector, fixes, e2e; 0 findings in 4 themes × 9 widths, 2644 views) and
   the one-time MiSans subset (owner said 可以; 9.9 → 7.7 MB, pixel-identical, coverage test reads the real cmaps).

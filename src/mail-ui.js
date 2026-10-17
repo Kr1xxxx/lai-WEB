@@ -455,6 +455,8 @@
         if (html) button.insertAdjacentHTML("beforeend", html);
       });
     }
+    // 已经绑过“搜索客户”输入事件的框（二级导航里的元素重画时会保留，不能重复绑）。
+    const boundCustomerFilters = new WeakSet();
     function subnav() {
       let below;
       if (view === "mail")
@@ -790,14 +792,20 @@
           query = String(search.elements.query.value || "").trim();
           return loadList(1);
         });
+      // 搜索客户的框在二级导航里；二级导航在换页、重画时保留原来的元素（见 app.js renderShell），
+      // 所以同一个框只绑一次，重画后框里还有字（正在输入）时按它重新筛一遍。
       const filter = document.getElementById("mail-customer-filter");
-      if (filter && filter.addEventListener)
-        filter.addEventListener("input", () => {
-          const needle = String(filter.value || "").trim().toLowerCase();
-          document.querySelectorAll(".mail-customers [data-name]").forEach((button) => {
-            button.hidden = !!needle && !button.dataset.name.toLowerCase().includes(needle);
-          });
+      const applyFilter = () => {
+        const needle = String(filter.value || "").trim().toLowerCase();
+        document.querySelectorAll(".mail-customers [data-name]").forEach((button) => {
+          button.hidden = !!needle && !button.dataset.name.toLowerCase().includes(needle);
         });
+      };
+      if (filter && filter.addEventListener && !boundCustomerFilters.has(filter)) {
+        boundCustomerFilters.add(filter);
+        filter.addEventListener("input", applyFilter);
+      }
+      if (filter && filter.value) applyFilter();
       mountDivider();
     }
     // 拖动列表和阅读区之间的分隔线来调整列表宽度；宽度只在这次打开应用期间记住。
