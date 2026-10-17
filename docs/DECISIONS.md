@@ -26,13 +26,14 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-014 | One PR per change; small ones merge themselves, big ones wait for 合并 | Accepted |
 | D-015 | Moderate verification for small features | Accepted |
 | D-016 | Mac build cadence: Claude every 10th merge, others every PR | Superseded by D-026 |
-| D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Accepted |
+| D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Superseded by D-027 |
 | D-019 | Desktop builds (Mac, Windows) paused; web version only for now | Superseded by D-026 |
 | D-022 | Company details live in one place; 本人 scope also limits 团队数据; tasks belong to a person | Accepted |
 | D-023 | 沟通 module uses WhatsApp | Accepted |
 | D-024 | Multi-user later runs on Cloudflare; not set up now | Accepted |
 | D-025 | Complex tasks get their own audit before building | Accepted |
 | D-026 | Mac app removed; web only | Accepted |
+| D-027 | Claude agent tree: Opus 5.5 high coordinates, Opus 5.5 medium subagents, Fable 5.1 on call as advisor | Accepted |
 
 ---
 
@@ -206,3 +207,12 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Supersedes: the macOS-app part of D-001, D-016 and D-019. The `mac` flag in `docs/features.json` is no longer used.
 - Consequences: no desktop build or Mac acceptance is planned. If a desktop app is wanted again, it is a new project
   (the old `native/` stays in the commit history).
+
+### D-027 Claude agent tree: Opus coordinates, Opus subagents, Fable on call (2026-10-17)
+- Context: the owner handed over a diagram ("Plan on high. Delegate on medium. Keep Fable on call.") and said 按照这个执行.
+- Decision: the main session is Opus 5.5 at high effort; it plans, delegates, reviews and verifies. Subagents are
+  Opus 5.5 at medium effort: `explorer` (read code), `worker` (edits and tests, own worktree), `researcher` (look up
+  docs), `reviewer` (check a diff). Fable 5.1 is the `advisor` agent (high effort, read-only), consulted before
+  picking a plan, when an error repeats, and before calling a task done. Replaces D-017's Sonnet default.
+- Consequences: `.claude/agents/*.md` carry the models; `.claude/settings.json` keeps the main session on Opus high.
+  A session switched to another model with `/model` should be switched back to `claude-opus-5-5` to match.
