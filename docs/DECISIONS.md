@@ -35,6 +35,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-026 | Mac app removed; web only | Accepted |
 | D-027 | Claude agent tree: Opus 5.5 high coordinates, Opus 5.5 medium subagents, Fable 5.1 on call as advisor | Accepted |
 | D-028 | UI direction: one component kit with shadcn/ui-style rules (tidy, consistent) in the 科技蓝 colours | Accepted |
+| D-029 | 小满 style removed; its place taken by 科技蓝 (themes: pink default, orange, 科技蓝) | Accepted |
 
 ---
 
@@ -230,3 +231,13 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Consequences: the kit works through theme tokens, so pink, orange and 小满 keep working; the default theme stays pink
   (D-008) until the owner switches it. New markup must use kit classes; a token ratchet test stops new literal colours,
   font sizes and radii.
+
+### D-029 小满 style removed, replaced by 科技蓝 (2026-10-17)
+- Context: the 小满 theme was not just colours but a separate older layout (`data-skin="classic"`), so pages such as
+  orders and opportunities carried two versions. Asked whether 小满 should keep only its colours, the owner answered:
+  "去掉小满风格,改成科技蓝" (remove the 小满 style, use 科技蓝 instead).
+- Decision: the 小满 theme and the classic skin are removed. The themes are pink (default, D-008), orange and 科技蓝,
+  all on one layout (the D-028 kit). An account whose saved theme is 小满 is shown 科技蓝; the saved value is
+  rewritten to 科技蓝 the next time settings are saved. No data other than that setting is touched.
+- Supersedes: the 小满 option in D-008 (pink stays the default).
+
