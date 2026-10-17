@@ -53,9 +53,9 @@
   const person = (item) => (item ? item.name || item.address || "" : "");
   const addressLine = (list) => (list || []).map((item) => (item.name ? `${item.name} <${item.address}>` : item.address)).join(", ");
   const validAddress = (value) => /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(value);
-  // 客户档案里出现的全部邮箱（公司邮箱与各联系人邮箱）。
+  // 客户档案里出现的全部邮箱（公司邮箱与各联系人邮箱）；其他联系人的邮箱排在最后，第一个仍是主邮箱。
   function customerAddresses(profile) {
-    const values = [profile?.email, ...(Array.isArray(profile?.emails) ? profile.emails : []), ...(Array.isArray(profile?.contacts) ? profile.contacts.map((item) => item?.email) : []), profile?.alternateEmail];
+    const values = [profile?.email, ...(Array.isArray(profile?.emails) ? profile.emails : []), ...(Array.isArray(profile?.contacts) ? profile.contacts.map((item) => item?.email) : []), profile?.alternateEmail, ...(Array.isArray(profile?.extraContacts) ? profile.extraContacts.map((item) => item?.email) : [])];
     return [...new Set(values.map((value) => String(value ?? "").trim().toLowerCase()).filter(validAddress))];
   }
   // 自动记往来邮件：从一批邮件里挑出该记到客户动态的。
@@ -69,8 +69,7 @@
     for (const [name, profile] of Object.entries(customers && typeof customers === "object" ? customers : {})) {
       // 公海、回收站客户也进索引：同一个地址对得上两位客户就不记，免得记错人。
       if (!profile || typeof profile !== "object") continue;
-      const extra = Array.isArray(profile.extraContacts) ? profile.extraContacts.map((item) => String(item?.email ?? "").trim().toLowerCase()).filter(validAddress) : [];
-      for (const address of new Set([...customerAddresses(profile), ...extra])) {
+      for (const address of customerAddresses(profile)) {
         if (!index.has(address)) index.set(address, new Set());
         index.get(address).add(name);
       }
@@ -241,7 +240,7 @@
         const addresses = customerAddresses(all[name]);
         if (!addresses.length) continue;
         // 群发时用的称呼：邮箱对应的联系人姓名，其次主要联系人。
-        const contacts = Array.isArray(all[name].contacts) ? all[name].contacts.filter((item) => item && typeof item === "object") : [];
+        const contacts = [all[name].contacts, all[name].extraContacts].flatMap((list) => (Array.isArray(list) ? list : [])).filter((item) => item && typeof item === "object");
         const matched = contacts.find((item) => String(item.email ?? "").trim().toLowerCase() === addresses[0]);
         const contact = String((matched && (matched.contact || matched.name)) || all[name].contact || (contacts[0] && (contacts[0].contact || contacts[0].name)) || "").trim();
         rows.push({ name, addresses, contact, ...(facts.get(name) || { group: "", stage: "", country: "" }) });
@@ -1820,12 +1819,20 @@
       }
     }
     // 从客户列表、客户详情进来的「写邮件」：一位客户直接写信，多位客户走群发。origin 用来在写完后回到原来的客户页。
-    async function composeFor(names, pointerActivated = false, origin = null) {
+    // pick（联系人卡片上的写邮件）：{ to, contact }，只认这位客户自己的邮箱，否则按主邮箱写。
+    async function composeFor(names, pointerActivated = false, origin = null, pick = null) {
       const wanted = [...new Set(names || [])];
       if (!wanted.length || !(await ready(pointerActivated))) return;
       const rows = customers().filter((row) => wanted.includes(row.name));
       if (!rows.length) return ctx.toast(wanted.length === 1 ? "这位客户还没有填写邮箱" : "选中的客户都没有填写邮箱");
-      if (wanted.length === 1) return openCompose({ to: rows[0].contact ? `${rows[0].contact} <${rows[0].addresses[0]}>` : rows[0].addresses[0], origin });
+      if (wanted.length === 1) {
+        const chosen = String(pick?.to ?? "").trim().toLowerCase();
+        if (chosen && rows[0].addresses.includes(chosen)) {
+          const contact = String(pick.contact ?? "").trim();
+          return openCompose({ to: contact ? `${contact} <${chosen}>` : chosen, origin });
+        }
+        return openCompose({ to: rows[0].contact ? `${rows[0].contact} <${rows[0].addresses[0]}>` : rows[0].addresses[0], origin });
+      }
       if (rows.length < wanted.length) ctx.toast(`${wanted.length - rows.length} 位客户没有填写邮箱，已略过`);
       return openBulk(rows.map((row) => row.name), origin);
     }

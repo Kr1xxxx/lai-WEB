@@ -42,10 +42,9 @@ const go = async (app, route) => {
   await app.page.evaluate((target) => { const b = document.createElement('button'); b.dataset.laiRoute = target; document.body.appendChild(b); b.click(); b.remove(); }, route);
   await settle(app, 600);
 };
-// The client box shows its own suggestion list; choosing from it also fills the contact list.
+// The client dropdown only lists the customers this account may see; choosing one also fills the contact list.
 const pickClient = async (page, name) => {
-  await page.locator('#opp-form [name="client"]').fill(name);
-  await page.locator('.lai-suggestion', { hasText: name }).first().click();
+  await page.locator('#opp-form [name="client"]').selectOption(name, { force: true });
   await page.waitForFunction(() => document.querySelector('#opp-form select[name="contact"]')?.options.length > 1);
   // Leaving the client box makes the form reset the contact list: move on first, then choose the contact.
   await page.locator('#opp-form [name="amount"]').fill('50');
@@ -69,11 +68,12 @@ test('业务 (Amy): new opportunity and new order only offer her customers, and 
     await go(app, 'opportunities');
     await page.locator('[data-opp-action="new"]').click();
     await page.locator('#opp-form').waitFor();
-    assert.deepEqual(await optionValues(app, '#opp-client-list'), ['AmyCo'], '客户名单只有自己的');
+    assert.deepEqual(await optionValues(app, '#opp-client'), ['请选择客户', 'AmyCo'], '客户名单只有自己的');
     const form = await page.locator('#opp-form').innerHTML();
     assert.ok(!form.includes('Amy Lead') && !form.includes('Kris Lead') && !form.includes('来源线索'), '来源线索 is gone (D-030)');
     assert.ok(!form.includes('KrisCo'));
-    await page.locator('#opp-form [name="client"]').fill('KrisCo');
+    // KrisCo is not in the dropdown; a stale page that still offers it is refused on save.
+    await page.locator('#opp-client').evaluate((el) => { el.add(new Option('KrisCo', 'KrisCo')); el.value = 'KrisCo'; el.dispatchEvent(new Event('change', { bubbles: true })); });
     await page.locator('#opp-form [name="amount"]').fill('50');
     await page.locator('button[form="opp-form"]').click();
     await page.locator('#opp-error.visible', { hasText: NO_SCOPE }).waitFor();
@@ -105,7 +105,7 @@ test('管理员 (Kris) sees every customer in the same forms, and may save for a
     await go(app, 'opportunities');
     await page.locator('[data-opp-action="new"]').click();
     await page.locator('#opp-form').waitFor();
-    const names = await optionValues(app, '#opp-client-list');
+    const names = await optionValues(app, '#opp-client');
     assert.ok(names.includes('AmyCo') && names.includes('KrisCo'));
     const form = await page.locator('#opp-form').innerHTML();
     assert.ok(!form.includes('Amy Lead') && !form.includes('Kris Lead'));

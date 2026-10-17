@@ -253,6 +253,29 @@ test('mail settings (sender name and signature) save and persist after a reload'
   assert.deepEqual(unexpectedErrors(), []);
 });
 
+test('写邮件 on an extra contact card writes to that contact, the primary card to the primary contact', async () => {
+  const { page } = app;
+  const state = await (await app.api('/api/data')).json();
+  state.data.customers['Maple & Moss Cosmetics'].extraContacts = [{ id: 'e2e-ivy', contact: 'Ivy Chen', email: 'ivy@maplemoss.example' }];
+  const saved = await app.api('/api/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state, baseRevision: state.revision }) });
+  assert.equal(saved.status, 200);
+  await app.open('mail');
+  await rowOf('Re: Sample order for lipstick').locator('.mail-customer-chip').click();
+  const card = page.locator('.lcd-contact', { hasText: 'Ivy Chen' });
+  await card.waitFor();
+  await card.getByRole('button', { name: '写邮件给Ivy Chen' }).click();
+  await page.locator('#mail-compose-form').waitFor();
+  assert.equal(await page.locator('#mail-compose-to').inputValue(), 'Ivy Chen <ivy@maplemoss.example>');
+  await page.locator('[data-mail-action="compose-close"]').first().click();
+  await page.locator('.lcd-contact', { hasText: 'Owen Fraser' }).getByRole('button', { name: '写邮件给Owen Fraser' }).click();
+  await page.locator('#mail-compose-form').waitFor();
+  assert.equal(await page.locator('#mail-compose-to').inputValue(), 'Owen Fraser <owen@maplemoss.example>');
+  assert.equal(smtp.state.sent.filter((m) => m.recipients.some((r) => /maplemoss/.test(r))).length, 0, 'nothing is sent');
+  await app.open('mail');
+  await rows().first().waitFor();
+  assert.deepEqual(unexpectedErrors(), []);
+});
+
 test('unbinding asks first, then the mail page is empty and the account is gone', async () => {
   const { page } = app;
   await page.locator('[data-mail-action="account"]').first().click();
