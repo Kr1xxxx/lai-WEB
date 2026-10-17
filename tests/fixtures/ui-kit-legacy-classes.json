@@ -1,8 +1,7 @@
 {
  "note": "Class names that exist today and predate the kit (D-028). New markup uses src/ui-kit.css instead. Delete a name when its page moves to the kit; never add one. tests/ui-kit-classes.test.cjs",
  "primary": [
-  "lcd-primary",
-  "wb-primary"
+  "lcd-primary"
  ],
  "pages": [
   "import-record-pages"
@@ -36,8 +35,7 @@
   "tr-empty",
   "wa-empty",
   "wa-list-empty",
-  "wa-thread-empty",
-  "wb-empty"
+  "wa-thread-empty"
  ],
  "table": [
   "cs-table",

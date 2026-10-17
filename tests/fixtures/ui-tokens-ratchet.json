@@ -2,9 +2,9 @@
  "note": "Literal font-size px, border-radius px and hex colours per src/*.css (ui-tokens.css exempt). May only go down. tests/ui-tokens-ratchet.test.cjs",
  "files": {
   "business.css": {
-   "fontSizePx": 180,
-   "radiusPx": 83,
-   "hex": 185
+   "fontSizePx": 153,
+   "radiusPx": 72,
+   "hex": 168
   },
   "customer-detail.css": {
    "fontSizePx": 34,

@@ -32,8 +32,8 @@ const base = () => ({
 // ---------- 问候 ----------
 test('the greeting follows the local hour and names the account', () => {
   assert.deepEqual([0, 6, 11, 12, 17, 18, 23].map(W.greeting), ['早上好', '早上好', '早上好', '下午好', '下午好', '晚上好', '晚上好']);
-  assert.match(build(base(), { hour: 14, me: 'Mia' }), /<h1>下午好，Mia<\/h1>/);
-  assert.match(build(base(), { hour: 20, me: '' }), /<h1>晚上好<\/h1>/);
+  assert.match(build(base(), { hour: 14, me: 'Mia' }), /<h1 class="k-pageheader-title">下午好，Mia<\/h1>/);
+  assert.match(build(base(), { hour: 20, me: '' }), /<h1 class="k-pageheader-title">晚上好<\/h1>/);
   assert.match(build(base()), /10 月 8 日 周四/, 'the date line');
 });
 
@@ -114,11 +114,11 @@ test('the queue shows at most 8 rows and says how many are left; the limit can b
 
 test('each queue row has one action that opens the right place', () => {
   const html = build({ ...base(), customers: { Late: base().customers.Late } }, { mail: { items: [{ subject: 'Hi', seen: false, from: { name: 'Emma' }, date: '2026-10-07T09:00:00' }] } });
-  assert.match(html, /<button type="button" class="wb-act" data-biz-customer="Late" data-biz-followup>写跟进<\/button>/);
-  assert.match(html, /<button type="button" class="wb-act" data-biz-edit-task="t4">看任务<\/button>/);
-  assert.match(html, /<button type="button" class="wb-act" data-biz-go="mail:unread">打开<\/button>/);
+  assert.match(html, /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-customer="Late" data-biz-followup>写跟进<\/button>/);
+  assert.match(html, /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-edit-task="t4">看任务<\/button>/);
+  assert.match(html, /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-go="mail:unread">打开<\/button>/);
   const chatState = { ...base(), customers: { 'Wa Co': { owner: 'Kris', history: [chat('wa', [line('2026-10-07T10:00:00', 'in', 'Can you ship?')])] } } };
-  assert.match(build(chatState), /<button type="button" class="wb-act" data-biz-chat="Wa Co">回复<\/button>/);
+  assert.match(build(chatState), /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-chat="Wa Co">回复<\/button>/);
   assert.match(build(chatState), /等你回复/);
 });
 
@@ -133,8 +133,8 @@ test('task rows keep the tick box that completes a task, and name the owner only
 
 test('empty queue: 今天没有要紧事 with a 添加任务 button', () => {
   const html = build({ orders: [], customers: {}, laiTasks: [] });
-  assert.match(html, /<strong>今天没有要紧事<\/strong>/);
-  assert.match(html, /<div class="wb-nothing">[\s\S]*data-biz-action="new-task">添加任务/);
+  assert.match(html, /<p class="k-empty-title">今天没有要紧事<\/p>/);
+  assert.match(html, /<div class="k-empty"><p class="k-empty-title">[\s\S]*class="k-btn k-btn--sm wb-again" data-biz-action="new-task">添加任务/);
 });
 
 test('mail rows join the queue only after the list is read, and the page says while it waits', () => {
@@ -180,7 +180,7 @@ test('the order line markup: stations in the stage order of business-model, card
   assert.equal((html.match(/data-biz-order=/g) || []).length, 4, 'one card for 报价 and three for 生产中; none for 已完成');
   assert.match(html, /data-biz-order="5"/);
   assert.doesNotMatch(html, /data-biz-order="9"/);
-  assert.match(html, /<button type="button" class="wb-omore" data-biz-stage="production">还有 2 笔 ›<\/button>/);
+  assert.match(html, /<button type="button" class="k-btn k-btn--ghost k-btn--sm wb-omore" data-biz-stage="production">还有 2 笔 ›<\/button>/);
   assert.match(html, /已完成 1 笔，USD 2,500/);
   assert.match(html, /A &lt;b&gt;/);
   assert.match(html, /还没写下一步/);
@@ -315,8 +315,8 @@ test('the 客户来消息 card shows the badges and opens the customer or the ma
   const state = { ...base(), customers: { 'Wa Co': { owner: 'Kris', history: [chat('w', [line('2026-10-07T10:00:00', 'in', 'Need <b>PI</b>', 'Ann')])] } } };
   const mail = { items: [{ subject: 'Re: order', seen: true, from: { name: 'Emma', address: 'emma@x.example' }, date: '2026-10-07T11:00:00' }] };
   const html = build(state, { mail });
-  assert.match(html, /<span class="wb-ch wa" aria-label="WhatsApp">WA<\/span>/);
-  assert.match(html, /<span class="wb-ch ml" aria-label="邮件">邮件<\/span>/);
+  assert.match(html, /<span class="k-badge wb-ch wa" aria-label="WhatsApp">WA<\/span>/);
+  assert.match(html, /<span class="k-badge wb-ch ml" aria-label="邮件">邮件<\/span>/);
   assert.match(html, /class="wb-row wb-m" data-biz-customer="Wa Co"/);
   assert.match(html, /class="wb-row wb-m" data-biz-go="mail:inbox"/);
   assert.match(html, /Need &lt;b&gt;PI&lt;\/b&gt;/);
@@ -367,7 +367,7 @@ test('every button the workbench draws is handled by the controller', () => {
 });
 
 test('the three top buttons follow permissions and the 商机 switch', () => {
-  assert.match(build(base()), /data-biz-action="new-task">添加任务[\s\S]*data-biz-go="opp-new">新建商机[\s\S]*wb-primary" data-biz-action="new-order">新建订单/);
+  assert.match(build(base()), /data-biz-action="new-task">添加任务[\s\S]*data-biz-go="opp-new">新建商机[\s\S]*k-btn k-btn--primary" data-biz-action="new-order">新建订单/);
   const none = build(base(), { can: (k) => k !== 'opp.create' && k !== 'order.create' });
   assert.doesNotMatch(none, /opp-new|新建订单/);
   assert.match(none, /添加任务/);
@@ -385,6 +385,6 @@ test('the markup stays inside .wb and uses the layout classes the CSS and the ov
   const html = build(base());
   assert.match(html, /^<div class="wb">/);
   for (const cls of ['wb-hello', 'wb-grid1', 'wb-queue', 'wb-moneyp', 'wb-orders', 'wb-grid2', 'wb-opp', 'wb-msgs']) assert.ok(html.includes(cls), cls);
-  assert.equal((html.match(/class="wb-panel /g) || []).length, 5, 'five panels: queue, money, orders, opportunities, messages');
+  assert.equal((html.match(/class="k-card wb-panel /g) || []).length, 5, 'five panels: queue, money, orders, opportunities, messages');
   for (const part of ['summary', 'queue', 'messages']) assert.ok(html.includes(`data-wb="${part}"`), part + ' can be swapped after the mail list arrives');
 });
