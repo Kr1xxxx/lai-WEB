@@ -4,6 +4,9 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #27 merged (`main` 540fc05) after one CI fix: removing the stale tech rule left 20 tech rules
+  and `skin-glass.test.cjs` asked for >20; the count is only a "section exists" check (specific rules pinned by name), now
+  >10, explained in the PR. Web trial v1.15 published and opened; 功能一览 updated. 线索, 工作台, 客户列表 workers running.
 - 2026-10-17 — Claude — Kit migration: 全部订单 (real `k-table`, `k-pager`, stage `k-badge`, kit header/buttons) and
   商机 board + list (`k-card` stats/cards, `k-tabs`, `k-table`) merged from two workers; old `.op-*`/`.opp-*` glass rules
   removed (plus one leftover tech rule that greyed the 赢单 badge). Ratchet only went down (business.css 195→180 px,
