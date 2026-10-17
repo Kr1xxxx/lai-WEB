@@ -1,8 +1,7 @@
 {
  "note": "Class names that exist today and predate the kit (D-028). New markup uses src/ui-kit.css instead. Delete a name when its page moves to the kit; never add one. tests/ui-kit-classes.test.cjs",
  "primary": [
-  "lcd-primary",
-  "wb-primary"
+  "lcd-primary"
  ],
  "pages": [
   "import-record-pages"
@@ -14,7 +13,6 @@
   "export-empty",
   "favorites-empty",
   "followup-template-empty",
-  "global-search-empty",
   "import-record-empty",
   "is-empty",
   "lai-select-empty",
@@ -23,7 +21,6 @@
   "lcd-contact-search-empty",
   "lcd-empty",
   "lcd-side-empty",
-  "lead-empty",
   "mail-bulk-empty",
   "mail-reader-empty",
   "now-empty",
@@ -36,8 +33,7 @@
   "tr-empty",
   "wa-empty",
   "wa-list-empty",
-  "wa-thread-empty",
-  "wb-empty"
+  "wa-thread-empty"
  ],
  "table": [
   "cs-table",
@@ -47,7 +43,6 @@
   "cs-table cs-rules",
   "cs-table cs-sync",
   "cs-table dt-records",
-  "customer-table ${prefs.striped ?",
   "dt-table",
   "export-table",
   "import-preview",
@@ -62,7 +57,6 @@
   "order-table role-table",
   "order-table role-table role-list-table",
   "order-table team-table",
-  "order-table team-table lead-table",
   "order-table team-table team-board",
   "order-table tr-table"
  ]

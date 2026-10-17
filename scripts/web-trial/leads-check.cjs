@@ -26,12 +26,12 @@ const note = (ok, msg) => { results.push(ok); console.log((ok ? 'PASS ' : 'FAIL 
   await page.waitForSelector('.rail-item[data-rail-menu="线索"]');
   await page.locator('.rail-item[data-rail-menu="线索"]').click();
   await settle();
-  note((await text('.lead-empty strong')) === '还没有线索', '1 empty state explains what a lead is');
+  note((await text('.lead-none .k-empty-title')) === '还没有线索', '1 empty state explains what a lead is');
   note(!(await page.content()).includes('功能入口已保留，深入功能待后续实现') || (await count('.lead-page')) === 1, '1 the page is the real module, not the reserved-entry notice');
   await shot('01-empty');
 
   // new lead
-  await page.locator('.lead-empty [data-lead-action="new"]').click();
+  await page.locator('.lead-none [data-lead-action="new"]').click();
   await settle();
   await fill('#lead-form', { name: 'Northwind Beauty GmbH', contact: 'Anna Berg', email: 'anna@northwind.example', phone: '+49 30 1234567', source: '展会', owner: 'Amy', product: '磁吸假睫毛', note: '展会上留的名片，想要小批量试单。' });
   await shot('02-new-form');
@@ -139,7 +139,7 @@ const note = (ok, msg) => { results.push(ok); console.log((ok ? 'PASS ' : 'FAIL 
   note((await text('[data-lead-action="delete"]')).includes('再点一次'), '8 delete asks for a second click');
   await page.locator('[data-lead-action="restore"]').click();
   await settle();
-  note((await count('.lead-empty')) === 1, '8 restore empties the trash');
+  note((await count('.lead-none')) === 1, '8 restore empties the trash');
   await page.locator('[data-lead-action="list-page"]').click();
   await settle();
   note((await tab('all')) === '3', '8 restored lead is back in the list');

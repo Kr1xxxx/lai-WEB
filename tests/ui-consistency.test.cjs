@@ -26,9 +26,12 @@ test('the customer list selection column has the narrow width of the one layout'
   assert.match(app, /const selectionWidth = 48, actionsWidth = 52;/);
 });
 
-test('the split 新建客户 button, page-header buttons and the customer form inputs follow the same 8px corners', () => {
-  assert.match(skin, /\.split-new > button:first-child \{ border-radius: 8px 0 0 8px; \}/);
-  assert.match(skin, /\.split-new > button:last-child \{ border-radius: 0 8px 8px 0; \}/);
+test('the split 新建客户 button, page-header buttons and the customer form inputs follow the same corners', () => {
+  // 新建客户是两个完整的组件按钮（.k-btn--primary，D-028），圆角都来自组件，不再另写半边圆角
+  const replica = read('src/customer-replica.css');
+  assert.doesNotMatch(replica, /\.split-new[^{]*\{[^}]*radius/);
+  assert.doesNotMatch(skin, /\.split-new/);
+  assert.match(read('src/customer-list-ui.js'), /<div class="split-new">[^]*?class="k-btn k-btn--primary" data-action="new"[^]*?class="k-btn k-btn--primary split-caret" data-action="create-menu"/);
   assert.match(skin, /\.pagebar \.page-actions > button \{ height: 32px; min-height: 32px; \}/);
   assert.match(skin, /\.ce-body :is\(input[^)]*\)[^{]*select, textarea\) \{ border-radius: 8px;/);
 });

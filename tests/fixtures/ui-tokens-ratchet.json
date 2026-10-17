@@ -2,9 +2,9 @@
  "note": "Literal font-size px, border-radius px and hex colours per src/*.css (ui-tokens.css exempt). May only go down. tests/ui-tokens-ratchet.test.cjs",
  "files": {
   "business.css": {
-   "fontSizePx": 180,
-   "radiusPx": 83,
-   "hex": 185
+   "fontSizePx": 146,
+   "radiusPx": 69,
+   "hex": 141
   },
   "customer-detail.css": {
    "fontSizePx": 34,
@@ -17,9 +17,9 @@
    "hex": 51
   },
   "customer-replica.css": {
-   "fontSizePx": 98,
-   "radiusPx": 56,
-   "hex": 142
+   "fontSizePx": 82,
+   "radiusPx": 47,
+   "hex": 112
   },
   "customer-select.css": {
    "fontSizePx": 1,
@@ -68,8 +68,8 @@
   },
   "skin-glass.css": {
    "fontSizePx": 14,
-   "radiusPx": 24,
-   "hex": 60
+   "radiusPx": 21,
+   "hex": 54
   },
   "styles.css": {
    "fontSizePx": 52,

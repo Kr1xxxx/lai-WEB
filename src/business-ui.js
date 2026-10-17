@@ -1161,11 +1161,11 @@
     function renderLeads() {
       const today = B.localDate();
       const page = LD().page(scoped(), leadView.filters, today, leadHidden());
-      return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", exportButton("lead") + LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
+      return kitHeader("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", exportButton("lead", "k-btn") + LU().headerActions(page), "lead-header") + LU().pageMarkup(page, leadView, today);
     }
     function renderLeadTrash() {
       const today = B.localDate();
-      return header("线索回收站", "移入回收站的线索可以恢复，也可以彻底删除", '<button type="button" data-lead-action="list-page">返回线索列表</button>') + LU().trashMarkup(LD().trash(scoped(), today), leadArmed, today);
+      return kitHeader("线索回收站", "移入回收站的线索可以恢复，也可以彻底删除", '<button type="button" class="k-btn" data-lead-action="list-page">返回线索列表</button>', "lead-header") + LU().trashMarkup(LD().trash(scoped(), today), leadArmed, today);
     }
     // 线索不归当前账号负责（角色只看本人或本部门时）：提示一句，什么也不做。
     const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));

@@ -43,9 +43,13 @@ test('badges, tags and tinted labels in the glass skin keep a text contrast of a
 });
 
 test('buttons with a coloured background keep white text instead of the dark default button text', () => {
-  for (const selector of ['.owner-switch button.active', '.lcd-root .lcd-primary', '.global-search-empty-actions button:last-child']) {
+  for (const selector of ['.lcd-root .lcd-primary']) {
     assert.match(skin, new RegExp(':root\\[data-skin="glass"\\] ' + selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^{]*\\{[^}]*color:\\s*#fff'), selector);
   }
+  // 客户列表（D-028 组件套件）：「团队客户」和「新建客户」是 .k-tab／.k-btn--primary，白字来自组件，不再要皮肤单独补
+  const list = read('src/customer-list-ui.js');
+  assert.match(list, /class="k-btn k-btn--primary" data-action="new"/);
+  assert.match(read('src/ui-kit.css'), /\.k-btn--primary \{ background: var\(--primary\); border-color: var\(--primary\); color: var\(--primary-fg\); \}/);
 });
 
 test('placeholder text is lighter than typed text but still at least 4.5:1', () => {
@@ -70,7 +74,10 @@ test('the active rail item is a brand pill around icon and text; the batch bar i
   assert.match(tokens, /--nav-active: var\(--brand-700\);/, 'pink and orange: the pill is the darker brand tone');
   assert.match(light, /\.rail-item\.active :is\(\.icon, \.icon-duo\) \{ stroke: #fff; color: #fff; \}/);
   assert.doesNotMatch(light, /\.rail-item\.active[^{]*\{[^}]*inset 3px 0 0/, 'no left bar any more');
-  assert.match(light, /\.replica-batch \{ background: #fff;[^}]*border: 1px solid var\(--brand-500\)/);
+  // 客户列表的批量操作条是浅色的：迁到组件套件后写在 customer-replica.css 的「kit: 客户列表」块里，浅主色底（D-028）
+  const replica = read('src/customer-replica.css');
+  assert.match(replica.slice(replica.indexOf('/* kit: 客户列表 */')), /\.replica-batch \{[^}]*background: var\(--accent-bg\)/);
+  assert.doesNotMatch(skin, /\.replica-batch/, 'no old batch-bar rules left in the skin');
   assert.doesNotMatch(skin, /\.wb-dark|\.wb-follow|\.wb-stat/, 'the old dark follow-up card and counter tiles are gone; the workbench draws light panels (business.css)');
   assert.doesNotMatch(light, /background: rgb\(var\(--skin-ink-rgb\)\)/, 'no dark fills in this section');
   // 浅粉底上的玫粉字：粉色、橙色两套主题都要 ≥ 4.5
@@ -97,7 +104,9 @@ test('科技蓝: flat white panels, a navy rail with light icons and a cobalt ac
   // Primary buttons are the brand colour in every theme (cobalt here), through --primary.
   assert.match(tokens, /--primary: var\(--brand-500\);/);
   assert.match(skin, /\[data-theme\] button\.primary,[\s\S]*?\{ background: var\(--primary\); border-color: var\(--primary\); color: var\(--primary-fg\); \}/);
-  assert.match(skin, /\.wb \{ --wb-primary: var\(--primary\); \}/);
+  // The workbench's 新建订单 is the kit's primary button (D-028), which is var(--primary) in every theme.
+  assert.match(read('src/workbench.js'), /class="k-btn k-btn--primary" data-biz-action="new-order"/);
+  assert.match(read('src/ui-kit.css'), /\.k-btn--primary \{ background: var\(--primary\); border-color: var\(--primary\); color: var\(--primary-fg\); \}/);
   // every tech rule is limited to the tech theme (the glass skin test above already pins data-skin)
   const rules = tech.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+\{/g);
   // The section shrinks on purpose as pages move onto the kit (their colours come from tokens), so this only checks

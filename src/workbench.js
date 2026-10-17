@@ -1,7 +1,8 @@
 /* 工作台页面内容（所有配色都用这一版，不再分新旧界面）。
    纯函数：给定业务数据返回 HTML 字符串，不碰 DOM、不发请求，所以能直接用 node 测试。
    版面从上到下：问候一行 → 今天先做 + 钱和目标 → 订单走到哪了 → 商机 + 客户来消息。
-   颜色全部取主题变量（--brand-*、--ink-*），样式在 business.css 的「工作台」一节。
+   用统一组件（src/ui-kit.css，D-028）：页头 .k-pageheader、卡片 .k-card、按钮 .k-btn、状态 .k-badge、空状态 .k-empty；
+   这一页自己的排版（网格、行、订单线、进度条）在 business.css 末尾的「kit: 工作台」一节，只用 ui-tokens.css 的变量。
    规则（排序、条数、金额、订单线）记在 VALIDATION.md「工作台」一节。 */
 (function (root, factory) {
   const api = factory();
@@ -279,6 +280,14 @@
         : act.type === "task" ? `data-biz-edit-task="${E(act.value)}"`
           : `data-biz-go="${E(act.value)}"`;
 
+  // 每张卡片的头：标题、一句说明、右边一个去处（.k-card-head）。
+  const cardHead = (id, title, desc, link) =>
+    `<div class="k-card-head wb-ph"><h2 class="k-card-title" id="${id}">${title}</h2>${desc ? `<span class="k-card-desc">${desc}</span>` : ""}${link || ""}</div>`;
+  // 卡片头右边的去处：小号的透明按钮。
+  const goLink = (attr, label) => `<button type="button" class="k-btn k-btn--ghost k-btn--sm wb-link" ${attr}>${label}</button>`;
+  // 「今天先做」每行的状态：逾期红、今天到期黄；等你回复、未读邮件只是分类，用灰色。
+  const TAG_TONES = Object.freeze({ late: "danger", today: "warning", wait: "neutral", mail: "neutral" });
+
   function greetingMarkup(input, E, ctx) {
     const { today, can, state } = input;
     const hour = input.hour !== undefined ? input.hour : input.now ? input.now.getHours() : 9;
@@ -288,45 +297,48 @@
       parts.push(`还有 <b class="wb-num">${E(money(ctx.money.due, ctx.money.currency))}</b>${ctx.money.others ? `（另有 ${ctx.money.others} 种币种）` : ""} 没收回来`);
     }
     const name = input.me ? `，${E(input.me)}` : "";
-    return `<section class="wb-hello" data-wb="summary"><div><h1>${greeting(hour)}${name}</h1><p>${E(longToday(today))}　${parts.join("，")}</p></div><div class="wb-acts"><button type="button" data-biz-action="new-task">添加任务</button>${can("opp.create") && switchOn(state, "opp") ? '<button type="button" data-biz-go="opp-new">新建商机</button>' : ""}${can("order.create") ? '<button type="button" class="wb-primary" data-biz-action="new-order">新建订单</button>' : ""}</div></section>`;
+    const actions = '<button type="button" class="k-btn" data-biz-action="new-task">添加任务</button>'
+      + (can("opp.create") && switchOn(state, "opp") ? '<button type="button" class="k-btn" data-biz-go="opp-new">新建商机</button>' : "")
+      + (can("order.create") ? '<button type="button" class="k-btn k-btn--primary" data-biz-action="new-order">新建订单</button>' : "");
+    return `<header class="k-pageheader wb-hello" data-wb="summary"><div class="k-pageheader-text"><h1 class="k-pageheader-title">${greeting(hour)}${name}</h1><p class="wb-sum"><span class="wb-date">${E(longToday(today))}</span>${parts.join("，")}</p></div><div class="k-pageheader-actions wb-acts">${actions}</div></header>`;
   }
 
   function queueMarkup(q, E, mailPending) {
     const rows = q.shown
       .map((r) => {
         const check = r.task ? `<input type="checkbox" data-biz-task="${E(r.task)}" aria-label="完成：${E(r.title)}">` : "";
-        return `<div class="wb-row wb-q wb-${r.tone}"><span class="wb-tag">${E(r.tag)}</span><span class="wb-who"><b>${check}<span class="wb-t">${E(r.title)}</span></b>${r.detail ? `<small class="wb-next">${E(r.detail)}</small>` : ""}</span><button type="button" class="wb-act" ${attrOf(r.act, E)}>${E(r.act.label)}</button></div>`;
+        return `<div class="wb-row wb-q wb-${r.tone}"><span class="k-badge k-badge--${TAG_TONES[r.tone] || "neutral"} wb-tag">${E(r.tag)}</span><span class="wb-who"><b>${check}<span class="wb-t">${E(r.title)}</span></b>${r.detail ? `<small class="wb-next">${E(r.detail)}</small>` : ""}</span><button type="button" class="k-btn k-btn--sm wb-act" ${attrOf(r.act, E)}>${E(r.act.label)}</button></div>`;
       })
       .join("");
-    const empty = `<div class="wb-nothing"><strong>今天没有要紧事</strong><span>${mailPending ? "邮件还在读取…" : "逾期的跟进、等你回复的聊天、今天到期的待办会出现在这里"}</span><button type="button" data-biz-action="new-task">添加任务</button></div>`;
+    const empty = `<div class="k-empty"><p class="k-empty-title">今天没有要紧事</p><span>${mailPending ? "邮件还在读取…" : "逾期的跟进、等你回复的聊天、今天到期的待办会出现在这里"}</span><button type="button" class="k-btn k-btn--sm wb-again" data-biz-action="new-task">添加任务</button></div>`;
     const tail = q.more > 0 ? `<p class="wb-foot">还有 ${q.more} 件没列出，到「全部待办」里看</p>` : "";
-    return `<section class="wb-panel wb-queue" data-wb="queue" aria-labelledby="wb-h-queue"><div class="wb-ph"><h2 id="wb-h-queue">今天先做</h2><span>逾期的排在最前</span><button type="button" class="wb-link" data-biz-go="calendar">全部待办 ›</button></div>${rows ? `<div class="wb-list">${rows}</div>${tail}` : empty}</section>`;
+    return `<section class="k-card wb-panel wb-queue" data-wb="queue" aria-labelledby="wb-h-queue">${cardHead("wb-h-queue", "今天先做", "逾期的排在最前", goLink('data-biz-go="calendar"', "全部待办 ›"))}${rows ? `<div class="wb-list">${rows}</div>${tail}` : empty}</section>`;
   }
 
   function moneyMarkup(m, E) {
     const pct = (value) => Math.max(0, Math.min(100, value));
-    const head = `<div class="wb-ph"><h2 id="wb-h-money">钱和目标</h2><span>${E(m.currency)}，不含草稿</span>${m.seeTeam ? '<button type="button" class="wb-link" data-biz-go="analysis">经营统计 ›</button>' : ""}</div>`;
+    const head = cardHead("wb-h-money", "钱和目标", `${E(m.currency)}，不含草稿`, m.seeTeam ? goLink('data-biz-go="analysis"', "经营统计 ›") : "");
     let deal = "";
     if (m.deal) {
       const d = m.deal;
       const goal = d.target === null
         ? '<span class="wb-sub">本月还没设目标</span>'
         : `<span class="wb-sub">/ 目标 ${E(money(d.target, m.currency))}</span>`;
-      deal = `<div class="wb-meter"><div class="wb-meter-top"><span>本月成交</span>${d.target === null ? "" : `<b class="wb-pct wb-num">${d.reached ? "已达标" : d.pct + "%"}</b>`}</div><div class="wb-big wb-num">${E(money(d.actual, m.currency))} ${goal}</div>${d.target === null ? "" : `<div class="wb-bar" role="img" aria-label="本月成交完成 ${d.pct}%"><i style="width:${pct(d.pct)}%"></i></div>`}</div>`;
+      deal = `<div class="wb-meter"><div class="wb-meter-top"><span>本月成交</span>${d.target === null ? "" : `<span class="k-badge k-badge--${d.reached ? "success" : "neutral"} wb-pct wb-num">${d.reached ? "已达标" : d.pct + "%"}</span>`}</div><div class="wb-big wb-num">${E(money(d.actual, m.currency))} ${goal}</div>${d.target === null ? "" : `<div class="wb-bar" role="img" aria-label="本月成交完成 ${d.pct}%"><i style="width:${pct(d.pct)}%"></i></div>`}</div>`;
     }
     let paid = "";
     if (m.seeOrders) {
       const tail = m.others
-        ? `<p class="wb-note">另有 ${m.others} 种币种，各币种分别统计、不折算${m.seeTeam ? '，<button type="button" class="wb-link" data-biz-go="analysis">到经营统计看 ›</button>' : ""}</p>`
+        ? `<p class="wb-note">另有 ${m.others} 种币种，各币种分别统计、不折算${m.seeTeam ? goLink('data-biz-go="analysis"', "到经营统计看 ›") : ""}</p>`
         : "";
       paid = m.hasOrders
         ? `<div class="wb-split"><div><b class="wb-num">${E(money(m.collected, m.currency))}</b><span>已收款（${m.collectedPct}%）</span></div><div><b class="wb-num">${E(money(m.due, m.currency))}</b><span>待收款，${m.dueOrders} 笔订单</span></div></div>${tail}`
-        : '<p class="wb-empty">还没有订单，收款情况会出现在这里。</p>';
+        : '<div class="k-empty"><span>还没有订单，收款情况会出现在这里。</span></div>';
     }
     const bars = m.bars
       .map((b) => `<div class="wb-mini"><span>${E(b.label)}</span><div class="wb-bar"${b.target === null ? "" : ` role="img" aria-label="${E(b.label)}完成 ${b.pct}%"`}><i style="width:${b.target === null ? 0 : pct(b.pct)}%"></i></div><em class="wb-num">${b.target === null ? `${num(b.actual)} ${E(b.unit)}（没设目标）` : `${num(b.actual)} / ${num(b.target)}`}</em></div>`)
       .join("");
-    return `<section class="wb-panel wb-moneyp" aria-labelledby="wb-h-money">${head}<div class="wb-body">${deal}${paid}${bars ? `<div class="wb-minis">${bars}</div>` : ""}</div></section>`;
+    return `<section class="k-card wb-panel wb-moneyp" aria-labelledby="wb-h-money">${head}<div class="wb-body">${deal}${paid}${bars ? `<div class="wb-minis">${bars}</div>` : ""}</div></section>`;
   }
 
   function lineMarkup(line, E) {
@@ -340,7 +352,7 @@
             return `<button type="button" class="wb-ocard" data-biz-order="${E(o.id)}"><b>${E(o.client || "未填客户")}</b><span class="wb-amt wb-num">${E(money(o.amount, currencyOf(o)))}</span><small>${next ? E(next) : "还没写下一步"}</small></button>`;
           })
           .join("");
-        const more = s.more > 0 ? `<button type="button" class="wb-omore" data-biz-stage="${E(s.id)}">还有 ${s.more} 笔 ›</button>` : "";
+        const more = s.more > 0 ? `<button type="button" class="k-btn k-btn--ghost k-btn--sm wb-omore" data-biz-stage="${E(s.id)}">还有 ${s.more} 笔 ›</button>` : "";
         const finished = s.done ? (s.count ? `<p class="wb-doneSum">已完成 ${s.count} 笔，${E(moneyMap(s.totals))}</p>` : "") : "";
         return `<li class="${cls}" data-stage="${E(s.id)}"><span class="wb-dot wb-num" aria-hidden="true">${dot}</span><h3>${E(s.label)} <span class="wb-num">${s.count}</span></h3>${cards || more || finished ? `<div class="wb-ocards">${cards}${more}${finished}</div>` : ""}</li>`;
       })
@@ -348,12 +360,14 @@
     const sub = line.liveCount ? `${line.liveCount} 笔未完成，共 ${E(moneyMap(line.liveTotals))}` : "没有未完成的订单";
     const body = line.total
       ? `<div class="wb-linescroll"><ol class="wb-track">${stations}</ol></div>`
-      : '<p class="wb-empty">还没有订单。新建订单后，每一笔会按阶段排在这条线上。</p>';
-    return `<section class="wb-panel wb-orders" aria-labelledby="wb-h-orders"><div class="wb-ph"><h2 id="wb-h-orders">订单走到哪了</h2><span>${sub}</span><button type="button" class="wb-link" data-biz-action="orders">全部订单 ›</button></div>${body}</section>`;
+      : '<div class="k-empty"><span>还没有订单。新建订单后，每一笔会按阶段排在这条线上。</span></div>';
+    return `<section class="k-card wb-panel wb-orders" aria-labelledby="wb-h-orders">${cardHead("wb-h-orders", "订单走到哪了", sub, goLink('data-biz-action="orders"', "全部订单 ›"))}${body}</section>`;
   }
 
   function oppMarkup(board, E) {
-    if (!board) return `<section class="wb-panel wb-opp" aria-labelledby="wb-h-opp"><div class="wb-ph"><h2 id="wb-h-opp">商机</h2><button type="button" class="wb-link" data-biz-go="opportunities">商机看板 ›</button></div><p class="wb-empty">还没有商机。</p></section>`;
+    const link = goLink('data-biz-go="opportunities"', "商机看板 ›");
+    const none = '<div class="k-empty"><span>还没有商机。</span></div>';
+    if (!board) return `<section class="k-card wb-panel wb-opp" aria-labelledby="wb-h-opp">${cardHead("wb-h-opp", "商机", "", link)}${none}</section>`;
     const max = Math.max(0, ...board.columns.map((c) => c.amount));
     const rows = board.columns
       .map((c) => {
@@ -362,22 +376,23 @@
       })
       .join("");
     const other = board.otherCurrencyCount > 0 ? `，另有 ${board.otherCurrencyCount} 个其他币种的商机` : "";
-    return `<section class="wb-panel wb-opp" aria-labelledby="wb-h-opp"><div class="wb-ph"><h2 id="wb-h-opp">商机</h2><span>${board.count} 个 · ${E(money(board.totals.total, board.currency))}（不含输单）</span><button type="button" class="wb-link" data-biz-go="opportunities">商机看板 ›</button></div>${board.count ? `<div class="wb-fun">${rows}<p class="wb-note">条的长短按金额画；绿色是已赢单${E(other)}</p></div>` : '<p class="wb-empty">还没有商机。</p>'}</section>`;
+    return `<section class="k-card wb-panel wb-opp" aria-labelledby="wb-h-opp">${cardHead("wb-h-opp", "商机", `${board.count} 个 · ${E(money(board.totals.total, board.currency))}（不含输单）`, link)}${board.count ? `<div class="wb-fun">${rows}<p class="wb-note">条的长短按金额画；绿色是已赢单${E(other)}</p></div>` : none}</section>`;
   }
 
   function messagesMarkup(feed, E, today) {
     const rows = feed.items
       .map((m) => {
-        const badge = m.ch === "wa" ? '<span class="wb-ch wa" aria-label="WhatsApp">WA</span>' : '<span class="wb-ch ml" aria-label="邮件">邮件</span>';
+        const badge = m.ch === "wa" ? '<span class="k-badge wb-ch wa" aria-label="WhatsApp">WA</span>' : '<span class="k-badge wb-ch ml" aria-label="邮件">邮件</span>';
         const title = m.who ? `${E(m.name)} · ${E(m.who)}` : E(m.name);
         return `<button type="button" class="wb-row wb-m" ${attrOf(m.open, E)}>${badge}<span class="wb-who"><b class="wb-t">${title}</b><small class="wb-next">${E(clip(m.text, 120))}</small></span><time class="wb-num">${E(clockOrDate(m.when, today))}</time></button>`;
       })
       .join("");
-    const note = feed.mailPending && !rows ? '<p class="wb-empty">正在读取邮件…</p>' : feed.mailError && !rows ? '<p class="wb-empty">暂时读不到邮件：请先在邮件页绑定邮箱。</p>' : "";
+    const say = (text) => `<div class="k-empty"><span>${text}</span></div>`;
+    const note = feed.mailPending && !rows ? say("正在读取邮件…") : feed.mailError && !rows ? say("暂时读不到邮件：请先在邮件页绑定邮箱。") : "";
     const tail = feed.mailError && rows ? '<p class="wb-foot">邮件暂时读不到，只列了 WhatsApp。</p>' : "";
     const sources = [feed.seeChat ? "WhatsApp" : "", feed.seeMail ? "邮件" : ""].filter(Boolean).join(" 和 ");
     const go = feed.seeMail ? "mail:inbox" : "";
-    return `<section class="wb-panel wb-msgs" data-wb="messages" aria-labelledby="wb-h-msgs"><div class="wb-ph"><h2 id="wb-h-msgs">客户来消息</h2><span>${E(sources)}</span>${go ? `<button type="button" class="wb-link" data-biz-go="${go}">收件箱 ›</button>` : ""}</div>${rows ? `<div class="wb-list">${rows}</div>${tail}` : note || '<p class="wb-empty">最近没有客户来消息。</p>'}</section>`;
+    return `<section class="k-card wb-panel wb-msgs" data-wb="messages" aria-labelledby="wb-h-msgs">${cardHead("wb-h-msgs", "客户来消息", E(sources), go ? goLink(`data-biz-go="${go}"`, "收件箱 ›") : "")}${rows ? `<div class="wb-list">${rows}</div>${tail}` : note || say("最近没有客户来消息。")}</section>`;
   }
 
   // input：{ state, today, now?, hour?, me, can, showOwner, B, OM, TM, bucket, mail, WA, canSeeChat }

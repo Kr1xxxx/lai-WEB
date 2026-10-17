@@ -71,6 +71,7 @@ for (const [width, height] of [[1440, 900], [1280, 800]]) {
     await toast.filter({ hasText: '已撤销' }).waitFor();
     assert.equal(await stageOf('toast-1'), 'open');
     assert.equal(await page.locator('[data-opp-drop="open"] .opp-card[data-opp-id="toast-1"]').count(), 1);
+    await page.waitForTimeout(400); // let the open transition finish, as above (it fades in from opacity 0)
     assert.deepEqual(await visibleToasts(), ['已撤销'], 'the new toast replaced the old one and has no button');
     assert.equal(await page.locator('#toast button').count(), 0);
     assert.deepEqual(app.errors, []);

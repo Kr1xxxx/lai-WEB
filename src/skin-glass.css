@@ -74,19 +74,15 @@
 :root[data-skin="glass"] .main { left: 260px; top: 68px; right: 12px; bottom: 12px; padding: 0; background: transparent; }
 :root[data-skin="glass"] .nav-collapsed .main,
 :root[data-skin="glass"] .subnav[hidden] ~ .main { left: 90px; }
-:root[data-skin="glass"] .wb { --wb-primary: var(--primary); }
 :root[data-skin="glass"] .panel { --customer-group-width: max(196px, calc((100vw - 284px) * 0.14)); }
 :root[data-skin="glass"] .nav-collapsed .panel { --customer-group-width: max(196px, calc((100vw - 114px) * 0.14)); }
 
 /* 卡片 */
-:root[data-skin="glass"] .panel,
 :root[data-skin="glass"] .business-section,
 :root[data-skin="glass"] .module-page,
 :root[data-skin="glass"] .duplicate-card {
   background: var(--card-bg); border: 1px solid var(--card-line); border-radius: var(--skin-radius); box-shadow: none; overflow: hidden;
 }
-:root[data-skin="glass"] .replica-panel { border: 1px solid var(--card-line); }
-:root[data-skin="glass"] .groups { border-right: 1px solid var(--ink-100); }
 
 /* 按钮与输入 */
 :root[data-skin="glass"] button { border-radius: 8px; border-color: rgba(var(--skin-ink-rgb), 0.14); color: rgb(var(--skin-ink-rgb)); }
@@ -105,17 +101,6 @@
 :root[data-skin="glass"] tbody tr:hover td { background: var(--ink-50); }
 :root[data-skin="glass"] td { border-color: var(--ink-100); }
 
-/* 客户列表：选中后出现的深色批量操作条 */
-:root[data-skin="glass"] .replica-batch {
-  height: 38px; min-height: 38px; padding: 0 12px; gap: 8px; background: rgb(var(--skin-ink-rgb)); color: #fff; border-radius: 0;
-}
-:root[data-skin="glass"] .replica-batch button { color: #fff; padding: 0 9px; min-height: 26px; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 7px; background: transparent; }
-:root[data-skin="glass"] .replica-batch button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.22); }
-:root[data-skin="glass"] .replica-batch button:first-child { color: #fff; }
-:root[data-skin="glass"] .replica-batch > span { color: #fff; }
-:root[data-skin="glass"] .replica-batch > span b { color: var(--skin-gold); }
-:root[data-skin="glass"] .replica-batch .text-button { border-color: transparent; }
-:root[data-skin="glass"] .batch-divider { background: rgba(255, 255, 255, 0.2); }
 
 /* ===== 顶栏搜索框与「搜索范围」下拉菜单 ===== */
 :root[data-skin="glass"] .global-search {
@@ -180,10 +165,8 @@
 :root[data-skin="glass"] input::placeholder,
 :root[data-skin="glass"] textarea::placeholder { color: rgba(var(--skin-ink-rgb), 0.6); opacity: 1; }
 /* 带颜色底的按钮：文字保持白色（否则被全局的深色按钮文字盖住） */
-:root[data-skin="glass"] .owner-switch button.active,
 :root[data-skin="glass"] .lcd-root .lcd-primary,
-:root[data-skin="glass"] .lcd-root .lcd-primary:hover,
-:root[data-skin="glass"] .global-search-empty-actions button:last-child { color: #fff; }
+:root[data-skin="glass"] .lcd-root .lcd-primary:hover { color: #fff; }
 /* 标签和徽标 */
 :root[data-skin="glass"] .tag { color: #a3433b; }
 :root[data-skin="glass"] .tag.green { color: #1f6f52; }
@@ -305,15 +288,6 @@
 :root[data-skin="glass"] .rail-item.active:hover { background: var(--nav-active); color: #fff; box-shadow: none; font-weight: 700; }
 :root[data-skin="glass"] .rail-item.active :is(.icon, .icon-duo) { stroke: #fff; color: #fff; }
 :root[data-skin="glass"] .rail-item.active .icon-duo .tint { fill: #fff; fill-opacity: .3; }
-/* 批量操作条：白底 + 玫粉描边 */
-:root[data-skin="glass"] .replica-batch { background: #fff; color: rgb(var(--skin-ink-rgb)); border: 1px solid var(--brand-500); }
-:root[data-skin="glass"] .replica-batch button { color: rgb(var(--skin-ink-rgb)); border-color: var(--ink-200); background: #fff; }
-:root[data-skin="glass"] .replica-batch button:hover:not(:disabled) { background: var(--brand-50); border-color: var(--brand-500); color: var(--brand-700); }
-:root[data-skin="glass"] .replica-batch button:first-child { color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .replica-batch > span { color: rgb(var(--skin-ink-rgb)); }
-:root[data-skin="glass"] .replica-batch > span b { color: var(--brand-700); }
-:root[data-skin="glass"] .replica-batch .text-button { border-color: transparent; }
-:root[data-skin="glass"] .batch-divider { background: var(--ink-200); }
 :root[data-skin="glass"] .banner-close { color: #fff; }
 
 /* ===== 复选框、单选框统一样式（用户反馈：客户列表未选是圆圈、选中变成方框）===== */
@@ -338,9 +312,6 @@
 /* 字段设置弹窗里原来自己画的对勾去掉，用上面统一的 */
 :root[data-skin="glass"] :is(.columns-dialog, .summary-dialog) .available-fields input[type="checkbox"]::after { content: none; }
 :root[data-skin="glass"] :is(.columns-dialog, .summary-dialog) .available-fields input[type="checkbox"]:checked { background-color: var(--brand-500); }
-/* 客户列表的选择列 */
-:root[data-skin="glass"] .customer-table .check-col { padding-left: 16px; padding-right: 8px; }
-:root[data-skin="glass"] .customer-table .check-col input[type="checkbox"] { display: block; }
 /* 单选框：同样的 16px，圆形，选中是主色圆点（“匹配条件”里自己画的那一组、隐藏起来用文字当按钮的几组除外） */
 :root[data-skin="glass"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input) {
   appearance: none; -webkit-appearance: none; flex: 0 0 16px; width: 16px; height: 16px; margin: 0; padding: 0;
@@ -351,9 +322,7 @@
 :root[data-skin="glass"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):checked { border-color: var(--brand-500); background: radial-gradient(circle, var(--brand-500) 0 4px, #fff 4.5px); }
 :root[data-skin="glass"] input[type="radio"]:not(:is(.segment-match-options, .opp-seg, .ce-rating) input):disabled { opacity: .45; cursor: not-allowed; }
 :root[data-skin="glass"] input[type="radio"]:focus-visible { outline: 2px solid var(--brand-500); outline-offset: 2px; }
-/* “新建客户”分裂按钮：和其他按钮一样 8px 圆角，不再是胶囊 */
-:root[data-skin="glass"] .split-new > button:first-child { border-radius: 8px 0 0 8px; }
-:root[data-skin="glass"] .split-new > button:last-child { border-radius: 0 8px 8px 0; }
+/* 页头里的按钮和输入框一样 32 高 */
 :root[data-skin="glass"] .pagebar .page-actions > button { height: 32px; min-height: 32px; }
 
 /* ===== 菜单图标：线条 + 淡色底（左栏和二级菜单），和新界面的圆角卡片风格一致 ===== */
