@@ -843,14 +843,13 @@ td.team-reached {
 }
 
 /* ---------- 商机 ----------
-   配色沿用应用的蓝色主色；阶段只用三种语义色：进行中＝绿，赢单＝蓝，输单＝灰。
+   阶段只用三种语义色（全商机页面一致）：进行中＝主色，赢单＝绿，输单＝灰；规则在文件末尾「kit: 商机美化」。
    页面上唯一「重」的元素是阶段条，其余控件统一 32px 高、同一种边框和圆角。 */
 .opp-page {
   --opp-ink: var(--ink-900);
   --opp-muted: var(--ink-600);
   --opp-line: var(--ink-200);
   --opp-surface: var(--ink-50);
-  --opp-open: var(--chart-2);
   --opp-won: var(--brand-500);
   --opp-won-soft: var(--brand-50);
   --opp-won-ink: var(--brand-700);
@@ -910,46 +909,6 @@ td.team-reached {
 }
 .opp-toolbar .opp-sort {
   margin-left: auto;
-}
-/* 金额汇总条 */
-.opp-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  margin-bottom: 14px;
-  border: 1px solid var(--opp-line);
-  border-radius: 10px;
-  background: #fff;
-}
-.opp-summary.is-compact {
-  border: 0;
-  background: transparent;
-}
-.opp-summary.is-compact .opp-currency {
-  padding: 0 12px 0 0;
-  border: 0;
-}
-.opp-currency {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  padding: 12px 18px;
-  border-right: 1px solid var(--opp-line);
-  font-size: 12px;
-  color: var(--opp-muted);
-}
-.opp-currency select {
-  min-width: 84px;
-  font-weight: 600;
-}
-.opp-summary-note {
-  flex: 1 0 100%;
-  margin: 0;
-  padding: 8px 18px;
-  border-top: 1px solid var(--opp-line);
-  font-size: 12px;
-  color: var(--opp-muted);
 }
 /* ---------- 商机看板／列表：组件套件（D-028） ----------
    外观来自 ui-kit.css：页头 k-pageheader、筛选卡片和金额卡片 k-card、看板／列表切换 k-tabs、输入框 k-input、
@@ -1268,19 +1227,6 @@ td.team-reached {
   border-radius: 4px;
   background: var(--ink-100);
 }
-.opp-bar-track i {
-  display: block;
-  height: 100%;
-  min-width: 2px;
-  border-radius: 4px;
-  background: #1f9d5c;
-}
-.opp-bar.opp-kind-won .opp-bar-track i {
-  background: var(--brand-500);
-}
-.opp-bar.opp-kind-lost .opp-bar-track i {
-  background: var(--ink-500);
-}
 .opp-bar-count {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -1501,18 +1447,6 @@ td.team-reached {
   align-items: center;
   gap: 12px;
 }
-.opp-stage-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #1f9d5c;
-}
-.opp-stage-dot.opp-kind-won {
-  background: var(--brand-500);
-}
-.opp-stage-dot.opp-kind-lost {
-  background: var(--ink-500);
-}
 .opp-stage-usage {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -1536,10 +1470,6 @@ td.team-reached {
   border-radius: 6px;
   background: #fff;
   color: var(--ink-800);
-}
-.opp-icon-button:disabled {
-  color: var(--ink-300);
-  background: var(--ink-50);
 }
 .opp-stage-add {
   display: grid;
@@ -2476,3 +2406,141 @@ td.team-reached {
 :root[data-skin] .opp-menu .opp-menu-item.team-danger { background: var(--danger-bg); }
 :root[data-skin] .opp-menu .opp-menu-item .opp-dot { margin-right: 4px; }
 :root[data-skin] .opp-menu .error { margin: 6px; }
+
+/* kit: 商机美化
+   商机看板、列表、详情、商机分析、商机设置的版式（2026-10，主人说商机页「不好看」后整理）。浅色、安静：
+   页面底色上放白色卡片；看板每列是一条浅灰泳道，列头滚动时贴在顶上；颜色只表示意义，全商机页面一致：
+   进行中＝主色（--primary），赢单＝绿（--success），输单＝灰（--ink-400），逾期＝红，快到期＝提醒色。
+   只用 ui-tokens.css 的变量；写在文件末尾，压过前面的旧规则。 */
+:root[data-skin] .opp-kind-open, :root[data-skin] .opp-stat.is-open { --opp-accent: var(--primary); }
+:root[data-skin] .opp-kind-won, :root[data-skin] .opp-stat.is-won { --opp-accent: var(--success); }
+:root[data-skin] .opp-kind-lost, :root[data-skin] .opp-stat.is-lost { --opp-accent: var(--ink-400); }
+
+/* 筛选条：左组（视图、搜索、负责人、归档、币种）和右组（日期范围、排序）各自一行；放不下时右组整组换到第二行，两行都占满宽度 */
+:root[data-skin] .opp-page .opp-filters { container-type: inline-size; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; padding: 8px 10px; border-color: var(--border); border-radius: var(--r-xl); background: var(--card-bg); }
+.opp-filter-main, .opp-filter-side { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; }
+.opp-filter-main { flex: 1 1 auto; }
+.opp-filter-side { flex: 0 0 auto; margin-left: auto; }
+:root[data-skin] .opp-page .opp-filters input[type="search"].k-input { flex: 1 1 160px; width: auto; min-width: 112px; max-width: 280px; }
+:root[data-skin] .opp-page .opp-filters .k-select-trigger { flex: 0 0 auto; width: auto; min-width: 0; max-width: 200px; }
+:root[data-skin] .opp-page .opp-filters .opp-range { flex: 0 0 auto; gap: 6px; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .opp-page .opp-filters .opp-range .k-input,
+:root[data-skin] .opp-page .opp-filters .opp-range input.lai-date-trigger { width: 116px; }
+:root[data-skin] .opp-page .opp-filters .opp-sort { margin-left: 0; }
+.opp-filter-currency, .opp-head-select { display: inline-flex; flex: none; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--muted-fg); white-space: nowrap; }
+:root[data-skin] .opp-count { margin: 0 4px 0 2px; }
+@container (max-width: 1299px) {
+  .opp-filter-main, .opp-filter-side { flex: 1 1 100%; margin-left: 0; }
+  :root[data-skin] .opp-page .opp-filters input[type="search"].k-input { max-width: none; }
+  :root[data-skin] .opp-page .opp-filters .opp-sort { margin-left: auto; }
+}
+@container (max-width: 620px) {
+  .opp-filter-main, .opp-filter-side { flex-wrap: wrap; }
+}
+
+/* 金额卡片：四张一排，每张是名称（左）和个数（右）、下面一行大号金额；金额不省略，卡片窄时换小一号的字（见下面的 @container） */
+:root[data-skin] .opp-page .opp-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+:root[data-skin] .opp-page .opp-analysis-stats { grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); }
+/* 卡片窄时（停靠表单、窄窗口、商机分析六张一排）金额换小一号的字，不省略 */
+@container (max-width: 230px) { :root[data-skin] .opp-page .opp-stat b { font-size: var(--text-xl); } }
+@container (max-width: 170px) { :root[data-skin] .opp-page .opp-stat b { font-size: var(--text-lg); } }
+:root[data-skin] .opp-page .opp-stat { container-type: inline-size; justify-content: flex-start; gap: 4px; padding: 12px 16px 14px; border-color: var(--border); }
+:root[data-skin] .opp-stat-label { gap: 0; font-size: var(--text-sm); line-height: 20px; color: var(--muted-fg); }
+.opp-stat-count { margin-left: auto; padding-left: 8px; font-size: var(--text-xs); color: var(--muted-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+:root[data-skin] .opp-page .opp-stat b { overflow: visible; font-size: var(--text-2xl); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; color: var(--fg); }
+:root[data-skin] .opp-page .opp-stat b small { margin-right: 2px; font-size: var(--text-xs); font-weight: 500; letter-spacing: 0; color: var(--muted-fg); }
+.opp-stat-note { font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .opp-stats-note { margin: -4px 0 0; }
+:root[data-skin] .opp-analysis-note { margin: 0 0 10px; font-size: var(--text-xs); color: var(--muted-fg); }
+
+/* 看板：页面不滚，看板自己滚（横向看更多列、纵向看更多卡片），列头贴在看板顶上 */
+:root[data-skin] .opp-page:has(> .opp-board) { display: flex; flex-direction: column; padding-bottom: 12px; }
+:root[data-skin] .opp-page > :not(.opp-board) { flex: none; }
+:root[data-skin] .opp-page > .opp-board { display: grid; flex: 1 1 0; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(232px, 1fr); align-items: stretch; gap: 10px; min-height: 300px; padding: 0; overflow: auto; overscroll-behavior: contain; }
+:root[data-skin] .opp-column { display: flex; flex-direction: column; min-width: 0; border: 0; border-radius: var(--r-xl); background: var(--muted-bg); }
+:root[data-skin] .opp-column.is-drop-target { background: var(--accent-bg); box-shadow: inset 0 0 0 2px var(--ring); }
+:root[data-skin] .opp-stage { position: sticky; top: 0; z-index: 1; flex-wrap: wrap; gap: 2px 6px; padding: 10px 12px 8px; border-radius: var(--r-xl) var(--r-xl) 0 0; background: inherit; font-size: var(--text-sm); }
+:root[data-skin] .opp-stage-name { font-weight: 600; color: var(--fg); }
+:root[data-skin] .opp-stage .opp-stage-count { min-width: 20px; height: 18px; padding: 0 6px; background: var(--card-bg); line-height: 18px; }
+:root[data-skin] .opp-stage .opp-stage-count.k-badge--success { background: var(--success-bg); }
+:root[data-skin] .opp-stage-amount { margin-left: auto; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .opp-cards { flex: 1 1 auto; gap: 6px; min-height: 0; padding: 0 8px 8px; }
+:root[data-skin] .opp-cards > .opp-drop-hint { flex: none; margin: 0; padding: 20px 8px; border: 1px dashed var(--input); border-radius: var(--r-lg); background: transparent; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .opp-board.is-dragging-board .opp-cards > .opp-drop-hint { border-color: var(--ring); color: var(--accent-fg); }
+
+/* 卡片：客户（粗，点开客户）＋⋮，商机名称（小灰字，点开详情），金额，底部负责人和日期。⋮ 平时很淡，悬停或键盘移到卡片上才清楚 */
+:root[data-skin] .opp-card { gap: 0; padding: 10px 12px; border-color: var(--border); border-radius: var(--r-lg); background: var(--card-bg); box-shadow: var(--shadow-1); }
+:root[data-skin] .opp-card:hover { border-color: var(--input); }
+:root[data-skin] .opp-card.is-archived { background: var(--card-bg); opacity: 0.72; }
+:root[data-skin] .opp-card-head { align-items: flex-start; gap: 4px; }
+:root[data-skin] .opp-card-head .opp-card-client { flex: 1 1 auto; min-width: 0; max-width: none; font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
+:root[data-skin] .opp-card-head .opp-card-client:hover { color: var(--primary); text-decoration: none; }
+:root[data-skin] .opp-card > .opp-card-name { align-self: flex-start; max-width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; overflow: hidden; font-size: var(--text-xs); font-weight: 400; line-height: 18px; color: var(--muted-fg); white-space: nowrap; text-overflow: ellipsis; }
+:root[data-skin] .opp-card > .opp-card-name:hover { color: var(--primary); }
+:root[data-skin] .opp-card-menu { width: 22px; height: 22px; margin: -1px -6px 0 0; opacity: 0.35; transition: opacity var(--motion-fast); }
+:root[data-skin] .opp-card:is(:hover, :focus-within) .opp-card-menu { opacity: 1; }
+@media (hover: none) { :root[data-skin] .opp-card-menu { opacity: 1; } }
+:root[data-skin] .opp-card-amount { margin-top: 6px; font-size: var(--text-lg); font-weight: 600; line-height: 24px; }
+:root[data-skin] .opp-card-amount small { margin-right: 3px; font-size: var(--text-xs); font-weight: 500; }
+:root[data-skin] .opp-card-tags { margin-top: 6px; }
+:root[data-skin] .opp-card-foot { margin-top: 8px; padding-top: 0; border-top: 0; line-height: 18px; }
+:root[data-skin] .opp-avatar { background: var(--accent-bg); color: var(--accent-fg); }
+.opp-due.is-soon { font-weight: 500; color: var(--warning-fg); }
+
+/* 列表：客户在第一列加粗；商机名称、编号是次要信息 */
+:root[data-skin] .opp-list { padding: 0; border-color: var(--border); }
+:root[data-skin] .opp-table .opp-list-client { font-weight: 600; color: var(--fg); }
+:root[data-skin] .opp-table .opp-list-name { font-weight: 400; color: var(--fg); }
+:root[data-skin] .opp-table :is(.opp-list-client, .opp-list-name):hover { color: var(--primary); }
+.opp-list-muted { color: var(--muted-fg); }
+
+/* 详情抽屉：商机名称＋编号一行小字，金额和阶段，阶段进度条；下面资料是「标签｜内容」两列；阶段记录是竖时间线；附件一个拖放框 */
+:root[data-skin] .opp-detail { padding: 16px 24px 32px; }
+.opp-detail-sub { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 6px; font-size: var(--text-sm); line-height: 20px; color: var(--muted-fg); }
+:root[data-skin] .opp-detail-top { padding-bottom: 0; border-bottom: 0; }
+:root[data-skin] .opp-detail-amount { font-size: var(--text-2xl); }
+.opp-progress { display: flex; gap: 4px; margin: 16px 0 0; padding: 0 0 18px; border-bottom: 1px solid var(--border); list-style: none; }
+.opp-progress li { display: flex; flex: 1 1 0; flex-direction: column; gap: 6px; min-width: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+.opp-progress li::before { content: ""; height: 4px; border-radius: var(--r-sm); background: var(--muted-bg); }
+.opp-progress li.is-done::before { background: var(--opp-accent); opacity: 0.4; }
+.opp-progress li.is-current::before { background: var(--opp-accent); }
+.opp-progress li.is-current { font-weight: 600; color: var(--fg); }
+.opp-progress li.is-end { margin-left: 8px; }
+.opp-progress li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-skin] .opp-facts { gap: 0 24px; margin: 12px 0 0; }
+:root[data-skin] .opp-facts > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: baseline; gap: 12px; min-height: 32px; padding: 6px 0; }
+:root[data-skin] .opp-facts dt { margin: 0; line-height: 20px; }
+:root[data-skin] .opp-facts .opp-wa { margin: -4px 0 -4px 6px; }
+:root[data-skin] .opp-detail .form-section { margin: 20px 0 8px; padding-top: 16px; }
+:root[data-skin] .opp-history li { min-height: 28px; }
+:root[data-skin] .opp-history li + li::before { top: -10px; height: 20px; }
+:root[data-skin] .opp-dropzone { flex-direction: column; gap: 2px; padding: 12px 16px; }
+
+/* 商机分析：页头里的币种下拉和统计范围，卡片里的阶段条和表格 */
+.pagebar .page-actions:has(.opp-range-tabs) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+:root[data-skin] .opp-head-select .k-select-trigger { min-width: 0; max-width: 200px; }
+.opp-analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); align-items: start; gap: 12px; margin-bottom: 12px; }
+.opp-analysis-side { display: grid; gap: 12px; min-width: 0; }
+:root[data-skin] .opp-panel { border-color: var(--border); }
+:root[data-skin] .opp-panel .k-card-head { flex-wrap: wrap; gap: 4px 12px; }
+:root[data-skin] .opp-panel .k-card-desc { margin-left: auto; }
+:root[data-skin] .opp-panel .k-card-body { padding: 8px 16px 12px; }
+:root[data-skin] .opp-panel .k-table th:first-child, :root[data-skin] .opp-panel .k-table td:first-child { padding-left: 0; }
+:root[data-skin] .opp-panel .k-table th:last-child, :root[data-skin] .opp-panel .k-table td:last-child { padding-right: 0; }
+:root[data-skin] .opp-panel .k-table tbody tr:last-child td { border-bottom: 0; }
+:root[data-skin] .opp-panel .k-table td { white-space: nowrap; }
+:root[data-skin] .opp-panel .k-table .k-empty { padding: 16px 0; }
+:root[data-skin] .opp-bars { gap: 0; }
+:root[data-skin] .opp-bar { grid-template-columns: minmax(64px, 96px) minmax(80px, 1fr) 84px minmax(96px, auto); gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: var(--text-sm); }
+:root[data-skin] .opp-bar:last-child { border-bottom: 0; }
+:root[data-skin] .opp-bar-label { overflow: hidden; color: var(--fg); text-overflow: ellipsis; }
+:root[data-skin] .opp-bar-track { height: 6px; border-radius: var(--r-sm); background: var(--muted-bg); }
+.opp-bar-track i { display: block; height: 100%; min-width: 2px; border-radius: var(--r-sm); background: var(--opp-accent, var(--primary)); }
+:root[data-skin] .opp-bar-count { font-weight: 400; color: var(--muted-fg); text-align: right; }
+:root[data-skin] .opp-bar-amount { color: var(--fg); }
+
+/* 商机设置（销售流程）：阶段圆点按意义上色；不能用的 ↑ ↓ 明显是灰的 */
+.opp-stage-dot { width: 8px; height: 8px; justify-self: center; border-radius: 50%; background: var(--opp-accent, var(--primary)); }
+:root[data-skin] .opp-icon-button { border-color: var(--input); border-radius: var(--r-md); background: var(--card-bg); color: var(--fg); }
+:root[data-skin] .opp-icon-button:hover:not(:disabled) { border-color: var(--ink-400); background: var(--muted-bg); }
+:root[data-skin] .opp-icon-button:disabled { border-color: var(--border); background: transparent; color: var(--ink-300); opacity: 1; cursor: not-allowed; }

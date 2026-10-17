@@ -15,7 +15,9 @@ const oppOf = async (client) => (await opps()).find((o) => o.client === client);
 const card = (client) => app.page.locator('.opp-card', { hasText: client });
 const column = (id) => app.page.locator(`[data-opp-drop="${id}"]`);
 const clean = (text) => text.replace(/\s+/g, ' ').trim();
-const summary = async () => clean(await app.page.locator('.opp-stats').innerText());
+// 金额卡片：名称、个数（「3 个」）、金额；summary() 去掉个数只比金额，counts() 只看个数。整数金额不带「.00」。
+const statsText = async () => clean(await app.page.locator('.opp-stats').innerText());
+const summary = async () => (await statsText()).replace(/ \d+ 个(?= [A-Z]{3} )/g, '');
 
 async function openBoard() {
   await app.open('customers');
@@ -67,16 +69,17 @@ test('four opportunities are created from the board and shown in 未成单 with 
   assert.match(clean(await page.locator('.opp-count').innerText()), /共 3 个商机/);
   // USD is the board currency; the EUR one is counted apart and never converted.
   const text = await summary();
-  assert.ok(text.includes('总销售金额 USD 5,000.00'), text);
-  assert.ok(text.includes('进行中 USD 5,000.00'), text);
-  assert.ok(text.includes('赢单 USD 0.00'), text);
+  assert.ok(text.includes('总销售金额 USD 5,000'), text);
+  assert.ok(text.includes('进行中 USD 5,000'), text);
+  assert.ok(text.includes('赢单 USD 0'), text);
   assert.ok(text.includes('另有 1 个其他币种的商机'), text);
+  assert.match(await statsText(), /总销售金额 3 个 USD 5,000 进行中 3 个 USD 5,000 赢单 0 个 USD 0 输单 0 个 USD 0/);
   const lumen = await oppOf('Lumen Lash Lab');
   assert.deepEqual([lumen.currency, lumen.amount, lumen.stage], ['EUR', 500, 'open']);
   await page.locator('#opp-currency').selectOption('EUR', { force: true });
   await settle();
   assert.equal(await page.locator('.opp-card').count(), 1);
-  assert.ok((await summary()).includes('总销售金额 EUR 500.00'));
+  assert.ok((await summary()).includes('总销售金额 EUR 500'));
   await page.locator('#opp-currency').selectOption('USD', { force: true });
   await settle();
   assert.equal(await page.locator('.opp-card').count(), 3);
@@ -88,7 +91,7 @@ test('the opportunities are still there after a reload, with their numbers and a
   await openBoard();
   assert.equal(await page.locator('.opp-card').count(), 3);
   const text = clean(await card('Northwind').innerText());
-  for (const part of ['Northwind Lash Studio', '1,200.00', 'Kris', '截止']) assert.ok(text.includes(part), part + ' in ' + text);
+  for (const part of ['Northwind Lash Studio', '1,200', 'Kris', '截止']) assert.ok(text.includes(part), part + ' in ' + text);
   assert.ok((await opps()).every((o) => /^OPP-\d{8}-\d{3}$/.test(o.number)));
   assert.deepEqual(app.errors, []);
 });
@@ -98,21 +101,21 @@ test('an opportunity moves through the stages from its menu and the totals follo
   await moveTo('Northwind', 'unpaid');
   assert.equal(await column('unpaid').locator('.opp-card', { hasText: 'Northwind' }).count(), 1);
   assert.equal((await oppOf('Northwind Lash Studio')).stage, 'unpaid');
-  assert.ok((await summary()).includes('进行中 USD 5,000.00'), '付款未到账 is still an open stage');
+  assert.ok((await summary()).includes('进行中 USD 5,000'), '付款未到账 is still an open stage');
   await moveTo('Northwind', 'balance');
   assert.equal(await column('balance').locator('.opp-card', { hasText: 'Northwind' }).count(), 1);
   let text = await summary();
-  assert.ok(text.includes('进行中 USD 3,800.00'), text);
-  assert.ok(text.includes('赢单 USD 1,200.00'), text);
-  assert.ok(text.includes('总销售金额 USD 5,000.00'), text);
-  assert.match(clean(await column('balance').locator('.opp-stage').innerText()), /待付尾款 1 USD 1,200\.00/);
+  assert.ok(text.includes('进行中 USD 3,800'), text);
+  assert.ok(text.includes('赢单 USD 1,200'), text);
+  assert.ok(text.includes('总销售金额 USD 5,000'), text);
+  assert.match(clean(await column('balance').locator('.opp-stage').innerText()), /待付尾款 1 USD 1,200/);
   // The 撤销 button in the page's one toast takes the move back.
   await page.locator('#toast.show').getByRole('button', { name: '撤销' }).click();
   await settle(600);
   assert.equal((await oppOf('Northwind Lash Studio')).stage, 'unpaid');
   assert.equal(await column('unpaid').locator('.opp-card', { hasText: 'Northwind' }).count(), 1);
   text = await summary();
-  assert.ok(text.includes('赢单 USD 0.00'), text);
+  assert.ok(text.includes('赢单 USD 0'), text);
   // The card is on its stage again after a reload.
   await openBoard();
   assert.equal(await column('unpaid').locator('.opp-card', { hasText: 'Northwind' }).count(), 1);
@@ -137,8 +140,8 @@ test('winning an opportunity moves it to 已完成, counts it as won, and its or
   await moveTo('Maple', 'done');
   assert.equal(await column('done').locator('.opp-card', { hasText: 'Maple' }).count(), 1);
   const text = await summary();
-  assert.ok(text.includes('赢单 USD 3,000.00'), text);
-  assert.ok(text.includes('进行中 USD 2,000.00'), text);
+  assert.ok(text.includes('赢单 USD 3,000'), text);
+  assert.ok(text.includes('进行中 USD 2,000'), text);
   // 生成订单 opens the order form with the opportunity filled in; saving it links the order to the card.
   await card('Maple').first().locator('.opp-card-menu').click();
   await page.locator('[data-opp-action="order"]').click();
@@ -207,8 +210,8 @@ test('moving to 输单 needs a reason; the card then shows it and the lost total
   const lostCard = column('lost').locator('.opp-card', { hasText: 'Bluebell' });
   assert.match(clean(await lostCard.innerText()), /输单原因：价格原因/);
   const text = await summary();
-  assert.ok(text.includes('输单 USD 800.00'), text);
-  assert.ok(text.includes('总销售金额 USD 4,200.00'), 'lost deals are not in the total: ' + text);
+  assert.ok(text.includes('输单 USD 800'), text);
+  assert.ok(text.includes('总销售金额 USD 4,200'), 'lost deals are not in the total: ' + text);
   await openBoard();
   assert.match(clean(await column('lost').locator('.opp-card', { hasText: 'Bluebell' }).innerText()), /输单原因：价格原因/);
   assert.deepEqual(app.errors, []);
@@ -218,7 +221,7 @@ test('editing the amount in the detail drawer changes the card, the totals and t
   const { page } = app;
   await card('Northwind').first().locator('.opp-card-name').click();
   await page.locator('.opp-detail').waitFor();
-  assert.match(clean(await page.locator('.opp-detail').innerText()), /1,200\.00/);
+  assert.match(clean(await page.locator('.opp-detail').innerText()), /1,200/);
   await page.locator('[data-opp-action="edit"]').click();
   await page.locator('#opp-form').waitFor();
   await settle();
@@ -229,11 +232,11 @@ test('editing the amount in the detail drawer changes the card, the totals and t
   await settle(600);
   assert.equal((await oppOf('Northwind Lash Studio')).amount, 1500);
   const text = await summary();
-  assert.ok(text.includes('进行中 USD 1,500.00'), text);
-  assert.ok(text.includes('赢单 USD 3,000.00'), text);
-  assert.match(clean(await card('Northwind').first().innerText()), /1,500\.00/);
+  assert.ok(text.includes('进行中 USD 1,500'), text);
+  assert.ok(text.includes('赢单 USD 3,000'), text);
+  assert.match(clean(await card('Northwind').first().innerText()), /1,500/);
   await openBoard();
-  assert.match(clean(await card('Northwind').first().innerText()), /1,500\.00/);
+  assert.match(clean(await card('Northwind').first().innerText()), /1,500/);
   // A bad amount is refused with a message and the old one stays.
   await card('Northwind').first().locator('.opp-card-name').click();
   await page.locator('[data-opp-action="edit"]').click();
@@ -354,8 +357,8 @@ test('deleting needs a second click, removes the opportunity for good, and the t
   assert.equal(await page.locator('.opp-card', { hasText: 'Bluebell' }).count(), 0);
   assert.match(clean(await page.locator('.opp-count').innerText()), /共 2 个商机/);
   const text = await summary();
-  assert.ok(text.includes('输单 USD 0.00'), text);
-  assert.ok(text.includes('总销售金额 USD 4,500.00'), text);
+  assert.ok(text.includes('输单 USD 0'), text);
+  assert.ok(text.includes('总销售金额 USD 4,500'), text);
   await openBoard();
   assert.equal(await page.locator('.opp-card').count(), 2);
   assert.deepEqual(app.errors, []);

@@ -4,12 +4,18 @@
   const PAGE=30;
   const CURRENCIES=['USD','EUR','CNY','GBP','JPY','HKD','TWD','AUD','CAD'];
   const number=value=>Number(value||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // 卡片、汇总、详情里的金额：整数不带「.00」（USD 444,550），有零头时照常两位小数。表格里仍用 number，小数点对齐。
+  const amount=value=>{const n=Number(value||0);return Math.round(n*100)%100===0?Math.round(n).toLocaleString('en-US'):number(n);};
+  // 进行中的商机离结束日期还有几天算「快到期」（卡片上的日期变成提醒色）。
+  const SOON_DAYS=7;
   // can(key)：当前账号有没有这个权限（角色预览用）；没传时什么都显示。
   // level(key)：字段权限，'edit'｜'read'｜'hidden'（商机的 contact、endDate 等字段名；自定义字段是 custom.字段ID）；没传时都可编辑。
   function create(E,model,can=()=>true,level=()=>'edit'){
     const vis=key=>level(key)!=='hidden';
     const dis=key=>level(key)==='read'?' disabled title="你的角色只能查看，不能修改"':'';
     const money=(value,currency)=>`${E(currency)} ${number(value)}`;
+    const moneyShort=(value,currency)=>`${E(currency)} ${amount(value)}`;
+    const daysUntil=(day,today)=>{const a=Date.parse(String(day)+'T00:00:00Z'),b=Date.parse(String(today)+'T00:00:00Z');return Number.isFinite(a)&&Number.isFinite(b)?Math.round((a-b)/86400000):null;};
     const option=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
     // 结束日期：今年的只显示月-日，其他年份显示完整日期（与参考界面一致）。
     const shortDate=(day,today)=>day&&String(day).slice(0,4)===String(today).slice(0,4)?String(day).slice(5):String(day||'—');
@@ -23,60 +29,68 @@
     // 阶段徽标（组件套件 k-badge）：赢单用表示成功的绿色，输单用中性灰，进行中用主色。
     const KIND_BADGE={open:'k-badge--primary',won:'k-badge--success',lost:'k-badge--neutral'};
     const stageBadge=(kind,label)=>`<span class="k-badge ${KIND_BADGE[kind]||KIND_BADGE.open}">${label}</span>`;
-    // 卡片（组件套件 k-card）：名称、金额、客户是主信息；负责人和结束日期放在底部一行；输单原因、归档、关联订单用小徽标。
+    // 卡片（组件套件 k-card）：客户是标题（点它打开这位客户，和列表里一样），商机名称是下面一行小字（点它或卡片空白处打开详情）；
+    // 金额醒目；底部负责人和结束日期。输单原因、归档、关联订单用小徽标。
     function cardMarkup(card,today){
-      // 进行中的商机才谈得上“截止”；已赢单、已输单的只显示日期。
+      // 进行中的商机才谈得上“截止”；已赢单、已输单的只显示日期。快到期（7 天内）的日期用提醒色。
       const closed=kindOf(card)!=='open';
-      const due=card.endDate&&vis('endDate')?(card.overdue?`<span class="opp-due is-overdue">逾期 ${E(shortDate(card.endDate,today))}</span>`:`<span class="opp-due">${E(shortDate(card.endDate,today))}${closed?'':' 截止'}</span>`):'';
+      const left=closed||card.overdue?null:daysUntil(card.endDate,today);
+      const soon=left!==null&&left>=0&&left<=SOON_DAYS;
+      const due=card.endDate&&vis('endDate')?(card.overdue?`<span class="opp-due is-overdue">逾期 ${E(shortDate(card.endDate,today))}</span>`:`<span class="opp-due${soon?' is-soon':''}">${E(shortDate(card.endDate,today))}${closed?'':' 截止'}</span>`):'';
       return `<article class="opp-card k-card${card.archived?' is-archived':''}" draggable="${can('opp.edit')?'true':'false'}" data-opp-id="${E(card.id)}">`
-        +`<div class="opp-card-head"><button type="button" class="opp-card-name" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></div>`
-        +`<div class="opp-card-amount"><span><small>${E(card.currency)}</small>${number(card.amount)}</span>${clip(card)}</div>`
-        +`<button type="button" class="opp-card-client" data-biz-customer="${E(card.client)}">${E(card.client)}</button>`
+        +`<div class="opp-card-head"><button type="button" class="opp-card-client" data-biz-customer="${E(card.client)}">${E(card.client||'未填客户')}</button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></div>`
+        +`<button type="button" class="opp-card-name" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button>`
+        +`<div class="opp-card-amount"><span><small>${E(card.currency)}</small>${amount(card.amount)}</span>${clip(card)}</div>`
         +(card.lostReason||card.orderId||card.archived?`<div class="opp-card-tags">${card.lostReason?`<span class="k-badge k-badge--neutral">输单原因：${E(card.lostReason)}</span>`:''}${card.archived?'<span class="k-badge k-badge--neutral">已归档</span>':''}${card.orderId?`<button type="button" class="k-badge k-badge--primary opp-tag-link" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}</div>`:'')
         +`<div class="opp-card-foot"><span class="opp-owner"><i class="opp-avatar" aria-hidden="true">${E((card.owner||'—').slice(0,1).toUpperCase())}</i><span class="opp-owner-name">${E(card.owner||'未填负责人')}</span></span>${due}</div>`
         +`</article>`;
     }
-    // 筛选条（一张 k-card）：左边是「找哪些商机」，右边是「怎么排」。输入框用 k-input，下拉框用 k-select-trigger（页面上换成统一下拉）。
+    // 筛选条（一张 k-card）：左边一组是「找哪些商机」（视图、搜索、负责人、归档、币种），右边一组是日期范围和排序。
+    // 两组各自不折行；筛选条变窄（1280 宽、右侧停靠表单）时右边一组整组换到第二行，和第一行左右对齐。
     function toolbar(board,view,context){
       const f=board.filters;
       const owners=(context.owners||[]).map(name=>option(name,name,f.owner&&name.toLowerCase()===f.owner.toLowerCase()?name:'')).join('');
-      return `<div class="opp-toolbar opp-filters k-card">${viewSwitch(view,' opp-view-in')}${flowSelect('opp-flow',board.flows,board.flow,'k-select-trigger')}<span class="opp-count">共 <b>${board.count}</b> 个商机</span>`
+      return `<div class="opp-toolbar opp-filters k-card"><div class="opp-filter-main">${viewSwitch(view,' opp-view-in')}${flowSelect('opp-flow',board.flows,board.flow,'k-select-trigger')}<span class="opp-count">共 <b>${board.count}</b> 个商机</span>`
         +`<input type="search" class="k-input" id="opp-search" value="${E(f.search)}" placeholder="搜索${['名称','客户',...(vis('contact')?['联系人']:[]),...(vis('tags')?['标签']:[])].join('、')}" aria-label="搜索商机">`
         +`<select id="opp-owner" class="k-select-trigger" aria-label="负责人"><option value="">全部负责人</option>${owners}</select>`
         +`<select id="opp-archived" class="k-select-trigger" aria-label="归档状态">${option('active','未归档',f.archived)}${option('archived','已归档',f.archived)}${option('all','全部',f.archived)}</select>`
-        +`<span class="opp-range"><select id="opp-date-field" class="k-select-trigger" aria-label="日期类型">${option('createdAt','创建时间',f.dateField)}${vis('endDate')?option('endDate','结束日期',f.dateField):''}</select><input type="date" class="k-input" id="opp-from" value="${E(f.from)}" aria-label="开始日期"><span aria-hidden="true">至</span><input type="date" class="k-input" id="opp-to" value="${E(f.to)}" aria-label="结束日期"></span>`
-        +`<select id="opp-sort" class="k-select-trigger opp-sort" aria-label="排序">${model.SORTS.filter(([id])=>vis('endDate')||!/^endDate-/.test(id)).map(([id,label])=>option(id,label,f.sort)).join('')}</select></div>`;
+        +`<label class="opp-filter-currency"><span>币种</span><select id="opp-currency" class="k-select-trigger" aria-label="币种">${(board.currencies.length?board.currencies:[board.currency]).map(code=>option(code,code,board.currency)).join('')}</select></label></div>`
+        +`<div class="opp-filter-side"><span class="opp-range"><select id="opp-date-field" class="k-select-trigger" aria-label="日期类型">${option('createdAt','创建时间',f.dateField)}${vis('endDate')?option('endDate','结束日期',f.dateField):''}</select><input type="date" class="k-input" id="opp-from" value="${E(f.from)}" aria-label="开始日期"><span aria-hidden="true">至</span><input type="date" class="k-input" id="opp-to" value="${E(f.to)}" aria-label="结束日期"></span>`
+        +`<select id="opp-sort" class="k-select-trigger opp-sort" aria-label="排序">${model.SORTS.filter(([id])=>vis('endDate')||!/^endDate-/.test(id)).map(([id,label])=>option(id,label,f.sort)).join('')}</select></div></div>`;
     }
-    // 金额汇总：每个数字一张中性的 k-card，大号等宽数字；颜色只用在名称前的小圆点上（进行中＝主色，赢单＝绿，输单＝灰）。
+    // 金额汇总：四张中性的 k-card（总销售金额、进行中、赢单、输单），每张有个数和金额；颜色只用在名称前的小圆点上（进行中＝主色，赢单＝绿，输单＝灰）。
+    // 「总销售金额」不含输单，个数也是进行中＋赢单。
     function totals(board){
-      const stat=(label,value,kind)=>`<div class="opp-stat k-card is-${kind}"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"></i>${label}</span><b><small>${E(board.currency)}</small> ${number(value)}</b></div>`;
-      return `<div class="opp-stats"><label class="opp-stat opp-stat-currency k-card"><span class="opp-stat-label">币种</span><select id="opp-currency" class="k-select-trigger" aria-label="币种">${(board.currencies.length?board.currencies:[board.currency]).map(code=>option(code,code,board.currency)).join('')}</select></label>`
-        +stat('总销售金额',board.totals.total,'total')+stat('进行中',board.totals.open,'open')+stat('赢单',board.totals.won,'won')+stat('输单',board.totals.lost,'lost')
+      const count=kind=>board.columns.filter(column=>column.kind===kind).reduce((sum,column)=>sum+column.count,0);
+      const stat=(label,number,value,kind)=>`<div class="opp-stat k-card is-${kind}"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"></i>${label}<span class="opp-stat-count">${number} 个</span></span><b><small>${E(board.currency)}</small> ${amount(value)}</b></div>`;
+      return `<div class="opp-stats">`
+        +stat('总销售金额',count('open')+count('won'),board.totals.total,'total')+stat('进行中',count('open'),board.totals.open,'open')+stat('赢单',count('won'),board.totals.won,'won')+stat('输单',count('lost'),board.totals.lost,'lost')
         +(board.otherCurrencyCount?`<p class="opp-stats-note">另有 ${board.otherCurrencyCount} 个其他币种的商机，切换币种查看；不同币种不折算。</p>`:'')
         +(board.otherFlowCount?`<p class="opp-stats-note">另有 ${board.otherFlowCount} 个符合当前筛选的商机在其他销售流程里（${(board.flows||[]).filter(flow=>flow.id!==board.flow&&flow.count).map(flow=>`${E(flow.label)} ${flow.count} 个`).join('、')}），在左上角切换流程查看。</p>`:'')+`</div>`;
     }
-    // 看板：每列一个阶段。列头是阶段名、数量徽标（赢单列绿、输单列灰）和金额；空列用 k-empty。
+    // 看板：每列一个阶段，是一条浅灰底的泳道。列头（滚动时贴在顶上）是阶段名、数量徽标（赢单列绿、输单列灰）和金额；
+    // 空列是一个虚线的「拖到这里」提示（不能改商机的账号看到「暂无商机」）。
     function columns(board,view,today){
       return `<div class="opp-board">${board.columns.map(column=>{
         const limit=Math.max(PAGE,Number(view.limits?.[column.id])||PAGE);
         const shown=column.cards.slice(0,limit),rest=column.cards.length-shown.length;
         return `<section class="opp-column opp-kind-${column.kind}" data-opp-drop="${E(column.id)}" aria-label="${E(column.label)}，${column.count} 个">`
-          +`<header class="opp-stage"><span class="opp-stage-name"><i class="opp-dot" aria-hidden="true"></i>${E(column.label)}</span><span class="opp-stage-count k-badge ${column.kind==='open'?'k-badge--neutral':KIND_BADGE[column.kind]}">${column.count}</span><span class="opp-stage-amount">${money(column.amount,board.currency)}</span></header>`
-          +`<div class="opp-cards">${shown.map(card=>cardMarkup(card,today)).join('')||'<p class="k-empty">暂无商机</p>'}${rest>0?`<button type="button" class="opp-more k-btn k-btn--ghost" data-opp-action="more" data-stage="${E(column.id)}">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</div></section>`;
+          +`<header class="opp-stage"><span class="opp-stage-name"><i class="opp-dot" aria-hidden="true"></i>${E(column.label)}</span><span class="opp-stage-count k-badge ${column.kind==='open'?'k-badge--neutral':KIND_BADGE[column.kind]}">${column.count}</span><span class="opp-stage-amount">${moneyShort(column.amount,board.currency)}</span></header>`
+          +`<div class="opp-cards">${shown.map(card=>cardMarkup(card,today)).join('')||`<p class="k-empty opp-drop-hint">${can('opp.edit')?'拖到这里':'暂无商机'}</p>`}${rest>0?`<button type="button" class="opp-more k-btn k-btn--ghost" data-opp-action="more" data-stage="${E(column.id)}">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</div></section>`;
       }).join('')}</div>`;
     }
-    // 列表：组件套件的 k-table，金额列 k-num 右对齐等宽，阶段是 k-badge。
+    // 列表：组件套件的 k-table，金额列 k-num 右对齐等宽，阶段是 k-badge。客户放第一列、加粗，和看板卡片一样是主信息。
     function table(board,view,today){
       const limit=Math.max(PAGE,Number(view.limits?.list)||PAGE);
       const shown=board.cards.slice(0,limit),rest=board.cards.length-shown.length;
       const cols=vis('endDate')?9:8;
-      return `<section class="k-card opp-list"><div class="opp-table-scroll"><table class="k-table opp-table"><thead><tr><th>商机编号</th><th>商机名称</th><th>客户</th><th class="k-num">销售金额</th><th>销售阶段</th><th>负责人</th>${vis('endDate')?'<th>结束日期</th>':''}<th>创建日期</th><th class="opp-table-act">操作</th></tr></thead><tbody>${shown.map(card=>`<tr><td class="opp-num">${E(card.number||'—')}</td><td><button type="button" class="company-link" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button></td><td><button type="button" class="company-link" data-biz-customer="${E(card.client)}">${E(card.client)}</button></td><td class="k-num">${money(card.amount,card.currency)}</td><td>${stageBadge(kindOf(card),E(stageLabel(card)))}</td><td>${E(card.owner||'—')}</td>${vis('endDate')?`<td class="opp-num">${card.overdue?`<span class="opp-due is-overdue">逾期 ${E(card.endDate)}</span>`:E(card.endDate||'—')}</td>`:''}<td class="opp-num">${E(card.createdDay||'—')}</td><td class="opp-table-act"><button type="button" class="opp-row-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></td></tr>`).join('')||`<tr><td colspan="${cols}"><div class="k-empty"><p class="k-empty-title">暂无商机</p>换一个筛选条件试试</div></td></tr>`}</tbody></table></div>${rest>0?`<button type="button" class="opp-more k-btn k-btn--ghost" data-opp-action="more" data-stage="list">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</section>`;
+      return `<section class="k-card opp-list"><div class="opp-table-scroll"><table class="k-table opp-table"><thead><tr><th>客户</th><th>商机名称</th><th>商机编号</th><th class="k-num">销售金额</th><th>销售阶段</th><th>负责人</th>${vis('endDate')?'<th>结束日期</th>':''}<th>创建日期</th><th class="opp-table-act">操作</th></tr></thead><tbody>${shown.map(card=>`<tr><td><button type="button" class="company-link opp-list-client" data-biz-customer="${E(card.client)}">${E(card.client)}</button></td><td><button type="button" class="company-link opp-list-name" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button></td><td class="opp-num opp-list-muted">${E(card.number||'—')}</td><td class="k-num">${money(card.amount,card.currency)}</td><td>${stageBadge(kindOf(card),E(stageLabel(card)))}</td><td>${E(card.owner||'—')}</td>${vis('endDate')?`<td class="opp-num">${card.overdue?`<span class="opp-due is-overdue">逾期 ${E(card.endDate)}</span>`:E(card.endDate||'—')}</td>`:''}<td class="opp-num">${E(card.createdDay||'—')}</td><td class="opp-table-act"><button type="button" class="opp-row-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></td></tr>`).join('')||`<tr><td colspan="${cols}"><div class="k-empty"><p class="k-empty-title">暂无商机</p>换一个筛选条件试试</div></td></tr>`}</tbody></table></div>${rest>0?`<button type="button" class="opp-more k-btn k-btn--ghost" data-opp-action="more" data-stage="list">再显示 ${Math.min(PAGE,rest)} 个（还有 ${rest} 个）</button>`:''}</section>`;
     }
     const boardMarkup=(board,view={},context={})=>`<div class="business-scroll opp-page">${toolbar(board,view,context)}${totals(board)}${view.mode==='list'?table(board,view,context.today):columns(board,view,context.today)}</div>`;
     // 看板／列表切换：组件套件的分段页签（k-tabs），放在筛选卡片里（opp-view-in）。
     const viewSwitch=(view={},extra='')=>`<span class="k-tabs opp-view${extra}" role="group" aria-label="视图"><button type="button" class="k-tab${view.mode!=='list'?' is-active':''}" data-opp-view="board" aria-pressed="${view.mode!=='list'}">看板</button><button type="button" class="k-tab${view.mode==='list'?' is-active':''}" data-opp-view="list" aria-pressed="${view.mode==='list'}">列表</button></span>`;
-    // 页头按钮（组件套件 k-btn）：「新建商机」是唯一的主按钮。
-    const headerActions=(board,context={},view={})=>`<button type="button" class="k-btn opp-analysis-link" data-lai-route="opp-analysis">商机分析</button>${can('opp.create')?'<button type="button" class="k-btn k-btn--primary" data-opp-action="new">新建商机</button>':''}`;
+    // 页头按钮（组件套件 k-btn）：「新建商机」是唯一的主按钮。「商机分析」已经是标题后的页签，这里不再重复放按钮。
+    const headerActions=(board,context={},view={})=>can('opp.create')?'<button type="button" class="k-btn k-btn--primary" data-opp-action="new">新建商机</button>':'';
 
 
     // ---------- 商机详情与附件 ----------
@@ -107,15 +121,27 @@
         return `<li class="opp-file"><span class="opp-file-ext" aria-hidden="true">${E(extLabel(entry.name))}</span><span class="opp-file-main">${main}<small>${fileSize(entry.size)} · ${E(stamp(entry.uploadedAt))}</small></span><span class="opp-file-tools">${tools}</span></li>`;
       }).join('');
       return `<div class="form-section">附件<span class="opp-attach-count k-badge k-badge--neutral">${items.length} / ${limits.maxCount}</span></div>`
-        +(!can('opp.edit')?'':`<label class="opp-dropzone${full?' is-full':''}" data-opp-dropzone><input type="file" id="opp-attach-input" multiple hidden${full||view.busy?' disabled':''}><span class="opp-dropzone-main">${full?`已达到 ${limits.maxCount} 个附件的上限，删除一些再添加`:'把文件拖到这里，或<u>点击选择文件</u>'}</span><small>单个文件不超过 ${Math.round(limits.maxBytes/1024/1024)} MB，每个商机最多 ${limits.maxCount} 个；不收可执行或安装类文件</small></label>`)
+        +(!can('opp.edit')?'':`<label class="opp-dropzone${full?' is-full':''}" data-opp-dropzone><input type="file" id="opp-attach-input" multiple hidden${full||view.busy?' disabled':''}><span class="opp-dropzone-main">${full?`已达到 ${limits.maxCount} 个附件的上限，删除一些再添加`:'报价单、合同、样品图拖到这里，或<u>点击选择文件</u>'}</span><small>单个不超过 ${Math.round(limits.maxBytes/1024/1024)} MB，最多 ${limits.maxCount} 个；不收可执行或安装类文件</small></label>`)
         +`<div class="opp-attach-status" id="opp-attach-status" role="status"></div><div class="error" id="opp-attach-error" role="alert"></div>`
         +(previewing?`<figure class="opp-preview"><img data-opp-fetch="${E(previewing.fileUrl)}" alt="${E(previewing.name)}"><figcaption>${E(previewing.name)}</figcaption></figure>`:'')
-        +(rows?`<ul class="opp-files">${rows}</ul>`:'<p class="k-empty opp-files-none">还没有附件。报价单、合同、样品图都可以放在这里。</p>');
+        +(rows?`<ul class="opp-files">${rows}</ul>`:can('opp.edit')?'':'<p class="k-empty opp-files-none">还没有附件。</p>');
     }
     // 商机详情里的“单据”：这个商机已经保存的报价单、形式发票（context.documents：[{id, number, typeName, date, voided}]）。
     function documentsBlock(documents){
       if(!Array.isArray(documents)||!documents.length)return '';
       return `<div class="form-section">单据</div><ul class="opp-docs">${documents.map(doc=>`<li${doc.voided?' class="is-void"':''}><b>${E(doc.number)}</b><span>${E(doc.typeName)}</span><span>${E(doc.date||'')}</span>${doc.voided?'<span class="k-badge k-badge--neutral">已作废</span>':''}<button type="button" class="k-btn k-btn--ghost k-btn--sm" data-biz-action="docrec-view" data-id="${E(doc.id)}">查看</button></li>`).join('')}</ul>`;
+    }
+    // 阶段进度条（只显示）：这个商机所在流程的阶段从左到右；走过的阶段填色，当前阶段加粗。颜色按当前阶段的类别：
+    // 进行中＝主色，赢单＝绿，输单＝灰。输单是终点，排在最后、和前面隔开一点；输单的商机只把走过的阶段标成走过。
+    function progressMarkup(detail){
+      const stages=Array.isArray(detail.stages)?detail.stages:[];
+      if(stages.length<2)return '';
+      const at=stages.findIndex(stage=>stage.id===detail.stage);
+      const visited=new Set((detail.history||[]).map(entry=>entry.stage));
+      return `<ol class="opp-progress opp-kind-${E(detail.kind||'open')}" aria-label="销售阶段">${stages.map((stage,index)=>{
+        const done=index!==at&&stage.kind!=='lost'&&(detail.kind==='lost'?visited.has(stage.id):at>=0&&index<at);
+        return `<li class="${index===at?'is-current':done?'is-done':'is-todo'}${stage.kind==='lost'?' is-end':''}"${index===at?' aria-current="step"':''}><span>${E(stage.label)}</span></li>`;
+      }).join('')}</ol>`;
     }
     // 商机详情：基本信息、阶段记录、附件。context：{today, multiFlow, documents, whatsapp}（whatsapp：{phone, contact}，联系人有能打开的号码、账号能开聊天、看得到这位客户、「联系电话」没被隐藏时才传；不传就不显示电话，详情里就多一个 WhatsApp 按钮）；view：附件区状态。
     function detailMarkup(detail,context={},view={}){
@@ -123,9 +149,13 @@
       const rate=detail.currency!=='USD'&&Number(detail.exchangeRate)?`每 100 ${E(detail.currency)} ＝ ${E(number(detail.exchangeRate))} USD`:'';
       const stageChip=stageBadge(detail.kind,E(detail.stageLabel));
       const products=detail.products.length&&vis('products')?`<div class="form-section">关联产品</div><div class="opp-products-wrap"><table class="k-table opp-products"><thead><tr><th>产品</th><th class="k-num">数量</th><th class="k-num">单价</th><th class="k-num">小计</th></tr></thead><tbody>${detail.products.map(row=>`<tr><td>${E(row.name)}</td><td class="k-num">${E(row.quantity??1)}</td><td class="k-num">${E(number(row.unitPrice))}</td><td class="k-num">${E(number((Number(row.quantity)||0)*(Number(row.unitPrice)||0)))}</td></tr>`).join('')}</tbody></table></div>`:'';
-      const history=detail.history.length?`<div class="form-section">阶段记录</div><ol class="opp-history">${detail.history.map((entry,index)=>`<li class="opp-kind-${E(entry.kind)}${index===detail.history.length-1?' is-current':''}"><i aria-hidden="true"></i><span>${E(entry.label)}</span><time>${E(stamp(entry.at))}</time></li>`).join('')}</ol>`:'';
+      // 阶段记录：最新的在最上面，是当前阶段。
+      const history=detail.history.length?`<div class="form-section">阶段记录</div><ol class="opp-history">${detail.history.slice().reverse().map((entry,index)=>`<li class="opp-kind-${E(entry.kind)}${index===0?' is-current':''}"><i aria-hidden="true"></i><span>${E(entry.label)}</span><time>${E(stamp(entry.at))}</time></li>`).join('')}</ol>`:'';
+      // 抽屉标题是客户名（business-ui.js 的 showOppDetail），这里第一行是商机名称和编号。
+      const sub=`<p class="opp-detail-sub"><span>${E(detail.name)}</span>${detail.number?`<span class="opp-num">${E(detail.number)}</span>`:''}</p>`;
       return `<div class="drawer-body opp-detail" data-id="${E(detail.id)}">`
-        +`<div class="opp-detail-top"><div class="opp-detail-amount"><small>${E(detail.currency)}</small>${number(detail.amount)}</div><div class="opp-detail-chips">${stageChip}${detail.overdue?'<span class="k-badge k-badge--danger">已逾期</span>':''}${detail.archived?'<span class="k-badge k-badge--neutral">已归档</span>':''}</div></div>`
+        +sub+`<div class="opp-detail-top"><div class="opp-detail-amount"><small>${E(detail.currency)}</small>${amount(detail.amount)}</div><div class="opp-detail-chips">${stageChip}${detail.overdue?'<span class="k-badge k-badge--danger">已逾期</span>':''}${detail.archived?'<span class="k-badge k-badge--neutral">已归档</span>':''}</div></div>`
+        +progressMarkup(detail)
         +`<div class="error" id="opp-detail-error" role="alert"></div>`
         +`<dl class="opp-facts">`
         +fact('客户',detail.client?`<button type="button" class="company-link" data-biz-customer="${E(detail.client)}">${E(detail.client)}</button>`:'')
@@ -245,7 +275,7 @@
       // 一组按钮；没有一个能用的按钮时整组（含小标题）不显示。
       const group=(title,buttons)=>buttons?`${title?`<h3>${title}</h3>`:''}<div class="opp-menu-group">${buttons}</div>`:'';
       const moves=stages.filter(entry=>entry.id!==card.stage).map(entry=>`<button type="button" class="${item} opp-move opp-kind-${entry.kind}" data-opp-action="move" data-id="${E(card.id)}" data-stage="${E(entry.id)}"><i class="opp-dot" aria-hidden="true"></i>移到「${E(entry.label)}」</button>`).join('');
-      return `<div class="drawer-body opp-menu"><div class="opp-menu-summary"><b>${money(card.amount,card.currency)}</b><span>${E(card.client)}</span>${stageBadge(stage?.kind||'open',E(stage?.label||card.stage))}</div>`
+      return `<div class="drawer-body opp-menu"><div class="opp-menu-summary"><b>${moneyShort(card.amount,card.currency)}</b><span>${E(card.client)}</span>${stageBadge(stage?.kind||'open',E(stage?.label||card.stage))}</div>`
         +group('',`${can('opp.edit')?`<button type="button" class="${item} is-main" data-opp-action="edit" data-id="${E(card.id)}">编辑商机</button>`:''}${stage?.kind==='won'&&!card.orderId&&can('order.create')?`<button type="button" class="${item} is-accent" data-opp-action="order" data-id="${E(card.id)}">生成订单</button>`:''}${card.orderId?`<button type="button" class="${item}" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}`)
         +(can('doc.create')?group('生成单据',`<button type="button" class="${item}" data-opp-doc="quote" data-id="${E(card.id)}">报价单</button><button type="button" class="${item}" data-opp-doc="pi" data-id="${E(card.id)}">形式发票</button>`):'')
         +(can('opp.edit')?group('调整销售阶段',moves):'')
@@ -254,17 +284,32 @@
     }
     const lostMarkup=(card,reasons=model.LOST_REASONS)=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" aria-required="true" required><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
 
+    // 商机分析页头右边的币种（和销售流程）下拉：放在页头一行里，不单独占一张卡片。
+    function analysisControls(report){
+      const c=report.currency;
+      return `<label class="opp-head-select"><span>币种</span><select id="opp-analysis-currency" class="k-select-trigger" aria-label="币种">${(report.currencies.length?report.currencies:[c]).map(code=>option(code,code,c)).join('')}</select></label>`
+        +(report.flows&&report.flows.length>1?`<label class="opp-head-select"><span>销售流程</span>${flowSelect('opp-analysis-flow',report.flows,report.flow,'k-select-trigger')}</label>`:'');
+    }
+    // 商机分析：上面一排数字卡片（和看板的金额卡片同一种样子），下面阶段分布（条的颜色：进行中＝主色，赢单＝绿，输单＝灰）和几张 k-table。
     function analysisMarkup(report,view={}){
       const s=report.summary,c=report.currency;
-      const tile=(label,value,note='')=>`<div class="team-tile"><span>${label}</span><strong>${value}</strong>${note?`<span class="muted tiny">${note}</span>`:''}</div>`;
+      const stat=(label,value,{kind='total',count=null,note=''}={})=>`<div class="opp-stat k-card is-${kind}"><span class="opp-stat-label">${kind==='total'?'':'<i class="opp-dot" aria-hidden="true"></i>'}${label}${count===null?'':`<span class="opp-stat-count">${count} 个</span>`}</span><b>${value}</b>${note?`<span class="opp-stat-note">${note}</span>`:''}</div>`;
+      const cash=value=>`<small>${E(c)}</small> ${amount(value)}`;
       const percent=value=>value===null?'—':`${value}%`;
       const max=Math.max(1,...report.stages.map(stage=>stage.count));
-      return `<div class="business-scroll opp-page"><div class="opp-summary is-compact"><label class="opp-currency"><span>币种</span><select id="opp-analysis-currency" aria-label="币种">${(report.currencies.length?report.currencies:[c]).map(code=>option(code,code,c)).join('')}</select></label>${report.flows&&report.flows.length>1?`<label class="opp-currency"><span>销售流程</span>${flowSelect('opp-analysis-flow',report.flows,report.flow)}</label>`:''}${report.otherCurrencyCount?`<p class="opp-summary-note">另有 ${report.otherCurrencyCount} 个其他币种的商机未计入本页；不同币种不折算。</p>`:''}</div>`
-        +`<div class="team-tiles">${tile('新建商机数',s.created)}${tile('进行中',s.open,money(s.openAmount,c))}${tile('赢单',s.won,money(s.wonAmount,c))}${tile('输单',s.lost,money(s.lostAmount,c))}${tile('赢单率',percent(s.winRate),'赢单 ÷（赢单＋输单）')}${tile('平均成交周期',s.averageDays===null?'—':`${s.averageDays} 天`,'创建到首次赢单')}</div>`
-        +`<div class="business-columns"><section class="business-section"><div class="section-head"><h3>销售阶段分布</h3><span class="muted tiny">按商机数量</span></div><div class="opp-bars">${report.stages.map(stage=>`<div class="opp-bar opp-kind-${stage.kind||'open'}"><span class="opp-bar-label">${E(stage.label)}</span><span class="opp-bar-track"><i style="width:${Math.round(stage.count/max*100)}%"></i></span><b class="opp-bar-count">${stage.count} 个 · ${stage.percent}%</b><span class="opp-bar-amount">${money(stage.amount,c)}</span></div>`).join('')}</div></section>`
-        +`<section class="business-section"><div class="section-head"><h3>输单原因</h3></div><table class="order-table team-table"><thead><tr><th>原因</th><th>数量</th><th>金额</th></tr></thead><tbody>${report.lostReasons.map(row=>`<tr><td>${E(row.reason)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有输单</td></tr>'}</tbody></table></section>`
-        +(!vis('sources')?'':`<section class="business-section"><div class="section-head"><h3>商机来源</h3><span class="muted tiny">选了几个来源的商机，在每个来源下各算一次</span></div><table class="order-table team-table"><thead><tr><th>来源</th><th>数量</th><th>金额</th></tr></thead><tbody>${(report.sources||[]).map(row=>`<tr><td>${E(row.source)}</td><td>${row.count}</td><td>${money(row.amount,c)}</td></tr>`).join('')||'<tr><td colspan="3">所选范围内没有商机</td></tr>'}</tbody></table></section>`)+`</div>`
-        +`<section class="business-section"><div class="section-head"><h3>按负责人</h3><span class="muted tiny">按商机上填写的负责人名称汇总，只差大小写的算同一个人；已归档的商机也计入本页</span></div><div class="team-table-scroll"><table class="order-table team-table"><thead><tr><th>负责人</th><th>新建</th><th>进行中</th><th>赢单</th><th>输单</th><th>赢单金额</th><th>赢单率</th><th>平均成交周期</th></tr></thead><tbody>${report.owners.map(row=>`<tr><td>${E(row.owner)}</td><td>${row.created}</td><td>${row.open}</td><td>${row.won}</td><td>${row.lost}</td><td>${money(row.wonAmount,c)}</td><td>${percent(row.winRate)}</td><td>${row.averageDays===null?'—':row.averageDays+' 天'}</td></tr>`).join('')||'<tr><td colspan="8">所选范围内没有商机</td></tr>'}</tbody></table></div></section></div>`;
+      const panel=(title,desc,body,cls='')=>`<section class="k-card opp-panel${cls}"><div class="k-card-head"><h3 class="k-card-title">${title}</h3>${desc?`<span class="k-card-desc">${desc}</span>`:''}</div><div class="k-card-body">${body}</div></section>`;
+      const table=(heads,rows,empty)=>`<div class="opp-table-scroll"><table class="k-table opp-atable"><thead><tr>${heads.map(([text,num])=>`<th${num?' class="k-num"':''}>${text}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${heads.length}"><div class="k-empty">${empty}</div></td></tr>`}</tbody></table></div>`;
+      const td=(value,num=false)=>`<td${num?' class="k-num"':''}>${value}</td>`;
+      return `<div class="business-scroll opp-page opp-analysis">`
+        +(report.otherCurrencyCount?`<p class="opp-stats-note opp-analysis-note">另有 ${report.otherCurrencyCount} 个其他币种的商机未计入本页；不同币种不折算。</p>`:'')
+        +`<div class="opp-stats opp-analysis-stats">${stat('新建商机数',s.created)}${stat('进行中',cash(s.openAmount),{kind:'open',count:s.open})}${stat('赢单',cash(s.wonAmount),{kind:'won',count:s.won})}${stat('输单',cash(s.lostAmount),{kind:'lost',count:s.lost})}${stat('赢单率',percent(s.winRate),{note:'赢单 ÷（赢单＋输单）'})}${stat('平均成交周期',s.averageDays===null?'—':`${s.averageDays} 天`,{note:'创建到首次赢单'})}</div>`
+        +`<div class="opp-analysis-grid">`
+        +panel('销售阶段分布','按商机数量',`<div class="opp-bars">${report.stages.map(stage=>`<div class="opp-bar opp-kind-${stage.kind||'open'}"><span class="opp-bar-label">${E(stage.label)}</span><span class="opp-bar-track"><i style="width:${Math.round(stage.count/max*100)}%"></i></span><b class="opp-bar-count">${stage.count} 个 · ${stage.percent}%</b><span class="opp-bar-amount">${money(stage.amount,c)}</span></div>`).join('')}</div>`)
+        +`<div class="opp-analysis-side">`+panel('输单原因','',table([['原因'],['数量',1],['金额',1]],report.lostReasons.map(row=>`<tr>${td(E(row.reason))}${td(row.count,1)}${td(money(row.amount,c),1)}</tr>`).join(''),'所选范围内没有输单'))
+        +(!vis('sources')?'':panel('商机来源','选了几个来源的商机，在每个来源下各算一次',table([['来源'],['数量',1],['金额',1]],(report.sources||[]).map(row=>`<tr>${td(E(row.source))}${td(row.count,1)}${td(money(row.amount,c),1)}</tr>`).join(''),'所选范围内没有商机')))
+        +`</div></div>`
+        +panel('按负责人','按商机上填写的负责人名称汇总，只差大小写的算同一个人；已归档的商机也计入本页',table([['负责人'],['新建',1],['进行中',1],['赢单',1],['输单',1],['赢单金额',1],['赢单率',1],['平均成交周期',1]],report.owners.map(row=>`<tr>${td(E(row.owner))}${td(row.created,1)}${td(row.open,1)}${td(row.won,1)}${td(row.lost,1)}${td(money(row.wonAmount,c),1)}${td(percent(row.winRate),1)}${td(row.averageDays===null?'—':row.averageDays+' 天',1)}</tr>`).join(''),'所选范围内没有商机'),' is-wide')
+        +`</div>`;
     }
 
     // ---------- 销售流程设置 ----------
@@ -387,7 +432,7 @@
       if(!card) return '';
       return `<div class="opp-source-banner" role="note"><strong>由商机生成</strong><span>「${E(card.name)}」· ${E(card.client)} · ${money(card.amount,card.currency)}。客户、金额等已按商机预填，保存订单后会自动关联到这个商机。</span></div>`;
     }
-    return {dropBefore,scrollStep,detailMarkup,attachmentsInner,fileSize,stamp,sourceBannerMarkup,menuPosition,flowsMarkup,settingsMarkup,stageRemoveMarkup,stageOptions,boardMarkup,headerActions,cardMarkup,contactOptions,formMarkup,menuMarkup,lostMarkup,analysisMarkup,shortDate};
+    return {dropBefore,scrollStep,detailMarkup,attachmentsInner,fileSize,stamp,sourceBannerMarkup,menuPosition,flowsMarkup,settingsMarkup,stageRemoveMarkup,stageOptions,boardMarkup,headerActions,cardMarkup,contactOptions,formMarkup,menuMarkup,lostMarkup,analysisMarkup,analysisControls,shortDate};
   }
   const api={create,PAGE};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.LaiOpportunityUI=api;

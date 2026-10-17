@@ -247,17 +247,20 @@ test('detail drawer: number, type, sources, lead and custom values; old opportun
   assert.match(old, /<dt>商机编号<\/dt><dd>—<\/dd>/); assert.doesNotMatch(old, /商机类型|商机来源|来源线索/);
   // 列表页有编号一列
   const table = ui.boardMarkup(O.board(s, {}, TODAY), {mode: 'list'}, {today: TODAY});
-  assert.match(table, /<th>商机编号<\/th>/); assert.match(table, /<td class="opp-num">OPP-20261006-001<\/td>/);
+  assert.match(table, /<th>商机编号<\/th>/); assert.match(table, /<td class="opp-num opp-list-muted">OPP-20261006-001<\/td>/);
+  // 详情第一行是商机名称和编号（抽屉标题是客户名）
+  assert.match(html, /<p class="opp-detail-sub"><span>26100601-Amy<\/span><span class="opp-num">OPP-20261006-001<\/span><\/p>/);
 });
 
 test('analysis page: 商机来源 table next to 输单原因', () => {
   let s = withSources(base);
   s = add(s, 'a', {sources: ['社媒', '常规获客 / 展会']}); s = add(s, 'b', {});
   const html = ui.analysisMarkup(O.analysis(s, {}, TODAY));
-  assert.match(html, /<h3>商机来源<\/h3>/);
-  assert.match(html, /<tr><td>社媒<\/td><td>1<\/td><td>USD 100\.00<\/td><\/tr>/);
-  assert.match(html, /<tr><td>未填来源<\/td><td>1<\/td><td>USD 100\.00<\/td><\/tr>/);
-  assert.ok(html.indexOf('<h3>输单原因</h3>') < html.indexOf('<h3>商机来源</h3>'));
+  assert.match(html, /<h3 class="k-card-title">商机来源<\/h3>/);
+  assert.match(html, /<tr><td>社媒<\/td><td class="k-num">1<\/td><td class="k-num">USD 100\.00<\/td><\/tr>/);
+  assert.match(html, /<tr><td>未填来源<\/td><td class="k-num">1<\/td><td class="k-num">USD 100\.00<\/td><\/tr>/);
+  assert.ok(html.indexOf('>输单原因</h3>') < html.indexOf('>商机来源</h3>'));
+  assert.match(html, /<table class="k-table opp-atable">/, 'the tables are the kit table');
 });
 
 test('rail menu and settings hub use the new name; the route id stays', () => {

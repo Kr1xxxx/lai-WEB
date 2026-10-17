@@ -31,14 +31,21 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   assert.match(html, /共 <b>4<\/b> 个商机/);
   for (const id of ['opp-search', 'opp-sort', 'opp-owner', 'opp-date-field', 'opp-from', 'opp-to', 'opp-archived', 'opp-currency']) assert.ok(html.includes(`id="${id}"`), id);
   assert.doesNotMatch(html, /opp-flow/, 'only one sales flow exists, so there is nothing to choose');
-  assert.deepEqual([...html.matchAll(/<div class="opp-stat k-card is-(\w+)"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<\/span><b><small>(\w+)<\/small> ([^<]+)<\/b><\/div>/g)].map(m => [m[1], m[2], `${m[3]} ${m[4]}`]),
-    [['total', '总销售金额', 'USD 631.74'], ['open', '进行中', 'USD 431.74'], ['won', '赢单', 'USD 200.00'], ['lost', '输单', 'USD 50.00']]);
+  // 四张金额卡片：名称、个数、金额；整数金额不带「.00」，币种下拉在筛选条里
+  assert.deepEqual([...html.matchAll(/<div class="opp-stat k-card is-(\w+)"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<span class="opp-stat-count">(\d+) 个<\/span><\/span><b><small>(\w+)<\/small> ([^<]+)<\/b><\/div>/g)].map(m => [m[1], m[2], m[3], `${m[4]} ${m[5]}`]),
+    [['total', '总销售金额', '3', 'USD 631.74'], ['open', '进行中', '2', 'USD 431.74'], ['won', '赢单', '1', 'USD 200'], ['lost', '输单', '1', 'USD 50']]);
+  assert.match(html, /<label class="opp-filter-currency"><span>币种<\/span><select id="opp-currency" class="k-select-trigger" aria-label="币种">/);
+  assert.doesNotMatch(html, /opp-stat-currency/, 'the currency picker no longer takes a whole stat card');
   assert.match(html, /另有 1 个其他币种的商机/);
   assert.deepEqual([...html.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span class="opp-stage-name"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<\/span><span class="opp-stage-count k-badge k-badge--\w+">(\d+)<\/span><span class="opp-stage-amount">([^<]+)</g)].map(m => [m[1], m[2], `${m[3]}(${m[4]})`, m[5]]),
-    [['open', 'open', '未成单(2)', 'USD 431.74'], ['open', 'unpaid', '付款未到账(0)', 'USD 0.00'], ['won', 'balance', '待付尾款(0)', 'USD 0.00'], ['won', 'done', '已完成(1)', 'USD 200.00'], ['lost', 'lost', '输单(1)', 'USD 50.00']]);
+    [['open', 'open', '未成单(2)', 'USD 431.74'], ['open', 'unpaid', '付款未到账(0)', 'USD 0'], ['won', 'balance', '待付尾款(0)', 'USD 0'], ['won', 'done', '已完成(1)', 'USD 200'], ['lost', 'lost', '输单(1)', 'USD 50']]);
   assert.equal((html.match(/class="opp-card k-card"/g) || []).length, 4);
   assert.equal((html.match(/draggable="true"/g) || []).length, 4);
-  assert.equal((html.match(/暂无商机/g) || []).length, 2);
+  assert.equal((html.match(/<p class="k-empty opp-drop-hint">拖到这里<\/p>/g) || []).length, 2, 'empty columns show a drop hint');
+  const readOnly = U.create(escapeHtml, O, key => key !== 'opp.edit');
+  assert.equal((readOnly.boardMarkup(board, {}, {today: TODAY}).match(/<p class="k-empty opp-drop-hint">暂无商机<\/p>/g) || []).length, 2, 'no drop hint for someone who cannot move cards');
+  // 卡片：客户是标题（打开这位客户），商机名称是下面一行（打开详情）
+  assert.match(html, /<div class="opp-card-head"><button type="button" class="opp-card-client" data-biz-customer="Alpha &lt;b&gt;Co&lt;\/b&gt;">Alpha &lt;b&gt;Co&lt;\/b&gt;<\/button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="p4"[^>]*>⋮<\/button><\/div><button type="button" class="opp-card-name" data-opp-action="detail" data-id="p4">26100604-Amy<\/button>/);
   assert.match(html, /<span class="opp-due is-overdue">逾期 04-02<\/span>/, 'this year: month-day only');
   assert.match(html, /<span class="opp-due is-overdue">逾期 2025-12-15<\/span>/, 'other years: full date');
   assert.equal((html.match(/class="opp-due is-overdue"/g) || []).length, 2, 'two open opportunities are past their end date');
@@ -49,7 +56,10 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   assert.match(ui.boardMarkup(board, {}, {today: TODAY}), /data-opp-view="board" aria-pressed="true"/);
   assert.doesNotMatch(ui.headerActions(board, {}, {}), /data-opp-view/, 'the view switch lives in the filter card only (D-029: no classic header copy)');
   const soon = ui.boardMarkup(O.board(add(base, 's1', {endDate: '2026-10-20'}), {}, TODAY), {}, {today: TODAY});
-  assert.match(soon, /<span class="opp-due">10-20 截止<\/span>/, 'an open opportunity still within its date');
+  assert.match(soon, /<span class="opp-due">10-20 截止<\/span>/, 'an open opportunity still within its date (14 days left)');
+  const near = ui.boardMarkup(O.board(add(base, 's2', {endDate: '2026-10-13'}), {}, TODAY), {}, {today: TODAY});
+  assert.match(near, /<span class="opp-due is-soon">10-13 截止<\/span>/, 'due within 7 days: marked in the warning colour');
+  assert.doesNotMatch(ui.headerActions(board, {}, {}), /opp-analysis/, '商机分析 is a header tab, not a second button');
 });
 
 test('customer and owner text is always escaped', () => {
@@ -125,15 +135,17 @@ test('card menu offers the right actions for each state', () => {
 
 test('analysis page shows the figures from the model', () => {
   const html = ui.analysisMarkup(O.analysis(sample(), {}, TODAY));
-  assert.match(html, /<span>新建商机数<\/span><strong>4<\/strong>/);
-  assert.match(html, /<span>赢单率<\/span><strong>50%<\/strong>/);
-  assert.match(html, /<span>赢单<\/span><strong>1<\/strong><span class="muted tiny">USD 200\.00<\/span>/);
-  assert.match(html, /<td>价格原因<\/td><td>1<\/td><td>USD 50\.00<\/td>/);
+  assert.match(html, /<span class="opp-stat-label">新建商机数<\/span><b>4<\/b>/);
+  assert.match(html, /<span class="opp-stat-label">赢单率<\/span><b>50%<\/b>/);
+  assert.match(html, /<div class="opp-stat k-card is-won"><span class="opp-stat-label"><i class="opp-dot" aria-hidden="true"><\/i>赢单<span class="opp-stat-count">1 个<\/span><\/span><b><small>USD<\/small> 200<\/b><\/div>/);
+  assert.match(html, /<td>价格原因<\/td><td class="k-num">1<\/td><td class="k-num">USD 50\.00<\/td>/);
   assert.deepEqual([...html.matchAll(/<div class="opp-bar opp-kind-(\w+)"><span class="opp-bar-label">([^<]+)<\/span><span class="opp-bar-track"><i style="width:(\d+)%"><\/i><\/span><b class="opp-bar-count">([^<]+)<\/b><span class="opp-bar-amount">([^<]+)<\/span>/g)].map(m => m.slice(1)),
     [['open', '未成单', '100', '2 个 · 50%', 'USD 431.74'], ['open', '付款未到账', '0', '0 个 · 0%', 'USD 0.00'], ['won', '待付尾款', '0', '0 个 · 0%', 'USD 0.00'], ['won', '已完成', '50', '1 个 · 25%', 'USD 200.00'], ['lost', '输单', '50', '1 个 · 25%', 'USD 50.00']]);
   assert.match(html, /另有 1 个其他币种的商机未计入本页/);
+  assert.doesNotMatch(html, /opp-analysis-currency/, 'the currency picker sits in the page header');
+  assert.match(ui.analysisControls(O.analysis(sample(), {}, TODAY)), /<label class="opp-head-select"><span>币种<\/span><select id="opp-analysis-currency" class="k-select-trigger" aria-label="币种"><option value="USD" selected>USD<\/option><option value="EUR">EUR<\/option><\/select><\/label>/);
   const empty = ui.analysisMarkup(O.analysis({}, {}, TODAY));
-  assert.match(empty, /<span>赢单率<\/span><strong>—<\/strong>/); assert.match(empty, /所选范围内没有商机/); assert.match(empty, /所选范围内没有输单/);
+  assert.match(empty, /<span class="opp-stat-label">赢单率<\/span><b>—<\/b>/); assert.match(empty, /所选范围内没有商机/); assert.match(empty, /所选范围内没有输单/);
 });
 
 // ---------------- controller ----------------
@@ -250,7 +262,7 @@ test('controller: filters, views, paging and drag-and-drop', async () => {
   const c = controller(sample());
   c.page.navigate('opportunities');
   c.change({id: 'opp-currency', value: 'EUR'});
-  assert.match(c.mounted.at(-1), /总销售金额<\/span><b><small>EUR<\/small> 70\.00<\/b>/);
+  assert.match(c.mounted.at(-1), /总销售金额<span class="opp-stat-count">1 个<\/span><\/span><b><small>EUR<\/small> 70<\/b>/);
   c.change({id: 'opp-currency', value: 'USD'}); c.change({id: 'opp-search', value: '26100602'});
   assert.match(c.mounted.at(-1), /共 <b>1<\/b> 个商机/);
   c.change({id: 'opp-search', value: ''}); c.change({id: 'opp-archived', value: 'all'}); c.change({id: 'opp-owner', value: 'amy'});
@@ -500,14 +512,14 @@ test('board and analysis show one sales flow at a time; the flow picker appears 
   assert.match(main, /共 <b>4<\/b> 个商机/);
   const sampleBoard = ui.boardMarkup(O.board(s, {flow: 'fs'}, TODAY), {}, {today: TODAY});
   assert.deepEqual([...sampleBoard.matchAll(/<section class="opp-column opp-kind-(\w+)" data-opp-drop="(\w+)"[^>]*><header class="opp-stage"><span class="opp-stage-name"><i class="opp-dot" aria-hidden="true"><\/i>([^<]+)<\/span><span class="opp-stage-count k-badge k-badge--\w+">(\d+)<\/span><span class="opp-stage-amount">([^<]+)</g)].map(m => m.slice(1)),
-    [['open', 'sending', '寄样中', '1', 'USD 10.00'], ['won', 'confirmed', '已确认', '1', 'USD 20.00'], ['lost', 'lost', '输单', '0', 'USD 0.00']]);
-  assert.match(sampleBoard, /总销售金额<\/span><b><small>USD<\/small> 30\.00<\/b>/);
+    [['open', 'sending', '寄样中', '1', 'USD 10'], ['won', 'confirmed', '已确认', '1', 'USD 20'], ['lost', 'lost', '输单', '0', 'USD 0']]);
+  assert.match(sampleBoard, /总销售金额<span class="opp-stat-count">2 个<\/span><\/span><b><small>USD<\/small> 30<\/b>/);
   const list = ui.boardMarkup(O.board(s, {flow: 'fs'}, TODAY), {mode: 'list'}, {today: TODAY});
   assert.match(list, /<span class="k-badge k-badge--success">已确认<\/span>/);
   const report = ui.analysisMarkup(O.analysis(s, {flow: 'fs'}, TODAY));
-  assert.match(report, /<select id="opp-analysis-flow" aria-label="销售流程"><option value="default">默认销售流程（5）<\/option><option value="fs" selected>样品单（2）<\/option>/);
+  assert.match(ui.analysisControls(O.analysis(s, {flow: 'fs'}, TODAY)), /<select id="opp-analysis-flow" class="k-select-trigger" aria-label="销售流程"><option value="default">默认销售流程（5）<\/option><option value="fs" selected>样品单（2）<\/option>/);
   assert.deepEqual([...report.matchAll(/<div class="opp-bar opp-kind-(\w+)"><span class="opp-bar-label">([^<]+)<\/span>[\s\S]*?<b class="opp-bar-count">([^<]+)<\/b>/g)].map(m => m.slice(1)), [['open', '寄样中', '1 个 · 50%'], ['won', '已确认', '1 个 · 50%'], ['lost', '输单', '0 个 · 0%']]);
-  assert.doesNotMatch(ui.analysisMarkup(O.analysis(sample(), {}, TODAY)), /opp-analysis-flow/);
+  assert.doesNotMatch(ui.analysisControls(O.analysis(sample(), {}, TODAY)), /opp-analysis-flow/);
 });
 
 test('form and menu offer the stages of the opportunity\'s own flow', () => {
@@ -705,7 +717,9 @@ test('cards show a clip with the count and open the detail; detail markup lists 
   assert.match(inner({busy: true}), /id="opp-attach-input" multiple hidden disabled/);
   let full = O.addAttachments(sample(), 'p1', Array.from({length: 30}, (_, i) => ({id: 'f' + i, ...FILES[0]})));
   assert.match(ui.attachmentsInner(O.detailOf(full, 'p1', TODAY).attachments, {}), /is-full[^>]*>.*已达到 30 个附件的上限/);
-  assert.match(ui.attachmentsInner([], {}), /还没有附件/);
+  assert.doesNotMatch(ui.attachmentsInner([], {}), /还没有附件/, 'the drop zone already says what goes here');
+  assert.match(ui.attachmentsInner([], {}), /报价单、合同、样品图拖到这里/);
+  assert.match(U.create(escapeHtml, O, key => key !== 'opp.edit').attachmentsInner([], {}), /<p class="k-empty opp-files-none">还没有附件。<\/p>/, 'without the drop zone the empty list says so');
   assert.equal(ui.fileSize(0), '0 B'); assert.equal(ui.fileSize(1536), '1.5 KB'); assert.equal(ui.fileSize(20 * 1024 * 1024), '20.0 MB');
   assert.equal(ui.stamp(''), '—'); assert.equal(ui.stamp('2026-10-07T01:05:00.000Z'), '2026-10-07 09:05');
 });
@@ -715,7 +729,7 @@ test('controller: the detail drawer opens from a card name or its blank area, an
   c.page.navigate('opportunities');
   await c.click({oppAction: 'detail', id: 'p1'});
   const [title, body, footer, type] = c.dialogs.at(-1);
-  assert.deepEqual([title, type], ['26100101-Amy'.length ? title : '', 'opp-detail']);
+  assert.deepEqual([title, type], ['Alpha &lt;b&gt;Co&lt;/b&gt;', 'opp-detail'], 'the drawer title is the customer; the opportunity name is the first line of the body');
   assert.match(body, /class="drawer-body opp-detail" data-id="p1"/);
   assert.match(footer, /data-opp-action="menu" data-id="p1">更多操作<\/button><button class="k-btn k-btn--primary" type="button" data-opp-action="edit" data-id="p1">编辑商机/);
   await c.click({oppAction: 'edit', id: 'p1'});
@@ -1046,4 +1060,22 @@ test('opportunity WhatsApp / 电话: needs 联系电话 not hidden, a customer t
   assert.equal(got.opened.length, 0);
   // the detail markup never prints a number it was not given
   assert.doesNotMatch(ui.detailMarkup(O.detailOf(s, 'theirs', TODAY), {today: TODAY}, {}), /<dt>电话<\/dt>|1512/);
+});
+
+test('detail: subtitle, compact amount, stage progress by meaning and the newest stage record first', () => {
+  const s = O.moveStage(sample(), 'p1', 'unpaid', {now: '2026-10-07T05:00:00.000Z'});
+  const steps = html => [...html.matchAll(/<li class="(is-\w+)( is-end)?"(?: aria-current="step")?><span>([^<]+)<\/span><\/li>/g)].map(m => `${m[3]}:${m[1]}${m[2] ? '+end' : ''}`);
+  const open = ui.detailMarkup(O.detailOf(s, 'p1', TODAY), {today: TODAY}, {});
+  assert.match(open, /<p class="opp-detail-sub"><span>26100601-Amy<\/span><span class="opp-num">OPP-/);
+  assert.match(open, /<div class="opp-detail-amount"><small>USD<\/small>331\.74<\/div>/);
+  assert.match(open, /<ol class="opp-progress opp-kind-open" aria-label="销售阶段">/);
+  assert.deepEqual(steps(open), ['未成单:is-done', '付款未到账:is-current', '待付尾款:is-todo', '已完成:is-todo', '输单:is-todo+end']);
+  assert.match(open, /<ol class="opp-history"><li class="opp-kind-open is-current"><i aria-hidden="true"><\/i><span>付款未到账<\/span>[\s\S]*?<li class="opp-kind-open"><i aria-hidden="true"><\/i><span>未成单<\/span>/, 'newest first');
+  const won = ui.detailMarkup(O.detailOf(s, 'p3', TODAY), {today: TODAY}, {});
+  assert.match(won, /<ol class="opp-progress opp-kind-won"/);
+  assert.match(won, /<div class="opp-detail-amount"><small>USD<\/small>200<\/div>/, 'whole amounts drop .00');
+  assert.deepEqual(steps(won), ['未成单:is-done', '付款未到账:is-done', '待付尾款:is-done', '已完成:is-current', '输单:is-todo+end']);
+  const lost = ui.detailMarkup(O.detailOf(s, 'p4', TODAY), {today: TODAY}, {});
+  assert.match(lost, /<ol class="opp-progress opp-kind-lost"/);
+  assert.deepEqual(steps(lost), ['未成单:is-done', '付款未到账:is-todo', '待付尾款:is-todo', '已完成:is-todo', '输单:is-current+end'], 'only the stages it went through');
 });
