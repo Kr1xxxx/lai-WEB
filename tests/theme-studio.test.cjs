@@ -40,6 +40,37 @@ test('米白 is an extra choice: the default colour and the other themes are unt
   assert.match(css, /\.theme-preview\[data-preview="studio"\]\s*\{[^}]*--pv-nav/);
 });
 
+// The literal counter of tests/ui-tokens-ratchet.test.cjs, applied to every block except the S0 token block and the S9 preview.
+function literals(cssText) {
+  const out = [];
+  for (const [, selector, body] of cssText.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const [, prop, value] of body.matchAll(/(?:^|;)\s*([a-z-]+)\s*:\s*([^;]*)/g)) {
+      if ((prop === 'font-size' || prop === 'font') && /(?:^|[\s(,/])\d*\.?\d+px\b/.test(value)) out.push(`${selector.trim()} ${prop}: ${value}`);
+      if (/(?:^|-)radius$/.test(prop) && /(?:^|[\s(,])\d*\.?\d+px\b/.test(value)) out.push(`${selector.trim()} ${prop}: ${value}`);
+      if (/#[0-9a-fA-F]{3,8}\b/.test(value)) out.push(`${selector.trim()} ${prop}: ${value}`);
+    }
+  }
+  return out;
+}
+
+test('literal font sizes, radii and colours only live in the S0 token block (and the S9 preview)', () => {
+  const s0 = css.slice(css.indexOf('/* ===== S0'), css.indexOf('/* ===== /S0 ===== */'));
+  const tokenBlock = s0.slice(s0.indexOf(':root[data-theme="studio"] {'), s0.indexOf('}', s0.indexOf(':root[data-theme="studio"] {')) + 1);
+  assert.ok(tokenBlock.includes('--studio-accent: #4b5bd6'), 'the token block holds the Gr8r values');
+  const rest = css.replace(tokenBlock, '').replace(/\.theme-preview\[data-preview="studio"\]\s*\{[^}]*\}/, '');
+  assert.deepEqual(literals(rest), []);
+});
+
+test('the sections S0–S9 are each present once and in order', () => {
+  let at = -1;
+  for (const id of ['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9']) {
+    const open = css.indexOf(`/* ===== ${id}:`), close = css.indexOf(`/* ===== /${id} ===== */`);
+    assert.ok(open > at && close > open, `section ${id}`);
+    assert.equal(css.split(`/* ===== /${id} ===== */`).length, 2, `${id} closes once`);
+    at = close;
+  }
+});
+
 // WCAG contrast of the theme's text colours on the backgrounds they sit on.
 function luminance(hex) {
   const [r, g, b] = hex.match(/[0-9a-f]{2}/gi).map((h) => parseInt(h, 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
@@ -53,16 +84,19 @@ const token = (name) => {
 };
 
 test('text in 米白 stays readable (≥ 4.5:1 for normal text)', () => {
-  const white = '#ffffff', side = token('--studio-side'), surface3 = token('--studio-surface-3');
+  const white = token('--studio-surface'), side = token('--studio-side'), surface3 = token('--studio-surface-3'), surface2 = token('--studio-surface-2');
   for (const [fg, bg, where] of [
-    [token('--ink-900'), white, 'body text'],
-    [token('--ink-700'), side, 'left column labels'],
-    [token('--ink-700'), surface3, 'tabs and hover rows'],
-    [token('--ink-600'), white, 'secondary text, table headers'],
-    [token('--ink-600'), side, 'second-level nav heading'],
-    [token('--brand-500'), white, 'links and accents'],
-    [white, token('--brand-500'), 'primary button text'],
-    [token('--brand-700'), token('--brand-50'), 'selected / accent badges'],
+    [token('--studio-text'), white, 'body text'],
+    [token('--studio-text-2'), side, 'left column labels'],
+    [token('--studio-text-2'), surface3, 'tabs and hover rows'],
+    [token('--studio-text-3'), white, 'secondary text, table headers'],
+    [token('--studio-text-3'), side, 'second-level nav heading'],
+    [token('--studio-text-3'), surface2, 'muted text on hovered rows'],
+    [token('--studio-accent'), white, 'links and accents'],
+    [white, token('--studio-accent'), 'primary button text'],
+    [token('--studio-green'), white, 'success text'],
+    [token('--studio-amber'), white, 'warning text'],
+    [token('--studio-red'), white, 'danger text'],
   ]) {
     assert.ok(contrast(fg, bg) >= 4.5, `${where}: ${fg} on ${bg} is ${contrast(fg, bg).toFixed(2)}:1`);
   }

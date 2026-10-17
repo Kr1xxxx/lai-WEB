@@ -1,155 +1,329 @@
 /* ===== 米白（data-theme="studio"）=====
-   照开源项目 Gr8r Studio（github.com/gr8rstudio/gr8r-studio）的设计做的浅色主题：
-   · 暖白：左边一整列是米灰（#f4f3f0），右边主区是白色；中间、顶栏下面各一条 1px 暖灰细线，不再有悬浮面板和空隙；
-   · 文字是偏暖的灰阶，强调色只有一种靛蓝（#4b5bd6），用在主按钮、焦点、链接和进度；
-   · 当前菜单是白色小卡片（细边加一点点阴影）、黑字；按钮 6px 圆角，次要按钮白底细边；
-   · 表格没有表头底色，行之间一条很淡的分隔线；卡片 10px 圆角，几乎没有阴影。
-   只在选了「米白」时生效：每条规则都以 :root[data-skin="glass"][data-theme="studio"] 开头，其它配色不受影响。
+   照开源项目 Gr8r Studio（github.com/gr8rstudio/gr8r-studio）的设计做的浅色主题：颜色、间距、尺寸、圆角、字号层级、密度都取自它的
+   src/styles/tokens.css。计划和对照表：项目共享文件 plans/09-gr8r-theme.md。
+   规矩（tests/theme-studio.test.cjs 检查）：
+   · 每条规则都以 :root[data-theme="studio"] 或 :root[data-skin="glass"][data-theme="studio"] 开头，只在选了「米白」时生效；
+     唯一例外是 S9 的预览图颜色（设置页要同时画出每个配色的预览）。
+   · 字面量（font-size px、border-radius px、hex 颜色）只能写在 S0 的第一个块里，其它地方一律用 var(--studio-*)。
+   · 元素级规则写成 :root[data-theme="studio"] body button：比皮肤 skin-glass.css（0,2,1）强、比组件套件 ui-kit.css（0,3,0）弱。
+   · 分区：S0 令牌（协调者）｜S1 外框｜S2 控件｜S3 页头卡片空状态｜S4 弹层｜S5 表格列表｜S6 首页看板统计｜S7 设置表单｜S8 次级页面｜S9 预览。
    本文件排在所有样式最后（template.html 的 THEME_STUDIO_STYLE），同样强的规则以这里为准。 */
 
-/* ---------- 颜色变量 ---------- */
+/* ===== S0: tokens（只有协调者改；Gr8r 的令牌原样搬来，文字最小 12px 是仓库规则） ===== */
 :root[data-theme="studio"] {
-  --skin-page: #ffffff;
-  --skin-ink-rgb: 29, 28, 26;
-  --skin-blob: #4b5bd6;
-  --skin-gold: #4b5bd6;
-  --brand-900: #1f2559;
-  --brand-900-rgb: 31, 37, 89;
-  --brand-700: #3d4bbd;
-  --brand-600: #4553cb;
-  --brand-500: #4b5bd6;
-  --brand-rgb: 75, 91, 214;
-  --brand-300: #a4adee;
-  --brand-200: #c9cef6;
-  --brand-100: #e2e5fa;
-  --brand-50: #f0f1fc;
-  --nav-hover: #eeede9;
-  --nav-line: #e9e7e2;
-  --nav-top: #f4f3f0;
-  --nav-glow-rgb: 75, 91, 214;
-
-  --ink-900: #1d1c1a;
-  --ink-rgb: 29, 28, 26;
-  --ink-800: #3a3834;
-  --ink-700: #57544e;
-  --ink-600: #6b6760;
-  --ink-500: #75716a;
-  --ink-400: #a29e96;
-  --ink-300: #dad7d0;
-  --ink-200: #e9e7e2;
-  --ink-100: #f0eeea;
-  --ink-50: #f7f6f3;
-
-  --chart-1: #4b5bd6;
-  --chart-2: #1e8580;
-  --chart-3: #c0612b;
-  --chart-rank-1: #2f3a9e;
-  --chart-rank-2: #4b5bd6;
-  --chart-rank-3: #8e9af3;
-  --chart-track: #f0eeea;
-  --opp-open-soft: #f0f1fc;
-  --opp-open-ink: #3d4bbd;
-
-  --color-success: #25754b;
-  --color-success-soft: #e8f2ec;
-  --color-warning: #8f5e0e;
-  --color-warning-soft: #f6efe2;
-  --color-danger: #b23c30;
-  --color-danger-soft: #f8ebe9;
-
-  /* Gr8r Studio 自己的几样：侧栏底、浅底、浮层阴影 */
+  /* 面 */
+  --studio-bg: #fbfaf8;
   --studio-side: #f4f3f0;
+  --studio-surface: #ffffff;
   --studio-surface-2: #f6f5f2;
   --studio-surface-3: #eeede9;
   --studio-sunken: #f7f6f3;
+  --studio-overlay: rgba(24, 22, 19, 0.28);
+  /* 线 */
+  --studio-border: #e9e7e2;
+  --studio-border-strong: #dad7d0;
+  --studio-divider: #f0eeea;
+  /* 字 */
+  --studio-text: #1d1c1a;
+  --studio-text-2: #57544e;
+  --studio-text-3: #6b6760;
+  --studio-text-4: #8c8880;
+  --studio-text-inv: #ffffff;
+  /* 强调色 */
+  --studio-accent: #4b5bd6;
+  --studio-on-accent: #ffffff;
+  --studio-accent-soft: color-mix(in srgb, var(--studio-accent) 10%, transparent);
+  --studio-accent-line: color-mix(in srgb, var(--studio-accent) 38%, transparent);
+  --studio-accent-hover: color-mix(in srgb, var(--studio-accent) 88%, var(--studio-text));
+  --studio-accent-active: color-mix(in srgb, var(--studio-accent) 78%, var(--studio-text));
+  --studio-accent-ink: color-mix(in srgb, var(--studio-accent) 80%, var(--studio-text));
+  /* 语义色 */
+  --studio-green: #25754b;
+  --studio-amber: #8f5e0e;
+  --studio-red: #b23c30;
+  --studio-blue: #3570c4;
+  --studio-violet: #7652c2;
+  --studio-teal: #1e8580;
+  --studio-rose: #bc4270;
+  --studio-orange: #c0612b;
+  --studio-gray: #8a867e;
+  --studio-green-soft: color-mix(in srgb, var(--studio-green) 11%, transparent);
+  --studio-amber-soft: color-mix(in srgb, var(--studio-amber) 12%, transparent);
+  --studio-red-soft: color-mix(in srgb, var(--studio-red) 10%, transparent);
+  --studio-violet-soft: color-mix(in srgb, var(--studio-violet) 11%, transparent);
+  /* 状态圆点（订单阶段、商机阶段） */
+  --studio-st-backlog: #a29e96;
+  --studio-st-todo: #7c7870;
+  --studio-st-progress: #c88a14;
+  --studio-st-review: #7652c2;
+  --studio-st-done: #2e8456;
+  /* rgb 三元组（旧样式里写成 rgba(var(--…-rgb), a) 的地方） */
+  --studio-text-rgb: 29, 28, 26;
+  --studio-accent-rgb: 75, 91, 214;
+  /* 阴影 */
   --studio-shadow-sm: 0 1px 2px rgba(28, 25, 20, 0.05);
-  --studio-shadow-pop: 0 12px 32px -8px rgba(28, 25, 20, 0.16), 0 2px 6px -2px rgba(28, 25, 20, 0.06), 0 0 0 1px #e9e7e2;
-  --studio-side-w: 250px;
-  --studio-top: 48px;
+  --studio-shadow-card: 0 1px 2px rgba(28, 25, 20, 0.04), 0 0 0 1px var(--studio-border);
+  --studio-shadow-pop: 0 12px 32px -8px rgba(28, 25, 20, 0.16), 0 2px 6px -2px rgba(28, 25, 20, 0.06), 0 0 0 1px var(--studio-border);
+  --studio-shadow-drag: 0 16px 36px -10px rgba(28, 25, 20, 0.28), 0 0 0 1px var(--studio-border-strong);
+  --studio-shadow-drawer: -18px 0 40px -24px rgba(0, 0, 0, 0.25);
+  --studio-shadow-on: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--studio-border);
+  --studio-shadow-seg: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--studio-border);
+  --studio-shadow-primary: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  --studio-shadow-kcard-hover: 0 2px 6px -2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--studio-border-strong);
+  --studio-focus: 0 0 0 3px var(--studio-accent-soft);
+  /* 圆角 */
+  --studio-r-xs: 4px;
+  --studio-r-sm: 6px;
+  --studio-r: 8px;
+  --studio-r-lg: 10px;
+  --studio-r-xl: 12px;
+  --studio-r-badge: 5px;
+  --studio-r-full: 999px;
+  /* 字阶（Gr8r 2xs 是 11px，仓库规则最小 12px） */
+  --studio-fs-2xs: 12px;
+  --studio-fs-xs: 12px;
+  --studio-fs-sm: 12.5px;
+  --studio-fs: 13.5px;
+  --studio-fs-md: 14.5px;
+  --studio-fs-lg: 16px;
+  --studio-fs-xl: 19px;
+  --studio-fs-2xl: 23px;
+  --studio-fs-stat: 22px;
+  --studio-lh: 1.45;
+  --studio-ls-h1: -0.022em;
+  --studio-ls-title: -0.018em;
+  --studio-ls-stat: -0.02em;
+  --studio-ls-h2: -0.01em;
+  --studio-ls-eyebrow: 0.06em;
+  --studio-fw-body: 400;
+  --studio-fw-nav: 450;
+  --studio-fw-ui: 500;
+  --studio-fw-head: 600;
+  /* 控件与行高 */
+  --studio-h-xs: 22px;
+  --studio-h-sm: 26px;
+  --studio-h-md: 30px;
+  --studio-h-lg: 36px;
+  --studio-side-row: 30px;
+  --studio-row-h: 40px;
+  --studio-th-h: 34px;
+  --studio-td-h: 36px;
+  --studio-mini-h: 38px;
+  --studio-toolbar-h: 44px;
+  --studio-tab-h: 36px;
+  --studio-badge-h: 20px;
+  --studio-check: 15px;
+  --studio-toggle-w: 30px;
+  --studio-toggle-h: 18px;
+  --studio-toggle-knob: 14px;
+  --studio-av: 22px;
+  --studio-av-md: 26px;
+  /* 外框（左栏 72 是结构，二级导航 180，合起来 252 = Gr8r 侧栏宽） */
+  --studio-topbar-h: 46px;
+  --studio-rail-w: 72px;
+  --studio-subnav-w: 180px;
+  --studio-side-w: 252px;
+  --studio-gutter: 24px;
+  --studio-page-top: 24px;
+  --studio-page-bottom: 72px;
+  --studio-ph-gap: 20px;
+  --studio-panel-pad: 14px;
+  --studio-card-pad: 10px;
+  --studio-grid-gap: 16px;
+  --studio-board-gap: 12px;
+  --studio-bcol-w: 284px;
+  --studio-modal-w: 560px;
+  --studio-modal-sm-w: 420px;
+  --studio-modal-lg-w: 720px;
+  --studio-drawer-w: 620px;
+  --studio-drawer-h: 46px;
+  --studio-pop-min-w: 200px;
+  --studio-pop-pad: 4px;
+  --studio-mi-h: 30px;
+  --studio-search-w: 300px;
+  --studio-scope-w: 84px;
+  /* 动效 */
+  --studio-dur: 140ms;
+  --studio-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --studio-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --studio-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --studio-dur-pop: 160ms;
+  --studio-dur-modal: 260ms;
+  --studio-dur-drawer: 340ms;
+  --studio-dur-fade: 180ms;
 }
 
-/* 设置页「界面配色」里的小预览图：不管现在用哪个配色都要画出来，所以这是本文件唯一不限定在米白下的规则 */
-.theme-preview[data-preview="studio"] { --pv-page: #ffffff; --pv-nav: #f4f3f0; --pv-brand: #4b5bd6; --pv-tint: #eeede9; }
-
-/* 语义层（组件套件 ui-kit.css 只用这一层）和皮肤层 */
+/* 把来财已有的变量（各页样式、组件套件都在用）指到上面的令牌：不写字面量，整个应用的字号、圆角、颜色一起换 */
 :root[data-skin="glass"][data-theme="studio"] {
-  --bg: #fbfaf8;
-  --fg: var(--ink-900);
-  --card-bg: #fff;
-  --card-line: var(--ink-200);
-  --popover-bg: #fff;
-  --border: var(--ink-200);
-  --input: var(--ink-300);
-  --ring: var(--brand-500);
-  --primary: var(--brand-500);
-  --primary-hover: #4351c4;
-  --primary-fg: #fff;
-  --secondary-bg: #fff;
-  --secondary-fg: var(--ink-900);
+  /* 灰阶（--ink-500 取 text-3 而不是 text-4：它在旧样式里也当正文用，text-4 对白只有 3.5:1） */
+  --ink-900: var(--studio-text);
+  --ink-800: color-mix(in srgb, var(--studio-text) 86%, var(--studio-surface));
+  --ink-700: var(--studio-text-2);
+  --ink-600: var(--studio-text-3);
+  --ink-500: var(--studio-text-3);
+  --ink-400: var(--studio-gray);
+  --ink-300: var(--studio-border-strong);
+  --ink-200: var(--studio-border);
+  --ink-100: var(--studio-divider);
+  --ink-50: var(--studio-sunken);
+  --ink-rgb: var(--studio-text-rgb);
+  --skin-ink-rgb: var(--studio-text-rgb);
+  /* 主色梯度 */
+  --brand-900: color-mix(in srgb, var(--studio-accent) 60%, var(--studio-text));
+  --brand-900-rgb: var(--studio-text-rgb);
+  --brand-700: var(--studio-accent-ink);
+  --brand-600: var(--studio-accent-active);
+  --brand-500: var(--studio-accent);
+  --brand-rgb: var(--studio-accent-rgb);
+  --brand-300: color-mix(in srgb, var(--studio-accent) 50%, var(--studio-surface));
+  --brand-200: color-mix(in srgb, var(--studio-accent) 28%, var(--studio-surface));
+  --brand-100: color-mix(in srgb, var(--studio-accent) 16%, var(--studio-surface));
+  --brand-50: color-mix(in srgb, var(--studio-accent) 8%, var(--studio-surface));
+  --nav-glow-rgb: var(--studio-accent-rgb);
+  /* 语义层（ui-kit.css 只用这一层）；--bg 在套件里是行悬停色，Gr8r 的行悬停是 surface-2，真正的页面底由 S1 写白色 */
+  --bg: var(--studio-surface-2);
+  --fg: var(--studio-text);
+  --card-bg: var(--studio-surface);
+  --card-line: var(--studio-border);
+  --popover-bg: var(--studio-surface);
+  --border: var(--studio-border);
+  --input: var(--studio-border-strong);
+  --ring: var(--studio-accent);
+  --primary: var(--studio-accent);
+  --primary-hover: var(--studio-accent-hover);
+  --primary-fg: var(--studio-on-accent);
+  --secondary-bg: var(--studio-surface);
+  --secondary-fg: var(--studio-text);
   --muted-bg: var(--studio-surface-3);
-  --muted-fg: var(--ink-700);
-  --accent-bg: var(--brand-50);
-  --accent-fg: var(--brand-700);
-  --danger-fg: #a5372c;
-  --warning-fg: #7f530c;
-  --success-fg: #22693f;
-  --nav-bg: var(--studio-side);
-  --nav-fg: var(--ink-700);
-  --nav-active: #fff;
-  --glass-bg: #fff;
+  --muted-fg: var(--studio-text-3);
+  --accent-bg: var(--studio-accent-soft);
+  --accent-fg: var(--studio-accent-ink);
+  --danger: var(--studio-red);
+  --danger-bg: var(--studio-red-soft);
+  --danger-fg: var(--studio-red);
+  --warning: var(--studio-amber);
+  --warning-bg: var(--studio-amber-soft);
+  --warning-fg: var(--studio-amber);
+  --success: var(--studio-green);
+  --success-bg: var(--studio-green-soft);
+  --success-fg: var(--studio-green);
+  --color-success: var(--studio-green);
+  --color-success-soft: var(--studio-green-soft);
+  --color-warning: var(--studio-amber);
+  --color-warning-soft: var(--studio-amber-soft);
+  --color-danger: var(--studio-red);
+  --color-danger-soft: var(--studio-red-soft);
+  --color-logo: var(--studio-accent);
+  /* 皮肤层（skin-glass.css）和左栏 */
+  --skin-page: var(--studio-surface);
+  --skin-blob: var(--studio-accent);
+  --skin-gold: var(--studio-accent);
+  --glass-bg: var(--studio-surface);
   --glass-soft: var(--studio-side);
-  --glass-line: var(--ink-200);
-  --skin-radius: 10px;
-  --radius: 6px;
-  --r-sm: 5px;
-  --r-md: 6px;
-  --r-lg: 8px;
-  --r-xl: 10px;
-  --shadow-1: 0 1px 2px rgba(28, 25, 20, 0.05);
+  --glass-line: var(--studio-border);
+  --nav-bg: var(--studio-side);
+  --nav-top: var(--studio-side);
+  --nav-fg: var(--studio-text-2);
+  --nav-active: var(--studio-surface);
+  --nav-hover: var(--studio-surface-3);
+  --nav-line: var(--studio-border);
+  --muted: var(--studio-text-2);
+  --color-neutral-500: var(--studio-text-3);
+  --color-neutral-600: var(--studio-text-2);
+  --text-muted: var(--studio-text-3);
+  --text-faint: var(--studio-text-3);
+  /* 图表 */
+  --chart-1: var(--studio-accent);
+  --chart-2: var(--studio-teal);
+  --chart-3: var(--studio-orange);
+  --chart-rank-1: color-mix(in srgb, var(--studio-accent) 70%, var(--studio-text));
+  --chart-rank-2: var(--studio-accent);
+  --chart-rank-3: color-mix(in srgb, var(--studio-accent) 55%, var(--studio-surface));
+  --chart-track: var(--studio-surface-3);
+  --opp-open-soft: var(--studio-accent-soft);
+  --opp-open-ink: var(--studio-accent-ink);
+  /* 字号 */
+  --text-xs: var(--studio-fs-xs);
+  --text-sm: var(--studio-fs-sm);
+  --text-base: var(--studio-fs);
+  --text-lg: var(--studio-fs-lg);
+  --text-xl: var(--studio-fs-xl);
+  --text-2xl: var(--studio-fs-2xl);
+  --font-size-assist: var(--studio-fs-xs);
+  --font-size-body: var(--studio-fs);
+  --font-size-section: var(--studio-fs-md);
+  --font-size-page: var(--studio-fs-xl);
+  --font-size-metric: var(--studio-fs-stat);
+  /* 圆角（来财的 --r-sm 用在徽标上 → 5） */
+  --r-sm: var(--studio-r-badge);
+  --r-md: var(--studio-r-sm);
+  --r-lg: var(--studio-r);
+  --r-xl: var(--studio-r-lg);
+  --radius: var(--studio-r-sm);
+  --radius-sm: var(--studio-r-xs);
+  --radius-md: var(--studio-r-badge);
+  --radius-lg: var(--studio-r-sm);
+  --radius-xl: var(--studio-r);
+  --radius-pill: var(--studio-r-full);
+  --skin-radius: var(--studio-r-lg);
+  --dd-radius: var(--studio-r-sm);
+  /* 阴影 */
+  --shadow-1: var(--studio-shadow-sm);
   --shadow-2: var(--studio-shadow-pop);
-  --muted: var(--ink-600);
-  --color-neutral-500: var(--ink-600);
-  --color-neutral-600: var(--ink-700);
-  --text-muted: var(--ink-600);
-  --text-faint: rgba(29, 28, 26, 0.5);
-  --shadow-focus: 0 0 0 3px rgba(75, 91, 214, 0.1);
-  background: #fff;
+  --shadow-card: var(--studio-shadow-sm);
+  --shadow-popover: var(--studio-shadow-pop);
+  --shadow-drawer: var(--studio-shadow-drawer);
+  --shadow-focus: var(--studio-focus);
+  /* 统一下拉 */
+  --dd-h: var(--studio-h-md);
+  --dd-font: var(--studio-fs);
+  --dd-ink: var(--studio-text);
+  --dd-border: var(--studio-border-strong);
+  /* 动效 */
+  --motion-fast: var(--studio-dur);
+  --motion-normal: var(--studio-dur);
+  --motion-slow: var(--studio-dur-pop);
+  --ease-standard: var(--studio-ease);
+  --ease-out: var(--studio-ease);
+  --ease-drawer: var(--studio-ease-drawer);
+  --ease-bounce: var(--studio-spring);
+  background: var(--studio-surface);
 }
+/* ===== /S0 ===== */
+
+/* ===== S1: frame（外框：顶栏、左栏、二级导航、主区、停靠表单偏移） ===== */
 :root[data-skin="glass"][data-theme="studio"] body {
-  background: #fff;
+  background: var(--studio-surface);
   color: var(--ink-900);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-:root[data-skin="glass"][data-theme="studio"] #app { background: #fff; }
-:root[data-skin="glass"][data-theme="studio"] ::selection { background: rgba(75, 91, 214, 0.2); }
-
+:root[data-skin="glass"][data-theme="studio"] #app { background: var(--studio-surface); }
+:root[data-skin="glass"][data-theme="studio"] ::selection { background: color-mix(in srgb, var(--studio-accent) 22%, transparent); }
 /* ---------- 外框：左边米灰一整列（左栏 + 二级导航），顶栏和主区白色，用细线分开 ---------- */
 /* 二级导航收起或这一页没有二级导航时，左边那列只剩左栏的宽度 */
 :root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]),
-:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) { --studio-side-w: 72px; }
-
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) { --studio-side-w: var(--studio-rail-w); }
 :root[data-skin="glass"][data-theme="studio"] .topbar {
-  top: 0; left: 0; right: 0; height: var(--studio-top); padding: 0 14px 0 0;
+  top: 0; left: 0; right: 0; height: var(--studio-topbar-h); padding: 0 14px 0 0;
   border: 0; border-bottom: 1px solid var(--ink-200); border-radius: 0; box-shadow: none;
-  background: linear-gradient(to right, var(--studio-side) 0, var(--studio-side) calc(var(--studio-side-w) - 1px), var(--ink-200) calc(var(--studio-side-w) - 1px), var(--ink-200) var(--studio-side-w), #fff var(--studio-side-w));
+  background: linear-gradient(to right, var(--studio-side) 0, var(--studio-side) calc(var(--studio-side-w) - 1px), var(--ink-200) calc(var(--studio-side-w) - 1px), var(--ink-200) var(--studio-side-w), var(--studio-surface) var(--studio-side-w));
 }
-:root[data-skin="glass"][data-theme="studio"] .topbar-left-drag-region { width: 250px; padding-left: 16px; }
+:root[data-skin="glass"][data-theme="studio"] .topbar-left-drag-region { width: var(--studio-side-w); padding-left: 16px; }
 :root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .topbar,
-:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .topbar { background: #fff; }
+:root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .topbar { background: var(--studio-surface); }
 :root[data-skin="glass"][data-theme="studio"] .brand-mark { width: 24px; height: 24px; }
 :root[data-skin="glass"][data-theme="studio"] .brand-cn text { fill: var(--ink-900); stroke: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .brand sup { color: var(--ink-600); border-color: var(--ink-300); }
 :root[data-skin="glass"][data-theme="studio"] .app-version { border-color: var(--ink-300); color: var(--ink-600); background: transparent; }
-
 /* 左栏：米灰底，没有圆角和外框；入口是灰色图标加小字，悬停浅灰，当前模块是白色小卡片 */
 :root[data-skin="glass"][data-theme="studio"] .rail {
-  left: 0; top: var(--studio-top); bottom: 0; width: 72px; padding: 10px 8px; border: 0; border-radius: 0; box-shadow: none;
+  left: 0; top: var(--studio-topbar-h); bottom: 0; width: var(--studio-rail-w); padding: 10px 8px; border: 0; border-radius: 0; box-shadow: none;
   background: var(--studio-side); color: var(--nav-fg);
 }
 :root[data-skin="glass"][data-theme="studio"]:has(.subnav[hidden]) .rail,
 :root[data-skin="glass"][data-theme="studio"]:has(.nav-collapsed) .rail { box-shadow: inset -1px 0 0 var(--ink-200); }
-:root[data-skin="glass"][data-theme="studio"] .rail-item { border-radius: 6px; color: var(--ink-700); font-weight: 450; }
+:root[data-skin="glass"][data-theme="studio"] .rail-item { border-radius: var(--studio-r-sm); color: var(--ink-700); font-weight: 450; }
 :root[data-skin="glass"][data-theme="studio"] .rail-item :is(.icon, .icon-duo) { color: var(--ink-500); stroke: var(--ink-500); }
 :root[data-skin="glass"][data-theme="studio"] .rail-item .icon-duo .tint { fill: currentColor; fill-opacity: 0; }
 :root[data-skin="glass"][data-theme="studio"] .rail-item:hover { background: var(--studio-surface-3); color: var(--ink-900); box-shadow: none; }
@@ -157,201 +331,210 @@
 :root[data-skin="glass"][data-theme="studio"] .rail-item:hover:not(.active) .icon-duo .tint { fill-opacity: 0; }
 :root[data-skin="glass"][data-theme="studio"] .rail-item.active,
 :root[data-skin="glass"][data-theme="studio"] .rail-item.active:hover {
-  background: #fff; color: var(--ink-900); font-weight: 500;
+  background: var(--studio-surface); color: var(--ink-900); font-weight: 500;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
 }
 :root[data-skin="glass"][data-theme="studio"] .rail-item.active :is(.icon, .icon-duo) { color: var(--ink-800); stroke: var(--ink-800); }
 :root[data-skin="glass"][data-theme="studio"] .rail-item.active .icon-duo .tint { fill: currentColor; fill-opacity: 0; }
-:root[data-skin="glass"][data-theme="studio"] .rail-badge { background: var(--brand-500); color: #fff; box-shadow: 0 0 0 2px var(--studio-side); }
+:root[data-skin="glass"][data-theme="studio"] .rail-badge { background: var(--brand-500); color: var(--studio-surface); box-shadow: 0 0 0 2px var(--studio-side); }
 :root[data-skin="glass"][data-theme="studio"] .rail-refresh { color: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .rail-refresh .icon { stroke: var(--ink-500); }
 :root[data-skin="glass"][data-theme="studio"] .rail-refresh:hover { background: var(--studio-surface-3); color: var(--ink-900); }
-
 /* 二级导航：和左栏同一块米灰，右边一条细线；入口 30 高，当前项白色小卡片 */
 :root[data-skin="glass"][data-theme="studio"] .subnav {
-  left: 72px; top: var(--studio-top); bottom: 0; width: 178px; padding: 10px 8px 12px 4px;
+  left: var(--studio-rail-w); top: var(--studio-topbar-h); bottom: 0; width: var(--studio-subnav-w); padding: 10px 8px 12px 4px;
   border: 0; border-radius: 0; box-shadow: inset -1px 0 0 var(--ink-200); background: var(--studio-side);
 }
 :root[data-skin="glass"][data-theme="studio"] .subnav h3 {
   height: 28px; padding: 0 2px 0 8px; margin-bottom: 4px;
-  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--ink-600);
+  font-size: var(--studio-fs-2xs); font-weight: 600; letter-spacing: 0.06em; color: var(--ink-600);
 }
 :root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle { background: transparent; border-color: transparent; color: var(--ink-500); }
 :root[data-skin="glass"][data-theme="studio"] .subnav h3 .subnav-toggle:hover { background: var(--studio-surface-3); color: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .nav-row { height: 32px; }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry {
-  height: 30px; min-height: 30px; padding: 0 8px; gap: 9px; border-radius: 6px;
-  font-size: 13.5px; font-weight: 450; line-height: 30px; color: var(--ink-700);
+  height: 30px; min-height: 30px; padding: 0 8px; gap: 9px; border-radius: var(--studio-r-sm);
+  font-size: var(--studio-fs); font-weight: 450; line-height: 30px; color: var(--ink-700);
 }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry :is(.icon, .icon-duo) { color: var(--ink-500); stroke: var(--ink-500); }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry .icon-duo .tint { fill-opacity: 0; }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry:hover { background: var(--studio-surface-3); color: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry.active,
 :root[data-skin="glass"][data-theme="studio"] .nav-entry.active:hover {
-  background: #fff; color: var(--ink-900); font-weight: 500;
+  background: var(--studio-surface); color: var(--ink-900); font-weight: 500;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
 }
 :root[data-skin="glass"][data-theme="studio"] .nav-entry.active :is(.icon, .icon-duo) { color: var(--ink-700); stroke: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .nav-heart { top: 1px; }
-
 /* 主区：白色，从顶栏下面一直到底，内容离边 24px */
-:root[data-skin="glass"][data-theme="studio"] .main { left: 250px; top: var(--studio-top); right: 0; bottom: 0; padding: 20px 24px 20px; background: #fff; box-sizing: border-box; }
+:root[data-skin="glass"][data-theme="studio"] .main { left: var(--studio-side-w); top: var(--studio-topbar-h); right: 0; bottom: 0; padding: 20px 24px 20px; background: var(--studio-surface); box-sizing: border-box; }
 :root[data-skin="glass"][data-theme="studio"] .nav-collapsed .main,
-:root[data-skin="glass"][data-theme="studio"] .subnav[hidden] ~ .main { left: 72px; }
-
-/* 悬停浮层（左栏旁边弹出的菜单） */
-:root[data-skin="glass"][data-theme="studio"] .rail-flyout { left: 76px; }
-:root[data-skin="glass"][data-theme="studio"] .rail-flyout-panel { background: #fff; border: 0; border-radius: 8px; box-shadow: var(--studio-shadow-pop); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item { height: 30px; border-radius: 5px; font-size: 13.5px; color: var(--ink-800); }
-:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item:hover,
-:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item:focus-visible { background: var(--studio-surface-2); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart.is-favorite,
-:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart.is-favorite:hover { color: var(--brand-500); }
-
+:root[data-skin="glass"][data-theme="studio"] .subnav[hidden] ~ .main { left: var(--studio-rail-w); }
 /* ---------- 顶栏搜索：像 Gr8r 的「Search or jump to…」，浅灰底、细边、靠右 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .global-search {
   left: auto; right: 196px; top: 9px; width: 380px; height: 30px;
-  border: 1px solid var(--ink-200); border-radius: 6px; background: var(--studio-sunken);
+  border: 1px solid var(--ink-200); border-radius: var(--studio-r-sm); background: var(--studio-sunken);
 }
 :root[data-skin="glass"][data-theme="studio"] .global-search:hover { border-color: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] .global-search:has(> input:focus) { border-color: var(--brand-500); background: #fff; box-shadow: 0 0 0 3px rgba(75, 91, 214, 0.1); }
-:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child { width: 92px; flex-basis: 92px; border-right-color: var(--ink-200); font-size: 12.5px; color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .global-search:has(> input:focus) { border-color: var(--brand-500); background: var(--studio-surface); box-shadow: 0 0 0 3px var(--studio-accent-soft); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child { width: 92px; flex-basis: 92px; border-right-color: var(--ink-200); font-size: var(--studio-fs-sm); color: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child:hover,
 :root[data-skin="glass"][data-theme="studio"] .global-search > button:first-child[aria-expanded="true"] { background: var(--studio-surface-3); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .global-search > input { font-size: 12.5px; color: var(--ink-900); }
+:root[data-skin="glass"][data-theme="studio"] .global-search > input { font-size: var(--studio-fs-sm); color: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .global-search > input::placeholder { color: var(--ink-600); }
 :root[data-skin="glass"][data-theme="studio"] .global-search > button:last-child { width: 32px; color: var(--ink-500); }
-:root[data-skin="glass"][data-theme="studio"] .popover.global-search-scope-menu { border: 0; border-radius: 8px; box-shadow: var(--studio-shadow-pop); }
-:root[data-skin="glass"][data-theme="studio"] .global-search-categories { background: var(--studio-sunken); border-right-color: var(--ink-200); }
-:root[data-skin="glass"][data-theme="studio"] .global-search-scope-menu button { border-radius: 5px; font-size: 13px; color: var(--ink-800); }
-:root[data-skin="glass"][data-theme="studio"] .global-search-scope-menu button:hover { background: var(--studio-surface-2); }
-:root[data-skin="glass"][data-theme="studio"] .global-search-categories button.active { background: #fff; color: var(--ink-900); font-weight: 500; box-shadow: 0 0 0 1px var(--ink-200); }
-:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button { color: var(--ink-700); border-radius: 6px; }
+:root[data-skin="glass"][data-theme="studio"] .top-actions .text-button { color: var(--ink-700); border-radius: var(--studio-r-sm); }
 :root[data-skin="glass"][data-theme="studio"] .top-actions .text-button:hover { background: var(--studio-surface-2); color: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .top-actions .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--brand-100); color: var(--brand-700); }
+:root[data-skin="glass"][data-theme="studio"] .pagebar .page-actions > button { height: 30px; min-height: 30px; }
+/* ---------- 订单、商机表单停靠在右边：贴着顶栏下面和右边 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form) .drawer,
+:root[data-skin="glass"][data-theme="studio"] .overlay:has(#opp-form) .drawer { top: var(--studio-topbar-h); right: 0; bottom: 0; border-radius: 0; }
+:root[data-skin="glass"][data-theme="studio"]:has(#biz-order-form) .main,
+:root[data-skin="glass"][data-theme="studio"]:has(#opp-form) .main { right: var(--dock-w); }
+/* ===== /S1 ===== */
 
+/* ===== S2: controls（按钮、输入、下拉、分段页签、徽标、分页、开关、勾选） ===== */
 /* ---------- 按钮 ---------- */
-:root[data-theme="studio"] body button { border-radius: 6px; border-color: rgba(29, 28, 26, 0.16); color: var(--ink-900); }
+:root[data-theme="studio"] body button { border-radius: var(--studio-r-sm); border-color: rgba(29, 28, 26, 0.16); color: var(--ink-900); }
 /* 悬停不再描靛蓝边（皮肤里的规则），只是边稍深；比组件套件的幽灵按钮弱一级，所以它们仍是无边 */
 :root[data-theme="studio"] body button:hover:not(:disabled) { border-color: rgba(29, 28, 26, 0.24); }
 :root[data-skin="glass"][data-theme="studio"] button.primary,
 :root[data-skin="glass"][data-theme="studio"] .primary,
 :root[data-skin="glass"][data-theme="studio"] .k-btn--primary {
-  background: var(--brand-500); border-color: var(--brand-500); color: #fff; font-weight: 500;
+  background: var(--brand-500); border-color: var(--brand-500); color: var(--studio-surface); font-weight: 500;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12);
 }
 :root[data-skin="glass"][data-theme="studio"] button.primary:hover:not(:disabled),
-:root[data-skin="glass"][data-theme="studio"] .k-btn--primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: #fff; }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--studio-surface); }
 :root[data-skin="glass"][data-theme="studio"] .k-btn {
-  height: 30px; min-height: 30px; padding: 0 11px; border-radius: 6px; font-size: 12.5px; font-weight: 500;
+  height: 30px; min-height: 30px; padding: 0 11px; border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: 500;
 }
 :root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost) { border-color: var(--ink-300); box-shadow: var(--studio-shadow-sm); }
 :root[data-skin="glass"][data-theme="studio"] .k-btn:not(.k-btn--primary, .k-btn--ghost):hover:not(:disabled) { background: var(--studio-surface-2); border-color: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] .k-btn--sm { height: 26px; min-height: 26px; padding: 0 8px; font-size: 12px; }
+:root[data-skin="glass"][data-theme="studio"] .k-btn--sm { height: 26px; min-height: 26px; padding: 0 8px; font-size: var(--studio-fs-xs); }
 :root[data-skin="glass"][data-theme="studio"] .k-btn--ghost { color: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .k-btn--ghost:hover:not(:disabled) { background: var(--studio-surface-2); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .pagebar .page-actions > button { height: 30px; min-height: 30px; }
-
 /* ---------- 输入框、下拉 ---------- */
-:root[data-theme="studio"] body :is(input, select, textarea) { border-radius: 6px; border-color: var(--ink-300); }
+:root[data-theme="studio"] body :is(input, select, textarea) { border-radius: var(--studio-r-sm); border-color: var(--ink-300); }
 :root[data-skin="glass"][data-theme="studio"] :is(input:not([type="checkbox"], [type="radio"]), select, textarea):focus,
-:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea):focus { border-color: var(--brand-500); box-shadow: 0 0 0 3px rgba(75, 91, 214, 0.1); outline: none; }
-:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-select-trigger, .lai-select-trigger) { height: 30px; min-height: 30px; line-height: 28px; border-radius: 6px; border-color: var(--ink-300); font-size: 13px; }
-:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger):hover:not(:disabled) { border-color: #c3bfb6; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea):focus { border-color: var(--brand-500); box-shadow: 0 0 0 3px var(--studio-accent-soft); outline: none; }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-select-trigger, .lai-select-trigger) { height: 30px; min-height: 30px; line-height: 28px; border-radius: var(--studio-r-sm); border-color: var(--ink-300); font-size: var(--studio-fs-sm); }
+:root[data-skin="glass"][data-theme="studio"] :is(.k-input, .k-textarea, .k-select-trigger):hover:not(:disabled) { border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
 :root[data-skin="glass"][data-theme="studio"] input::placeholder,
 :root[data-skin="glass"][data-theme="studio"] textarea::placeholder { color: var(--ink-600); }
-:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"] { border-radius: 4px; border-color: #c3bfb6; }
-
+:root[data-skin="glass"][data-theme="studio"] input[type="checkbox"] { border-radius: var(--studio-r-xs); border-color: color-mix(in srgb, var(--studio-border-strong) 60%, var(--studio-text-3)); }
 /* ---------- 页签（分段式）：浅灰槽、选中白色小卡片 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .k-tabs { padding: 2px; gap: 2px; border-radius: 6px; background: var(--studio-surface-3); }
-:root[data-skin="glass"][data-theme="studio"] .k-tab { height: 24px; min-height: 24px; padding: 0 9px; border-radius: 5px; font-size: 12px; color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .k-tabs { padding: 2px; gap: 2px; border-radius: var(--studio-r-sm); background: var(--studio-surface-3); }
+:root[data-skin="glass"][data-theme="studio"] .k-tab { height: 24px; min-height: 24px; padding: 0 9px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs-xs); color: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .k-tab:is([aria-selected="true"], .is-active),
 :root[data-skin="glass"][data-theme="studio"] .k-tab:is([aria-selected="true"], .is-active):hover:not(:disabled) {
-  background: #fff; color: var(--ink-900); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--ink-200);
+  background: var(--studio-surface); color: var(--ink-900); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--ink-200);
 }
 /* 竖排页签（设置类页面左边的分类）：和二级导航一样，选中白卡片黑字 */
 :root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical { background: transparent; padding: 0; }
-:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab { height: 30px; min-height: 30px; font-size: 13.5px; color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab { height: 30px; min-height: 30px; font-size: var(--studio-fs); color: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active),
 :root[data-skin="glass"][data-theme="studio"] .k-tabs--vertical .k-tab:is([aria-selected="true"], [aria-current="page"], .is-active, .active):hover:not(:disabled) {
-  background: #fff; color: var(--ink-900); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
+  background: var(--studio-surface); color: var(--ink-900); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
 }
+:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"],
+:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"]:hover:not(:disabled) { border-color: var(--ink-300); color: var(--ink-900); background: var(--studio-surface); box-shadow: var(--studio-shadow-sm); }
+/* ---------- 徽标、标签：5px 圆角、20 高、细边 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-badge { height: 20px; padding: 0 7px; border-radius: var(--studio-r-badge); }
+:root[data-skin="glass"][data-theme="studio"] .k-badge--neutral,
+:root[data-skin="glass"][data-theme="studio"] .k-badge:not([class*="k-badge--"]) { background: var(--studio-surface-2); border-color: var(--ink-200); color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .tag { color: var(--ink-700); background: var(--studio-surface-2); border-color: var(--ink-200); border-radius: var(--studio-r-badge); }
+:root[data-skin="glass"][data-theme="studio"] .tag.green { color: var(--success-fg); background: var(--color-success-soft); border-color: transparent; }
+/* ---------- 勾选框、单选框、开关：靛蓝 ---------- */
+:root[data-skin="glass"][data-theme="studio"] input.k-switch { background: var(--ink-300); }
+:root[data-skin="glass"][data-theme="studio"] input.k-switch:checked { background: var(--brand-500); }
+/* ===== /S2 ===== */
 
+/* ===== S3: headers-cards-empty（页头、标题旁页签、工具行、卡片、空状态） ===== */
 /* ---------- 页头：大标题 23px、字距收紧 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .k-pageheader { padding: 0 0 16px; }
-:root[data-skin="glass"][data-theme="studio"] .k-pageheader-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 30px; color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .k-pageheader-desc { font-size: 13px; color: var(--ink-700); }
-
+:root[data-skin="glass"][data-theme="studio"] .k-pageheader-title { font-size: var(--studio-fs-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 30px; color: var(--ink-900); }
+:root[data-skin="glass"][data-theme="studio"] .k-pageheader-desc { font-size: var(--studio-fs-sm); color: var(--ink-700); }
 /* ---------- 卡片 ---------- */
 :root[data-skin="glass"][data-theme="studio"] :is(.k-card, .business-section, .module-page, .duplicate-card) {
-  border: 1px solid var(--ink-200); border-radius: 10px; background: #fff; box-shadow: 0 1px 2px rgba(28, 25, 20, 0.04);
+  border: 1px solid var(--ink-200); border-radius: var(--studio-r-lg); background: var(--studio-surface); box-shadow: 0 1px 2px rgba(28, 25, 20, 0.04);
 }
-:root[data-skin="glass"][data-theme="studio"] .k-card-title { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; }
+:root[data-skin="glass"][data-theme="studio"] .k-card-title { font-size: var(--studio-fs-md); font-weight: 600; letter-spacing: -0.01em; }
 :root[data-skin="glass"][data-theme="studio"] .k-card-desc { color: var(--ink-600); }
+/* ---------- 标题旁的页签（商机看板｜商机分析｜商机设置 这类）：像 Gr8r 的幽灵按钮，选中浅灰底黑字 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .section-tabs { gap: 2px; }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab { height: 30px; min-height: 30px; padding: 0 10px; border-radius: var(--studio-r-sm); font-size: var(--studio-fs-sm); font-weight: 500; color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab:hover { background: var(--studio-surface-2); color: var(--ink-900); }
+:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab.active { background: var(--studio-surface-3); color: var(--ink-900); font-weight: 500; }
+/* ===== /S3 ===== */
 
+/* ===== S4: overlays（遮罩、弹窗、抽屉、菜单、下拉菜单、日期、提示条、左栏浮层） ===== */
+/* 悬停浮层（左栏旁边弹出的菜单） */
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout { left: 76px; }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-panel { background: var(--studio-surface); border: 0; border-radius: var(--studio-r); box-shadow: var(--studio-shadow-pop); color: var(--ink-900); }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item { height: 30px; border-radius: var(--studio-r-badge); font-size: var(--studio-fs); color: var(--ink-800); }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item:hover,
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout-item:focus-visible { background: var(--studio-surface-2); color: var(--ink-900); }
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart.is-favorite,
+:root[data-skin="glass"][data-theme="studio"] .rail-flyout .nav-heart.is-favorite:hover { color: var(--brand-500); }
+:root[data-skin="glass"][data-theme="studio"] .popover.global-search-scope-menu { border: 0; border-radius: var(--studio-r); box-shadow: var(--studio-shadow-pop); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-categories { background: var(--studio-sunken); border-right-color: var(--ink-200); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-scope-menu button { border-radius: var(--studio-r-badge); font-size: var(--studio-fs-sm); color: var(--ink-800); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-scope-menu button:hover { background: var(--studio-surface-2); }
+:root[data-skin="glass"][data-theme="studio"] .global-search-categories button.active { background: var(--studio-surface); color: var(--ink-900); font-weight: 500; box-shadow: 0 0 0 1px var(--ink-200); }
+/* ---------- 弹窗、抽屉、菜单：白底、细边、柔和的大阴影 ---------- */
+:root[data-skin="glass"][data-theme="studio"] :is(.k-dialog, .k-drawer) { border: 0; box-shadow: var(--studio-shadow-pop); }
+:root[data-skin="glass"][data-theme="studio"] .k-dialog { border-radius: var(--studio-r-lg); }
+:root[data-skin="glass"][data-theme="studio"] .k-dialog-head :is(h2, h3) { font-size: var(--studio-fs-md); letter-spacing: -0.01em; }
+:root[data-skin="glass"][data-theme="studio"] .popover { border-radius: var(--studio-r); border-color: var(--ink-200); box-shadow: var(--studio-shadow-pop); }
+/* ===== /S4 ===== */
+
+/* ===== S5: tables-lists（表格、客户列表齐边、客群栏） ===== */
 /* ---------- 表格：表头无底色，小号灰字；行之间很淡的分隔线，悬停浅米色 ---------- */
 :root[data-theme="studio"] body th,
 :root[data-skin="glass"][data-theme="studio"] .k-table th {
-  background: #fff; color: var(--ink-600); font-size: 12.5px; font-weight: 500; border-color: var(--ink-200);
+  background: var(--studio-surface); color: var(--ink-600); font-size: var(--studio-fs-sm); font-weight: 500; border-color: var(--ink-200);
 }
 :root[data-theme="studio"] body td { border-color: var(--ink-100); }
 :root[data-skin="glass"][data-theme="studio"] .k-table td { border-color: var(--ink-100); }
 /* 客户列表：斑马纹、竖线是用户自己的列表设置，保留，只换成米白主题的淡色 */
-:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:nth-child(even) td { background: #fbfaf8; }
+:root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.striped tbody tr:nth-child(even) td { background: var(--studio-bg); }
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table.vertical-lines :is(th, td) { border-right-color: var(--ink-100); }
 :root[data-skin="glass"][data-theme="studio"] .replica-panel .k-table.customer-table tbody tr:hover td { background: var(--studio-surface-2); }
 :root[data-skin="glass"][data-theme="studio"] tbody tr:hover td,
 :root[data-skin="glass"][data-theme="studio"] .k-table tbody tr:hover td { background: var(--studio-sunken); }
-:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"],
-:root[data-skin="glass"][data-theme="studio"] .k-pager button[aria-current="page"]:hover:not(:disabled) { border-color: var(--ink-300); color: var(--ink-900); background: #fff; box-shadow: var(--studio-shadow-sm); }
-
-/* ---------- 徽标、标签：5px 圆角、20 高、细边 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .k-badge { height: 20px; padding: 0 7px; border-radius: 5px; }
-:root[data-skin="glass"][data-theme="studio"] .k-badge--neutral,
-:root[data-skin="glass"][data-theme="studio"] .k-badge:not([class*="k-badge--"]) { background: var(--studio-surface-2); border-color: var(--ink-200); color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .tag { color: var(--ink-700); background: var(--studio-surface-2); border-color: var(--ink-200); border-radius: 5px; }
-:root[data-skin="glass"][data-theme="studio"] .tag.green { color: var(--success-fg); background: var(--color-success-soft); border-color: transparent; }
-:root[data-skin="glass"][data-theme="studio"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }
-
-/* ---------- 弹窗、抽屉、菜单：白底、细边、柔和的大阴影 ---------- */
-:root[data-skin="glass"][data-theme="studio"] :is(.k-dialog, .k-drawer) { border: 0; box-shadow: var(--studio-shadow-pop); }
-:root[data-skin="glass"][data-theme="studio"] .k-dialog { border-radius: 10px; }
-:root[data-skin="glass"][data-theme="studio"] .k-dialog-head :is(h2, h3) { font-size: 15px; letter-spacing: -0.01em; }
-:root[data-skin="glass"][data-theme="studio"] .popover { border-radius: 8px; border-color: var(--ink-200); box-shadow: var(--studio-shadow-pop); }
-
-/* ---------- 勾选框、单选框、开关：靛蓝 ---------- */
-:root[data-skin="glass"][data-theme="studio"] input.k-switch { background: var(--ink-300); }
-:root[data-skin="glass"][data-theme="studio"] input.k-switch:checked { background: var(--brand-500); }
-
-/* ---------- 订单、商机表单停靠在右边：贴着顶栏下面和右边 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .overlay:has(#biz-order-form) .drawer,
-:root[data-skin="glass"][data-theme="studio"] .overlay:has(#opp-form) .drawer { top: var(--studio-top); right: 0; bottom: 0; border-radius: 0; }
-:root[data-skin="glass"][data-theme="studio"]:has(#biz-order-form) .main,
-:root[data-skin="glass"][data-theme="studio"]:has(#opp-form) .main { right: var(--dock-w); }
-
-/* ---------- 标题旁的页签（商机看板｜商机分析｜商机设置 这类）：像 Gr8r 的幽灵按钮，选中浅灰底黑字 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .section-tabs { gap: 2px; }
-:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab { height: 30px; min-height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--ink-700); }
-:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab:hover { background: var(--studio-surface-2); color: var(--ink-900); }
-:root[data-skin="glass"][data-theme="studio"] .section-tabs .section-tab.active { background: var(--studio-surface-3); color: var(--ink-900); font-weight: 500; }
-
 /* ---------- 客户列表左边的客群：下划线页签用黑色；当前客群是白色小卡片 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .group-tabs::before { background: var(--ink-200); }
-:root[data-skin="glass"][data-theme="studio"] .group-tabs button { font-size: 13px; font-weight: 500; color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .group-tabs button { font-size: var(--studio-fs-sm); font-weight: 500; color: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .group-tabs button.active { color: var(--ink-900); font-weight: 500; }
-:root[data-skin="glass"][data-theme="studio"] .group-tabs button.active:after { background: var(--ink-900); border-radius: 2px; }
-:root[data-skin="glass"][data-theme="studio"] .group-row { border-radius: 6px; color: var(--ink-700); }
+:root[data-skin="glass"][data-theme="studio"] .group-tabs button.active:after { background: var(--ink-900); border-radius: var(--studio-r-xs); }
+:root[data-skin="glass"][data-theme="studio"] .group-row { border-radius: var(--studio-r-sm); color: var(--ink-700); }
 :root[data-skin="glass"][data-theme="studio"] .group-row:hover { background: var(--studio-surface-2); color: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .group-row.active,
 :root[data-skin="glass"][data-theme="studio"] .group-row.active:hover {
-  background: #fff; color: var(--ink-900); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
+  background: var(--studio-surface); color: var(--ink-900); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 1px var(--ink-200);
 }
+/* ===== /S5 ===== */
 
+/* ===== S6: dashboard-board-stats（首页、商机看板与统计、团队目标） ===== */
 /* ---------- 商机看板：每列浅米色底、细边、10px 圆角；卡片白底 8px 圆角 ---------- */
-:root[data-skin="glass"][data-theme="studio"] .opp-column { background: var(--studio-surface-2); border: 1px solid var(--ink-200); border-radius: 10px; }
+:root[data-skin="glass"][data-theme="studio"] .opp-column { background: var(--studio-surface-2); border: 1px solid var(--ink-200); border-radius: var(--studio-r-lg); }
 :root[data-skin="glass"][data-theme="studio"] .opp-column .opp-stage { background: transparent; }
 :root[data-skin="glass"][data-theme="studio"] .opp-stage-name { font-weight: 600; color: var(--ink-900); }
 :root[data-skin="glass"][data-theme="studio"] .opp-stage-count { background: transparent; border-color: transparent; color: var(--ink-600); padding: 0 2px; }
-:root[data-skin="glass"][data-theme="studio"] .opp-card { border-radius: 8px; border-color: var(--ink-200); box-shadow: 0 1px 2px rgba(28, 25, 20, 0.04); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card { border-radius: var(--studio-r); border-color: var(--ink-200); box-shadow: 0 1px 2px rgba(28, 25, 20, 0.04); }
 :root[data-skin="glass"][data-theme="studio"] .opp-card:hover { border-color: var(--ink-300); }
+/* ===== /S6 ===== */
+
+/* ===== S7: settings-forms（设置页、设置中心、客户/商机表单） ===== */
+/* ===== /S7 ===== */
+
+/* ===== S8: secondary-pages（客户详情、邮件、聊天、订单页细节） ===== */
+:root[data-skin="glass"][data-theme="studio"] .wa-waiting { color: var(--brand-700); background: var(--brand-50); }
+/* ===== /S8 ===== */
+
+/* ===== S9: preview（设置页「界面配色」的小预览图：不管现在用哪个配色都要画出来，所以不带米白前缀） ===== */
+.theme-preview[data-preview="studio"] { --pv-page: #ffffff; --pv-nav: #f4f3f0; --pv-brand: #4b5bd6; --pv-tint: #eeede9; }
+/* ===== /S9 ===== */
