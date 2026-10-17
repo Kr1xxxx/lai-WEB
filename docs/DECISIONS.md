@@ -18,7 +18,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-006 | No 回款 (payment collection) and no 海关数据 (customs data) | Accepted |
 | D-007 | Mail: Zoho Mail with an app-specific password | Accepted |
 | D-008 | Colour themes: pink by default; orange and 小满 blue as options | Accepted (default changed 2026-10-16) |
-| D-009 | Left rail and entries | Accepted |
+| D-009 | Left rail and entries | Accepted; its Leads entry superseded by D-030 |
 | D-010 | Look and feel | Accepted |
 | D-011 | Prefer mature open-source code over hand-written code | Accepted |
 | D-012 | Publish the web trial after every change; Claude tests it itself | Accepted |
@@ -28,7 +28,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-016 | Mac build cadence: Claude every 10th merge, others every PR | Superseded by D-026 |
 | D-017 | Claude: Opus coordinates, Sonnet subagents do the work in parallel worktrees | Superseded by D-027 |
 | D-019 | Desktop builds (Mac, Windows) paused; web version only for now | Superseded by D-026 |
-| D-022 | Company details live in one place; 本人 scope also limits 团队数据; tasks belong to a person | Accepted |
+| D-022 | Company details live in one place; 本人 scope also limits 团队数据; tasks belong to a person | Accepted; the tasks part superseded by D-031 |
 | D-023 | 沟通 module uses WhatsApp | Accepted |
 | D-024 | Multi-user later runs on Cloudflare; not set up now | Accepted |
 | D-025 | Complex tasks get their own audit before building | Accepted |
@@ -36,6 +36,8 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-027 | Claude agent tree: Opus 5.5 high coordinates, Opus 5.5 medium subagents, Fable 5.1 on call as advisor | Accepted |
 | D-028 | UI direction: one component kit with shadcn/ui-style rules (tidy, consistent) in the 科技蓝 colours | Accepted |
 | D-029 | 小满 style removed; its place taken by 科技蓝 (themes: pink default, orange, 科技蓝) | Accepted |
+| D-030 | 线索 (leads) removed, code deleted; stored lead data kept | Accepted |
+| D-031 | 协同 removed (calendar, 任务设置, tasks), code deleted; stored task data kept | Accepted |
 
 ---
 
@@ -241,3 +243,24 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
   rewritten to 科技蓝 the next time settings are saved. No data other than that setting is touched.
 - Supersedes: the 小满 option in D-008 (pink stays the default).
 
+### D-030 线索 (leads) removed (2026-10-17)
+- Context: the owner: "leads 线索功能去掉,代码删除" (remove the leads feature, delete the code).
+- Decision: the 线索 module goes: the 线索 and "Leads" rail entries, 线索列表, 线索回收站, 线索设置, lead custom fields,
+  转为客户, the 新线索与已有客户 判重 rule, the 来源线索 field on opportunities, lead matches in WhatsApp, lead export,
+  lead permissions and the 线索 feature switch. The code and its tests are deleted.
+- Data: nothing stored is deleted. `laiLeads`, `laiSettings.leadSettings`, lead custom field definitions, `leadDedupe`,
+  opportunity `leadId` and customer fields such as 关联线索 stay in the data untouched (saves keep keys the code no
+  longer knows), so the feature can be brought back from git with the data intact. Customer history lines
+  「由线索转入」 stay as ordinary history.
+- Supersedes: the "Leads" rail entry in D-009.
+
+### D-031 协同 removed: calendar, 任务设置 and tasks (2026-10-17)
+- Context: the owner: "协同删除 代码删除". 协同 held 日历与待办 and 任务设置 (auto task rules). Keeping tasks without the
+  calendar would leave dead ends (全部待办 and 查看 buttons to a missing page, tasks that cannot be deleted, future tasks
+  nowhere to be seen), so tasks go with it (explorer report, coordinator decision; the owner can reverse it).
+- Decision: removed: the 协同 rail entry, the calendar page, 任务设置 and the daily auto-task run, the task drawer, task
+  rows and 添加任务 on the 工作台, 团队数据 → 任务完成 and the 任务完成率 / tasksDone target, the 去分配 hint, and the
+  customer detail 计划日程 → 查看 link (添加 for the next follow-up date stays). Code and tests deleted.
+- Data: nothing stored is deleted. `laiTasks`, `laiSettings.taskRules` and saved targets on tasksDone stay untouched.
+  Customer rename and merge keep renaming `laiTasks[].customer` so the kept data stays consistent.
+- Supersedes: the "tasks belong to a person" point of D-022.
