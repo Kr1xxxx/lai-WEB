@@ -12,8 +12,16 @@ const rules = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+\{[^{}]*\}/g) ||
 test('every rule in theme-studio.css only applies when 米白 is chosen', () => {
   assert.ok(rules.length > 50, 'the theme has its rules');
   for (const rule of rules) {
-    const selectors = rule.slice(0, rule.indexOf('{')).split(',').map((s) => s.trim()).filter(Boolean);
-    for (const selector of selectors) {
+    // split on commas outside :is(...) / :not(...)
+    const selectors = [];
+    let depth = 0, cur = '';
+    for (const ch of rule.slice(0, rule.indexOf('{'))) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { selectors.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    selectors.push(cur.trim());
+    for (const selector of selectors.filter(Boolean)) {
       assert.match(selector, /^:root(\[data-skin="glass"\])?\[data-theme="studio"\]/, `not scoped to 米白: ${selector}`);
     }
   }
