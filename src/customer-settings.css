@@ -110,7 +110,7 @@
 .dt-co span { display: block; color: #555; }
 .dt-title { text-align: right; }
 .dt-title h2 { margin: 0; font-size: 18px; }
-.dt-title span { color: #777; font-size: 11px; }
+.dt-title span { color: #777; font-size: var(--text-xs); }
 .dt-meta { display: flex; gap: 24px; margin: 10px 0; }
 .dt-meta dt { color: #777; }
 .dt-meta dd { margin: 0; font-weight: 600; }

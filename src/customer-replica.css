@@ -86,7 +86,7 @@ input::placeholder {
 .brand sup {
   align-self: flex-start;
   color: #6868b4;
-  font-size: 9px;
+  font-size: var(--text-xs);
   line-height: 12px;
   border: 1px solid #9494c8;
   border-radius: 3px;
@@ -100,7 +100,7 @@ input::placeholder {
   border: 1px solid var(--color-neutral-300);
   border-radius: var(--radius-pill);
   color: var(--color-neutral-500);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   line-height: 17px;
   letter-spacing: 0;
@@ -265,9 +265,9 @@ input::placeholder {
 .top-actions .avatar {
   width: 32px;
   height: 32px;
-  background: var(--brand-300);
+  background: var(--muted-bg);
   border-radius: 50%;
-  color: var(--brand-100);
+  color: var(--ink-700);
   display: grid;
   place-items: center;
   margin-left: 7px;
@@ -355,7 +355,7 @@ input::placeholder {
 @media (max-height: 800px) {
   .rail-item {
     gap: 1px;
-    font-size: 11px;
+    font-size: var(--text-xs);
     line-height: 14px;
   }
   .rail-item .icon {
@@ -366,7 +366,7 @@ input::placeholder {
 @media (max-height: 700px) {
   .rail-item {
     gap: 0;
-    font-size: 10px;
+    font-size: var(--text-xs);
     line-height: 12px;
   }
   .rail-item .icon {
@@ -905,7 +905,7 @@ input::placeholder {
 }
 .group-row.tree-heading i {
   font-style: normal;
-  font-size: 11px;
+  font-size: var(--text-xs);
   width: 11px;
   color: var(--text-muted, #777);
   flex-shrink: 0;
@@ -1342,6 +1342,7 @@ input::placeholder {
 }
 .level-icon::before {
   display: block;
+  /* 等级图标是 emoji 图形，不是文字；大小和 level-e 画的圆点一致，不受 12px 最小字号限制 */
   font-size: 11.2px;
   line-height: 1;
   transform: translateY(-1px);
@@ -1555,7 +1556,7 @@ input::placeholder {
   border-radius: 50%;
   background: var(--brand-500);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1;
 }
 .quick-filter .active-filters {
@@ -2768,7 +2769,7 @@ button.subnav-restore {
 }
 .country-tree summary:before {
   content: "▸";
-  font-size: 11px;
+  font-size: var(--text-xs);
   width: 10px;
   color: #444;
 }
@@ -2918,7 +2919,7 @@ button.subnav-restore {
 @media (max-width: 600px) {
   .customer-import .import-body { padding-left: 16px; padding-right: 16px; }
   .import-steps { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
-  .import-step { font-size: 11px; gap: 4px; }
+  .import-step { font-size: var(--text-xs); gap: 4px; }
   .import-step:not(:last-child)::after { margin-right: 0; }
   .import-map label { grid-template-columns: minmax(0, 1fr) 150px; }
 }

@@ -104,6 +104,63 @@
   --toast-scale: 0.97;
   --toggle-dur: 350ms;
   --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  /* ===== 语义层（D-028 组件套件，src/ui-kit.css 只用这一层）=====
+     只在这里定义一次，指向各主题自己的 brand / ink 梯度，所以粉色、橙色、科技蓝自动跟着变。
+     主色（--primary）只表示意义：主按钮、当前选中、链接、进度；大面积底色一律用中性色。
+     不叫 --muted：customer-replica.css、business.css 里已有同名的文字色。 */
+  --bg: var(--ink-50);
+  --fg: var(--ink-900);
+  --card-bg: #fff;
+  --card-line: var(--border);
+  --popover-bg: #fff;
+  --border: var(--ink-200);
+  --input: var(--ink-300);
+  --ring: var(--brand-500);
+  --primary: var(--brand-500);
+  --primary-hover: var(--brand-700);
+  --primary-fg: #fff;
+  --secondary-bg: #fff;
+  --secondary-fg: var(--ink-900);
+  --muted-bg: var(--ink-100);
+  --muted-fg: var(--ink-600);
+  --accent-bg: var(--brand-50);
+  --accent-fg: var(--brand-700);
+  --danger: var(--color-danger);
+  --danger-bg: var(--color-danger-soft);
+  --danger-fg: #c4352b;
+  --warning: var(--color-warning);
+  --warning-bg: var(--color-warning-soft);
+  --warning-fg: #9a5b00;
+  --success: var(--color-success);
+  --success-bg: var(--color-success-soft);
+  --success-fg: #1f6f52;
+  /* *-fg 是写在浅色底或白底上的字色（对比度 ≥ 4.5:1）；--danger 等是边框、圆点用的颜色 */
+  /* 左栏：粉色、橙色是浅色栏；科技蓝在 skin-glass.css 里改成深海军蓝 */
+  --nav-bg: rgba(255, 255, 255, 0.72);
+  --nav-fg: var(--ink-800);
+  --nav-active: var(--brand-700);
+
+  /* 字号：最小 12px（UI_CHECKLIST「完成标准」） */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
+  /* 圆角：4 / 6 / 8 / 12；--radius 是按钮、输入框的默认 */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --radius: var(--r-md);
+
+  /* 阴影只有两级：卡片几乎没有，浮层（菜单、弹窗）淡淡一层 */
+  --shadow-1: 0 1px 2px rgba(var(--ink-rgb), 0.06);
+  --shadow-2:
+    0 8px 24px rgba(var(--ink-rgb), 0.10),
+    0 1px 3px rgba(var(--ink-rgb), 0.06);
 }
 
 /*

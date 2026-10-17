@@ -1,0 +1,154 @@
+/* ===== 来财组件套件（D-028）=====
+   一套按 shadcn/ui 规则重画的基础组件：一套中性灰、1px 边、4/6/8/12 圆角、很淡的阴影、最小 12px 字、
+   主色只表示意义（主按钮、当前选中、链接、进度）。颜色只用 ui-tokens.css 里的语义变量
+   （--bg --fg --card-bg --border --input --ring --primary --muted-* --accent-* --danger …），所以三套配色自动跟着变。
+   新写的界面一律用这里的类；旧页面一页一个 PR 迁过来（迁一页，tests/ui-kit-classes.test.cjs 的旧类名清单就删一行）。
+
+   类名一览：
+   按钮      .k-btn  + .k-btn--primary | --secondary | --ghost | --danger ，尺寸 .k-btn--sm
+   输入      .k-input  .k-textarea  .k-select-trigger（只管外观，和统一下拉 .lai-select-trigger 一样）
+   页签      .k-tabs > .k-tab（分段式；选中用 aria-selected="true" 或 .is-active）
+   表格      .k-table（一种表头、行悬停；数字列 .k-num 右对齐）  分页 .k-pager > button（当前页 aria-current="page"）
+   卡片      .k-card  .k-card-head  .k-card-title  .k-card-desc  .k-card-body
+   徽标      .k-badge + .k-badge--neutral | --success | --warning | --danger | --primary
+   空状态    .k-empty  .k-empty-title
+   弹窗壳    .k-dialog / .k-drawer > .k-dialog-head  .k-dialog-body  .k-dialog-foot（.k-error 放在 foot 里，空时不占位）
+   提示      .k-toast（只是外观；提示的显示逻辑仍是 app.js 里唯一的 toast）
+   页头      .k-pageheader > .k-pageheader-text（h1.k-pageheader-title + .k-pageheader-desc） + .k-pageheader-actions
+
+   每条规则都以 :root[data-skin] 开头：皮肤（skin-glass.css）里 button、input、th 这些元素规则带着
+   :root[data-skin="glass"]，套件要比它们强一级才能真正生效；data-skin 一直存在（D-029）。
+   键盘焦点统一用 --ring 画 2px 外框。系统的「减少动态效果」不单独处理（用户 2026-10-09 的决定，见 VALIDATION.md）。 */
+
+/* ---------- 按钮 ---------- */
+:root[data-skin] .k-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  box-sizing: border-box; height: 32px; min-height: 32px; padding: 0 14px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--secondary-bg); color: var(--secondary-fg);
+  font: inherit; font-size: var(--text-sm); font-weight: 500; line-height: 1; white-space: nowrap;
+  box-shadow: none; cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+}
+:root[data-skin] .k-btn:hover:not(:disabled) { background: var(--muted-bg); border-color: var(--input); color: var(--fg); }
+:root[data-skin] .k-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+:root[data-skin] .k-btn--secondary { background: var(--secondary-bg); color: var(--secondary-fg); }
+:root[data-skin] .k-btn--primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
+:root[data-skin] .k-btn--primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-fg); }
+:root[data-skin] .k-btn--ghost { background: transparent; border-color: transparent; color: var(--fg); }
+:root[data-skin] .k-btn--ghost:hover:not(:disabled) { background: var(--muted-bg); border-color: transparent; color: var(--fg); }
+:root[data-skin] .k-btn--danger { background: var(--card-bg); border-color: var(--border); color: var(--danger-fg); }
+:root[data-skin] .k-btn--danger:hover:not(:disabled) { background: var(--danger-bg); border-color: var(--danger); color: var(--danger-fg); }
+:root[data-skin] .k-btn--sm { height: 28px; min-height: 28px; padding: 0 10px; font-size: var(--text-xs); }
+
+/* ---------- 输入 ---------- */
+:root[data-skin] .k-input,
+:root[data-skin] .k-textarea,
+:root[data-skin] .k-select-trigger {
+  box-sizing: border-box; width: 100%; min-width: 0;
+  border: 1px solid var(--input); border-radius: var(--radius);
+  background: var(--card-bg); color: var(--fg);
+  font: inherit; font-size: var(--text-sm); box-shadow: none;
+  transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+}
+:root[data-skin] .k-input,
+:root[data-skin] .k-select-trigger { height: 32px; min-height: 32px; padding: 0 10px; line-height: 30px; }
+:root[data-skin] .k-textarea { min-height: 72px; padding: 6px 10px; line-height: 1.6; resize: vertical; }
+:root[data-skin] :is(.k-input, .k-textarea)::placeholder { color: var(--muted-fg); opacity: 1; }
+:root[data-skin] :is(.k-input, .k-textarea, .k-select-trigger):hover:not(:disabled) { border-color: var(--ink-400); }
+:root[data-skin] :is(.k-input, .k-textarea):focus,
+:root[data-skin] .k-select-trigger[aria-expanded="true"] { border-color: var(--ring); box-shadow: none; outline: none; }
+:root[data-skin] :is(.k-input, .k-textarea, .k-select-trigger)[aria-invalid="true"] { border-color: var(--danger); }
+:root[data-skin] :is(.k-input, .k-textarea, .k-select-trigger):disabled { background: var(--muted-bg); color: var(--muted-fg); cursor: not-allowed; }
+:root[data-skin] .k-select-trigger { position: relative; padding-right: 28px; overflow: hidden; text-align: left; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+:root[data-skin] .k-select-trigger::after {
+  content: ""; position: absolute; right: 11px; top: calc(50% - 5px); width: 6px; height: 6px;
+  border-right: 1px solid var(--muted-fg); border-bottom: 1px solid var(--muted-fg); transform: rotate(45deg);
+}
+
+/* ---------- 页签（分段式） ---------- */
+:root[data-skin] .k-tabs {
+  display: inline-flex; align-items: center; gap: 2px; padding: 2px;
+  border-radius: var(--r-lg); background: var(--muted-bg);
+}
+:root[data-skin] .k-tab {
+  height: 28px; min-height: 28px; padding: 0 12px; border: 0; border-radius: var(--r-md);
+  background: transparent; color: var(--muted-fg); font: inherit; font-size: var(--text-sm); font-weight: 500; box-shadow: none; cursor: pointer;
+}
+:root[data-skin] .k-tab:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--fg); }
+:root[data-skin] .k-tab:is([aria-selected="true"], .is-active),
+:root[data-skin] .k-tab:is([aria-selected="true"], .is-active):hover:not(:disabled) { background: var(--card-bg); color: var(--fg); box-shadow: var(--shadow-1); }
+
+/* ---------- 表格 + 分页 ---------- */
+:root[data-skin] .k-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); color: var(--fg); }
+:root[data-skin] .k-table th {
+  height: 36px; padding: 0 12px; border-bottom: 1px solid var(--border);
+  background: var(--card-bg); color: var(--muted-fg); font-size: var(--text-xs); font-weight: 500; text-align: left; white-space: nowrap;
+}
+:root[data-skin] .k-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); background: transparent; vertical-align: middle; }
+:root[data-skin] .k-table tbody tr:hover td { background: var(--bg); }
+:root[data-skin] .k-table :is(th, td).k-num { text-align: right; font-variant-numeric: tabular-nums; }
+:root[data-skin] .k-pager { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: var(--text-sm); color: var(--muted-fg); }
+:root[data-skin] .k-pager button {
+  min-width: 28px; height: 28px; min-height: 28px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--r-md);
+  background: transparent; color: var(--fg); font: inherit; font-size: var(--text-sm); box-shadow: none; cursor: pointer;
+}
+:root[data-skin] .k-pager button:hover:not(:disabled) { background: var(--muted-bg); border-color: transparent; color: var(--fg); }
+:root[data-skin] .k-pager button[aria-current="page"],
+:root[data-skin] .k-pager button[aria-current="page"]:hover:not(:disabled) { border-color: var(--primary); background: var(--card-bg); color: var(--primary); font-weight: 600; }
+:root[data-skin] .k-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- 卡片 ---------- */
+:root[data-skin] .k-card { box-sizing: border-box; min-width: 0; border: 1px solid var(--card-line); border-radius: var(--r-xl); background: var(--card-bg); box-shadow: none; color: var(--fg); }
+:root[data-skin] .k-card-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 0; }
+:root[data-skin] .k-card-title { margin: 0; font-size: var(--text-base); font-weight: 600; line-height: 22px; color: var(--fg); }
+:root[data-skin] .k-card-desc { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .k-card-body { padding: 8px 16px 14px; }
+
+/* ---------- 徽标 ---------- */
+:root[data-skin] .k-badge {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-sm);
+  font-size: var(--text-xs); font-weight: 500; font-style: normal; line-height: 1; white-space: nowrap;
+}
+:root[data-skin] .k-badge,
+:root[data-skin] .k-badge--neutral { background: var(--muted-bg); color: var(--muted-fg); }
+:root[data-skin] .k-badge--success { background: var(--success-bg); color: var(--success-fg); }
+:root[data-skin] .k-badge--warning { background: var(--warning-bg); color: var(--warning-fg); }
+:root[data-skin] .k-badge--danger { background: var(--danger-bg); color: var(--danger-fg); }
+:root[data-skin] .k-badge--primary { background: var(--accent-bg); color: var(--accent-fg); }
+
+/* ---------- 空状态 ---------- */
+:root[data-skin] .k-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 32px 16px; text-align: center; font-size: var(--text-sm); color: var(--muted-fg); }
+:root[data-skin] .k-empty-title { margin: 0; font-size: var(--text-base); font-weight: 600; color: var(--fg); }
+
+/* ---------- 弹窗、抽屉的壳 ---------- */
+:root[data-skin] :is(.k-dialog, .k-drawer) {
+  display: flex; flex-direction: column; box-sizing: border-box; min-width: 0; max-height: calc(100vh - 48px);
+  border: 1px solid var(--border); background: var(--popover-bg); color: var(--fg); box-shadow: var(--shadow-2); overflow: hidden;
+}
+:root[data-skin] .k-dialog { width: min(520px, calc(100vw - 32px)); border-radius: var(--r-xl); }
+:root[data-skin] .k-drawer { width: min(420px, calc(100vw - 32px)); height: 100%; max-height: none; border-radius: var(--r-xl) 0 0 var(--r-xl); }
+:root[data-skin] .k-dialog-head { flex: none; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .k-dialog-head :is(h2, h3) { margin: 0; flex: 1; min-width: 0; font-size: var(--text-lg); font-weight: 600; }
+:root[data-skin] .k-dialog-body { flex: 1 1 auto; min-height: 0; padding: 16px; overflow: auto; }
+:root[data-skin] .k-dialog-foot { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 56px; padding: 0 16px; border-top: 1px solid var(--border); }
+/* 错误放在底栏按钮左边：不用滚动就能看见；没有错误时不占位 */
+:root[data-skin] .k-error { margin: 0 auto 0 0; min-width: 0; font-size: var(--text-sm); color: var(--danger-fg); }
+:root[data-skin] .k-error:empty { display: none; }
+
+/* ---------- 提示 ---------- */
+:root[data-skin] .k-toast {
+  display: inline-flex; align-items: center; gap: 8px; max-width: min(420px, calc(100vw - 32px)); padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--popover-bg); color: var(--fg);
+  font-size: var(--text-sm); box-shadow: var(--shadow-2);
+}
+
+/* ---------- 页头 ---------- */
+:root[data-skin] .k-pageheader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; padding: 4px 0 12px; }
+:root[data-skin] .k-pageheader-text { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; }
+:root[data-skin] .k-pageheader-title { margin: 0; font-size: var(--text-xl); font-weight: 700; line-height: 28px; color: var(--fg); }
+:root[data-skin] .k-pageheader-desc { min-width: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .k-pageheader-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+/* ---------- 键盘焦点 ---------- */
+:root[data-skin] :is(.k-btn, .k-tab, .k-pager button, .k-select-trigger, .k-input, .k-textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
