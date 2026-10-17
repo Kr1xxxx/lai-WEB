@@ -16,7 +16,7 @@ async function addCustomer(name) {
   const res = await request.post(app.base + '/api/save', { data: { state: loaded, baseRevision: loaded.revision } });
   assert.equal(res.status(), 200, await res.text());
 }
-const rows = () => app.page.locator('#biz-backup-list .backup-row');
+const rows = () => app.page.locator('#biz-restore-list .restore-row');
 async function restoreRow(row) {
   const { page } = app;
   await row.getByRole('button', { name: /^恢复到 / }).click();
@@ -34,7 +34,7 @@ test('back up, restore it, and restore the before-restore backup', async () => {
   const { page } = app;
   await app.open('settings');
   // The list is loaded (the seed save may already have an automatic backup queued 2 s after it).
-  await page.locator('#biz-backup-list :is(.backup-list, .k-empty)').first().waitFor();
+  await page.locator('#biz-restore-list :is(.restore-list, .k-empty)').first().waitFor();
 
   await page.getByRole('button', { name: '立即备份' }).click();
   await rows().filter({ hasText: '手动备份' }).waitFor();

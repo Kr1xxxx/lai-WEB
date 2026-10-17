@@ -1785,7 +1785,7 @@
         currentTheme = THEME_CHOICES.some(([id]) => id === savedTheme(settings)) ? savedTheme(settings) : DEFAULT_THEME;
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section backup-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="backup-history"><div class="backup-history-head"><h4>备份记录</h4><span class="muted tiny">可以把数据恢复到其中一份；恢复前会先把现在的数据另存一份</span></div><div id="biz-backup-list">${backupListMarkup()}</div></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section local-data-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="restore-history"><div class="restore-history-head"><h4>备份记录</h4><span class="muted tiny">可以把数据恢复到其中一份；恢复前会先把现在的数据另存一份</span></div><div id="biz-restore-list">${backupListMarkup()}</div></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2473,10 +2473,10 @@
       return `${d.getFullYear() === new Date().getFullYear() ? "" : `${d.getFullYear()}年`}${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
     function backupListMarkup() {
-      if (backups.status === "idle" || backups.status === "loading") return '<p class="muted tiny backup-loading">正在读取备份记录…</p>';
-      if (backups.status === "trial") return `<div class="k-empty backup-none"><p class="k-empty-title">${E(backups.message)}</p><span>想留一份，请到设置中心的“测试数据”里备份。</span></div>`;
-      if (backups.status === "error") return `<div class="k-empty backup-none" role="alert"><p class="k-empty-title">${E(backups.message)}</p></div>`;
-      if (!backups.items.length) return '<div class="k-empty backup-none"><p class="k-empty-title">还没有备份</p><span>点「立即备份」做一份；有改动时来财也会每小时自动备份。</span></div>';
+      if (backups.status === "idle" || backups.status === "loading") return '<p class="muted tiny restore-loading">正在读取备份记录…</p>';
+      if (backups.status === "trial") return `<div class="k-empty restore-none"><p class="k-empty-title">${E(backups.message)}</p><span>想留一份，请到设置中心的“测试数据”里备份。</span></div>`;
+      if (backups.status === "error") return `<div class="k-empty restore-none" role="alert"><p class="k-empty-title">${E(backups.message)}</p></div>`;
+      if (!backups.items.length) return '<div class="k-empty restore-none"><p class="k-empty-title">还没有备份</p><span>点「立即备份」做一份；有改动时来财也会每小时自动备份。</span></div>';
       const allowed = canRestore();
       const row = (item) => {
         const armed = restoreArmed === item.name;
@@ -2484,12 +2484,12 @@
         const actions = !item.ok || !allowed ? "" : armed
           ? `<button type="button" class="k-btn k-btn--danger k-btn--sm" data-biz-action="restore-backup" data-name="${E(item.name)}"${restoring ? " disabled" : ""}>${restoring ? "正在恢复…" : "确认恢复到这一份"}</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-biz-action="restore-cancel" aria-label="取消恢复"${restoring ? " disabled" : ""}>取消</button>`
           : `<button type="button" class="k-btn k-btn--sm" data-biz-action="restore-backup" data-name="${E(item.name)}" aria-label="恢复到 ${E(backupWhen(item.time))} 的备份"${restoring ? " disabled" : ""}>恢复</button>`;
-        return `<li class="backup-row${armed ? " is-armed" : ""}"><span class="backup-when">${E(backupWhen(item.time))}</span><span class="k-badge k-badge--neutral backup-kind">${E(BACKUP_KINDS[item.kind] || "备份")}</span><span class="backup-counts${item.ok ? "" : " is-unreadable"}">${counts}</span><span class="backup-actions">${actions}</span>${armed ? '<p class="backup-warning">现在的数据会先自动备份一份，然后换成这份备份里的数据。</p>' : ""}</li>`;
+        return `<li class="restore-row${armed ? " is-armed" : ""}"><span class="restore-when">${E(backupWhen(item.time))}</span><span class="k-badge k-badge--neutral restore-kind">${E(BACKUP_KINDS[item.kind] || "备份")}</span><span class="restore-counts${item.ok ? "" : " is-unreadable"}">${counts}</span><span class="restore-actions">${actions}</span>${armed ? '<p class="restore-warning">现在的数据会先自动备份一份，然后换成这份备份里的数据。</p>' : ""}</li>`;
       };
-      return `${allowed ? "" : '<p class="muted tiny">只有系统管理员可以恢复备份。</p>'}<ul class="backup-list" aria-label="备份记录">${backups.items.map(row).join("")}</ul>`;
+      return `${allowed ? "" : '<p class="muted tiny">只有系统管理员可以恢复备份。</p>'}<ul class="restore-list" aria-label="备份记录">${backups.items.map(row).join("")}</ul>`;
     }
     function paintBackups() {
-      const box = document.getElementById("biz-backup-list");
+      const box = document.getElementById("biz-restore-list");
       if (box) box.innerHTML = backupListMarkup();
     }
     async function loadBackups() {
@@ -2528,7 +2528,7 @@
       if (restoreArmed !== name) {
         restoreArmed = name;
         paintBackups();
-        document.querySelector(`#biz-backup-list [data-biz-action="restore-backup"][data-name="${CSS.escape(name)}"]`)?.focus();
+        document.querySelector(`#biz-restore-list [data-biz-action="restore-backup"][data-name="${CSS.escape(name)}"]`)?.focus();
         return;
       }
       restoring = true;
