@@ -1116,7 +1116,7 @@ function openStorage({ seedFile }) {
   const BACKUP_KIND_LABELS = { 'lai-data': 'auto', manual: 'manual', 'before-delete': 'before-delete', 'before-restore': 'before-restore' };
   const RESTORE_TEMP = /^\.lai-data\.sqlite\.restore-[A-Za-z0-9-]+\.tmp(?:-journal)?$/;
   const backupUnusable = () => httpError(422, '这份备份已损坏或不完整，不能用来恢复。现在的数据没有改动。', { code: 'backup_unusable' });
-  const backupUnsafe = () => httpError(400, '这份备份文件不安全（是快捷方式或硬链接），不能用来恢复。现在的数据没有改动。', { code: 'backup_unsafe' });
+  const backupUnsafe = () => httpError(400, '这份备份文件不是来财自己做的普通文件，为了安全没有使用。现在的数据没有改动。', { code: 'backup_unsafe' });
   // 恢复做到一半被打断（比如断电）留下的临时文件：那时现在的数据库还没被换掉，临时文件可以直接删。
   function removeRestoreLeftovers() {
     try {
@@ -1313,27 +1313,45 @@ function openStorage({ seedFile }) {
     return copied;
   }
 
-  // 把准备好的临时文件换成正式数据库。顺序保证任何时刻断电，数据目录里都有一份完整的数据库：
-  // 1. 关掉现在的连接前先做 TRUNCATE 检查点，关掉后旧库的内容全在 lai-data.sqlite 里，-wal 是空的或已经没了；
-  // 2. -wal 还有内容（检查点没做完）就停下，重新打开旧库；
-  // 3. 删掉旧库空的 -wal 和 -shm（必须在改名之前：留着旧的 -wal，新库打开时会把旧的改动套上去）；
-  // 4. 改名（原子操作）把临时文件换成 lai-data.sqlite，再 fsync 文件夹；
-  // 5. 按正常启动的流程重新打开（建缺的表、完整性检查、核对标记文件）。
-  // 改名之前出错：临时文件删掉，重新打开旧库，什么都没变。
-  function swapInDatabase(temp) {
+  // 别的程序（比如又启动了一次来财）还开着同一份数据库时不能换文件：它手里的是旧文件，换掉之后它照样往旧文件里存，
+  // 存的东西谁也看不到，而且它不会报错。规则写在 VALIDATION.md。
+  const dataInUse = () => httpError(409, '电脑上还开着另一个来财，也在用这份数据。请先关掉它再恢复（只关网页不够）。现在的数据没有改动。', { code: 'data_in_use' });
+  // 关掉现在的连接，返回是不是只有这一个连接开着数据库。
+  // 判断的办法：只剩这一个连接时，SQLite 关闭时会把 -wal 合进数据库并删掉 -wal；还有别的连接时它拿不到独占锁，-wal 会留下来
+  // （哪怕是空的）。所以关掉后 -wal 还在，就当作还有别的连接。查不了（不是“文件不存在”的错误）也当作还有，宁可不恢复。
+  function closeDatabaseAlone() {
     cancelBackupTimer();
+    if (database) {
+      try { database.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch (_) { /* 有别的连接在读时可能做不完；下面看 -wal 判断。 */ }
+      database.close();
+      database = null;
+    }
+    storageMode = 'initializing';
+    try { fs.lstatSync(databaseFile + '-wal'); return false; }
+    catch (error) { return error.code === 'ENOENT'; }
+  }
+  // 恢复一开始（还什么都没做）先查一次：关掉、看一眼、马上按正常流程重新打开。换文件前还会再查一次。
+  function requireOnlyConnection() {
+    const alone = closeDatabaseAlone();
+    initializeStorage();
+    if (!alone) throw dataInUse();
+    requireDatabase();
+  }
+
+  // 把准备好的临时文件换成正式数据库。顺序保证任何时刻断电，数据目录里都有一份完整的数据库：
+  // 1. 做 TRUNCATE 检查点后关掉现在的连接，旧库的内容全在 lai-data.sqlite 里；
+  // 2. 关掉后 -wal 还在（还有别的连接开着这份数据，或检查点没做完）就停下，重新打开旧库，什么都没变；
+  // 3. beforeRename（恢复时把备份里缺的附件复制回来）；
+  // 4. 删掉旧库的 -wal 和 -shm（必须在改名之前：留着旧的 -wal，新库打开时会把旧的改动套上去）；
+  // 5. 改名（原子操作）把临时文件换成 lai-data.sqlite，再 fsync 文件夹；
+  // 6. 按正常启动的流程重新打开（建缺的表、完整性检查、核对标记文件）。打不开时 database 是 null，由调用的人处理。
+  // 改名之前出错：临时文件删掉，重新打开旧库，什么都没变。改名之后出错的错误带 databaseSwapped: true。
+  function swapInDatabase(temp, beforeRename) {
     const wal = databaseFile + '-wal', shm = databaseFile + '-shm';
     let renamed = false;
     try {
-      if (database) {
-        database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
-        database.close();
-        database = null;
-      }
-      storageMode = 'initializing';
-      let walSize = 0;
-      try { walSize = fs.lstatSync(wal).size; } catch (error) { if (error.code !== 'ENOENT') throw error; }
-      if (walSize > 0) throw new Error('数据库还有没写完的改动，这次没有恢复。请稍后再试。');
+      if (!closeDatabaseAlone()) throw dataInUse();
+      if (beforeRename) beforeRename();
       fs.rmSync(wal, { force: true });
       fs.rmSync(shm, { force: true });
       fs.renameSync(temp, databaseFile);
@@ -1343,7 +1361,7 @@ function openStorage({ seedFile }) {
       if (!renamed) {
         fs.rmSync(temp, { force: true });
         if (!database) initializeStorage();
-      }
+      } else if (error && typeof error === 'object') error.databaseSwapped = true;
       throw error;
     } finally {
       if (renamed) initializeStorage();
@@ -1363,30 +1381,54 @@ function openStorage({ seedFile }) {
       databaseId: metadataValue('database_id', ''),
       restoredFrom: backupName
     });
-    let before;
+    let before = null, swapped = false;
     try {
-      // 2. 备份里有、现在缺的附件复制回来（只添不删，多出来的文件不影响现在的数据）。
-      let attachments = 0;
-      try { attachments = restoreBackupAttachments(file); }
-      catch (_) { throw httpError(500, '备份里的附件没能复制回来，这次没有恢复，现在的数据没有改动。', { code: 'restore_attachments_failed' }); }
+      // 2. 还有别的来财开着这份数据就不恢复（这时什么都还没改，也不做恢复前的备份）。
+      requireOnlyConnection();
       // 3. 把现在的数据先做一份备份；这份没成功就不恢复。正在用的那份备份这次不会被清理掉。
       before = createBackup(true, 'before-restore', [backupName]);
       if (!before.ok || !before.file) throw httpError(503, '恢复前的备份没有成功，这次没有恢复，现在的数据没有改动。请稍后再试。', { code: 'backup_before_restore_failed' });
-      // 4. 换数据库。
-      swapInDatabase(prepared.temp);
+      // 备份文件和它在 backups/ 里的名字都要先落到磁盘上，再换数据库。
+      try { fsyncFile(before.file); }
+      catch (_) { throw httpError(503, '恢复前的备份没能写到磁盘上，这次没有恢复，现在的数据没有改动。请稍后再试。', { code: 'backup_before_restore_failed' }); }
+      fsyncDirectory(backupDir);
+      // 4. 换数据库。换之前（已经确认没有别的连接）把备份里有、现在缺的附件复制回来（只添不删，多出来的文件不影响现在的数据）。
+      let attachments = 0;
+      swapInDatabase(prepared.temp, () => {
+        try { attachments = restoreBackupAttachments(file); }
+        catch (_) { throw httpError(500, '备份里的附件没能复制回来，这次没有恢复，现在的数据没有改动。', { code: 'restore_attachments_failed' }); }
+      });
+      swapped = true;
       if (!database || storageMode !== 'sqlite') {
-        // 换上的库打不开（不该发生：换之前检查过）：把恢复前的那份换回来。
-        const rollback = prepareRestoreFile(before.file, { liveRevision: prepared.revision, liveMailRevision: 0, databaseId: '', restoredFrom: path.basename(before.file) });
-        swapInDatabase(rollback.temp);
-        throw httpError(500, '恢复没有成功，已换回恢复前的数据。', { code: 'restore_failed' });
+        // 换上的库打不开（不该发生：换之前检查过）：把恢复前的那份换回来，换完再看一次是不是真的打开了。
+        const beforeName = path.basename(before.file);
+        try {
+          const rollback = prepareRestoreFile(before.file, { liveRevision: prepared.revision, liveMailRevision: 0, databaseId: '', restoredFrom: beforeName });
+          swapInDatabase(rollback.temp);
+        } catch (_) { /* 下面按实际状态说明。 */ }
+        if (database && storageMode === 'sqlite') {
+          queueBackup();
+          throw httpError(500, `恢复没有成功，已换回恢复前的数据。恢复前的数据另外也存了一份：${beforeName}。`, { code: 'restore_failed', beforeRestore: beforeName });
+        }
+        throw restoreIncomplete(beforeName);
       }
       queueBackup();
-      return { ok: true, revision: Number(metadataValue('revision', '0')), restoredFrom: backupName, beforeRestore: path.basename(before.file), attachmentsRestored: attachments };
+      let revision = prepared.revision;
+      try { revision = Number(metadataValue('revision', String(prepared.revision))); } catch (_) {}
+      return { ok: true, revision, restoredFrom: backupName, beforeRestore: path.basename(before.file), attachmentsRestored: attachments };
     } catch (error) {
       fs.rmSync(prepared.temp, { force: true });
+      // 关库时取消了自动备份的排队；库还开着就重新排上。
+      if (database && storageMode === 'sqlite') queueBackup();
       if (Number.isInteger(error.status)) throw error;
+      // 文件已经换掉之后出的错：不能说“没有改动”。
+      if ((swapped || error.databaseSwapped) && before?.file) throw restoreIncomplete(path.basename(before.file));
       throw httpError(500, /[一-鿿]/.test(String(error.message || '')) ? error.message : '恢复没有成功，现在的数据没有改动。请稍后再试。', { code: 'restore_failed' });
     }
+  }
+  // 数据库文件已经换掉、又没能换回来（几乎不会发生）：说实话，并说出恢复前那份备份的名字。
+  function restoreIncomplete(beforeName) {
+    return httpError(500, `恢复没有完成，现在的数据暂时打不开。恢复前的数据已经另存为备份 ${beforeName}（在数据文件夹的 backups 里），请不要删除它，也先不要再操作来财，找人帮忙用这份备份恢复。`, { code: 'restore_incomplete', beforeRestore: beforeName });
   }
 
   function readSnapshot() {

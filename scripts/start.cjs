@@ -34,9 +34,10 @@ function runtimeHint(version = process.versions.node) {
   return Number(String(version).split('.')[0]) >= 24 ? '' : `提示：这台电脑上的 Node 是 ${version}，建议升级到 Node 24 或更新的版本（https://nodejs.org）。`;
 }
 
-function writeAtomic(file, content) {
+function writeAtomic(file, content, mode) {
   const temp = `${file}.tmp-${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
-  fs.writeFileSync(temp, content);
+  // The mode is set when the file is created, so it is never readable by others, not even briefly.
+  fs.writeFileSync(temp, content, mode === undefined ? undefined : { mode });
   fs.renameSync(temp, file);
 }
 
@@ -101,6 +102,44 @@ function readRunRecord(file) {
 function processAlive(pid) {
   try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 }
+// The record holds the session token: dist/run/ is private to this user (0700) and so is each record (0600).
+function writeRunRecord(file, record) {
+  const dir = path.dirname(file);
+  fs.mkdirSync(path.dirname(dir), { recursive: true });
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try { fs.chmodSync(dir, 0o700); } catch (_) { /* best effort (Windows) */ }
+  writeAtomic(file, JSON.stringify(record), 0o600);
+  try { fs.chmodSync(file, 0o600); } catch (_) { /* best effort */ }
+}
+
+// How long a second `npm start` waits for a recorded, still-running server that does not answer yet
+// (busy, e.g. restoring a large backup). Tests may shorten it, only for their lai-test-* data directories.
+const RUNNING_WAIT_MS = 30000;
+function runningWaitMs(env = process.env) {
+  const value = Number(env.LAI_START_WAIT_MS);
+  return env.LAI_DATA_DIR && Number.isInteger(value) && value >= 0 && value <= RUNNING_WAIT_MS ? value : RUNNING_WAIT_MS;
+}
+const portIsBound = async (port) => !(await portIsFree(port));
+/**
+ * Is the server in this record still running? 'running' (it answered), 'none' (no such server: no record,
+ * its process is gone, or the process with that pid no longer holds the port, i.e. the pid was reused after
+ * a crash or restart), or 'unresponsive' (its process is alive and holds the port but does not answer).
+ * Starting a second server on the same data next to an unresponsive one is never safe, so the caller stops.
+ */
+async function checkRecordedServer(record, dataDir, { waitMs = RUNNING_WAIT_MS, health = laiHealth, alive = processAlive, bound = portIsBound, pause = 250 } = {}) {
+  if (!record || record.dataDir !== dataDir || !Number.isInteger(record.pid) || !alive(record.pid)) return 'none';
+  const deadline = Date.now() + waitMs;
+  // A server shutting down closes its port first and exits within a few seconds: give it that long.
+  const portGoneGrace = Date.now() + Math.min(waitMs, 6000);
+  for (;;) {
+    const answer = await health(record.port, record.token);
+    if (answer) return answer.body.instanceNonce === record.nonce ? 'running' : 'none';
+    if (!alive(record.pid)) return 'none';
+    if (!(await bound(record.port)) && Date.now() >= portGoneGrace) return 'none';
+    if (Date.now() >= deadline) return 'unresponsive';
+    await new Promise((resolve) => setTimeout(resolve, pause));
+  }
+}
 
 const tail = (text) => text.trim().split('\n').slice(-20).join('\n');
 
@@ -122,14 +161,17 @@ async function main() {
   // 1. Is 来财 already running on this data directory?
   const recordFile = runRecordFile(dataDir);
   const record = readRunRecord(recordFile);
-  if (record && processAlive(record.pid)) {
-    const health = await laiHealth(record.port, record.token);
-    if (health && health.body.instanceNonce === record.nonce) {
-      const url = appUrl(record.port, record.token);
-      console.log(`来财已经在运行：${url}`);
-      if (!noOpen) openBrowser(url);
-      return 0;
-    }
+  const recorded = await checkRecordedServer(record, dataDir, { waitMs: runningWaitMs() });
+  if (recorded === 'running') {
+    const url = appUrl(record.port, record.token);
+    console.log(`来财已经在运行：${url}`);
+    if (!noOpen) openBrowser(url);
+    return 0;
+  }
+  if (recorded === 'unresponsive') {
+    // Never start a second server on the same data next to one that is still running.
+    console.error('来财已经在运行，但暂时没有响应。请稍等一会儿再运行 npm start，或者先关掉正在运行的来财（关掉它的窗口，或在那里按 Ctrl+C）。');
+    return 1;
   }
   const requestedPort = process.env.LAI_APP_PORT ? Number(process.env.LAI_APP_PORT) : DEFAULT_PORT;
   if (!Number.isInteger(requestedPort) || requestedPort < 1 || requestedPort > 65535) {
@@ -189,9 +231,7 @@ async function main() {
     return 1;
   }
 
-  fs.mkdirSync(path.dirname(recordFile), { recursive: true });
-  writeAtomic(recordFile, JSON.stringify({ pid: server.pid, port, token, nonce, dataDir }));
-  try { fs.chmodSync(recordFile, 0o600); } catch (_) { /* best effort */ }
+  writeRunRecord(recordFile, { pid: server.pid, port, token, nonce, dataDir });
   const url = appUrl(port, token);
   if (serverOpens) console.log(`来财已启动：${url}（关掉这个窗口或按 Ctrl+C 就会停止）`);
   else announce(url);
@@ -204,7 +244,7 @@ async function main() {
   return 1;
 }
 
-module.exports = { DEFAULT_PORT, runtimeProblem, runtimeHint, assembleApp, appUrl, runRecordFile };
+module.exports = { DEFAULT_PORT, RUNNING_WAIT_MS, runtimeProblem, runtimeHint, assembleApp, appUrl, runRecordFile, writeRunRecord, checkRecordedServer, runningWaitMs };
 
 if (require.main === module) {
   main().then((code) => process.exit(code), (error) => { console.error('来财没能启动：' + (error && error.message || error)); process.exit(1); });
