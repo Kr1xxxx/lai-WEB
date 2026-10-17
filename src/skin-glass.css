@@ -290,7 +290,6 @@
 :root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: 364px; }
 
 /* ===== 商机看板（设计画布 Opportunities.dc.html）===== */
-:root[data-skin="glass"] .pagebar .opp-view { display: none; }
 :root[data-skin="glass"] .opp-view-in { display: inline-flex; }
 :root[data-skin="glass"] .opp-analysis-link { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font-size: 12px; }
 :root[data-skin="glass"] .opp-analysis-link:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }

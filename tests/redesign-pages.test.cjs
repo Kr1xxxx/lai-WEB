@@ -11,7 +11,7 @@ test('the board has the view switch in the filter card only (the classic page-he
   assert.equal((ui.match(/viewSwitch\(/g) || []).length, 1, 'one call: the filter card');
   assert.match(ui, /class="opp-analysis-link" data-lai-route="opp-analysis"/);
   assert.match(read('src/business.css'), /\.opp-view-in, \.opp-analysis-link \{ display: none; \}/);
-  assert.match(glass, /\.pagebar \.opp-view \{ display: none; \}/);
+  assert.doesNotMatch(glass, /\.pagebar \.opp-view/, 'no header copy left to hide');
   assert.match(glass, /\.opp-view-in \{ display: inline-flex; \}/);
 });
 
