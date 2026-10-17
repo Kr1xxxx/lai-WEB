@@ -29,7 +29,7 @@
 | Settings take effect (客户设置 logic, scope leaks, 设置 fixes), D-022–D-025 | PR #19 | Merged 2026-10-17 (owner said 合并), `main` eb6ba6e |
 | WhatsApp 沟通, export, lead settings, custom fields, rates, task rules, feature switches, D-022 build | PR #20 | Merged 2026-10-17 (owner said 后续自动合并), `main` 7dd7df4 |
 | Settings-audit fixes, Mac app removed (D-026), 科技蓝 theme + new 工作台, top-bar overlap fix, order custom fields, agent tree (D-027), D-028/D-029 | PR #22 | Merged 2026-10-17 (后续自动合并), `main` cca83b1 |
-| 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Backend parts ported into `data-safety-pr2`; its numbering/finance `src/` changes were not ported (15 conflicts in `business-ui.js`) — re-evaluate against current code or drop |
+| 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Cancelled (owner 2026-10-17: 放弃). Backend parts were already ported into `data-safety-pr2`; the rest is dropped |
 | Old branches | 62 merged or obsolete remote branches | Owner agreed to delete (2026-10-16). The cloud session's GitHub proxy refuses branch deletion (`git push --delete` hangs up, API returns 403); needs a session or tool with delete rights |
 
 ## Task board
@@ -38,7 +38,7 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 
 | # | Task | State | Notes |
 | --- | --- | --- | --- |
-| 2 | Waiting branches → PRs | Done except 1.4.127 | See table above |
+| 2 | Waiting branches → PRs | Done (1.4.127 cancelled) | See table above |
 | 2i | 部门 + 本部门 scope + 部门管理员; field permissions; product layouts by role | Done | #15 merged |
 | 3 | Owner walks the Mac build | Cancelled | Mac app removed (owner, 2026-10-17) |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo (owner) | Needs his real account (D-004); fake-server e2e passes |
@@ -52,7 +52,7 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | Done | #17, #18 merged |
 | 25 | Split `src/app.js` (~5800 lines), `business-ui.js` (~3100), `mail-ui.js` by page | Todo (planned) | 15-slice plan with advisor review; starts after the render fix (Q1); one file in one wave at a time |
-| 31 | UI wave (advisor report 2026-10-17) | In progress | Q1+Q2 done (#24); Q3+Q4 done (#25): errors in a footer slot next to save, Chinese validation (`LaiFormCheck`, now inside `date-picker.js`; move to its own file during the split), 写跟进 opens 动态 with the box focused, detail defaults to 动态. Q5+Q6 (one toast with 撤销, short menus as header tabs, group tree collapses <1366) and B0+Q7+Q8 (semantic tokens, `src/ui-kit.css`, 12px minimum, pink de-painted, census + CSS ratchet + kit-class guard; 设置中心 is the first kit page) done (#26). Kit migration: 设置中心, 全部订单, 商机 board + list done (#27); 线索 list, 工作台, 客户列表 done (#28); customer detail + editor, order form/detail, opportunity detail/form done (#29); 商机 polish done (PR); 线索 and 协同 removed (D-030/D-031, PR); PAUSED by the owner after this PR; next when resumed: mail, 沟通, team pages, settings pages, then the app.js split; owner liked the light Linear-style preview (https://claude.ai/artifact/EcFzzjH1E4vV5QuJsk8vTr) — awaiting his go to use it as the target look |
+| 31 | UI wave (advisor report 2026-10-17) | In progress | Q1+Q2 done (#24); Q3+Q4 done (#25): errors in a footer slot next to save, Chinese validation (`LaiFormCheck`, now inside `date-picker.js`; move to its own file during the split), 写跟进 opens 动态 with the box focused, detail defaults to 动态. Q5+Q6 (one toast with 撤销, short menus as header tabs, group tree collapses <1366) and B0+Q7+Q8 (semantic tokens, `src/ui-kit.css`, 12px minimum, pink de-painted, census + CSS ratchet + kit-class guard; 设置中心 is the first kit page) done (#26). Kit migration: 设置中心, 全部订单, 商机 board + list done (#27); 线索 list, 工作台, 客户列表 done (#28); customer detail + editor, order form/detail, opportunity detail/form done (#29); 商机 polish done (PR); 线索 and 协同 removed (D-030/D-031, PR); mail, 沟通, 团队数据 (7 pages), 设置/功能开关/汇率设置, 企业管理, 客户设置/产品/单据模板 and the 客户设置 drawers on the kit (PR, branch `claude/kit-mail-chat-team-settings`; kit gained `.k-tabs--vertical`, `.k-switch`, `.k-checkbox`); next: the app.js split; owner liked the light Linear-style preview (https://claude.ai/artifact/EcFzzjH1E4vV5QuJsk8vTr) — awaiting his go to use it as the target look |
 | 32 | Remove 小满 theme + classic skin (D-029) | Done (#25) | Themes pink/orange/tech; saved xiaoman shown as tech, rewritten on next settings save; dead base CSS left for S4 |
 | 33 | Full overlap sweep + CI test | Done (#23) | `scripts/ui-audit/overlap-sweep.cjs` + `tests/e2e/overlap-sweep.e2e.mjs`; 0 findings in 4 themes × 9 widths |
 | 34 | Font subset (owner OK) | Done (#23) | MiSans hanzi cut to GB2312 + used chars; page 9.9 → 7.7 MB, pixel-identical; licence note in `vendor/fonts/SUBSET.md` |
