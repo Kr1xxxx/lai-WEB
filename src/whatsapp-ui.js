@@ -21,12 +21,15 @@
   //         now()（测试用）
   // 模型约定：undoImport、logChat 可以返回新数据本身，也可以返回 {state}；matchCustomers 的第三个参数传可见客户名的数组。
   // 页面上的按钮都带 data-chat-action，由 app.js 转给 controller.action(name, pointer, element)。
+  // 外观用组件套件（src/ui-kit.css，D-028）：页头 k-pageheader、面板 k-card、按钮 k-btn、输入 k-input／k-textarea、
+  // 筛选 k-tabs、标签 k-badge、空状态 k-empty；抽屉的壳由 app.js 画（.drawer），打开后在这里补上 k-drawer、
+  // k-dialog-head／-body／-foot，出错文字放在底栏的 k-error 里。wa- 类只管这几页的排版（whatsapp.css）。
   const LIMITS = Object.freeze({ groups: 30, items: 100, chars: 500, groupName: 30 });
   const VARIABLES = Object.freeze(["姓名", "公司", "我的名字", "国家"]);
   const TRIAL_BYTES = 300 * 1024;
   const MAX_BYTES = 3 * 1024 * 1024;
   const MAX_SHOWN_LINES = 600;
-  const CANCEL = `<button type="button" data-action="close-modal">取消</button>`;
+  const CANCEL = `<button type="button" class="k-btn" data-action="close-modal">取消</button>`;
   const EMPTY_TEXT = "还没有聊天记录。可以从手机导出 WhatsApp 聊天后导入，或在客户资料里点 WhatsApp 发起聊天。";
   const TRIAL_NOTE = "试用版只用示例聊天，不要导入真实客户聊天";
   const FILTERS = [
@@ -266,32 +269,49 @@
     let editing = null, armed = "", templateError = "";
 
     // ---- 聊天记录页 ----
-    const empty = (title, note, actions = "") => `<div class="empty wa-empty"><div class="wa-empty-art">${ic("chat")}</div><strong>${E(title)}</strong><span>${E(note)}</span>${actions}</div>`;
-    const pagebar = (title, actions = "") => `<div class="pagebar"><div class="page-tabs"><h1>${E(title)}</h1></div><div class="page-actions">${actions}</div></div>`;
-    const btn = (action, label, extra = "", cls = "") => `<button type="button"${cls ? ` class="${cls}"` : ""} data-chat-action="${action}"${extra}>${E(label)}</button>`;
+    const empty = (title, note, actions = "") => `<div class="k-card wa-blank"><div class="k-empty"><div class="wa-blank-art">${ic("chat")}</div><p class="k-empty-title">${E(title)}</p><span>${E(note)}</span>${actions}</div></div>`;
+    // 页头：标题 + 右边的按钮；「聊天记录／聊天模板」两个页签由 app.js 的 placeSectionTabs 放在标题后面。
+    const pagebar = (title, actions = "") => `<div class="k-pageheader wa-header"><div class="k-pageheader-text"><h1 class="k-pageheader-title">${E(title)}</h1></div><div class="k-pageheader-actions">${actions}</div></div>`;
+    // cls 是 k-btn 后面的附加类：k-btn--primary、k-btn--ghost k-btn--sm ……
+    const btn = (action, label, extra = "", cls = "") => `<button type="button" class="k-btn${cls ? ` ${cls}` : ""}" data-chat-action="${action}"${extra}>${E(label)}</button>`;
+    const footError = (id) => `<p class="k-error" id="${id}" role="alert"></p>`;
+    // 抽屉的壳（app.js 的 drawer()）换成套件的样子；测试替身里没有 querySelector 时什么都不做。
+    const kitShell = () => {
+      if (typeof document === "undefined" || typeof document.querySelector !== "function") return;
+      const shell = document.querySelector("#overlay-root .drawer");
+      if (!shell) return;
+      shell.classList.add("k-drawer", "wa-drawer");
+      shell.querySelector(".drawer-head")?.classList.add("k-dialog-head");
+      shell.querySelector(".drawer-footer")?.classList.add("k-dialog-foot");
+      for (const button of shell.querySelectorAll(".drawer-head button")) button.classList.add("k-btn", "k-btn--ghost", "k-btn--sm");
+    };
+    const dialog = (title, body, footer) => {
+      ctx.dialog(title, body, footer, "whatsapp");
+      kitShell();
+    };
 
     function rowsOf() {
       return conversations(st(), { canSee, me: me(), filter, query });
     }
     function listHtml(rows) {
-      if (!rows.length) return `<p class="wa-list-empty">没有符合的聊天</p>`;
+      if (!rows.length) return `<div class="k-empty wa-list-none"><span>没有符合的聊天</span></div>`;
       return rows
         .map(
           (row) =>
             `<button type="button" class="wa-row${row.name === selected ? " selected" : ""}" data-chat-action="select" data-name="${E(row.name)}"><span class="wa-row-top"><strong>${E(row.name)}</strong><time>${E(shortTime(row.lastAt, now()))}</time></span>` +
-            `<span class="wa-row-sub">${row.contact ? `<em>${E(row.contact)}</em>` : ""}${row.waiting ? `<b class="wa-waiting">等你回复</b>` : ""}</span>` +
+            `<span class="wa-row-sub">${row.contact ? `<em>${E(row.contact)}</em>` : ""}${row.waiting ? `<b class="k-badge k-badge--warning">等你回复</b>` : ""}</span>` +
             `<span class="wa-row-text">${E(row.lastText || "（没有文字）")}</span></button>`,
         )
         .join("");
     }
     function threadHtml(rows) {
       const row = rows.find((item) => item.name === selected);
-      if (!row) return `<div class="wa-thread-empty">${E(rows.length ? "点左边的一位客户，查看聊天" : "没有可看的聊天")}</div>`;
+      if (!row) return `<div class="k-empty wa-thread-none"><span>${E(rows.length ? "点左边的一位客户，查看聊天" : "没有可看的聊天")}</span></div>`;
       const lines = allLines(profileOf(row.name));
       const shown = lines.slice(-MAX_SHOWN_LINES);
       return (
         `<header class="wa-thread-head"><div><strong>${E(row.name)}</strong>${row.contact ? `<span>${E(row.contact)}</span>` : ""}<small>共 ${lines.length} 条</small></div>` +
-        `<div class="wa-thread-actions">${btn("open-customer", "打开客户", ` data-name="${E(row.name)}"`)}</div></header>` +
+        `<div class="wa-thread-actions">${btn("open-customer", "打开客户", ` data-name="${E(row.name)}"`, "k-btn--sm")}</div></header>` +
         `<div class="wa-thread-body" id="wa-thread">${lines.length > shown.length ? `<p class="wa-entry-note">只显示最近 ${shown.length} 条，更早的在客户动态里</p>` : ""}${bubblesHtml(E, shown)}</div>`
       );
     }
@@ -300,34 +320,35 @@
       if (!log.length) return "";
       const rowsHtml = log
         .map((row) => {
-          const action = row.undone ? `<span class="wa-log-undone">已撤销</span>` : can("chat.import") ? btn("undo", "撤销", ` data-id="${E(row.id)}"`, "wa-log-undo") : "";
+          const action = row.undone ? `<span class="k-badge wa-log-undone">已撤销</span>` : can("chat.import") ? btn("undo", "撤销", ` data-id="${E(row.id)}"`, "k-btn--sm wa-log-undo") : "";
           return `<li class="${row.undone ? "undone" : ""}"><time>${E(fullTime(row.at))}</time><strong>${E(row.customer)}</strong><span>${E(row.file || "")}</span><span>导入 ${Number(row.added) || 0} 条，跳过 ${Number(row.skipped) || 0} 条</span>${action}</li>`;
         })
         .join("");
-      return `<section class="wa-imports" aria-label="导入记录"><h2>导入记录</h2><ul>${rowsHtml}</ul></section>`;
+      return `<section class="k-card wa-imports" aria-label="导入记录"><div class="k-card-head"><h2 class="k-card-title">导入记录</h2></div><div class="k-card-body"><ul>${rowsHtml}</ul></div></section>`;
     }
     function actionsHtml() {
       return (
-        (can("chat.import") ? btn("import", "导入聊天记录", "", "") : "") +
-        (can("chat.send") ? btn("log", "记一笔聊天") + btn("whatsapp", "打开 WhatsApp", "", "primary") : "")
+        (can("chat.import") ? btn("import", "导入聊天记录") : "") +
+        (can("chat.send") ? btn("log", "记一笔聊天") + btn("whatsapp", "打开 WhatsApp", "", "k-btn--primary") : "")
       );
     }
     function page() {
       const all = conversations(st(), { canSee, me: me() });
       if (!all.length) {
-        return pagebar("聊天记录", actionsHtml()) + `<section class="module-page wa-page">${empty("还没有聊天记录", EMPTY_TEXT, can("chat.import") ? btn("import", "导入聊天记录", "", "primary") : "")}${importLogHtml()}</section>`;
+        // 页头已有主按钮「打开 WhatsApp」时，空状态里的导入按钮用普通按钮（一屏只有一个主按钮）。
+        return pagebar("聊天记录", actionsHtml()) + `<section class="wa-page">${empty("还没有聊天记录", EMPTY_TEXT, can("chat.import") ? btn("import", "导入聊天记录", "", can("chat.send") ? "" : "k-btn--primary") : "")}${importLogHtml()}</section>`;
       }
       const rows = rowsOf();
       if (!rows.some((row) => row.name === selected)) selected = rows[0] ? rows[0].name : "";
       return (
         pagebar("聊天记录", actionsHtml()) +
-        `<section class="module-page wa-page"><div class="wa-split"><aside class="wa-list-pane"><div class="wa-tools"><input type="search" id="wa-search" value="${E(query)}" placeholder="搜客户、联系人或聊天内容" aria-label="搜索聊天" autocomplete="off">` +
-        `<div class="wa-filters" role="tablist" aria-label="筛选">${FILTERS.map((f) => `<button type="button" role="tab" class="wa-filter${f.id === filter ? " active" : ""}" aria-selected="${f.id === filter}" data-chat-action="filter" data-id="${f.id}">${E(f.label)}</button>`).join("")}</div></div>` +
-        `<div class="wa-list" id="wa-list">${listHtml(rows)}</div></aside><section class="wa-thread-pane" id="wa-thread-pane">${threadHtml(rows)}</section></div>${importLogHtml()}</section>`
+        `<section class="wa-page"><div class="wa-split"><aside class="k-card wa-list-pane"><div class="wa-tools"><input type="search" class="k-input" id="wa-search" value="${E(query)}" placeholder="搜客户、联系人或聊天内容" aria-label="搜索聊天" autocomplete="off">` +
+        `<div class="k-tabs wa-filters" role="tablist" aria-label="筛选">${FILTERS.map((f) => `<button type="button" role="tab" class="k-tab wa-filter${f.id === filter ? " active" : ""}" aria-selected="${f.id === filter}" data-chat-action="filter" data-id="${f.id}">${E(f.label)}</button>`).join("")}</div></div>` +
+        `<div class="wa-list" id="wa-list">${listHtml(rows)}</div></aside><section class="k-card wa-thread-pane" id="wa-thread-pane">${threadHtml(rows)}</section></div>${importLogHtml()}</section>`
       );
     }
     function render() {
-      if (!can("chat.view")) return ctx.mount(pagebar("聊天记录") + `<section class="module-page wa-page">${empty("没有查看权限", "你的角色不能查看聊天记录，请找系统管理员开通")}</section>`);
+      if (!can("chat.view")) return ctx.mount(pagebar("聊天记录") + `<section class="wa-page">${empty("没有查看权限", "你的角色不能查看聊天记录，请找系统管理员开通")}</section>`);
       ctx.mount(page());
       const search = $("wa-search");
       if (search && search.addEventListener)
@@ -343,22 +364,20 @@
 
     // ---- 记一笔聊天 ----
     function customerSelect(idName, current) {
-      return `<select id="${idName}" aria-label="客户">${current ? "" : `<option value="">选择客户</option>`}${names().map((n) => `<option value="${E(n)}"${n === current ? " selected" : ""}>${E(n)}</option>`).join("")}</select>`;
+      return `<select id="${idName}" class="k-select-trigger" aria-label="客户">${current ? "" : `<option value="">选择客户</option>`}${names().map((n) => `<option value="${E(n)}"${n === current ? " selected" : ""}>${E(n)}</option>`).join("")}</select>`;
     }
     function openLog(options = {}) {
       if (!guard("chat.send")) return;
       const customer = options.customer || selected || "";
       const profile = profileOf(customer);
       logState = { customer, text: options.text || "" };
-      ctx.dialog(
+      dialog(
         "记一笔聊天",
-        `<form class="drawer-body wa-log-form" id="wa-log-form" autocomplete="off" novalidate><div class="module-note">把你在 WhatsApp 里发出的话记到客户动态里，会更新最近联系时间。</div>` +
-          `<div class="form-grid"><label class="field wide"><span>客户</span>${customerSelect("wa-log-customer", customer)}</label>` +
-          `<label class="field wide"><span>联系人</span><input id="wa-log-contact" maxlength="80" value="${E(profile ? profilePhone(profile).contact : "")}" autocomplete="off"></label>` +
-          `<label class="field wide"><span>聊天内容</span><textarea id="wa-log-text" rows="5" maxlength="4000" placeholder="例如：已把报价单发给对方">${E(logState.text)}</textarea></label></div>` +
-          `<div class="error" id="wa-log-error" role="alert"></div></form>`,
-        `${CANCEL}${btn("log-save", "记下来", "", "primary")}`,
-        "whatsapp",
+        `<form class="drawer-body k-dialog-body wa-form wa-log-form" id="wa-log-form" autocomplete="off" novalidate><p class="wa-hint">把你在 WhatsApp 里发出的话记到客户动态里，会更新最近联系时间。</p>` +
+          `<div class="wa-fields"><label class="field wide"><span>客户</span>${customerSelect("wa-log-customer", customer)}</label>` +
+          `<label class="field wide"><span>联系人</span><input id="wa-log-contact" class="k-input" maxlength="80" value="${E(profile ? profilePhone(profile).contact : "")}" autocomplete="off"></label>` +
+          `<label class="field wide"><span>聊天内容</span><textarea id="wa-log-text" class="k-textarea" rows="5" maxlength="4000" placeholder="例如：已把报价单发给对方">${E(logState.text)}</textarea></label></div></form>`,
+        `${footError("wa-log-error")}${CANCEL}${btn("log-save", "记下来", "", "k-btn--primary")}`,
       );
       const pick = $("wa-log-customer");
       if (pick && pick.addEventListener)
@@ -413,14 +432,13 @@
       const d = dialogState;
       const e164 = numberOf(d.phone, d.code, countryOfDialog(d));
       return (
-        `<form class="drawer-body wa-dialog" id="wa-dlg-form" autocomplete="off" novalidate>` +
+        `<form class="drawer-body k-dialog-body wa-form wa-dialog" id="wa-dlg-form" autocomplete="off" novalidate>` +
         (d.fixed ? `<p class="wa-dlg-who">${E(d.customer || d.label)}${d.contact ? ` · ${E(d.contact)}` : ""}</p>` : `<label class="field wide"><span>客户</span>${customerSelect("wa-dlg-customer", d.customer)}</label>`) +
-        `<div class="form-grid"><label class="field wide"><span>号码</span><input id="wa-dlg-phone" value="${E(d.phone)}" maxlength="40" placeholder="例如 +44 7700 900123" inputmode="tel"></label>` +
-        `<label class="field wide" id="wa-dlg-fix"${e164 ? " hidden" : ""}><span>号码前面缺国家区号，请选一个</span><select id="wa-dlg-code"><option value="">选择国家或区号</option>${COUNTRY_CODES.map(([code, name]) => `<option value="${code}"${code === d.code ? " selected" : ""}>${E(name)} ${code}</option>`).join("")}</select></label>` +
+        `<div class="wa-fields"><label class="field wide"><span>号码</span><input id="wa-dlg-phone" class="k-input" value="${E(d.phone)}" maxlength="40" placeholder="例如 +44 7700 900123" inputmode="tel"></label>` +
+        `<label class="field wide" id="wa-dlg-fix"${e164 ? " hidden" : ""}><span>号码前面缺国家区号，请选一个</span><select id="wa-dlg-code" class="k-select-trigger"><option value="">选择国家或区号</option>${COUNTRY_CODES.map(([code, name]) => `<option value="${code}"${code === d.code ? " selected" : ""}>${E(name)} ${code}</option>`).join("")}</select></label>` +
         `<p class="wa-dlg-note wide" id="wa-dlg-note">${E(e164 ? `将打开 ${e164}` : "号码还不能用，请检查或选区号")}</p>` +
-        `<label class="field wide"><span>模板</span><select id="wa-dlg-template">${templateOptions()}</select></label>` +
-        `<label class="field wide"><span>消息</span><textarea id="wa-dlg-text" rows="6" maxlength="4000" placeholder="想发给对方的话">${E(d.text)}</textarea></label></div>` +
-        `<div class="error" id="wa-dlg-error" role="alert"></div></form>`
+        `<label class="field wide"><span>模板</span><select id="wa-dlg-template" class="k-select-trigger">${templateOptions()}</select></label>` +
+        `<label class="field wide"><span>消息</span><textarea id="wa-dlg-text" class="k-textarea" rows="6" maxlength="4000" placeholder="想发给对方的话">${E(d.text)}</textarea></label></div></form>`
       );
     }
     // 打开 WhatsApp 对话框（聊天页、客户资料、商机都用这一个）。
@@ -441,7 +459,7 @@
         code: plain(options.code) || phone.code,
         text: text(options.text),
       };
-      ctx.dialog("打开 WhatsApp", dialogBody(), `${CANCEL}${btn("dlg-copy-text", "复制消息")}${btn("dlg-copy-link", "复制链接")}${btn("dlg-open", "打开 WhatsApp", "", "primary")}`, "whatsapp");
+      dialog("打开 WhatsApp", dialogBody(), `${footError("wa-dlg-error")}${CANCEL}${btn("dlg-copy-text", "复制消息")}${btn("dlg-copy-link", "复制链接")}${btn("dlg-open", "打开 WhatsApp", "", "k-btn--primary")}`);
       const form = $("wa-dlg-form");
       if (form && form.addEventListener) {
         form.addEventListener("input", refreshNumber);
@@ -511,11 +529,10 @@
       dialogState.peer = read.e164;
       dialogState.sent = read.body;
       if (!plain(read.body) || !canLogDialog(dialogState)) return ctx.closeDialog();
-      ctx.dialog(
+      dialog(
         "发出去了吗？",
-        `<div class="drawer-body wa-ask"><p>发出去了吗？记到动态，之后在客户资料里能看到。</p><div class="wa-ask-text">${lineHtml(E, read.body)}</div><div class="error" id="wa-ask-error" role="alert"></div></div>`,
-        `${btn("dlg-skip", "不用")}${btn("dlg-log", "记一笔", "", "primary")}`,
-        "whatsapp",
+        `<div class="drawer-body k-dialog-body wa-form wa-ask"><p>发出去了吗？记到动态，之后在客户资料里能看到。</p><div class="wa-ask-text">${lineHtml(E, read.body)}</div></div>`,
+        `${footError("wa-ask-error")}${btn("dlg-skip", "不用")}${btn("dlg-log", "记一笔", "", "k-btn--primary")}`,
       );
     }
     async function logLink() {
@@ -603,8 +620,8 @@
     }
     function candidatesHtml() {
       const { first, rest } = candidates();
-      const item = (name, tag) => `<button type="button" class="wa-pick${name === importState.customer ? " selected" : ""}" data-chat-action="import-pick" data-name="${E(name)}"><strong>${E(name)}</strong>${tag ? `<em>${tag}</em>` : ""}</button>`;
-      return first.map((n) => item(n, "可能是")).join("") + rest.map((n) => item(n, "")).join("") + (first.length || rest.length ? "" : `<p class="wa-list-empty">没有找到客户</p>`);
+      const item = (name, tag) => `<button type="button" class="wa-pick${name === importState.customer ? " selected" : ""}" data-chat-action="import-pick" data-name="${E(name)}"><strong>${E(name)}</strong>${tag ? `<em class="k-badge">${tag}</em>` : ""}</button>`;
+      return first.map((n) => item(n, "可能是")).join("") + rest.map((n) => item(n, "")).join("") + (first.length || rest.length ? "" : `<div class="k-empty wa-list-none"><span>没有找到客户</span></div>`);
     }
     function previewHtml() {
       const s = importState;
@@ -619,11 +636,11 @@
         `<div><dt>发送人</dt><dd>${senders.map((item) => E(senderName(item)) + (senderCount(item) !== null ? `（${senderCount(item)}）` : "")).join("、") || "—"}</dd></div>` +
         `<div><dt>没认出的行</dt><dd>${unknown} 条</dd></div></dl>` +
         (count ? "" : `<p class="wa-warn">里面没有认出聊天消息，请确认是 WhatsApp 导出的聊天文件。</p>`) +
-        `<label class="field wide"><span>哪个是你</span><select name="me" id="wa-import-me"><option value="">请选择</option>${senders.map((item) => `<option value="${E(senderName(item))}"${senderName(item) === s.me ? " selected" : ""}>${E(senderName(item))}</option>`).join("")}</select></label>` +
-        (p.ambiguousDateOrder ? `<label class="field wide"><span>日期是怎么写的？</span><select name="order" id="wa-import-order"><option value="day"${s.dayFirst ? " selected" : ""}>日／月／年（12/10 是 10 月 12 日）</option><option value="month"${s.dayFirst ? "" : " selected"}>月／日／年（12/10 是 12 月 10 日）</option></select></label>` : "") +
-        `<div class="field wide"><span>记到哪位客户</span><input id="wa-import-find" value="${E(s.find)}" placeholder="搜客户名、联系人或电话" autocomplete="off"><div class="wa-picks" id="wa-import-customers">${candidatesHtml()}</div></div>` +
-        (s.customer ? `<label class="field wide"><span>联系人</span><select name="contact" id="wa-import-contact"><option value="">不填</option>${contactChoices().map((c) => `<option value="${E(c)}"${c === s.contact ? " selected" : ""}>${E(c)}</option>`).join("")}</select></label>` : "") +
-        `<p class="module-note">导入后会更新最近联系时间；重复的消息会自动跳过。</p></div>`
+        `<label class="field wide"><span>哪个是你</span><select name="me" id="wa-import-me" class="k-select-trigger"><option value="">请选择</option>${senders.map((item) => `<option value="${E(senderName(item))}"${senderName(item) === s.me ? " selected" : ""}>${E(senderName(item))}</option>`).join("")}</select></label>` +
+        (p.ambiguousDateOrder ? `<label class="field wide"><span>日期是怎么写的？</span><select name="order" id="wa-import-order" class="k-select-trigger"><option value="day"${s.dayFirst ? " selected" : ""}>日／月／年（12/10 是 10 月 12 日）</option><option value="month"${s.dayFirst ? "" : " selected"}>月／日／年（12/10 是 12 月 10 日）</option></select></label>` : "") +
+        `<div class="field wide"><span>记到哪位客户</span><input id="wa-import-find" class="k-input" value="${E(s.find)}" placeholder="搜客户名、联系人或电话" autocomplete="off"><div class="wa-picks" id="wa-import-customers">${candidatesHtml()}</div></div>` +
+        (s.customer ? `<label class="field wide"><span>联系人</span><select name="contact" id="wa-import-contact" class="k-select-trigger"><option value="">不填</option>${contactChoices().map((c) => `<option value="${E(c)}"${c === s.contact ? " selected" : ""}>${E(c)}</option>`).join("")}</select></label>` : "") +
+        `<p class="wa-hint">导入后会更新最近联系时间；重复的消息会自动跳过。</p></div>`
       );
     }
     function paintImport() {
@@ -642,15 +659,14 @@
     function openImport(options = {}) {
       if (!guard("chat.import")) return;
       importState = { text: "", parsed: null, me: "", dayFirst: true, customer: "", contact: "", peer: "", find: "", suggestions: [], file: "", preset: plain(options.customer) };
-      ctx.dialog(
+      dialog(
         "导入聊天记录",
-        `<form class="drawer-body wa-import" id="wa-import-form" autocomplete="off" novalidate>` +
-          (ctx.isTrial ? `<div class="module-note wa-trial">${E(TRIAL_NOTE)}</div>` : "") +
-          `<div class="module-note">在手机的 WhatsApp 里打开一个聊天，选「导出聊天」，不带媒体，把得到的 .txt 或 .zip 文件选到这里。</div>` +
-          `<label class="field wide"><span>聊天文件</span><input type="file" id="wa-import-file" accept=".txt,.zip,text/plain,application/zip"></label>` +
-          `<div class="error" id="wa-import-error" role="alert"></div><div id="wa-import-preview"></div></form>`,
-        `${CANCEL}<button type="button" class="primary" id="wa-import-confirm" data-chat-action="import-confirm" disabled>确认导入</button>`,
-        "whatsapp",
+        `<form class="drawer-body k-dialog-body wa-form wa-import" id="wa-import-form" autocomplete="off" novalidate>` +
+          (ctx.isTrial ? `<p class="wa-hint wa-trial">${E(TRIAL_NOTE)}</p>` : "") +
+          `<p class="wa-hint">在手机的 WhatsApp 里打开一个聊天，选「导出聊天」，不带媒体，把得到的 .txt 或 .zip 文件选到这里。</p>` +
+          `<label class="field wide"><span>聊天文件</span><input type="file" class="wa-file" id="wa-import-file" accept=".txt,.zip,text/plain,application/zip"></label>` +
+          `<div id="wa-import-preview"></div></form>`,
+        `${footError("wa-import-error")}${CANCEL}<button type="button" class="k-btn k-btn--primary" id="wa-import-confirm" data-chat-action="import-confirm" disabled>确认导入</button>`,
       );
       const file = $("wa-import-file");
       if (file && file.addEventListener) file.addEventListener("change", () => loadFile(file.files && file.files[0]));
@@ -727,11 +743,10 @@
       const row = importRow(id);
       if (!row || row.undone) return;
       if (!importSeen(row)) return ctx.toast(NOT_VISIBLE);
-      ctx.dialog(
+      dialog(
         "撤销这次导入？",
-        `<div class="drawer-body"><p>${E(fullTime(row.at))} 导入到「${E(row.customer)}」的 ${Number(row.added) || 0} 条聊天会从客户动态里删掉，别的记录不受影响。</p><div class="error" id="wa-undo-error" role="alert"></div></div>`,
-        `${CANCEL}${btn("undo-confirm", "撤销导入", ` data-id="${E(id)}"`, "primary")}`,
-        "whatsapp",
+        `<div class="drawer-body k-dialog-body wa-form"><p>${E(fullTime(row.at))} 导入到「${E(row.customer)}」的 ${Number(row.added) || 0} 条聊天会从客户动态里删掉，别的记录不受影响。</p></div>`,
+        `${footError("wa-undo-error")}${CANCEL}${btn("undo-confirm", "撤销导入", ` data-id="${E(id)}"`, "k-btn--primary")}`,
       );
     }
     async function undo(id) {
@@ -774,6 +789,9 @@
       }
       renderTemplates();
     }
+    // 分组、模板旁边的小按钮：幽灵小按钮；点过一次「删除」等着确认时换成红色。
+    const TOOL = "k-btn--ghost k-btn--sm";
+    const ARMED = "k-btn--danger k-btn--sm";
     function templatesPage() {
       const groups = groupsNow();
       const total = itemTotal(groups);
@@ -782,29 +800,28 @@
         .map((g, gi) => {
           const head =
             editing && editing.kind === "group" && editing.id === g.id
-              ? `<div class="wa-tpl-edit"><input id="wa-edit-group" value="${E(g.name)}" maxlength="${LIMITS.groupName}" aria-label="分组名称">${btn("group-save", "保存", ` data-gid="${E(g.id)}"`, "primary")}${btn("edit-cancel", "取消")}</div>`
-              : `<strong>${E(g.name)}</strong><span class="wa-tpl-count">${g.items.length} 条</span><span class="wa-tpl-tools">${btn("group-edit", "改名", ` data-gid="${E(g.id)}"`, "text-button")}${btn("group-up", "上移", ` data-gid="${E(g.id)}"${gi === 0 ? " disabled" : ""}`, "text-button")}${btn("group-down", "下移", ` data-gid="${E(g.id)}"${gi === groups.length - 1 ? " disabled" : ""}`, "text-button")}${btn("group-del", armed === "g:" + g.id ? "再点一次删除" : "删除", ` data-gid="${E(g.id)}"`, "text-button")}</span>`;
+              ? `<div class="wa-tpl-edit"><input id="wa-edit-group" class="k-input" value="${E(g.name)}" maxlength="${LIMITS.groupName}" aria-label="分组名称">${btn("group-save", "保存", ` data-gid="${E(g.id)}"`, "k-btn--primary")}${btn("edit-cancel", "取消")}</div>`
+              : `<h3 class="k-card-title">${E(g.name)}</h3><span class="k-badge wa-tpl-count">${g.items.length} 条</span><span class="wa-tpl-tools">${btn("group-edit", "改名", ` data-gid="${E(g.id)}"`, TOOL)}${btn("group-up", "上移", ` data-gid="${E(g.id)}"${gi === 0 ? " disabled" : ""}`, TOOL)}${btn("group-down", "下移", ` data-gid="${E(g.id)}"${gi === groups.length - 1 ? " disabled" : ""}`, TOOL)}${btn("group-del", armed === "g:" + g.id ? "再点一次删除" : "删除", ` data-gid="${E(g.id)}"`, armed === "g:" + g.id ? ARMED : TOOL)}</span>`;
           const items = g.items
             .map((i, ii) =>
               editing && editing.kind === "item" && editing.id === i.id
-                ? `<li class="editing"><textarea id="wa-edit-item" rows="3" maxlength="${LIMITS.chars}" aria-label="模板内容">${E(i.text)}</textarea><div class="wa-tpl-edit">${btn("item-save", "保存", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"`, "primary")}${btn("edit-cancel", "取消")}</div></li>`
-                : `<li><p>${lineHtml(E, i.text)}</p><span class="wa-tpl-tools">${btn("item-edit", "修改", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"`, "text-button")}${btn("item-up", "上移", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"${ii === 0 ? " disabled" : ""}`, "text-button")}${btn("item-down", "下移", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"${ii === g.items.length - 1 ? " disabled" : ""}`, "text-button")}${btn("item-del", armed === "i:" + i.id ? "再点一次删除" : "删除", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"`, "text-button")}</span></li>`,
+                ? `<li class="editing"><textarea id="wa-edit-item" class="k-textarea" rows="3" maxlength="${LIMITS.chars}" aria-label="模板内容">${E(i.text)}</textarea><div class="wa-tpl-edit">${btn("item-save", "保存", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"`, "k-btn--primary k-btn--sm")}${btn("edit-cancel", "取消", "", "k-btn--sm")}</div></li>`
+                : `<li><p>${lineHtml(E, i.text)}</p><span class="wa-tpl-tools">${btn("item-edit", "修改", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"`, TOOL)}${btn("item-up", "上移", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"${ii === 0 ? " disabled" : ""}`, TOOL)}${btn("item-down", "下移", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"${ii === g.items.length - 1 ? " disabled" : ""}`, TOOL)}${btn("item-del", armed === "i:" + i.id ? "再点一次删除" : "删除", ` data-gid="${E(g.id)}" data-id="${E(i.id)}"`, armed === "i:" + i.id ? ARMED : TOOL)}</span></li>`,
             )
             .join("");
-          return `<section class="wa-tpl-group"><header>${head}</header><ul>${items || `<li class="wa-tpl-none">这个分组还没有模板</li>`}</ul><div class="wa-tpl-add"><textarea id="wa-new-item-${E(g.id)}" rows="2" maxlength="${LIMITS.chars}" placeholder="新模板，例如：你好 {{姓名}}，上次聊的报价有进展吗？" aria-label="新模板"></textarea>${btn("item-add", "添加模板", ` data-gid="${E(g.id)}"`, "primary")}</div></section>`;
+          return `<section class="k-card wa-tpl-group"><header class="k-card-head">${head}</header><ul>${items || `<li class="wa-tpl-none">这个分组还没有模板</li>`}</ul><div class="wa-tpl-add"><textarea id="wa-new-item-${E(g.id)}" class="k-textarea" rows="2" maxlength="${LIMITS.chars}" placeholder="新模板，例如：你好 {{姓名}}，上次聊的报价有进展吗？" aria-label="新模板"></textarea>${btn("item-add", "添加模板", ` data-gid="${E(g.id)}"`)}</div></section>`;
         })
         .join("");
       return (
         pagebar("聊天模板") +
-        `<section class="module-page wa-page wa-templates"><div class="module-note">写好常用的话，打开 WhatsApp 时直接选。可用的变量：${vars}，发送时会换成客户的资料。最多 ${LIMITS.groups} 个分组、${LIMITS.items} 条模板，每条最多 ${LIMITS.chars} 个字（现在 ${groups.length} 个分组、${total} 条）。</div>` +
-        `<div class="error ${templateError ? "visible" : ""}" id="wa-tpl-error" role="alert">${E(templateError)}</div>` +
-        `<div class="wa-tpl-new"><input id="wa-new-group" maxlength="${LIMITS.groupName}" placeholder="新分组名称，例如：报价跟进" aria-label="新分组名称" autocomplete="off">${btn("group-add", "添加分组", "", "primary")}</div>` +
-        (groupHtml || `<p class="wa-list-empty">还没有模板。先添加一个分组，再往里写模板。</p>`) +
+        `<section class="wa-page wa-templates"><p class="wa-hint wa-tpl-note">写好常用的话，打开 WhatsApp 时直接选。可用的变量：${vars}，发送时会换成客户的资料。最多 ${LIMITS.groups} 个分组、${LIMITS.items} 条模板，每条最多 ${LIMITS.chars} 个字（现在 ${groups.length} 个分组、${total} 条）。</p>` +
+        `<div class="k-card wa-tpl-new"><input id="wa-new-group" class="k-input" maxlength="${LIMITS.groupName}" placeholder="新分组名称，例如：报价跟进" aria-label="新分组名称" autocomplete="off">${btn("group-add", "添加分组", "", "k-btn--primary")}<p class="k-error" id="wa-tpl-error" role="alert">${E(templateError)}</p></div>` +
+        (groupHtml || `<div class="k-card"><div class="k-empty wa-tpl-blank"><span>还没有模板。先添加一个分组，再往里写模板。</span></div></div>`) +
         `</section>`
       );
     }
     function renderTemplates() {
-      if (!can("chat.template")) return ctx.mount(pagebar("聊天模板") + `<section class="module-page wa-page">${empty("没有管理权限", "你的角色不能管理聊天模板，请找系统管理员开通")}</section>`);
+      if (!can("chat.template")) return ctx.mount(pagebar("聊天模板") + `<section class="wa-page">${empty("没有管理权限", "你的角色不能管理聊天模板，请找系统管理员开通")}</section>`);
       ctx.mount(templatesPage());
       const onEnter = (id, action) => {
         const node = $(id);

@@ -1,445 +1,169 @@
-/* 沟通 › WhatsApp：聊天记录、导入、对话框、聊天模板、客户动态里的聊天条目。只用主题变量，三套主题通用。 */
+/* 沟通 › WhatsApp：聊天记录、导入、对话框、聊天模板、客户动态里的聊天条目。只用主题变量，三套主题通用。
+   外观用组件套件（src/ui-kit.css，D-028）：页头 .k-pageheader，面板 .k-card，按钮 .k-btn，输入 .k-input／.k-textarea，
+   筛选 .k-tabs，标签 .k-badge，空状态 .k-empty，抽屉 .k-drawer + .k-dialog-head／-body／-foot（.k-error 在底栏）。
+   这里只管这几页的排版；规则以 :root[data-skin] 开头，才能压过皮肤里 button、input 的通用规则。 */
 .wa-page [hidden],
 .wa-dialog [hidden] {
   display: none !important;
 }
-.wa-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-.wa-split {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 360px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.wa-list-pane {
-  display: flex;
-  flex: 0 0 320px;
-  flex-direction: column;
-  min-width: 0;
-  border-right: 1px solid var(--line);
-  background: var(--color-neutral-25);
-}
-.wa-tools {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--line);
-}
-.wa-tools input {
-  width: 100%;
-  height: 32px;
-}
-.wa-filters {
-  display: flex;
-  padding: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--ink-200);
-}
-.wa-filter {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 26px;
-  min-height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 13px;
-  background: transparent;
-  color: var(--ink-900);
-  font-size: 13px;
-}
-.wa-filter.active {
-  background: #fff;
-  color: var(--brand-500);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(var(--ink-rgb), 0.16);
-}
-.wa-list {
-  flex: 1 1 auto;
-  overflow: auto;
-}
-.wa-row {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
-  width: 100%;
-  height: auto;
-  padding: 10px 14px;
-  border: 0;
-  border-bottom: 1px solid var(--color-neutral-100);
-  border-radius: 0;
-  background: transparent;
-  text-align: left;
-}
-.wa-row:hover {
-  background: var(--brand-50);
-}
-.wa-row.selected {
-  background: var(--brand-100);
-}
-.wa-row-top,
-.wa-row-sub {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.wa-row-top strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-body);
-}
-.wa-row time,
-.wa-row-sub em {
-  flex: none;
-  color: var(--color-neutral-500);
-  font-size: var(--font-size-assist);
-  font-style: normal;
-}
-.wa-row-sub {
-  justify-content: flex-start;
-}
-.wa-waiting {
-  padding: 0 6px;
-  border-radius: var(--radius-pill);
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  line-height: 18px;
-}
-.wa-row-text {
-  overflow: hidden;
-  color: var(--color-neutral-600);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wa-list-empty {
-  margin: 0;
-  padding: 24px 16px;
-  color: var(--color-neutral-500);
-  font-size: 13px;
-  text-align: center;
-}
-.wa-thread-pane {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  min-width: 0;
-  background: var(--color-neutral-50);
-}
-.wa-thread-empty {
-  margin: auto;
-  color: var(--color-neutral-500);
-}
-.wa-thread-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-}
-.wa-thread-head > div:first-child {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.wa-thread-head span,
-.wa-thread-head small {
-  color: var(--color-neutral-500);
-  font-size: var(--font-size-assist);
-}
-.wa-thread-body {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  overflow: auto;
-}
-.wa-day {
-  align-self: center;
-  margin: 8px 0 2px;
-  padding: 0 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-neutral-200);
-  color: var(--color-neutral-600);
-  font-size: var(--font-size-assist);
-  line-height: 20px;
-}
-.wa-bubble {
-  max-width: min(520px, 78%);
-  padding: 7px 10px 5px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  overflow-wrap: anywhere;
-}
-.wa-bubble.out {
-  align-self: flex-end;
-  border-color: var(--brand-200);
-  background: var(--brand-100);
-}
-.wa-bubble.in {
-  align-self: flex-start;
-}
-.wa-bubble p {
-  margin: 0;
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-}
-.wa-bubble time {
-  display: block;
-  margin-top: 2px;
-  color: var(--color-neutral-500);
-  font-size: var(--text-xs);
-}
-.wa-bubble.out time {
-  text-align: right;
-}
-.wa-entry-note {
-  margin: 0;
-  color: var(--color-neutral-500);
-  font-size: var(--font-size-assist);
-  text-align: center;
-}
-.wa-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 48px 16px;
-  text-align: center;
-}
-.wa-empty-art {
-  width: 64px;
-  height: 56px;
-  color: var(--brand-500);
-}
-.wa-empty-art .icon {
-  width: 100%;
-  height: 100%;
-}
-.wa-empty span {
-  max-width: 420px;
-  color: var(--color-neutral-600);
-  line-height: 1.7;
-}
-.wa-imports h2 {
-  margin: 0 0 8px;
-  font-size: var(--font-size-section);
-}
-.wa-imports ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.wa-imports li {
-  display: grid;
-  grid-template-columns: 140px minmax(120px, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 72px;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-neutral-100);
-  font-size: 13px;
-}
-.wa-imports li > * {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wa-imports li.undone {
-  color: var(--color-neutral-500);
-}
-.wa-log-undone {
-  color: var(--color-neutral-500);
-}
-.wa-log-undo {
-  height: 28px;
-  min-height: 28px;
-  padding: 0 10px;
-}
-/* 抽屉：导入、打开 WhatsApp、记一笔 */
-.wa-import .wa-facts {
-  display: grid;
-  gap: 6px;
-  margin: 0 0 16px;
-}
-.wa-import .wa-facts div {
-  display: flex;
-  gap: var(--space-3);
-  font-size: 13px;
-}
-.wa-import dt {
-  flex: none;
-  width: 84px;
-  color: var(--color-neutral-500);
-}
-.wa-import dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.wa-import .field {
-  margin-bottom: 14px;
-}
-.wa-picks {
-  display: flex;
-  flex-direction: column;
-  max-height: 220px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  overflow: auto;
-}
-.wa-pick {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  height: 34px;
-  padding: 0 12px;
-  border: 0;
-  border-bottom: 1px solid var(--color-neutral-100);
-  border-radius: 0;
-  background: #fff;
-  text-align: left;
-}
-.wa-pick.selected {
-  background: var(--brand-100);
-  color: var(--brand-600);
-}
-.wa-pick em {
-  color: var(--brand-500);
-  font-size: var(--font-size-assist);
-  font-style: normal;
-}
-.wa-warn {
-  margin: 8px 0;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--color-warning-soft);
-  font-size: 12px;
-}
-.wa-trial {
-  background: var(--color-warning-soft);
-}
-.wa-dialog .wa-dlg-who {
-  margin: 0 0 12px;
-  font-weight: 600;
-}
-.wa-dlg-note {
-  grid-column: 1 / -1;
-  margin: -8px 0 0;
-  color: var(--color-neutral-600);
-  font-size: 12px;
-}
-.wa-dialog textarea,
-.wa-log-form textarea {
-  width: 100%;
-  resize: vertical;
-}
-.wa-ask-text {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--color-neutral-50);
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-/* 聊天模板 */
-.wa-templates {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.wa-templates code,
-.module-note code {
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  background: #fff;
-  color: var(--brand-600);
-}
-.wa-tpl-new,
-.wa-tpl-add,
-.wa-tpl-edit {
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
-}
-.wa-tpl-new input,
-.wa-tpl-edit input {
-  flex: 1 1 auto;
-  height: 32px;
-}
-.wa-tpl-add textarea,
-.wa-tpl-group li textarea {
-  flex: 1 1 auto;
-  width: 100%;
-  resize: vertical;
-}
-.wa-tpl-group {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: #fff;
-}
-.wa-tpl-group > header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--color-neutral-25);
-}
-.wa-tpl-group > header .wa-tpl-edit {
-  flex: 1 1 auto;
-}
-.wa-tpl-count {
-  color: var(--color-neutral-500);
-  font-size: var(--font-size-assist);
-}
-.wa-tpl-tools {
-  display: flex;
-  gap: 2px;
-  margin-left: auto;
-}
-.wa-tpl-group ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.wa-tpl-group li {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--color-neutral-100);
-}
-.wa-tpl-group li.editing {
-  flex-direction: column;
-}
-.wa-tpl-group li p {
-  flex: 1 1 auto;
-  margin: 0;
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-.wa-tpl-none {
-  color: var(--color-neutral-500);
-}
-.wa-tpl-add {
-  padding: 10px 14px;
+:root[data-skin] .wa-header { box-sizing: border-box; height: 60px; padding: 0; }
+:root[data-skin] .wa-page {
+  display: flex; flex-direction: column; gap: 12px; box-sizing: border-box;
+  height: calc(100% - 60px); padding: 0 0 4px; overflow: auto; color: var(--fg);
+}
+
+/* ---- 聊天记录：左边会话列表、右边聊天 ---- */
+:root[data-skin] .wa-split { display: flex; flex: 1 0 auto; gap: 12px; min-height: 440px; }
+:root[data-skin] .wa-list-pane { display: flex; flex: 0 0 320px; flex-direction: column; min-width: 0; overflow: hidden; }
+:root[data-skin] .wa-tools { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .wa-filters { display: flex; }
+:root[data-skin] .wa-filters .k-tab { flex: 1 1 0; min-width: 0; }
+:root[data-skin] .wa-list { flex: 1 1 auto; overflow: auto; }
+:root[data-skin] .wa-row {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; box-sizing: border-box;
+  width: 100%; height: auto; min-height: 0; padding: 10px 12px;
+  border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+  background: transparent; color: var(--fg); font: inherit; text-align: left; box-shadow: none; cursor: pointer;
+}
+:root[data-skin] .wa-row:hover:not(:disabled) { background: var(--muted-bg); border-color: var(--border); color: var(--fg); }
+:root[data-skin] .wa-row.selected,
+:root[data-skin] .wa-row.selected:hover:not(:disabled) { background: var(--accent-bg); }
+:root[data-skin] .wa-row-top,
+:root[data-skin] .wa-row-sub { display: flex; align-items: center; gap: 8px; min-width: 0; }
+:root[data-skin] .wa-row-top { justify-content: space-between; }
+:root[data-skin] .wa-row-top strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: 600; }
+:root[data-skin] .wa-row.selected .wa-row-top strong { color: var(--accent-fg); }
+:root[data-skin] .wa-row time,
+:root[data-skin] .wa-row-sub em { flex: none; color: var(--muted-fg); font-size: var(--text-xs); font-style: normal; }
+:root[data-skin] .wa-row-text { overflow: hidden; color: var(--muted-fg); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .wa-thread-pane { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; overflow: hidden; }
+:root[data-skin] .wa-thread-none { flex: 1 1 auto; }
+:root[data-skin] .wa-thread-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 52px; padding: 0 16px; border-bottom: 1px solid var(--border);
+}
+:root[data-skin] .wa-thread-head > div:first-child { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+:root[data-skin] .wa-thread-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-base); font-weight: 600; }
+:root[data-skin] .wa-thread-head span,
+:root[data-skin] .wa-thread-head small { flex: none; color: var(--muted-fg); font-size: var(--text-xs); }
+/* 气泡：客户、联系人页面里的聊天条目也用这几条 */
+:root[data-skin] .wa-thread-body { display: flex; flex: 1 1 auto; flex-direction: column; gap: 6px; padding: 14px 16px; overflow: auto; }
+:root[data-skin] .wa-thread-pane .wa-thread-body { background: var(--bg); }
+:root[data-skin] .wa-day {
+  align-self: center; margin: 8px 0 2px; padding: 0 10px; border-radius: var(--radius-pill);
+  background: var(--muted-bg); color: var(--muted-fg); font-size: var(--text-xs); line-height: 20px;
+}
+:root[data-skin] .wa-bubble {
+  max-width: min(520px, 78%); padding: 8px 12px 6px; border: 1px solid var(--border); border-radius: var(--r-lg);
+  background: var(--card-bg); color: var(--fg); overflow-wrap: anywhere;
+}
+:root[data-skin] .wa-bubble.out { align-self: flex-end; border-color: transparent; background: var(--accent-bg); }
+:root[data-skin] .wa-bubble.in { align-self: flex-start; }
+:root[data-skin] .wa-bubble p { margin: 0; font-size: var(--text-sm); line-height: 1.6; }
+:root[data-skin] .wa-bubble time { display: block; margin-top: 2px; color: var(--muted-fg); font-size: var(--text-xs); }
+:root[data-skin] .wa-bubble.out time { text-align: right; }
+:root[data-skin] .wa-entry-note { margin: 0; color: var(--muted-fg); font-size: var(--text-xs); text-align: center; }
+/* 还没有聊天、没有权限 */
+:root[data-skin] .wa-blank .k-empty { padding: 48px 16px; }
+:root[data-skin] .wa-blank-art { width: 48px; height: 42px; margin-bottom: 8px; color: var(--muted-fg); }
+:root[data-skin] .wa-blank-art .icon { width: 100%; height: 100%; }
+:root[data-skin] .wa-blank .k-empty > span { max-width: 420px; line-height: 1.7; }
+:root[data-skin] .wa-blank .k-btn { margin-top: 12px; }
+/* 导入记录 */
+:root[data-skin] .wa-imports { flex: none; }
+:root[data-skin] .wa-imports .k-card-body { padding-top: 4px; }
+:root[data-skin] .wa-imports ul { margin: 0; padding: 0; list-style: none; }
+:root[data-skin] .wa-imports li {
+  display: grid; grid-template-columns: 140px minmax(120px, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 72px; align-items: center; gap: 12px;
+  min-height: 40px; border-bottom: 1px solid var(--border); font-size: var(--text-sm);
+}
+:root[data-skin] .wa-imports li:last-child { border-bottom: 0; }
+:root[data-skin] .wa-imports li > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .wa-imports li > :is(.wa-log-undo, .wa-log-undone) { justify-self: end; }
+:root[data-skin] .wa-imports li time,
+:root[data-skin] .wa-imports li.undone { color: var(--muted-fg); }
+
+/* ---- 抽屉：导入、打开 WhatsApp、记一笔、撤销导入（壳是 app.js 的 .drawer，加上 k-drawer） ---- */
+:root[data-skin] .drawer.wa-drawer.k-drawer { width: min(560px, 100vw); height: auto; max-height: none; border-width: 0 0 0 1px; border-radius: 0; }
+:root[data-skin] .wa-drawer .drawer-head.k-dialog-head { gap: 8px; height: 56px; min-height: 56px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .wa-drawer .drawer-head.k-dialog-head h2 { font-size: var(--text-lg); font-weight: 600; line-height: 24px; color: var(--fg); }
+:root[data-skin] .wa-drawer .drawer-head .k-btn { width: 28px; padding: 0; color: var(--muted-fg); }
+:root[data-skin] .wa-drawer .drawer-head .k-btn .icon { width: 16px; height: 16px; }
+:root[data-skin] .wa-drawer .drawer-body.k-dialog-body { padding: 16px 20px; color: var(--fg); font-size: var(--text-sm); }
+:root[data-skin] .wa-drawer .drawer-footer.k-dialog-foot { height: auto; min-height: 56px; padding: 10px 20px; border-top: 1px solid var(--border); background: var(--popover-bg); }
+:root[data-skin] .wa-drawer .k-dialog-foot .k-error { flex: 1 1 auto; font-size: var(--text-xs); line-height: 18px; }
+:root[data-skin] .wa-form p:not(.wa-hint, .wa-warn) { margin: 0; }
+/* 统一下拉的触发框在抽屉还是 840 宽时量了宽度（行内 px），抽屉收窄后让它跟着字段走 */
+:root[data-skin] .wa-drawer .field > .lai-select-trigger { width: 100% !important; }
+:root[data-skin] .wa-fields { display: flex; flex-direction: column; gap: 14px; }
+:root[data-skin] .wa-form .field { gap: 6px; color: var(--fg); font-size: var(--text-sm); font-weight: 500; }
+:root[data-skin] .wa-form .field > span { line-height: 20px; }
+:root[data-skin] .wa-import .field,
+:root[data-skin] .wa-dialog > .field { margin-bottom: 14px; }
+:root[data-skin] .wa-form .k-textarea { font-weight: 400; }
+:root[data-skin] .wa-hint {
+  margin: 0 0 14px; padding: 10px 12px; border-radius: var(--radius);
+  background: var(--muted-bg); color: var(--muted-fg); font-size: var(--text-sm); line-height: 1.7;
+}
+:root[data-skin] .wa-hint.wa-trial,
+:root[data-skin] .wa-warn { background: var(--warning-bg); color: var(--warning-fg); }
+:root[data-skin] .wa-warn { margin: 0 0 14px; padding: 8px 12px; border-radius: var(--radius); font-size: var(--text-sm); }
+:root[data-skin] .wa-file { font: inherit; font-size: var(--text-sm); font-weight: 400; color: var(--fg); }
+:root[data-skin] .wa-import .wa-facts { display: grid; gap: 6px; margin: 0 0 16px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+:root[data-skin] .wa-import .wa-facts div { display: flex; gap: 12px; font-size: var(--text-sm); }
+:root[data-skin] .wa-import dt { flex: none; width: 84px; color: var(--muted-fg); }
+:root[data-skin] .wa-import dd { margin: 0; overflow-wrap: anywhere; }
+:root[data-skin] .wa-picks { display: flex; flex-direction: column; max-height: 220px; border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; }
+:root[data-skin] .wa-pick {
+  display: flex; flex: none; align-items: center; justify-content: space-between; gap: 8px; box-sizing: border-box;
+  height: 36px; min-height: 36px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+  background: var(--card-bg); color: var(--fg); font: inherit; font-size: var(--text-sm); font-weight: 400; text-align: left; box-shadow: none; cursor: pointer;
+}
+:root[data-skin] .wa-pick:last-child { border-bottom: 0; }
+:root[data-skin] .wa-pick:hover:not(:disabled) { background: var(--muted-bg); border-color: var(--border); color: var(--fg); }
+:root[data-skin] .wa-pick.selected,
+:root[data-skin] .wa-pick.selected:hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-fg); }
+:root[data-skin] .wa-pick strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+:root[data-skin] .wa-picks .wa-list-none { padding: 16px; }
+:root[data-skin] .wa-dialog .wa-dlg-who { margin: 0 0 14px; font-size: var(--text-base); font-weight: 600; }
+:root[data-skin] .wa-dlg-note { margin: -6px 0 0; color: var(--muted-fg); font-size: var(--text-xs); }
+:root[data-skin] .wa-ask-text {
+  margin-top: 12px; padding: 10px 12px; border-radius: var(--radius);
+  background: var(--muted-bg); line-height: 1.7; overflow-wrap: anywhere;
+}
+
+/* ---- 聊天模板 ---- */
+:root[data-skin] .wa-templates code {
+  padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--card-bg); color: var(--fg); font-size: var(--text-xs);
+}
+:root[data-skin] .wa-tpl-note { margin: 0; }
+:root[data-skin] .wa-tpl-new { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; }
+:root[data-skin] .wa-tpl-new .k-input { flex: 1 1 240px; }
+:root[data-skin] .wa-tpl-new .k-error { flex: 1 0 100%; }
+:root[data-skin] .wa-tpl-group { flex: none; overflow: hidden; }
+:root[data-skin] .wa-tpl-group > .k-card-head { min-height: 52px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); }
+:root[data-skin] .wa-tpl-group > .k-card-head .k-card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .wa-tpl-group > .k-card-head .wa-tpl-edit { flex: 1 1 auto; }
+:root[data-skin] .wa-tpl-tools { display: flex; flex: none; gap: 2px; margin-left: auto; }
+:root[data-skin] .wa-tpl-group ul { margin: 0; padding: 0; list-style: none; }
+:root[data-skin] .wa-tpl-group li { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px 6px 16px; border-bottom: 1px solid var(--border); box-sizing: border-box; }
+:root[data-skin] .wa-tpl-group li.editing { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 16px; }
+:root[data-skin] .wa-tpl-group li p { flex: 1 1 auto; margin: 0; font-size: var(--text-sm); line-height: 1.7; overflow-wrap: anywhere; }
+:root[data-skin] .wa-tpl-none { color: var(--muted-fg); font-size: var(--text-sm); }
+:root[data-skin] .wa-tpl-new,
+:root[data-skin] .wa-tpl-add,
+:root[data-skin] .wa-tpl-edit { display: flex; gap: 8px; }
+:root[data-skin] .wa-tpl-edit { align-items: center; }
+:root[data-skin] .wa-tpl-edit .k-input { flex: 1 1 auto; }
+:root[data-skin] .wa-tpl-add { align-items: flex-start; padding: 12px 16px; }
+:root[data-skin] .wa-tpl-add .k-textarea { flex: 1 1 auto; min-height: 56px; }
+
+/* 窄屏：会话列表在上、聊天在下 */
+@media (max-width: 900px) {
+  :root[data-skin] .wa-split { flex-direction: column; }
+  :root[data-skin] .wa-list-pane { flex: 0 0 auto; max-height: 260px; }
+  :root[data-skin] .wa-imports li { grid-template-columns: 1fr 1fr; }
 }
 /* 客户动态里的聊天条目 */
 .wa-entry {
@@ -466,21 +190,6 @@
   border-top: 1px solid var(--line);
   background: var(--color-neutral-50);
 }
-@media (max-width: 900px) {
-  .wa-split {
-    flex-direction: column;
-  }
-  .wa-list-pane {
-    flex: 0 0 auto;
-    max-height: 260px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .wa-imports li {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
 /* 客户详情里的沟通入口 */
 .lcd-chat-tools {
   display: flex;
