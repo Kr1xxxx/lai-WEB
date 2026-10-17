@@ -32,8 +32,8 @@ test('the left menu 设置 offers 设置 and 设置中心, and both open without
   const { page } = app;
   await app.open('customers');
   await page.locator('.rail-item[data-rail-menu="设置"]').click();
-  const center = page.locator('.subnav .nav-row:has(.nav-label:text-is("设置中心"))');
-  const plain = page.locator('.subnav .nav-row:has(.nav-label:text-is("设置"))');
+  const center = page.locator('.section-tabs .section-tab:text-is("设置中心")');
+  const plain = page.locator('.section-tabs .section-tab:text-is("设置")');
   await center.waitFor();
   await center.click();
   await page.getByRole('heading', { name: '设置中心' }).waitFor();

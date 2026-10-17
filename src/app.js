@@ -143,6 +143,8 @@
   };
   let globalSearch = { field: "all", query: "" };
   let importDraft = null, importRecordsPage = 1;
+  // 客群栏收起／展开的选择存在浏览器里的这个名字下（initialGroupsCollapsed 用到它，要先定义）。
+  const GROUPS_COLLAPSED_KEY = "lai.customerGroupsCollapsed";
   let groupTab = "groups",
     groupsCollapsed = initialGroupsCollapsed(),
     groupMotionTimer = null,
@@ -1554,7 +1556,6 @@
     }
   }
   // 客户页左边的「客群」栏：窗口不到 1366 宽时默认收起，给表格多留几列；用户自己展开或收起过，就记住他的选择（只存在这台电脑的浏览器里）。
-  const GROUPS_COLLAPSED_KEY = "lai.customerGroupsCollapsed";
   function initialGroupsCollapsed() {
     try {
       const saved = window.localStorage?.getItem(GROUPS_COLLAPSED_KEY);

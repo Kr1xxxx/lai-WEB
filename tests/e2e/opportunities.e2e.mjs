@@ -106,8 +106,8 @@ test('an opportunity moves through the stages from its menu and the totals follo
   assert.ok(text.includes('赢单 USD 1,200.00'), text);
   assert.ok(text.includes('总销售金额 USD 5,000.00'), text);
   assert.match(clean(await column('balance').locator('.opp-stage').innerText()), /待付尾款 1 USD 1,200\.00/);
-  // The undo bar takes the move back.
-  await page.locator('#opp-undo').getByRole('button', { name: '撤销' }).click();
+  // The 撤销 button in the page's one toast takes the move back.
+  await page.locator('#toast.show').getByRole('button', { name: '撤销' }).click();
   await settle(600);
   assert.equal((await oppOf('Northwind Lash Studio')).stage, 'unpaid');
   assert.equal(await column('unpaid').locator('.opp-card', { hasText: 'Northwind' }).count(), 1);
@@ -325,7 +325,7 @@ test('an archived opportunity leaves the default board and comes back with the a
 
 test('商机分析 counts the stages, the lost reason and the owners', async () => {
   const { page } = app;
-  await page.locator('.subnav .nav-row:has(.nav-label:text-is("商机分析"))').click();
+  await page.locator('.section-tabs .section-tab:text-is("商机分析")').click();
   await page.locator('[data-opp-set-tab], .opp-bars').first().waitFor();
   const bars = clean(await page.locator('.opp-bars').innerText());
   assert.match(bars, /未成单 0 个 · 0%/);
@@ -341,7 +341,7 @@ test('商机分析 counts the stages, the lost reason and the owners', async () 
 
 test('deleting needs a second click, removes the opportunity for good, and the total follows', async () => {
   const { page } = app;
-  await page.locator('.subnav .nav-row:has(.nav-label:text-is("商机看板"))').click();
+  await page.locator('.section-tabs .section-tab:text-is("商机看板")').click();
   await page.locator('.opp-page').waitFor();
   await card('Bluebell').first().locator('.opp-card-menu').click();
   await page.locator('[data-opp-action="delete"]').click();

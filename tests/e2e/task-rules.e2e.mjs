@@ -62,7 +62,7 @@ test('协同 → 任务设置 lists four rules, all off, with a preview and no t
   const { page } = app;
   await app.open('customers');
   await page.locator('.rail-item[data-rail-menu="协同"]').click();
-  await page.locator('.subnav .nav-row:has(.nav-label:text-is("任务设置"))').click();
+  await page.locator('.section-tabs .section-tab:text-is("任务设置")').click();
   await page.locator('.tr-page').waitFor();
   assert.match(await page.locator('.pagebar h1').innerText(), /任务设置/);
   assert.equal(await page.locator('[data-tr-rule]').count(), 4);
