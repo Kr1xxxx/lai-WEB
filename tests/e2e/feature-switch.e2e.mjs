@@ -112,10 +112,10 @@ const openDetail = async () => {
 test('设置 → 功能开关: one switch per module, all on, the fixed sentence, and the page is in 设置中心 and the 设置 flyout', async () => {
   const { page } = app;
   await openSwitchPage();
-  assert.equal(await page.locator('.pagebar h1').innerText(), '功能开关');
+  assert.equal(await page.locator('.k-pageheader-title').innerText(), '功能开关');
   assert.deepEqual(await page.locator('[data-fs-module] h3').allInnerTexts(), ['商机', '产品', '单据', '邮件', '沟通', '团队数据']);
   assert.equal(await page.locator('[data-fs-toggle]:checked').count(), 6);
-  assert.match(await page.locator('.pagebar').innerText(), /关掉后，这个功能不再显示；数据都保留，重新打开就能用。/);
+  assert.match(await page.locator('.k-pageheader').innerText(), /关掉后，这个功能不再显示；数据都保留，重新打开就能用。/);
   assert.match(await page.locator('.fs-fixed').innerText(), /客户、订单、工作台、设置、企业管理是基础功能，不能关闭/);
   assert.ok((await hubItems()).includes('feature-switch'));
   assert.deepEqual((await flyoutTargets('设置')).filter((t) => t === 'feature-switch'), ['feature-switch']);

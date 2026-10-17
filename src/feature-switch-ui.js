@@ -17,15 +17,16 @@
       const CS = CSM();
       return CS && CS.get(state).dealRule.by === 'opportunity' ? '<p class="fs-hint">客户设置里“成交”选的是按商机，商机关着时先按订单算；重新打开后恢复。</p>' : '';
     };
-    const cards = M.MODULES.map((m) => {
+    // 组件套件（D-028）：一张卡片里一行一个模块，和设置中心的行一样：左边名称和说明，右边开关（k-switch）和已开启／已关闭。
+    const rows = M.MODULES.map((m) => {
       const on = M.enabled(state, m.id);
-      return `<section class="business-section fs-item" data-fs-module="${E(m.id)}"><div class="fs-head"><div><h3>${E(m.label)}</h3><p class="settings-copy fs-note">${E(m.note)}</p>${dealNote(m.id)}</div>`
-        + `<label class="fs-switch"><input type="checkbox" data-fs-toggle="${E(m.id)}" aria-label="${E(m.label)}功能开关"${on ? ' checked' : ''}${lock}><span>${on ? '已开启' : '已关闭'}</span></label></div></section>`;
+      return `<div class="fs-item" data-fs-module="${E(m.id)}"><div class="fs-text"><h3>${E(m.label)}</h3><p class="fs-note">${E(m.note)}</p>${dealNote(m.id)}</div>`
+        + `<label class="fs-switch"><input type="checkbox" class="k-switch" role="switch" data-fs-toggle="${E(m.id)}" aria-label="${E(m.label)}功能开关"${on ? ' checked' : ''}${lock}><span>${on ? '已开启' : '已关闭'}</span></label></div>`;
     }).join('');
-    return `<div class="pagebar"><div class="business-title"><h1>功能开关</h1><span>关掉后，这个功能不再显示；数据都保留，重新打开就能用。</span></div><div class="page-actions"></div></div>`
-      + `<div class="business-scroll fs-page">${cards}`
-      + `<div class="error${view.error ? ' visible' : ''}" id="fs-error" role="alert">${E(view.error)}</div>`
-      + `<p class="settings-copy fs-fixed">${E(FIXED)}${editable ? '' : '你的角色只能查看，不能修改。'}</p></div>`;
+    return `<div class="k-pageheader sh-header"><div class="k-pageheader-text"><h1 class="k-pageheader-title">功能开关</h1><span class="k-pageheader-desc">关掉后，这个功能不再显示；数据都保留，重新打开就能用。</span></div><div class="k-pageheader-actions"></div></div>`
+      + `<div class="business-scroll fs-page"><section class="k-card fs-card"><div class="k-card-body fs-list">${rows}</div></section>`
+      + `<div class="k-error${view.error ? ' visible' : ''}" id="fs-error" role="alert">${E(view.error)}</div>`
+      + `<p class="fs-fixed">${E(FIXED)}${editable ? '' : '你的角色只能查看，不能修改。'}</p></div>`;
   }
 
   async function toggle(c, id, on) {

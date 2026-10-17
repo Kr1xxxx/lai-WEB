@@ -51,10 +51,11 @@ test('the page registers itself as LaiExtraPages.rates and renders the table, th
   assert.equal(h.window.LaiExtraPages.rates.title, '汇率设置');
   h.controller.navigate('rates');
   const html = h.last();
-  assert.match(html, /<h1>汇率设置<\/h1>/);
-  for (const head of ['币种', '每 100 折合美元', '折合人民币', '更新日期']) assert.ok(html.includes(`<th>${head}</th>`), head);
-  assert.match(html, /data-rate-row="USD"[\s\S]*?<td>100<\/td><td>714\.2857<\/td>/);
-  assert.match(html, /data-rate-row="EUR"[\s\S]*?<td>108<\/td><td>771\.4286<\/td><td>2026-10-02<\/td>/);
+  assert.match(html, /<h1 class="k-pageheader-title">汇率设置<\/h1>/);
+  for (const head of ['<th>币种', '<th class="k-num">每 100 折合美元', '<th class="k-num">折合人民币', '<th>更新日期']) assert.ok(html.includes(`${head}</th>`), head);
+  assert.match(html, /<table class="k-table rate-table">/);
+  assert.match(html, /data-rate-row="USD"[\s\S]*?<td class="k-num">100<\/td><td class="k-num">714\.2857<\/td>/);
+  assert.match(html, /data-rate-row="EUR"[\s\S]*?<td class="k-num">108<\/td><td class="k-num">771\.4286<\/td><td>2026-10-02<\/td>/);
   assert.match(html, /data-rate-row="GBP" class="rate-missing"[\s\S]*?未设置/, 'a code in use without a rate shows 未设置');
   assert.match(html, /改汇率不会改已经保存的订单。/);
   assert.match(html, /id="rate-add-form"/);
@@ -113,7 +114,7 @@ test('the 设置 button on a missing code fills that code in place', async () =>
   const h = setup(seed());
   h.controller.navigate('rates');
   h.emit('click', h.button({ rateAction: 'edit', code: 'GBP' }));
-  assert.match(h.last(), /data-rate-row="GBP" class="rate-missing"><td><span class="currency-badge">GBP<\/span><\/td><td><input class="rate-input" name="usd100"/);
+  assert.match(h.last(), /data-rate-row="GBP" class="rate-missing"><td><span class="k-badge rate-code">GBP<\/span><\/td><td class="k-num"><input class="k-input rate-input" name="usd100"/);
   h.emit('submit', h.form('rate-edit-form', { usd100: '127' }, { code: 'GBP' }));
   await h.flush();
   assert.equal(RT.rateFor(h.getState(), 'GBP'), 127);

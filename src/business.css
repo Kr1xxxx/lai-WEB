@@ -215,30 +215,29 @@
 .stage-bars-wide b {
   min-width: 9.5em;
 }
-.settings-layout {
-  max-width: none;
-}
-.settings-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 24px;
-  margin-bottom: 16px;
-}
-.settings-copy {
-  font-size: 12px;
-  line-height: 1.9;
-  color: var(--ink-500);
-}
+/* 设置（路由 settings，markup 在 business-ui.js 的 renderSettings）：页头、卡片、输入、按钮、徽标、错误都来自组件套件
+   （src/ui-kit.css，D-028），和设置中心同一种样子；这里只排版：一列卡片、两列表单（标签在框上面）、按钮行。 */
+:root[data-skin] .settings-layout { max-width: none; display: flex; flex-direction: column; gap: 12px; }
+:root[data-skin] .settings-layout .st-form { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+:root[data-skin] .settings-layout .st-card { flex: none; }
+:root[data-skin] .settings-layout .st-head { flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+:root[data-skin] .settings-layout .st-head-badge { align-self: center; }
+:root[data-skin] .settings-layout .st-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; padding-top: 12px; padding-bottom: 16px; }
+:root[data-skin] .settings-layout .st-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; }
+:root[data-skin] .settings-layout .st-label { display: inline-flex; gap: 2px; font-size: var(--text-xs); font-weight: 500; line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .settings-layout .st-label .required { color: var(--danger-fg); }
+:root[data-skin] .settings-layout .st-field .lai-select-trigger { width: 100%; }
+:root[data-skin] .settings-layout .st-hint { font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .settings-layout .st-hint:empty { display: none; }
+:root[data-skin] .settings-layout .st-copy { margin: 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+:root[data-skin] .settings-layout .st-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+:root[data-skin] .settings-layout .st-actions--start { justify-content: flex-start; margin: 12px 0 8px; }
+@media (max-width: 760px) { :root[data-skin] .settings-layout .st-grid { grid-template-columns: minmax(0, 1fr); } }
 .business-check {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
-}
-.settings-layout h3 {
-  font-size: 14px;
-  font-weight: 500;
 }
 .money-summary {
   overflow: auto;
@@ -1470,43 +1469,38 @@ td.team-reached {
 .pd-item dt { font-size: 12px; color: var(--ink-500, #8c8c8c); }
 .pd-item dd { margin: 2px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 /* 界面配色：每个选项带一张小预览图（左侧栏 + 顶栏 + 两张卡片）。预览图的颜色按选项自己写死，
-   不跟当前主题变，这样三种配色并排时一眼能分清。 */
-.theme-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 16px;
-  margin: 16px 0;
+   不跟当前主题变，这样三种配色并排时一眼能分清。选项本身是组件套件的样子：1px 边，选中的那张主色边＋「使用中」徽标。 */
+:root[data-skin] .theme-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 4px 0 12px; }
+:root[data-skin] .theme-option {
+  display: flex; flex-direction: column; gap: 10px; height: auto; min-height: 0; padding: 8px;
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card-bg); color: var(--fg);
+  font: inherit; text-align: left; box-shadow: none; cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-standard);
 }
-.theme-option {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  border: 2px solid var(--ink-200);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--ink-900);
-  text-align: left;
-  cursor: pointer;
-}
-.theme-option:hover { border-color: var(--brand-300); }
-.theme-option.selected { border-color: var(--brand-500); box-shadow: 0 0 0 3px var(--brand-100); }
-.theme-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+:root[data-skin] .theme-option:hover { border-color: var(--ink-400); background: var(--card-bg); }
+:root[data-skin] .theme-option.selected,
+:root[data-skin] .theme-option.selected:hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+:root[data-skin] .theme-option:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+:root[data-skin] .theme-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; padding: 0 2px; }
+:root[data-skin] .theme-line strong { font-size: var(--text-sm); font-weight: 600; }
+/* 换色时不重画页面，只换 .selected 和文字（business-ui.js 的 set-theme）；徽标颜色跟着 .selected 走 */
+:root[data-skin] .theme-option .theme-state { background: transparent; padding: 0; color: var(--muted-fg); }
+:root[data-skin] .theme-option.selected .theme-state { padding: 0 8px; background: var(--accent-bg); color: var(--accent-fg); }
 .theme-preview {
   --pv-page: #f1e9ee; --pv-nav: #4d1233; --pv-brand: #be185d; --pv-tint: #fcdce9;
   display: flex;
   height: 96px;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--pv-page);
 }
 .theme-preview[data-preview="orange"] { --pv-page: #f0eae4; --pv-nav: #4d1f0a; --pv-brand: #c2410c; --pv-tint: #fde3cf; }
 .theme-preview[data-preview="tech"] { --pv-page: #eef2f7; --pv-nav: #0f1d33; --pv-brand: #2f5bff; --pv-tint: #e2e9ff; }
 .theme-preview .pv-nav { flex: 0 0 22%; background: var(--pv-nav); }
 .theme-preview .pv-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
-.theme-preview .pv-bar { display: block; height: 10px; width: 60%; border-radius: 5px; background: var(--pv-brand); }
+.theme-preview .pv-bar { display: block; height: 10px; width: 60%; border-radius: var(--radius-pill); background: var(--pv-brand); }
 .theme-preview .pv-cards { flex: 1; display: flex; gap: 8px; }
-.theme-preview .pv-cards i { flex: 1; border-radius: 6px; background: #fff; }
+.theme-preview .pv-cards i { flex: 1; border-radius: var(--r-sm); background: #fff; }
 .theme-preview .pv-cards i.pv-tint { background: var(--pv-tint); }
 
 
@@ -1760,14 +1754,25 @@ td.team-reached {
 @media (max-width: 860px) { .role-org-layout { grid-template-columns: 1fr; } }
 /* 角色字段权限：只读字段看得出不能改 */
 :is(.opp-form, #product-form) :is(input, select, textarea):is(:disabled, [readonly]), .opp-form fieldset:disabled { background: var(--ink-50); color: var(--ink-600); cursor: not-allowed; }
-/* 订单自定义字段：设置页里的「订单字段」、订单表单里的多选、详情里的取值 */
-/* 和同一页的「默认录入」「界面配色」一样宽 */
-.of-section { flex: none; }
-.of-section .cf-add input[name="options"] { flex: 1 1 260px; max-width: 360px; }
-.of-section .cf-field .cs-row { flex-wrap: wrap; }
+/* 订单自定义字段：设置页里的「订单字段」（k-card，和同一页的「默认录入」「界面配色」一样宽）、详情里的取值 */
+:root[data-skin] .of-section { flex: none; }
+:root[data-skin] .of-section .cf-add { flex-wrap: wrap; align-items: center; margin: 4px 0 12px; }
+:root[data-skin] .of-section .cf-add input[name="name"] { flex: 0 1 220px; }
+:root[data-skin] .of-section .cf-add input[name="options"] { flex: 1 1 260px; max-width: 360px; }
+:root[data-skin] .of-section .cf-add .lai-select-trigger { width: 140px; }
+:root[data-skin] .of-section .of-check { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--fg); white-space: nowrap; cursor: pointer; }
+:root[data-skin] .of-section .cs-list { border-color: var(--border); border-radius: var(--radius); }
+:root[data-skin] .of-section .cs-list > li { border-top-color: var(--border); }
+:root[data-skin] .of-section .cs-child { background: var(--muted-bg); }
+:root[data-skin] .of-section .cf-field .cs-row { flex-wrap: wrap; }
+:root[data-skin] .of-section .cs-use { font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .of-section .cs-row-actions { align-items: center; gap: 4px; }
+:root[data-skin] .of-section .cs-row-actions .k-btn--sm { min-width: 28px; }
 /* 名称框按名称长短放宽（--of-name 是字数），最长 30 个字也能看全；窄屏时照常缩小 */
-.of-section .cf-name { flex: 0 1 max(240px, calc(var(--of-name, 0) * 1em + 26px)); max-width: 100%; }
-.of-section .of-error { margin-bottom: 10px; }
+:root[data-skin] .of-section .cf-name { flex: 0 1 max(240px, calc(var(--of-name, 0) * 1em + 26px)); max-width: 100%; }
+:root[data-skin] .of-section .of-error { margin: 0 0 10px; }
+:root[data-skin] .of-section .of-none { padding: 20px 16px; }
+:root[data-skin] .of-section .cs-hint { margin: 10px 0 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
 .order-custom-infos .order-custom-wide { grid-column: 1 / -1; }
 .order-custom-infos .order-custom-wide dd { white-space: pre-line; }
 
