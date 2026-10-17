@@ -33,7 +33,8 @@ test('grey text tokens in the glass skin are readable on white cards and on the 
 test('badges, tags and tinted labels in the glass skin keep a text contrast of at least 4.5:1', () => {
   const pairs = [
     ['.new-badge', '#ffffff', decl(':root[data-skin="glass"] .new-badge', 'background')],
-    ['.team-rank-1', '#ffffff', decl(':root[data-skin="glass"] .team-rank-1', 'background')],
+    // 团队数据的第一名是组件套件的提醒徽标（k-badge--warning）：字色、底色都是 ui-tokens.css 里的值
+    ['.k-badge--warning (第一名)', tokens.match(/--warning-fg:\s*(#[0-9a-fA-F]{6})/)[1], tokens.match(/--color-warning-soft:\s*(#[0-9a-fA-F]{6})/)[1]],
     ['.tag', decl(':root[data-skin="glass"] .tag', 'color'), '#fae7e4'],
     ['.tag.green', decl(':root[data-skin="glass"] .tag.green', 'color'), '#ecf8f1'],
   ];
@@ -63,9 +64,13 @@ test('placeholder text is lighter than typed text but still at least 4.5:1', () 
   assert.match(skin, /input::placeholder,[\s\S]*?textarea::placeholder \{ color: rgba\(var\(--skin-ink-rgb\), 0\.6\)/);
 });
 
-test('tab strips and the new-target cell keep square corners and their own thin lines in the glass skin', () => {
-  assert.match(skin, /:is\(\.team-tabs button, \.team-goal-new\) \{ border-radius: 0; \}/);
-  assert.match(skin, /\.team-tabs button\[aria-selected="true"\]:hover:not\(:disabled\) \{ border-color: transparent transparent var\(--brand-700\); \}/);
+test('团队数据 tabs and the new-target cell come from the kit, so the glass skin needs no fixes for them', () => {
+  // 结果目标/过程目标/商机目标 are .k-tabs (segmented, kit radius); 新建目标 is a dashed tile drawn in business.css with tokens.
+  const team = read('src/team-ui.js');
+  assert.match(team, /<div class="k-tabs team-tabs" role="tablist">\$\{[^]*?<button type="button" class="k-tab" role="tab" data-team-tab=/);
+  assert.match(read('src/team-ui.js'), /team-rank k-badge \$\{rank===1\?'k-badge--warning':'k-badge--neutral'\}/);
+  assert.match(read('src/business.css'), /:root\[data-skin\] \.team-goal-new \{[^}]*border: 1px dashed var\(--input\); border-radius: var\(--r-xl\)/);
+  assert.doesNotMatch(skin, /\.team-(tabs|goal-new|rank)/, 'no glass overrides left for the team pages');
 });
 
 test('the active rail item is a brand pill around icon and text; the batch bar is light', () => {

@@ -117,11 +117,6 @@
   border-color: var(--brand-300);
   box-shadow: 0 2px 8px #b6cced33;
 }
-.business-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
 .business-line {
   display: flex;
   align-items: center;
@@ -179,42 +174,6 @@
   color: #268777;
   background: #ebf7f3;
 }
-.stage-bars > div {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  font-size: 12px;
-  margin: 21px 0;
-}
-.stage-bars span {
-  width: 58px;
-  color: var(--ink-600);
-}
-.stage-bars > div > div {
-  flex: 1;
-  min-width: 0;
-  background: var(--chart-track);
-  border-radius: 4px;
-  height: 9px;
-  overflow: hidden;
-}
-.stage-bars i {
-  display: block;
-  height: 100%;
-  background: var(--chart-1);
-  border-radius: 4px;
-}
-.stage-bars b {
-  font-weight: 500;
-  flex: none;
-  min-width: 24px;
-  white-space: nowrap;
-  text-align: right;
-}
-/* 团队趋势图的数值带币种（167,600.00 USD），整张图的数值列留够同样的宽度，条形右端对齐，数值不换行也不被卡片切掉 */
-.stage-bars-wide b {
-  min-width: 9.5em;
-}
 /* 设置（路由 settings，markup 在 business-ui.js 的 renderSettings）：页头、卡片、输入、按钮、徽标、错误都来自组件套件
    （src/ui-kit.css，D-028），和设置中心同一种样子；这里只排版：一列卡片、两列表单（标签在框上面）、按钮行。 */
 :root[data-skin] .settings-layout { max-width: none; display: flex; flex-direction: column; gap: 12px; }
@@ -239,27 +198,8 @@
   gap: 8px;
   font-size: 12px;
 }
-.money-summary {
-  overflow: auto;
-}
 .business-section > .order-table {
   font-size: 12px;
-}
-/* 客户贡献表：客户名很长时只收住第一列（省略号，悬停看全名），数字列定宽不换行，表格不会撑出卡片 */
-.order-table.fit-table {
-  width: 100%;
-  table-layout: fixed;
-}
-.order-table.fit-table th:nth-child(2) { width: 64px; }
-.order-table.fit-table th:nth-child(3) { width: 150px; }
-.order-table.fit-table td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.order-table.fit-table .company-link {
-  display: block;
-  max-width: 100%;
 }
 .order-table .company-link {
   font-size: 12px;
@@ -279,9 +219,6 @@
   }
 }
 @media (max-width: 1100px) {
-  .business-columns {
-    grid-template-columns: 1fr;
-  }
   .business-kpis {
     gap: 10px;
   }
@@ -296,430 +233,6 @@
   }
 }
 
-.team-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.team-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid var(--ink-200);
-  border-radius: 6px;
-  background: #fff;
-}
-.team-tile > span {
-  font-size: 13px;
-  color: var(--ink-600);
-}
-.team-tile > strong {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--ink-900);
-}
-.team-number {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font: inherit;
-  color: var(--brand-700);
-  text-decoration: underline;
-  text-decoration-color: rgba(var(--brand-rgb),0.35);
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.team-number:hover {
-  text-decoration-color: currentColor;
-}
-.team-total td {
-  font-weight: 600;
-  background: var(--ink-50);
-}
-.team-note {
-  margin: 10px 0 0;
-}
-.team-trend-title {
-  margin: 14px 0 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-800);
-}
-.team-detail-list {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-.team-detail-list li {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--ink-100);
-}
-
-.team-scope {
-  display: inline-flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--ink-300);
-  border-radius: 4px;
-  font-size: 13px;
-  color: var(--ink-800);
-  background: #fff;
-}
-.team-tabs {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--ink-200);
-}
-.team-tabs button {
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  padding: 6px 2px 10px;
-  font-size: 14px;
-  color: var(--ink-800);
-}
-.team-tabs button[aria-selected="true"] {
-  color: var(--brand-700);
-  border-bottom-color: var(--brand-700);
-  font-weight: 600;
-}
-.team-goal-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  border-top: 1px solid var(--ink-200);
-  border-left: 1px solid var(--ink-200);
-}
-.team-goal {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 118px;
-  padding: 14px 16px;
-  border-right: 1px solid var(--ink-200);
-  border-bottom: 1px solid var(--ink-200);
-  background: #fff;
-}
-.team-goal-head,
-.team-goal-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--ink-900);
-}
-.team-goal > strong {
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--ink-900);
-}
-.team-goal-bar,
-.team-progress {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--brand-50);
-  overflow: hidden;
-}
-.team-goal-bar i,
-.team-progress i {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: var(--chart-1);
-}
-.team-goal-new {
-  align-items: center;
-  justify-content: center;
-  border-top: 0;
-  border-left: 0;
-  border-radius: 0;
-  color: var(--ink-800);
-  font-size: 13px;
-}
-.team-goal-new span {
-  font-size: 20px;
-}
-.team-link {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font-size: 12px;
-  color: var(--brand-700);
-}
-.team-segment {
-  display: inline-flex;
-  margin: 16px 0 12px;
-}
-.team-segment button {
-  border-radius: 0;
-  padding: 5px 16px;
-  font-size: 13px;
-}
-.team-segment button:first-child {
-  border-radius: 4px 0 0 4px;
-}
-.team-segment button:last-child {
-  border-radius: 0 4px 4px 0;
-  margin-left: -1px;
-}
-.team-segment button[aria-pressed="true"] {
-  position: relative;
-  border-color: var(--brand-500);
-  color: var(--brand-700);
-  font-weight: 600;
-}
-.team-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.team-tools button {
-  font-size: 12px;
-  padding: 3px 10px;
-}
-.team-tools button[aria-pressed="false"] {
-  color: var(--ink-500);
-  text-decoration: line-through;
-}
-.team-table-scroll {
-  overflow-x: auto;
-}
-.team-board th,
-.team-board td {
-  white-space: nowrap;
-  text-align: left;
-  vertical-align: middle;
-}
-.team-board thead th {
-  border: 1px solid var(--ink-200);
-  background: var(--ink-50);
-}
-.team-sort {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-}
-.team-rank {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  font-size: 12px;
-  color: var(--ink-600);
-}
-.team-rank-1,
-.team-rank-2,
-.team-rank-3 {
-  color: #fff;
-  font-weight: 600;
-}
-.team-rank-1 {
-  background: #e3a008;
-}
-.team-rank-2 {
-  background: var(--ink-500);
-}
-.team-rank-3 {
-  background: #c9713a;
-}
-.team-wall {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-.team-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 200px;
-  padding: 18px 20px;
-  border-radius: 6px;
-  background: #fff;
-  box-shadow: var(--shadow-card, 0 1px 2px rgba(var(--ink-rgb),0.08));
-}
-.team-card h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--ink-900);
-}
-.team-card-tall {
-  grid-row: span 2;
-}
-.team-card-wide {
-  grid-column: 1 / -1;
-}
-.team-card-number {
-  align-items: stretch;
-}
-.team-card-number > strong {
-  margin: auto;
-  font-size: 34px;
-  font-weight: 700;
-  color: var(--ink-900);
-}
-.team-card-number > strong + span {
-  text-align: center;
-}
-.team-figures {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: auto;
-}
-.team-figures > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.team-figures strong {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.25;
-  color: var(--ink-900);
-}
-.team-figures b {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--ink-900);
-}
-.team-segbar {
-  height: 16px;
-  border-radius: 2px;
-  background: repeating-linear-gradient(90deg, var(--brand-100) 0 6px, #fff 6px 8px);
-}
-.team-countdown {
-  position: relative;
-}
-.team-ring {
-  position: relative;
-  width: 150px;
-  height: 150px;
-  margin: 0 auto;
-}
-.team-ring svg {
-  width: 100%;
-  height: 100%;
-}
-.team-ring-track,
-.team-ring-value {
-  fill: none;
-  stroke-width: 6;
-}
-.team-ring-track {
-  stroke: var(--chart-track);
-}
-.team-ring-value {
-  stroke: var(--chart-1);
-  stroke-linecap: round;
-}
-.team-ring-text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--ink-900);
-}
-.team-ring-text strong {
-  font-size: 36px;
-  font-weight: 500;
-  line-height: 1.1;
-}
-.team-ring-text small {
-  font-size: 12px;
-  margin-left: 2px;
-}
-.team-countdown-date {
-  font-size: 13px;
-  color: var(--ink-900);
-}
-.team-rank-list {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-}
-.team-rank-list li {
-  display: grid;
-  grid-template-columns: 28px minmax(60px, 1fr) minmax(70px, auto) minmax(60px, 1.4fr);
-  align-items: center;
-  gap: 10px;
-  padding: 7px 0;
-  font-size: 13px;
-  color: var(--ink-900);
-}
-.team-rank-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.team-bar {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--chart-track);
-  overflow: hidden;
-}
-.team-bar i {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: var(--ink-500);
-}
-.team-rank-list li:nth-child(1) .team-bar i {
-  background: var(--chart-rank-1);
-}
-.team-rank-list li:nth-child(2) .team-bar i {
-  background: var(--chart-rank-2);
-}
-.team-rank-list li:nth-child(3) .team-bar i {
-  background: var(--chart-rank-3);
-}
-.team-first {
-  font-size: 13px;
-  color: #c9713a;
-}
-@media (max-width: 1280px) {
-  .team-wall {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .team-card-tall {
-    grid-row: auto;
-  }
-}
-
-.team-period {
-  margin: 0;
-}
-.team-reached {
-  font-style: normal;
-  font-size: 12px;
-  color: #1f9d60;
-}
-td.team-reached {
-  font-size: inherit;
-  font-weight: 600;
-}
-.team-segbar {
-  overflow: hidden;
-}
-.team-segbar i {
-  display: block;
-  height: 100%;
-  background: repeating-linear-gradient(90deg, var(--chart-1) 0 6px, #fff 6px 8px);
-}
 
 .team-danger {
   color: #c0392b;
@@ -1128,74 +641,183 @@ td.team-reached {
   align-items: start;
 }
 
-/* 团队数据：版式微调（截图核对后）。 */
-/* 可点开明细的数字：平时只用颜色提示，悬停时才出现下划线，整张表不再满是横线。 */
-.team-number {
-  text-decoration: none;
+/* 团队数据（目标完成情况、目标管理、团队墙、客户资产、跟进情况、订单业绩）和经营统计。
+   markup 在 src/team-ui.js 和 business-ui.js 的 renderAnalysis／renderTeam／renderGoals／renderWall／renderTargets。
+   页头、卡片、表格、页签、按钮、徽标、空状态、抽屉壳都来自统一组件（src/ui-kit.css，D-028）；这里只放这一组页面自己的排版。
+   主色只用在：选中的页签、进度条和横条、可点开明细的数字、「设置目标值」这种链接。 */
+:root[data-skin] .main:has(.team-page) { overflow-x: hidden; overflow-y: auto; }
+:root[data-skin] .team-page { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 100%; padding-bottom: 16px; font-size: var(--text-sm); color: var(--fg); }
+:root[data-skin] .team-page > .k-pageheader { padding-bottom: 0; flex-wrap: wrap; }
+:root[data-skin] .team-page .k-pageheader-actions { flex-wrap: wrap; justify-content: flex-end; }
+:root[data-skin] .team-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+:root[data-skin] .team-scope-note { margin: 0; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-note,
+:root[data-skin] .team-hint { margin: 8px 0 0; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
+
+/* 页头：月份框（统一日期框，外观 k-input，保留日历小图标）、「我的企业」范围框 */
+:root[data-skin] .team-page input.team-month.lai-date-trigger,
+:root[data-skin] .team-page input.team-month[type="month"] { width: 132px; padding-right: 30px; }
+:root[data-skin] .team-page input.team-month.lai-date-trigger {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none' stroke='%238c8c8c' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='1.6' y='2.6' width='10.8' height='9.8' rx='1.6'/%3E%3Cpath d='M1.6 5.6h10.8M4.4 1.4v2.4M9.6 1.4v2.4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 14px 14px;
 }
-.team-number:hover,
-.team-number:focus-visible {
-  text-decoration: underline;
+:root[data-skin] .team-scope {
+  display: inline-flex; align-items: center; box-sizing: border-box; height: 32px; padding: 0 12px;
+  border: 1px solid var(--input); border-radius: var(--radius); background: var(--card-bg); color: var(--fg); font-size: var(--text-sm); white-space: nowrap;
 }
-.team-table td {
-  padding-top: 11px;
-  padding-bottom: 11px;
+:root[data-skin] .team-period .k-tab { white-space: nowrap; }
+
+/* 卡片：标题行里说明可以折行，右边的工具靠右 */
+:root[data-skin] .team-card .k-card-head { flex-wrap: wrap; row-gap: 6px; }
+:root[data-skin] .team-head-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+:root[data-skin] .team-tools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* 「目标值」「完成率」两列开关：开着是浅主色底，关掉是普通灰字 */
+:root[data-skin] .team-toggle[aria-pressed="true"],
+:root[data-skin] .team-toggle[aria-pressed="true"]:hover:not(:disabled) { background: var(--accent-bg); border-color: transparent; color: var(--accent-fg); }
+:root[data-skin] .team-toggle[aria-pressed="false"] { color: var(--muted-fg); }
+
+/* 数字卡片（在库客户、本月新增、订单数……） */
+:root[data-skin] .team-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+:root[data-skin] .team-tile { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; }
+:root[data-skin] .team-tile > span { font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-tile > strong { font-size: var(--text-2xl); font-weight: 600; line-height: 1.25; color: var(--fg); font-variant-numeric: tabular-nums; }
+
+/* 表格：横向放不下时在卡片里左右滚动；合计行淡底加粗；可点开明细的数字是主色，悬停出下划线 */
+:root[data-skin] .team-table-scroll { overflow-x: auto; min-width: 0; }
+:root[data-skin] .team-table td { white-space: nowrap; }
+:root[data-skin] .team-table .team-total td { border-top: 1px solid var(--input); font-weight: 600; }
+:root[data-skin] .team-table td.team-none { padding: 24px 12px; text-align: center; color: var(--muted-fg); }
+:root[data-skin] .team-table td.team-unset { color: var(--muted-fg); }
+:root[data-skin] .team-table td.team-reached { color: var(--success-fg); font-weight: 600; }
+:root[data-skin] .team-number {
+  height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none;
+  font: inherit; color: var(--primary); text-decoration: none; text-underline-offset: 3px; cursor: pointer;
 }
-/* 目标卡片：目标说明和进度条固定在卡片底部，同一行的卡片底边对齐。 */
-.team-goal-foot {
-  align-items: flex-end;
-  flex-wrap: wrap;
-  margin-top: auto;
+:root[data-skin] .team-number:hover:not(:disabled),
+:root[data-skin] .team-number:focus-visible { background: transparent; color: var(--primary); text-decoration: underline; }
+:root[data-skin] .team-rank { min-width: 22px; justify-content: center; font-variant-numeric: tabular-nums; }
+:root[data-skin] .team-rank-none { display: inline-block; color: var(--muted-fg); text-align: center; }
+:root[data-skin] .team-sort {
+  height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none;
+  font: inherit; font-weight: 500; color: inherit; white-space: nowrap; cursor: pointer;
 }
-/* 说明文字不折行；放不下时「修改目标值 »」换到下一行靠右，不挤断说明 */
-.team-goal-foot > span {
-  white-space: nowrap;
+:root[data-skin] .team-sort:hover:not(:disabled) { background: transparent; color: var(--fg); }
+:root[data-skin] [aria-sort] > .team-sort { color: var(--fg); font-weight: 600; }
+/* 成员排行榜的两行表头：第一行是指标名（跨完成值、目标值、完成率三列居中），每组之间一条竖线 */
+:root[data-skin] .team-board thead tr:first-child th[colspan] { text-align: center; color: var(--fg); }
+:root[data-skin] .team-board thead th[colspan],
+:root[data-skin] .team-board thead th:has(> .team-sort) { border-left: 1px solid var(--border); }
+:root[data-skin] .team-board thead tr + tr th { background: var(--card-bg); }
+:root[data-skin] .team-targets .team-acts { width: 1%; text-align: right; }
+:root[data-skin] .team-targets .team-acts .k-btn + .k-btn { margin-left: 4px; }
+/* 客户贡献：客户名很长时只收住第一列（省略号，悬停看全名），数字列定宽，表格不撑出卡片 */
+:root[data-skin] .team-fit { table-layout: fixed; }
+:root[data-skin] .team-fit th:nth-child(2) { width: 72px; }
+:root[data-skin] .team-fit th:nth-child(3) { width: 150px; }
+:root[data-skin] .team-fit td { overflow: hidden; text-overflow: ellipsis; }
+:root[data-skin] .team-fit .company-link { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+
+/* 横条（订单阶段分布、近 6 个月趋势）：主色条在浅灰轨道上；数值列留够带币种的宽度，条形右端对齐 */
+:root[data-skin] .team-bars { display: flex; flex-direction: column; gap: 10px; }
+:root[data-skin] .team-bars > div { display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(7em, auto); align-items: center; gap: 12px; font-size: var(--text-xs); }
+:root[data-skin] .team-bars span { color: var(--muted-fg); white-space: nowrap; }
+:root[data-skin] .team-bars > div > div { height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--chart-track); }
+:root[data-skin] .team-bars i { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--primary); }
+:root[data-skin] .team-bars b { font-weight: 500; color: var(--fg); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+:root[data-skin] .team-stage-bars { gap: 14px; padding: 6px 0; }
+:root[data-skin] .team-stage-bars > div { grid-template-columns: 56px minmax(0, 1fr) 32px; }
+:root[data-skin] .team-trend { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px 32px; }
+:root[data-skin] .team-trend-title { margin: 4px 0 10px; font-size: var(--text-sm); font-weight: 600; color: var(--fg); }
+/* 经营统计：阶段分布和客户贡献两栏 */
+:root[data-skin] .team-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+@media (max-width: 1100px) { :root[data-skin] .team-columns { grid-template-columns: minmax(0, 1fr); } }
+
+/* 目标完成情况：页签、概览卡片、新建目标 */
+:root[data-skin] .team-tabs { align-self: flex-start; }
+:root[data-skin] .team-block { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+:root[data-skin] .team-block-title { margin: 0; font-size: var(--text-base); font-weight: 600; line-height: 22px; color: var(--fg); }
+:root[data-skin] .team-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+:root[data-skin] .team-goal { display: flex; flex-direction: column; gap: 8px; min-height: 148px; padding: 14px 16px; }
+:root[data-skin] .team-goal-head,
+:root[data-skin] .team-goal-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--text-sm); color: var(--fg); }
+:root[data-skin] .team-goal-head > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 500; }
+:root[data-skin] .team-goal > strong { font-size: var(--text-xl); font-weight: 600; line-height: 1.3; color: var(--fg); font-variant-numeric: tabular-nums; }
+/* 目标说明和进度条固定在卡片底部，同一行的卡片底边对齐；说明放不下时「修改目标值 »」换到下一行靠右 */
+:root[data-skin] .team-goal-foot { flex-wrap: wrap; align-items: flex-end; margin-top: auto; }
+:root[data-skin] .team-goal-note { font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); white-space: nowrap; }
+:root[data-skin] .team-goal-foot .team-link { flex: none; margin-left: auto; }
+:root[data-skin] .team-goal-bar { height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--chart-track); }
+:root[data-skin] .team-goal-bar i { display: block; width: 0; height: 100%; border-radius: var(--radius-pill); background: var(--primary); }
+:root[data-skin] .team-link {
+  height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none;
+  font: inherit; font-size: var(--text-xs); color: var(--muted-fg); white-space: nowrap; cursor: pointer;
 }
-.team-goal-foot .team-link {
-  flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
+:root[data-skin] .team-link:hover:not(:disabled) { background: transparent; color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+:root[data-skin] .team-link-strong,
+:root[data-skin] .team-link-strong:hover:not(:disabled) { color: var(--primary); font-weight: 500; }
+:root[data-skin] .team-goal-new {
+  flex-direction: row; align-items: center; justify-content: center; gap: 6px; min-height: 148px;
+  border: 1px dashed var(--input); border-radius: var(--r-xl); background: transparent; box-shadow: none;
+  font: inherit; font-size: var(--text-sm); font-weight: 500; color: var(--muted-fg); cursor: pointer;
 }
-/* 团队墙金额卡片：完成值独占一行不折行，目标值、完成率并排在下面。 */
-.team-figures {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: end;
-  gap: 12px 16px;
+:root[data-skin] .team-goal-new:hover:not(:disabled) { border-color: var(--ink-400); background: var(--card-bg); color: var(--fg); }
+:root[data-skin] .team-goal-new span { font-size: var(--text-lg); line-height: 1; }
+
+/* 团队墙：三列卡片；金额排行榜占两行；两张数字卡片叠在一列里和旁边等高 */
+:root[data-skin] .team-wall { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+:root[data-skin] .team-wall-card { display: flex; flex-direction: column; gap: 6px; min-height: 200px; padding: 14px 16px; }
+:root[data-skin] .team-card-tall { grid-row: span 2; }
+:root[data-skin] .team-card-wide { grid-column: 1 / -1; }
+:root[data-skin] .team-stack { display: grid; grid-auto-rows: 1fr; gap: 12px; min-width: 0; }
+:root[data-skin] .team-cap { font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-card-number > strong { margin: auto; font-size: var(--text-2xl); font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; }
+:root[data-skin] .team-card-number > .team-cap { text-align: center; }
+:root[data-skin] .team-figures { display: grid; grid-template-columns: 1fr 1fr; align-items: end; gap: 12px 16px; margin-top: auto; }
+:root[data-skin] .team-figures > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+:root[data-skin] .team-figures > div:first-child { grid-column: 1 / -1; }
+:root[data-skin] .team-figures strong { font-size: var(--text-2xl); font-weight: 600; line-height: 1.25; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+:root[data-skin] .team-figures b { font-size: var(--text-base); font-weight: 600; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+:root[data-skin] .team-segbar { height: 8px; overflow: hidden; border-radius: var(--radius-pill); background: var(--chart-track); }
+:root[data-skin] .team-segbar i { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--primary); }
+:root[data-skin] .team-ring { position: relative; width: 140px; height: 140px; margin: 8px auto 0; }
+:root[data-skin] .team-ring svg { width: 100%; height: 100%; }
+:root[data-skin] .team-ring-track,
+:root[data-skin] .team-ring-value { fill: none; stroke-width: 6; }
+:root[data-skin] .team-ring-track { stroke: var(--chart-track); }
+:root[data-skin] .team-ring-value { stroke: var(--primary); stroke-linecap: round; }
+:root[data-skin] .team-ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-ring-text strong { font-size: var(--text-2xl); font-weight: 600; line-height: 1.2; color: var(--fg); font-variant-numeric: tabular-nums; }
+:root[data-skin] .team-ring-text small { margin-left: 2px; font-size: var(--text-xs); font-weight: 400; color: var(--muted-fg); }
+:root[data-skin] .team-countdown-date { margin-top: auto; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-rank-list { margin: 4px 0 0; padding: 0; list-style: none; }
+:root[data-skin] .team-rank-list li:not(.k-empty) {
+  display: grid; grid-template-columns: 28px minmax(60px, 1fr) minmax(70px, auto) minmax(60px, 1.4fr);
+  align-items: center; gap: 10px; padding: 7px 0; font-size: var(--text-sm); color: var(--fg);
 }
-.team-figures > div:first-child {
-  grid-column: 1 / -1;
-}
-.team-figures strong {
-  font-size: 24px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.team-figures b {
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.team-rank-value,
-.team-board td {
-  font-variant-numeric: tabular-nums;
+:root[data-skin] .team-rank-list li.k-empty { padding: 28px 0; white-space: nowrap; }
+:root[data-skin] .team-rank-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-skin] .team-rank-value { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+:root[data-skin] .team-bar { height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--chart-track); }
+:root[data-skin] .team-bar i { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--primary); }
+:root[data-skin] .team-first { margin-left: auto; font-size: var(--text-xs); color: var(--muted-fg); }
+@media (max-width: 1280px) {
+  :root[data-skin] .team-wall { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root[data-skin] .team-card-tall { grid-row: auto; }
 }
 
-/* 团队墙：两张数字卡片上下叠在一列里，和旁边的排行榜等高。 */
-.team-stack {
-  display: grid;
-  grid-auto-rows: 1fr;
-  gap: 12px;
-  min-width: 0;
-}
-.team-rank-list li.team-rank-empty {
-  width: 100%;
-  display: block;
-  text-align: center;
-  white-space: nowrap;
-  padding: 28px 0;
-}
+/* 抽屉（设置目标、统计规则、数字明细）：外壳是 k-drawer；这里只排里面的内容 */
+:root[data-skin] .team-drawer .k-dialog-head h2 { font-size: var(--text-lg); font-weight: 600; }
+:root[data-skin] .team-target-form .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+:root[data-skin] .team-target-form .field { gap: 6px; min-width: 0; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-target-form .field .team-hint { margin: 0; }
+:root[data-skin] .team-target-form .field :is(.lai-select-trigger, .k-input) { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; }
+:root[data-skin] .team-rule p { margin: 0; font-size: var(--text-sm); line-height: 1.7; color: var(--fg); }
+:root[data-skin] .team-detail-count { margin: 0 0 4px; font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-detail-list { margin: 0; padding: 0; list-style: none; }
+:root[data-skin] .team-detail-list li { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: var(--text-sm); }
+:root[data-skin] .team-detail-meta { font-size: var(--text-xs); color: var(--muted-fg); }
+:root[data-skin] .team-detail-text { font-size: var(--text-xs); color: var(--fg); }
+:root[data-skin] .team-detail-list .k-btn { margin-left: -10px; }
 
 /* 销售流程设置：左边选流程，右边改这个流程的阶段。 */
 .opp-flow-layout {

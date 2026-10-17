@@ -160,7 +160,7 @@
     }
     function metricsMarkup(orders) {
       const m = B.orderMetrics(orders);
-      return `<div class="money-summary"><div class="section-head"><h3>金额概览</h3><span class="muted tiny">按币种分别统计 · 不含草稿</span></div><table class="order-table"><thead><tr><th>币种</th><th>订单数</th><th>订单金额</th><th>已收款</th><th>待收款</th></tr></thead><tbody>${m.byCurrency.map((c) => `<tr><td><span class="currency-badge">${E(c.currency)}</span></td><td>${c.count}</td><td>${money(c.total, c.currency)}</td><td>${money(c.paid, c.currency)}</td><td>${money(c.due, c.currency)}</td></tr>`).join("") || '<tr><td colspan="5">暂无订单金额</td></tr>'}</tbody></table></div>`;
+      return `<section class="k-card team-card"><div class="k-card-head"><h3 class="k-card-title">金额概览</h3><span class="k-card-desc">按币种分别统计 · 不含草稿</span></div><div class="k-card-body"><div class="team-table-scroll"><table class="k-table team-table"><thead><tr><th>币种</th><th class="k-num">订单数</th><th class="k-num">订单金额</th><th class="k-num">已收款</th><th class="k-num">待收款</th></tr></thead><tbody>${m.byCurrency.map((c) => `<tr><td><span class="k-badge k-badge--neutral">${E(c.currency)}</span></td><td class="k-num">${c.count}</td><td class="k-num">${money(c.total, c.currency)}</td><td class="k-num">${money(c.paid, c.currency)}</td><td class="k-num">${money(c.due, c.currency)}</td></tr>`).join("") || '<tr><td colspan="5" class="team-none">暂无订单金额</td></tr>'}</tbody></table></div></div></section>`;
     }
     // 工作台：所有配色都用 src/workbench.js 的版面（今天先做、钱和目标、订单线、商机、客户来消息）。
     let wbMail = null,
@@ -279,28 +279,15 @@
     function renderAnalysis() {
       const analysis = B.monthlyAnalysis(activeOrders(), month),
         orders = analysis.orders;
-      return (
-        header(
-          "经营统计",
-          "订单与客户贡献按币种展示",
-          `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`,
-        ) +
-        `<div class="business-scroll">${metricsMarkup(orders)}<div class="business-columns"><section class="business-section"><div class="section-head"><h3>订单阶段分布</h3></div><div class="stage-bars">${analysis.stages
-          .map(
-            (s) =>
-              `<div><span>${s.label}</span><div><i style="width:${s.percent}%"></i></div><b>${s.count}</b></div>`,
-          )
-          .join(
-            "",
-          )}</div></section><section class="business-section"><div class="section-head"><h3>客户贡献</h3><span class="muted tiny">按币种分组，再按金额排序</span></div><table class="order-table fit-table"><thead><tr><th>客户</th><th>订单数</th><th>订单金额</th></tr></thead><tbody>${
-          analysis.contributions
-            .slice(0, 15)
-            .map(
-              (c) =>
-                `<tr><td>${customerButton(c.client)}</td><td>${c.count}</td><td>${money(c.amount, c.currency)}</td></tr>`,
-            )
-            .join("") || '<tr><td colspan="3">本月暂无订单</td></tr>'
-        }</tbody></table></section></div></div>`
+      // 外观用组件套件（D-028）：卡片、表格、徽标；横条和两栏排版在 business.css「团队数据」一节。
+      const stages = analysis.stages.map((s) => `<div><span>${s.label}</span><div><i style="width:${s.percent}%"></i></div><b>${s.count}</b></div>`).join("");
+      const rows = analysis.contributions
+        .slice(0, 15)
+        .map((c) => `<tr><td>${customerButton(c.client)}</td><td class="k-num">${c.count}</td><td class="k-num">${money(c.amount, c.currency)}</td></tr>`)
+        .join("") || '<tr><td colspan="3" class="team-none">本月暂无订单</td></tr>';
+      return teamPage(
+        kitHeader("经营统计", "订单与客户贡献按币种展示", monthInput()),
+        `<div class="team-body">${metricsMarkup(orders)}<div class="team-columns"><section class="k-card team-card"><div class="k-card-head"><h3 class="k-card-title">订单阶段分布</h3></div><div class="k-card-body"><div class="team-bars team-stage-bars">${stages}</div></div></section><section class="k-card team-card"><div class="k-card-head"><h3 class="k-card-title">客户贡献</h3><span class="k-card-desc">按币种分组，再按金额排序</span></div><div class="k-card-body"><table class="k-table team-table team-fit"><thead><tr><th>客户</th><th class="k-num">订单数</th><th class="k-num">订单金额</th></tr></thead><tbody>${rows}</tbody></table></div></section></div></div>`,
       );
     }
     // 团队数据按账号的可见范围算：本人只算自己的，本部门算本部门成员的，全公司不变。看不到的数据连明细里都不会有。
@@ -320,41 +307,32 @@
     function renderTeam(kind) {
       teamReport = root.LaiTeamModel.report(kind, teamState(), month);
       if (teamNote()) teamReport.scopeNote = teamNote();
-      return (
-        header(
-          teamReport.title,
-          "按跟进人名称汇总 · 数字可点开看明细",
-          `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`,
-        ) + TU().markup(teamReport)
-      );
+      return teamPage(kitHeader(teamReport.title, "按跟进人名称汇总 · 数字可点开看明细", monthInput()), TU().markup(teamReport));
     }
     // 目标完成情况 / 团队墙：页签、展示方式、列显示与排序只是界面状态，不保存。
     const teamView = { period: "month", tab: "result", mode: "rank", showTarget: true, showRate: true, sort: null, wallSort: null };
     let teamOverview = null;
-    const monthInput = () => `<input type="month" id="biz-month" value="${month}" aria-label="统计月份">`;
+    // 团队数据和经营统计的页面：组件套件的页头＋内容，整页一起滚动（排版在 business.css「团队数据」一节）。
+    const teamPage = (head, body) => `<div class="team-page">${head}${body}</div>`;
+    // 月份框仍是统一的日期框（date-picker.js 把 class 带到看得见的框上），外观是 k-input。
+    const monthInput = () => `<input type="month" id="biz-month" class="k-input team-month" value="${month}" aria-label="统计月份">`;
     // 周期：按月看所选月份，按季度看所选月份所在的自然季度。
     const periodKey = () => (teamView.period === "quarter" ? root.LaiTeamModel.quarterOf(month) : month);
     const periodSwitch = () =>
-      `<span class="team-segment team-period" role="group" aria-label="统计周期"><button type="button" data-team-period="month" aria-pressed="${teamView.period !== "quarter"}">按月</button><button type="button" data-team-period="quarter" aria-pressed="${teamView.period === "quarter"}">按季度</button></span>`;
-    const targetsButton = () => (can("team.targets") ? '<button type="button" data-lai-route="team-targets">目标设置</button>' : "");
+      `<span class="k-tabs team-period" role="group" aria-label="统计周期">${[["month", "按月"], ["quarter", "按季度"]].map(([key, label]) => { const on = key === "quarter" ? teamView.period === "quarter" : teamView.period !== "quarter"; return `<button type="button" class="k-tab${on ? " is-active" : ""}" data-team-period="${key}" aria-pressed="${on}">${label}</button>`; }).join("")}</span>`;
+    const targetsButton = () => (can("team.targets") ? '<button type="button" class="k-btn" data-lai-route="team-targets">目标设置</button>' : "");
     function renderGoals() {
       teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
-      return (
-        header(
-          "目标完成情况",
-          `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}<span class="team-scope">${teamNote() ? "我的数据" : "我的企业"}</span>${targetsButton()}`,
-        ) + TU().goalsMarkup(teamOverview, teamView)
+      return teamPage(
+        kitHeader("目标完成情况", `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`, `${periodSwitch()}${monthInput()}<span class="team-scope">${teamNote() ? "我的数据" : "我的企业"}</span>${targetsButton()}`),
+        TU().goalsMarkup(teamOverview, teamView),
       );
     }
     function renderWall() {
       teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
-      return (
-        header(
-          "团队墙",
-          `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}${targetsButton()}<button type="button" data-team-refresh="1">刷新</button>`,
-        ) + TU().wallMarkup(teamOverview, teamView, B.localDate())
+      return teamPage(
+        kitHeader("团队墙", `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`, `${periodSwitch()}${monthInput()}${targetsButton()}<button type="button" class="k-btn" data-team-refresh="1">刷新</button>`),
+        TU().wallMarkup(teamOverview, teamView, B.localDate()),
       );
     }
     const nextSort = (current, id) => ({ id, dir: current?.id === id && current.dir !== "asc" ? "asc" : "desc" });
@@ -391,12 +369,9 @@
     let armedTarget = "";
     function renderTargets() {
       const T = root.LaiTeamModel;
-      return (
-        header(
-          "目标管理",
-          "按周期、对象、指标保存的目标值",
-          `${monthInput()}${can("team.targets") ? '<button type="button" class="primary" data-team-target="new">新建目标</button>' : ""}`,
-        ) + TU().targetsMarkup(T.listTargets(teamState()), T.periodLabel, armedTarget)
+      return teamPage(
+        kitHeader("目标管理", "按周期、对象、指标保存的目标值", `${monthInput()}${can("team.targets") ? '<button type="button" class="k-btn k-btn--primary" data-team-target="new">新建目标</button>' : ""}`),
+        TU().targetsMarkup(T.listTargets(teamState()), T.periodLabel, armedTarget),
       );
     }
     // 设置目标表单：币种只在金额类指标时出现，成员只在对象选「成员」时出现；收起来的栏位不参与提交。
@@ -413,6 +388,16 @@
       }
     }
     let targetFormKey = "team.targets";
+    // 团队数据的抽屉（设置目标、统计规则、数字明细）用组件套件的壳：k-drawer、k-dialog-head、k-dialog-foot，和客户编辑抽屉一样。
+    function teamDialog(title, body, footer, type) {
+      ctx.dialog(title, body, footer, type);
+      const box = document.querySelector?.("#overlay-root .drawer");
+      if (!box) return;
+      box.classList.add("k-drawer", "team-drawer");
+      box.querySelector(".drawer-head")?.classList.add("k-dialog-head");
+      box.querySelector(".drawer-footer")?.classList.add("k-dialog-foot");
+      for (const button of box.querySelectorAll(".drawer-head button")) button.classList.add("k-btn", "k-btn--ghost", "k-btn--sm");
+    }
     function showTargetForm(metric) {
       // 目标管理页要“目标管理”，目标完成情况里设置目标值要“编辑目标值”。
       targetFormKey = route === "team-targets" ? "team.targets" : "team.goalEdit";
@@ -423,7 +408,7 @@
       const quarter = T.quarterOf(month);
       // 修改已有的企业目标时带出原来的数值；金额有多个币种时带出第一个。
       const existing = Object.hasOwn(overview.goals, metric) ? overview.goals[metric][0] : null;
-      ctx.dialog(
+      teamDialog(
         "设置目标",
         TU().targetFormMarkup(overview, {
           metric,
@@ -435,7 +420,7 @@
             { key: quarter, label: T.periodLabel(quarter) },
           ],
         }),
-        '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="biz-target-form">保存目标</button>',
+        `${footError("biz-target-error", "k-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button><button class="k-btn k-btn--primary" type="submit" form="biz-target-form">保存目标</button>`,
         "team-target",
       );
     }
@@ -470,10 +455,10 @@
     function showTeamRule(id) {
       if (!teamOverview || !Object.hasOwn(TU().columns, id)) return;
       const column = TU().columns[id];
-      ctx.dialog(
+      teamDialog(
         `${E(column.label)} · 统计规则`,
-        `<div class="drawer-body"><p>${E(teamOverview.rules[id])}</p></div>`,
-        '<button class="primary" data-action="close-modal">知道了</button>',
+        `<div class="k-dialog-body team-rule"><p>${E(teamOverview.rules[id])}</p></div>`,
+        '<button class="k-btn k-btn--primary" data-action="close-modal">知道了</button>',
         "team-rule",
       );
     }
@@ -1547,10 +1532,10 @@
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
       if (!found) return;
-      ctx.dialog(
+      teamDialog(
         E(found.label),
         TU().detailMarkup(found.items),
-        '<button class="primary" data-action="close-modal">关闭</button>',
+        '<button class="k-btn k-btn--primary" data-action="close-modal">关闭</button>',
         "team-detail",
       );
     }
