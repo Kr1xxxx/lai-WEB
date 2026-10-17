@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #25 merged (`main` c5548b1). Q5+Q6 and B0+Q7+Q8 built in parallel and merged; conflicts fixed
+  (header-tab font via token for the CSS ratchet; tabs also placed in `.k-pageheader`). Accepted ui-audit baseline
+  1200x800 customers 7→9 (frozen 操作 column, same class as 1440; total covered 342→150). model 1530 / e2e 336 (one
+  conflict fixed and its files re-run) / sweep 0 / ui-audit pass. Light Linear-style preview made for the owner.
 - 2026-10-17 — Claude — #24 merged (`main` c577f56); web trial v1.13 published and opened. Then: 小满 theme and classic
   skin removed (D-029; saved xiaoman shows as tech); Q3+Q4 (footer error slot, Chinese validation, 写跟进 one click,
   detail opens on 动态). Both workers hit the usage limit mid-way and resumed after the reset. model 1525 / e2e 331 green,
