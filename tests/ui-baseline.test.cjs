@@ -135,6 +135,6 @@ test('pink is the default colour, and every colour option in 设置 has its own 
   assert.doesNotMatch(css, /data-preview="xiaoman"/, 'no 小满 preview any more (D-029)');
   for (const id of ['pink', 'orange', 'tech', 'studio']) {
     assert.match(ui, /class="theme-preview" data-preview="\$\{id\}"/);
-    if (id !== 'pink') assert.match(css, new RegExp(`\\.theme-preview\\[data-preview="${id}"\\]\\s*\\{[^}]*--pv-nav`), `${id} preview has its own colours`);
+    if (id !== 'pink') assert.match(id === 'studio' ? read('src/theme-studio.css') : css, new RegExp(`\\.theme-preview\\[data-preview="${id}"\\]\\s*\\{[^}]*--pv-nav`), `${id} preview has its own colours`);
   }
 });

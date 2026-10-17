@@ -22,6 +22,7 @@ test('every rule in theme-studio.css only applies when 米白 is chosen', () => 
     }
     selectors.push(cur.trim());
     for (const selector of selectors.filter(Boolean)) {
+      if (selector === '.theme-preview[data-preview="studio"]') continue; // the 设置 picker draws every theme's preview
       assert.match(selector, /^:root(\[data-skin="glass"\])?\[data-theme="studio"\]/, `not scoped to 米白: ${selector}`);
     }
   }
@@ -36,7 +37,7 @@ test('the stylesheet is assembled last, so its rules win over the skin and the c
 test('米白 is an extra choice: the default colour and the other themes are untouched', () => {
   assert.doesNotMatch(read('src/ui-tokens.css'), /studio/, 'no 米白 colours leak into the shared tokens');
   assert.doesNotMatch(read('src/skin-glass.css'), /studio/);
-  assert.match(read('src/business.css'), /\.theme-preview\[data-preview="studio"\]\s*\{[^}]*--pv-nav/);
+  assert.match(css, /\.theme-preview\[data-preview="studio"\]\s*\{[^}]*--pv-nav/);
 });
 
 // WCAG contrast of the theme's text colours on the backgrounds they sit on.

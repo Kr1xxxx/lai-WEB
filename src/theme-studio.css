@@ -68,6 +68,9 @@
   --studio-top: 48px;
 }
 
+/* 设置页「界面配色」里的小预览图：不管现在用哪个配色都要画出来，所以这是本文件唯一不限定在米白下的规则 */
+.theme-preview[data-preview="studio"] { --pv-page: #ffffff; --pv-nav: #f4f3f0; --pv-brand: #4b5bd6; --pv-tint: #eeede9; }
+
 /* 语义层（组件套件 ui-kit.css 只用这一层）和皮肤层 */
 :root[data-skin="glass"][data-theme="studio"] {
   --bg: #fbfaf8;

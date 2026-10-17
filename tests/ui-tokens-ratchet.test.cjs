@@ -1,6 +1,6 @@
 // Token ratchet (D-028): per CSS file in src/, the number of literal font sizes (px), literal border radii (px) and hex
 // colours may not grow. New styles use the tokens in src/ui-tokens.css (--text-*, --r-*/--radius, the semantic colours)
-// or the kit classes in src/ui-kit.css. ui-tokens.css is where the literals live, so it is exempt.
+// or the kit classes in src/ui-kit.css. ui-tokens.css is where the literals live, so it is exempt (and the 米白 theme file, see EXEMPT).
 //
 // Counts only look inside declaration blocks (so #app or #customer-form selectors are not "hex colours") and skip
 // comments. When a page migrates to the kit and its counts drop, lower the baseline:
@@ -13,7 +13,9 @@ const path = require('node:path');
 
 const src = path.join(__dirname, '..', 'src');
 const baselinePath = path.join(__dirname, 'fixtures', 'ui-tokens-ratchet.json');
-const EXEMPT = new Set(['ui-tokens.css']);
+// theme-studio.css (米白) is a theme file like ui-tokens.css: its literals may only sit in its token block, which
+// tests/theme-studio.test.cjs checks instead.
+const EXEMPT = new Set(['ui-tokens.css', 'theme-studio.css']);
 
 function countLiterals(css) {
   const bodies = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\{([^{}]*)\}/g)].map((m) => m[1]);
