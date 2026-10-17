@@ -210,5 +210,7 @@ test('the new files are wired into the page build, the model loads first, and th
   const business = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8');
   assert.match(app, /d\.exportKind === "customer"/);
   assert.match(business, /exportKind !== "customer"/);
-  for (const kind of ['order', 'opp', 'lead']) assert.ok(business.includes(`exportButton("${kind}")`), kind);
+  for (const kind of ['opp', 'lead']) assert.ok(business.includes(`exportButton("${kind}")`), kind);
+  // 全部订单页（orders-page.js）自己画导出按钮，所有配色都用它（D-029）。
+  assert.match(fs.readFileSync(path.join(__dirname, '../src/orders-page.js'), 'utf8'), /data-export-kind="order"/);
 });

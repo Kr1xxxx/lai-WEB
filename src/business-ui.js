@@ -112,7 +112,7 @@
     const THEME_CHOICES = [["pink", "粉色"], ["orange", "橙色"], ["tech", "科技蓝"]].map(([id, name]) => [id, id === DEFAULT_THEME ? `${name}（默认）` : name]);
     // 去掉的配色按哪个显示（D-029，和 app.js 的 RETIRED_THEMES 一致）：存的「xiaoman」（小满）当科技蓝，下次保存设置时写成 tech。
     const RETIRED_THEMES = { xiaoman: "tech" };
-    const savedTheme = (settings) => RETIRED_THEMES[settings?.theme] || settings?.theme;
+    const savedTheme = (settings) => (Object.hasOwn(RETIRED_THEMES, settings?.theme ?? "") ? RETIRED_THEMES[settings.theme] : settings?.theme);
     const button = (action, text, extra = "", primary = false) =>
       `<button type="button" ${primary ? 'class="primary"' : ""} data-biz-action="${action}" ${extra}>${text}</button>`;
     const header = (title, description, actions = "") =>
@@ -3021,7 +3021,8 @@
         () => {
           const base = { ...state(), laiSettings: { ...state().laiSettings, ...data } };
           // 以前存的小满配色在这次正常保存设置时写成科技蓝（D-029），载入时不写。
-          if (RETIRED_THEMES[base.laiSettings.theme]) base.laiSettings.theme = RETIRED_THEMES[base.laiSettings.theme];
+          const theme = savedTheme(base.laiSettings);
+          if (theme !== base.laiSettings.theme) base.laiSettings.theme = theme;
           return company ? DM().setBank(DM().setCompany(base, company), bank) : base;
         },
         "biz-settings-error",

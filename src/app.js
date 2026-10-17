@@ -196,14 +196,14 @@
   // 另外 ui-tokens.css 里带「:root,」的那块变量（管页面载入前的底色）也要换到新默认的主题上。
   const DEFAULT_THEME = "pink";
   function applyTheme(id) {
-    const shown = RETIRED_THEMES[id] || id;
+    const shown = Object.hasOwn(RETIRED_THEMES, id) ? RETIRED_THEMES[id] : id;
     const theme = THEME_IDS.includes(shown) ? shown : DEFAULT_THEME;
     document.documentElement.dataset.theme = theme;
     // 所有配色都用同一套界面（悬浮面板）。skin-glass.css 的规则都挂在 data-skin="glass" 下，所以这个属性一直设成 glass。
     document.documentElement.dataset.skin = "glass";
   }
   // 页面一载入就用这套界面（数据读回来之前的载入、出错提示也一样），配色等数据读回来再定。
-  document.documentElement.dataset.skin = "glass";
+  if (document.documentElement) document.documentElement.dataset.skin = "glass";
   // 已保存数据的快照（见 model.js 的 snapshotState）：保存时只把和它不同的部分发给本机服务。
   let savedSnapshot = null;
   function adoptServerState(data, serverRevision) {
