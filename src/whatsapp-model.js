@@ -12,6 +12,7 @@
     importLines:20000,      // 一次导入最多多少行
     importChars:3*1024*1024,// 一次导入的文本最多 3 MB
     customerChars:1024*1024,// 一位客户的聊天文本最多 1 MB
+    customerLines:50000,    // 一位客户的聊天一共最多多少行（每行还有发送人、时间、指纹，只数字数挡不住很多短消息）
     importLog:200,          // 导入记录最多保留多少行
     templateGroups:30,templateItems:100,templateChars:500
   });
@@ -389,6 +390,7 @@ UA 380,UG 256,US 1,UY 598,UZ 998,VA 39,VC 1,VE 58,VG 1,VI 1,VN 84,VU 678,WF 681,
   }
   const laterIso=(old,time)=>Number.isFinite(Date.parse(old))&&Date.parse(old)>Date.parse(time)?old:time;
   const chatChars=history=>arr(history).reduce((sum,entry)=>sum+chatLines(entry).reduce((inner,line)=>inner+String(line?.text??'').length,0),0);
+  const chatLineCount=history=>arr(history).reduce((sum,entry)=>sum+chatLines(entry).length,0);
   const chatKeys=history=>new Set(arr(history).flatMap(entry=>chatLines(entry).map(line=>line&&line.key).filter(Boolean)));
   function importLog(state){
     if(state?.laiChatImports!==undefined&&state.laiChatImports!==null&&!Array.isArray(state.laiChatImports))throw new Error('已保存的聊天导入记录格式异常，为避免覆盖，未做任何修改');
@@ -422,6 +424,8 @@ UA 380,UG 256,US 1,UY 598,UZ 998,VA 39,VC 1,VE 58,VG 1,VI 1,VN 84,VU 678,WF 681,
       added+=fresh.length;
       kept.push(fresh.length===entry.lines.length?entry:finalize(entry,fresh));
     }
+    if(chatLineCount(history)+added>LIMITS.customerLines)
+      throw new Error(`这位客户的聊天记录已经很多了（超过 ${LIMITS.customerLines} 条），放不下这次导入。可以先撤销旧的导入，或只导入最近的一段。`);
     if(chatChars(history)+kept.reduce((sum,entry)=>sum+chatChars([entry]),0)>LIMITS.customerChars)
       throw new Error('这位客户的聊天记录已经很多了（超过 1 MB），放不下这次导入。可以先撤销旧的导入，或只导入最近的一段。');
     for(const entry of [...kept].sort((a,b)=>timeOf(a.time)-timeOf(b.time)))history2=insertNewest(history2,entry);
@@ -468,14 +472,32 @@ UA 380,UG 256,US 1,UY 598,UZ 998,VA 39,VC 1,VE 58,VG 1,VI 1,VN 84,VU 678,WF 681,
     const at=when.toISOString(),owner=trim(input.owner),from=owner||'我';
     const src=input.src==='link'?'link':'manual';
     const line={at,from,dir:'out',text,key:hash(`${localString(when).slice(0,16)}|${from}|${text}|#1`)};
-    if(chatChars(previous.history)+text.length>LIMITS.customerChars)throw new Error('这位客户的聊天记录已经很多了（超过 1 MB），放不下了。');
+    if(chatChars(previous.history)+text.length>LIMITS.customerChars||chatLineCount(previous.history)+1>LIMITS.customerLines)throw new Error('这位客户的聊天记录已经很多了，放不下了。');
     const entry=finalize({type:'chat',subtype:'whatsapp',channel:'WhatsApp',time:at,owner,contact:trim(input.contact),text:'',
       chatRef:{src,peer:trim(input.peer),day:localString(when).slice(0,10)}},[line]);
     const now=new Date().toISOString();
     return {...state,customers:{...(state.customers||{}),[customerName]:{...previous,client:customerName,updated:laterIso(previous.updated,now),history:insertNewest(arr(previous.history),entry)}}};
   }
-  // 合并两位客户时，两边动态里重复的聊天行（key 相同）只留一份。返回合并后的动态（新的在前）。
-  function mergeChatHistory(historyA,historyB){
+  // 一位客户的聊天超过上限（行数或字数）时，从最早的聊天开始去掉，留下最新的。返回 {history,dropped}（dropped：去掉了多少行）。
+  function capChatHistory(history){
+    let lines=chatLineCount(history),chars=chatChars(history);
+    if(lines<=LIMITS.customerLines&&chars<=LIMITS.customerChars)return {history,dropped:0};
+    const out=[...history];
+    const oldest=out.map((entry,index)=>({entry,index})).filter(item=>chatLines(item.entry).length).sort((x,y)=>timeOf(x.entry.time)-timeOf(y.entry.time)||y.index-x.index);
+    let dropped=0;
+    for(const {entry,index} of oldest){
+      if(lines<=LIMITS.customerLines&&chars<=LIMITS.customerChars)break;
+      const sorted=chatLines(entry).map((line,i)=>({line,i})).sort((x,y)=>timeOf(x.line?.at)-timeOf(y.line?.at)||x.i-y.i).map(item=>item.line);
+      let cut=0;
+      while(cut<sorted.length&&(lines>LIMITS.customerLines||chars>LIMITS.customerChars)){
+        lines-=1;chars-=String(sorted[cut]?.text??'').length;cut+=1;dropped+=1;
+      }
+      out[index]=cut>=sorted.length?null:cut?finalize(entry,sorted.slice(cut)):entry;
+    }
+    return {history:out.filter(Boolean),dropped};
+  }
+  // 合并两位客户时，两边动态里重复的聊天行（key 相同）只留一份；合并后聊天超过上限就去掉最早的。返回 {history（新的在前）,dropped}。
+  function mergeChatHistoryCapped(historyA,historyB){
     const a=arr(historyA),known=chatKeys(a);
     const out=[...a];
     for(const entry of arr(historyB)){
@@ -485,8 +507,10 @@ UA 380,UG 256,US 1,UY 598,UZ 998,VA 39,VC 1,VE 58,VG 1,VI 1,VN 84,VU 678,WF 681,
       if(!fresh.length)continue;
       out.push(fresh.length===lines.length?entry:finalize(entry,fresh));
     }
-    return out.map((entry,index)=>({entry,index})).sort((x,y)=>(timeOf(y.entry?.time)-timeOf(x.entry?.time))||(x.index-y.index)).map(item=>item.entry);
+    const sorted=out.map((entry,index)=>({entry,index})).sort((x,y)=>(timeOf(y.entry?.time)-timeOf(x.entry?.time))||(x.index-y.index)).map(item=>item.entry);
+    return capChatHistory(sorted);
   }
+  const mergeChatHistory=(historyA,historyB)=>mergeChatHistoryCapped(historyA,historyB).history;
 
   // ---------- 按电话和名字找客户 ----------
   function phoneRecords(profile){
@@ -562,6 +586,6 @@ UA 380,UG 256,US 1,UY 598,UZ 998,VA 39,VC 1,VE 58,VG 1,VI 1,VN 84,VU 678,WF 681,
   }
 
   const api={LIMITS,DIAL_CODES,TEMPLATE_VARS,countryIso,dialCodeOf,dialOptions,toE164,waLink,peersFromSenders,chatNameFromFile,renderTemplate,
-    parseExport,readZip,buildEntries,mergeImport,importFootprint,undoImport,logChat,mergeChatHistory,matchCustomers};
+    parseExport,readZip,buildEntries,mergeImport,importFootprint,undoImport,logChat,mergeChatHistory,mergeChatHistoryCapped,matchCustomers};
   if(node)module.exports=api;else root.LaiWhatsAppModel=api;
 })(typeof window!=='undefined'?window:globalThis);

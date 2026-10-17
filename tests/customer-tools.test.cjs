@@ -171,3 +171,23 @@ test('合并客户：两边导入过同一段 WhatsApp 聊天时，重复的聊�
   const kept=T.mergeCustomers(only,'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z').customers.Acme.history.filter(h=>h.type==='chat');
   assert.equal(kept.reduce((sum,h)=>sum+h.lines.length,0),2);
 });
+
+test('合并客户：合并后聊天超过 50,000 条时只留最新的，并在动态里记一笔说明',()=>{
+  const bulk=(tag,startMs,count)=>({type:'chat',subtype:'whatsapp',channel:'WhatsApp',time:new Date(startMs+(count-1)*1000).toISOString(),text:'x',
+    lines:Array.from({length:count},(_,i)=>({at:new Date(startMs+i*1000).toISOString(),from:'Maria',dir:'in',text:'k',key:`${tag}-${i}`}))});
+  const s=base();
+  s.customers.Acme.history=[...(s.customers.Acme.history||[]),bulk('a',Date.UTC(2026,0,1),2000),...Array.from({length:14},(_,i)=>bulk(`a${i}`,Date.UTC(2026,1,1+i),2000))];
+  s.customers['Acme Ltd'].history=[...(s.customers['Acme Ltd'].history||[]),...Array.from({length:15},(_,i)=>bulk(`b${i}`,Date.UTC(2026,5,1+i),2000))];
+  // 2,000 + 28,000 on one side and 30,000 on the other: 60,000 lines, 10,000 over
+  const merged=T.mergeCustomers(s,'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z');
+  const history=merged.customers.Acme.history;
+  const total=history.reduce((sum,h)=>sum+(h.type==='chat'&&h.lines?h.lines.length:0),0);
+  assert.equal(total,50000);
+  const note=history.find(h=>h.type==='operation'&&/较早的 10000 条聊天没有保留/.test(h.text));
+  assert.ok(note,'a note says how many lines were left out');
+  assert.equal(note.time,'2026-10-13T00:00:00.000Z');
+  assert.ok(history.some(h=>h.type==='operation'&&/合并客户/.test(h.text)),'the normal merge note is still there');
+  // under the cap there is no extra note
+  const small=T.mergeCustomers(base(),'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z');
+  assert.ok(!small.customers.Acme.history.some(h=>/没有保留/.test(h.text||'')));
+});

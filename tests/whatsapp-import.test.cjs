@@ -535,3 +535,58 @@ test('a whole flow: file text -> preview -> match -> entries -> merge -> undo', 
   assert.equal(merged.added, 3);
   assert.equal(W.undoImport(merged.state, 'imp-1').customers['Lash Co'].history.length, 2);
 });
+
+// ---------- 50,000 lines per customer ----------
+// Short messages: the 1 MB character cap alone would let a customer collect millions of lines.
+const bulkEntries = (count, startMs, tag, perEntry = 2000) => {
+  const out = [];
+  for (let i = 0; i < count; i += perEntry) {
+    const lines = Array.from({ length: Math.min(perEntry, count - i) }, (_, j) => ({ at: new Date(startMs + (i + j) * 1000).toISOString(), from: 'Maria', dir: 'in', text: 'k', key: `${tag}-${i + j}` }));
+    out.unshift({ type: 'chat', subtype: 'whatsapp', channel: 'WhatsApp', time: lines.at(-1).at, text: 'x', lastReceivedAt: lines.at(-1).at, lines, chatRef: { src: 'export', importId: tag, peer: '', day: '2026-01-01' } });
+  }
+  return out;
+};
+const lineTotal = history => history.reduce((sum, entry) => sum + (entry.type === 'chat' && Array.isArray(entry.lines) ? entry.lines.length : 0), 0);
+
+test('the number of chat lines per customer is capped at 50,000 (import and manual 记一笔)', () => {
+  assert.equal(W.LIMITS.customerLines, 50000);
+  const full = baseState();
+  full.customers['Lash Co'].history = [...bulkEntries(49990, Date.UTC(2026, 0, 1), 'old'), ...full.customers['Lash Co'].history];
+  const more = n => W.buildEntries(Array.from({ length: n }, (_, i) => ({ at: at(2026, 10, 20, 10, i % 60, Math.floor(i / 60)), local: `2026-10-20T10:${String(i % 60).padStart(2, '0')}:${String(Math.floor(i / 60)).padStart(2, '0')}`, from: 'Maria', text: `n${i}` })), opts({ importId: 'imp-more' }));
+  assert.throws(() => W.mergeImport(full, 'Lash Co', more(20), row({ id: 'imp-more' })), /50000/);
+  assert.equal(lineTotal(full.customers['Lash Co'].history), 49990, 'a refused import changes nothing');
+  assert.equal(W.mergeImport(full, 'Lash Co', more(10), row({ id: 'imp-more' })).added, 10, 'right up to the cap is fine');
+  let state = full;
+  for (let i = 0; i < 10; i++) state = W.logChat(state, 'Lash Co', { text: `hi ${i}`, at: at(2026, 10, 21, 9, i) });
+  assert.equal(lineTotal(state.customers['Lash Co'].history), 50000);
+  assert.throws(() => W.logChat(state, 'Lash Co', { text: 'one more', at: at(2026, 10, 21, 10, 0) }), /已经很多/);
+});
+
+test('mergeChatHistoryCapped keeps the newest lines under the cap and reports how many were dropped', () => {
+  const a = [...bulkEntries(30001, Date.UTC(2026, 0, 1), 'a'), { time: '2026-01-01T00:00:00.000Z', text: '新建客户档案', type: 'operation' }];
+  const b = [{ time: '2026-09-01T00:00:00.000Z', text: '跟进', type: 'followup' }, ...bulkEntries(30000, Date.UTC(2026, 5, 1), 'b')];
+  const merged = W.mergeChatHistoryCapped(a, b);
+  assert.equal(merged.dropped, 10001);
+  assert.equal(lineTotal(merged.history), 50000);
+  const keys = new Set(merged.history.flatMap(entry => (entry.lines || []).map(line => line.key)));
+  assert.equal([...keys].filter(key => key.startsWith('b-')).length, 30000, 'the newer chat is complete');
+  assert.ok(keys.has('a-30000') && keys.has('a-10001') && !keys.has('a-0') && !keys.has('a-10000'), 'the 10,001 oldest lines are the ones dropped');
+  assert.equal(merged.history.filter(entry => entry.type === 'followup' || entry.type === 'operation').length, 2, 'other entries stay');
+  const times = merged.history.map(entry => Date.parse(entry.time));
+  assert.deepEqual(times, [...times].sort((x, y) => y - x), 'still newest first');
+  // trimmed entries are summarised again from what is left
+  const trimmed = merged.history.find(entry => entry.lines && entry.lines.some(line => line.key === 'a-10001'));
+  assert.equal(trimmed.lines[0].key, 'a-10001');
+  assert.match(trimmed.text, new RegExp(`WhatsApp 聊天 ${trimmed.lines.length} 条`));
+  // below the cap nothing is dropped and the plain wrapper returns the same history
+  const small = W.mergeChatHistoryCapped(bulkEntries(10, Date.UTC(2026, 0, 1), 's'), bulkEntries(10, Date.UTC(2026, 2, 1), 't'));
+  assert.equal(small.dropped, 0);
+  assert.equal(lineTotal(small.history), 20);
+  assert.deepEqual(W.mergeChatHistory(a, b), merged.history);
+  // the 1 MB character cap applies to a merge too
+  const fat = (tag, ms) => [{ type: 'chat', time: new Date(ms + 299000).toISOString(), text: 'x', lines: Array.from({ length: 300 }, (_, i) => ({ at: new Date(ms + i * 1000).toISOString(), from: 'M', dir: 'in', text: 'z'.repeat(4000), key: `${tag}${i}` })) }];
+  const chars = W.mergeChatHistoryCapped(fat('p', Date.UTC(2026, 0, 1)), fat('q', Date.UTC(2026, 1, 1)));
+  assert.equal(chars.dropped, 600 - Math.floor(W.LIMITS.customerChars / 4000));
+  assert.ok(chars.history.every(entry => entry.lines.every(line => !line.key.startsWith('p') || Number(line.key.slice(1)) >= 0)));
+  assert.ok(chars.history.flatMap(entry => entry.lines).reduce((sum, line) => sum + line.text.length, 0) <= W.LIMITS.customerChars);
+});

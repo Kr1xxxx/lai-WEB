@@ -135,9 +135,13 @@ function mergeCustomers(state,primary,others,at=new Date().toISOString()){
   for(const s of srcs)for(const h of Array.isArray(s.p.history)?s.p.history:[])incoming.push(h&&typeof h==='object'?{...h,mergedFrom:s.name}:h);
   // 两边都导入过同一段 WhatsApp 聊天时，重复的聊天行只留一份（沟通模块的规则）；没有沟通模块时按原来的办法合并。
   const WA=typeof module!=='undefined'&&module.exports?require('./whatsapp-model.js'):root.LaiWhatsAppModel;
-  if(WA&&typeof WA.mergeChatHistory==='function')history=WA.mergeChatHistory(history,incoming);
+  let droppedChat=0;
+  if(WA&&typeof WA.mergeChatHistoryCapped==='function'){const merged=WA.mergeChatHistoryCapped(history,incoming);history=merged.history;droppedChat=merged.dropped;}
+  else if(WA&&typeof WA.mergeChatHistory==='function')history=WA.mergeChatHistory(history,incoming);
   else{history.push(...incoming);history.sort((a,b)=>(time(b?.time)||0)-(time(a?.time)||0));}
   history.unshift({time:at,text:`合并客户：${list.join('、')} → ${primary}`,type:'operation'});
+  // 合并后聊天太多放不下时，较早的聊天没有带过来，记一笔说明。
+  if(droppedChat)history.unshift({time:at,text:`合并后聊天太多，较早的 ${droppedChat} 条聊天没有保留（只留最新的）`,type:'operation'});
   base.history=history;
   base.mergedFrom=[...(Array.isArray(base.mergedFrom)?base.mergedFrom:[]),...list.map(name=>({name,at}))];
   base.updated=at;
