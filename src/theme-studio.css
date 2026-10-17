@@ -1264,7 +1264,7 @@
 }
 /* 表单控件统一 30 高（business.css 把 #opp-form 的 --dd-h 设成 32）；字段值用正文字重 400，
    不跟 .opp-field 的 500（标签仍是 12.5/500）；币种代码保留原来的加粗 */
-:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) { --dd-h: var(--studio-h-md); }
+:root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form, #biz-order-form, #biz-order-form .form-grid) { --dd-h: var(--studio-h-md); }
 :root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) .opp-static { min-height: var(--studio-h-md); }
 :root[data-skin="glass"][data-theme="studio"] :is(#opp-form, .opp-form) :is(.k-input:not(.opp-group-currency), .k-textarea, .lai-select-trigger, .lai-date-trigger) {
   font-weight: var(--studio-fw-body);
