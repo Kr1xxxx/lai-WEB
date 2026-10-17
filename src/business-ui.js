@@ -1628,27 +1628,40 @@
     function renderRoles() {
       const title = roleView.edit ? (RM().settings(state()).roles.find((r) => r.id === roleView.edit)?.locked ? "查看角色" : "编辑角色") : "角色权限";
       const description = roleView.edit ? "勾选这个角色能做的事" : "设置每个角色能看什么、能做什么";
-      if (!RM().can(state(), "settings.roles")) return header("角色权限", description) + RU().deniedMarkup();
-      if (roleView.edit) return header(title, description) + RU().editMarkup(state(), roleView.edit, roleDraft(roleView.edit));
-      return header(title, description, '<button type="button" class="primary" data-role-action="add">新增角色</button>') + RU().rolesMarkup(state(), { armed: roleView.armed });
+      if (!RM().can(state(), "settings.roles")) return kitHeader("角色权限", description) + RU().deniedMarkup();
+      if (roleView.edit) return kitHeader(title, description) + RU().editMarkup(state(), roleView.edit, roleDraft(roleView.edit));
+      return kitHeader(title, description, '<button type="button" class="k-btn k-btn--primary" data-role-action="add">新增角色</button>') + RU().rolesMarkup(state(), { armed: roleView.armed });
     }
     function renderMembers() {
       const description = "测试账号：切换后看到的就是这个角色能看的内容";
-      if (!RM().can(state(), "settings.roles")) return header("成员管理", description) + RU().deniedMarkup();
-      return header("成员管理", description, '<button type="button" class="primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter, dept: roleView.dept, armedDept: roleView.armedDept });
+      if (!RM().can(state(), "settings.roles")) return kitHeader("成员管理", description) + RU().deniedMarkup();
+      return kitHeader("成员管理", description, '<button type="button" class="k-btn k-btn--primary" data-role-action="member-add">添加成员</button>') + RU().membersMarkup(state(), { armed: roleView.armedMember, filter: roleView.filter, dept: roleView.dept, armedDept: roleView.armedDept });
+    }
+    // 企业管理的窗口：app.js 生成的 .drawer 外壳换成组件套件的居中窗口（k-dialog、k-dialog-head、k-dialog-foot，关闭是幽灵按钮）；
+    // 出错的字写在底栏按钮左边的 .k-error（id 不变，saveNext 按 id 找它）。
+    const roleError = (id) => `<div class="k-error" id="${id}" role="alert"></div>`;
+    const roleSubmitButton = (form, text) => `<button class="k-btn k-btn--primary" type="submit" form="${form}">${text}</button>`;
+    function roleDialog(title, body, foot, type) {
+      ctx.dialog(title, body, foot, type);
+      const box = globalThis.document?.querySelector?.("#overlay-root .drawer");
+      if (!box) return;
+      box.classList.add("k-dialog", "role-dialog");
+      box.querySelector(".drawer-head")?.classList.add("k-dialog-head");
+      box.querySelector(".drawer-footer")?.classList.add("k-dialog-foot");
+      box.querySelector('.drawer-head [data-action="close-modal"]')?.classList.add("k-btn", "k-btn--ghost", "k-btn--sm");
     }
     function roleClick(d) {
       const action = d.roleAction;
       if (action !== "delete") roleView.armed = "";
       if (action !== "member-delete") roleView.armedMember = "";
       if (action !== "dept-delete") roleView.armedDept = "";
-      const cancel = '<button type="button" data-action="close-modal">取消</button>';
-      if (action === "add") return ctx.dialog("新增角色", RU().addRoleMarkup(state()), cancel + '<button class="primary" type="submit" form="role-add-form">新增</button>', "role-add");
-      if (action === "member-add") return ctx.dialog("添加成员", RU().addMemberMarkup(state(), { deptId: pickedDept() }), cancel + '<button class="primary" type="submit" form="member-add-form">添加</button>', "member-add");
+      const cancel = '<button type="button" class="k-btn" data-action="close-modal">取消</button>';
+      if (action === "add") return roleDialog("新增角色", RU().addRoleMarkup(state()), roleError("role-add-error") + cancel + roleSubmitButton("role-add-form", "新增"), "role-add");
+      if (action === "member-add") return roleDialog("添加成员", RU().addMemberMarkup(state(), { deptId: pickedDept() }), roleError("member-add-error") + cancel + roleSubmitButton("member-add-form", "添加"), "member-add");
       if (action === "rename") {
         const member = RM().settings(state()).members.find((m) => m.id === d.id);
         if (!member) return ctx.toast("没有找到这位成员，请刷新后重试");
-        return ctx.dialog("改名", RU().renameMarkup(member), cancel + '<button class="primary" type="submit" form="member-rename-form">保存</button>', "member-rename");
+        return roleDialog("改名", RU().renameMarkup(member), roleError("member-rename-error") + cancel + roleSubmitButton("member-rename-form", "保存"), "member-rename");
       }
       if (action === "edit") {
         roleView.edit = d.id;
@@ -1672,11 +1685,11 @@
         roleView.dept = d.id || "";
         return render();
       }
-      if (action === "dept-add") return ctx.dialog("新建部门", RU().deptAddMarkup(state(), pickedDept()), cancel + '<button class="primary" type="submit" form="dept-add-form">新建</button>', "dept-add");
+      if (action === "dept-add") return roleDialog("新建部门", RU().deptAddMarkup(state(), pickedDept()), roleError("dept-add-error") + cancel + roleSubmitButton("dept-add-form", "新建"), "dept-add");
       if (action === "dept-rename") {
         const dept = RM().deptTree(state()).find((x) => x.id === d.id);
         if (!dept) return ctx.toast("没有找到这个部门，请刷新后重试");
-        return ctx.dialog("部门改名", RU().deptRenameMarkup(dept), cancel + '<button class="primary" type="submit" form="dept-rename-form">保存</button>', "dept-rename");
+        return roleDialog("部门改名", RU().deptRenameMarkup(dept), roleError("dept-rename-error") + cancel + roleSubmitButton("dept-rename-form", "保存"), "dept-rename");
       }
       if (action === "dept-delete") {
         if (roleView.armedDept !== d.id) {
@@ -1725,14 +1738,14 @@
       if (!role) return;
       const readOnly = !!role.locked,
         draft = roleDraft(role.id),
-        close = '<button type="button" data-action="close-modal">关闭</button>';
+        close = '<button type="button" class="k-btn" data-action="close-modal">关闭</button>';
       if (action === "layouts") {
         const body = RU().layoutMarkup(state(), draft.layouts.product || {}, { readOnly });
-        return ctx.dialog("设置布局权限", body, readOnly ? close : cancel + '<button class="primary" type="submit" form="role-layout-form">确定</button>', "role-layouts");
+        return roleDialog("设置布局权限", body, roleError("role-layout-error") + (readOnly ? close : cancel + roleSubmitButton("role-layout-form", "确定")), "role-layouts");
       }
       const name = (RM().FIELD_MODULES.find(([id]) => id === module) || [])[1] || "";
       const has = (root.LaiRoleFields?.list?.(state(), module) || []).length > 0;
-      ctx.dialog(`${name}字段权限`, RU().fieldsMarkup(state(), module, draft.fields[module] || {}, { readOnly }), readOnly || !has ? close : cancel + '<button class="primary" type="submit" form="role-fields-form">确定</button>', "role-fields");
+      roleDialog(`${name}字段权限`, RU().fieldsMarkup(state(), module, draft.fields[module] || {}, { readOnly }), readOnly || !has ? close : cancel + roleSubmitButton("role-fields-form", "确定"), "role-fields");
     }
     function showLimitTags() {
       const draft = roleView.draft;

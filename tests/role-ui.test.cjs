@@ -40,12 +40,12 @@ test('roles list: up to 4 initial avatars, 共计N位 beyond that, 暂无成员 
   assert.ok(!rowOf(ui.rolesMarkup(state), manager).includes('共计'));
   for (const name of ['Ann', 'Bob', '陈一', '李二']) state = R.addMember(state, { name, roleId: manager });
   let cell = rowOf(ui.rolesMarkup(state), manager);
-  assert.equal((cell.match(/class="role-avatar /g) || []).length, 4);
+  assert.equal((cell.match(/class="role-avatar"/g) || []).length, 4);
   assert.ok(!cell.includes('共计') && !cell.includes('暂无成员'));
   assert.ok(cell.includes('>A</span>') && cell.includes('>陈</span>'), 'first character of the name');
   state = R.addMember(state, { name: 'Zed', roleId: manager });
   cell = rowOf(ui.rolesMarkup(state), manager);
-  assert.equal((cell.match(/class="role-avatar /g) || []).length, 4, 'never more than 4 faces');
+  assert.equal((cell.match(/class="role-avatar"/g) || []).length, 4, 'never more than 4 faces');
   assert.ok(cell.includes('共计5位'));
   assert.ok(cell.includes(`data-role-action="members" data-id="${manager}">编辑成员<`));
 });
@@ -56,7 +56,7 @@ test('roles list: member counts and a delete button for custom roles (two-click)
   let html = ui.rolesMarkup(state);
   assert.ok(rowOf(html, id).includes('>删除<'));
   assert.ok(rowOf(html, id).includes('暂无成员'));
-  assert.equal((rowOf(html, 'admin').match(/class="role-avatar /g) || []).length, 1);
+  assert.equal((rowOf(html, 'admin').match(/class="role-avatar"/g) || []).length, 1);
   html = ui.rolesMarkup(state, { armed: id });
   assert.ok(rowOf(html, id).includes('确定删除'));
 });
@@ -82,7 +82,7 @@ test('edit view: one block per group, checkboxes follow the role perms', () => {
 
 test('a group shows 全选 checked only when every item is on', () => {
   const html = ui.editMarkup(base(), 'sales');
-  const group = (name) => html.match(new RegExp(`<fieldset class="role-group"[^>]*><legend><span class="role-group-name">${name}</span>.*?</legend>`))[0];
+  const group = (name) => html.match(new RegExp(`<fieldset class="role-group k-card"[^>]*><legend><span class="role-group-name">${name}</span>.*?</legend>`))[0];
   assert.ok(!/data-role-all[^>]* checked/.test(group('商机')), '商机 has 删除 off');
   assert.ok(/data-role-all[^>]* checked/.test(group('邮件')), '邮件 is all on');
 });
@@ -185,7 +185,7 @@ test('edit view: scope has 本人 / 本部门 / 全公司, with a hint for the s
 
 test('edit view: 设置字段权限 sits next to 商机 客户 公海客户 产品, 设置布局权限 only next to 产品', () => {
   const html = ui2.editMarkup(base(), 'sales');
-  const group = (name) => html.match(new RegExp(`<fieldset class="role-group"[^>]*><legend><span class="role-group-name">${name}</span>.*?</legend>`))[0];
+  const group = (name) => html.match(new RegExp(`<fieldset class="role-group k-card"[^>]*><legend><span class="role-group-name">${name}</span>.*?</legend>`))[0];
   assert.ok(!html.includes('role-group-name">线索<') && !html.includes('data-module="lead"'), '线索 is gone (D-030)');
   for (const [name, module] of [['商机', 'opp'], ['客户', 'customer'], ['公海客户', 'pool'], ['产品', 'product']]) {
     assert.ok(group(name).includes(`data-role-action="fields" data-module="${module}">设置字段权限<`), name);

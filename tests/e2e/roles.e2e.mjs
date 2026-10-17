@@ -15,20 +15,20 @@ const openPage = async (label) => {
   // 企业管理 has no page of its own: hover the rail icon and pick the entry from the flyout.
   await page.locator('.rail-item[data-rail-menu="企业管理"]').hover();
   await page.locator(`.rail-flyout-item[data-flyout-target="${label === '角色权限' ? 'roles' : 'members'}"]`).click();
-  await page.locator('.business-title h1').waitFor();
+  await page.locator('.k-pageheader-title').waitFor();
 };
 const rowOf = (name) => app.page.locator('[data-role-row]', { has: app.page.locator(`b:text-is("${name}")`) });
 
 test('角色权限 lists 系统管理员 (view only) and 业务', async () => {
   const { page } = app;
   await openPage('角色权限');
-  assert.equal(await page.locator('.business-title h1').innerText(), '角色权限');
+  assert.equal(await page.locator('.k-pageheader-title').innerText(), '角色权限');
   assert.deepEqual(await page.locator('.role-table thead th').allInnerTexts(), ['角色', '可见范围', '成员', '操作']);
   assert.deepEqual(await rowOf('系统管理员').locator('.role-actions button').allInnerTexts(), ['查看']);
   assert.equal(await rowOf('系统管理员').locator('.role-actions button').getAttribute('title'), '不可编辑，仅查看');
   assert.deepEqual(await rowOf('业务').locator('.role-actions button').allInnerTexts(), ['编辑']);
   assert.deepEqual(await rowOf('部门管理员').locator('.role-actions button').allInnerTexts(), ['编辑']);
-  assert.equal(await rowOf('部门管理员').locator('.role-members-empty').innerText(), '暂无成员');
+  assert.equal(await rowOf('部门管理员').locator('.role-members-none').innerText(), '暂无成员');
   assert.equal(await rowOf('业务').locator('.role-members button').innerText(), '编辑成员');
   assert.ok((await rowOf('业务').locator('.role-avatar').count()) >= 1);
   await page.screenshot({ path: process.env.ROLE_SHOTS ? `${process.env.ROLE_SHOTS}/roles-list.png` : undefined, type: 'png' }).catch(() => {});
@@ -127,7 +127,7 @@ test('新增角色 "经理" copies 业务 and opens its edit view; it can be del
 test('成员管理: add Bob as 业务, switch to Bob, and he lands on 工作台 without 企业管理', async () => {
   const { page } = app;
   await openPage('成员管理');
-  assert.equal(await page.locator('.business-title h1').innerText(), '成员管理');
+  assert.equal(await page.locator('.k-pageheader-title').innerText(), '成员管理');
   assert.ok((await page.locator('.role-note').innerText()).includes('不是安全措施'));
   assert.equal(await page.locator('[data-member-row]:has-text("当前使用")').count(), 1);
   await page.locator('[data-role-action="member-add"]').click();

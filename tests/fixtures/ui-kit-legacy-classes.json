@@ -16,7 +16,6 @@
   "mail-bulk-empty",
   "mail-reader-empty",
   "now-empty",
-  "role-members-empty",
   "small-empty",
   "subnav-empty",
   "summary-search-empty"
@@ -27,8 +26,6 @@
   "export-table",
   "import-preview",
   "import-records-table",
-  "order-table",
-  "order-table role-table",
-  "order-table role-table role-list-table"
+  "order-table"
  ]
 }
