@@ -1334,7 +1334,7 @@
 :root[data-skin="glass"][data-theme="studio"] .lcd-pagebar.k-pageheader { background: var(--studio-surface); }
 /* 吸顶后上方还有主区 24 的上内距，滚过去的内容会从这条缝里透出来：页头上方加一条同色白条盖住它（不挡点击） */
 :root[data-skin="glass"][data-theme="studio"] .lcd-pagebar.k-pageheader::before {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--studio-page-top); background: var(--studio-surface); pointer-events: none;
+  content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--studio-page-top); background: var(--studio-surface);
 }
 /* 返回：26 高的幽灵按钮 */
 :root[data-skin="glass"][data-theme="studio"] .lcd-pagebar .lcd-return.k-btn {
