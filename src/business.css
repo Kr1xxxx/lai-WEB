@@ -3000,7 +3000,9 @@ td.team-reached {
 .wb-q.wb-late .wb-tag { color: var(--wb-late); }
 .wb-q.wb-today .wb-tag { color: var(--wb-today); }
 .wb-q.wb-today .wb-tag::before { background: var(--wb-today-dot); }
-.wb-q.wb-wait .wb-tag, .wb-q.wb-mail .wb-tag { color: var(--wb-accent-ink); }
+/* 「等你回复」「未读邮件」是分类不是警告：字用正文色，只有圆点是主色 */
+.wb-q.wb-wait .wb-tag, .wb-q.wb-mail .wb-tag { color: var(--wb-text); }
+.wb-q.wb-wait .wb-tag::before, .wb-q.wb-mail .wb-tag::before { background: var(--wb-accent); }
 .wb-who { min-width: 0; display: flex; flex-direction: column; }
 .wb-who b { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
 .wb-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
