@@ -10,11 +10,11 @@
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
   商机设置, products, workbench, calendar/tasks, business stats, team data, Zoho mail, roles + test accounts, 设置/设置中心,
-  three themes (pink default, orange, 科技蓝; 小满 removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
+  three themes (科技蓝 default since D-033 = light Linear look; pink and orange optional; 小满 removed per D-029), MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
 - `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); there is no Mac app any more (`mac` flag unused).
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
 - How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". Fable 5.1 medium `specialist` takes complex slices and second passes (D-032). The owner wants no questions: consult the advisor and decide (CLAUDE.md).
-- UI direction (D-028): one component kit, shadcn/ui-style rules in 科技蓝 colours; 小满 style removed (D-029).
+- UI direction (D-028): one component kit, shadcn/ui-style rules in 科技蓝 colours; 小满 style removed (D-029). D-033 (owner, 2026-10-17): 科技蓝 is now the light Linear look (page #fafafa, white panels, white rail, zinc greys, cobalt accent) and the default; saved pink/orange untouched. S-C (radius, selected-state taste tweaks) waits for the owner's look at the trial.
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
   `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.16, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
   version top-left; every publish adds 0.01.

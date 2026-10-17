@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude (#07) — D-033 light Linear look: 科技蓝 recoloured (S-A: `ui-tokens.css` tech block, `skin-glass.css`
+  tech section, 设置 preview) and made the default (S-B: `DEFAULT_THEME`, `:root,` block, picker label). Saved
+  pink/orange untouched. D-033 text goes into `docs/DECISIONS.md` in its own PR (rulebook, needs the owner's 合并).
+  Next: S-C taste tweaks after the owner looks at the trial; must land before the old-CSS merge (S4).
 - 2026-10-17 — Claude — D-032: Fable 5.1 `specialist` agent (medium, edits in a worktree) for complex slices and second
   passes; missing `researcher` agent file added; CLAUDE.md updated. Work otherwise still paused at the owner's request.
 - 2026-10-17 — Claude — #29 merged (`main` be707da); web trial v1.17 published. Then merged on the branch: 线索 removed

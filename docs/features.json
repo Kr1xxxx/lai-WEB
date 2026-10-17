@@ -271,17 +271,18 @@
   {
    "id": "themes",
    "area": "settings",
-   "description": "Switch colour template between 小满, pink and orange",
+   "description": "Switch colour template between 科技蓝 (default, light Linear look, D-033), pink and orange",
    "steps": [
-    "设置 → 外观 → 粉色",
-    "Whole app recolours; text stays readable"
+    "Fresh data: the app opens in 科技蓝 (light grey page, white panels and rail, cobalt accent)",
+    "设置 → 设置 → 界面配色 → 粉色",
+    "Whole app recolours; text stays readable; a saved 粉色 or 橙色 survives a reload"
    ],
    "e2e": "settings-hub.e2e.mjs",
    "verified": {
     "browser": true,
     "mac": false
    },
-   "note": "UI names: the section is 设置 → 设置 → 界面配色 (not 外观); pink is the default."
+   "note": "UI names: the section is 设置 → 设置 → 界面配色 (not 外观); 科技蓝 is the default since D-033 (was pink)."
   },
   {
    "id": "settings-hub",
