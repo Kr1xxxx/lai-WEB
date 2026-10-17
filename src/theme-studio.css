@@ -132,6 +132,9 @@
   --studio-grid-gap: 16px;
   --studio-board-gap: 12px;
   --studio-bcol-w: 284px;
+  --studio-bcol-pad: 4px 8px 8px;
+  --studio-stat-pad: 14px 16px;
+  --studio-sec-gap: 26px;
   --studio-modal-w: 560px;
   --studio-modal-sm-w: 420px;
   --studio-modal-lg-w: 720px;
@@ -712,7 +715,7 @@
 /* ---------- 商机：四个金额合成一个框，格间竖线（Gr8r .stats/.stat） ---------- */
 :root[data-skin="glass"][data-theme="studio"] .opp-stats { gap: 0; border: 1px solid var(--studio-border); border-radius: var(--studio-r-lg); background: var(--studio-surface); overflow: hidden; }
 /* 每格都画左线和上线、再往左上挪 1px：第一列/第一行的线被外框裁掉；格子换行（商机分析六格、窄窗口）时格间线也对 */
-:root[data-skin="glass"][data-theme="studio"] .opp-stat.k-card { gap: 6px; margin: -1px 0 0 -1px; padding: 14px 16px; border: 0; border-top: 1px solid var(--studio-border); border-left: 1px solid var(--studio-border); border-radius: 0; background: var(--studio-surface); box-shadow: none; }
+:root[data-skin="glass"][data-theme="studio"] .opp-stat.k-card { gap: 6px; margin: -1px 0 0 -1px; padding: var(--studio-stat-pad); border: 0; border-top: 1px solid var(--studio-border); border-left: 1px solid var(--studio-border); border-radius: 0; background: var(--studio-surface); box-shadow: none; }
 :root[data-skin="glass"][data-theme="studio"] .opp-stat-label { font-size: var(--studio-fs-sm); line-height: 18px; color: var(--studio-text-2); }
 :root[data-skin="glass"][data-theme="studio"] .opp-stat-count { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
 :root[data-skin="glass"][data-theme="studio"] .opp-stat b { font-size: var(--studio-fs-stat); font-weight: 600; line-height: 1.1; letter-spacing: var(--studio-ls-stat); font-variant-numeric: tabular-nums; color: var(--studio-text); }
@@ -764,7 +767,7 @@
 
 /* ---------- 团队数据：目标卡、统计格 = Gr8r .stat 的字（k 12.5 text-2、v 22/600、d 12 text-3）；条 4/6 高 ---------- */
 :root[data-skin="glass"][data-theme="studio"] .team-goal.k-card,
-:root[data-skin="glass"][data-theme="studio"] .team-tile.k-card { gap: 6px; padding: 14px 16px; }
+:root[data-skin="glass"][data-theme="studio"] .team-tile.k-card { gap: 6px; padding: var(--studio-stat-pad); }
 :root[data-skin="glass"][data-theme="studio"] .team-goal-head { font-size: var(--studio-fs-sm); color: var(--studio-text-2); }
 :root[data-skin="glass"][data-theme="studio"] .team-goal-head > span { font-weight: var(--studio-fw-ui); color: var(--studio-text-2); }
 :root[data-skin="glass"][data-theme="studio"] .team-goal > strong,
