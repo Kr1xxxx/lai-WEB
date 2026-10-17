@@ -10,7 +10,7 @@ test('合并判定在 CI 之后单独运行，且只用 main 上的规则和脚�
   assert.match(policy, /workflow_run:\s*\n\s*workflows: \[CI\]/, '由 CI 完成触发');
   assert.match(policy, /conclusion == 'success'/, '只在 CI 全绿后判定');
   assert.match(policy, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/, '先取 main');
-  assert.match(policy, /cp scripts\/classify-pr\.mjs scripts\/mac-cadence\.mjs "\$RUNNER_TEMP\/"/, '先把 main 的脚本存起来');
+  assert.match(policy, /cp scripts\/classify-pr\.mjs "\$RUNNER_TEMP\/"/, '先把 main 的脚本存起来');
   assert.match(policy, /node "\$RUNNER_TEMP\/classify-pr\.mjs"/, '用存起来的 main 脚本判定');
   assert.match(policy, /--match-head-commit "\$HEAD_SHA"/, '只合并 CI 测过的那个提交');
 });

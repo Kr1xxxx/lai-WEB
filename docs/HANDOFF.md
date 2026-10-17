@@ -6,12 +6,12 @@
 ## Status (2026-10-17)
 
 - Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.09 built from `main` 7dd7df4 (#20 merged).
-- Desktop builds (Mac, Windows) are PAUSED (D-019): web version only. CI skips the Mac job; a manual run is still possible.
+- The Mac app was removed (owner, 2026-10-17, D-026): web version only. The local backend stays as the data layer.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
   商机设置, products, workbench, calendar/tasks, business stats, team data, Zoho mail, roles + test accounts, 设置/设置中心,
   three themes, MiSans/Inter fonts. Business rules chosen while building: `VALIDATION.md`.
-- `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); none on the Mac app.
+- `docs/features.json`: all 46 features walked in a browser (mail against the fake IMAP/SMTP servers only); there is no Mac app any more (`mac` flag unused).
 - Merge policy (D-014) runs in `merge-policy.yml` from `main`'s copy; merged branches are kept unless the owner says otherwise.
 - How Claude works (D-017): Opus coordinates; Sonnet/Opus subagents in parallel git worktrees (`.claude/agents/`).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
@@ -38,7 +38,7 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | --- | --- | --- | --- |
 | 2 | Waiting branches → PRs | Done except 1.4.127 | See table above |
 | 2i | 部门 + 本部门 scope + 部门管理员; field permissions; product layouts by role | Done | #15 merged |
-| 3 | Owner walks the Mac build | Blocked | Desktop builds paused (D-019) |
+| 3 | Owner walks the Mac build | Cancelled | Mac app removed (owner, 2026-10-17) |
 | 4 | Real Zoho mailbox check (bind, receive, send) | Todo (owner) | Needs his real account (D-004); fake-server e2e passes |
 | 6 | More e2e: orders, opportunities, mail, settings | Done | `orders`, `opportunities`, `mail`, `settings-hub`, `features-walkthrough`, `customer-fixes`, `business-fixes`, `save-conflict` (data-safety PR) |
 | 7 | Translate `ARCHITECTURE.md` / `VALIDATION.md` to English | Todo | |
@@ -61,7 +61,5 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 ## Known risks
 
 - Several sessions work at once; the web trial page is shared, so publishing from a branch hides other unmerged work.
-- With desktop builds paused, a Mac-only break can sit on `main` unnoticed until builds resume.
 - Many unit tests assert on source text and break on refactors; `tests/e2e/` is the reference for behaviour.
 - Timing tests (`perf-*`, mail time limits) can fail once under heavy load (several agents at once); rerun before judging.
-- The Mac app is ad-hoc signed, not notarized: first launch needs right-click → 打开.

@@ -1,12 +1,11 @@
 # 来财源码与运行方式
 
-当前源码1.4.126/build356，macOS本地应用。本文描述现有实现，不是后续公司共享架构已经落地。
+当前源码1.4.126，本地运行的网页版（Mac应用已于2026-10-17移除，D-026）。本文描述现有实现，不是后续公司共享架构已经落地。
 
 ## 运行链路
 
-`Swift AppKit宿主 → WKWebView → 本机Node HTTP服务 → SQLite`
+`浏览器页面 → 本机Node HTTP服务 → SQLite`
 
-- Swift负责应用窗口、单实例协调、详情窗口及本地服务的启动／关闭、来源约束和原生桥接。
 - Web UI由本地HTML／JavaScript／CSS构成；构建工具将项目资源组装为统一页面。不是依赖TOS程序的外部预览。
 - 服务只绑定127.0.0.1，提供鉴权、读取／保存、备份与相关本地接口。
 - SQLite为本机正式持久化；保存携带revision，拒绝过期快照覆盖。现有整体状态保存不等于公司多人完整协作。
@@ -46,15 +45,10 @@
 | `src/ui-tokens.css`及各CSS | 已有UI基础规则及各界面样式 |
 | `backend/server.js`、`auth.js` | 本地路由、会话鉴权／来源保护 |
 | `backend/storage.js`、`storage-path.js` | SQLite、修订号、兼容历史属性、备份、数据路径隔离 |
-| `native/Sources/LaiNative/main.swift` | AppKit／WKWebView宿主及服务管理 |
-| `native/Sources/LaiCore` | 单实例锁和运行策略 |
-| `native/Sources/LaiCoreTests`、`LaiInstanceTests` | 原生策略与锁相关测试入口 |
-| `scripts/build.py` | 本地Swift编译、资源组装、运行时复制与ad-hoc签名；禁止直接输出到Applications |
+| `scripts/build.py` | `assemble_html()`：把`src/`和内嵌字体组装成单个HTML页面，网页试用版和测试都用它 |
 | `scripts/export-source.py` | 允许清单源码导出、链接拒绝、高置信凭据拦截；不是远程发布工具 |
-| `scripts/*acceptance*`等 | 隔离验证工具，输出本地evidence；脚本存在不代表所有场景已经通过 |
 | `tests` | Node模型／UI／后端测试及Python导出／构建边界测试；夹具是合成记录 |
 | `vendor/sheetjs-0.20.3` | 本地第三方库及许可证 |
-| `assets/AppIcon.icns` | 应用图标资源 |
 
 ## 与TOS的关系
 
@@ -74,7 +68,7 @@
 
 上传当前允许清单源码、测试、构建／导出脚本、图标、第三方库许可证和经过整理的交接说明。不上传正式／合成运行数据库、seed、业务附件、备份、应用包、原站采集截图、完整本地日志、凭据、原项目历史README或全部开发目录。
 
-旧验收脚本可能依赖本地历史候选、采集参考或已被替代的验证时点。仓库刻意不复制真实采集和历史应用包；需要外部参考的专项检查必须另备不含业务数据的参考文件，不能只运行脚本就认为证据完整。基础构建及单元／集成的独立运行方式见[VALIDATION.md](VALIDATION.md)。
+基础测试的运行方式见[VALIDATION.md](VALIDATION.md)；需要外部参考的专项检查必须另备不含业务数据的参考文件。Mac应用及其验收脚本已删除（D-026）。
 
 仓库保持私人，不新增项目自有代码开源许可；私人上传不等于授权对外发布。公司共享部署、公开发行、公证和外部账号接入另行决定。
 

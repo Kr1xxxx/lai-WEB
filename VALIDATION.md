@@ -20,37 +20,16 @@
 
 ## 独立基础复跑
 
-需要macOS 13.5+、支持Swift6的Xcode Command Line Tools、Python3.9+和含node:sqlite的Node24+。不自动安装这些工具，不需要TOS。
+需要Python3.9+和含node:sqlite的Node24+。不自动安装这些工具，不需要TOS。Mac应用及其构建、集成测试和只能对着已构建应用运行的验收脚本已于2026-10-17随D-026删除；下面的历史记录里提到它们的地方只是当时的记录。
 
 ```sh
 node --version
 npm run test:model
 python3 -m unittest discover -s tests -p 'test_release_tools.py' -v
-python3 scripts/build.py --node-runtime "$(command -v node)"
-npm test
-python3 scripts/native-drag-acceptance.py
+npm run test:e2e   # 浏览器端到端，需要另装Playwright，见AGENTS.md
 ```
 
-`npm test`的集成需要先构建的dist/来财Lai.app或设置LAI_ACCEPTANCE_APP指向指定测试候选。构建无真实seed。不要运行正式安装包来代替测试候选，不要将输出直接设到Applications。
-
-原生类测试单独编译生产类和测试入口，不启动正式业务后端。单独编译现有startup闭包会显示lastFailure并发捕获警告，当前作为既有警告保留，不伪装成已经处理。
-
-## 可用专项入口
-
-| 入口 | 目的 |
-| --- | --- |
-| `scripts/customer-review-fixes-acceptance.mjs` | 联系人／新建必填原问题回归 |
-| `scripts/customer-hybrid-identity-acceptance.mjs` | 混合历史联系人身份与属性保留 |
-| `scripts/customer-date-preservation-acceptance.mjs` | 编辑历史日期保留 |
-| `scripts/customer-long-save-acceptance.mjs` | 已有长字段、跟进与客群规则保存和重启 |
-| `scripts/order-workflow-acceptance.mjs` | 现有订单编辑／取消／编号冲突／归档恢复等 |
-| `scripts/task-workflow-acceptance.mjs` | 现有任务／日历流程 |
-| `scripts/analysis-workflow-acceptance.mjs` | 现有统计／月份／币种／空态及跳转 |
-| `scripts/public-visual-comparison.mjs` | 公共布局与DOM轨迹、可选源阴影与箭头断言 |
-
-这些脚本有独立的APP／EVIDENCE环境变量，先读脚本开头与夹具。旧脚本并非全部在126最新运行过，可能使用DOM赋值／合成API准备场景；不是全程手工输入或真实业务数据。使用app-seed保护器时，未预初始化合成库的旧脚本可能被安全拦截；不要删除保护器或改成读取正式seed来让测试通过。
-
-公共视觉探针的源比较需额外提供`source-geometry.json`；此仓库不上传原站采集。LAI_ASSERT_FILTER_REFERENCE=1才启用源阴影／箭头断言。当前脚本即使关闭源断言，也会读取参考JSON；缺失会以ENOENT失败，不能算成功。需先提供不含业务数据的参考JSON，关闭断言时也不能宣称源一致。
+浏览器端到端测试（`tests/e2e/`）用真实后端和真实页面，数据放在临时的`lai-test-*`目录。
 
 ## 常用导航（分支 claude/favorite-navigation）
 
