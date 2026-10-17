@@ -111,6 +111,19 @@ test('saving: values are cleaned by type and stored in order.custom', () => {
   assert.equal('custom' in order(state, 'plain'), false);
 });
 
+test('a tiny stored number (shown as 1e-7) does not block the next save or a stage change', () => {
+  let state = withFields();
+  const qty = idOf(state, '采购量');
+  state = save(state, 'a', { custom: { [qty]: '0.0000001' } });
+  assert.equal(order(state, 'a').custom[qty], 1e-7);
+  // The form shows the stored value as text; a stage change re-sends the stored custom object.
+  state = save(state, 'a', { custom: { [qty]: String(order(state, 'a').custom[qty]) } });
+  state = B.upsertOrder(state, 'a', { ...order(state, 'a'), stage: 'shipment' });
+  assert.equal(order(state, 'a').custom[qty], 1e-7);
+  // Typed scientific notation is still refused on a field that did not hold it.
+  assert.throws(() => save(state, 'b', { custom: { [qty]: '1e-7' } }), /请填写数字/);
+});
+
 test('required: a new order needs it, an old order with the field still empty and untouched saves, clearing a filled one is refused', () => {
   let state = withFields();
   state = save(state, 'old', {});
@@ -173,6 +186,11 @@ test('detail view: only the filled fields and the required ones, formatted', () 
   const html = UI.detailMarkup(escapeHtml, OF.customView(state, bare));
   assert.ok(html.includes('data-order-custom-infos') && html.includes('付款方式') && html.includes('—'));
   assert.equal(UI.detailMarkup(escapeHtml, []), '');
+  const note = idOf(state, '特殊要求');
+  state = save(state, 'c', { custom: { [pay]: 'TT', [note]: '第一行\n第二行' } });
+  const wide = UI.detailMarkup(escapeHtml, OF.customView(state, order(state, 'c')));
+  assert.match(wide, /<div class="lead-info order-custom-wide"><dt>特殊要求<\/dt><dd>第一行\n第二行<\/dd>/, 'a 多行文本 value takes the whole line and keeps its line breaks');
+  assert.match(wide, /<div class="lead-info"><dt>付款方式<\/dt>/);
 });
 
 test('export: custom fields are columns after the built-in ones; number / date / multi; formula guard; deleted and hidden columns are gone', () => {
@@ -219,6 +237,7 @@ test('the settings section: add form, rows, option forms, usage, only for who ma
   assert.match(html, /<option value="multi">多选<\/option>/);
   assert.equal([...html.matchAll(/data-of-cf-form="option"/g)].length, 2, 'select and multi fields get an option form');
   assert.match(html, /文本 · 还没有订单填/);
+  assert.match(html, /data-of-cf-rename="[^"]+" value="合同号"[^>]*style="--of-name:3"/, 'the name box is as wide as the name');
   assert.equal(UI.settingsMarkup(ctx(key => key !== 'settings.general')), '', 'no permission, no section');
   assert.match(UI.settingsMarkup({ ...ctx(), state: () => base() }), /还没有订单字段/);
 });
@@ -318,4 +337,25 @@ test('the page is assembled with the new files, and business-ui wires the form, 
   assert.match(ui, /LaiOrderFieldsUI\.collect\(form, root\.LaiOrderFields\.customFields\(state\(\)\)/);
   assert.match(ui, /\$\{orderFieldsSection\(\)\}<section class="business-section theme-section">/);
   for (const hook of ['click', 'change', 'submit']) assert.ok(ui.includes(`settingsExtra()?.${hook}(extraCtx(), e)`), hook);
+});
+
+test('the settings section saves one change after the other: a rename then a quick move both land, in order', async () => {
+  let state = withFields();
+  const saves = [];
+  let busy = false;
+  // Like the app's persist(): a second save while one is still running is refused.
+  const save = async next => {
+    if (busy) throw new Error('上一项修改正在保存，请稍候');
+    busy = true;
+    await new Promise(resolve => setTimeout(resolve, 15));
+    state = next; busy = false; saves.push(OF.customFields(next).map(f => f.name).join(','));
+  };
+  const ctx = () => ({ escape: escapeHtml, state: () => state, can: () => true, need: () => true, save, toast() {}, refresh() {} });
+  const [first, second] = OF.customFields(state);
+  UI.change(ctx(), { target: { dataset: { ofCfRename: second.id }, value: '采购数量', defaultValue: second.name } });
+  UI.click(ctx(), { target: { closest: selector => selector === '[data-of-cf]' ? { dataset: { ofCf: 'up', id: second.id }, disabled: false } : null } });
+  await new Promise(resolve => setTimeout(resolve, 80));
+  assert.deepEqual(OF.customFields(state).slice(0, 2).map(f => f.name), ['采购数量', first.name], 'renamed, then moved up');
+  assert.equal(saves.length, 2);
+  assert.doesNotMatch(UI.settingsMarkup(ctx()), /正在保存/, 'no clash message');
 });

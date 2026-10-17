@@ -21,7 +21,8 @@
         +`<button type="button" data-of-cf="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i===f.options.length-1?' disabled':''}>↓</button>`
         +`<button type="button" data-of-cf="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join('')}</ul>`
         +`<form class="cs-add" data-of-cf-form="option" data-id="${E(f.id)}"><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${fm.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`:'';
-      return `<li class="cs-group cf-field" data-of-cf-field="${E(f.id)}"><div class="cs-row"><input class="cf-name" data-of-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${fm.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off">`
+      // 名称框按名称长短放宽（最长 30 个字），长名称不被截掉。
+      return `<li class="cs-group cf-field" data-of-cf-field="${E(f.id)}"><div class="cs-row"><input class="cf-name" data-of-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${fm.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off" style="--of-name:${Math.min(fm.LIMITS.nameLen,[...f.name].length)}">`
         +`<span class="cs-use">${E(f.typeLabel)} · ${f.usage?`${f.usage} 笔订单已填`:'还没有订单填'}</span><span class="cs-row-actions">`
         +`<label class="ls-check"><input type="checkbox" data-of-cf-required="${E(f.id)}"${f.required?' checked':''} aria-label="${E(f.name)}：必填"><span>必填</span></label>`
         +`<button type="button" data-of-cf="up" data-id="${E(f.id)}" aria-label="上移：${E(f.name)}"${index===0?' disabled':''}>↑</button>`
@@ -42,18 +43,63 @@
       +`<p class="cs-hint">最多 ${fm.LIMIT} 个。类型建好后不能改。选项可以添加、排序、删除，不能改名。必填只在新建和编辑订单时检查，老订单里本来就空着、这次也没改的不拦。删除字段或选项后，订单里已填的内容仍然保留，只是不再显示。名称改完按回车或点别处即保存。</p></section>`;
   }
 
-  // 保存一次修改；失败时把原因写在页面上并重画（输入框、勾选恢复成已保存的样子）。
-  async function apply(c,make){
-    armed='';
-    if(!c.need(KEY))return;
-    try{
-      await c.save(make(c.state()));
-      problem='';
-      c.toast('已保存到来财');
-    }catch(error){
-      problem=error.message;
+  // 只重画「订单字段」这一节：同页上面「默认录入」里还没保存的内容、页面滚动位置都不动。
+  // 添加表单、选项表单里打了一半的字保留（刚保存成功的那个表单清空）；原来在这一节里的焦点放回同一个控件。
+  // 没有页面（node 测试）时交给 c.refresh()；页面上找不到这一节（保存期间已经离开设置页）时什么都不画，免得盖掉别的页面。
+  const formKey=form=>`${form.dataset.ofCfForm||''}:${form.dataset.id||''}`;
+  const formSelector=key=>{const [kind,id]=key.split(':');return `form[data-of-cf-form="${cssEscape(kind)}"]${id?`[data-id="${cssEscape(id)}"]`:''}`;};
+  function focusSelector(el){
+    const d=el.dataset||{},form=el.form&&el.form.dataset?.ofCfForm?el.form:null;
+    if(form&&el.name)return `${formSelector(formKey(form))} [name="${cssEscape(el.name)}"]`;
+    if(form)return `${formSelector(formKey(form))} button[type="submit"]`;
+    if(d.ofCfRename)return `[data-of-cf-rename="${cssEscape(d.ofCfRename)}"]`;
+    if(d.ofCfRequired)return `[data-of-cf-required="${cssEscape(d.ofCfRequired)}"]`;
+    if(d.ofCf)return `[data-of-cf="${cssEscape(d.ofCf)}"][data-id="${cssEscape(d.id||'')}"]${d.option!==undefined?`[data-option="${cssEscape(d.option)}"]`:''}`;
+    return '';
+  }
+  function redraw(c,{done='',focus=''}={}){
+    const doc=root.document;
+    if(!doc?.querySelector)return c.refresh();
+    const old=doc.querySelector('[data-of-section="custom"]');
+    if(!old)return;
+    const drafts=[...old.querySelectorAll('form[data-of-cf-form]')].map(form=>[formKey(form),[...form.elements].filter(el=>el.name).map(el=>[el.name,el.type==='checkbox'?el.checked:el.value])]);
+    const active=doc.activeElement&&old.contains(doc.activeElement)?focusSelector(doc.activeElement):'';
+    const holder=doc.createElement('div');
+    holder.innerHTML=settingsMarkup(c);
+    const next=holder.firstElementChild;
+    if(!next){old.remove();return;}
+    old.replaceWith(next);
+    for(const [key,values] of drafts){
+      if(key===done)continue;
+      const form=next.querySelector(formSelector(key));
+      if(!form)continue;
+      for(const [name,value] of values){const el=form.elements.namedItem(name);if(!el||el instanceof root.RadioNodeList)continue;if(el.type==='checkbox')el.checked=value;else el.value=value;}
     }
-    c.refresh();
+    const target=(focus&&next.querySelector(focus))||(active&&next.querySelector(active));
+    if(target&&!target.disabled)target.focus({preventScroll:true});
+  }
+
+  // 保存一次修改；失败时把原因写在这一节上面并重画（名称框、勾选恢复成已保存的样子，打了一半的字保留）。
+  // form：从哪个表单提交的（成功后清空它、焦点放回它的第一个输入框，方便接着添加）。
+  // 修改一个接一个保存：改完名称直接点别的按钮时，名称先存好，再按存好的设置做下一步，不会撞上“正在保存”。
+  let queue=Promise.resolve();
+  function apply(c,make,form=null){
+    armed='';
+    if(!c.need(KEY))return queue;
+    const key=form?formKey(form):'';
+    queue=queue.then(async()=>{
+      let saved=false;
+      try{
+        await c.save(make(c.state()));
+        problem='';
+        saved=true;
+        c.toast('已保存到来财');
+      }catch(error){
+        problem=error.message;
+      }
+      redraw(c,{done:saved?key:'',focus:key?`${formSelector(key)} input:not([type="checkbox"])`:''});
+    });
+    return queue;
   }
 
   function click(c,e){
@@ -61,7 +107,7 @@
     if(!button||button.disabled)return false;
     const model=OF(),{ofCf:action,id,option}=button.dataset;
     if(action==='delete'){
-      if(armed!==id){armed=id;problem='';c.refresh();return true;}
+      if(armed!==id){armed=id;problem='';redraw(c);return true;}
       apply(c,state=>model.deleteCustomField(state,id));
       return true;
     }
@@ -72,12 +118,12 @@
     return true;
   }
   function submit(c,e){
-    const kind=e.target?.dataset?.ofCfForm;
+    const form=e.target,kind=form?.dataset?.ofCfForm;
     if(!kind)return false;
     e.preventDefault();
-    const data=new FormData(e.target),model=OF();
-    if(kind==='add')apply(c,state=>model.addCustomField(state,{name:String(data.get('name')||''),type:String(data.get('type')||''),options:String(data.get('options')||''),required:data.has('required')}));
-    else if(kind==='option'){const id=e.target.dataset.id;apply(c,state=>model.addFieldOption(state,id,String(data.get('option')||'')));}
+    const data=new FormData(form),model=OF();
+    if(kind==='add')apply(c,state=>model.addCustomField(state,{name:String(data.get('name')||''),type:String(data.get('type')||''),options:String(data.get('options')||''),required:data.has('required')}),form);
+    else if(kind==='option'){const id=form.dataset.id;apply(c,state=>model.addFieldOption(state,id,String(data.get('option')||'')),form);}
     else return false;
     return true;
   }
@@ -99,7 +145,7 @@
   // 一种类型一个输入。新建时必填的字段带浏览器自己的 required；编辑旧订单时不带，旧订单里本来空着的必填字段不拦（见 order-fields-model.js）。
   function control(E,def,value,isNew){
     const name=`custom.${def.id}`,id=`order-custom-${def.id}`,must=def.required&&isNew&&def.type!=='multi'?' required':'';
-    if(def.type==='textarea')return `<textarea id="${E(id)}" name="${E(name)}" rows="3" maxlength="2000" placeholder="请输入"${must}>${E(value??'')}</textarea>`;
+    if(def.type==='textarea')return `<textarea id="${E(id)}" name="${E(name)}" rows="3" maxlength="${FM().LIMITS.textarea}" placeholder="请输入"${must}>${E(value??'')}</textarea>`;
     if(def.type==='number')return `<input id="${E(id)}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value??'')}" placeholder="请输入数字" autocomplete="off"${must}>`;
     if(def.type==='date')return `<input id="${E(id)}" name="${E(name)}" type="date" value="${E(value??'')}"${must}>`;
     if(def.type==='select'){
@@ -110,7 +156,7 @@
       const picked=Array.isArray(value)?value.map(String):[];
       return `<span class="order-multi" id="${E(id)}" role="group" aria-label="${E(def.name)}">${[...new Set([...def.options,...picked])].map(item=>`<label class="order-multi-option"><input type="checkbox" name="${E(name)}" value="${E(item)}"${picked.includes(item)?' checked':''}> ${E(item)}</label>`).join('')}</span>`;
     }
-    return `<input id="${E(id)}" name="${E(name)}" type="text" value="${E(value??'')}" maxlength="200" placeholder="请输入" autocomplete="off"${must}>`;
+    return `<input id="${E(id)}" name="${E(name)}" type="text" value="${E(value??'')}" maxlength="${FM().LIMITS.text}" placeholder="请输入" autocomplete="off"${must}>`;
   }
   // defs：设置里的自定义字段；values：订单上的 custom；isNew：新建订单。
   function formMarkup(E,{defs,values,isNew}){
@@ -127,7 +173,8 @@
   function detailMarkup(E,entries){
     const list=Array.isArray(entries)?entries:[];
     if(!list.length)return '';
-    return `<div class="form-section order-custom-head">自定义字段</div><dl class="lead-infos order-custom-infos" data-order-custom-infos>${list.map(entry=>`<div class="lead-info"><dt>${E(entry.name)}</dt><dd>${entry.text?E(entry.text):'<span class="lead-muted">—</span>'}</dd></div>`).join('')}</dl>`;
+    // 多行文本占整行、保留换行，别的两个一行。
+    return `<div class="form-section order-custom-head">自定义字段</div><dl class="lead-infos order-custom-infos" data-order-custom-infos>${list.map(entry=>`<div class="lead-info${entry.type==='textarea'?' order-custom-wide':''}"><dt>${E(entry.name)}</dt><dd>${entry.text?E(entry.text):'<span class="lead-muted">—</span>'}</dd></div>`).join('')}</dl>`;
   }
   // 表单提交时收成 order.custom 的输入：名字是 custom.字段ID（多选有好几个）。只收账号能改、表单里确实有的字段，其余原样保留。
   function collect(form,defs,editable=()=>true){

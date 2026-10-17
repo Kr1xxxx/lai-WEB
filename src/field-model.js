@@ -156,6 +156,9 @@
     const text=Array.isArray(raw)?'':trim(raw);
     if(!text)return undefined;
     if(field.type==='number'){
+      // 存着的数字原样放行：很小或很大的数会显示成 1e-7 这类写法，再保存时不能因此被拦。
+      if(typeof raw==='number'&&Number.isFinite(raw)&&Math.abs(raw)<=1e15)return raw;
+      if(typeof previous==='number'&&Number.isFinite(previous)&&String(previous)===text)return previous;
       const t=text.replace(/^\+/,'');
       if(!/^-?\d+(\.\d+)?$/.test(t)||Math.abs(Number(t))>1e15)throw new Error(`${label}请填写数字（不要带逗号或符号）`);
       return Number(t);

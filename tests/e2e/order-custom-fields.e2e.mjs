@@ -85,6 +85,62 @@ test('设置 has an 订单字段 section; fields of every type are added, rename
   assert.deepEqual(app.errors, []);
 });
 
+// The 订单字段 section sits under the 默认录入 form on one page: a change there redraws only the section, so text typed above
+// and not saved yet stays, the page does not jump to the top, half-typed text in the add form survives a refused name, and a
+// rename followed at once by a click on ↑ saves both (one after the other, no "正在保存" clash).
+test('changing order fields leaves the rest of the settings page alone', async () => {
+  const { page } = app;
+  await go('settings');
+  await page.locator('[data-of-section="custom"]').waitFor();
+  const owner = page.locator('#biz-settings-form [name="defaultOwner"]');
+  await owner.fill('还没保存的人');
+  const scrollTop = () => page.evaluate(() => document.querySelector('.settings-layout').scrollTop);
+  await page.evaluate(() => { const box = document.querySelector('.settings-layout'); box.scrollTop = document.querySelector('[data-of-section="custom"]').offsetTop - box.offsetTop; });
+  assert.ok((await scrollTop()) > 100, 'the section is further down the page');
+  const add = page.locator('[data-of-cf-form="add"]');
+  await add.locator('[name="name"]').fill('币种');
+  await add.locator('[name="options"]').fill('写了一半');
+  await add.locator('button[type="submit"]').click();
+  await settle();
+  assert.match(await page.locator('#of-error').innerText(), /同名/);
+  assert.equal(await add.locator('[name="name"]').inputValue(), '币种', 'a refused name stays in the box');
+  assert.equal(await add.locator('[name="options"]').inputValue(), '写了一半');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('name')), 'name', 'the cursor is back in the name box');
+  await add.locator('[name="name"]').fill('唛头');
+  await add.locator('[name="options"]').fill('');
+  await add.locator('button[type="submit"]').click();
+  await settle();
+  assert.equal((await fields()).at(-1).name, '唛头');
+  assert.equal(await add.locator('[name="name"]').inputValue(), '', 'a saved name leaves an empty box for the next one');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('name')), 'name');
+  assert.equal(await page.locator('#of-error').innerText(), '');
+  // Rename, then click ↑ straight away.
+  const id = await idOf('唛头');
+  await page.locator(`[data-of-cf-rename="${id}"]`).fill('唛头要求');
+  const up = page.locator(`[data-of-cf="up"][data-id="${id}"]`);
+  await up.hover(); // Playwright scrolls the button into view here, not in the measured part
+  const top = await scrollTop();
+  assert.ok(top > 100);
+  await up.click();
+  await settle(900);
+  assert.deepEqual((await fields()).slice(-2).map((f) => f.name), ['唛头要求', '交货日期']);
+  assert.equal(await page.locator('#of-error').innerText(), '');
+  // The rest of the page is as it was.
+  assert.equal(await owner.inputValue(), '还没保存的人', 'unsaved text above is kept');
+  assert.notEqual((await stored()).laiSettings.defaultOwner, '还没保存的人', 'and was not saved by the field changes');
+  assert.ok(Math.abs((await scrollTop()) - top) < 5, `the page did not jump (${top} → ${await scrollTop()})`);
+  // Clean up for the next tests: drop the unsaved text and the extra field.
+  await page.locator('[data-biz-action="discard-settings"]').click();
+  await settle(300);
+  const remove = page.locator(`[data-of-cf="delete"][data-id="${id}"]`);
+  await remove.click();
+  await settle(200);
+  await remove.click();
+  await settle();
+  assert.equal((await fields()).length, 5);
+  assert.deepEqual(app.errors, []);
+});
+
 test('a new order shows the fields, refuses a missing required one, and saves cleaned values', async () => {
   const { page } = app;
   // 合同号 becomes required in the settings.
