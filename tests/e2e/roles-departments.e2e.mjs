@@ -16,7 +16,7 @@ const openPage = async (target) => {
   const { page } = app;
   await page.locator('.rail-item[data-rail-menu="企业管理"]').hover();
   await page.locator(`.rail-flyout-item[data-flyout-target="${target}"]`).click();
-  await page.locator('.business-title h1').waitFor();
+  await page.locator('.k-pageheader-title').waitFor();
 };
 const node = (name) => app.page.locator('.role-dept-node', { has: app.page.locator(`.role-dept-name:text-is("${name}")`) });
 const count = async (name) => Number(await node(name).locator('.role-dept-count').innerText());
@@ -43,7 +43,7 @@ const ensureFields = () => app.page.evaluate((fake) => {
 test('成员管理 starts with 我的企业 and 未分配 and a 部门 column', async () => {
   const { page } = app;
   await openPage('members');
-  assert.equal(await page.locator('.business-title h1').innerText(), '成员管理');
+  assert.equal(await page.locator('.k-pageheader-title').innerText(), '成员管理');
   assert.deepEqual(await page.locator('.role-dept-node .role-dept-name').allInnerTexts(), ['我的企业', '未分配']);
   assert.equal(await node('我的企业').getAttribute('aria-pressed'), 'true');
   assert.ok((await page.locator('.role-table thead th').allInnerTexts()).includes('部门'));
