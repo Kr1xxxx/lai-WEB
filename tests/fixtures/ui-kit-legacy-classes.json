@@ -7,7 +7,6 @@
  "empty": [
   "contact-search-empty",
   "cs-empty",
-  "dt-empty",
   "export-empty",
   "favorites-empty",
   "import-record-empty",
@@ -27,12 +26,6 @@
  ],
  "table": [
   "cs-table",
-  "cs-table cf-system",
-  "cs-table cs-dedupe",
-  "cs-table cs-prod",
-  "cs-table cs-rules",
-  "cs-table cs-sync",
-  "cs-table dt-records",
   "dt-table",
   "export-table",
   "import-preview",

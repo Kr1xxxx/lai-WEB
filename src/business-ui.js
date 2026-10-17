@@ -1130,7 +1130,17 @@
     let prodDraft = null;
     let syncDraft = null;
     function renderProducts() {
-      return header("产品", "你卖的产品：分组、字段、规格都在这里设置", "") + `<div class="business-scroll">${PU().pageMarkup(state(), prodView)}</div>`;
+      return kitHeader("产品", "你卖的产品：分组、字段、规格都在这里设置") + `<div class="business-scroll">${PU().pageMarkup(state(), prodView)}</div>`;
+    }
+    // 产品、单据的抽屉用组件套件的壳（D-028）：k-drawer、k-dialog-head、k-dialog-foot，右上角关闭是幽灵按钮。
+    // 抽屉本身由 app.js 的 drawer 画（ctx.dialog），这里只在画好后加上套件的类；cls 是这个抽屉自己的宽度类。
+    function kitShell(cls) {
+      const box = document.querySelector("#overlay-root .drawer");
+      if (!box) return;
+      box.classList.add("k-drawer", "prod-drawer", ...(cls ? [cls] : []));
+      box.querySelector(".drawer-head")?.classList.add("k-dialog-head");
+      box.querySelector(".drawer-footer")?.classList.add("k-dialog-foot");
+      for (const close of box.querySelectorAll(".drawer-head button")) close.classList.add("k-btn", "k-btn--ghost", "k-btn--sm");
     }
     function prodSave(makeNext, after) {
       const box = document.getElementById("prod-error");
@@ -1145,12 +1155,14 @@
       const old = id === undefined ? null : PM().find(state(), id);
       if (id !== undefined && !old) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
       prodDraft = { id: old ? old.id : undefined };
-      ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), `${footError("product-error")}<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="product-form">保存产品</button>`, "business-product");
+      ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), `${footError("product-error", "k-error")}<button type="button" class="k-btn" data-action="close-modal">取消</button><button class="k-btn k-btn--primary" type="submit" form="product-form">保存产品</button>`, "business-product");
+      kitShell();
     }
     function openProductDetail(id) {
       const product = PM().find(state(), id);
       if (!product) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
-      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" data-action="close-modal">关闭</button>${can("product.edit") ? `<button class="primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>` : ""}`, "business-product");
+      ctx.dialog("产品详情", PU().detailMarkup(state(), product), `<button type="button" class="k-btn" data-action="close-modal">关闭</button>${can("product.edit") ? `<button class="k-btn k-btn--primary" type="button" data-prod-action="edit" data-id="${E(product.id)}">编辑</button>` : ""}`, "business-product");
+      kitShell();
     }
     // ---- 从表格同步：选文件 → 预览 → 确认 → 记一条任务（可撤销）----
     function syncRefresh() {
@@ -1163,7 +1175,7 @@
     function openSyncDialog() {
       syncDraft = { fileName: "", mode: "code", records: null, plan: null, ignored: [], hidden: [], error: "" };
       ctx.dialog("从表格导入产品", PU().syncMarkup(state(), syncDraft), PU().syncFooter(syncDraft), "business-product-sync");
-      document.querySelector("#overlay-root .drawer")?.classList.add("prod-sync-dialog");
+      kitShell("prod-sync-dialog");
     }
     async function readSyncFile(file) {
       if (!syncDraft || !need("product.sync")) return;
@@ -1368,7 +1380,7 @@
       // 只看本人或本部门的账号：单据记录里只列来源订单／商机归自己的（只用来画页面，编号规则等仍按完整数据）。
       const full = state(),
         shown = RM() && RM().scopeOf(full) !== "all" ? { ...full, laiVisibleDocIds: DM().visibleDocumentIds(full, sees) } : full;
-      return header("单据模板", "报价单、形式发票等长什么样，在这里设置并预览", "") + `<div class="business-scroll">${DU().pageMarkup(shown, { ...docView, date: docToday() })}</div>`;
+      return kitHeader("单据模板", "报价单、形式发票等长什么样，在这里设置并预览") + `<div class="business-scroll">${DU().pageMarkup(shown, { ...docView, date: docToday() })}</div>`;
     }
     function docPrint(type) {
       return printDocument(DM().preview(state(), type, { date: B.localDate ? B.localDate() : "" }));
@@ -1396,7 +1408,7 @@
     // 单据看不看得到：全公司都看得到；只看本人或本部门的账号，看来源订单／商机的负责人看不看得到。
     const docVisible = (doc) => !RM() || RM().scopeOf(state()) === "all" || sees(DM().ownerOfDocument(state(), doc));
     // 作废按钮：要有“作废单据”权限，已作废的不再显示。
-    const docVoidButton = (doc) => (doc.status === "已作废" || !can("doc.void") ? "" : button("docrec-void", "作废", `data-id="${E(doc.id)}"`));
+    const docVoidButton = (doc) => (doc.status === "已作废" || !can("doc.void") ? "" : kitButton("docrec-void", "作废", `data-id="${E(doc.id)}"`, "k-btn--danger k-btn--sm"));
     function viewDoc(id) {
       const doc = DM().getDocument(state(), id);
       if (!doc) return ctx.toast("找不到这张单据");
@@ -1405,10 +1417,11 @@
       const voided = doc.status === "已作废";
       ctx.dialog(
         E(`${doc.snapshot.typeName} ${doc.number}`),
-        `<div class="drawer-body doc-view">${DU().paperMarkup(doc)}</div>`,
-        `<button type="button" data-action="close-modal">关闭</button>${docVoidButton(doc)}${voided ? "" : button("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, true)}`,
+        `<div class="drawer-body k-dialog-body doc-view">${DU().paperMarkup(doc)}</div>`,
+        `<button type="button" class="k-btn" data-action="close-modal">关闭</button>${docVoidButton(doc)}${voided ? "" : kitButton("docrec-print", "打印 / 存为 PDF", `data-id="${E(doc.id)}"`, "k-btn--primary")}`,
         "doc-view",
       );
+      kitShell("doc-view-drawer");
     }
     // 在订单／商机里看到的单据也能作废（不用先去单据模板页）：第一次点要再点一次确认。
     function docVoidAction(id) {

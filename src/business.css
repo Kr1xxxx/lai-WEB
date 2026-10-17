@@ -1060,36 +1060,42 @@
   color: #1f2d45;
   overflow-wrap: anywhere;
 }
-/* ---- 产品：同步、布局、产品详情 ---- */
-.cs-sync .num, .ps-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* ---- 产品：同步、布局、产品详情 ----
+   面板、页签、表格、按钮来自组件套件（src/ui-kit.css）和 customer-settings.css 的 cs- 排版；这里只排产品自己的部分。只用 ui-tokens.css 的变量。 */
 .cs-sync td:first-child { max-width: 220px; overflow-wrap: anywhere; }
+.product-toolbar .k-input[type="search"] { flex: 0 1 280px; }
 .pl-assign { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 .pl-assign .cs-field { flex: 0 0 260px; margin: 0; }
-.pl-assign select { height: 32px; min-width: 200px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.pl-open { background: var(--color-primary-50); }
-.pl-editor h4 { margin: 16px 0 8px; font-size: 13px; font-weight: 600; }
+.pl-open { background: var(--accent-bg); }
+.pl-editor h4 { margin: 16px 0 8px; font-size: var(--text-sm); font-weight: 600; }
 .pl-section { margin: 0 0 14px; }
-.pl-head { padding-left: 0; font-size: 14px; }
-.pl-field .cs-row-actions select { height: 28px; padding: 0 6px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); }
-.pl-field .cs-row-actions button:disabled { opacity: 0.4; }
-.prod-sync-dialog { width: min(720px, 100vw); }
+.pl-head { padding-left: 0; font-size: var(--text-sm); }
+.pl-field .cs-row-actions .k-btn:disabled { opacity: 0.4; }
+/* 产品的抽屉（新建／编辑、详情、从表格导入、看单据）：壳是 k-drawer（business-ui.js 的 kitShell），这里定宽度和头、底的高度 */
+:root[data-skin] .drawer.k-drawer.prod-drawer { width: min(560px, calc(100vw - 32px)); border-width: 0 0 0 1px; }
+:root[data-skin] .drawer.k-drawer.prod-sync-dialog { width: min(720px, calc(100vw - 32px)); }
+:root[data-skin] .drawer.k-drawer.doc-view-drawer { width: min(760px, calc(100vw - 32px)); }
+:root[data-skin] .prod-drawer .drawer-head.k-dialog-head { height: auto; padding: 0 12px 0 16px; }
+:root[data-skin] .prod-drawer .drawer-head.k-dialog-head h2 { font-size: var(--text-lg); font-weight: 600; color: var(--fg); }
+:root[data-skin] .prod-drawer .drawer-footer.k-dialog-foot { height: auto; padding: 10px 16px; background: var(--popover-bg); }
+:root[data-skin] .prod-drawer .drawer-footer .k-error { flex: 1 1 auto; max-height: 40px; padding: 0; overflow: auto; background: transparent; font-size: var(--text-xs); line-height: 18px; }
 .prod-sync .cs-field { margin: 0 0 12px; }
 .prod-sync .cs-hint { margin: 0 0 10px; }
-.prod-sync .check-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; font-weight: 400; }
-.prod-sync input[type="radio"] { width: auto; height: auto; }
-.ps-summary { margin: 14px 0 6px; font-size: 14px; }
-.ps-table { max-height: 320px; overflow: auto; border: 1px solid var(--ink-100, #eff0f3); border-radius: 6px; }
-.ps-table .cs-table { margin: 0; }
+.prod-sync .check-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: var(--text-sm); font-weight: 400; }
+.prod-sync input[type="radio"] { width: auto; height: auto; accent-color: var(--primary); }
+.prod-sync input[type="file"].k-input { height: auto; padding: 4px; line-height: normal; }
+.ps-summary { margin: 14px 0 6px; font-size: var(--text-sm); }
+.ps-table { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r-lg); }
+.ps-table .k-table { margin: 0; }
 .ps-table td, .ps-table th { white-space: normal; }
-.ps-skip td { color: var(--ink-500, #8c8c8c); }
-.pd-body { padding: 8px 24px 20px; }
+.ps-skip td { color: var(--muted-fg); }
 .pd-section { margin: 0 0 18px; }
-.pd-section h3 { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--ink-100, #eff0f3); font-size: 14px; font-weight: 600; }
+.pd-section h3 { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: var(--text-sm); font-weight: 600; }
 .pd-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin: 0; }
 .pd-item { min-width: 0; }
 .pd-item.pd-wide { grid-column: 1 / -1; }
-.pd-item dt { font-size: 12px; color: var(--ink-500, #8c8c8c); }
-.pd-item dd { margin: 2px 0 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.pd-item dt { font-size: var(--text-xs); color: var(--muted-fg); }
+.pd-item dd { margin: 2px 0 0; font-size: var(--text-sm); color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 /* 界面配色：每个选项带一张小预览图（左侧栏 + 顶栏 + 两张卡片）。预览图的颜色按选项自己写死，
    不跟当前主题变，这样三种配色并排时一眼能分清。选项本身是组件套件的样子：1px 边，选中的那张主色边＋「使用中」徽标。 */
 :root[data-skin] .theme-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 4px 0 12px; }
@@ -1260,38 +1266,33 @@
 }
 
 /* ---------- 单据：编号规则、单据记录、保存过的单据 ---------- */
-.cs-panel.dt-wide { max-width: none; }
 /* 产品页、单据模板页：和其他页面一样用满页面宽度，右边不留空 */
 .cs-page > .cs-panel[data-prod-panel], .cs-page > .cs-panel[data-doc-panel] { max-width: none; }
 .dt-num-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
-.dt-num-card { padding: 14px 16px; border: 1px solid var(--line, #e5e5e5); border-radius: 8px; display: grid; gap: 8px; align-content: start; }
-.dt-num-card h3 { margin: 0; font-size: 14px; }
+.dt-num-card { display: grid; gap: 8px; align-content: start; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-lg); }
+.dt-num-card h3 { margin: 0; font-size: var(--text-sm); font-weight: 600; }
 .dt-num-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 .dt-num-fields .cs-field { margin: 0 0 10px; }
-.dt-num-fields .cs-field input, .dt-num-fields .cs-field select { width: 100%; max-width: none; height: 32px; padding: 0 8px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); background: #fff; font: inherit; box-sizing: border-box; }
-.dt-example { margin: 0; font-size: 13px; color: var(--ink-500, #8c8c8c); font-variant-numeric: tabular-nums; }
-.dt-example strong { color: var(--ink-900, #1f1f1f); }
-.dt-example-error { color: #d4380d; }
+.dt-num-fields .cs-field input { max-width: none; }
+.dt-example { margin: 0; font-size: var(--text-sm); color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+.dt-example strong { color: var(--fg); }
+.dt-example-error { color: var(--danger-fg); }
 .dt-records-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.dt-records-bar select, .dt-records-bar input { height: 32px; padding: 0 10px; border: 1px solid var(--dd-border, #d9d9d9); border-radius: var(--dd-radius, 4px); background: #fff; font: inherit; }
-.dt-records-bar input { width: 240px; }
-.dt-records td.num, .dt-records th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dt-records td:nth-child(2), .dt-records td:nth-child(5) { white-space: nowrap; }
-.dt-records .dt-row-actions { white-space: nowrap; display: flex; gap: 6px; }
-.dt-records .dt-row-actions button { height: 28px; padding: 0 10px; }
-.dt-records tr.is-void td { color: var(--ink-400, #a6a6a6); }
+:root[data-skin] .dt-records-bar .k-input { width: 240px; }
+.dt-records td:nth-child(2), .dt-records td:nth-child(5), .dt-records td.k-num { white-space: nowrap; }
+.dt-records .dt-row-actions { white-space: nowrap; }
+.dt-records .dt-row-actions .k-btn + .k-btn { margin-left: 4px; }
+.dt-records tr.is-void td { color: var(--muted-fg); }
 .dt-records tr.is-void td b { text-decoration: line-through; }
-.dt-void-chip { display: inline-block; padding: 0 6px; border-radius: 10px; background: #f0f0f0; color: #8c8c8c; font-size: var(--text-xs); line-height: 18px; vertical-align: middle; }
-.dt-empty { margin: 24px 0; color: var(--ink-500, #8c8c8c); font-size: 13px; }
-.dt-void-note { margin: 0 0 8px; color: #d4380d; font-size: 13px; }
+.dt-void-note { margin: 0 0 8px; color: var(--danger-fg); font-size: var(--text-sm); }
 .dt-paper.is-void { opacity: 0.55; filter: grayscale(1); }
 .dt-saved { margin-top: 10px; }
 .dt-saved ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
-.dt-saved li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
-.dt-saved li.is-void { color: var(--ink-400, #a6a6a6); }
+.dt-saved li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.dt-saved li.is-void { color: var(--muted-fg); }
 .dt-saved li.is-void b { text-decoration: line-through; }
 .opp-doc .order-doc-buttons, .doc-view .order-doc-buttons { display: flex; gap: 8px; }
-.overlay:has(.opp-doc, .doc-view) .drawer { width: min(760px, calc(100vw - 24px)) !important; }
+.overlay:has(.opp-doc) .drawer { width: min(760px, calc(100vw - 24px)) !important; }
 @media (max-width: 700px) { .dt-num-fields { grid-template-columns: 1fr; } }
 
 /* ---------- 企业管理：角色权限、成员管理 ---------- */
