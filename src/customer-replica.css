@@ -265,9 +265,9 @@ input::placeholder {
 .top-actions .avatar {
   width: 32px;
   height: 32px;
-  background: var(--brand-300);
+  background: var(--muted-bg);
   border-radius: 50%;
-  color: var(--brand-100);
+  color: var(--ink-700);
   display: grid;
   place-items: center;
   margin-left: 7px;

@@ -3015,7 +3015,7 @@ td.team-reached {
 .wb-pct { color: var(--wb-accent-ink); }
 .wb-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 30px; line-height: 1.25; letter-spacing: -0.02em; }
 .wb-sub { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--wb-muted); }
-.wb-bar { height: 8px; border-radius: 99px; background: var(--wb-accent-soft); overflow: hidden; margin-top: 8px; }
+.wb-bar { height: 8px; border-radius: 99px; background: var(--muted-bg); overflow: hidden; margin-top: 8px; }
 .wb-bar i { display: block; height: 100%; min-width: 0; border-radius: 99px; background: var(--wb-accent); }
 .wb-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .wb-split > div { min-width: 0; padding-top: 10px; border-top: 1px solid var(--wb-line); }

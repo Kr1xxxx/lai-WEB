@@ -66,7 +66,8 @@ test('tab strips, calendar cells and agenda rows keep square corners and their o
 test('the active rail item is a brand pill around icon and text; the batch bar is light', () => {
   const light = skin.slice(skin.indexOf('深色强调色改浅'));
   assert.ok(light.length > 100, 'section exists after the earlier dark rules, so it wins the cascade');
-  assert.match(light, /\.rail-item\.active:hover \{ background: var\(--brand-700\); color: #fff; box-shadow: [^;]*; font-weight: 700; \}/, 'the whole item, text included, is the pill');
+  assert.match(light, /\.rail-item\.active:hover \{ background: var\(--nav-active\); color: #fff; box-shadow: none; font-weight: 700; \}/, 'the whole item, text included, is the pill');
+  assert.match(tokens, /--nav-active: var\(--brand-700\);/, 'pink and orange: the pill is the darker brand tone');
   assert.match(light, /\.rail-item\.active :is\(\.icon, \.icon-duo\) \{ stroke: #fff; color: #fff; \}/);
   assert.doesNotMatch(light, /\.rail-item\.active[^{]*\{[^}]*inset 3px 0 0/, 'no left bar any more');
   assert.match(light, /\.replica-batch \{ background: #fff;[^}]*border: 1px solid var\(--brand-500\)/);
@@ -85,13 +86,18 @@ test('the active rail item is a brand pill around icon and text; the batch bar i
 test('科技蓝: flat white panels, a navy rail with light icons and a cobalt active item, cobalt buttons, no glow blobs', () => {
   const tech = skin.slice(skin.indexOf(':root[data-skin="glass"][data-theme="tech"] {'));
   assert.ok(tech.length > 500, 'the tech section exists at the end, so it wins the cascade');
-  assert.match(tech, /#app::before,\s*:root\[data-skin="glass"\]\[data-theme="tech"\] #app::after \{ display: none; \}/);
-  assert.match(tech, /--card-bg: #fff;/);
-  assert.match(tech, /--skin-blur: none;/);
-  assert.match(tech, /\.rail \{ background: var\(--brand-900\);/);
-  assert.match(tech, /\.rail-item\.active:hover \{ background: var\(--brand-500\); color: #fff;/);
-  assert.match(tech, /button\.primary,[\s\S]*?\{ background: var\(--brand-500\); border-color: var\(--brand-500\); color: #fff; \}/);
-  assert.match(tech, /\.wb \{ --wb-primary: var\(--brand-500\); \}/);
+  // No glow blobs, no blur and white cards for every theme now (D-028): the base glass block says so once.
+  assert.match(skin, /:root\[data-skin="glass"\] #app::before,\s*:root\[data-skin="glass"\] #app::after \{ content: none; display: none; \}/);
+  assert.match(tokens, /--card-bg: #fff;/);
+  assert.match(skin, /:root\[data-skin="glass"\] \{[^}]*--skin-blur: none;/);
+  assert.match(tech, /--nav-bg: var\(--brand-900\);/);
+  assert.match(tech, /--nav-active: var\(--brand-500\);/);
+  assert.match(tech, /\.rail \{ background: var\(--nav-bg\);/);
+  assert.match(tech, /\.rail-item\.active:hover \{ background: var\(--nav-active\); color: #fff;/);
+  // Primary buttons are the brand colour in every theme (cobalt here), through --primary.
+  assert.match(tokens, /--primary: var\(--brand-500\);/);
+  assert.match(skin, /\[data-theme\] button\.primary,[\s\S]*?\{ background: var\(--primary\); border-color: var\(--primary\); color: var\(--primary-fg\); \}/);
+  assert.match(skin, /\.wb \{ --wb-primary: var\(--primary\); \}/);
   // every tech rule is limited to the tech theme (the glass skin test above already pins data-skin)
   const rules = tech.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+\{/g);
   assert.ok(rules.length > 20);
