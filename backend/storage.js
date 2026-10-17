@@ -21,7 +21,13 @@ function openStorage({ seedFile }) {
   let database = null;
   let storageMode = 'initializing';
   let storageError = '';
+  // 打不开数据库的原因代号（页面按它换提示），只在内存里，不存进数据库。
+  let storageErrorCode = '';
   let storageRevision = 0;
+  // 这个版本的来财认得的数据库格式版本（metadata 表的 schema_version）。比它新的数据库不打开、不改动；
+  // 没有这个记号的老数据库当作版本 1。
+  const SCHEMA_VERSION = 1;
+  const SCHEMA_TOO_NEW_MESSAGE = '这份数据是更新版本的来财写的，这个版本打不开，数据没有改动。请换用新版本的来财打开。';
   let startupIntegrity = { ok: false, message: 'not checked' };
 
   function ensureStorage() {
@@ -274,10 +280,13 @@ function openStorage({ seedFile }) {
   // 整包保存（/api/save）会用页面发来的数据替换全部数据。页面出错时发来的数据可能缺块：
   // 服务器已有的顶层字段（客户、订单、各模块设置）在新数据里缺了或类型不对，就整个拒绝，原数据不动。
   // 在写事务里读当前数据再比较，保证比较的就是即将被替换的那一份。迁移（首次建库）不做这个检查。
+  // 整包保存和只传改动的保存缺了块、类型不对时都抛同一个错（400 incomplete_save），原数据不动。
+  const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const incompleteSave = key => httpError(400, '保存的内容不完整，原数据没有改动。请刷新页面后再试。', { code: 'incomplete_save', field: String(key).slice(0, 80) });
   function validateReplacement(raw, previous) {
     const data = raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object' ? raw.data : raw;
-    const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-    const invalid = key => { throw httpError(400, '保存的内容不完整，原数据没有改动。请刷新页面后再试。', { code: 'incomplete_save', field: String(key).slice(0, 80) }); };
+    const object = isPlainObject;
+    const invalid = key => { throw incompleteSave(key); };
     if (!object(data)) invalid('data');
     if (!Array.isArray(data.orders)) invalid('orders');
     if (!object(data.customers)) invalid('customers');
@@ -289,6 +298,30 @@ function openStorage({ seedFile }) {
       if (!Object.hasOwn(data, key) || data[key] === undefined) invalid(key);
       if (Array.isArray(previous[key]) && !Array.isArray(data[key])) invalid(key);
       if (object(previous[key]) && !object(data[key])) invalid(key);
+    }
+  }
+  // 只传改动的保存（/api/save-changes）同样不能删掉一整块：removeAppState 列了任何字段、某个客户不是对象、
+  // 某块设置传成 undefined 或类型变了（原来是列表现在不是、原来是对象现在不是），整次拒绝。
+  // 在开事务、做删除前备份之前查，什么都没写。
+  function validateChanges(changes) {
+    if (!isPlainObject(changes)) throw httpError(400, 'changes are required');
+    const invalid = key => { throw incompleteSave(key); };
+    for (const key of Array.isArray(changes.removeAppState) ? changes.removeAppState : []) invalid(key);
+    if (changes.customers !== undefined && changes.customers !== null) {
+      if (!isPlainObject(changes.customers)) invalid('customers');
+      if (changes.customers.set !== undefined && !isPlainObject(changes.customers.set)) invalid('customers');
+      for (const [name, customer] of Object.entries(changes.customers.set || {})) if (!isPlainObject(customer)) invalid(`customers.${name}`);
+    }
+    if (changes.appState !== undefined && changes.appState !== null && !isPlainObject(changes.appState)) invalid('appState');
+    const appStateGet = database.prepare('SELECT data_json FROM app_state WHERE key = ?');
+    for (const [key, value] of Object.entries(changes.appState || {})) {
+      if (value === undefined) invalid(key);
+      const stored = appStateGet.get(key);
+      if (!stored) continue;
+      let previous;
+      try { previous = JSON.parse(stored.data_json); } catch (_) { continue; }
+      if (Array.isArray(previous) && !Array.isArray(value)) invalid(key);
+      if (isPlainObject(previous) && !isPlainObject(value)) invalid(key);
     }
   }
 
@@ -474,7 +507,8 @@ function openStorage({ seedFile }) {
       });
       if (validatedImportLog) database.prepare('INSERT INTO import_logs(id, data_json) VALUES(?, ?)')
         .run(validatedImportLog.id, JSON.stringify(validatedImportLog.issues));
-      setMetadata('schema_version', '1');
+      // 格式版本只在第一次建库时写，之后从不改写（更新的数据库在打开时就被拦住了，到不了这里）。
+      if (!metadataValue('schema_version', '')) setMetadata('schema_version', String(SCHEMA_VERSION));
       setMetadata('app', payload.app);
       setMetadata('payload_version', payload.version);
       setMetadata('exported_at', payload.exportedAt);
@@ -512,14 +546,14 @@ function openStorage({ seedFile }) {
   function applyChanges(changes, { baseRevision, importLog } = {}) {
     if (!database) throw new Error('SQLite database is not available');
     const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
-    if (!isObject(changes)) throw httpError(400, 'changes are required');
+    // 缺块、类型不对（incomplete_save）在开事务之前就拒绝；saveChanges 在做删除前备份之前也查过一次。
+    validateChanges(changes);
     const customerSet = isObject(changes.customers?.set) ? changes.customers.set : {};
     const customerRemove = Array.isArray(changes.customers?.remove) ? changes.customers.remove.map(String) : [];
     const orderSet = isObject(changes.orders?.set) ? changes.orders.set : {};
     const orderRemove = Array.isArray(changes.orders?.remove) ? changes.orders.remove.map(String) : [];
     const sequence = isObject(changes.orders?.sequence) ? changes.orders.sequence : {};
     const appSet = isObject(changes.appState) ? changes.appState : {};
-    const appRemove = Array.isArray(changes.removeAppState) ? changes.removeAppState.map(String) : [];
     if (Object.keys(appSet).some(key => entityStateKeys.has(key))) throw httpError(400, 'appState cannot carry orders or customers');
     if (Object.keys(sequence).some(bucket => !orderBuckets.includes(bucket))) throw httpError(400, 'unknown order bucket');
     if (changes.trackingLookups !== undefined && !Array.isArray(changes.trackingLookups)) throw httpError(400, 'trackingLookups must be a list');
@@ -602,8 +636,8 @@ function openStorage({ seedFile }) {
       }
 
       for (const name of customerRemove) database.prepare('DELETE FROM customers WHERE name = ?').run(name);
-      for (const [name, customer] of Object.entries(customerSet)) {
-        const record = isObject(customer) ? customer : {};
+      for (const [name, record] of Object.entries(customerSet)) {
+        // validateChanges 已保证每个客户都是对象（不是 null、文字或列表），不会把客户写成 {}。
         customerUpsert.run(String(name), String(record.country || ''), String(record.email || ''), String(record.contact || ''), String(record.updated || ''), JSON.stringify(record));
       }
 
@@ -620,8 +654,8 @@ function openStorage({ seedFile }) {
           lookupInsert.run(id, position, String(item?.trackingNumber || ''), String(item?.carrier || ''), String(item?.checkedAt || item?.updated || ''), JSON.stringify(item || {}));
         });
       }
+      // 只传改动的保存不再删 app_state 的字段（removeAppState 有内容时上面已经整次拒绝）。
       for (const [key, value] of Object.entries(appSet)) appStateInsert.run(key, JSON.stringify(value));
-      for (const key of appRemove) database.prepare('DELETE FROM app_state WHERE key = ?').run(key);
       if (validatedImportLog) database.prepare('INSERT INTO import_logs(id, data_json) VALUES(?, ?)')
         .run(validatedImportLog.id, JSON.stringify(validatedImportLog.issues));
       setMetadata('revision', String(nextRevision));
@@ -753,17 +787,41 @@ function openStorage({ seedFile }) {
     }
   }
 
+  // 数据库里记的格式版本：没有 metadata 表或没有这个记号（老数据库）返回 null（当作版本 1）；
+  // 记号不是正整数时返回 NaN（当作读不懂的新格式）。只读，不写。
+  function storedSchemaVersion() {
+    const table = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'metadata'").get();
+    if (!table) return null;
+    const row = database.prepare('SELECT value FROM metadata WHERE key = ?').get('schema_version');
+    if (!row) return null;
+    const text = String(row.value).trim();
+    return /^\d+$/.test(text) ? Number(text) : NaN;
+  }
+
   function initializeStorage() {
     ensureStorage();
     const existed = fs.existsSync(databaseFile);
     if (!existed && hasPriorSqliteEvidence()) {
       storageMode = 'error';
       storageError = 'SQLite database is missing; automatic recovery from legacy JSON is disabled';
+      storageErrorCode = '';
       database = null;
       return;
     }
     try {
       database = new DatabaseSync(databaseFile);
+      // 先看格式版本，再建表、迁移、写标记：比这个版本新的数据库一个字节都不改，直接不打开。
+      if (existed) {
+        const schema = storedSchemaVersion();
+        if (schema !== null && !(Number.isSafeInteger(schema) && schema >= 1 && schema <= SCHEMA_VERSION)) {
+          database.close();
+          database = null;
+          storageMode = 'error';
+          storageError = SCHEMA_TOO_NEW_MESSAGE;
+          storageErrorCode = 'schema_too_new';
+          return;
+        }
+      }
       createDatabaseSchema();
       if (!metadataValue('initialized', '')) {
         let sourceFile = '';
@@ -785,9 +843,11 @@ function openStorage({ seedFile }) {
       storageRevision = Number(metadataValue('revision', '0'));
       storageMode = 'sqlite';
       storageError = '';
+      storageErrorCode = '';
       try { fs.chmodSync(databaseFile, 0o600); } catch (_) {}
     } catch (error) {
       storageError = error.message || String(error);
+      storageErrorCode = '';
       try { database?.close(); } catch (_) {}
       database = null;
       if (!existed && fs.existsSync(databaseFile)) {
@@ -1050,10 +1110,10 @@ function openStorage({ seedFile }) {
     queueBackup();
     return { ...result, ...backupStatus(), ...(result.ok === false ? { ok:false, message:result.message } : {}) };
   }
-  // 一次删掉 5 个以上客户或订单前，先做一份备份；备份没成功就不删。
+  // 一次删掉 5 个以上客户、订单，或某一张列表（商机、目标、物流查询记录等）少掉 5 条以上之前，先做一份备份；备份没成功就不删。
   const LARGE_DELETE = 5;
-  function backupBeforeLargeDelete(removedCustomers, removedOrders) {
-    if (removedCustomers <= LARGE_DELETE && removedOrders <= LARGE_DELETE) return null;
+  function backupBeforeLargeDelete(removed) {
+    if (Object.values(removed).every(count => count <= LARGE_DELETE)) return null;
     const result = createBackup(true, 'before-delete');
     if (!result.ok) throw httpError(503, '删除前的备份没有成功，这次改动没有保存。请稍后再试。', { code: 'backup_before_delete_failed' });
     return result;
@@ -1064,23 +1124,53 @@ function openStorage({ seedFile }) {
       orders: new Set(database.prepare('SELECT id FROM orders').all().map(row => row.id)),
     };
   }
+  // 一张列表少了几条：每条都是带 id 的对象时按 id 数（原来有、现在没有的），否则按条数差。只看顶层的列表，
+  // 设置对象里面嵌着的列表（laiSettings.* 等）不算。
+  const itemId = item => isPlainObject(item) && (typeof item.id === 'string' || typeof item.id === 'number') && String(item.id) !== '' ? String(item.id) : null;
+  function listLoss(before, after) {
+    if (!Array.isArray(before) || !Array.isArray(after)) return 0;
+    if (before.length && before.every(item => itemId(item) !== null)) {
+      const kept = new Set(after.map(itemId));
+      return before.filter(item => !kept.has(itemId(item))).length;
+    }
+    return Math.max(0, before.length - after.length);
+  }
+  function storedList(sql) {
+    const rows = database.prepare(sql).all();
+    return rows.map(row => { try { return JSON.parse(row.data_json); } catch (_) { return null; } });
+  }
+  // 顶层各张列表少了多少条：lists 是其中最多的那个数（只要有一张列表少了 5 条以上就先备份）。
+  function listRemovals(nextLists) {
+    let most = 0;
+    for (const row of database.prepare('SELECT key, data_json FROM app_state').all()) {
+      if (!Object.hasOwn(nextLists, row.key) || !Array.isArray(nextLists[row.key])) continue;
+      let previous;
+      try { previous = JSON.parse(row.data_json); } catch (_) { continue; }
+      most = Math.max(most, listLoss(previous, nextLists[row.key]));
+    }
+    if (Array.isArray(nextLists.trackingLookups)) most = Math.max(most, listLoss(storedList('SELECT data_json FROM tracking_lookups ORDER BY position'), nextLists.trackingLookups));
+    return most;
+  }
   function removalsInReplacement(raw) {
     const data = raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object' ? raw.data : raw;
-    const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-    if (!object(data) || !object(data.customers) || !Array.isArray(data.orders)) return { customers: 0, orders: 0 };
+    if (!isPlainObject(data) || !isPlainObject(data.customers) || !Array.isArray(data.orders)) return { customers: 0, orders: 0, lists: 0 };
     const existing = existingKeys();
     const wantedOrders = new Set(orderBuckets.flatMap(bucket => Array.isArray(data[bucket]) ? data[bucket] : []).map(order => String(order?.id || '').trim()));
     return {
       customers: [...existing.customers].filter(name => !Object.hasOwn(data.customers, name)).length,
       orders: [...existing.orders].filter(id => !wantedOrders.has(id)).length,
+      lists: listRemovals(data),
     };
   }
   function removalsInChanges(changes) {
     const existing = existingKeys();
     const list = value => Array.isArray(value) ? [...new Set(value.map(String))] : [];
+    const nextLists = { ...(isPlainObject(changes?.appState) ? changes.appState : {}) };
+    if (Array.isArray(changes?.trackingLookups)) nextLists.trackingLookups = changes.trackingLookups;
     return {
       customers: list(changes?.customers?.remove).filter(name => existing.customers.has(name)).length,
       orders: list(changes?.orders?.remove).filter(id => existing.orders.has(id)).length,
+      lists: listRemovals(nextLists),
     };
   }
 
@@ -1216,7 +1306,7 @@ function openStorage({ seedFile }) {
     const meta = key => db.prepare('SELECT value FROM metadata WHERE key = ?').get(key)?.value;
     if (String(meta('initialized') ?? '') !== '1') throw backupUnusable();
     const schema = meta('schema_version');
-    if (schema !== undefined && String(schema) !== '1') throw backupUnusable();
+    if (schema !== undefined && String(schema) !== String(SCHEMA_VERSION)) throw backupUnusable();
     const revision = Number(meta('revision') ?? '0');
     if (!Number.isSafeInteger(revision) || revision < 0) throw backupUnusable();
     for (const table of ['orders', 'customers', 'tracking_lookups', 'app_state']) {
@@ -1433,7 +1523,7 @@ function openStorage({ seedFile }) {
 
   function readSnapshot() {
     ensureStorage();
-    if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+    requireDatabase();
     database.exec('BEGIN');
     try {
       storageRevision = Number(metadataValue('revision', '0'));
@@ -1450,26 +1540,26 @@ function openStorage({ seedFile }) {
   const revisionMatches = baseRevision => Number(baseRevision) === Number(metadataValue('revision', '0'));
   function save(payload, options = {}) {
     ensureStorage();
-    if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+    requireDatabase();
     if (revisionMatches(options.baseRevision)) {
-      const removed = removalsInReplacement(payload);
-      backupBeforeLargeDelete(removed.customers, removed.orders);
+      // 缺块的整包保存会在事务里被拒（validateReplacement）；这里先按同样的规则查一遍，免得为一次注定被拒的保存先做备份。
+      validateReplacement(payload, readStateFromDatabase().data);
+      backupBeforeLargeDelete(removalsInReplacement(payload));
     }
     return writeStateToDatabase(payload, options);
   }
 
   function saveChanges(changes, options = {}) {
     ensureStorage();
-    if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
-    if (revisionMatches(options.baseRevision)) {
-      const removed = removalsInChanges(changes);
-      backupBeforeLargeDelete(removed.customers, removed.orders);
-    }
+    requireDatabase();
+    // 缺块、类型不对的改动在做删除前备份、开事务之前就拒绝，什么都不写。
+    validateChanges(changes);
+    if (revisionMatches(options.baseRevision)) backupBeforeLargeDelete(removalsInChanges(changes));
     return applyChanges(changes, options);
   }
 
   function readImportLog(id) {
-    if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+    requireDatabase();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || '')))
       throw httpError(400, 'invalid import log id');
     const row = database.prepare('SELECT data_json FROM import_logs WHERE id = ?').get(id);
@@ -1479,8 +1569,12 @@ function openStorage({ seedFile }) {
 
   // 绑定的邮箱账号单独存一行，不属于 /api/data 的业务快照，也不随 /api/save 改动。
   // 按用户决定，凭据以明文存放在本机数据库（文件权限 0600），因此数据库备份文件里也包含它。
+  // 数据库没打开（打不开、格式太新、正在恢复）：503，带上原因代号（有的话）。
+  function storageUnavailable() {
+    return httpError(503, storageError || 'storage unavailable', storageErrorCode ? { code: storageErrorCode } : {});
+  }
   function requireDatabase() {
-    if (!database || storageMode !== 'sqlite') throw httpError(503, storageError || 'storage unavailable');
+    if (!database || storageMode !== 'sqlite') throw storageUnavailable();
   }
   function readMailAccount() {
     requireDatabase();
@@ -1602,7 +1696,7 @@ function openStorage({ seedFile }) {
       } catch (error) { integrity = { ok: false, message: error.message || 'storage unavailable' }; }
     }
     return {
-      ok: integrity.ok, storageMode, storageRevision, storageError, integrity,
+      ok: integrity.ok, storageMode, storageRevision, storageError, storageErrorCode, integrity,
       dataFile: storageMode === 'sqlite' ? databaseFile : dataFile,
       legacyJsonFile: fs.existsSync(dataFile) ? dataFile : '',
       backupDir, backups: backupSummary(), backup: backupStatus(),

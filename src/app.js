@@ -325,6 +325,9 @@
     status("正在保存…");
     pending = (async () => {
       const send = async (data) => {
+        // 新数据里缺了（或是 undefined）的顶层块，补回上次保存的那块：不会让服务器删掉整块数据，
+        // 保存后页面上的数据也和服务器一致（否则页面会按默认值重建这块、下次保存把它盖掉）。
+        data = M.completeState(state, data);
         const diff = savedSnapshot ? M.diffState(savedSnapshot, data) : null;
         let sent = null;
         if (diff && diff.empty && !importLog) {
@@ -345,7 +348,7 @@
             ...(importLog ? {importLog} : {}),
           });
         }
-        return { diff, ...sent };
+        return { diff, data, ...sent };
       };
       let attempt = await send(next);
       // 版本冲突只自动重试一次。
@@ -353,16 +356,16 @@
         next = await rebaseAfterConflict(attempt.diff);
         attempt = await send(next);
       }
-      const { res, result, diff } = attempt;
+      const { res, result, diff, data } = attempt;
       if (!res.ok || !result.ok)
         throw new Error(
           res.status === 409
             ? "数据刚在别处更新过，这次的修改还没有保存。请稍后再保存一次。"
             : result.message || result.error || "保存失败，请重试",
         );
-      state = next;
+      state = data;
       revision = result.revision;
-      savedSnapshot = diff ? diff.snapshot : M.snapshotState(next);
+      savedSnapshot = diff ? diff.snapshot : M.snapshotState(data);
       applyTheme(state.laiSettings?.theme);
       rebuildRows();
       updateBackupNotice(result.backup);
@@ -2481,7 +2484,11 @@
   async function boot() {
     try {
       const response = await fetch("/api/data", { cache: "no-store" });
-      if (!response.ok) throw new Error("本地数据服务连接失败");
+      if (!response.ok) {
+        // 数据是更新版本的来财写的：服务说明原因（schema_too_new），照它说的提示；其它情况仍提示连接失败。
+        const failed = await response.json().catch(() => null);
+        throw new Error(failed?.code === "schema_too_new" && failed.message ? failed.message : "本地数据服务连接失败");
+      }
       const payload = await response.json();
       if (!payload.data || !Array.isArray(payload.data.orders) || !payload.data.customers)
         throw new Error("客户数据格式不完整");

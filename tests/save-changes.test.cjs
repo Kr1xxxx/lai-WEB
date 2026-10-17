@@ -111,18 +111,24 @@ test('changes whose counts do not match are rolled back completely', () => {
   } finally { fs.rmSync(t.dir, { recursive: true, force: true }); }
 });
 
-test('save-changes can remove a settings key, while a full save that drops it is refused and changes nothing', () => {
+test('neither a full save nor save-changes can drop a settings key: both are refused and the database is unchanged', () => {
   const t = openTemp();
   try {
     const snap = t.store.readSnapshot();
     t.store.save({ app: 'laicai-lai', version: 'test', data: { ...clone(baseData()), extraKey: { a: 1 } } }, { baseRevision: snap.revision });
     const before = t.store.readSnapshot();
     const dropped = clone(before.data); delete dropped.extraKey;
-    assert.throws(() => t.store.save({ app: 'laicai-lai', version: 'test', data: dropped }, { baseRevision: before.revision }), (error) => error.status === 400 && /不完整/.test(error.message));
+    const refused = (error) => error.status === 400 && error.code === 'incomplete_save' && error.field === 'extraKey' && /不完整/.test(error.message);
+    assert.throws(() => t.store.save({ app: 'laicai-lai', version: 'test', data: dropped }, { baseRevision: before.revision }), refused);
     assert.deepEqual(t.store.readSnapshot(), before);
-    const { changes } = M.diffState(M.snapshotState(before.data), dropped);
-    assert.deepEqual(changes.removeAppState, ['extraKey']);
-    t.store.saveChanges(changes, { baseRevision: before.revision });
-    assert.equal(Object.hasOwn(t.store.readSnapshot().data, 'extraKey'), false);
+    // The page's diff of the dropped state asks for no removal: the key is treated as unchanged and the snapshot keeps it.
+    const diff = M.diffState(M.snapshotState(before.data), dropped);
+    assert.deepEqual(diff.changes.removeAppState, []);
+    assert.equal(diff.empty, true);
+    assert.equal(diff.snapshot.app.get('extraKey'), JSON.stringify({ a: 1 }), 'the snapshot still mirrors the server');
+    // A hand-built delta that asks for the removal (an older page) is refused like the full save.
+    assert.throws(() => t.store.saveChanges({ ...diff.changes, removeAppState: ['extraKey'] }, { baseRevision: before.revision }), refused);
+    assert.deepEqual(t.store.readSnapshot(), before);
+    assert.deepEqual(t.store.readSnapshot().data.extraKey, { a: 1 });
   } finally { t.store.close(); fs.rmSync(t.dir, { recursive: true, force: true }); }
 });
