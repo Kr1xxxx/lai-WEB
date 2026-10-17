@@ -9,7 +9,8 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   fields, exchange rates with order snapshots, task rules, feature switches, D-022 (company details in one place, team
   data 本人 scope, tasks with owners). Opus review findings fixed; e2e harness race fixed (wait for boot before changing
   the hash). model 1439 / e2e 285 green, UI audit pass. Permission seams to note: 设置 edits company/bank details with
-  `settings.general` only; chat send/import work on 公海 customers with `pool.view` only.
+  `settings.general` only; chat send/import work on 公海 customers with `pool.view` only. Merged as #20 (`main` 7dd7df4);
+  web trial v1.09 published from it.
 - 2026-10-16 — Claude — Owner said 合并 for #15: brought main (#17, #18) into its branch (merge commit, tests green), merged
   #15, `main` 892e284; web trial v1.08. Owner decisions recorded: pink default (D-008), D-022 company details / team data
   scope / personal tasks, D-023 WhatsApp, D-024 Cloudflare later, D-025 audit before complex tasks. Settings audit (three
