@@ -111,3 +111,13 @@
 19. 跑一次扫描脚本 `scripts/ui-audit/ui-audit.cjs`，问题数不增加（比 `scripts/ui-audit/baseline.json` 多就算新增）。
 20. 真实浏览器里才看得出的（系统下拉菜单、系统日期选择、窗口拖窄）由用户在浏览器里确认。
 21. 窗口宽度 1024～1920 都要看（至少 1024、1200、1366、1680），再跑一遍重叠扫描 `scripts/ui-audit/overlap-sweep.cjs`：互相压住、文字被切掉没有省略号、伸出窗口都必须是 0；故意的重叠只能加进它的白名单，并写明原因。
+22. 跑一次样式普查 `scripts/ui-audit/census.cjs --check`：字号、圆角、按钮样式、表头样式、文字颜色的种类，以及 12px 以下的文字数，都不能比 `scripts/ui-audit/census-baseline.json` 多。
+
+### F. 完成标准（D-028 组件套件，每个界面改动都要满足）
+23. 文字最小 12px（`var(--text-xs)`）；图标、emoji 图形不算文字。
+24. 出错时，错误提示不用滚动就能看见：表单的错误写在底栏按钮旁的 `.k-error` 里，或者紧挨着出错的那一项。
+25. 保存、关闭、出错之后，键盘焦点留在原处或回到打开它的按钮上，不跳到页面顶部；焦点框用 `--ring`，看得见。
+26. 校验提示只用中文，不出现浏览器自带的英文提示。
+27. 一次操作只出一条提示（toast），不叠两条。
+28. 新写的界面用组件套件的类（`src/ui-kit.css` 开头有清单：`k-btn`、`k-input`、`k-tabs`、`k-table`、`k-pager`、`k-card`、`k-badge`、`k-empty`、`k-dialog`／`k-drawer`、`k-toast`、`k-pageheader`），颜色、字号、圆角用 `src/ui-tokens.css` 的语义变量（`--primary`、`--border`、`--muted-fg`、`--text-*`、`--r-*`……），不写死色值和像素。`tests/ui-tokens-ratchet.test.cjs` 和 `tests/ui-kit-classes.test.cjs` 会拦住新的写死值和新的自造主按钮、分页、空状态、表格类名。
+29. 主色只表示意义：主按钮、当前选中、链接、进度条；大块底色、统计卡、页面背景用中性色。
