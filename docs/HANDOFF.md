@@ -5,7 +5,7 @@
 
 ## Status (2026-10-17)
 
-- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.10 built from `main` f701889 (#21 merged).
+- Repository: https://github.com/Kr1xxxx/lai-WEB — `main` is source version 1.4.126 (9df7d37, #17 merged); web trial v1.11 built from `main` cca83b1 (#22 merged).
 - The Mac app was removed (owner, 2026-10-17, D-026): web version only. The local backend stays as the data layer.
 - On `main`: customers (list, detail, editor, contacts, follow-ups, segments, pool, duplicates, merge, tags, bulk create,
   客户设置), leads, orders with products and documents (报价单/PI/销售订单/发货通知, numbering, 单据记录), opportunities with flows,
@@ -16,7 +16,7 @@
 - How Claude works (D-027): Opus 5.5 high coordinates; Opus 5.5 medium subagents (explorer, worker, reviewer) in worktrees; Fable 5.1 `advisor` on call before plans, on repeated errors and before "done". The owner wants no questions: consult the advisor and decide (CLAUDE.md).
 - UI direction (D-028): one component kit, shadcn/ui-style rules in 科技蓝 colours; 小满 style removed (D-029).
 - Web trial: `python3 -I scripts/web-trial/build.py --publish --bump --out lai-artifact.html` (data stand-in
-  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.10, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
+  `scripts/web-trial/data-shim.js`). Private Artifact https://claude.ai/artifact/Mg29sRpVLMTqvb1iYoZi7t (v1.11, published 2026-10-17; the older page QkmN2BDTSYYnox6BhzDNwD could not be opened from that session, so this is a new page). The page shows its
   version top-left; every publish adds 0.01.
 
 ## Open PRs and branches
@@ -28,7 +28,7 @@
 | Roles: departments, field permissions, layouts by role | PR #15 | Merged 2026-10-16 (owner said 合并), `main` 892e284 |
 | Settings take effect (客户设置 logic, scope leaks, 设置 fixes), D-022–D-025 | PR #19 | Merged 2026-10-17 (owner said 合并), `main` eb6ba6e |
 | WhatsApp 沟通, export, lead settings, custom fields, rates, task rules, feature switches, D-022 build | PR #20 | Merged 2026-10-17 (owner said 后续自动合并), `main` 7dd7df4 |
-| Settings-audit fixes, Mac app removed (D-026), 科技蓝 theme + new 工作台, top-bar overlap fix, order custom fields, agent tree (D-027), D-028/D-029 | `claude/gallant-bell-0m7uzb` | PR open 2026-10-17; merges when CI is green |
+| Settings-audit fixes, Mac app removed (D-026), 科技蓝 theme + new 工作台, top-bar overlap fix, order custom fields, agent tree (D-027), D-028/D-029 | PR #22 | Merged 2026-10-17 (后续自动合并), `main` cca83b1 |
 | 1.4.127 reliability branch | `claude/lai-reliability-numbering-1.4.127` | Backend parts ported into `data-safety-pr2`; its numbering/finance `src/` changes were not ported (15 conflicts in `business-ui.js`) — re-evaluate against current code or drop |
 | Old branches | 62 merged or obsolete remote branches | Owner agreed to delete (2026-10-16). The cloud session's GitHub proxy refuses branch deletion (`git push --delete` hangs up, API returns 403); needs a session or tool with delete rights |
 
