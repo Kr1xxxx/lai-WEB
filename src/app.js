@@ -1396,7 +1396,7 @@
   document.addEventListener("pointerdown", (e) => { overlayPressTarget = e.target; overlayReleaseTarget = null; }, true);
   document.addEventListener("pointerup", (e) => { overlayReleaseTarget = e.target; }, true);
   const closesOnOutsideClick = (overlay) =>
-    modal === "columns" || modal === "feature" ||
+    modal === "columns" ||
     !["edit", "import", "segment", "company-display"].includes(modal) &&
     !overlay.querySelector('.drawer form, .drawer textarea, .drawer select, .drawer input:not([type="hidden"])');
   document.addEventListener("click", async (e) => {
@@ -3808,20 +3808,20 @@
       .map(
         ([i, label, route, duo]) => {
           const target = railRoute(label, route);
-          return `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${target ? 'data-lai-route="' + target + '"' : label === "常用" ? 'data-action="favorite-nav"' : 'data-feature="' + label + '"'}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`;
+          return `<button class="rail-item ${railActive(label, route) ? "active" : ""}" data-rail-menu="${label}" ${target ? 'data-lai-route="' + target + '"' : label === "常用" ? 'data-action="favorite-nav"' : ""}>${menuIcon(i, duo)}<span>${label}</span>${route === "mail" ? mailBadge() : ""}</button>`;
         },
       )
       .join("") +
       `</div><button class="rail-item rail-refresh" data-action="refresh-app" aria-label="刷新来财数据">${icon("refresh")}<span>刷新</span></button>`
     );
   }
-  // ---- 角色权限：当前账号打不开的入口不显示（保留入口 feature 不受限制） ----
+  // ---- 角色权限：当前账号打不开的入口不显示 ----
   // 客户设置页：有「客户设置」「判重设置」「来源设置」任意一项权限就能打开，页里只显示有权限的页签。
   const csCanOpen = () => ["settings.customer", "settings.dedupe", "settings.source"].some((key) => R.can(state, key));
   const isCustomerSettings = (kind, target) => kind === "screen" && target === "customer-settings";
   // 能打开 = 角色有权限 并且 模块开着（功能开关）。
   const entryAllowed = (row) =>
-    row.kind === "feature" || (FS.entryOn(state, row.kind, row.target) && (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target)));
+    FS.entryOn(state, row.kind, row.target) && (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target));
   const menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed) ?? null;
   const favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed);
   // 整个菜单里的入口都打不开：左侧栏不显示这个菜单。
@@ -4006,12 +4006,10 @@
   function flyoutPanel(label) {
     const rows = label === "常用"
       ? favoriteEntries().map((entry) => ({ label: entry.label, kind: "favorite", target: entry.id, id: entry.id }))
-      : menuRows(label);
-    const body = rows === null
-      ? '<div class="rail-flyout-note">功能入口已保留，深入功能待后续实现。</div>'
-      : rows.length
-        ? rows.map(flyoutRow).join("")
-        : `<div class="rail-flyout-note">还没有常用导航。${FAVORITE_HINT}</div>`;
+      : menuRows(label) || [];
+    const body = rows.length
+      ? rows.map(flyoutRow).join("")
+      : `<div class="rail-flyout-note">还没有常用导航。${FAVORITE_HINT}</div>`;
     return `<div class="rail-flyout-panel" role="menu" aria-label="${E(label)}">${body}</div>`;
   }
   function showRailFlyout(item) {
@@ -4032,7 +4030,6 @@
   }
   function activateRailFlyout(kind, target) {
     hideRailFlyout();
-    if (kind === "feature") return featureNotice(target);
     if (kind === "favorite") return openFavoriteNav(target);
     return openNavEntry({ kind, target }, false);
   }
@@ -4082,9 +4079,7 @@
     if (!section.entries.length) return "";
     const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", "feature-switch": "settings", chats: "chat", "chat-templates": "folder" };
     const entryButton = (entry) =>
-      entry.kind === "feature"
-        ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
-        : navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${menuIcon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
+      navRow(entry, entry.target === activeRoute, `data-lai-route="${entry.target}"`, `${menuIcon(routeIcons[entry.target])}<span class="nav-label">${E(entry.label)}</span>`);
     const groups = [...new Set(section.entries.map((entry) => entry.group).filter(Boolean))];
     if (!groups.length) return `<h3>${E(section.label)}</h3>${section.entries.map(entryButton).join("")}`;
     return `<h3>${E(section.label)}</h3>${groups
@@ -4457,20 +4452,6 @@
     if (d.action === "customer-tags") return customerTagEditor(el, e.detail > 0);
   });
 
-  function featureNotice(name, pointerActivated = false) {
-    if (modal) {
-      toast(`${name}：功能入口已保留，深入功能待后续实现。`);
-      return;
-    }
-    drawer(
-      name,
-      `<div class="drawer-body"><div class="feature-state"><strong>${E(name)}</strong>功能入口已保留。深入功能待后续实现，具体范围由你后续决定。</div></div>`,
-      `<button class="primary" data-action="close-modal">知道了</button>`,
-      "feature",
-      pointerActivated,
-    );
-    $(".drawer").classList.add("feature-dialog");
-  }
   function closeActivitySortMenu(restoreFocus = false, animate = false) {
     const box = $(".activity-sort-popover");
     if (!box) return;
@@ -5173,7 +5154,8 @@
     }
     if ((d.feature === "添加商机" || d.feature === "新建商机") && !allow("opp.create")) return;
     if (d.feature && customerOpportunityFeature(d.feature)) return;
-    if (d.feature) return featureNotice(d.feature, e.detail > 0);
+    // 其余带 data-feature 的按钮（商机按钮在没有可操作的商机时）不弹任何“待后续实现”的提示。
+    if (d.feature) return;
     if (d.groupTab) {
       groupTab = d.groupTab;
       list();

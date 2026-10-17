@@ -148,12 +148,12 @@ test('the key/route/entry → module tables live in role-model.js and feature-sw
 
 test('entryAllowed in app.js is the module check AND the role check; menus, flyouts, sub-navigation and 常用 all read it', () => {
   const app = read('src/app.js');
-  assert.match(app, /const entryAllowed = \(row\) =>\s*row\.kind === "feature" \|\| \(FS\.entryOn\(state, row\.kind, row\.target\) && /);
+  assert.match(app, /const entryAllowed = \(row\) =>\s*FS\.entryOn\(state, row\.kind, row\.target\) && /);
   for (const reader of ['menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed)', 'favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed)', 'const railHidden', 'const railRoute']) assert.ok(app.includes(reader), reader);
   assert.match(app, /section\.entries = section\.entries\.filter\(entryAllowed\)/, 'sub-navigation');
   // the same rule, evaluated here against the real menus
   {
-    const open = (state) => (row) => row.kind === 'feature' || (FS.entryOn(state, row.kind, row.target) && R.canOpen(state, row.kind, row.target));
+    const open = (state) => (row) => FS.entryOn(state, row.kind, row.target) && R.canOpen(state, row.kind, row.target);
     const rail = (state) => ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户'].filter((label) => RM.menuFor(label).some(open(state)));
     assert.deepEqual(rail({}), ['线索', '商机', 'Leads', '邮件', '沟通', '交易', '团队数据', '设置', '协同', '企业管理', '客户']);
     for (const [id, label] of [['lead', '线索'], ['opp', '商机'], ['mail', '邮件'], ['chat', '沟通'], ['team', '团队数据']]) {

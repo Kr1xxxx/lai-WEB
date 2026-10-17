@@ -2,7 +2,7 @@
   'use strict';
   // 左侧栏各菜单包含哪些页面入口：只列出应用里已经存在的页面，不新增功能。
   // 这里是「有哪些入口」的唯一来源：悬停浮层、各菜单的二级导航、以及能设为常用的条目清单（nav-favorites.js）都从这里读取。
-  // kind: route＝业务页面，screen＝客户页面，mail＝邮件文件夹，feature＝保留入口（点开只提示待后续实现，不能设为常用）；group 用于二级导航分组。
+  // kind: route＝业务页面，screen＝客户页面，mail＝邮件文件夹；group 用于二级导航分组。
   // 真实入口（route／screen／mail）自带 id＝「kind:target」，例如 screen:active、route:order-list、mail:inbox；id 存进 laiSettings.favoriteNav，保持不变。
   const FAVORITABLE=['screen','route','mail'];
   const menu=(menuLabel,...items)=>items.map(([label,kind,target,group])=>{
@@ -30,7 +30,7 @@
     '设置':menu('设置',['设置','route','settings'],['设置中心','route','settings-hub'],['功能开关','route','feature-switch']),
     '企业管理':menu('企业管理',['角色权限','route','roles'],['成员管理','route','members'])
   };
-  // 返回条目数组；null 表示不是固定菜单（常用有自己的清单，见 nav-favorites.js）。Leads 里还有一个保留入口（kind 为 feature）。
+  // 返回条目数组；null 表示不是固定菜单（常用有自己的清单，见 nav-favorites.js）。
   function menuFor(label){
     return Object.hasOwn(fixed,label)?fixed[label].map(row=>({...row})):null;
   }
