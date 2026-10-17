@@ -184,6 +184,88 @@ test('attachments missing in the live folder are copied back; existing and extra
   assert.equal(fs.readdirSync(path.join(live, 'orders')).filter(n => n.includes('.restore-')).length, 0);
 });
 
+// Every file under a folder, as relative paths with their contents (links shown as links).
+function tree(root) {
+  const out = {};
+  const walk = dir => {
+    for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, item.name), rel = path.relative(root, file);
+      if (item.isSymbolicLink()) out[rel] = '-> ' + fs.readlinkSync(file);
+      else if (item.isDirectory()) { out[rel + '/'] = 'dir'; walk(file); }
+      else out[rel] = fs.readFileSync(file, 'utf8');
+    }
+  };
+  walk(root);
+  return out;
+}
+
+test('links inside a backup attachments folder are skipped and nothing is written outside attachments/', t => {
+  const h = fixture(t);
+  const live = path.join(h.store.directory, 'attachments');
+  fs.mkdirSync(path.join(live, 'orders'), { recursive: true });
+  fs.writeFileSync(path.join(live, 'orders', 'a.pdf'), 'A original');
+  saveCustomers(h.store, { Alpha: {} }, [{ id: 'o1', num: 'L-1', client: 'Alpha', attachments: [{ fileUrl: '/attachments/orders/a.pdf' }] }]);
+  const manual = h.store.backup(true, 'manual');
+  saveCustomers(h.store, { Alpha: {} }, []);
+  fs.rmSync(path.join(live, 'orders', 'a.pdf'));
+  // Outside the data folder: a secret file and a folder; the backup's attachments folder links to both.
+  const outside = path.join(h.dir, 'outside');
+  fs.mkdirSync(path.join(outside, 'folder'), { recursive: true });
+  fs.writeFileSync(path.join(outside, 'secret.txt'), 'secret');
+  fs.writeFileSync(path.join(outside, 'folder', 'inside.txt'), 'inside');
+  const copied = manual.file + '.attachments';
+  fs.symlinkSync(path.join(outside, 'secret.txt'), path.join(copied, 'orders', 'linked.pdf'));
+  fs.symlinkSync(path.join(outside, 'folder'), path.join(copied, 'linked-folder'));
+  const outsideBefore = tree(outside);
+  const dataBefore = Object.keys(tree(h.store.directory)).filter(rel => !rel.startsWith('attachments') && !rel.startsWith('backups') && !rel.startsWith('lai-data.sqlite'));
+
+  const result = h.store.restoreBackup(path.basename(manual.file));
+  assert.equal(result.attachmentsRestored, 1, 'only the real file is copied');
+  assert.deepEqual(tree(live), { 'orders/': 'dir', 'orders/a.pdf': 'A original' }, 'links are neither followed nor copied');
+  assert.deepEqual(tree(outside), outsideBefore, 'nothing outside the data folder changed');
+  assert.deepEqual(Object.keys(tree(h.store.directory)).filter(rel => !rel.startsWith('attachments') && !rel.startsWith('backups') && !rel.startsWith('lai-data.sqlite')), dataBefore, 'no new files next to the database');
+});
+
+test('a live attachments subfolder that is a link stops the restore before anything is swapped (restore_attachments_failed)', t => {
+  const h = fixture(t);
+  const live = path.join(h.store.directory, 'attachments');
+  fs.mkdirSync(path.join(live, 'orders'), { recursive: true });
+  fs.writeFileSync(path.join(live, 'orders', 'a.pdf'), 'A original');
+  saveCustomers(h.store, { Alpha: { note: 'backup' } }, [{ id: 'o1', num: 'L-1', client: 'Alpha', attachments: [{ fileUrl: '/attachments/orders/a.pdf' }] }]);
+  const manual = h.store.backup(true, 'manual');
+  saveCustomers(h.store, { Alpha: { note: 'live' } }, []);
+  // attachments/orders is replaced by a link to a folder outside (made after start, so the start-up scan did not see it).
+  const outside = path.join(h.dir, 'outside-orders');
+  fs.mkdirSync(outside);
+  fs.rmSync(path.join(live, 'orders'), { recursive: true });
+  fs.symlinkSync(outside, path.join(live, 'orders'));
+  const before = h.store.readSnapshot();
+  const error = rejects(() => h.store.restoreBackup(path.basename(manual.file)), 500, 'restore_attachments_failed');
+  assert.match(error.message, /没有改动/);
+  assert.deepEqual(fs.readdirSync(outside), [], 'nothing was written through the link');
+  assert.deepEqual(h.store.readSnapshot(), before);
+  assert.equal(h.store.health().ok, true);
+  assert.deepEqual(leftovers(h.store), []);
+  saveCustomers(h.store, { Alpha: { note: 'still saving' } });
+  assert.equal(h.store.readSnapshot().data.customers.Alpha.note, 'still saving');
+});
+
+test('a backups folder that is a link is refused', t => {
+  const h = fixture(t);
+  saveCustomers(h.store, { Alpha: { note: 'backup' } });
+  const manual = h.store.backup(true, 'manual');
+  saveCustomers(h.store, { Alpha: { note: 'live' } });
+  const dir = backupDir(h.store), elsewhere = path.join(h.dir, 'elsewhere-backups');
+  fs.renameSync(dir, elsewhere);
+  fs.symlinkSync(elsewhere, dir);
+  t.after(() => { try { fs.unlinkSync(dir); fs.renameSync(elsewhere, dir); } catch (_) {} });
+  const before = h.store.readSnapshot();
+  rejects(() => h.store.restoreBackup(path.basename(manual.file)), 400, 'backup_unsafe');
+  assert.deepEqual(h.store.readSnapshot(), before);
+  assert.deepEqual(fs.readdirSync(elsewhere).filter(n => n.startsWith('before-restore-')), []);
+  assert.deepEqual(h.store.listBackups().map(b => b.ok), [false], 'listed, but not offered for restore');
+});
+
 test('pruning never removes before-restore backups or the backup being restored', t => {
   const h = fixture(t);
   saveCustomers(h.store, { Old: { note: 'old' } });
@@ -407,9 +489,22 @@ test('leftover temp files from an interrupted restore are removed at start', t =
   saveCustomers(h.store, { Alpha: {} });
   fs.writeFileSync(path.join(h.store.directory, '.lai-data.sqlite.restore-123-abcdef.tmp'), 'partial');
   fs.writeFileSync(path.join(h.store.directory, '.lai-data.sqlite.restore-123-abcdef.tmp-journal'), 'partial');
+  // Files that only look similar, and other files in the data folder, are left alone.
+  const unrelated = ['lai-data.sqlite.restore-1-abc.tmp', '.lai-data.sqlite.restore-1-abc.tmp.bak', '.lai-data.sqlite.restore-notes.txt', '.lai-data.sqlite.restore-1 abc.tmp', 'notes.txt', '.lai-data.sqlite.backup'];
+  for (const name of unrelated) fs.writeFileSync(path.join(h.store.directory, name), 'keep ' + name);
+  fs.writeFileSync(path.join(backupDir(h.store), '.lai-data.sqlite.restore-9-abcdef.tmp'), 'in backups/, not ours to clean');
+  const listing = () => fs.readdirSync(h.store.directory).filter(n => !n.startsWith('lai-data.sqlite') || unrelated.includes(n)).sort();
   h.restart();
-  assert.deepEqual(leftovers(h.store), []);
+  assert.deepEqual(leftovers(h.store).sort(), unrelated.filter(n => n.includes('.restore-')).sort(), 'only the restore temp files were removed');
+  for (const name of unrelated) assert.equal(fs.readFileSync(path.join(h.store.directory, name), 'utf8'), 'keep ' + name);
+  assert.ok(fs.existsSync(path.join(backupDir(h.store), '.lai-data.sqlite.restore-9-abcdef.tmp')));
   assert.deepEqual(Object.keys(h.store.readSnapshot().data.customers), ['Alpha']);
+  // A restore cleans the same way.
+  const manual = h.store.backup(true, 'manual');
+  const before = listing();
+  fs.writeFileSync(path.join(h.store.directory, '.lai-data.sqlite.restore-77-ffff.tmp'), 'partial');
+  h.store.restoreBackup(path.basename(manual.file));
+  assert.deepEqual(listing(), before);
 });
 
 async function startServer(t) {
@@ -478,4 +573,50 @@ test('HTTP: /api/backups and /api/restore need the session, refuse bad input and
   assert.deepEqual(Object.keys((await (await request('/api/data')).json()).data.customers), ['Synthetic']);
   const kinds = (await (await request('/api/backups')).json()).backups.map(b => b.kind);
   assert.deepEqual(kinds, ['before-restore', 'manual']);
+});
+
+test('HTTP: a restore is refused while a bulk mail is still sending, and works once it has stopped', async t => {
+  const fake = require('./fixtures/fake-mail-servers.cjs'), sample = require('./fixtures/mail-sample.cjs');
+  const me = { name: '', address: 'sales@example-trade.com' };
+  const imap = await fake.startImap({ mailboxes: sample.mailboxes(me) }), smtp = await fake.startSmtp({ user: me.address });
+  const temporary = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'lai-test-http-restore-bulk-'));
+  const resources = path.join(temporary, 'resources'); fs.mkdirSync(resources);
+  for (const file of fs.readdirSync(path.join(__dirname, '../backend'))) fs.copyFileSync(path.join(__dirname, '../backend', file), path.join(resources, file));
+  fs.writeFileSync(path.join(resources, 'trade-order-system.html'), '<!doctype html><title>fixture</title>');
+  fs.mkdirSync(path.join(resources, 'vendor'));
+  for (const [from, name] of [['mail-libs/mail-libs.cjs', 'mail-libs.cjs'], ['squire/squire-raw.js', 'squire-raw.js'], ['dompurify/purify.min.js', 'purify.min.js']]) fs.copyFileSync(path.join(__dirname, '../vendor', from), path.join(resources, 'vendor', name));
+  const port = await new Promise(resolve => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
+  const token = crypto.randomBytes(32).toString('hex'), base = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, [path.join(resources, 'server.js')], { env: { ...process.env, LAI_DATA_DIR: path.join(temporary, 'data'), LAI_APP_PORT: String(port), LAI_API_TOKEN: token, LAI_APP_NO_OPEN: '1', LAI_MAIL_TEST_ENDPOINTS: `${imap.port},${smtp.port}` }, stdio: ['ignore', 'ignore', 'ignore'] });
+  t.after(async () => { if (child.exitCode === null) await new Promise(r => { child.once('exit', r); child.kill('SIGTERM'); }); await imap.close(); await smtp.close(); fs.rmSync(temporary, { recursive: true, force: true }); });
+  const request = async (route, options = {}) => { const response = await fetch(base + route, { ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers } }); return { status: response.status, body: await response.json() }; };
+  const post = (route, body) => request(route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  for (let i = 0; i < 500; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch {} await new Promise(r => setTimeout(r, 20)); }
+
+  const first = (await request('/api/data')).body;
+  first.data.customers.Synthetic = { note: 'backed up' };
+  assert.equal((await post('/api/save', { state: first, baseRevision: first.revision })).status, 200);
+  assert.equal((await post('/api/manual-backup', {})).body.ok, true);
+  const name = (await request('/api/backups')).body.backups[0].name;
+  assert.equal((await post('/api/mail-account/bind', { email: me.address, password: 'app-password-1' })).status, 200);
+  const later = (await request('/api/data')).body;
+  later.data.customers.Later = {};
+  assert.equal((await post('/api/save', { state: later, baseRevision: later.revision })).status, 200);
+
+  // Three recipients with the server's normal pause between them: the batch is still sending for a few seconds.
+  const bulk = await post('/api/mail/bulk/start', { subject: 'Hi', text: 'Hello', recipients: ['a', 'b', 'c'].map(x => ({ address: `${x}@nordic-lamps.example`, name: x })) });
+  assert.equal(bulk.status, 200);
+  const refused = await post('/api/restore', { name });
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.code, 'bulk_sending');
+  assert.match(refused.body.message, /群发/);
+  assert.deepEqual(Object.keys((await request('/api/data')).body.data.customers).sort(), ['Later', 'Synthetic'], 'nothing was restored');
+  assert.deepEqual((await request('/api/backups')).body.backups.map(b => b.kind), ['manual'], 'no before-restore backup was made');
+
+  assert.equal((await post('/api/mail/bulk/cancel', { id: bulk.body.batch.id })).status, 200);
+  let state; for (let i = 0; i < 400; i++) { state = (await request('/api/mail/bulk/batch?id=' + bulk.body.batch.id)).body.batch; if (state.status !== 'sending') break; await new Promise(r => setTimeout(r, 25)); }
+  assert.equal(state.status, 'cancelled');
+  const restored = await post('/api/restore', { name });
+  assert.equal(restored.status, 200, JSON.stringify(restored.body));
+  assert.deepEqual(Object.keys((await request('/api/data')).body.data.customers), ['Synthetic']);
 });
