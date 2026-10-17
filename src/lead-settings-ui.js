@@ -19,7 +19,7 @@
         +`<button type="button" data-ls-cf="opt-up" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="上移选项：${E(o)}"${i===0?' disabled':''}>↑</button>`
         +`<button type="button" data-ls-cf="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i===f.options.length-1?' disabled':''}>↓</button>`
         +`<button type="button" data-ls-cf="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join('')}</ul>`
-        +`<form class="cs-add" data-ls-cf-form="option" data-id="${E(f.id)}"><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${fm.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`:'';
+        +`<form class="cs-add" data-ls-cf-form="option" data-id="${E(f.id)}" novalidate data-form-check><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${fm.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`:'';
       return `<li class="cs-group cf-field" data-ls-cf-field="${E(f.id)}"><div class="cs-row"><input class="cf-name" data-ls-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${fm.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off">`
         +`<span class="cs-use">${E(f.typeLabel)} · ${f.usage?`${f.usage} 条线索已填`:'还没有线索填'}</span><span class="cs-row-actions">`
         +`<label class="ls-check"><input type="checkbox" data-ls-cf-required="${E(f.id)}"${f.required?' checked':''}${lock&&!f.required?' disabled':''} aria-label="${E(f.name)}：必填"><span>必填</span></label>`
@@ -29,7 +29,7 @@
         +`${lock?`<small class="cs-hint cf-lock">${lockText(lock)}</small>`:''}${options}</li>`;
     }).join('');
     const types=fm.TYPES.map(([id,label])=>`<option value="${id}">${E(label)}</option>`).join('');
-    const add=`<form class="cs-add cf-add" data-ls-cf-form="add"><input name="name" placeholder="新字段名称" maxlength="${fm.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
+    const add=`<form class="cs-add cf-add" data-ls-cf-form="add" novalidate data-form-check><input name="name" placeholder="新字段名称" maxlength="${fm.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
       +`<select name="type" aria-label="字段类型">${types}</select>`
       +`<input name="options" placeholder="选项（单选、多选用），用逗号分开" aria-label="字段选项" autocomplete="off">`
       +`<label class="ls-check"><input type="checkbox" name="required"><span>必填</span></label><button type="submit" class="primary">添加字段</button></form>`;
@@ -62,7 +62,7 @@
     return `<div class="pagebar"><div class="business-title"><h1>线索设置</h1><span>设置标记无效的原因、新建线索时每个字段显不显示、必不必填，以及自己加的字段</span></div><div class="page-actions"></div></div>`
       +`<div class="business-scroll opp-page ls-page"><div class="error ls-error${shownProblem?' visible':''}" id="ls-error" role="alert">${E(shownProblem)}</div>`
       +`<section class="business-section ls-section" data-ls-section="reasons"><h2>无效原因</h2><p class="cs-note">把线索标记为无效时，要从这里选一个原因。已有线索在用的原因不能删除，可以先改名（用了它的线索会一起改名）。</p>`
-      +`<form class="cs-add" id="ls-reason-add"><input name="text" maxlength="${model.LIMITS.name}" placeholder="新的无效原因" aria-label="新的无效原因" autocomplete="off" required><button type="submit" class="primary">添加</button></form>`
+      +`<form class="cs-add" id="ls-reason-add" novalidate data-form-check><input name="text" maxlength="${model.LIMITS.name}" placeholder="新的无效原因" aria-label="新的无效原因" autocomplete="off" required><button type="submit" class="primary">添加</button></form>`
       +`<ul class="cs-list">${reasons}</ul><p class="cs-hint">最多 ${model.LIMITS.reasons} 个，每个不超过 ${model.LIMITS.name} 个字，不能重名。名称改完按回车或点别处即保存。</p></section>`
       +`<section class="business-section ls-section" data-ls-section="fields"><h2>线索字段</h2><p class="cs-note">「线索名称」一直显示并且必填。不显示的字段，新建和编辑线索时看不到，已经填过的内容会保留。</p>`
       +`<table class="order-table ls-table"><thead><tr><th>字段</th><th>显示</th><th>必填</th></tr></thead><tbody>${fields}</tbody></table>`

@@ -2189,6 +2189,10 @@
       error.classList.add("visible");
       error.scrollIntoView({ block: "nearest" });
       buttons.forEach((b) => (b.disabled = b.dataset.wasDisabled === "true"));
+      // 光标落到出错的框；找不到就落回保存按钮，不留在页面空白处。
+      const field = window.LaiFormCheck?.fieldFor(form, err);
+      if (!(field && window.LaiFormCheck.focusField(field)))
+        (e.submitter?.isConnected ? e.submitter : form.querySelector('[type="submit"]'))?.focus({ preventScroll: true });
     }
   });
   document.addEventListener("focusin", (e) => {

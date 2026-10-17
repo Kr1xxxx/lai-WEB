@@ -175,12 +175,12 @@
         const v=values[key]??'';
         const off=locked.has(key)?' disabled title="你的角色不能修改这一项"':'';
         let input;
-        if(type==='area')input=`<textarea name="${key}" rows="3" maxlength="${M.LIMITS.description}"${config[key].required?' required':''}${off}>${E(v)}</textarea>`;
+        if(type==='area')input=`<textarea name="${key}" rows="3" maxlength="${M.LIMITS.description}"${config[key].required?' aria-required="true" required':''}${off}>${E(v)}</textarea>`;
         else if(type==='group'){
           const choices=M.groupChoices(state);
           if(v&&!choices.includes(v))choices.push(v);
-          input=`<select name="group"${config[key].required?' required':''}${off}><option value="">未分组</option>${choices.map(g=>option(g,g,v)).join('')}</select>`;
-        }else input=`<input name="${key}" value="${E(v)}"${type==='number'?' inputmode="decimal"':''} maxlength="${M.LIMITS.text}" autocomplete="off"${config[key].required?' required':''}${off}>`;
+          input=`<select name="group"${config[key].required?' aria-required="true" required':''}${off}><option value="">未分组</option>${choices.map(g=>option(g,g,v)).join('')}</select>`;
+        }else input=`<input name="${key}" value="${E(v)}"${type==='number'?' inputmode="decimal"':''} maxlength="${M.LIMITS.text}" autocomplete="off"${config[key].required?' aria-required="true" required':''}${off}>`;
         return `<label class="cs-field"><span>${star}${E(label)}${locked.has(key)?' <span class="cs-use">（只读）</span>':''}</span>${input}</label>`;
       };
       const blocks=M.formSections(state).map(sec=>`<fieldset class="cs-field"><legend>${E(sec.name)}</legend>${sec.fields.map(one).join('')}</fieldset>`).join('');

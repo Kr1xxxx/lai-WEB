@@ -174,7 +174,7 @@
           record.error = doc.createElement("span");
           record.error.className = "lai-select-validation";
           record.error.setAttribute("role", "alert");
-          record.error.textContent = input.validationMessage;
+          record.error.textContent = root.LaiFormCheck?.describe(input) || input.validationMessage;
           trigger.insertAdjacentElement("afterend", record.error);
         }
       });
@@ -260,7 +260,7 @@
     if (info.tooShort) return `${name}至少 ${info.minLength} 个字`;
     if (info.tooLong) return `${name}最多 ${info.maxLength} 个字`;
     if (info.step) return `${name}的数值不对`;
-    if (info.pattern) return `${name}格式不对`;
+    if (info.pattern) return info.patternText || `${name}格式不对`;
     return `${name}没填好`;
   }
   function textOf(node) {
@@ -296,7 +296,7 @@
       tooShort: !!v.tooShort, minLength: el.minLength,
       tooLong: !!v.tooLong, maxLength: el.maxLength,
       step: !!v.stepMismatch,
-      pattern: !!v.patternMismatch,
+      pattern: !!v.patternMismatch, patternText: el.getAttribute?.("data-invalid-text") || "",
     };
   }
   const describe = (el) => messageFor(infoOf(el));

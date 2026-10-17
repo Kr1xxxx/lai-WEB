@@ -338,7 +338,7 @@ test('团队墙 amount card shows the company target; quarter view counts down t
 
 test('target form offers the metrics, both periods, company or member, and escapes names', () => {
   const html = ui.targetFormMarkup(withGoals, {metric: 'orders', period: '2026-Q4', periods: [{key: '2026-10', label: '2026 年 10 月'}, {key: '2026-Q4', label: '2026 年第 4 季度'}]});
-  assert.match(html, /<form class="drawer-body" id="biz-target-form">/); assert.match(html, /id="biz-target-error" role="alert"/);
+  assert.match(html, /<form class="drawer-body" id="biz-target-form" novalidate data-form-check>/); assert.match(html, /id="biz-target-error" role="alert"/);
   assert.deepEqual([...html.split('name="metric"')[1].split('</select>')[0].matchAll(/value="(\w+)"( selected)?/g)].map(m => [m[1], Boolean(m[2])]), [['amount', false], ['repeat', false], ['newDeal', false], ['added', false], ['orders', true], ['records', false], ['tasksDone', false]]);
   assert.match(html, /<option value="2026-10">2026 年 10 月<\/option><option value="2026-Q4" selected>2026 年第 4 季度<\/option>/);
   assert.match(html, /<option value="company" selected>企业整体<\/option><option value="member">成员（跟进人）<\/option>/);

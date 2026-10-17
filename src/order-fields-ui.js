@@ -20,7 +20,7 @@
         +`<button type="button" data-of-cf="opt-up" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="上移选项：${E(o)}"${i===0?' disabled':''}>↑</button>`
         +`<button type="button" data-of-cf="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i===f.options.length-1?' disabled':''}>↓</button>`
         +`<button type="button" data-of-cf="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join('')}</ul>`
-        +`<form class="cs-add" data-of-cf-form="option" data-id="${E(f.id)}"><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${fm.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`:'';
+        +`<form class="cs-add" data-of-cf-form="option" data-id="${E(f.id)}" novalidate data-form-check><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${fm.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`:'';
       // 名称框按名称长短放宽（最长 30 个字），长名称不被截掉。
       return `<li class="cs-group cf-field" data-of-cf-field="${E(f.id)}"><div class="cs-row"><input class="cf-name" data-of-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${fm.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off" style="--of-name:${Math.min(fm.LIMITS.nameLen,[...f.name].length)}">`
         +`<span class="cs-use">${E(f.typeLabel)} · ${f.usage?`${f.usage} 笔订单已填`:'还没有订单填'}</span><span class="cs-row-actions">`
@@ -30,7 +30,7 @@
         +`<button type="button" class="${sure?'team-danger':''}" data-of-cf="delete" data-id="${E(f.id)}" aria-label="${sure?'再点一次确认删除':'删除'}：${E(f.name)}">${sure?'再点一次确认删除':'删除'}</button></span></div>${options}</li>`;
     }).join('');
     const types=fm.TYPES.map(([id,label])=>`<option value="${id}">${E(label)}</option>`).join('');
-    const add=`<form class="cs-add cf-add" data-of-cf-form="add"><input name="name" placeholder="新字段名称" maxlength="${fm.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
+    const add=`<form class="cs-add cf-add" data-of-cf-form="add" novalidate data-form-check><input name="name" placeholder="新字段名称" maxlength="${fm.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
       +`<select name="type" aria-label="字段类型">${types}</select>`
       +`<input name="options" placeholder="选项（单选、多选用），用逗号分开" aria-label="字段选项" autocomplete="off">`
       +`<label class="ls-check"><input type="checkbox" name="required"><span>必填</span></label><button type="submit" class="primary">添加字段</button></form>`;
