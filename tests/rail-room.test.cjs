@@ -2,10 +2,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { appSource } = require('./helpers/source.cjs');
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
 test('the rail is two blocks: the entries scroll on their own, the 刷新 button sits outside the scroll area, so it can never cover an entry', () => {
-  const app = read('src/app.js'), css = read('src/customer-replica.css'), glass = read('src/skin-glass.css');
+  const app = appSource(), css = read('src/customer-replica.css'), glass = read('src/skin-glass.css');
   assert.match(app, /`<div class="rail-scroll">`/);
   assert.match(app, /`<\/div><button class="rail-item rail-refresh"/);
   assert.match(css, /\.rail \{[^}]*overflow: hidden;/);
@@ -27,5 +28,5 @@ test('the 13 entries share the rail height: item height and gap come from the wi
 });
 
 test('the hover flyout lines up with the item even when the entry area has been scrolled', () => {
-  assert.match(read('src/app.js'), /item\.closest\("\.rail-scroll"\)\?\.scrollTop \|\| 0/);
+  assert.match(appSource(), /item\.closest\("\.rail-scroll"\)\?\.scrollTop \|\| 0/);
 });

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const F = require('../src/customer-fields.js');
+const { appSource } = require('./helpers/source.cjs');
 
 test('company display layout keeps required fields visible and preserves valid ordering', () => {
   const defaults = F.normalizeCompanyDisplayLayout();
@@ -263,7 +264,7 @@ function appHarness() {
   const M=require('../src/model.js'), S=require('../src/segments.js');
   const context={window:{addEventListener(event,fn){(callbacks[event]||=[]).push(fn);},PreviewModel:M,PreviewSegments:S,LaiCustomerFields:F,LaiModules:require('../src/modules.js'),LaiBusinessUI:{create:()=>business},LaiRailMenu:require('../src/rail-menu.js'),LaiRoleModel:require('../src/role-model.js'),LaiFeatureSwitch:require('../src/feature-switch-model.js'),LaiNavFavorites:require('../src/nav-favorites.js'),LaiCustomerSettings:require('../src/customer-settings-model.js'),LaiMailUI:(require('../src/mail-ui.js'),globalThis.LaiMailUI),LaiWhatsAppModel:require('../src/whatsapp-model.js'),LaiWhatsAppUI:require('../src/whatsapp-ui.js')},document,FormData,structuredClone,Intl,crypto:require('node:crypto').webcrypto,history:{replaceState(){}},setTimeout(fn){timers.push(fn);return timers.length;},clearTimeout(){}};
   vm.createContext(context);
-  const source=fs.readFileSync(path.join(__dirname,'../src/app.js'),'utf8').replace('  boot();','  window.testApp={filterForm,drawer,navigateApp,displayCell,snapshot:()=>({filters,advancedSpec,modal,segmentDraft}), setRows:value=>{rows=value;}};');
+  const source=appSource().replace('  boot();','  window.testApp={filterForm,drawer,navigateApp,displayCell,snapshot:()=>({filters,advancedSpec,modal,segmentDraft}), setRows:value=>{rows=value;}};');
   vm.runInContext(source,context);
   return {api:context.window.testApp,elements,setDraft(value){draft=value;},get opened(){return opened;},get navigated(){return navigated;},get html(){return html;},get focused(){return focused;},timers,
     async click(dataset){const target={dataset,closest(){return this;}};for(const fn of callbacks.click||[])await fn({target});},

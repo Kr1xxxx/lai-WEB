@@ -5,6 +5,7 @@ const path = require('node:path');
 const CS = require('../src/customer-settings-model.js');
 const CT = require('../src/customer-tools.js');
 const UI = require('../src/customer-settings-ui.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const E = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const OLD = new Date(Date.now() - 400 * 86400000).toISOString();
@@ -127,7 +128,7 @@ test('follow, deal, activity and followup tabs show the saved values', () => {
 });
 
 test('every control the new tabs draw is handled by app.js, and nothing collides with the customer list', () => {
-  const app = src('app.js');
+  const app = appSource();
   let s = CT.savePoolRule(CT.setPoolRules(base(), { ...CT.poolRules(base()), whitelist: ['Mia'], reasons: ['已失联'] }), { name: 'R', days: 30, enabled: true });
   s = CS.addTemplateGroup(s, 'G');
   s = CS.addTemplate(s, CS.get(s).followup.templates[0].id, 'text');
@@ -148,7 +149,7 @@ test('every control the new tabs draw is handled by app.js, and nothing collides
 });
 
 test('the old 公海规则 dialog is gone', () => {
-  const app = src('app.js');
+  const app = appSource();
   assert.ok(!app.includes('poolRulesDialog'));
   assert.ok(!app.includes('"pool-rules"'));
   assert.ok(!src('customer-settings-ui.js').includes('pool-rules'));

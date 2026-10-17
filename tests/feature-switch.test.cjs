@@ -16,6 +16,7 @@ const TM = require('../src/team-model.js');
 const L = require('../src/modules.js');
 const CSUI = require('../src/customer-settings-ui.js');
 const { escapeHtml: E } = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const off = (...ids) => ids.reduce((s, id) => FS.set(s, id, false), {});
@@ -151,7 +152,7 @@ test('the key/route/entry → module tables live in role-model.js and feature-sw
 });
 
 test('entryAllowed in app.js is the module check AND the role check; menus, flyouts, sub-navigation and 常用 all read it', () => {
-  const app = read('src/app.js');
+  const app = appSource();
   assert.match(app, /const entryAllowed = \(row\) =>\s*FS\.entryOn\(state, row\.kind, row\.target\) && /);
   for (const reader of ['menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed)', 'favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed)', 'const railHidden', 'const railRoute']) assert.ok(app.includes(reader), reader);
   assert.match(app, /section\.entries = section\.entries\.filter\(entryAllowed\)/, 'sub-navigation');
@@ -191,11 +192,11 @@ test('常用 is hidden at read time: the saved list is not touched, and the entr
   const opened = FS.set(FS.set(closed, 'opp', true), 'mail', true);
   assert.deepEqual(shown(opened), saved, 'order and entries come back');
   assert.deepEqual(NF.list(opened.laiSettings), saved);
-  assert.match(read('src/app.js'), /const favoriteEntries = \(\) => NF\.entries\(state\.laiSettings\)\.filter\(entryAllowed\)/);
+  assert.match(appSource(), /const favoriteEntries = \(\) => NF\.entries\(state\.laiSettings\)\.filter\(entryAllowed\)/);
 });
 
 test('a direct route to an off module says 这个功能已关闭 and goes to the workbench; the workbench itself cannot be blocked', () => {
-  const app = read('src/app.js');
+  const app = appSource();
   const nav = app.slice(app.indexOf('  async function navigateApp('), app.indexOf('  function showCustomerScreen('));
   assert.match(nav, /if \(!FS\.routeOn\(state, route\)\) \{\s*toast\("这个功能已关闭"\);\s*if \(route === "dashboard"\) return false;\s*return navigateApp\("dashboard"\);/);
   assert.ok(nav.indexOf('FS.routeOn') < nav.indexOf('activeRoute = route'), 'checked before anything changes');
@@ -329,7 +330,7 @@ test('客户设置: the dedupe tab only has the customer rule (新线索 went wi
 });
 
 test('mail: nothing is sent to the mail service while 邮件 is off (polling, auto-record, workbench summary, 写邮件)', () => {
-  const app = read('src/app.js');
+  const app = appSource();
   assert.match(app, /function startMailChecks\(\) \{\s*if \(mailChecksStarted \|\| !modOn\("mail"\)\) return;/);
   assert.match(app, /startMailChecks\(\);\s*\} catch \(err\)/, 'boot');
   assert.match(app, /\/\/ 邮件功能刚打开：开始定时检查新邮件。\s*startMailChecks\(\);/, 'turning it on starts the checks');
@@ -353,6 +354,6 @@ test('files are wired: markers in the template and the build, load order after t
   assert.equal(R.pagePerm('route', 'feature-switch'), 'settings.switch');
   const item = Hub.GROUPS.flatMap((g) => g.items).find((i) => i.id === 'feature-switch');
   assert.deepEqual([item.open, item.perm], [['route', 'feature-switch'], 'settings.switch']);
-  assert.match(read('src/app.js'), /"feature-switch": "settings"/, 'sub-navigation icon');
+  assert.match(appSource(), /"feature-switch": "settings"/, 'sub-navigation icon');
   assert.match(read('src/customer-detail-ui.js'), /modOn\("mail"\) \? filterButton\("email"/);
 });

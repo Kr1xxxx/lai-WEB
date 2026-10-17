@@ -6,11 +6,12 @@ const vm = require('node:vm');
 const RM = require('../src/rail-menu.js');
 const F = require('../src/nav-favorites.js');
 const {escapeHtml} = require('../src/model.js');
+const { appSource } = require('./helpers/source.cjs');
 require('../src/mail-ui.js');
 const Mail = globalThis.LaiMailUI;
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-const app = read('src/app.js');
+const app = appSource();
 
 // 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 3 + 工作台 1 + 邮件 6 + 沟通 2 + 交易 5 + 团队数据 7 + 设置 3 + 企业管理 2。线索和 Leads（D-030）、协同和任务完成（D-031）已去掉。
 const ALL = [
@@ -824,13 +825,13 @@ test('线索 and Leads left the rail with their pages (D-030); old favorites on 
   assert.ok(!RM.favoritable().some(r => /lead/.test(r.id) || ['线索', 'Leads'].includes(r.menu)));
   const NF = require('../src/nav-favorites.js');
   assert.deepEqual(NF.list({favoriteNav: ['route:leads', 'screen:active', 'route:lead-settings']}), ['screen:active']);
-  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src/app.js'), 'utf8');
+  const app = appSource();
   assert.doesNotMatch(app, /"Leads"|"线索", "leads"/);
   assert.doesNotMatch(app, /\["search", "OKKI/);
 });
 
 test('管理常用: ↑ ↓ step over entries the account cannot see instead of swapping with them', () => {
-  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/app.js'), 'utf8');
+  const app = appSource();
   const body = app.slice(app.indexOf('  function moveFavoriteVisible('), app.indexOf('  const FAVORITE_HINT ='));
   const NF = require('../src/nav-favorites.js');
   const ids = ['screen:active', 'route:order-list', 'screen:pool', 'mail:inbox'];

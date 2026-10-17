@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const Hub = require('../src/settings-hub.js');
 const RM = require('../src/rail-menu.js');
+const { appSource } = require('./helpers/source.cjs');
 
 const E = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
@@ -16,7 +17,7 @@ test('the settings center is a menu entry under 设置, after the existing 设�
 });
 
 test('every entry opens something that really exists: a business page, a customer page, or an action app.js handles', () => {
-  const app = read('src/app.js'), business = read('src/business-ui.js');
+  const app = appSource(), business = read('src/business-ui.js');
   const routes = new Set(RM.favoritable().filter((r) => r.kind === 'route').map((r) => r.target));
   const screens = new Set(['customer-settings']);
   for (const group of Hub.GROUPS) for (const item of group.items) {
