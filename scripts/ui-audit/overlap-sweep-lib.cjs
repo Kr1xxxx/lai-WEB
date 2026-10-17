@@ -7,8 +7,8 @@ const path = require("path");
 
 const CHECKS = fs.readFileSync(path.join(__dirname, "overlap-checks.js"), "utf8");
 
-// ui-audit 扫的 19 个页面；扫描时还会加上左侧菜单（LaiRailMenu）和 LaiExtraPages 里登记的其他页面。
-const BASE_ROUTES = ["customers", "dashboard", "mail", "opportunities", "opp-analysis", "opp-flows", "order-list", "order-trash", "team-goals", "team-targets", "team-wall", "analysis", "team-assets", "team-followups", "team-tasks", "team-orders", "calendar", "settings", "settings-hub"];
+// ui-audit 扫的 17 个页面；扫描时还会加上左侧菜单（LaiRailMenu）和 LaiExtraPages 里登记的其他页面。
+const BASE_ROUTES = ["customers", "dashboard", "mail", "opportunities", "opp-analysis", "opp-flows", "order-list", "order-trash", "team-goals", "team-targets", "team-wall", "analysis", "team-assets", "team-followups", "team-orders", "settings", "settings-hub"];
 // 客户页里的子页面（点左侧二级导航）
 const CUSTOMER_SCREENS = ["pool", "duplicates", "customer-settings", "trash"];
 // 弹窗／抽屉：[打开前先去的页面, 按钮选择器, 名字]

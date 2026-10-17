@@ -47,7 +47,7 @@ test('the page lists every group and entry once, shows the current defaults and 
 
 test('the parts a user can set are all covered: defaults, theme, favorites, columns, segments, customer settings, sales flow, product settings, document templates, rates, chat templates, task settings, targets, mailbox', () => {
   const ids = Hub.GROUPS.flatMap((g) => g.items.map((i) => i.id));
-  assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'flows', 'product-settings', 'doc-templates', 'rates', 'chat-templates', 'task-settings', 'targets', 'mail-account']);
+  assert.deepEqual(ids, ['defaults', 'theme', 'favorites', 'feature-switch', 'columns', 'segments', 'customer-settings', 'flows', 'product-settings', 'doc-templates', 'rates', 'chat-templates', 'targets', 'mail-account']);
 });
 
 test('the 测试数据 entry shows only in the web trial, once, and opens the trial panel', () => {

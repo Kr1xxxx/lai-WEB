@@ -157,17 +157,12 @@ test('saving an order preserves the current table scroll while clear filters res
 
 const midnightClock = { instant: '2026-09-30T16:30:00Z', year: 2026, month: 10, day: 1 };
 
-test('calendar initially shows the local month after midnight at a month boundary', () => {
-  const h = harness({ clock: midnightClock }); h.controller.navigate('calendar');
-  assert.equal(h.document.getElementById('biz-month').value, '2026-10');
-});
-
 test('analysis initially uses the local month rather than the previous UTC month', () => {
   const h = harness({ clock: midnightClock }); h.controller.navigate('analysis');
   assert.equal(h.document.getElementById('biz-month').value, '2026-10');
 });
 
-for (const route of ['calendar', 'analysis']) {
+for (const route of ['analysis']) {
   test(`${route} restores the displayed month after clearing the month picker without saving`, async () => {
     const h = harness({ clock: midnightClock }); h.controller.navigate(route);
     let input = h.document.getElementById('biz-month');
@@ -212,40 +207,17 @@ test('the suggested order number follows the highest number used today, includin
   await h.click('close-editor');
 });
 
-test('new task defaults to today locally and retains an explicitly selected calendar date', async () => {
-  const h = harness({ clock: midnightClock }); h.controller.navigate('calendar'); await h.click('new-task');
-  assert.equal(h.document.getElementById('biz-task-form').elements.date.value, '2026-10-01');
-  await h.click('close-editor'); h.controller.selectCalendarDate('2026-10-09'); await h.click('new-task');
-  assert.equal(h.document.getElementById('biz-task-form').elements.date.value, '2026-10-09');
-  await h.click('close-editor'); assert.equal(h.saveCalls, 0);
-});
-
-
-test('failed dashboard completion restores the checkbox and preserves the saved task', async () => {
-  const task = { id: 'pending-task', title: 'Pending task', date: '2026-09-14', done: false, unknown: { keep: 1 } };
-  const h = harness({ failSave: true, tasks: [task] }); h.controller.navigate('dashboard');
-  const checkbox = h.document.querySelectorAll().find(node => node.dataset?.bizTask === task.id);
-  checkbox.checked = true;
-  await h.emit('change', checkbox);
-  await new Promise(setImmediate);
-  assert.equal(h.saveCalls, 1);
-  assert.equal(checkbox.checked, false, 'Failed save cannot leave an unsaved completion check');
-  assert.equal(checkbox.disabled, false);
-  assert.deepEqual(h.state.laiTasks[0], task);
-  assert.equal(h.closeCalls, 0);
-});
-
-test('successful dashboard completion preserves task metadata and removes it from pending view', async () => {
+test('stored tasks never reach the workbench, and a hand-made task click opens nothing (协同 removed, D-031)', async () => {
   const task = { id: 'pending-task', title: 'Pending task', date: '2026-09-14', done: false, unknown: { keep: 1 } };
   const h = harness({ tasks: [task] }); h.controller.navigate('dashboard');
-  const checkbox = h.document.querySelectorAll().find(node => node.dataset?.bizTask === task.id);
-  checkbox.checked = true;
-  await h.emit('change', checkbox);
-  await new Promise(setImmediate);
-  assert.equal(h.saveCalls, 1);
-  assert.equal(h.state.laiTasks[0].done, true);
-  assert.deepEqual(h.state.laiTasks[0].unknown, task.unknown);
-  assert.doesNotMatch(h.pageHtml, /data-biz-task="pending-task"/);
+  assert.doesNotMatch(h.pageHtml, /Pending task|data-biz-task|data-biz-edit-task|new-task|添加任务|全部待办|data-biz-go="calendar"/);
+  for (const dataset of [{ bizEditTask: task.id }, { bizAction: 'new-task' }, { bizAction: 'assign-tasks', id: task.id }, { bizDay: '2026-09-14' }]) {
+    await h.emit('click', { disabled: false, dataset, closest() { return this; } });
+  }
+  assert.equal(h.dialogHtml, '', 'no task drawer opens');
+  assert.equal(h.saveCalls, 0);
+  assert.deepEqual(h.state.laiTasks, [task], 'the stored task is untouched');
+  assert.equal(h.controller.selectCalendarDate, undefined);
 });
 
 function analysisBars(html) {
@@ -291,21 +263,9 @@ test('explicit invalid order ids cannot act as the no-id new order action', () =
   }
 });
 
-test('stale rendered task entry refuses a removed task instead of opening an add form', async () => {
-  const h = harness({ clock: { instant: '2026-09-22T04:00:00Z', year: 2026, month: 9, day: 22 }, tasks: [{ id: 'task-stale', title: 'Existing task', date: '2026-09-22', done: false }] });
-  h.controller.navigate('calendar');
-  const entry = h.document.querySelectorAll().find(el => el.dataset.bizEditTask === 'task-stale');
-  assert.ok(entry); const next = { ...h.state, laiTasks: [] }; h.replaceState(next);
-  await h.emit('click', entry);
-  assert.equal(h.document.getElementById('biz-task-form'), null);
-  assert.equal(h.controller.hasDraft(), false); assert.equal(h.saveCalls, 0); assert.deepEqual(h.state, next);
-});
-
-test('explicit new order and new task actions still open their existing empty forms', async () => {
+test('the explicit new order action still opens its existing empty form', async () => {
   const h = harness(); h.controller.navigate('order-list'); await h.click('new-order');
   assert.equal(h.document.getElementById('biz-order-form').elements.client.value, '');
-  await h.click('close-editor'); h.controller.navigate('calendar'); await h.click('new-task');
-  assert.equal(h.document.getElementById('biz-task-form').elements.title.value, '');
   assert.equal(h.controller.hasDraft(), true); assert.equal(h.saveCalls, 0);
 });
 

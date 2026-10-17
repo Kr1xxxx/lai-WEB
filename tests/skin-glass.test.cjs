@@ -36,7 +36,6 @@ test('badges, tags and tinted labels in the glass skin keep a text contrast of a
     ['.team-rank-1', '#ffffff', decl(':root[data-skin="glass"] .team-rank-1', 'background')],
     ['.tag', decl(':root[data-skin="glass"] .tag', 'color'), '#fae7e4'],
     ['.tag.green', decl(':root[data-skin="glass"] .tag.green', 'color'), '#ecf8f1'],
-    ['.calendar-event.task', decl(':root[data-skin="glass"] .calendar-event.task', 'color'), '#fff5e9'],
   ];
   for (const [name, fg, bg] of pairs) assert.ok(ratio(fg, bg) >= 4.5, `${name}: ${fg} on ${bg} is only ${ratio(fg, bg).toFixed(2)}:1`);
 });
@@ -64,8 +63,8 @@ test('placeholder text is lighter than typed text but still at least 4.5:1', () 
   assert.match(skin, /input::placeholder,[\s\S]*?textarea::placeholder \{ color: rgba\(var\(--skin-ink-rgb\), 0\.6\)/);
 });
 
-test('tab strips, calendar cells and agenda rows keep square corners and their own thin lines in the glass skin', () => {
-  assert.match(skin, /:is\(\.team-tabs button, \.calendar-day, \.agenda-item, \.team-goal-new\) \{ border-radius: 0; \}/);
+test('tab strips and the new-target cell keep square corners and their own thin lines in the glass skin', () => {
+  assert.match(skin, /:is\(\.team-tabs button, \.team-goal-new\) \{ border-radius: 0; \}/);
   assert.match(skin, /\.team-tabs button\[aria-selected="true"\]:hover:not\(:disabled\) \{ border-color: transparent transparent var\(--brand-700\); \}/);
 });
 

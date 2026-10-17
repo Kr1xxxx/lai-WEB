@@ -139,20 +139,11 @@
   font-size: var(--text-xs);
   color: var(--ink-500);
 }
-.task-line label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .small-empty {
   color: var(--ink-500);
   padding: 30px 10px;
   text-align: center;
   font-size: 12px;
-}
-.done-text {
-  text-decoration: line-through;
-  color: var(--ink-500);
 }
 .currency-badge {
   color: var(--brand-500);
@@ -224,101 +215,6 @@
 .stage-bars-wide b {
   min-width: 9.5em;
 }
-.calendar-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 18px;
-  align-items: start;
-}
-.calendar-layout > .business-section {
-  padding: 14px;
-}
-.calendar-week,
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-.calendar-week {
-  font-size: var(--text-xs);
-  color: var(--ink-500);
-  text-align: center;
-  padding: 9px 0 16px;
-}
-.calendar-grid {
-  border-left: 1px solid var(--ink-100);
-  border-top: 1px solid var(--ink-100);
-}
-.calendar-blank,
-.calendar-day {
-  border: 0;
-  border-right: 1px solid var(--ink-100);
-  border-bottom: 1px solid var(--ink-100);
-  min-height: 105px;
-  border-radius: 0;
-}
-.calendar-day {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: stretch;
-  padding: 9px 6px;
-  background: #fff;
-  text-align: left;
-  font-size: var(--text-xs);
-  overflow: hidden;
-}
-.calendar-day > b {
-  font-weight: 500;
-  margin-bottom: 3px;
-}
-.calendar-day > small {
-  font-size: var(--text-xs);
-  color: var(--muted-fg);
-}
-.calendar-day.selected {
-  background: var(--brand-50);
-  box-shadow: inset 0 0 0 1px var(--brand-300);
-}
-.calendar-event {
-  font-size: var(--text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 3px 4px;
-  background: var(--brand-50);
-  color: var(--ink-600);
-  border-radius: 2px;
-}
-.calendar-event.followup {
-  background: #eaf6f0;
-  color: #4a8770;
-}
-.calendar-event.task {
-  background: #fff5e9;
-  color: #ab803f;
-}
-.agenda-item {
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid var(--ink-100);
-  border-radius: 0;
-  padding: 15px 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  text-align: left;
-  font-size: 12px;
-}
-.agenda-item time,
-.agenda-item > span {
-  font-size: var(--text-xs);
-  color: var(--ink-500);
-}
-.agenda-item strong {
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
 .settings-layout {
   max-width: none;
 }
@@ -339,11 +235,6 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-}
-/* 添加待办：「已完成」和日期输入框在同一水平线上（贴着输入框那一行的中间） */
-#biz-task-form .business-check {
-  align-self: end;
-  min-height: 36px;
 }
 .settings-layout h3 {
   font-size: 14px;
@@ -381,9 +272,6 @@
   .business-title > span {
     display: none;
   }
-  .calendar-layout {
-    grid-template-columns: minmax(0, 1fr) 235px;
-  }
   .business-section {
     padding: 16px;
   }
@@ -392,9 +280,6 @@
   }
 }
 @media (max-width: 1100px) {
-  .calendar-layout {
-    display: block;
-  }
   .business-columns {
     grid-template-columns: 1fr;
   }

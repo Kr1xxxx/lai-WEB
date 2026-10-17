@@ -49,7 +49,7 @@ test('every demo sender is a demo customer, so the mail page links each message 
   assert.ok(Object.hasOwn(data.customers, 'London Lash Pro'));
 });
 
-test('the seed fills the workbench: orders in several stages, a USD 50,000 deal, tasks, follow-ups and goals', () => {
+test('the seed fills the workbench: orders in several stages, a USD 50,000 deal, follow-ups and goals', () => {
   const { ctx, store } = sandbox();
   run(ctx, 'scripts/web-trial/demo-seed.js');
   const saved = JSON.parse(store.get('lai-web-trial-v1'));
@@ -62,7 +62,7 @@ test('the seed fills the workbench: orders in several stages, a USD 50,000 deal,
   const board = OM.board(data, {}, localDay(new Date()));
   assert.ok(board.columns.find((c) => c.id === 'open').count >= 4);
   assert.ok(data.laiOpportunities.some((o) => o.amount === 50000 && o.client === 'London Lash Pro'));
-  assert.ok(data.laiTasks.length >= 6);
+  assert.equal(data.laiTasks, undefined, 'no demo tasks: 协同 is gone (D-031)');
   const today = new Date();
   const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   const goals = TM.overview(data, month).goals;

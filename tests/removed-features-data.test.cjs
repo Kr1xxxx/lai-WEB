@@ -97,6 +97,7 @@ test('everyday edits through the models leave every piece of lead and task data 
   assert.equal(s.orders.length, 1);
   assert.equal(CS.get(s).dedupe.email, 'block');
   assert.equal(TM.listTargets(s).find((target) => target.metric === 'orders').value, 8);
+  assert.ok(!TM.listTargets(s).some((target) => target.metric === 'tasksDone'), 'a saved 任务完成 target is skipped on read');
   // and nothing of the removed features moved
   assert.deepEqual(kept(s), before);
   assert.deepEqual(kept(start), before, 'the starting state was not changed in place either');

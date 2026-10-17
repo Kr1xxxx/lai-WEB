@@ -58,7 +58,7 @@
       '<p class="lw-warn" id="lai-web-nostore" hidden>当前环境不能保存数据，刷新页面会丢失。</p>' +
       '<div class="lw-stats"><div class="lw-stat"><b id="lai-web-customers">0</b><span>位客户</span></div><div class="lw-stat"><b id="lai-web-orders">0</b><span>笔订单</span></div></div>' +
       '<p class="lw-note">数据只保存在你当前这个浏览器里，不会上传，也不会同步到其他设备。换浏览器、清除网站数据或用无痕窗口都会看不到它。</p>' +
-      '<div class="lw-block"><h3>示例数据</h3><p>载入 7 家美国、欧洲睫毛公司的客户、订单、商机和待办（邮件页的示例邮件始终都在）。会替换当前的客户和订单。</p>' +
+      '<div class="lw-block"><h3>示例数据</h3><p>载入 7 家美国、欧洲睫毛公司的客户、订单和商机（邮件页的示例邮件始终都在）。会替换当前的客户和订单。</p>' +
       '<button type="button" class="lw-btn lw-primary" id="lai-web-demo">载入示例数据</button></div>' +
       '<details><summary>备份与恢复</summary><div class="lw-inner">' +
       '<h3>备份</h3><textarea id="lai-web-backup" readonly aria-label="备份内容"></textarea>' +

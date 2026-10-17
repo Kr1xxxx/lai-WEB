@@ -22,7 +22,6 @@
   "subnav-empty",
   "summary-search-empty",
   "team-rank-empty",
-  "tr-empty",
   "wa-empty",
   "wa-list-empty",
   "wa-thread-empty"
@@ -45,7 +44,6 @@
   "order-table role-table",
   "order-table role-table role-list-table",
   "order-table team-table",
-  "order-table team-table team-board",
-  "order-table tr-table"
+  "order-table team-table team-board"
  ]
 }

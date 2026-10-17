@@ -12,7 +12,7 @@ const Mail = globalThis.LaiMailUI;
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const app = read('src/app.js');
 
-// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 3 + 工作台 1 + 邮件 6 + 沟通 2 + 交易 5 + 团队数据 8 + 协同 2 + 设置 3 + 企业管理 2。线索和 Leads 已去掉（D-030）。
+// 所有真实入口（任务书第二节第 3 点）：客户 4 + 商机 3 + 工作台 1 + 邮件 6 + 沟通 2 + 交易 5 + 团队数据 7 + 设置 3 + 企业管理 2。线索和 Leads（D-030）、协同和任务完成（D-031）已去掉。
 const ALL = [
   'screen:active', 'screen:pool', 'screen:duplicates', 'screen:customer-settings',
   'route:opportunities', 'route:opp-analysis', 'route:opp-flows',
@@ -20,11 +20,11 @@ const ALL = [
   'mail:inbox', 'mail:pending', 'mail:unread', 'mail:drafts', 'mail:sent', 'mail:bulk',
   'route:chats', 'route:chat-templates',
   'route:order-list', 'route:order-trash', 'route:products', 'route:doc-templates', 'route:rates',
-  'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-tasks', 'route:team-orders',
-  'route:calendar', 'route:task-settings', 'route:settings', 'route:settings-hub', 'route:feature-switch',
+  'route:team-goals', 'route:team-targets', 'route:team-wall', 'route:analysis', 'route:team-assets', 'route:team-followups', 'route:team-orders',
+  'route:settings', 'route:settings-hub', 'route:feature-switch',
   'route:roles', 'route:members'
 ];
-const MENUS = ['客户', '商机', '工作台', '邮件', '沟通', '交易', '团队数据', '协同', '设置', '企业管理'];
+const MENUS = ['客户', '商机', '工作台', '邮件', '沟通', '交易', '团队数据', '设置', '企业管理'];
 // 沟通 became a real menu (WhatsApp, D-023); no menu is a pure placeholder any more. 线索 and Leads were removed (D-030).
 const RESERVED = [];
 
@@ -55,14 +55,14 @@ test('a page added to a menu becomes favoritable without touching nav-favorites.
   const sandbox = {};
   vm.createContext(sandbox);
   sandbox.window = sandbox;
-  const patched = source('rail-menu.js').replace("['任务设置','route','task-settings'])", "['任务设置','route','task-settings'],['新页面','route','brand-new'])");
+  const patched = source('rail-menu.js').replace("['功能开关','route','feature-switch'])", "['功能开关','route','feature-switch'],['新页面','route','brand-new'])");
   assert.notEqual(patched, source('rail-menu.js'), 'the fixture edit applied');
   vm.runInContext(patched, sandbox);
   vm.runInContext(source('nav-favorites.js'), sandbox);
   const NF = sandbox.LaiNavFavorites;
   assert.equal(NF.known('route:brand-new'), true);
   assert.deepEqual([...NF.list(NF.toggle({}, 'route:brand-new'))], ['route:brand-new']);
-  assert.equal(NF.entry('route:brand-new').menu, '协同');
+  assert.equal(NF.entry('route:brand-new').menu, '设置');
   assert.equal(F.known('route:brand-new'), false, 'the real catalog is untouched');
 });
 
@@ -103,7 +103,7 @@ test('unknown and reserved entries are rejected on write and silently filtered o
     assert.throws(() => F.toggle({}, bad), /不能加入常用/, String(bad));
   assert.throws(() => F.remove({}, '__proto__'), /不能加入常用/);
   assert.throws(() => F.move({}, 'x', 1), /不能加入常用/);
-  assert.deepEqual(F.list({favoriteNav: ['screen:pool', 'screen:pool', 'x', 7, null, {}, 'route:calendar', 'feature:沟通']}), ['screen:pool', 'route:calendar']);
+  assert.deepEqual(F.list({favoriteNav: ['screen:pool', 'screen:pool', 'x', 7, null, {}, 'route:team-wall', 'feature:沟通']}), ['screen:pool', 'route:team-wall']);
   assert.deepEqual(F.toggle({favoriteNav: ['screen:pool', 'screen:pool', 'gone']}, 'screen:active').favoriteNav, ['screen:pool', 'screen:active']);
 });
 
@@ -115,14 +115,14 @@ test('move reorders any mix of entries by one step and clamps at both ends', () 
   assert.deepEqual(F.list(F.move(s, 'route:order-list', -1)), list, 'first item cannot move up');
   assert.deepEqual(F.list(F.move(s, 'screen:pool', 1)), list, 'last item cannot move down');
   assert.deepEqual(s.favoriteNav, list, 'input untouched');
-  assert.throws(() => F.move({favoriteNav: ['screen:pool']}, 'route:calendar', 1), /尚未加入常用/);
+  assert.throws(() => F.move({favoriteNav: ['screen:pool']}, 'route:team-wall', 1), /尚未加入常用/);
 });
 
 test('remove drops one entry of any kind and keeps the order of the rest', () => {
   const s = {favoriteNav: ['route:order-list', 'mail:inbox', 'screen:pool']};
   assert.deepEqual(F.list(F.remove(s, 'mail:inbox')), ['route:order-list', 'screen:pool']);
-  assert.deepEqual(F.list(F.remove({favoriteNav: []}, 'route:calendar')), [], 'removing a non-favorite is a no-op');
-  assert.deepEqual(F.list(F.remove({}, 'route:calendar')), [], 'nothing is favorited by default');
+  assert.deepEqual(F.list(F.remove({favoriteNav: []}, 'route:team-wall')), [], 'removing a non-favorite is a no-op');
+  assert.deepEqual(F.list(F.remove({}, 'route:team-wall')), [], 'nothing is favorited by default');
 });
 
 test('entries resolves labels, owning menu and target for every kind', () => {
@@ -153,18 +153,18 @@ test('rail menus list only existing destinations; callers cannot alter the menu 
   assert.deepEqual(rows('邮件').map(r => r[2]), Mail.folders.map(f => f.id), 'the same six folders as the mail page');
   assert.deepEqual(rows('邮件').map(r => r[0]), Mail.folders.map(f => f.label));
   for (const unknown of ['不存在', '__proto__', 'constructor', ...RESERVED]) assert.equal(RM.menuFor(unknown), null, unknown);
-  RM.menuFor('客户').pop(); RM.menuFor('客户')[0].label = 'x'; RM.favoritable()[0].label = 'x'; RM.sectionFor('calendar').entries.pop();
+  RM.menuFor('客户').pop(); RM.menuFor('客户')[0].label = 'x'; RM.favoritable()[0].label = 'x'; RM.sectionFor('settings').entries.pop();
   assert.equal(RM.menuFor('客户').length, 4);
-  assert.deepEqual([RM.menuFor('客户')[0].label, RM.favoritable()[0].label, RM.sectionFor('calendar').entries.length], ['客户列表', '客户列表', 2], 'callers get copies and cannot alter the menu definition');
+  assert.deepEqual([RM.menuFor('客户')[0].label, RM.favoritable()[0].label, RM.sectionFor('settings').entries.length], ['客户列表', '客户列表', 3], 'callers get copies and cannot alter the menu definition');
 });
 
 test('every business page belongs to exactly one menu, and menus never repeat each other\'s entries', () => {
-  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'rates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-tasks', 'team-orders', 'calendar', 'task-settings', 'settings', 'settings-hub', 'feature-switch', 'roles', 'members'];
+  const routes = ['dashboard', 'order-list', 'order-trash', 'products', 'doc-templates', 'rates', 'team-goals', 'team-targets', 'team-wall', 'analysis', 'team-assets', 'team-followups', 'team-orders', 'settings', 'settings-hub', 'feature-switch', 'roles', 'members'];
   const sections = routes.map(route => [route, RM.sectionFor(route)]);
   for (const [route, section] of sections) assert.ok(section, route);
-  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '协同', '协同', '设置', '设置', '设置', '企业管理', '企业管理']);
+  assert.deepEqual(sections.map(([, s]) => s.label), ['工作台', '交易', '交易', '交易', '交易', '交易', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '团队数据', '设置', '设置', '设置', '企业管理', '企业管理']);
   assert.deepEqual(RM.sectionFor('order-trash').entries.map(e => e.label), ['全部订单', '订单回收站', '产品', '单据模板', '汇率设置']);
-  const labels = ['工作台', '交易', '团队数据', '协同', '设置', '企业管理'];
+  const labels = ['工作台', '交易', '团队数据', '设置', '企业管理'];
   const all = labels.flatMap(label => RM.sectionFor(RM.menuFor(label)[0].target).entries.filter(e => e.kind === 'route').map(e => e.target));
   assert.deepEqual([...all].sort(), [...routes].sort(), 'together they cover every page once, with no duplicates');
   for (const other of ['customers', 'nope', undefined, '__proto__', 'mail', 'favorites']) assert.equal(RM.sectionFor(other), null);
@@ -298,7 +298,7 @@ test('heart markup: an inline SVG, off by default, and the labels say 设为常�
   assert.equal(h.run('favoriteHeart("screen:nope","x")'), '', 'unknown entries get no heart');
   assert.equal(h.run('favoriteHeart(undefined,"x")'), '');
   assert.equal(h.run('favoriteHeart("feature:沟通","沟通")'), '', 'reserved entries get no heart');
-  assert.match(h.run('favoriteHeart("route:calendar","日历与待办",\' role="menuitem"\')'), / role="menuitem">/, 'extra attributes land on the button');
+  assert.match(h.run('favoriteHeart("route:settings","设置",\' role="menuitem"\')'), / role="menuitem">/, 'extra attributes land on the button');
 });
 
 test('the heart is drawn from one path shared with the icon set, filled or outlined by CSS only', () => {
@@ -336,7 +336,7 @@ test('hearts appear beside the real entries of the customer sub-navigation (four
 });
 
 test('every business menu\'s sub-navigation has a heart on each of its entries, grouped menus included', () => {
-  for (const label of ['工作台', '交易', '团队数据', '协同', '设置']) {
+  for (const label of ['工作台', '交易', '团队数据', '设置']) {
     const entries = RM.menuFor(label);
     const h = harness({settings: undefined, route: entries[0].target});
     h.render();
@@ -345,10 +345,10 @@ test('every business menu\'s sub-navigation has a heart on each of its entries, 
     assert.deepEqual(h.hearts('subnav').map(b => b.dataset.navLabel), entries.map(e => e.label), label);
     assert.deepEqual(h.active('subnav'), [entries[0].label], label + ': current page highlighted');
   }
-  const grouped = harness({settings: undefined, route: 'team-tasks'});
+  const grouped = harness({settings: undefined, route: 'team-orders'});
   grouped.render();
   assert.deepEqual([...grouped.ui.subnav.matchAll(/<details class="subnav-group" open><summary>([^<]+)<\/summary>/g)].map(m => m[1]), ['目标数据', '统计报表']);
-  assert.equal(grouped.hearts('subnav').length, 8);
+  assert.equal(grouped.hearts('subnav').length, 7);
   assert.doesNotMatch(grouped.ui.subnav, /<button[^>]*><button/, 'no button nested in a button');
 });
 
@@ -376,7 +376,7 @@ test('the 常用 sub-navigation lists favorites of every kind in order with a li
   assert.match(h.ui.subnav, /data-action="favorite-nav-manage"/);
   assert.match(h.ui.subnav, /data-mail-action="compose"/, 'writing mail stays possible while in 常用 mode');
   assert.doesNotMatch(h.ui.subnav, /<TOGGLE>/, 'the collapse toggle belongs to the customer pages only');
-  for (const [route, screen, current, expected] of [['customers', 'duplicates', null, '客户查重'], ['order-trash', 'active', null, '订单回收站'], ['analysis', 'active', null, '经营统计'], ['calendar', 'active', null, null], ['favorites', 'active', null, null]]) {
+  for (const [route, screen, current, expected] of [['customers', 'duplicates', null, '客户查重'], ['order-trash', 'active', null, '订单回收站'], ['analysis', 'active', null, '经营统计'], ['team-wall', 'active', null, null], ['favorites', 'active', null, null]]) {
     h = harness({settings, route, favoritesMode: true, customerScreen: screen}); h.render();
     assert.deepEqual(h.active('subnav'), expected ? [expected] : [], `${route}/${screen}`);
     assert.doesNotMatch(h.ui.subnav, /data-mail-action="compose"/);
@@ -627,21 +627,21 @@ test('opening an entry goes through navigateApp for each kind, and a blocked nav
   ];
   var h;
   for (const [entry, fav, check] of cases) {
-    h = harness({settings: {}, route: 'calendar'});
+    h = harness({settings: {}, route: 'team-wall'});
     assert.equal(await h.run(`openNavEntry(${JSON.stringify(entry)}, ${fav})`), true);
     check();
   }
-  h = harness({settings: {}, route: 'calendar', flush: false});
+  h = harness({settings: {}, route: 'team-wall', flush: false});
   assert.equal(await h.run('openNavEntry({kind:"route",target:"order-list"}, true)'), false);
-  assert.deepEqual([h.boundary.activeRoute, h.boundary.favoritesMode, h.calls.business, h.calls.closeModal], ['calendar', false, [], 0], 'an unsaved edit blocks the jump and nothing moves');
-  h = harness({settings: {}, route: 'calendar', flush: false});
+  assert.deepEqual([h.boundary.activeRoute, h.boundary.favoritesMode, h.calls.business, h.calls.closeModal], ['team-wall', false, [], 0], 'an unsaved edit blocks the jump and nothing moves');
+  h = harness({settings: {}, route: 'team-wall', flush: false});
   assert.equal(await h.run('openNavEntry({kind:"screen",target:"pool"}, true)'), false);
   assert.deepEqual(h.calls.customers, []);
 });
 
 test('clicking 常用 opens the first favorite, whatever kind it is, with 常用 highlighted', async () => {
-  for (const [first, expected] of [['route:team-tasks', {route: 'team-tasks'}], ['mail:unread', {route: 'mail', folder: 'unread'}], ['screen:duplicates', {route: 'customers', screen: 'duplicates'}], ['screen:customer-settings', {route: 'customers', screen: 'customer-settings'}], ['route:dashboard', {route: 'dashboard'}]]) {
-    const h = harness({settings: {favoriteNav: [first, 'route:calendar']}, route: 'order-list'});
+  for (const [first, expected] of [['route:team-followups', {route: 'team-followups'}], ['mail:unread', {route: 'mail', folder: 'unread'}], ['screen:duplicates', {route: 'customers', screen: 'duplicates'}], ['screen:customer-settings', {route: 'customers', screen: 'customer-settings'}], ['route:dashboard', {route: 'dashboard'}]]) {
+    const h = harness({settings: {favoriteNav: [first, 'route:team-wall']}, route: 'order-list'});
     h.render();
     await railMenu(h, '常用');
     assert.equal(h.boundary.activeRoute, expected.route, first);
@@ -682,7 +682,7 @@ test('the empty 常用 page turns into a pick-one prompt as soon as a favorite i
 });
 
 test('in 常用 mode every kind of entry can be reached from the list and 常用 stays highlighted with the list showing', async () => {
-  const settings = {favoriteNav: ['screen:pool', 'route:order-trash', 'mail:pending', 'route:team-orders', 'screen:customer-settings', 'route:calendar', 'route:dashboard', 'route:settings']};
+  const settings = {favoriteNav: ['screen:pool', 'route:order-trash', 'mail:pending', 'route:team-orders', 'screen:customer-settings', 'route:team-wall', 'route:dashboard', 'route:settings']};
   const h = harness({settings, route: 'order-list'});
   h.render();
   await railMenu(h, '常用');
@@ -696,7 +696,7 @@ test('in 常用 mode every kind of entry can be reached from the list and 常用
     assert.deepEqual(h.active('subnav'), [entry.label], id);
     assert.equal(h.boundary.activeRoute, entry.kind === 'screen' ? 'customers' : entry.kind === 'mail' ? 'mail' : entry.target, id);
   }
-  assert.deepEqual(h.calls.business, ['order-trash', 'team-orders', 'calendar', 'dashboard', 'settings']);
+  assert.deepEqual(h.calls.business, ['order-trash', 'team-orders', 'team-wall', 'dashboard', 'settings']);
   assert.deepEqual(h.calls.mailSelect, ['pending']);
 });
 
@@ -705,7 +705,7 @@ test('the flyout opens favorites in 常用 mode and ordinary menu entries outsid
   hover(h, railItem('常用'));
   await h.click(h.button('flyout', b => b.dataset.flyoutKind === 'favorite'));
   assert.deepEqual([h.flyout.removed, h.boundary.activeRoute, h.boundary.favoritesMode, h.calls.mailSelect, h.railActive()], [true, 'mail', true, ['sent'], ['常用']]);
-  h = harness({settings: {favoriteNav: ['mail:sent']}, route: 'calendar', favoritesMode: true});
+  h = harness({settings: {favoriteNav: ['mail:sent']}, route: 'team-wall', favoritesMode: true});
   hover(h, railItem('交易'));
   await h.click(h.button('flyout', b => b.dataset.flyoutTarget === 'order-trash'));
   assert.deepEqual([h.boundary.activeRoute, h.boundary.favoritesMode], ['order-trash', false], 'choosing from another menu leaves 常用 mode');
@@ -734,7 +734,7 @@ test('the rail highlight follows the page: only 常用 in 常用 mode, otherwise
   const lit = (route, favoritesMode = false) => { const h = harness({settings: {}, route, favoritesMode}); h.render(); return h.railActive(); };
   assert.deepEqual(lit('customers'), ['客户']);
   assert.deepEqual(lit('customers', true), ['常用']);
-  for (const [route, menu] of [['dashboard', '工作台'], ['order-list', '交易'], ['order-trash', '交易'], ['analysis', '团队数据'], ['team-orders', '团队数据'], ['calendar', '协同'], ['settings', '设置'], ['mail', '邮件']]) {
+  for (const [route, menu] of [['dashboard', '工作台'], ['order-list', '交易'], ['order-trash', '交易'], ['analysis', '团队数据'], ['team-orders', '团队数据'], ['settings', '设置'], ['mail', '邮件']]) {
     assert.deepEqual(lit(route), [menu], route);
     assert.deepEqual(lit(route, true), ['常用'], route + ' in 常用 mode');
   }
@@ -742,7 +742,7 @@ test('the rail highlight follows the page: only 常用 in 常用 mode, otherwise
 });
 
 test('navigateApp enters 常用 mode only when asked, for any page type, and restores a collapsed sub-navigation off the customer pages', async () => {
-  for (const [route, folder] of [['customers'], ['dashboard'], ['order-trash'], ['team-wall'], ['calendar'], ['settings'], ['mail', 'unread'], ['favorites']]) {
+  for (const [route, folder] of [['customers'], ['dashboard'], ['order-trash'], ['team-wall'], ['team-assets'], ['settings'], ['mail', 'unread'], ['favorites']]) {
     const h = harness({settings: {}});
     assert.equal(await h.run(`navigateApp(${JSON.stringify(route)}, "", true, true, ${JSON.stringify(folder || '')})`), true);
     assert.equal(h.boundary.favoritesMode, true, route);
@@ -782,7 +782,7 @@ test('the management panel lists favorites of every kind with their menu, correc
   assert.match(rows[0], /data-direction="-1"[^>]*disabled/); assert.doesNotMatch(rows[0], /data-direction="1"[^>]*disabled/);
   assert.match(rows[3], /data-direction="1"[^>]*disabled/); assert.doesNotMatch(rows[1], /disabled/); assert.doesNotMatch(rows[2], /disabled/);
   assert.match(rows[1], /data-favorite-remove="route:order-trash" aria-label="从常用移除订单回收站"/);
-  assert.match(body, /客户、工作台、邮件、交易、团队数据、日历与待办、设置里的页面都可以设为常用/);
+  assert.match(body, /客户、工作台、邮件、交易、团队数据、设置里的页面都可以设为常用/);
   assert.doesNotMatch(body, /☆|★|收藏|目前可收藏/);
   assert.match(footer, /data-action="close-modal"/);
   h = harness({settings: {favoriteNav: []}});
@@ -791,7 +791,7 @@ test('the management panel lists favorites of every kind with their menu, correc
 });
 
 test('management panel: jump, move and remove work on mixed entries through the click dispatcher', async () => {
-  const h = harness({settings: {favoriteNav: ['mail:inbox', 'route:order-trash', 'screen:pool']}, route: 'calendar', favoritesMode: true});
+  const h = harness({settings: {favoriteNav: ['mail:inbox', 'route:order-trash', 'screen:pool']}, route: 'team-wall', favoritesMode: true});
   const press = async dataset => { const b = {dataset, disabled: false, closest: sel => (sel === 'button' ? b : null), focus() { h.calls.focused.push(dataset.favoriteMove || 'jump'); }}; return h.listeners.click({target: b, detail: 1}); };
   await press({favoriteJump: 'route:order-trash'});
   assert.deepEqual([h.boundary.activeRoute, h.boundary.favoritesMode], ['order-trash', true]);

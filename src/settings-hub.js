@@ -33,9 +33,6 @@
     { id: "chat", title: "沟通", items: [
       { id: "chat-templates", title: "聊天模板", note: "WhatsApp 常用话术：新建、修改、删除", open: ["route", "chat-templates"], module: "chat", perm: "chat.template" },
     ] },
-    { id: "task", title: "协同", items: [
-      { id: "task-settings", title: "任务设置", note: "按规则自动建待办：客户没跟进、订单到了某阶段、商机快到期、复购提醒", open: ["route", "task-settings"], perm: "settings.task" },
-    ] },
     { id: "team", title: "团队", items: [
       { id: "targets", title: "目标管理", note: "团队和个人的月度和季度目标", open: ["route", "team-targets"], module: "team", perm: "team.targets" },
     ] },

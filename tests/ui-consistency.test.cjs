@@ -45,9 +45,9 @@ test('the split 新建客户 button, page-header buttons and the customer form i
 test('every left-menu entry has a tinted-line icon, each drawn from its own paths, and only that icon is drawn', () => {
   const rail = [...app.matchAll(/\["(\w+)", "([^"]+)", (?:null|"[\w-]+"),? ?(?:"(\w+)")?\]/g)].map((m) => ({ icon: m[1], label: m[2], duo: m[3] }));
   const labels = rail.map((r) => r.label);
-  const expected = ['常用', '工作台', '邮件', '沟通', '客户', '商机', '交易', '团队数据', '协同', '设置', '企业管理'];
+  const expected = ['常用', '工作台', '邮件', '沟通', '客户', '商机', '交易', '团队数据', '设置', '企业管理'];
   for (const label of expected) assert.ok(labels.includes(label), label);
-  for (const gone of ['线索', 'Leads']) assert.ok(!labels.includes(gone), `${gone} is gone (D-030)`);
+  for (const gone of ['线索', 'Leads', '协同']) assert.ok(!labels.includes(gone), `${gone} is gone (D-030 / D-031)`);
   const block = app.slice(app.indexOf('const duoIcons = {'), app.indexOf('const menuIcon'));
   const duoNames = new Set([...block.matchAll(/^\s{4}(\w+): \{ tint: "([^"]+)", line: "([^"]+)" \}/gm)].map((m) => { assert.ok(m[2].length > 10 && m[3].length > 10); return m[1]; }));
   const duoMap = Object.fromEntries([...app.match(/const duoNames = \{([^}]*)\}/)[1].matchAll(/(\w+): "(\w+)"/g)].map((m) => [m[1], m[2]]));

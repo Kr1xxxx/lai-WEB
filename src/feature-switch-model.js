@@ -3,9 +3,9 @@
   // 功能开关（纯逻辑，没有界面）。存在 state.laiSettings.featureSwitch = {off:['mail', ...]}：
   // 列在 off 里的模块是关的，没写（或没有这一项）就是全开，所以老数据和新账号都不受影响。
   // 关掉只是“不显示、不后台运行”：数据一点不删，重新打开就全回来。关了就是关了，管理员也一样（先看模块开没开，再看角色权限）。
-  // 可以关的：商机、产品、单据、邮件、沟通、团队数据。客户、订单、工作台、协同、设置、企业管理关不掉。
+  // 可以关的：商机、产品、单据、邮件、沟通、团队数据。客户、订单、工作台、设置、企业管理关不掉。
   const MODULES = Object.freeze([
-    ['opp', '商机', '商机看板、商机分析、商机设置；客户详情和工作台里的商机；任务设置里“商机快到结束日期”不再自动建待办'],
+    ['opp', '商机', '商机看板、商机分析、商机设置；客户详情和工作台里的商机'],
     ['product', '产品', '产品库和产品设置；订单里的产品改为直接手填'],
     ['doc', '单据', '单据模板；订单和商机里的“生成单据”'],
     ['mail', '邮件', '收发邮件、自动检查新邮件、自动记往来邮件；工作台里的未读邮件'],
@@ -58,30 +58,9 @@
     const by = CS && typeof CS.get === 'function' ? CS.get(state).dealRule.by : 'order';
     return by === 'opportunity' && enabled(state, 'opp') ? 'opportunity' : 'order';
   }
-  // ---------- 依赖：任务规则用到了关着的模块就不跑 ----------
-  // 规则 → 它用到的模块（目前只有“商机快到结束日期”用商机）。
-  const RULE_MODULE = Object.freeze({ oppClose: 'opp' });
-  const ruleBlocked = (state, type) => Object.hasOwn(RULE_MODULE, type) && !enabled(state, RULE_MODULE[type]);
-  // 跑任务规则时，把用到关着的模块的规则当成没开；返回的状态里规则开关还是用户原来设的，并记下这条规则今天没跑（taskRules.skipped），
-  // 模块当天重新打开时它不看“今天跑过没有”，马上接着跑。
-  // 默认只在“今天该跑”时才跑，没有该跑的规则时返回 null（什么也不用保存）；options.force 为真时不看“今天跑过没有”
-  // （任务设置里刚打开一条规则，马上建待办）。TR 是 LaiTaskRuleModel。
-  function runTaskRules(TR, state, options) {
-    const force = !!(options && options.force);
-    const cfg = TR.config(state);
-    const blocked = cfg.rules.filter((rule) => rule.enabled && ruleBlocked(state, rule.type)).map((rule) => rule.type);
-    if (!blocked.length) return force || TR.due(state, options && options.now) ? TR.run(state, options) : null; // run 会把跑过的规则从 skipped 里去掉
-    const shadow = blocked.reduce((s, type) => TR.setRule(s, type, { enabled: false }), state);
-    if (!force && !TR.due(shadow, options && options.now)) return null;
-    const result = TR.run(shadow, options);
-    const after = TR.config(result.state);
-    const restored = after.rules.map((rule) => (blocked.includes(rule.type) ? { ...rule, enabled: true } : rule));
-    const ls = result.state.laiSettings || {};
-    return { ...result, state: { ...result.state, laiSettings: { ...ls, taskRules: { ...(ls.taskRules || {}), rules: restored, lastRun: after.lastRun, dismissed: after.dismissed, skipped: [...new Set([...after.skipped, ...blocked])] } } } };
-  }
 
   const api = { MODULES, IDS, ROUTE_MODULE, offList, enabled, set, label, moduleOfRoute, moduleOfKey, moduleOfEntry, routeOn, keyOn, entryOn,
-    dealBasis, ruleBlocked, runTaskRules };
+    dealBasis };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LaiFeatureSwitch = api;
 })(typeof window !== 'undefined' ? window : globalThis);

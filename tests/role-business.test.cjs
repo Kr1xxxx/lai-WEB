@@ -141,7 +141,8 @@ test('工作台: blocks of modules the account cannot view are hidden', () => {
   assert.ok(mine.includes('订单走到哪了') && mine.includes('id="wb-h-opp"'));
   const none = html(without('order.view', 'opp.view', 'team.view', 'mail.view', 'chat.view', 'order.create', 'opp.create'));
   for (const text of ['订单走到哪了', '已收款', 'id="wb-h-opp"', '本月成交', '客户来消息', '新建订单', '新建商机', '钱和目标']) assert.ok(!none.includes(text), text);
-  assert.ok(none.includes('今天先做') && none.includes('添加任务'), 'the queue and 添加任务 stay');
+  assert.ok(none.includes('今天先做'), 'the queue stays');
+  assert.ok(!full.includes('添加任务') && !none.includes('添加任务'), '添加任务 went with 协同 (D-031)');
 });
 
 // 邮件页测试用的账号、邮件（和 mail-ui.test.cjs 一样）。
@@ -305,18 +306,18 @@ test('an order the role can see but not edit opens as a read-only detail', async
   assert.equal(c.saves, 0);
 });
 
-test('without 查看订单 the calendar hides order events and a hand-made order click is refused', async () => {
+test('without 查看订单 the workbench draws no orders and a hand-made order click is refused', async () => {
   const noView = R.updateRole(admin, 'sales', { perms: Object.fromEntries(R.SALES_DEFAULT.filter((key) => key !== 'order.view').map((key) => [key, true])) });
   const state = R.switchTo(noView, R.settings(noView).members.find((m) => m.name === 'Amy').id);
   assert.equal(R.can(state, 'order.view'), false);
   const c = controller(state);
-  c.ui.selectCalendarDate('2026-10-01');
-  assert.doesNotMatch(c.html, /data-biz-order=|订单 L-Amy/, 'order events are not drawn');
+  c.ui.navigate('dashboard');
+  assert.doesNotMatch(c.html, /data-biz-order=|L-Amy/, 'orders are not drawn');
   await c.click({ bizOrder: 'order-a' });
   assert.deepEqual(c.dialogs, [], 'the editor does not open');
   assert.match(c.toasts.at(-1), /订单·查看/);
   // With the permission the same month shows the order again.
   const withView = controller(amy);
-  withView.ui.selectCalendarDate('2026-10-01');
+  withView.ui.navigate('dashboard');
   assert.match(withView.html, /data-biz-order="order-a"/);
 });

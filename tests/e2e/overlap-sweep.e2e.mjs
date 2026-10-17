@@ -84,8 +84,8 @@ test('no page overlaps, cuts text off or sticks out, in pink and 科技蓝 from 
   const jobs = [];
   for (const theme of THEMES) for (const [width, height] of SIZES) jobs.push({ theme, width, height });
   const routes = await lib.discoverRoutes(page);
-  // 28 since 线索列表 / 线索回收站 / 线索设置 were removed (D-030).
-  assert.ok(routes.length >= 28, `found the app's pages (${routes.length})`);
+  // 25 since 线索列表 / 线索回收站 / 线索设置 (D-030) and 日历与待办 / 任务设置 / 任务完成 (D-031) were removed.
+  assert.ok(routes.length >= 25, `found the app's pages (${routes.length})`);
   const findings = [];
   let views = 0, candidates = 0;
   // Several pages scan at once. Each one gets its own browser context (own renderer process), otherwise they would

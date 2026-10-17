@@ -59,10 +59,9 @@ function mergePreview(state,primary,others){
   if(!list.length)throw new Error('请至少再选一位要合并进来的客户');
   if(list.some(n=>!known.has(n)))throw new Error('所选客户不存在，请重新选择');
   if([primary,...list].some(n=>bucketOf(profiles(state)[n])==='trash'))throw new Error('回收站里的客户不能合并，请先恢复');
-  const count={orders:0,tasks:0,opportunities:0,segments:0,followups:0,contacts:0};
+  const count={orders:0,opportunities:0,segments:0,followups:0,contacts:0};
   const set=new Set(list);
   for(const bucket of ['orders','trashOrders','deletedOrders'])count.orders+=(state[bucket]||[]).filter(o=>set.has(o.client)).length;
-  count.tasks=(state.laiTasks||[]).filter(t=>set.has(t.customer)).length;
   count.opportunities=(state.laiOpportunities||[]).filter(o=>set.has(o.client)).length;
   count.segments=(state.previewSegments||[]).filter(s=>(s.members||[]).some(m=>set.has(m))).length;
   for(const n of list){
@@ -154,6 +153,7 @@ function mergeCustomers(state,primary,others,at=new Date().toISOString()){
   const next={...state,customers};
   for(const bucket of ['orders','trashOrders','deletedOrders'])
     if(Array.isArray(state[bucket]))next[bucket]=state[bucket].map(o=>set.has(o.client)?{...o,client:primary}:o);
+  // 协同（待办）已去掉（D-031），存着的 laiTasks 仍跟着改客户名，数据保持一致。
   if(Array.isArray(state.laiTasks))next.laiTasks=state.laiTasks.map(t=>set.has(t.customer)?{...t,customer:primary}:t);
   if(Array.isArray(state.laiOpportunities))next.laiOpportunities=state.laiOpportunities.map(o=>set.has(o.client)?{...o,client:primary}:o);
   if(Array.isArray(state.previewSegments))next.previewSegments=state.previewSegments.map(s=>Array.isArray(s.members)?{...s,members:[...new Set(s.members.map(re))]}:s);

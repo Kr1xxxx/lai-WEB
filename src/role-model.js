@@ -21,7 +21,7 @@
     ['跟进动态',[['activity.view','查看']]],
     ['邮件',[['mail.view','查看'],['mail.send','写信和回复']]],
     ['沟通',[['chat.view','查看聊天记录'],['chat.send','打开 WhatsApp 聊天和记聊天'],['chat.import','导入和撤销聊天记录'],['chat.template','管理聊天模板']]],
-    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模板设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理'],['settings.rate','汇率设置'],['settings.task','任务设置'],['settings.switch','功能开关']]],
+    ['设置管理',[['settings.customer','客户设置'],['settings.dedupe','判重设置'],['settings.source','来源设置'],['settings.opportunity','商机设置'],['settings.product','产品设置'],['settings.docTemplate','单据模板设置'],['settings.general','设置（默认录入、数据备份）'],['settings.roles','角色权限和成员管理'],['settings.rate','汇率设置'],['settings.switch','功能开关']]],
   ].map(([name,items])=>Object.freeze([name,Object.freeze(items.map(item=>Object.freeze(item)))])));
   const KEYS=Object.freeze(GROUPS.flatMap(([,items])=>items.map(([key])=>key)));
   const labelOf=key=>{for(const [group,items] of GROUPS){const hit=items.find(item=>item[0]===key);if(hit)return `${group}·${hit[1]}`;}return key;};
@@ -225,7 +225,7 @@
     opportunities:'opp','opp-analysis':'opp','opp-flows':'opp',
     products:'product','doc-templates':'doc',mail:'mail',
     chats:'chat','chat-templates':'chat',
-    'team-goals':'team','team-targets':'team','team-wall':'team',analysis:'team','team-assets':'team','team-followups':'team','team-tasks':'team','team-orders':'team'});
+    'team-goals':'team','team-targets':'team','team-wall':'team',analysis:'team','team-assets':'team','team-followups':'team','team-orders':'team'});
   // 权限 key → 模块：opp.*、product.*、doc.*、mail.*、chat.*、team.* 和对应的设置项；其它（客户、订单、设置……）返回 ''。
   function moduleOfKey(key){
     const text=String(key||'');
@@ -392,7 +392,7 @@
   }
   // 成员改名后，他负责的记录跟着改名（记录里存的是名字，不是成员编号）。不分大小写匹配，纯函数，不碰没变的记录。
   // 改的地方：客户的负责人、订单（含订单回收站）、商机的负责人和协同跟进人、目标里的成员，以及默认跟进人。
-  // laiLeads 的功能已去掉（D-030），存着的数据也一起改名，免得以后找回功能时名字对不上。
+  // 线索、待办的功能已去掉（D-030 / D-031），存着的 laiLeads、laiTasks 也一起改名，免得以后找回功能时名字对不上。
   function renameOwnerEverywhere(state,oldName,newName){
     const from=norm(oldName),to=trim(newName);
     if(!from||!to||!state||typeof state!=='object')return state;
@@ -464,13 +464,13 @@
     next.current=id;
     return put(state,next);
   }
-  // 每个页面要什么权限才能打开。kind 同 rail-menu.js：route／screen／mail。没列的页面谁都能开（工作台、日历、设置中心）。
+  // 每个页面要什么权限才能打开。kind 同 rail-menu.js：route／screen／mail。没列的页面谁都能开（工作台、设置中心）。
   const PAGE_PERMS=Object.freeze({
     route:Object.freeze({opportunities:'opp.view','opp-analysis':'opp.view','opp-flows':'settings.opportunity',
       'order-list':'order.view','order-trash':'order.view',products:'product.view','doc-templates':'settings.docTemplate',
-      'team-goals':'team.view','team-targets':'team.targets','team-wall':'team.wall',analysis:'team.view','team-assets':'team.view','team-followups':'team.view','team-tasks':'team.view','team-orders':'team.view',
+      'team-goals':'team.view','team-targets':'team.targets','team-wall':'team.wall',analysis:'team.view','team-assets':'team.view','team-followups':'team.view','team-orders':'team.view',
       settings:'settings.general',roles:'settings.roles',members:'settings.roles',
-      chats:'chat.view','chat-templates':'chat.template',rates:'settings.rate','task-settings':'settings.task','feature-switch':'settings.switch'}),
+      chats:'chat.view','chat-templates':'chat.template',rates:'settings.rate','feature-switch':'settings.switch'}),
     screen:Object.freeze({active:'customer.view',pool:'pool.view',duplicates:'customer.duplicates','customer-settings':'settings.customer'}),
     mail:'mail.view',
   });

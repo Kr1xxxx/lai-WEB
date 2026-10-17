@@ -64,8 +64,8 @@ test("鼠标进入行里没被碰到的文字，也会补上 title（邮件主�
   assert.equal(T.applyWithin(target, () => ellipsis), cutNode);
   assert.equal(cutNode.attrs.title, "很长的预览文字");
   assert.equal("title" in shortNode.attrs, false);
-  for (const name of ["op-row", "wb-row", "calendar-day", "mail-row", "group-row"]) assert.ok(T.SCOPES.includes(name));
-  for (const name of [".wb-next", ".calendar-event", ".mail-row-subject", ".mail-row-snippet"]) assert.ok(T.TEXTS.includes(name));
+  for (const name of ["op-row", "wb-row", "mail-row", "group-row"]) assert.ok(T.SCOPES.includes(name));
+  for (const name of [".wb-next", ".mail-row-subject", ".mail-row-snippet"]) assert.ok(T.TEXTS.includes(name));
 });
 
 // 小满旧订单表（.unified-orders）的编号列规则随 D-029 删掉了；全部订单页的编号由重叠扫描检查不被切掉。

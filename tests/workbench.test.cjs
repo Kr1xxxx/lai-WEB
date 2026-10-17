@@ -39,8 +39,8 @@ test('the greeting follows the local hour and names the account', () => {
 
 test('the one-line summary uses real counts: things to do, overdue follow-ups and the amount still to collect', () => {
   const html = build(base());
-  // 逾期跟进 Late、今天到期跟进 Now、早该做的事、今天的事 ＝ 4 件；逾期客户 1 位；待收款：USD 订单 1、2 笔没收完（第 2 笔没付）
-  assert.match(html, /今天有 <b class="wb-num">4<\/b> 件事要处理，<b class="wb-num">1<\/b> 位客户跟进逾期，还有 <b class="wb-num">\$2,000<\/b>（另有 1 种币种） 没收回来/);
+  // 逾期跟进 Late、今天到期跟进 Now ＝ 2 件（存着的待办不算，协同已去掉 D-031）；逾期客户 1 位；待收款：USD 订单 1、2 笔没收完（第 2 笔没付）
+  assert.match(html, /今天有 <b class="wb-num">2<\/b> 件事要处理，<b class="wb-num">1<\/b> 位客户跟进逾期，还有 <b class="wb-num">\$2,000<\/b>（另有 1 种币种） 没收回来/);
   const quiet = build({ orders: [], customers: {}, laiTasks: [] });
   assert.match(quiet, /今天没有要紧事/);
   assert.doesNotMatch(quiet, /跟进逾期|没收回来/);
@@ -75,27 +75,25 @@ const queueInput = () => ({
   ],
 });
 
-test('今天先做 merges four sources and orders them: overdue, then 等你回复, then due today, then unread mail', () => {
+test('今天先做 merges three sources and orders them: overdue, then 等你回复, then due today, then unread mail; tasks are ignored (D-031)', () => {
   const q = W.queue(queueInput());
   assert.deepEqual(q.rows.map((r) => `${r.kind}:${r.tag}:${r.title}`), [
     'follow:逾期 3 天:跟进 Late 3',
-    'task:逾期 2 天:逾期两天的任务',
     'follow:逾期 1 天:跟进 Late 1',
     'waiting:等你回复:New Chat 发来 WhatsApp 消息',
     'waiting:等你回复:Old Chat 发来 WhatsApp 消息',
     'follow:今天到期:跟进 Today Co',
-    'task:今天到期:今天任务',
     'mail:未读邮件:Newer unread',
     'mail:未读邮件:Older unread',
   ]);
   assert.equal(q.overdueCustomers, 2, 'only customers count as 逾期跟进 in the summary');
-  assert.equal(q.shown.length, 8, 'nine rows, the list is cut at eight');
-  assert.equal(q.more, 1);
+  assert.equal(q.shown.length, 7);
+  assert.equal(q.more, 0);
 });
 
 test('the queue never lists future follow-ups, finished tasks, tasks without a date, answered chats or mail already read', () => {
   const text = JSON.stringify(W.queue(queueInput()).rows.map((r) => r.title));
-  for (const gone of ['Later', 'No date', '明天', '做完', '没日期', 'Answered', 'Read mail']) assert.ok(!text.includes(gone), gone);
+  for (const gone of ['Later', 'No date', '今天任务', '逾期两天的任务', '明天', '做完', '没日期', 'Answered', 'Read mail']) assert.ok(!text.includes(gone), gone);
 });
 
 test('the queue shows at most 8 rows and says how many are left; the limit can be changed', () => {
@@ -115,26 +113,24 @@ test('the queue shows at most 8 rows and says how many are left; the limit can b
 test('each queue row has one action that opens the right place', () => {
   const html = build({ ...base(), customers: { Late: base().customers.Late } }, { mail: { items: [{ subject: 'Hi', seen: false, from: { name: 'Emma' }, date: '2026-10-07T09:00:00' }] } });
   assert.match(html, /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-customer="Late" data-biz-followup>写跟进<\/button>/);
-  assert.match(html, /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-edit-task="t4">看任务<\/button>/);
+  assert.doesNotMatch(html, /data-biz-edit-task|看任务/, 'stored tasks get no row (D-031)');
   assert.match(html, /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-go="mail:unread">打开<\/button>/);
   const chatState = { ...base(), customers: { 'Wa Co': { owner: 'Kris', history: [chat('wa', [line('2026-10-07T10:00:00', 'in', 'Can you ship?')])] } } };
   assert.match(build(chatState), /<button type="button" class="k-btn k-btn--sm wb-act" data-biz-chat="Wa Co">回复<\/button>/);
   assert.match(build(chatState), /等你回复/);
 });
 
-test('task rows keep the tick box that completes a task, and name the owner only when the account sees other people\'s work', () => {
+test('stored tasks never show on the workbench: no row, no tick box, no 添加任务, no 全部待办 link (协同 removed, D-031)', () => {
   const state = { ...base(), laiTasks: [{ id: 'x1', title: '寄样', date: '2026-10-08', owner: 'Amy' }] };
-  const html = build(state);
-  assert.match(html, /data-biz-task="x1"/);
-  assert.doesNotMatch(html, /待办 · Amy/, 'a 只看本人 account does not need the name');
-  assert.match(build(state, { showOwner: true }), /待办 · Amy/);
-  assert.doesNotMatch(build({ ...base(), laiTasks: [{ id: 'd', title: '做完了', date: '2026-10-08', done: true }] }), /data-biz-task=/);
+  for (const html of [build(state), build(state, { showOwner: true })]) {
+    assert.doesNotMatch(html, /寄样|data-biz-task|data-biz-edit-task|new-task|添加任务|全部待办|data-biz-go="calendar"|待办/);
+  }
 });
 
-test('empty queue: 今天没有要紧事 with a 添加任务 button', () => {
-  const html = build({ orders: [], customers: {}, laiTasks: [] });
-  assert.match(html, /<p class="k-empty-title">今天没有要紧事<\/p>/);
-  assert.match(html, /<div class="k-empty"><p class="k-empty-title">[\s\S]*class="k-btn k-btn--sm wb-again" data-biz-action="new-task">添加任务/);
+test('empty queue: 今天没有要紧事 and what will show up here, with no button to a removed page', () => {
+  const html = build({ orders: [], customers: {}, laiTasks: [] }, { mail: { items: [] } });
+  assert.match(html, /<p class="k-empty-title">今天没有要紧事<\/p><span>逾期和今天到期的跟进、等你回复的聊天、未读邮件会出现在这里<\/span><\/div>/);
+  assert.doesNotMatch(html, /添加任务|待办/);
 });
 
 test('mail rows join the queue only after the list is read, and the page says while it waits', () => {
@@ -356,21 +352,21 @@ test('every button the workbench draws is handled by the controller', () => {
   for (const go of new Set([...html.matchAll(/data-biz-go="([^"]+)"/g)].map((m) => m[1]))) {
     const key = go.startsWith('mail:') ? 'mail:' : go;
     if (go === 'opp-new' || go.startsWith('mail:')) assert.ok(ui.includes(`"${key}"`), go);
-    else assert.ok(/^(order-list|customers|calendar|opportunities|analysis|team-goals)$/.test(go), go);
+    else assert.ok(/^(order-list|customers|opportunities|analysis|team-goals)$/.test(go), go);
   }
   for (const action of new Set([...html.matchAll(/data-biz-action="([^"]+)"/g)].map((m) => m[1]))) assert.ok(ui.includes(`action === "${action}"`), action);
-  for (const [attr, handler] of [['biz-order', 'd.bizOrder'], ['biz-customer', 'd.bizCustomer'], ['biz-chat', 'd.bizChat'], ['biz-edit-task', 'd.bizEditTask'], ['biz-stage', 'd.bizStage'], ['biz-task', 'e.target.dataset.bizTask']]) {
+  assert.doesNotMatch(html, /data-biz-edit-task|data-biz-task=|data-biz-go="calendar"/, 'nothing points at the removed calendar or task drawer');
+  for (const [attr, handler] of [['biz-order', 'd.bizOrder'], ['biz-customer', 'd.bizCustomer'], ['biz-chat', 'd.bizChat'], ['biz-stage', 'd.bizStage']]) {
     assert.ok(html.includes(`data-${attr}=`), `${attr} is drawn`);
     assert.ok(ui.includes(handler), `${attr} is handled`);
   }
   assert.match(ui, /ctx\.openChat \? ctx\.openChat\(d\.bizChat\)/);
 });
 
-test('the three top buttons follow permissions and the 商机 switch', () => {
-  assert.match(build(base()), /data-biz-action="new-task">添加任务[\s\S]*data-biz-go="opp-new">新建商机[\s\S]*k-btn k-btn--primary" data-biz-action="new-order">新建订单/);
+test('the two top buttons follow permissions and the 商机 switch', () => {
+  assert.match(build(base()), /<div class="k-pageheader-actions wb-acts"><button type="button" class="k-btn" data-biz-go="opp-new">新建商机<\/button><button type="button" class="k-btn k-btn--primary" data-biz-action="new-order">新建订单<\/button><\/div>/);
   const none = build(base(), { can: (k) => k !== 'opp.create' && k !== 'order.create' });
-  assert.doesNotMatch(none, /opp-new|新建订单/);
-  assert.match(none, /添加任务/);
+  assert.doesNotMatch(none, /opp-new|新建订单|添加任务/);
   assert.doesNotMatch(build({ ...base(), ...FS.set({}, 'opp', false) }), /opp-new/);
 });
 

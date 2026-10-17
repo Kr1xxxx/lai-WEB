@@ -92,7 +92,7 @@ test('company detail mirrors the captured 9+4 fields without duplicating editor-
  assert.match(html,/data-action="company-display-settings"/);
 });
 
-test('detail schedule exposes local add, edit and calendar actions for the saved follow date',()=>{
+test('detail schedule exposes the local add action for the saved follow date; the calendar link is gone (D-031)',()=>{
  const state={orders:[],customers:{Acme:{}}};
  const empty=D.render(M.buildCustomers(state)[0],{state,escape:M.escapeHtml});
  const emptyCard=empty.match(/<section class="lcd-card lcd-schedule k-card">([\s\S]*?)<\/section>/)?.[1]||'';
@@ -105,7 +105,7 @@ test('detail schedule exposes local add, edit and calendar actions for the saved
  assert.match(card,/计划日程 （1）/);
  assert.match(card,/2026-11-05/);
  assert.match(card,/data-action="schedule-edit"/);
- assert.match(card,/data-action="schedule-view"/);
+ assert.doesNotMatch(card,/data-action="schedule-view"|日历/);
 });
 test('detail identity names the actual private, public-pool and recycle-bin customer state',()=>{
  const state={orders:[],customers:{Private:{},Public:{laiBucket:'pool'},Recycled:{laiBucket:'trash'}}};

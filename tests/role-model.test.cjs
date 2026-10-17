@@ -271,12 +271,13 @@ test('a saved 业务 role gets permissions added after it was saved (by its know
 test('沟通 and export/settings keys: groups, defaults, page routes', () => {
   const group = R.GROUPS.find(([name]) => name === '沟通');
   assert.deepEqual(group[1].map(([key, label]) => [key, label]), [['chat.view', '查看聊天记录'], ['chat.send', '打开 WhatsApp 聊天和记聊天'], ['chat.import', '导入和撤销聊天记录'], ['chat.template', '管理聊天模板']]);
-  for (const key of ['customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.task', 'settings.switch', 'chat.view', 'chat.send', 'chat.import', 'chat.template']) assert.ok(R.KEYS.includes(key), key);
+  for (const key of ['customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.switch', 'chat.view', 'chat.send', 'chat.import', 'chat.template']) assert.ok(R.KEYS.includes(key), key);
+  assert.ok(!R.KEYS.includes('settings.task'), '任务设置 is gone (D-031)');
   assert.ok(!R.KEYS.some(key => key.startsWith('lead.') || key === 'settings.lead'), '线索 permissions are gone (D-030)');
   assert.ok(!R.GROUPS.some(([name]) => name === '线索'));
   // 业务 defaults: the three chat keys yes, template and every export / new settings key no (admin only).
   for (const key of ['chat.view', 'chat.send', 'chat.import']) assert.ok(R.SALES_DEFAULT.includes(key), key);
-  for (const key of ['chat.template', 'customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.task', 'settings.switch']) {
+  for (const key of ['chat.template', 'customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.switch']) {
     assert.ok(!R.SALES_DEFAULT.includes(key), key);
     assert.ok(!R.DEPT_ADMIN_DEFAULT.includes(key), key);
   }
@@ -287,14 +288,14 @@ test('沟通 and export/settings keys: groups, defaults, page routes', () => {
   const asSales = R.switchTo(base(), R.settings(base()).members.find(m => m.name === 'Amy').id);
   assert.equal(R.can(base(), 'settings.switch'), true);
   assert.equal(R.canOpen(asSales, 'route', 'chats'), true);
-  for (const route of ['chat-templates', 'rates', 'task-settings', 'feature-switch']) assert.equal(R.canOpen(asSales, 'route', route), false, route);
+  for (const route of ['chat-templates', 'rates', 'feature-switch']) assert.equal(R.canOpen(asSales, 'route', route), false, route);
   assert.equal(R.canOpen(base(), 'route', 'feature-switch'), true);
-  assert.deepEqual(['chats', 'chat-templates', 'rates', 'task-settings', 'feature-switch'].map(route => R.pagePerm('route', route)), ['chat.view', 'chat.template', 'settings.rate', 'settings.task', 'settings.switch']);
-  for (const route of ['leads', 'lead-trash', 'lead-settings']) assert.equal(R.pagePerm('route', route), null, route);
+  assert.deepEqual(['chats', 'chat-templates', 'rates', 'feature-switch'].map(route => R.pagePerm('route', route)), ['chat.view', 'chat.template', 'settings.rate', 'settings.switch']);
+  for (const route of ['leads', 'lead-trash', 'lead-settings', 'task-settings', 'team-tasks', 'calendar']) assert.equal(R.pagePerm('route', route), null, route);
 });
 
 test('a role saved before the chat keys existed gets the 业务 chat defaults but no template or export rights', () => {
-  const fresh = new Set(['chat.view', 'chat.send', 'chat.import', 'chat.template', 'customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.task', 'settings.switch']);
+  const fresh = new Set(['chat.view', 'chat.send', 'chat.import', 'chat.template', 'customer.export', 'opp.export', 'order.export', 'settings.rate', 'settings.switch']);
   const oldKeys = R.KEYS.filter(key => !fresh.has(key));
   const stored = { laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: oldKeys, perms: { 'opp.view': true } }, { id: 'deptAdmin', name: '部门管理员', scope: 'dept', v: 2, known: oldKeys, perms: { 'opp.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } };
   const s = R.settings(stored);

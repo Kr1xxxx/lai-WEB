@@ -38,8 +38,8 @@
 | `backend/mail-mime.js` | 把 postal-mime 的解析结果整理成来财用的形状（地址、正文、附件、内嵌图片），以及文件名净化 |
 | `backend/mail-service.js` | 邮件服务：文件夹列表与分页、搜索、阅读、待处理／未读标记、删除（移到服务器的已删除）、保存附件、发送、本机草稿、客户往来 |
 | `backend/mail-account.js` | 邮箱绑定服务：先验证后保存、查询、重新验证、解绑；对外应答不含密码 |
-| `src/team-model.js`、`team-ui.js` | 团队数据四类报表（客户资产、跟进情况、任务完成、订单业绩）：只用现有客户／跟进／任务／订单数据，按跟进人名称汇总；model 为纯统计，ui 只生成页面标记与明细列表；商机指标（新建商机数、赢单商机数、赢单金额）取自 `opportunity-model.js` 的数据，在 `team-model.js` 的 `opportunityStats` 里按月汇总，目标完成情况的「商机目标」页签和团队墙使用。 |
-| `src/business-model.js`、`business-ui.js` | 现有订单、工作台、日历／待办和统计规则及界面。`window.LaiExtraPages[路由] = {title, render, afterRender, click, input, change, submit}` 是页面登记处：别的模块不用改这个文件就能加页面，点击、输入、提交会转给当前路由登记的页面；不能盖掉自带页面 |
+| `src/team-model.js`、`team-ui.js` | 团队数据三类报表（客户资产、跟进情况、订单业绩）：只用现有客户／跟进／订单数据，按跟进人名称汇总；model 为纯统计，ui 只生成页面标记与明细列表；商机指标（新建商机数、赢单商机数、赢单金额）取自 `opportunity-model.js` 的数据，在 `team-model.js` 的 `opportunityStats` 里按月汇总，目标完成情况的「商机目标」页签和团队墙使用。 |
+| `src/business-model.js`、`business-ui.js` | 现有订单、工作台和统计规则及界面。`window.LaiExtraPages[路由] = {title, render, afterRender, click, input, change, submit}` 是页面登记处：别的模块不用改这个文件就能加页面，点击、输入、提交会转给当前路由登记的页面；不能盖掉自带页面 |
 | `src/customer-motion.js`及导航／建议组件 | 既有菜单、抽屉、页签、建议控件与局部动效 |
 | `src/ui-tokens.css`及各CSS | 已有UI基础规则及各界面样式 |
 | `backend/server.js`、`auth.js` | 本地路由、会话鉴权／来源保护 |
@@ -61,7 +61,7 @@
 
 金额按币种分别统计，草稿不进入有效订单金额／阶段统计；现有已发货／已完成口径以全额计已收款。订单统计月份使用orderMonth或创建日期回退；旧订单修改日期与月份关系、新客户名自动建最小档案等规则仍待确认后才调整。
 
-现有待办使用任务名称、日期、完成状态；日历合并订单创建日期、客户下次跟进和任务日期。没有新增提醒服务或真实个人／团队权限。
+协同（日历与待办、任务设置）已去掉（D-031）：存着的 `laiTasks`、`laiSettings.taskRules` 不读不改，客户改名、合并和成员改名时仍跟着改名。没有新增提醒服务或真实个人／团队权限。
 
 ## 数据与上传范围
 

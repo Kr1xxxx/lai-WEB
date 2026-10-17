@@ -12,7 +12,7 @@
   "use strict";
   const SYMBOLS = { USD: "$", CNY: "¥", EUR: "€", GBP: "£", JPY: "¥" };
   const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-  // 「今天先做」最多列几行；再多的在「全部待办」（协同日历）里看。
+  // 「今天先做」最多列几行；再多的写「还有 N 件」，处理完上面的会接着显示。
   const QUEUE_LIMIT = 8;
   // 订单线上每个阶段最多画几张订单卡；再多的写「还有 N 笔」。
   const STAGE_CARD_LIMIT = 3;
@@ -98,13 +98,12 @@
   }
 
   // ---------- 今天先做 ----------
-  // 把四类事合成一条列表，按「逾期 → 等你回复 → 今天到期 → 未读邮件」排。
+  // 把三类事合成一条列表，按「逾期 → 等你回复 → 今天到期 → 未读邮件」排。（待办随协同一起去掉了，D-031。）
   //   follow：[[客户名, 客户资料], …]，已经是看得到的、没进回收站的客户
-  //   tasks：没完成的待办；taskOwner(task) 给出负责人（没传就不写负责人）
   //   chats：chatSummaries 的结果，只用 waiting 的
   //   mails：邮件列表里的信，没读过的才进来（seen 不是 true）
   //   showOwner：看得到别人的数据时（本部门、全公司），在说明里写负责人
-  // 每一行：{kind, rank, tag, tone, title, detail, act:{type, value, label}}；act.type 是 customer｜followup｜chat｜task｜go。
+  // 每一行：{kind, rank, tag, tone, title, detail, act:{type, value, label}}；act.type 是 customer｜followup｜chat｜go。
   // followup＝打开客户详情的「动态」，跟进框直接展开、光标在里面（一步就能写）。
   function queue(input) {
     const today = input.today;
@@ -122,18 +121,6 @@
         tag: late > 0 ? `逾期 ${late} 天` : "今天到期", tone: late > 0 ? "late" : "today",
         title: `跟进 ${name}`, detail: `${input.showOwner ? (c.owner || "未分配") + " · " : ""}上次：${lastNote(c)}`,
         act: { type: "followup", value: name, label: "写跟进" },
-      });
-    }
-    for (const t of input.tasks || []) {
-      const d = day(t.date);
-      if (t.done || !d || d > today) continue;
-      const late = daysBetween(d, today);
-      const who = input.showOwner && typeof input.taskOwner === "function" ? input.taskOwner(t) || "未分配" : "";
-      rows.push({
-        kind: "task", rank: late > 0 ? RANK.overdue : RANK.today, late, sub: 1, t: 0, sortText: String(t.title || ""),
-        tag: late > 0 ? `逾期 ${late} 天` : "今天到期", tone: late > 0 ? "late" : "today",
-        title: String(t.title || "（没写任务名）"), detail: ["待办", who, t.customer].filter(Boolean).join(" · "),
-        task: String(t.id), act: { type: "task", value: String(t.id), label: "看任务" },
       });
     }
     for (const chat of input.chats || []) {
@@ -156,7 +143,7 @@
         act: { type: "go", value: "mail:unread", label: "打开" },
       });
     }
-    // 同一档里：逾期天数多的在前，再是跟进客户在待办前，聊天和邮件新的在前，最后按名字。
+    // 同一档里：逾期天数多的在前，聊天和邮件新的在前，最后按名字。
     rows.sort((a, b) => a.rank - b.rank || b.late - a.late || a.sub - b.sub || a.t - b.t || a.sortText.localeCompare(b.sortText, "zh"));
     const limit = input.limit > 0 ? input.limit : QUEUE_LIMIT;
     return {
@@ -277,8 +264,7 @@
     act.type === "customer" ? `data-biz-customer="${E(act.value)}"`
       : act.type === "followup" ? `data-biz-customer="${E(act.value)}" data-biz-followup`
       : act.type === "chat" ? `data-biz-chat="${E(act.value)}"`
-        : act.type === "task" ? `data-biz-edit-task="${E(act.value)}"`
-          : `data-biz-go="${E(act.value)}"`;
+        : `data-biz-go="${E(act.value)}"`;
 
   // 每张卡片的头：标题、一句说明、右边一个去处（.k-card-head）。
   const cardHead = (id, title, desc, link) =>
@@ -297,8 +283,7 @@
       parts.push(`还有 <b class="wb-num">${E(money(ctx.money.due, ctx.money.currency))}</b>${ctx.money.others ? `（另有 ${ctx.money.others} 种币种）` : ""} 没收回来`);
     }
     const name = input.me ? `，${E(input.me)}` : "";
-    const actions = '<button type="button" class="k-btn" data-biz-action="new-task">添加任务</button>'
-      + (can("opp.create") && switchOn(state, "opp") ? '<button type="button" class="k-btn" data-biz-go="opp-new">新建商机</button>' : "")
+    const actions = (can("opp.create") && switchOn(state, "opp") ? '<button type="button" class="k-btn" data-biz-go="opp-new">新建商机</button>' : "")
       + (can("order.create") ? '<button type="button" class="k-btn k-btn--primary" data-biz-action="new-order">新建订单</button>' : "");
     return `<header class="k-pageheader wb-hello" data-wb="summary"><div class="k-pageheader-text"><h1 class="k-pageheader-title">${greeting(hour)}${name}</h1><p class="wb-sum"><span class="wb-date">${E(longToday(today))}</span>${parts.join("，")}</p></div><div class="k-pageheader-actions wb-acts">${actions}</div></header>`;
   }
@@ -306,13 +291,12 @@
   function queueMarkup(q, E, mailPending) {
     const rows = q.shown
       .map((r) => {
-        const check = r.task ? `<input type="checkbox" data-biz-task="${E(r.task)}" aria-label="完成：${E(r.title)}">` : "";
-        return `<div class="wb-row wb-q wb-${r.tone}"><span class="k-badge k-badge--${TAG_TONES[r.tone] || "neutral"} wb-tag">${E(r.tag)}</span><span class="wb-who"><b>${check}<span class="wb-t">${E(r.title)}</span></b>${r.detail ? `<small class="wb-next">${E(r.detail)}</small>` : ""}</span><button type="button" class="k-btn k-btn--sm wb-act" ${attrOf(r.act, E)}>${E(r.act.label)}</button></div>`;
+        return `<div class="wb-row wb-q wb-${r.tone}"><span class="k-badge k-badge--${TAG_TONES[r.tone] || "neutral"} wb-tag">${E(r.tag)}</span><span class="wb-who"><b><span class="wb-t">${E(r.title)}</span></b>${r.detail ? `<small class="wb-next">${E(r.detail)}</small>` : ""}</span><button type="button" class="k-btn k-btn--sm wb-act" ${attrOf(r.act, E)}>${E(r.act.label)}</button></div>`;
       })
       .join("");
-    const empty = `<div class="k-empty"><p class="k-empty-title">今天没有要紧事</p><span>${mailPending ? "邮件还在读取…" : "逾期的跟进、等你回复的聊天、今天到期的待办会出现在这里"}</span><button type="button" class="k-btn k-btn--sm wb-again" data-biz-action="new-task">添加任务</button></div>`;
-    const tail = q.more > 0 ? `<p class="wb-foot">还有 ${q.more} 件没列出，到「全部待办」里看</p>` : "";
-    return `<section class="k-card wb-panel wb-queue" data-wb="queue" aria-labelledby="wb-h-queue">${cardHead("wb-h-queue", "今天先做", "逾期的排在最前", goLink('data-biz-go="calendar"', "全部待办 ›"))}${rows ? `<div class="wb-list">${rows}</div>${tail}` : empty}</section>`;
+    const empty = `<div class="k-empty"><p class="k-empty-title">今天没有要紧事</p><span>${mailPending ? "邮件还在读取…" : "逾期和今天到期的跟进、等你回复的聊天、未读邮件会出现在这里"}</span></div>`;
+    const tail = q.more > 0 ? `<p class="wb-foot">还有 ${q.more} 件没列出，处理完上面的会接着显示</p>` : "";
+    return `<section class="k-card wb-panel wb-queue" data-wb="queue" aria-labelledby="wb-h-queue">${cardHead("wb-h-queue", "今天先做", "逾期的排在最前")}${rows ? `<div class="wb-list">${rows}</div>${tail}` : empty}</section>`;
   }
 
   function moneyMarkup(m, E) {
@@ -411,7 +395,7 @@
     const follow = Object.entries(state.customers || {}).filter(([, c]) => c && bucket(c) !== "trash" && c.nextFollow);
     const chats = seeChat ? chatSummaries(state, input.WA, input.canSeeChat || ((name, c) => bucket(c) !== "trash")) : [];
     const q = queue({
-      today, follow, tasks: (state.laiTasks || []).filter((t) => t && !t.done), taskOwner: (t) => B.taskOwner(state, t), showOwner: !!input.showOwner,
+      today, follow, showOwner: !!input.showOwner,
       chats, mails: mailItems,
     });
     const cash = moneySummary({ state, today, B, TM, seeOrders, seeTeam });

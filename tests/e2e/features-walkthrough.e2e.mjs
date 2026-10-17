@@ -1,5 +1,5 @@
 // Browser end-to-end walkthroughs for the features in docs/features.json that had no browser check yet:
-// customer edit, follow-ups, segments, pool/duplicates, customer tools, workbench, calendar, business stats,
+// customer edit, follow-ups, segments, pool/duplicates, customer tools, workbench, business stats,
 // team targets and backup. Each test starts its own backend with the sample customers (docs/samples).
 // Set LAI_SHOT_DIR to also write 1440×900 screenshots.
 import assert from 'node:assert/strict';
@@ -292,17 +292,9 @@ async function createOrder(app, o) {
   await page.getByRole('button', { name: '保存订单' }).click();
   await form.waitFor({ state: 'detached' });
 }
-async function addTask(app, title) {
-  const { page } = app;
-  await page.locator('[data-biz-action="new-task"]').first().click();
-  await page.locator('#biz-task-form').waitFor();
-  await page.locator('#biz-task-form [name=title]').fill(title);
-  await page.locator('button[form="biz-task-form"]').click();
-  await page.locator('#biz-task-form').waitFor({ state: 'detached' });
-}
 const clean = (text) => text.replace(/\s+/g, ' ').trim();
 
-test('workbench: the queue, the order line and the money follow a new order and a new task', async () => {
+test('workbench: the queue, the order line and the money follow a new order and a follow-up date; stored tasks stay out (D-031)', async () => {
   await run(async (app) => {
     const { page } = app;
     await goTo(app, '工作台');
@@ -319,64 +311,26 @@ test('workbench: the queue, the order line and the money follow a new order and 
     const money = clean(await page.locator('.wb-moneyp').innerText());
     assert.match(money, /\$40 已收款（40%）/, 'the draft is not counted');
     assert.match(money, /\$60 待收款，1 笔订单/);
-    await addTask(app, '寄样品给 Northwind');
-    const row = page.locator('.wb-queue .wb-row', { hasText: '寄样品给 Northwind' });
+    assert.equal(await page.locator('[data-biz-action="new-task"]').count(), 0, 'no 添加任务 (协同 removed, D-031)');
+    // A follow-up due today joins the queue; a stored task from before does not.
+    const today = new Date().toLocaleDateString('sv');
+    await seedData(app, (data) => {
+      data.customers['Northwind Lash Studio'].nextFollow = today;
+      data.laiTasks = [{ id: 't-old', title: '寄样品给 Northwind', date: today, done: false }];
+      return data;
+    });
+    await reload(app);
+    await goTo(app, '工作台');
+    const row = page.locator('.wb-queue .wb-row', { hasText: '跟进 Northwind Lash Studio' });
     await row.waitFor();
     assert.match(clean(await row.innerText()), /今天到期/);
     assert.match(await page.locator('.wb-hello').innerText(), /今天有 1 件事要处理/);
+    assert.doesNotMatch(await page.locator('.wb').innerText(), /寄样品给 Northwind|全部待办/);
     await shot(app, 'workbench-after');
-    // Completing the task from the workbench takes it out of the queue again.
-    // click, not check(): the saved task leaves the list at once, so check() could not read the box back; the save is
-    // asserted right below.
-    await row.locator('input[type=checkbox]').click({ force: true });
-    await until(app, (d) => (d.laiTasks || []).some((t) => t.done), 'task done saved');
-    await page.waitForTimeout(300);
-    assert.match(await page.locator('.wb-queue').innerText(), /今天没有要紧事/);
     // The workbench asks for unread mail; with no mailbox bound the backend answers 409 and the block says so.
     await page.getByText('请先在邮件页绑定邮箱').first().waitFor();
     for (let i = app.errors.length - 1; i >= 0; i--) if (/^HTTP 409: .*\/api\/mail\/messages\?folder=inbox/.test(app.errors[i])) app.errors.splice(i, 1);
   });
-});
-
-test('calendar-tasks: switch month, select a day, create, complete a task', async () => {
-  await run(async (app) => {
-    const { page } = app;
-    await goTo(app, '协同');
-    const month = page.locator('#biz-month');
-    const first = await month.inputValue();
-    assert.match(first, /^\d{4}-\d{2}$/);
-    await page.locator('[data-biz-action="month-prev"]').click();
-    const prev = await month.inputValue();
-    assert.notEqual(prev, first);
-    await page.locator('[data-biz-action="month-next"]').click();
-    assert.equal(await month.inputValue(), first, 'next brings the month back');
-    assert.equal(await page.locator('.calendar-day').count() >= 28, true);
-    // Create a task for today and see it on the calendar.
-    await addTask(app, '电话回访 Lumen');
-    const today = new Date().toLocaleDateString('sv');
-    const day = page.locator(`.calendar-day[data-biz-day="${today}"]`);
-    await day.locator('.calendar-event', { hasText: '电话回访 Lumen' }).waitFor();
-    await day.click();
-    await page.locator('.calendar-agenda h3', { hasText: today }).waitFor();
-    const item = page.locator('.agenda-item', { hasText: '电话回访 Lumen' });
-    await item.waitFor();
-    assert.match(await item.innerText(), /待办任务/);
-    await shot(app, 'calendar-task');
-    // Another day shows nothing.
-    const other = page.locator('.calendar-day').filter({ hasNot: page.locator('.calendar-event') }).first();
-    await other.click();
-    await page.locator('.small-empty', { hasText: '暂无日程' }).waitFor();
-    await day.click();
-    // Edit the task and mark it done.
-    await item.click();
-    await page.locator('#biz-task-form').waitFor();
-    await page.locator('#biz-task-form [name=done]').check();
-    await page.locator('button[form="biz-task-form"]').click();
-    await until(app, (d) => (d.laiTasks || []).some((t) => t.title === '电话回访 Lumen' && t.done), 'task done saved');
-    await reload(app);
-    assert.equal((await app.readData()).laiTasks.find((t) => t.title === '电话回访 Lumen').done, true);
-    await shot(app, 'calendar-done');
-  }, { hash: 'customers' });
 });
 
 test('business-stats: totals per currency, drafts left out', async () => {

@@ -200,29 +200,6 @@
     };
   }
 
-  function tasks(state,month){
-    requireMonth(month);
-    const rows=customerRows(state),selected=new Set(periodMonths(month)),months=monthsEnding(periodMonths(month).at(-1));
-    const ownerOf=new Map(rows.map(row=>[row.name,row.owner]));
-    const all=(Array.isArray(state.laiTasks)?state.laiTasks:[]).filter(task=>task&&typeof task==='object').map(task=>({task,month:monthOf(task.date),owner:trim(task.owner)||ownerOf.get(trim(task.customer))||''})).filter(item=>item.month);
-    const itemOf=({task})=>({kind:'task',title:trim(task.title)||'（未命名任务）',meta:`${day(task.date)} · ${task.done===true?'已完成':'未完成'}`,customer:trim(task.customer)});
-    const entries=[];
-    for(const record of all.filter(item=>selected.has(item.month))){
-      entries.push({col:'total',owner:record.owner,item:itemOf(record)});
-      if(record.task.done===true)entries.push({col:'done',owner:record.owner,item:itemOf(record)});
-    }
-    const columns=[{id:'total',label:'任务数',format:'count'},{id:'done',label:'已完成',format:'count'},{id:'rate',label:'完成率',format:'percent',rate:{num:'done',den:'total'}}];
-    const table=tabulate(columns,entries,knownOwners(rows));
-    return {
-      kind:'tasks',title:'任务完成',month,
-      scope:'任务按任务日期归月，归到任务的负责人；老任务没有负责人时，归到所关联客户当前的跟进人；两者都没有的归入「未分配」。完成率＝已完成÷任务数。',
-      tiles:[tile('total','任务数',table.total.total),tile('done','已完成',table.total.done),tile('rate','完成率',table.total.rate,'percent')],
-      columns,rows:table.rows,total:table.total,totals:null,extra:[],notes:[],
-      trend:trendOf(months,[{id:'total',label:'任务数',format:'count'},{id:'done',label:'已完成',format:'count'}],
-        (m,id)=>all.filter(item=>item.month===m&&(id==='total'||item.task.done===true)).length)
-    };
-  }
-
   function orders(state,month){
     requireMonth(month);
     const months=monthsEnding(periodMonths(month).at(-1));
@@ -272,13 +249,13 @@
     orders:`统计${unit}订单月份内的非草稿订单数量。`,
     records:'统计客户动态中类型为「跟进」的记录数量，归到客户当前的跟进人；回收站客户不计入。',
     customers:`统计${unit}至少有一条跟进记录的客户数量。`,
-    tasksDone:`统计任务日期在${unit}且已完成的任务数量；完成率＝已完成÷任务数。`,
     oppNew:`统计${unit}创建的商机数量，按商机上填写的负责人汇总；已归档的商机也计入，已删除的不计入。`,
     oppWon:`统计${unit}赢单的商机数量：商机当前处在所属销售流程的赢单类阶段，并且是在${unit}进入赢单的。赢单率＝${unit}赢单÷（${unit}赢单＋${unit}输单），不足 1% 的部分舍去。`,
     oppWonAmount:`统计${unit}赢单商机的销售金额，不同币种分开统计、不折算；排名以${unit}赢单金额最大的币种为准。`
   });
   // ---- 目标：按周期（月／季度）、对象（企业／成员）、指标保存一个目标值；金额目标按币种分别设置。 ----
-  const TARGET_METRICS=Object.freeze(['amount','repeat','newDeal','added','orders','records','tasksDone','oppWonAmount','oppWon','oppNew']);
+  // 以前的「任务完成数」（tasksDone）随协同去掉了（D-031）：存着的这类目标读的时候跳过，保存时原样留着。
+  const TARGET_METRICS=Object.freeze(['amount','repeat','newDeal','added','orders','records','oppWonAmount','oppWon','oppNew']);
   // 金额类指标：目标按币种分别设置；值是「成员／合计」上保存各币种金额的字段名。
   const MONEY_METRICS=Object.freeze({amount:'amounts',oppWonAmount:'oppAmounts'});
   const isMoney=metric=>Object.hasOwn(MONEY_METRICS,metric);
@@ -390,15 +367,14 @@
     return result;
   }
   function buildOverview(state,month){
-    const a=assets(state,month),f=followups(state,month),t=tasks(state,month),o=orders(state,month);
+    const a=assets(state,month),f=followups(state,month),o=orders(state,month);
     const members=new Map();
     const member=owner=>{
-      if(!members.has(owner))members.set(owner,{owner,label:owner||'未分配',added:0,orders:0,amounts:[],amount:0,newDeal:0,repeat:0,records:0,customers:0,tasksTotal:0,tasksDone:0,taskRate:null,oppNew:0,oppWon:0,oppLost:0,oppAmounts:[],oppWonAmount:0,oppWinRate:null});
+      if(!members.has(owner))members.set(owner,{owner,label:owner||'未分配',added:0,orders:0,amounts:[],amount:0,newDeal:0,repeat:0,records:0,customers:0,oppNew:0,oppWon:0,oppLost:0,oppAmounts:[],oppWonAmount:0,oppWinRate:null});
       return members.get(owner);
     };
     for(const row of a.rows)member(row.owner).added=row.cells.added.value;
     for(const row of f.rows){const m=member(row.owner);m.records=row.cells.records.value;m.customers=row.cells.customers.value;}
-    for(const row of t.rows){const m=member(row.owner);m.tasksTotal=row.cells.total.value;m.tasksDone=row.cells.done.value;m.taskRate=row.cells.rate.value;}
     for(const row of o.rows){const m=member(row.owner);m.orders+=row.cells.count.value;m.amounts.push({currency:row.currency,total:row.cells.total.value});}
     const deals=dealCustomers(state,periodMonths(month));
     for(const kind of ['newDeal','repeat'])for(const [owner,count] of deals[kind])member(owner)[kind]=count;
@@ -423,8 +399,7 @@
       {id:'newDeal',label:'成交新客户数',format:'count',values:a.trend.months.map(entry=>dealCustomers(state,[entry.month]).totals.newDeal)},
       {id:'added',label:'新建客户数',format:'count',values:pick(a,'added')},
       {id:'orders',label:'新建销售订单数',format:'count',values:pick(o,'count')},
-      {id:'records',label:'跟进记录数',format:'count',values:pick(f,'records')},
-      {id:'tasksDone',label:'任务完成数',format:'count',values:pick(t,'done')}
+      {id:'records',label:'跟进记录数',format:'count',values:pick(f,'records')}
     ]};
     const oppMonths=trend.months.map(entry=>opportunityStats(state,[entry]).total);
     const oppCurrencies=[...new Set(oppMonths.flatMap(entry=>entry.oppAmounts.map(item=>item.currency)))].sort();
@@ -433,7 +408,7 @@
       {id:'oppWon',label:'赢单商机数',format:'count',values:oppMonths.map(entry=>entry.oppWon)},
       {id:'oppNew',label:'新建商机数',format:'count',values:oppMonths.map(entry=>entry.oppNew)});
     const total={added:a.total.added.value,orders:o.tiles[0].value,amounts,newDeal:deals.totals.newDeal,repeat:deals.totals.repeat,records:f.total.records.value,customers:f.total.customers.value,
-      tasksTotal:t.total.total.value,tasksDone:t.total.done.value,taskRate:t.total.rate.value,...opp.total};
+      ...opp.total};
     // 完成率＝完成值÷目标值，向下取整到整数百分比（99.5% 显示 99%，不会提前显示成 100%），可以超过 100%。
     // 是否达标直接比较完成值与目标值，不看取整后的百分比；金额相加有浮点误差，留极小的容差。
     const EPSILON=1e-9;
@@ -452,25 +427,16 @@
       members:list,primaryCurrency,oppCurrency,moneyMetrics:MONEY_METRICS,rules:rulesFor(months.length>1?'本季度':'本月'),trend,goals:goalsFor(null,total),targetMetrics:TARGET_METRICS,
       total};
   }
-  // 只看本人／本部门的账号：先把客户、订单、商机、任务、目标里不归自己的去掉，再交给下面的汇总。
+  // 只看本人／本部门的账号：先把客户、订单、商机、目标里不归自己的去掉，再交给下面的汇总。
   // 没有跟进人的记录（未分配）和企业整体目标只有全公司看得到；sees(owner) 由角色模型给出。保存时仍用完整数据，这里只返回副本。
   function scopeState(state,sees){
     if(!state||typeof sees!=='function')return state;
     const keepList=list=>Array.isArray(list)?list.filter(item=>item&&sees(item.owner)):list;
     const customers=Object.fromEntries(Object.entries(state.customers||{}).filter(([,c])=>c&&sees(c.owner)));
-    // 待办属于负责人（D-022）：有 owner 看 owner，老任务没有 owner 时看所关联客户的跟进人（按完整客户资料查）；都没有的只有全公司看得到。
-    const fullCustomers=state.customers||{};
-    const taskOwner=task=>{
-      const own=trim(task.owner);
-      if(own)return own;
-      const name=trim(task.customer);
-      return name&&Object.hasOwn(fullCustomers,name)?trim(fullCustomers[name]&&fullCustomers[name].owner):'';
-    };
-    const tasks=Array.isArray(state.laiTasks)?state.laiTasks.filter(task=>task&&typeof task==='object'&&sees(taskOwner(task))):state.laiTasks;
     const targets=Array.isArray(state.laiTargets)?state.laiTargets.filter(target=>target&&typeof target==='object'&&target.owner!==null&&target.owner!==undefined&&sees(target.owner)):state.laiTargets;
-    return {...state,customers,orders:keepList(state.orders),trashOrders:keepList(state.trashOrders),laiOpportunities:keepList(state.laiOpportunities),laiTasks:tasks,laiTargets:targets};
+    return {...state,customers,orders:keepList(state.orders),trashOrders:keepList(state.trashOrders),laiOpportunities:keepList(state.laiOpportunities),laiTargets:targets};
   }
-  const reports={assets,followups,tasks,orders};
+  const reports={assets,followups,orders};
   const kinds=Object.freeze(Object.keys(reports));
   function report(kind,state,month){
     if(!Object.hasOwn(reports,kind))throw new Error('不支持的团队数据报表');

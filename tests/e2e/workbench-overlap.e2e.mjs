@@ -36,10 +36,8 @@ before(async () => {
       order('8', 'deposit'), order('9', 'balance', { amount: 123456789.5 }), order('10', 'shipment', { currency: 'EUR' }),
       order('11', 'done'), order('12', 'done'),
     ];
-    data.laiTasks = [
-      { id: 'wb-t1', title: '给 London Lash Pro 发 PI（USD 50,000）并确认 Q4 的产能和交期安排，不要拖到下周', date: day(0), owner: 'Kris' },
-      { id: 'wb-t2', title: '核对电汇', date: day(-2), owner: 'Kris' },
-    ];
+    // 待办随协同去掉了（D-031）；今天先做里的长文字改由一位名字很长、上次跟进写得很长的客户来撑。
+    data.customers[LONG_NAME] = { client: LONG_NAME, owner: 'Kris', nextFollow: day(0), history: [{ type: 'followup', time: iso(30), text: LONG_NEXT }] };
     data.laiOpportunities = [
       { id: 'wb-o1', name: 'Opp 1', client: 'Opp Co A', amount: 80000, currency: 'USD', stage: 'open' },
       { id: 'wb-o2', name: 'Opp 2', client: 'Opp Co B', amount: 12000, currency: 'USD', stage: 'unpaid' },
