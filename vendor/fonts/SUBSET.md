@@ -120,3 +120,9 @@ file draws accented customer names (Polish, Turkish, Vietnamese…). Left as shi
 | 54 | MiSansVF.517a94fe8dd5692a.54.woff2 | 25596 | 25596 | 200 | 200 |
 | 55 | MiSansVF.7d084b054b54abc1.55.woff2 | 8420 | 8420 | 171 | 171 |
 | all | 56 -> 55 files | 4551884 | 2901768 | | |
+
+## Licence decision (coordinator, 2026-10-17)
+MiSans clause 2(2) forbids "adapting or redeveloping" the font; the official FAQ allows adjusting weight and spacing and
+forbids changing the appearance. Subsetting only leaves characters out: every kept glyph, metric, axis and feature is
+byte-identical (checked 7,888 of 7,888), and Xiaomi's own npm distribution is already sliced this way. We judge this is
+not adaptation. If Xiaomi or the owner reads it more strictly, revert the MiSans files from git history (Inter is untouched).
