@@ -218,13 +218,13 @@
       el.classList.toggle("save-failed", error);
     }
   }
-  // 界面配色：laiSettings.theme 存「pink」「orange」或「tech」（科技蓝），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
+  // 界面配色：laiSettings.theme 存「pink」「orange」或「tech」（科技蓝，浅色 Linear 风格，默认，D-033），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
   const THEME_IDS = ["pink", "orange", "tech"];
   // 去掉的配色显示成哪个（D-029）：以前存的「xiaoman」（小满）按科技蓝显示；存的值不在这里改，下次保存设置时才写成 tech。
   const RETIRED_THEMES = { xiaoman: "tech" };
   // 没选过配色时用哪个。想换默认配色就改这一行（设置页会自动给它加「（默认）」）；
   // 另外 ui-tokens.css 里带「:root,」的那块变量（管页面载入前的底色）也要换到新默认的主题上。
-  const DEFAULT_THEME = "pink";
+  const DEFAULT_THEME = "tech";
   function applyTheme(id) {
     const shown = Object.hasOwn(RETIRED_THEMES, id) ? RETIRED_THEMES[id] : id;
     const theme = THEME_IDS.includes(shown) ? shown : DEFAULT_THEME;

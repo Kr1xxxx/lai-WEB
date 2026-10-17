@@ -99,9 +99,10 @@ test('the chosen theme is stored in laiSettings.theme, applied to <html>, and sw
   const ui = read('src/business-ui.js');
   assert.match(app, /const THEME_IDS = \["pink", "orange", "tech"\];/);
   assert.match(app, /const RETIRED_THEMES = \{ xiaoman: "tech" \};/, 'a saved 小满 is shown as 科技蓝 (D-029)');
-  assert.match(app, /const DEFAULT_THEME = "pink";/, 'the default colour is one constant');
+  assert.match(app, /const DEFAULT_THEME = "tech";/, 'the default colour is one constant (科技蓝, D-033)');
   assert.match(app, /const theme = THEME_IDS\.includes\(shown\) \? shown : DEFAULT_THEME;/);
-  assert.equal((app.match(/"pink"/g) || []).length, 2, 'app.js names pink only in the id list and as the default');
+  assert.equal((app.match(/"pink"/g) || []).length, 1, 'app.js names pink only in the id list');
+  assert.equal((app.match(/"tech"/g) || []).length, 3, 'app.js names tech in the id list, as the 小满 replacement and as the default');
   assert.match(app, /defaultTheme: DEFAULT_THEME,/, 'the settings page gets the default from the same constant');
   assert.match(app, /document\.documentElement\.dataset\.skin = "glass";/, '所有配色都用同一套界面（D-029）');
   assert.doesNotMatch(app, /"classic"/);
@@ -123,13 +124,14 @@ test('the workbench and menus with three or fewer entries have no second-level n
   assert.match(css, /\.subnav\[hidden\]\s*\{\s*display:\s*none;/s);
 });
 
-test('pink is the default colour, and every colour option in 设置 has its own preview picture', () => {
+test('科技蓝 is the default colour (D-033), and every colour option in 设置 has its own preview picture', () => {
   const ui = read('src/business-ui.js');
   const css = read('src/business.css');
   assert.match(ui, /THEME_CHOICES = \[\["pink", "粉色"\], \["orange", "橙色"\], \["tech", "科技蓝"\]\]\.map/);
-  assert.match(ui, /const DEFAULT_THEME = ctx\.defaultTheme \|\| "pink";/);
+  assert.match(ui, /const DEFAULT_THEME = ctx\.defaultTheme \|\| "tech";/);
   assert.match(ui, /savedTheme\(settings\)\) \? savedTheme\(settings\) : DEFAULT_THEME/, 'the picker highlights the default colour when nothing was chosen');
-  assert.match(tokens, /:root,\s*:root\[data-theme="pink"\]\s*\{/, 'pink also applies before data-theme is written');
+  assert.match(tokens, /:root,\s*:root\[data-theme="tech"\]\s*\{/, '科技蓝 also applies before data-theme is written');
+  assert.doesNotMatch(tokens, /:root,\s*:root\[data-theme="pink"\]/);
   assert.doesNotMatch(tokens, /:root,\s*:root\[data-theme="xiaoman"\]/);
   assert.doesNotMatch(css, /data-preview="xiaoman"/, 'no 小满 preview any more (D-029)');
   for (const id of ['pink', 'orange', 'tech']) {

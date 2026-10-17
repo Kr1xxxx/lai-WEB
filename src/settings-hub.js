@@ -56,7 +56,7 @@
     (!item.module || moduleOn(item.module)) && (!item.perm || [].concat(item.perm).every((key) => can(key))) && (!item.anyPerm || item.anyPerm.some((key) => can(key)));
   function markup(info, escape) {
     const E = escape || identity;
-    const data = { orderPrefix: "L", currency: "USD", themeName: "粉色", ...(info || {}) };
+    const data = { orderPrefix: "L", currency: "USD", themeName: "科技蓝", ...(info || {}) };
     const can = typeof data.can === "function" ? data.can : () => true;
     const moduleOn = typeof data.moduleOn === "function" ? data.moduleOn : () => true;
     const visible = (data.testData ? GROUPS.concat([TEST_DATA_GROUP]) : GROUPS)

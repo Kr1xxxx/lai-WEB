@@ -136,7 +136,7 @@
   --success-bg: var(--color-success-soft);
   --success-fg: #1f6f52;
   /* *-fg 是写在浅色底或白底上的字色（对比度 ≥ 4.5:1）；--danger 等是边框、圆点用的颜色 */
-  /* 左栏：粉色、橙色是浅色栏；科技蓝在 skin-glass.css 里改成深海军蓝 */
+  /* 左栏：三个主题都是浅色栏；科技蓝在 skin-glass.css 里改成白色面板 */
   --nav-bg: rgba(255, 255, 255, 0.72);
   --nav-fg: var(--ink-800);
   --nav-active: var(--brand-700);
@@ -164,14 +164,13 @@
 }
 
 /*
- * 界面配色：粉色（默认）、橙色和科技蓝（深海军蓝加钴蓝，冷灰底）；小满已去掉（D-029），存着小满的按科技蓝显示。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
- * nav（深色左侧栏）和 chart（图表色）这四组变量；设置里的「界面配色」把选择存进
+ * 界面配色：科技蓝（默认，浅色 Linear 风格：白色面板、浅色左栏、中性灰、钴蓝强调，D-033）、粉色和橙色；小满已去掉（D-029），存着小满的按科技蓝显示。主题只改 brand（品牌主色）、ink（偏暖的灰阶/文字）、
+ * nav（左侧栏）和 chart（图表色）这四组变量；设置里的「界面配色」把选择存进
  * laiSettings.theme，并写到 <html data-theme="…">。新增颜色一律用这些变量，不要写死色值。
  * 邮件正文里的颜色是用户内容，不在主题范围内。
  */
 
-/* 粉色：默认主题（没选过配色、或页面还没写上 data-theme 时用它）。 */
-:root,
+/* 粉色：可选主题（D-033 起不再是默认）。 */
 :root[data-theme="pink"] {
   --skin-page: #f1e9ee;
   --skin-ink-rgb: 35, 23, 32;
@@ -262,7 +261,9 @@
 
 /* 科技蓝：浅色 Linear 风格（D-033）。页面底 #fafafa、白色面板加细边、浅色左栏、中性灰（zinc）文字，只留钴蓝（#2f5bff）一个强调色。
    红色只留给逾期，琥珀给今天到期，绿色给已赢单，粉色只在标志上。
+   默认主题：没选过配色、或页面还没写上 data-theme 时用它（带「:root,」）。
    版面用新界面皮肤（data-skin="glass"），扁平化的部分在 skin-glass.css 里写在 data-theme="tech" 下。 */
+:root,
 :root[data-theme="tech"] {
   --skin-page: #fafafa;
   --skin-ink-rgb: 17, 17, 19;
