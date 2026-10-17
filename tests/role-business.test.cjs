@@ -109,7 +109,7 @@ test('订单: new / 归档 / 恢复 / 经营统计 buttons follow the role; the 
   const everything = page(canOf(admin));
   assert.match(everything, /archive-order/); assert.match(everything, /data-biz-action="new-order"/); assert.match(everything, /data-lai-route="analysis"/);
   const viewOnly = page(without('order.edit'));
-  assert.doesNotMatch(viewOnly, /restore-order/); assert.match(viewOnly, /op-mini" data-biz-order="[^"]+">查看</);
+  assert.doesNotMatch(viewOnly, /restore-order/); assert.match(viewOnly, /k-btn--sm" data-biz-order="[^"]+">查看</);
   assert.doesNotMatch(page(without('order.create')), /data-biz-action="new-order"/);
   assert.match(OrdersPage.markup({ items: [], all: [], total: 0, filters: { search: '', stage: '', currency: '', period: '' }, stages: B.stages, currencies: [], page: 1, pages: 1, trash: [], can: without('order.create') }, E), /调整筛选条件再看/);
   assert.doesNotThrow(() => page(undefined), 'without can everything shows');

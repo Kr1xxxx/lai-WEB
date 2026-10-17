@@ -278,12 +278,10 @@
       const scroller = document.getElementById("biz-order-scroll");
       if (route !== "order-list" || !scroller) return render();
       const view = orderListView();
-      const glassTable = scroller.querySelector(".op-table");
-      const foot = glassTable && scroller.parentElement.querySelector(":scope > .op-foot");
+      const body = scroller.querySelector(":scope > .op-table > tbody");
+      const foot = body && scroller.parentElement.querySelector(":scope > .op-foot");
       if (!foot) return render();
-      const head = glassTable.querySelector(":scope > .op-head");
-      while (head.nextSibling) head.nextSibling.remove();
-      head.insertAdjacentHTML("afterend", root.LaiOrdersPage.rowsMarkup(view, E));
+      body.innerHTML = root.LaiOrdersPage.rowsMarkup(view, E);
       foot.outerHTML = root.LaiOrdersPage.footMarkup(view);
       scroller.scrollTop = 0;
     }

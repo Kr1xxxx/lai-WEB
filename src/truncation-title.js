@@ -40,7 +40,7 @@
   // 这些地方的文字用省略号截断，但鼠标常落在它们外面的行或按钮上（往外找找不到），所以鼠标进入这些行时，把行里被截断的文字一起补上 title：
   // 订单列表的各格、工作台的标题、说明和消息行、日历事件、邮件列表的主题和预览、客户页客群树的名称。
   const SCOPES = ".op-row, .wb-row, .calendar-day, .mail-row, .group-row, .agenda-item";
-  const TEXTS = ".op-row > span, .op-link, .op-client small, .op-ship span, .op-ship small, .wb-who b, .wb-who small, .wb-t, .wb-next, .calendar-event, .mail-row-who, .mail-row-subject, .mail-row-snippet, .group-row span";
+  const TEXTS = ".op-row .op-cell, .op-link, .op-client small, .op-ship span, .op-ship small, .wb-who b, .wb-who small, .wb-t, .wb-next, .calendar-event, .mail-row-who, .mail-row-subject, .mail-row-snippet, .group-row span";
   function applyWithin(target, getStyle) {
     const found = apply(target, getStyle);
     if (found || !target || typeof target.closest !== "function") return found;

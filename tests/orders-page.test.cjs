@@ -36,10 +36,31 @@ test('a row keeps the data hooks business-ui.js relies on, escapes values and co
   for (const id of ['biz-search', 'biz-stage', 'biz-currency', 'biz-period', 'biz-order-scroll']) assert.match(html, new RegExp(`id="${id}"`));
 });
 
-test('the stage bar fills as many segments as the stage index; shipped orders count as fully paid', () => {
+test('the stage is a kit badge (报价/定金/生产中 neutral, 尾款 warning, 已发货 primary, 已完成 success); shipped orders count as fully paid', () => {
+  const tone = (stage) => Page.rowsMarkup(input({ items: [order({ stage })] }), E).match(/<span class="k-badge k-badge--(\w+)">([^<]+)<\/span>/).slice(1);
+  assert.deepEqual(['quote', 'deposit', 'production', 'balance', 'shipment', 'done'].map(tone), [['neutral', '报价'], ['neutral', '定金'], ['neutral', '生产中'], ['warning', '尾款'], ['primary', '已发货'], ['success', '已完成']]);
   const html = Page.markup(input({ items: [order({ stage: 'shipment' })] }), E);
-  assert.equal((html.match(/<i class="on">/g) || []).length, 5);
   assert.match(html, /0\.00 USD/);
+  assert.doesNotMatch(html, /op-bar|<i class="on">/, 'no progress bar any more');
+});
+
+test('the page is built from the kit: page header, buttons, table with number columns, pager and empty states', () => {
+  const html = Page.markup(input({ exportable: true }), E);
+  assert.match(html, /<header class="k-pageheader"><div class="k-pageheader-text"><h1 class="k-pageheader-title">全部订单<\/h1><span class="k-pageheader-desc">有效订单 2 笔 · 草稿 1 笔 · 未完成 1 笔<\/span><\/div><div class="k-pageheader-actions">/);
+  assert.match(html, /class="k-btn" data-export-kind="order">导出/);
+  assert.match(html, /class="k-btn" data-lai-route="analysis">经营统计/);
+  assert.match(html, /class="k-btn k-btn--primary" data-biz-action="new-order">/);
+  assert.match(html, /<table class="k-table op-table"><thead>/);
+  assert.equal((html.match(/<th class="k-num">/g) || []).length, 3, 'three money columns are right-aligned numbers');
+  assert.equal((Page.rowsMarkup(input(), E).match(/<td class="k-num/g) || []).length, 3);
+  assert.match(html, /class="k-btn k-btn--ghost k-btn--sm" data-biz-order="o1">编辑/);
+  assert.match(html, /class="k-btn k-btn--ghost k-btn--sm" data-biz-action="archive-order"/);
+  assert.match(Page.footMarkup(input({ page: 2, pages: 3 })), /<nav class="k-pager" aria-label="翻页">.*<button type="button" aria-current="page" aria-label="第 2 页">2<\/button><span>\/ 3<\/span>/);
+  assert.match(Page.rowsMarkup(input({ items: [] }), E), /^<tr class="op-none"><td colspan="11"><div class="k-empty"><p class="k-empty-title">没有符合条件的订单<\/p>/);
+  assert.match(html, /<div class="k-empty"><span>回收站是空的。<\/span><\/div>/);
+  for (const id of ['biz-stage', 'biz-currency', 'biz-period']) assert.match(html, new RegExp(`<select class="k-select-trigger op-filter" id="${id}"`), 'filters stay dropdowns (enhanced into the shared dropdown)');
+  assert.doesNotMatch(html, /op-primary|op-pages|op-empty|op-btn|op-mini|op-top/);
+  assert.match(Page.rowsMarkup(input({ items: [order({ isDraft: true })] }), E), /<span class="k-badge k-badge--neutral">草稿<\/span>/);
 });
 
 test('selected filters, drafts, pager state and the empty list are rendered', () => {
@@ -76,7 +97,7 @@ test('rowsMarkup and footMarkup are exactly the rows and the footer of the full 
     const view = input(extra);
     const html = Page.markup(view, E);
     const rows = Page.rowsMarkup(view, E), foot = Page.footMarkup(view);
-    assert.ok(html.includes(`</span></div>${rows}</div></div>${foot}</section>`), 'rows sit right after the table head, the footer right after the table');
+    assert.ok(html.includes(`</tr></thead><tbody>${rows}</tbody></table></div>${foot}</section>`), 'the rows are the whole table body, the footer sits right after the table');
     assert.match(foot, new RegExp(`共 ${view.total} 笔订单`));
   }
   assert.match(Page.rowsMarkup(input({ items: [] }), E), /没有符合条件的订单/);
