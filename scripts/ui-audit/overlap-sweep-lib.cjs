@@ -36,7 +36,7 @@ const WIDTHS = [1024, 1152, 1200, 1280, 1366, 1440, 1680, 1920];
 // 默认窗口：每个宽度配 800 高，再加 1440×900
 const defaultSizes = (widths = WIDTHS) => [...widths.map((w) => [w, 800]), ...(widths.includes(1440) ? [[1440, 900]] : [])];
 
-/** 页面里能找到的全部路由（ui-audit 的 19 个 + 左侧菜单 + 其他模块登记的页面），去重。 */
+/** 页面里能找到的全部路由（ui-audit 的 17 个 + 左侧菜单 + 其他模块登记的页面），去重。 */
 async function discoverRoutes(page) {
   const found = await page.evaluate(() => {
     const out = [];
