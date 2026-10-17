@@ -122,7 +122,7 @@
     const allOrders = () => state().orders || [];
     const activeOrders = () => scoped().orders || [];
     const customerButton = (name) =>
-      `<button class="company-link" data-biz-customer="${E(name)}">${E(name)}</button>`;
+      `<button class="company-link" data-biz-customer="${E(name)}" title="${E(name)}">${E(name)}</button>`;
     function filteredOrders() {
       return activeOrders()
         .filter(
@@ -348,7 +348,7 @@
           )
           .join(
             "",
-          )}</div></section><section class="business-section"><div class="section-head"><h3>客户贡献</h3><span class="muted tiny">按币种分组，再按金额排序</span></div><table class="order-table"><thead><tr><th>客户</th><th>订单数</th><th>订单金额</th></tr></thead><tbody>${
+          )}</div></section><section class="business-section"><div class="section-head"><h3>客户贡献</h3><span class="muted tiny">按币种分组，再按金额排序</span></div><table class="order-table fit-table"><thead><tr><th>客户</th><th>订单数</th><th>订单金额</th></tr></thead><tbody>${
           analysis.contributions
             .slice(0, 15)
             .map(

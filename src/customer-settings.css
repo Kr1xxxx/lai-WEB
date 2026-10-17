@@ -1,6 +1,8 @@
 /* 客户设置页（客户设置 → 分组、阶段、类型、公海管理、跟进规则、成交规则、黑名单、上限、查重、动态、写跟进、布局） */
 .cs-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 0; }
 .cs-shortcuts button { height: 30px; padding: 0 12px; }
+/* 客户页的 main 本来不滚动：窗口矮时设置页下面的项会被切掉、点不到（1280×720 时左边列表最后一项，1440×640 时倒数第二项）。让它能滚。 */
+.customer-main:has(.cs-page) { overflow-y: auto; }
 .cs-page { display: flex; align-items: flex-start; gap: 16px; padding: 12px 16px 24px; min-height: 0; }
 .cs-nav { flex: 0 0 168px; display: flex; flex-direction: column; gap: 2px; padding: 8px; background: #fff; border-radius: 8px; position: sticky; top: 0; }
 .cs-nav button { text-align: left; height: 36px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-700, #595959); font-size: 14px; }

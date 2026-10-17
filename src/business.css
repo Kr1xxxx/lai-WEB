@@ -231,6 +231,7 @@
 }
 .stage-bars > div > div {
   flex: 1;
+  min-width: 0;
   background: var(--chart-track);
   border-radius: 4px;
   height: 9px;
@@ -244,8 +245,14 @@
 }
 .stage-bars b {
   font-weight: 500;
-  width: 24px;
+  flex: none;
+  min-width: 24px;
+  white-space: nowrap;
   text-align: right;
+}
+/* 团队趋势图的数值带币种（167,600.00 USD），整张图的数值列留够同样的宽度，条形右端对齐，数值不换行也不被卡片切掉 */
+.stage-bars-wide b {
+  min-width: 9.5em;
 }
 .calendar-layout {
   display: grid;
@@ -373,6 +380,22 @@
 }
 .business-section > .order-table {
   font-size: 12px;
+}
+/* 客户贡献表：客户名很长时只收住第一列（省略号，悬停看全名），数字列定宽不换行，表格不会撑出卡片 */
+.order-table.fit-table {
+  width: 100%;
+  table-layout: fixed;
+}
+.order-table.fit-table th:nth-child(2) { width: 64px; }
+.order-table.fit-table th:nth-child(3) { width: 150px; }
+.order-table.fit-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.order-table.fit-table .company-link {
+  display: block;
+  max-width: 100%;
 }
 .order-table .company-link {
   font-size: 12px;
@@ -1112,6 +1135,7 @@ td.team-reached {
   padding: 0;
   border: 0;
   background: transparent;
+  white-space: normal; /* 按钮默认不换行：商机名、客户名很长时会伸出卡片压住隔壁一列 */
   text-align: left;
   font-size: 13px;
   font-weight: 600;
@@ -1157,6 +1181,7 @@ td.team-reached {
   padding: 0;
   border: 0;
   background: transparent;
+  white-space: normal;
   text-align: left;
   font-size: 12px;
   color: var(--opp-won-ink);
