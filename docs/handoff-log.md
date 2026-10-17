@@ -8,6 +8,11 @@ Entries before 2026-10-08 were reconstructed from `git log`; details are in `VAL
   tech section, 设置 preview) and made the default (S-B: `DEFAULT_THEME`, `:root,` block, picker label). Saved
   pink/orange untouched. D-033 text goes into `docs/DECISIONS.md` in its own PR (rulebook, needs the owner's 合并).
   Next: S-C taste tweaks after the owner looks at the trial; must land before the old-CSS merge (S4).
+- 2026-10-17 — Claude (#06) — Data safety A1–A4 from the advisor's round-2 review: delta saves refuse removeAppState /
+  non-object customers / undefined or type-changed blocks (400 incomplete_save, before backup and transaction); the page
+  copies missing blocks back before saving and never sends removals; schema_version gate (newer DB not opened, nothing
+  written; Chinese message on boot); before-delete backup also when a top-level list loses >5 items; server sends only
+  Chinese error text (by route). model 1475 / e2e 301 after merging main. Backend change → PR is needs-owner (owner must say 合并).
 - 2026-10-17 — Claude (#03 thread) — Slice 0 of the app.js split (task 25): `tests/helpers/source.cjs` (`appSource()`
   reads scripts/build.py's PREVIEW_APP list and joins the parts as build.py does); the 27 tests that read `src/app.js`
   text now use it, no assertions changed. Split plan (advisor-reviewed): `/mnt/project-files/plans/03-split-app-js.md`;
