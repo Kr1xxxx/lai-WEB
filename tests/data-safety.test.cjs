@@ -150,7 +150,7 @@ test('A1 (page side): a state that lacks a saved key keeps it on the server, and
 });
 
 test('A1 (page side): persist() completes the data before diffing, and the diff is fed by that completed object', () => {
-  const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+  const app = require('./helpers/source.cjs').appSource();
   const start = app.indexOf('async function persist(');
   const body = app.slice(start, app.indexOf('async function', start + 10) > 0 ? app.indexOf('try {\n      return await pending;', start) : app.length);
   assert.ok(body.includes('data = M.completeState(state, data);'), 'persist() completes the data from the last saved state');
