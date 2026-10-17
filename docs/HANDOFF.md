@@ -52,8 +52,8 @@ States: Todo / In progress / Done / Blocked / Cancelled.
 | 10 | Company-wide sharing (accounts, server) | Later | Cloudflare (D-024), not now; roles stay a local preview |
 | 24 | Polish pass + data safety | Done | #17, #18 merged |
 | 25 | Split `src/app.js` (~5800 lines), `business-ui.js` (~3100), `mail-ui.js` by page | Todo (planned) | 15-slice plan with advisor review; starts after the render fix (Q1); one file in one wave at a time |
-| 31 | UI wave (advisor report 2026-10-17) | Todo | Q1 render only into main → Q2–Q8 quick wins → component kit (D-028) page by page with census/token ratchets |
-| 32 | Remove 小满 theme + classic skin (D-029) | Todo | After Q1; xiaoman shown as 科技蓝 |
+| 31 | UI wave (advisor report 2026-10-17) | In progress | Q1+Q2 done (PR): frame drawn once, pages render into `main`, focus kept, order search patches rows; Q3+Q4 and 小满 removal in progress; then the component kit (D-028) page by page |
+| 32 | Remove 小满 theme + classic skin (D-029) | In progress | Worker running; xiaoman shown as 科技蓝 |
 | 33 | Full overlap sweep + CI test | Done (#23) | `scripts/ui-audit/overlap-sweep.cjs` + `tests/e2e/overlap-sweep.e2e.mjs`; 0 findings in 4 themes × 9 widths |
 | 34 | Font subset (owner OK) | Done (#23) | MiSans hanzi cut to GB2312 + used chars; page 9.9 → 7.7 MB, pixel-identical; licence note in `vendor/fonts/SUBSET.md` |
 | 26 | 写邮件给联系人 for extra contacts | Todo | `mail.composeFor` takes customer names only; needs an address argument in `mail-ui.js` |
