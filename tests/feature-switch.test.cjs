@@ -327,6 +327,15 @@ test('task rules: 商机快到结束日期 does not run while 商机 is off; the
   const reopened = FS.set(result.state, 'opp', true);
   const next = FS.runTaskRules(T, { ...reopened, laiSettings: { ...reopened.laiSettings, taskRules: { ...reopened.laiSettings.taskRules, lastRun: '' } } }, { now: NOW });
   assert.deepEqual(autos(next.state).filter((key) => key.startsWith('oppClose')), ['oppClose|p1|2026-10-20']);
+  // the same day: 商机 turned back on, the skipped rule runs now without waiting for tomorrow
+  assert.equal(cfg.lastRun, '2026-10-16');
+  assert.deepEqual(cfg.skipped, ['oppClose'], 'the skipped rule is remembered');
+  assert.equal(FS.runTaskRules(T, result.state, { now: NOW }), null, 'still off: nothing more to run today');
+  assert.equal(T.due(result.state, NOW), true, 'due() sees the skipped rule, so the app does not stop at "ran today"');
+  const sameDay = FS.runTaskRules(T, reopened, { now: NOW });
+  assert.deepEqual(autos(sameDay.state).filter((key) => key.startsWith('oppClose')), ['oppClose|p1|2026-10-20'], 'ran again the same day');
+  assert.deepEqual(T.config(sameDay.state).skipped, [], 'nothing skipped any more');
+  assert.equal(FS.runTaskRules(T, sameDay.state, { now: NOW }), null, 'and it is not repeated');
   // nothing blocked: same as T.run when due, null when not
   assert.equal(FS.runTaskRules(T, base, { now: NOW }), null);
   assert.equal(autos(FS.runTaskRules(T, state, { now: NOW }).state).length, 1);

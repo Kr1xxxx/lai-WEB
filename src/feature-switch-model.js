@@ -63,21 +63,22 @@
   // 规则 → 它用到的模块（目前只有“商机快到结束日期”用商机）。
   const RULE_MODULE = Object.freeze({ oppClose: 'opp' });
   const ruleBlocked = (state, type) => Object.hasOwn(RULE_MODULE, type) && !enabled(state, RULE_MODULE[type]);
-  // 跑任务规则时，把用到关着的模块的规则当成没开；返回的状态里规则开关还是用户原来设的，下次模块打开就继续。
+  // 跑任务规则时，把用到关着的模块的规则当成没开；返回的状态里规则开关还是用户原来设的，并记下这条规则今天没跑（taskRules.skipped），
+  // 模块当天重新打开时它不看“今天跑过没有”，马上接着跑。
   // 默认只在“今天该跑”时才跑，没有该跑的规则时返回 null（什么也不用保存）；options.force 为真时不看“今天跑过没有”
   // （任务设置里刚打开一条规则，马上建待办）。TR 是 LaiTaskRuleModel。
   function runTaskRules(TR, state, options) {
     const force = !!(options && options.force);
     const cfg = TR.config(state);
     const blocked = cfg.rules.filter((rule) => rule.enabled && ruleBlocked(state, rule.type)).map((rule) => rule.type);
-    if (!blocked.length) return force || TR.due(state, options && options.now) ? TR.run(state, options) : null;
+    if (!blocked.length) return force || TR.due(state, options && options.now) ? TR.run(state, options) : null; // run 会把跑过的规则从 skipped 里去掉
     const shadow = blocked.reduce((s, type) => TR.setRule(s, type, { enabled: false }), state);
     if (!force && !TR.due(shadow, options && options.now)) return null;
     const result = TR.run(shadow, options);
     const after = TR.config(result.state);
     const restored = after.rules.map((rule) => (blocked.includes(rule.type) ? { ...rule, enabled: true } : rule));
     const ls = result.state.laiSettings || {};
-    return { ...result, state: { ...result.state, laiSettings: { ...ls, taskRules: { ...(ls.taskRules || {}), rules: restored, lastRun: after.lastRun, dismissed: after.dismissed } } } };
+    return { ...result, state: { ...result.state, laiSettings: { ...ls, taskRules: { ...(ls.taskRules || {}), rules: restored, lastRun: after.lastRun, dismissed: after.dismissed, skipped: [...new Set([...after.skipped, ...blocked])] } } } };
   }
 
   const api = { MODULES, IDS, ROUTE_MODULE, offList, enabled, set, label, moduleOfRoute, moduleOfKey, moduleOfEntry, routeOn, keyOn, entryOn,

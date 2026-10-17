@@ -65,7 +65,11 @@
     const base = DEFAULTS[type], s = isPlain(stored) ? stored : {};
     const int = (value, min, max, fallback) => (Number.isInteger(value) && value >= min && value <= max ? value : fallback);
     const rule = { id: type, type, enabled: s.enabled === true, days: int(s.days, type === 'noFollow' || type === 'oppClose' ? 1 : 0, 365, base.days), dueDays: int(s.dueDays, 0, 90, base.dueDays) };
-    if (type === 'orderStage') rule.stage = stageList().some((stage) => stage.id === s.stage) ? s.stage : base.stage;
+    if (type === 'orderStage') {
+      rule.stage = stageList().some((stage) => stage.id === s.stage) ? s.stage : base.stage;
+      // 这条规则打开的那天；这一天以前建的订单不提醒。老数据没有这一项，第一次运行时补上。
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s.enabledAt) && Number.isFinite(dayNum(s.enabledAt))) rule.enabledAt = s.enabledAt;
+    }
     return rule;
   }
   function config(state) {
@@ -77,15 +81,18 @@
       rules: TYPES.map((type) => normalRule(type, list.find((rule) => isPlain(rule) && (rule.type === type || rule.id === type)))),
       lastRun: /^\d{4}-\d{2}-\d{2}$/.test(s.lastRun) ? s.lastRun : '',
       dismissed,
+      // 今天因为用到的模块关着而没跑的规则（功能开关记的）；模块重新打开后同一天也接着跑。
+      skipped: TYPES.filter((type) => Array.isArray(s.skipped) && s.skipped.includes(type)),
     };
   }
   const rules = (state) => config(state).rules;
-  const withConfig = (state, cfg) => ({ ...state, laiSettings: { ...((state && state.laiSettings) || {}), taskRules: { rules: cfg.rules, lastRun: cfg.lastRun, dismissed: cfg.dismissed } } });
-  function setRule(state, type, patch = {}) {
+  const withConfig = (state, cfg) => ({ ...state, laiSettings: { ...((state && state.laiSettings) || {}), taskRules: { rules: cfg.rules, lastRun: cfg.lastRun, dismissed: cfg.dismissed, ...(cfg.skipped && cfg.skipped.length ? { skipped: cfg.skipped } : {}) } } });
+  function setRule(state, type, patch = {}, { now = new Date() } = {}) {
     if (!TYPES.includes(type)) throw new Error('找不到这条规则');
     const cfg = config(state), old = cfg.rules.find((rule) => rule.type === type), next = { ...old };
     if (Object.hasOwn(patch, 'enabled')) {
       if (typeof patch.enabled !== 'boolean') throw new Error('开关状态无效');
+      if (patch.enabled && !old.enabled && type === 'orderStage') next.enabledAt = todayOf(now);
       next.enabled = patch.enabled;
     }
     if (Object.hasOwn(patch, 'days')) {
@@ -107,10 +114,21 @@
     const profile = isPlain(state && state.customers) && Object.hasOwn(state.customers, name) ? state.customers[name] : null;
     return trim(profile && profile.owner);
   };
-  // 客户最近一次跟进（写的跟进、往来邮件、领回公海）的日子；一次都没有就用建档日。
-  function lastFollowDay(profile) {
-    const stamps = [profile.lastFollowup, profile.lastWrittenFollowup, profile.lastPrivatePoolEntry];
-    for (const h of Array.isArray(profile.history) ? profile.history : []) if (h && ['followup', 'mail'].includes(h.type)) stamps.push(h.time);
+  // 客户最近一次跟进的日子：和客户列表的「最近跟进时间」同一个算法（客户设置里「跟进算哪些动作」勾了什么就算什么，
+  // 默认是写的跟进、发出的邮件、发出的聊天），再加上领回公海那天；一次都没有就用建档日。
+  const CSM = () => {
+    if (root.LaiCustomerSettings) return root.LaiCustomerSettings;
+    try { return typeof module !== 'undefined' && module.exports ? require('./customer-settings-model.js') : null; } catch (_) { return null; }
+  };
+  function lastFollowDay(state, name, profile) {
+    let stamps;
+    const cs = CSM();
+    try { stamps = [cs.contactTimes(state, name).lastFollowup]; } catch (_) { stamps = null; }
+    if (!stamps) {
+      stamps = [profile.lastFollowup, profile.lastWrittenFollowup];
+      for (const h of Array.isArray(profile.history) ? profile.history : []) if (h && ['followup', 'email', 'chat', 'call'].includes(h.type)) stamps.push(h.type === 'chat' ? (h.lastSentAt || h.time) : h.time);
+    }
+    stamps.push(profile.lastPrivatePoolEntry);
     const days = stamps.map(dayOf).filter(Boolean).sort();
     if (days.length) return days.at(-1);
     const born = [profile.createdAt, ...(Array.isArray(profile.history) ? profile.history.map((h) => h && h.time) : [])].map(dayOf).filter(Boolean).sort();
@@ -123,7 +141,7 @@
       const out = [];
       for (const [name, profile] of customersOf(state)) {
         if (!activeProfile(profile)) continue;
-        const owner = trim(profile.owner), last = lastFollowDay(profile);
+        const owner = trim(profile.owner), last = lastFollowDay(state, name, profile);
         if (!owner || !last) continue;
         const idle = dayNum(today) - dayNum(last);
         if (idle < rule.days) continue;
@@ -135,9 +153,12 @@
       const out = [];
       for (const order of Array.isArray(state.orders) ? state.orders : []) {
         if (!isPlain(order) || order.isDraft === true || !trim(order.id) || order.stage !== rule.stage) continue;
+        // 规则打开以前建的订单不提醒（没打开的规则按「今天打开」算，页面上的预览才和打开后一致）。
+        const since = rule.enabled && rule.enabledAt ? rule.enabledAt : today, created = dayOf(order.createdAt);
+        if (!created || created < since) continue;
         const owner = trim(order.owner) || ownerOfCustomer(state, trim(order.client));
         if (!owner) continue;
-        const age = dayNum(today) - dayNum(dayOf(order.createdAt));
+        const age = dayNum(today) - dayNum(created);
         out.push({ key: `orderStage|${order.id}|${rule.stage}`, title: `订单 ${trim(order.num) || order.id} 到了「${stageLabel(rule.stage)}」`, date: addDays(today, rule.dueDays), owner, customer: known(state, trim(order.client)), late: Number.isFinite(age) ? age : 0 });
       }
       return out;
@@ -226,16 +247,19 @@
   // 今天有没有该跑的：有开着的规则，且今天还没跑过。
   function due(state, now = new Date()) {
     const cfg = config(state);
-    return cfg.rules.some((rule) => rule.enabled) && cfg.lastRun !== todayOf(now);
+    return cfg.rules.some((rule) => rule.enabled && (cfg.lastRun !== todayOf(now) || cfg.skipped.includes(rule.type)));
   }
   // 跑一遍所有开着的规则，记下今天已跑；每条规则最多 CAP 个。没有开着的规则时什么也不改。
   // 返回 {state, created:[待办], byType:{type:数量}}。
   function run(state, { now = new Date() } = {}) {
     const cfg = config(state), active = cfg.rules.filter((rule) => rule.enabled);
     if (!active.length) return { state, created: [], byType: {} };
-    const used = usedKeys(state), byType = {}, created = [];
+    const used = usedKeys(state), byType = {}, created = [], today = todayOf(now);
     let next = state;
-    for (const rule of active) {
+    // 老数据里开着的订单规则没有「打开的日子」：第一次运行这天算打开的日子。
+    const stamped = cfg.rules.map((rule) => (rule.enabled && rule.type === 'orderStage' && !rule.enabledAt ? { ...rule, enabledAt: today } : rule));
+    cfg.rules = stamped;
+    for (const rule of stamped.filter((r) => r.enabled)) {
       const items = candidates(state, rule, now, used).slice(0, CAP);
       byType[rule.type] = items.length;
       for (const item of items) {
@@ -244,7 +268,7 @@
         created.push(next.laiTasks.find((task) => task.auto && task.auto.key === item.key));
       }
     }
-    return { state: withConfig(next, { ...cfg, lastRun: todayOf(now) }), created, byType };
+    return { state: withConfig(next, { ...cfg, lastRun: todayOf(now), skipped: cfg.skipped.filter((type) => !stamped.some((rule) => rule.enabled && rule.type === type)) }), created, byType };
   }
 
   // ---------- 自动待办的管理 ----------

@@ -87,6 +87,8 @@
     const levels=RMODEL();
     for(const name of LS.requiredFields(state)){
       if(name!=='nextFollow'&&levels&&levels.fieldLevel(state,'lead',name)!=='edit')continue;
+      // 老线索里本来就是空的、这次保存也没改它的字段不拦（和客户一样，不逼人补老资料）；新线索和这次动过的字段才检查。
+      if(previous&&!trim(previous[name])&&trim(next[name])===trim(previous[name]))continue;
       if(!trim(next[name]))throw new Error(`请填写${LS.FIELDS.find(field=>field.id===name).label}`);
     }
     const checked=checkedFields(previous,next);

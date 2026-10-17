@@ -220,3 +220,19 @@ test('the new files are wired into the page build', () => {
   }
   assert.ok(template.indexOf('<!--LEAD_SETTINGS_MODEL-->') < template.indexOf('<!--LEAD_MODEL-->'), 'the settings model loads before the lead model');
 });
+
+test('upsert: a required field already empty on an old lead and not touched in this save does not block (like customers)', () => {
+  // The lead is created while 邮箱 is optional, then 邮箱 becomes required.
+  let state = withLead(base(), 'old', { phone: '123456' });
+  state = S.setField(state, 'email', { required: true });
+  // Editing something else (the form sends the empty email back too) passes.
+  assert.ok(L.upsert(state, 'old', { note: 'new note' }, { now: NOW, mustExist: true }));
+  assert.ok(L.upsert(state, 'old', { note: 'new note', email: '' }, { now: NOW, mustExist: true }), 'an unchanged empty value is not "touched"');
+  // Filling it works; clearing a filled one is refused; a new lead is always checked.
+  const filled = L.upsert(state, 'old', { email: 'x@y.example' }, { now: NOW, mustExist: true });
+  assert.throws(() => L.upsert(filled, 'old', { email: '' }, { now: NOW, mustExist: true }), /请填写邮箱/);
+  assert.throws(() => withLead(state, 'fresh', {}), /请填写邮箱/);
+  // A different required field that is empty and changed from filled still blocks.
+  const phoneRequired = S.setField(withLead(base(), 'p', { phone: '123456' }), 'phone', { required: true });
+  assert.throws(() => L.upsert(phoneRequired, 'p', { phone: '' }, { now: NOW, mustExist: true }), /请填写电话/);
+});

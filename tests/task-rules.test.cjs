@@ -6,7 +6,7 @@ const B = require('../src/business-model.js');
 // The clock is always passed in: 2026-10-16, noon, local time.
 const NOW = new Date(2026, 9, 16, 12, 0, 0);
 const TOMORROW = new Date(2026, 9, 17, 12, 0, 0);
-const on = (state, type, patch = {}) => T.setRule(state, type, { enabled: true, ...patch });
+const on = (state, type, patch = {}) => T.setRule(state, type, { enabled: true, ...patch }, { now: NOW });
 const autoTasks = (state) => (state.laiTasks || []).filter((task) => task.auto);
 
 // Kris owns Stale (last followed 2026-09-01 = 45 days ago) and Fresh (followed 3 days ago); Mia owns Quiet; Nobody has no owner.
@@ -76,11 +76,11 @@ test('a task made by a rule is a normal task: it goes through setTask, so the ow
 test('rule 2: an order at the chosen stage, N days after, owned by the order owner (or the customer owner)', () => {
   const state = base();
   state.orders = [
-    { id: 'o1', num: 'L001', client: 'Stale', stage: 'shipment', owner: 'Amy', createdAt: '2026-09-20' },
-    { id: 'o2', num: 'L002', client: 'Stale', stage: 'shipment', createdAt: '2026-09-21' },
-    { id: 'o3', num: 'L003', client: 'Stale', stage: 'deposit', owner: 'Amy', createdAt: '2026-09-22' },
-    { id: 'o4', num: 'L004', client: 'Stale', stage: 'shipment', owner: 'Amy', createdAt: '2026-09-23', isDraft: true },
-    { id: 'o5', num: 'L005', client: 'Ghost', stage: 'shipment', createdAt: '2026-09-24' },
+    { id: 'o1', num: 'L001', client: 'Stale', stage: 'shipment', owner: 'Amy', createdAt: '2026-10-16' },
+    { id: 'o2', num: 'L002', client: 'Stale', stage: 'shipment', createdAt: '2026-10-16' },
+    { id: 'o3', num: 'L003', client: 'Stale', stage: 'deposit', owner: 'Amy', createdAt: '2026-10-16' },
+    { id: 'o4', num: 'L004', client: 'Stale', stage: 'shipment', owner: 'Amy', createdAt: '2026-10-16', isDraft: true },
+    { id: 'o5', num: 'L005', client: 'Ghost', stage: 'shipment', createdAt: '2026-10-16' },
   ];
   const result = T.run(on(state, 'orderStage', { stage: 'shipment', dueDays: 3 }), { now: NOW });
   const tasks = autoTasks(result.state);
@@ -94,7 +94,7 @@ test('rule 2: an order at the chosen stage, N days after, owned by the order own
 
 test('rule 2: moving the order to another stage later is a new key; the same stage is never repeated', () => {
   let state = base();
-  state.orders = [{ id: 'o1', num: 'L001', client: 'Stale', stage: 'deposit', owner: 'Amy', createdAt: '2026-09-20' }];
+  state.orders = [{ id: 'o1', num: 'L001', client: 'Stale', stage: 'deposit', owner: 'Amy', createdAt: '2026-10-16' }];
   state = on(state, 'orderStage', { stage: 'deposit' });
   state = T.run(state, { now: NOW }).state;
   assert.equal(autoTasks(state).length, 1);
@@ -257,4 +257,52 @@ test('timestamps with a time zone count as the local day; a bad date is ignored 
   state.customers.Stale.lastFollowup = 'garbage';
   state.customers.Stale.createdAt = '';
   assert.doesNotThrow(() => T.run(on(state, 'noFollow'), { now: NOW }));
+});
+
+test('rule 1: mails and WhatsApp chats count as follow-ups, the same 最近跟进时间 as the customer list', () => {
+  const state = on(base(), 'noFollow');
+  const sentMail = { type: 'email', subtype: 'sent', time: '2026-10-14T09:00:00', title: 'Hi' };
+  const gotMail = { type: 'email', subtype: 'received', time: '2026-10-15T09:00:00', title: 'Re' };
+  state.customers.MailOnly = { client: 'MailOnly', owner: 'Kris', createdAt: '2026-01-01', history: [sentMail] };
+  state.customers.ChatOnly = { client: 'ChatOnly', owner: 'Kris', createdAt: '2026-01-01', history: [{ type: 'chat', time: '2026-10-14T09:00:00', lastSentAt: '2026-10-14T08:00:00' }] };
+  state.customers.OldMail = { client: 'OldMail', owner: 'Kris', createdAt: '2026-01-01', history: [{ ...sentMail, time: '2026-08-01T09:00:00' }] };
+  state.customers.OldChat = { client: 'OldChat', owner: 'Kris', createdAt: '2026-01-01', history: [{ type: 'chat', time: '2026-08-01T09:00:00', lastSentAt: '2026-08-01T08:00:00' }] };
+  state.customers.WroteBack = { client: 'WroteBack', owner: 'Kris', createdAt: '2026-01-01', history: [gotMail] };
+  const names = T.candidates(state, T.rules(state)[0], NOW).map((item) => item.customer);
+  assert.ok(!names.includes('MailOnly'), 'a mail sent 2 days ago is a recent follow-up');
+  assert.ok(!names.includes('ChatOnly'), 'a chat sent 2 days ago is a recent follow-up');
+  assert.ok(names.includes('OldMail') && names.includes('OldChat'), 'old mail / chat activity does not hide the customer');
+  assert.ok(names.includes('WroteBack'), 'a mail only received is not our follow-up (the default 最近跟进时间)');
+  // when 客户设置 stops counting chats, the rule follows
+  const CS = require('../src/customer-settings-model.js');
+  const noChat = CS.setFollowRules(state, { contact: CS.get(state).followRules.contact, followup: ['followup', 'mailSent'] });
+  assert.ok(T.candidates(noChat, T.rules(noChat)[0], NOW).some((item) => item.customer === 'ChatOnly'));
+});
+
+test('rule 2: orders created before the rule was turned on are skipped; the preview follows', () => {
+  const state = base();
+  state.orders = [
+    { id: 'old', num: 'OLD', client: 'Stale', stage: 'done', owner: 'Amy', createdAt: '2026-01-05' },
+    { id: 'new', num: 'NEW', client: 'Stale', stage: 'done', owner: 'Amy', createdAt: '2026-10-16' },
+  ];
+  // not on yet: the preview shows what turning it on would do (today and later orders only)
+  const off = T.setRule(state, 'orderStage', { stage: 'done' }, { now: NOW });
+  assert.equal(T.preview(off, NOW).byType.orderStage.total, 1, 'only the order made today is counted, not the old one');
+  assert.equal(T.preview(off, TOMORROW).byType.orderStage.total, 0, 'turned on tomorrow, today\'s order would be old too');
+  const turnedOn = T.setRule(off, 'orderStage', { enabled: true }, { now: NOW });
+  assert.equal(T.rules(turnedOn).find((rule) => rule.type === 'orderStage').enabledAt, '2026-10-16');
+  const later = T.run(turnedOn, { now: NOW });
+  assert.deepEqual(autoTasks(later.state).map((task) => task.title), ['订单 NEW 到了「已完成」'], 'the old order does not flood history');
+  // turning it off and on again moves the start day
+  const again = T.setRule(T.setRule(later.state, 'orderStage', { enabled: false }, { now: TOMORROW }), 'orderStage', { enabled: true }, { now: new Date(2026, 9, 20) });
+  assert.equal(T.rules(again).find((rule) => rule.type === 'orderStage').enabledAt, '2026-10-20');
+  // legacy data: switched on, no enabledAt -> the first run date is the start day and is saved
+  const legacy = { ...state, laiSettings: { taskRules: { rules: [{ type: 'orderStage', enabled: true, stage: 'done', dueDays: 1 }] } } };
+  assert.equal(T.preview(legacy, NOW).byType.orderStage.total, 1);
+  const ran = T.run(legacy, { now: NOW });
+  assert.equal(ran.created.length, 1, 'only the order made on the first run day');
+  assert.equal(T.rules(ran.state).find((rule) => rule.type === 'orderStage').enabledAt, '2026-10-16');
+  const nextDay = { ...ran.state, laiSettings: { ...ran.state.laiSettings, taskRules: { ...ran.state.laiSettings.taskRules, lastRun: '' } } };
+  const old = { ...nextDay, orders: [...nextDay.orders, { id: 'older', num: 'OLDER', client: 'Stale', stage: 'done', owner: 'Amy', createdAt: '2026-10-10' }] };
+  assert.equal(T.run(old, { now: TOMORROW }).created.length, 0, 'an order made before the saved start day stays skipped');
 });
