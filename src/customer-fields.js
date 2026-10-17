@@ -97,7 +97,6 @@
       ["customerConnectFirstSync", "关联客户通客户首次同步时间"],
       ["customerConnectLastSync", "关联客户通客户最近同步时间"],
       ["ownerUpdatedAt", "跟进人更新时间"],
-      ["customsDataUpdatedAt", "海关数据更新时间"],
       ["lastAlibabaInquiryReply", "最新回复阿里询盘消息时间"],
     ],
     // Existing Lai column preferences retain their meaning and identifiers.

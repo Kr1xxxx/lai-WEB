@@ -19,9 +19,9 @@ test('the settings centre lists every group, and its theme entry shows the curre
   const { page } = app;
   await openHub();
   await page.getByRole('heading', { name: '设置中心' }).waitFor();
-  assert.deepEqual(await page.locator('.sh-group h3').allInnerTexts(), ['通用', '客户', '商机', '产品和单据', '沟通', '协同', '团队', '邮件']);
+  assert.deepEqual(await page.locator('.sh-group h3').allInnerTexts(), ['通用', '线索', '客户', '商机', '产品和单据', '沟通', '协同', '团队', '邮件']);
   assert.deepEqual(await page.locator('.sh-item strong').allInnerTexts(),
-    ['默认录入', '界面配色', '常用导航', '功能开关', '列表字段', '客群管理', '客户设置', '商机设置', '产品设置', '单据模板', '汇率设置', '聊天模板', '任务设置', '目标管理', '邮箱设置']);
+    ['默认录入', '界面配色', '常用导航', '功能开关', '线索设置', '列表字段', '客群管理', '客户设置', '商机设置', '产品设置', '单据模板', '汇率设置', '聊天模板', '任务设置', '目标管理', '邮箱设置']);
   assert.match(await page.locator('[data-sh-item="theme"] .sh-now').innerText(), /粉色/);
   assert.match(await page.locator('[data-sh-item="defaults"] .sh-now').innerText(), /USD/);
   assert.equal(await page.locator('.sh-page [data-feature]').count(), 0, 'no placeholder entries');
@@ -53,7 +53,13 @@ const destinations = [
   ['columns', dialog('显示字段')],
   ['segments', dialog('管理客群')],
   ['customer-settings', (page) => page.locator('.cs-page').waitFor()],
+  ['feature-switch', heading('功能开关')],
+  ['lead-settings', heading('线索设置')],
   ['flows', heading('商机设置')],
+  ['product-settings', heading('产品')],
+  ['doc-templates', heading('单据模板')],
+  ['rates', heading('汇率设置')],
+  ['chat-templates', heading('聊天模板')],
   ['task-settings', heading('任务设置'), (page) => page.locator('.tr-page').waitFor()],
   ['targets', heading('目标管理')],
   ['mail-account', heading('收件箱'), (page) => page.getByText('未绑定邮箱', { exact: true }).waitFor()],
@@ -152,4 +158,19 @@ test('an order prefix with illegal characters is not saved', async () => {
   await settle(700);
   assert.equal((await laiSettings()).orderPrefix, before, 'the invalid prefix was not stored');
   assert.deepEqual(unexpectedErrors(), []);
+});
+
+test('the 设置 page has 立即备份 but no Mac-only 打开数据目录; a 501 from the backend says backup is not available in the trial', async () => {
+  const { page } = app;
+  await app.open('settings');
+  await page.locator('[data-biz-action="backup"]').waitFor();
+  assert.equal(await page.locator('[data-biz-action="open-folder"]').count(), 0);
+  assert.equal(await page.getByText('打开数据目录').count(), 0);
+  assert.equal(await page.getByText('这台电脑').count(), 0, 'no "this computer" wording on the page');
+  await page.route('**/api/manual-backup', (route) => route.fulfill({ status: 501, contentType: 'application/json', body: JSON.stringify({ ok: false, message: 'not implemented' }) }));
+  await page.locator('[data-biz-action="backup"]').click();
+  await page.locator('#biz-backup-status', { hasText: '试用版不能备份' }).waitFor();
+  await page.unroute('**/api/manual-backup');
+  // The faked 501 is the only error the page may log here.
+  assert.deepEqual(unexpectedErrors().filter((e) => !/^HTTP 501: .*\/api\/manual-backup$/.test(e)), []);
 });

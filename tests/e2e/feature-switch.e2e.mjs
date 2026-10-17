@@ -27,7 +27,7 @@ async function save(mutate) {
 
 // module id → what it should take away
 const MODULES = {
-  lead: { label: '线索', rail: ['线索', 'Leads'], favorite: 'route:leads', route: 'leads' },
+  lead: { label: '线索', rail: ['线索', 'Leads'], hub: 'lead-settings', favorite: 'route:leads', route: 'leads' },
   opp: { label: '商机', rail: ['商机'], hub: 'flows', favorite: 'route:opportunities', route: 'opportunities' },
   product: { label: '产品', flyout: ['交易', 'products'], hub: 'product-settings', favorite: 'route:products', route: 'products' },
   doc: { label: '单据', flyout: ['交易', 'doc-templates'], hub: 'doc-templates', favorite: 'route:doc-templates', route: 'doc-templates' },
@@ -261,6 +261,43 @@ test('客户设置: the 新线索与已有客户 tab goes when 线索 is off and
   await save((d) => { d.laiSettings.featureSwitch = { off: [] }; });
   await openDedupe();
   assert.equal(await page.locator('[data-cs-dedupe-sub="lead"]').count(), 1);
+  assert.deepEqual(pageErrors(), []);
+});
+
+test('客户设置: 动态设置 goes with 邮件, and the 客户跟进规则 choices follow 邮件, 沟通 and 商机; saved choices of a closed module are kept', async () => {
+  const { page } = app;
+  const openTab = async (tab) => {
+    await app.open('customers');
+    await page.locator('.subnav .nav-row:has(.nav-label:text-is("客户设置"))').click();
+    await page.locator('.cs-page').waitFor();
+    if (tab === 'follow') { await page.locator('[data-cs-tab="follow"]').click(); await page.locator('[data-cs-panel="follow"]').waitFor(); }
+  };
+  const choices = () => page.locator('[data-cs-form="follow"] input[name="contact"]').evaluateAll((nodes) => nodes.map((node) => node.value));
+  await save((d) => { d.laiSettings.featureSwitch = { off: [] }; });
+  await openTab('follow');
+  assert.equal(await page.locator('[data-cs-tab="activity"]').count(), 1);
+  assert.deepEqual(await choices(), ['followup', 'mailSent', 'mailReceived', 'chatSent', 'chatReceived', 'order', 'opportunity', 'claim']);
+
+  await save((d) => { d.laiSettings.featureSwitch = { off: ['mail', 'chat', 'opp'] }; });
+  await openTab('follow');
+  assert.equal(await page.locator('[data-cs-tab="activity"]').count(), 0, 'no 动态设置 tab while 邮件 is off');
+  assert.deepEqual(await choices(), ['followup', 'order', 'claim']);
+  // Save with only 写跟进 ticked: the hidden choices that were stored stay stored.
+  for (const value of ['order', 'claim']) await page.locator(`[data-cs-form="follow"] input[name="contact"][value="${value}"]`).uncheck();
+  await page.locator('[data-cs-form="follow"] button[type="submit"]').click();
+  await settle();
+  const rules = (await data()).laiSettings.customerSettings.followRules;
+  assert.deepEqual(rules.contact, ['followup', 'mailSent', 'mailReceived', 'chatSent', 'chatReceived', 'opportunity']);
+  assert.deepEqual(rules.followup, ['followup', 'mailSent', 'chatSent'], 'the second list was not touched');
+
+  // Only 沟通 off: the mail choices and the tab are back.
+  await save((d) => { d.laiSettings.featureSwitch = { off: ['chat'] }; });
+  await openTab('follow');
+  assert.equal(await page.locator('[data-cs-tab="activity"]').count(), 1);
+  assert.deepEqual(await choices(), ['followup', 'mailSent', 'mailReceived', 'order', 'opportunity', 'claim']);
+  await save((d) => { d.laiSettings.featureSwitch = { off: [] }; });
+  await openTab('follow');
+  assert.deepEqual(await page.locator('[data-cs-form="follow"] input[name="contact"]:checked').evaluateAll((nodes) => nodes.map((node) => node.value)), ['followup', 'mailSent', 'mailReceived', 'chatSent', 'chatReceived', 'opportunity']);
   assert.deepEqual(pageErrors(), []);
 });
 

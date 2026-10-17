@@ -36,6 +36,15 @@ const FOLLOW_ACTIONS = Object.freeze([
   ["order", "新建或修改订单"], ["opportunity", "新建或修改商机"], ["claim", "从公海领回"],
 ].map((item) => Object.freeze(item)));
 const FOLLOW_KEYS = FOLLOW_ACTIONS.map(([key]) => key);
+// 有的动作属于可以关掉的模块（功能开关）：模块关了，这个选项不显示也不能改；已经存下的选择保留，模块重新打开就恢复。
+const FOLLOW_MODULE = Object.freeze({ mailSent: "mail", mailReceived: "mail", chatSent: "chat", chatReceived: "chat", opportunity: "opp" });
+// 直接读设置，不依赖别的模型（和下面 opportunityOff 一样）。
+function moduleOff(state, id) {
+  const raw = state && state.laiSettings && state.laiSettings.featureSwitch;
+  return !!raw && typeof raw === "object" && Array.isArray(raw.off) && raw.off.includes(id);
+}
+const hiddenFollowKeys = (state) => FOLLOW_KEYS.filter((key) => FOLLOW_MODULE[key] && moduleOff(state, FOLLOW_MODULE[key]));
+const visibleFollowActions = (state) => { const hidden = hiddenFollowKeys(state); return FOLLOW_ACTIONS.filter(([key]) => !hidden.includes(key)); };
 const DEFAULT_FOLLOW_RULES = Object.freeze({ contact: FOLLOW_KEYS, followup: Object.freeze(["followup", "mailSent", "chatSent"]) });
 const TEMPLATE_LIMITS = Object.freeze({ groups: 30, items: 100, name: 20, text: 500 });
 
@@ -729,14 +738,17 @@ function setLayout(state, layout) {
 // ============ 最近联系 / 最近跟进 怎么算 ============
 function setFollowRules(state, { contact, followup } = {}) {
   const current = get(state).followRules;
-  const pick = (list, label) => {
+  const hidden = hiddenFollowKeys(state);
+  // 看得见的选项按这次选的算；模块关了而藏起来的选项，保持原来存的样子（不因为表单里没有它就被删掉）。
+  const pick = (list, label, before) => {
     if (list === undefined) return null;
-    const out = Array.isArray(list) ? FOLLOW_KEYS.filter((key) => expandLegacyChat(list).includes(key)) : [];
-    if (!out.length) throw new Error(`请至少选一项“算作${label}”的动作`);
-    return out;
+    const chosen = Array.isArray(list) ? expandLegacyChat(list) : [];
+    const shown = FOLLOW_KEYS.filter((key) => !hidden.includes(key) && chosen.includes(key));
+    if (!shown.length) throw new Error(`请至少选一项“算作${label}”的动作`);
+    return FOLLOW_KEYS.filter((key) => shown.includes(key) || (hidden.includes(key) && before.includes(key)));
   };
-  const c = pick(contact, "最近联系");
-  const f = pick(followup, "最近跟进");
+  const c = pick(contact, "最近联系", current.contact);
+  const f = pick(followup, "最近跟进", current.followup);
   return put(state, { followRules: { contact: c || current.contact, followup: f || current.followup } });
 }
 // 按客户名分好组再查：状态不可变，所以按数组对象缓存，不用每位客户都扫一遍全部订单 / 商机。
@@ -1105,7 +1117,7 @@ const api = {
   limitFor, ownerCount, assertCanTake, capRows, setCaps,
   sourceChoices, sourcePath, sourceUse, addSource, renameSource, setSourceHidden, moveSource, deleteSource,
   setDuplicateFields, duplicateValue, setLayout, setDedupe, setLeadDedupe, LEAD_DEDUPE_FIELDS, assertNotDuplicate, dedupeValues,
-  FOLLOW_ACTIONS, setFollowRules, contactTimes,
+  FOLLOW_ACTIONS, visibleFollowActions, hiddenFollowKeys, setFollowRules, contactTimes,
   setDealRule, lastDealDate, lastWonDate,
   setActivity, autoMailSince,
   setFollowupOptions, addTemplateGroup, renameTemplateGroup, deleteTemplateGroup, moveTemplateGroup,

@@ -110,8 +110,11 @@ test('catalog retains every captured field and the exact 18 default columns', ()
   const modal = capture.slice(capture.indexOf('602 container 设置'));
   // The capture has two fields called 主营产品 and 主营产品. (stray dot); the second is shown as 主营产品类型 so users can tell them apart.
   const shownAs = {'主营产品.': '主营产品类型'};
-  const labels = [...modal.matchAll(/checkbox .*Description: (.*?)\s*, Value/g)].map(m => shownAs[m[1].trim()] || m[1].trim());
+  // 海关数据更新时间 was in the capture but is left out on purpose: 海关数据 is ruled out (D-006), so the column would stay empty.
+  const leftOut = new Set(['海关数据更新时间']);
+  const labels = [...modal.matchAll(/checkbox .*Description: (.*?)\s*, Value/g)].map(m => shownAs[m[1].trim()] || m[1].trim()).filter(label => !leftOut.has(label));
   assert.ok(labels.length > 80);
+  for (const label of leftOut) assert.ok(!F.catalog.some(f => f.label === label), `${label} is not offered`);
   for (const label of labels) assert.ok(F.catalog.some(f => f.label === label), `Missing captured field: ${label}`);
   assert.equal(new Set(F.catalog.map(f => f.id)).size, F.catalog.length);
   assert.deepEqual(F.catalog.slice(0,labels.length).map(f=>f.label),labels);
@@ -441,4 +444,11 @@ test('the stage filter offers the 客户设置 stages plus the two derived value
   h.advanced('all',[{field:'followed',op:'eq',value:'true'}]);
   await h.click({action:'add-advanced'});
   assert.match(h.html,/<select data-advanced-prop="value"[^>]*><option value="true" selected>是<\/option><option value="false" >否<\/option><\/select>/);
+});
+
+test('the removed 海关数据更新时间 column is dropped from saved column choices, order and frozen alike', () => {
+  assert.equal(F.catalog.some(f => f.id === 'customsDataUpdatedAt'), false);
+  const out = F.normalizeColumns({ order: ['name', 'customsDataUpdatedAt', 'owner', 'country'], frozen: ['customsDataUpdatedAt', 'owner'] });
+  assert.deepEqual(out.order, ['name', 'owner', 'country']);
+  assert.deepEqual(out.frozen, ['name', 'owner']);
 });

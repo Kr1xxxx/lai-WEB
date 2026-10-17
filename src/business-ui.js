@@ -845,6 +845,8 @@
     }
     // 设置里的值：新设置优先，没有再用旧版的订单设置，一项一项地取。
     const orderDefault = (key) => state().laiSettings?.[key] || state().orderSettings?.[key] || "";
+    // 新订单的默认跟进人：只能看本人或本部门的账号是它自己，其他账号用设置里填的（见 role-model.js 的 defaultOwner）。
+    const defaultOrderOwner = () => (RM()?.defaultOwner ? RM().defaultOwner(state()) : orderDefault("defaultOwner"));
     const suggestedOrderNumber = () => B.nextOrderNumber(state(), orderDefault("orderPrefix") || "L", B.localDate());
     // 赢单商机生成订单：打开现有的订单表单并预填，保存订单时同时把订单记到商机上。
     function orderFromOpp(id) {
@@ -1794,7 +1796,7 @@
         currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : "pink";
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">切换账号后会跟着变成当前账号</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都存在这台电脑上，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2113,7 +2115,7 @@
           createdAt: today,
           num: suggestedOrderNumber(),
           currency: orderDefault("defaultCurrency") || "USD",
-          owner: orderDefault("defaultOwner"),
+          owner: defaultOrderOwner(),
           stage: "quote",
           amount: "",
           client: returnCustomer,
@@ -2421,26 +2423,21 @@
         "business-order",
       );
     }
-    async function localAction(name) {
+    // 立即备份。网页试用版的后端会回 501（浏览器里没有可写的文件夹），这时直接说明试用版不能备份。
+    async function localAction() {
       if (!need("settings.general")) return;
       const target = document.getElementById("biz-backup-status");
-      if (target)
-        target.textContent = name === "backup" ? "正在备份…" : "正在打开…";
+      if (target) target.textContent = "正在备份…";
       try {
-        const response = await fetch(
-            name === "backup" ? "/api/manual-backup" : "/api/open-data-folder",
-            { method: "POST" },
-          ),
-          result = await response.json();
+        const response = await fetch("/api/manual-backup", { method: "POST" });
+        if (response.status === 501) throw Error("试用版不能备份。想留一份，请到设置中心的“测试数据”里备份。");
+        const result = await response.json();
         if (!response.ok || result.ok === false) throw Error(result.message || "");
-        if (target)
-          target.textContent =
-            name === "backup" ? "备份已保存到来财数据目录。" : "已打开数据目录";
-        ctx.toast(name === "backup" ? "备份完成" : "已打开数据目录");
+        if (target) target.textContent = "备份已保存到来财数据目录。";
+        ctx.toast("备份完成");
       } catch (e) {
         // 不把原始的英文错误给用户看：中文提示照用，其余换成一句说明。
-        const message = /[\u4e00-\u9fff]/.test(String(e?.message || "")) ? e.message
-          : name === "backup" ? "备份没有成功，数据没有受影响。请稍后再试。" : "没能打开数据目录，请稍后再试。";
+        const message = /[\u4e00-\u9fff]/.test(String(e?.message || "")) ? e.message : "备份没有成功，数据没有受影响。请稍后再试。";
         if (target) target.textContent = message;
         ctx.toast(message);
       }
@@ -2635,8 +2632,7 @@
         settingsDirty = false;
         return render();
       }
-      if (action === "backup" || action === "open-folder")
-        return localAction(action);
+      if (action === "backup") return localAction();
     });
     document.addEventListener("input", (e) => {
       if (extra()?.input?.(extraCtx(), e) === true) return;

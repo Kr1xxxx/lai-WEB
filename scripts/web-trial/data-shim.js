@@ -1,5 +1,5 @@
 /* 来财Lai 网页试用版：数据替身。网页里没有本机数据服务，这里用浏览器本地存储（localStorage）模拟它的数据接口：
-   /api/data（读）、/api/save（存，带版本号检查）、/api/import-log、/api/manual-backup、/api/open-data-folder、/api/health。
+   /api/data（读）、/api/save（存，带版本号检查）、/api/import-log、/api/manual-backup、/api/health。
    接口形状对照 backend/server.js 和 backend/storage.js。邮件接口由 mail-demo.js 负责（它放在本文件之后）。
    同时提供 window.LaiWebTrial（stats / persistent / snapshot / restore / clear），给「测试数据」面板和 scripts/ui-audit 用。
    发布试用版时本文件作为第一个 <script>，放在所有业务模块之后、应用主脚本之前；由 scripts/web-trial/build.py 自动放置。
@@ -103,7 +103,7 @@
   var inner = root.fetch;
   root.fetch = function (input, init) {
     var url = String(typeof input === 'string' ? input : (input && input.url) || '');
-    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/(?:data|save|save-changes|import-log|manual-backup|open-data-folder|health))(?:\?([^#]*))?$/.exec(url);
+    var match = /^(?:https?:\/\/[^\/]+)?(\/api\/(?:data|save|save-changes|import-log|manual-backup|health))(?:\?([^#]*))?$/.exec(url);
     if (!match) return inner.apply(root, arguments);
     var method = String(init && init.method || (input && input.method) || 'GET').toUpperCase(), path = match[1];
     try {
@@ -120,7 +120,6 @@
       }
       if (path === '/api/manual-backup' && method === 'POST') return Promise.resolve(json(501, {ok: false, message: '网页试用版不能保存文件。请到设置中心的「测试数据」里复制备份。'}));
       if (path.startsWith('/api/opportunity-file')) return Promise.resolve(json(501, {ok: false, message: '网页试用版不能上传附件，请在 Mac 应用里使用。'}));
-      if (path === '/api/open-data-folder' && method === 'POST') return Promise.resolve(json(501, {ok: false, message: '网页试用版没有数据文件夹，数据保存在这个浏览器里。'}));
     } catch (error) {
       return Promise.resolve(json(500, {ok: false, message: '试用版数据出错：' + error.message}));
     }
