@@ -89,6 +89,9 @@ export async function startApp({ seed = true, env = {} } = {}) {
     // The first request is answered with a redirect to #customers (it sets the session cookie), so any other
     // start page is reached by switching the hash and booting the page again.
     if (hash !== 'customers') {
+      // Let the first page finish booting before switching the hash: a page still booting would read the new
+      // hash itself, act on it (and maybe move on to another page), and the reload below would start from there.
+      await page.waitForFunction(() => !document.querySelector('#app .boot'), null, { timeout: 15000 }).catch(() => {});
       await page.evaluate((h) => { location.hash = h; }, hash);
       await page.reload();
     }

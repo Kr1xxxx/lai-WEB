@@ -43,10 +43,14 @@ before(async () => {
   // A toast stays for 3 seconds only, so keep every text it showed from the moment the page starts.
   await app.page.addInitScript(() => {
     window.__toasts = [];
-    document.addEventListener('DOMContentLoaded', () => {
-      const toast = document.getElementById('toast');
-      if (toast) new MutationObserver(() => { if (toast.textContent) window.__toasts.push(toast.textContent); }).observe(toast, { childList: true, characterData: true, subtree: true });
-    });
+    // Watch the whole document from the very start: the app can show a toast while its scripts run, before
+    // DOMContentLoaded, so an observer added at DOMContentLoaded could miss it.
+    let last = '';
+    new MutationObserver(() => {
+      const text = document.getElementById('toast')?.textContent || '';
+      if (text && text !== last) window.__toasts.push(text);
+      last = text;
+    }).observe(document, { childList: true, characterData: true, subtree: true });
   });
   await app.open('customers');
   await save((d) => {
@@ -174,7 +178,9 @@ for (const [id, spec] of Object.entries(MODULES)) {
     // a direct link to the closed module says so and lands on the workbench
     await app.open(spec.route);
     await page.locator('.wb').waitFor();
-    assert.ok((await page.evaluate(() => window.__toasts)).includes('这个功能已关闭'), 'the page said 这个功能已关闭');
+    // The workbench can render before the toast text is set, so wait for the message instead of reading it once.
+    const said = await page.waitForFunction(() => window.__toasts.includes('这个功能已关闭'), null, { timeout: 5000 }).then(() => true, () => false);
+    assert.ok(said, 'the page said 这个功能已关闭');
     assert.match(page.url(), /#dashboard$/);
     assert.equal(await page.locator('.pagebar h1', { hasText: '没有权限' }).count(), 0);
 
