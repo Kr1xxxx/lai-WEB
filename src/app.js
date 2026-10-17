@@ -58,8 +58,7 @@
   };
   const icon = (name) =>
     `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="${icons[name] || icons.grid}"/></svg>`;
-  // 新界面（粉色、橙色）的菜单图标：统一的线条 + 淡色底（tint 是填充层，line 是描边层）。
-  // 同一个位置两种图标都输出，由 CSS 按皮肤显示其中一种（skin-glass.css 的 .icon-duo）；小满主题仍是上面的线条图标。
+  // 菜单图标：统一的线条 + 淡色底（tint 是填充层，line 是描边层），显示规则在 skin-glass.css 的 .icon-duo。
   const duoIcons = {
     sliders: { tint: "M15 4.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4z M9 9.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4z M17 14.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4z", line: "M4 7h8.8 M17.2 7H20 M4 12h2.8 M11.2 12H20 M4 17h10.8 M19.2 17H20 M15 4.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4z M9 9.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4z M17 14.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4z" },
     heart: { tint: "M12 20.5S3.5 15.5 3.5 9.5A4.5 4.5 0 0 1 12 7.5a4.5 4.5 0 0 1 8.5 2c0 6-8.5 11-8.5 11z", line: "M12 20.5S3.5 15.5 3.5 9.5A4.5 4.5 0 0 1 12 7.5a4.5 4.5 0 0 1 8.5 2c0 6-8.5 11-8.5 11z" },
@@ -76,13 +75,12 @@
     calendar: { tint: "M3.5 8.5a2.5 2.5 0 0 1 2.5-2.5h12a2.5 2.5 0 0 1 2.5 2.5V18a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18z", line: "M3.5 8.5a2.5 2.5 0 0 1 2.5-2.5h12a2.5 2.5 0 0 1 2.5 2.5V18a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18z M3.5 11h17 M8 3.5v4 M16 3.5v4" },
     building: { tint: "M5 5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5V20.5H5z", line: "M5 20.5V5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5v15 M15 10h3.5a1.5 1.5 0 0 1 1.5 1.5v9 M3 20.5h18 M8.5 8h3 M8.5 11.5h3 M8.5 15h3" },
   };
-  // 新界面里要换成淡色底图标的名字 -> 淡色底图标名（其余图标原样输出）
+  // 菜单里要换成淡色底图标的名字 -> 淡色底图标名（其余图标原样输出）
   const duoNames = { grid: "grid", mail: "mail", chart: "chart", box: "note", folder: "folder", people: "people", chat: "chat", lead: "lead", globe: "globe", search: "search", heart: "heart", note: "note" };
   const menuIcon = (name, duoName = duoNames[name]) => {
     const d = duoIcons[duoName];
     return d
-      ? icon(name).replace("class=\"icon\"", "class=\"icon icon-classic\"") +
-          `<svg class="icon icon-duo" aria-hidden="true" viewBox="0 0 24 24"><path class="tint" d="${d.tint}"/><path d="${d.line}"/></svg>`
+      ? `<svg class="icon icon-duo" aria-hidden="true" viewBox="0 0 24 24"><path class="tint" d="${d.tint}"/><path d="${d.line}"/></svg>`
       : icon(name);
   };
   const date = (v) => {
@@ -111,7 +109,7 @@
     pending = null,
     selected = new Set(),
     currentName = "",
-    tab = "info",
+    tab = "activity",
     activityFilter = "all",
     activityQuery = "",
     activitySearchDraft = "",
@@ -190,17 +188,22 @@
       el.classList.toggle("save-failed", error);
     }
   }
-  // 界面配色：laiSettings.theme 存「pink」「orange」「xiaoman」（原来的蓝色）或「tech」（科技蓝），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
-  const THEME_IDS = ["pink", "orange", "xiaoman", "tech"];
+  // 界面配色：laiSettings.theme 存「pink」「orange」或「tech」（科技蓝），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
+  const THEME_IDS = ["pink", "orange", "tech"];
+  // 去掉的配色显示成哪个（D-029）：以前存的「xiaoman」（小满）按科技蓝显示；存的值不在这里改，下次保存设置时才写成 tech。
+  const RETIRED_THEMES = { xiaoman: "tech" };
   // 没选过配色时用哪个。想换默认配色就改这一行（设置页会自动给它加「（默认）」）；
   // 另外 ui-tokens.css 里带「:root,」的那块变量（管页面载入前的底色）也要换到新默认的主题上。
   const DEFAULT_THEME = "pink";
   function applyTheme(id) {
-    const theme = THEME_IDS.includes(id) ? id : DEFAULT_THEME;
+    const shown = Object.hasOwn(RETIRED_THEMES, id) ? RETIRED_THEMES[id] : id;
+    const theme = THEME_IDS.includes(shown) ? shown : DEFAULT_THEME;
     document.documentElement.dataset.theme = theme;
-    // 粉色、橙色、科技蓝用新界面（悬浮面板），小满保持原来的界面。
-    document.documentElement.dataset.skin = theme === "xiaoman" ? "classic" : "glass";
+    // 所有配色都用同一套界面（悬浮面板）。skin-glass.css 的规则都挂在 data-skin="glass" 下，所以这个属性一直设成 glass。
+    document.documentElement.dataset.skin = "glass";
   }
+  // 页面一载入就用这套界面（数据读回来之前的载入、出错提示也一样），配色等数据读回来再定。
+  if (document.documentElement) document.documentElement.dataset.skin = "glass";
   // 已保存数据的快照（见 model.js 的 snapshotState）：保存时只把和它不同的部分发给本机服务。
   let savedSnapshot = null;
   function adoptServerState(data, serverRevision) {
@@ -755,7 +758,8 @@
         ? { types: [...savedTypes.types] } : {};
     }
     currentName = name;
-    if (!keepTab) tab = "info";
+    // 打开客户详情默认停在「动态」（写跟进、看最近往来最常用）；VALIDATION.md 有记录。
+    if (!keepTab) tab = "activity";
     const c = allCustomerRows().find((c) => c.name === name);
     if (!c) return list();
     renderShell(detailMarkup(c));
@@ -764,6 +768,17 @@
     window.LaiActivityCategoryNavigation.mount($(".lcd-root"));
     V?.placeTabIndicator($("#app"));
     if (motion) V?.enter($("#app"), motion);
+  }
+  // 写跟进：切到「动态」，光标放进跟进框（框有焦点时自己展开）。
+  function openFollowupForm() {
+    if (tab !== "activity") {
+      tab = "activity";
+      detail(currentName, true);
+    }
+    const text = $("#followup-text");
+    if (!text) return;
+    text.focus({ preventScroll: true });
+    text.scrollIntoView({ block: "nearest" });
   }
   function replaceDetailBody(c, refreshSummary = false) {
     const body = $(".lcd-root .lcd-body");
@@ -1862,12 +1877,7 @@
     if (a === "filter") return filterForm(e.detail > 0);
     if (a === "settings") return settings(e.detail > 0);
     if (a === "close-modal") return closeModal(e.detail > 0, false, el);
-    if (a === "write-followup") {
-      tab = "activity";
-      detail(currentName, true);
-      $("#followup-text").focus();
-      return;
-    }
+    if (a === "write-followup") return openFollowupForm();
     if (a === "clear-query") {
       // 清掉筛选值时要连筛选条件一起清掉，列表立刻刷新。
       filters.query = "";
@@ -2181,15 +2191,22 @@
       } else {
         followupDrafts.delete(currentName);
         detail(currentName, true);
+        // 存好后跟进框清空收起，新记录排在动态最上面；光标回到「写跟进」，不丢到页面空白处。
+        $('.lcd-followup-label [data-action="write-followup"]')?.focus({ preventScroll: true });
       }
       enhanceDropdowns($(".drawer") || $("#app"));
-      toast("已保存到来财");
+      if (form.id === "followup-form") toast("已保存跟进");
+      else toast("已保存到来财");
       if (wantOpportunity && form.id === "customer-form") business.newOpportunity(data.name.trim());
     } catch (err) {
       error.textContent = err.message;
       error.classList.add("visible");
       error.scrollIntoView({ block: "nearest" });
       buttons.forEach((b) => (b.disabled = b.dataset.wasDisabled === "true"));
+      // 光标落到出错的框；找不到就落回保存按钮，不留在页面空白处。
+      const FC = window.LaiFormCheck, field = FC?.fieldFor(form, err);
+      if (field && FC.focusField(field)) FC.mark(field);
+      else (e.submitter?.isConnected ? e.submitter : form.querySelector('[type="submit"]'))?.focus({ preventScroll: true });
     }
   });
   document.addEventListener("focusin", (e) => {
@@ -2553,7 +2570,7 @@
   }
   function tableMarkup(p) {
     // 新界面（粉色、橙色）的选择列收窄：只放一个复选框，不需要 84px
-    const selectionWidth = document.documentElement.dataset.skin === "glass" ? 48 : 84, actionsWidth = 52;
+    const selectionWidth = 48, actionsWidth = 52;
     listGate = C.gate(state, "customer");
     const hiddenColumns = listGate.hiddenColumns();
     const prefs = tablePrefs(),
@@ -5760,6 +5777,11 @@
     upload: (path, file) =>
       fetch(path, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file }),
     openCustomer: (name) => navigateApp("customers", name),
+    // 工作台「写跟进」：打开客户详情的「动态」，跟进框展开、光标在里面。
+    writeFollowup: async (name) => {
+      if (!(await navigateApp("customers", name)) || currentName !== name) return;
+      openFollowupForm();
+    },
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,
     // 当前是不是业务页面（不是客户页、邮件页、常用页）：登记的页面只在这时收到点击和输入。

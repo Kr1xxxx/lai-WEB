@@ -183,36 +183,6 @@
   font: inherit;
   font-size: 12px;
 }
-.order-workspace {
-  height: calc(100% - 60px);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-.business-table-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-.unified-orders {
-  min-width: 1140px;
-  font-size: 12px;
-}
-.unified-orders th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--ink-50);
-}
-.unified-orders td,
-.unified-orders th {
-  height: 50px;
-  white-space: nowrap;
-  padding: 12px 16px;
-}
-.unified-orders tbody tr:nth-child(even) {
-  background: var(--brand-50);
-}
 .stage-done,
 .stage-shipment {
   color: #268777;
@@ -399,16 +369,6 @@
 }
 .order-table .company-link {
   font-size: 12px;
-}
-/* 订单编号必须看全：这一列不加省略号，列宽跟着编号走（不像客户表格要给收藏图标留位置） */
-.unified-orders td:first-child {
-  min-width: 128px;
-}
-.unified-orders td:first-child .company-link {
-  max-width: none;
-  overflow: visible;
-  text-overflow: clip;
-  white-space: nowrap;
 }
 .page-actions > button {
   white-space: nowrap;
@@ -1857,7 +1817,7 @@ td.team-reached {
 .sh-text span { font-size: 12px; color: var(--ink-500); }
 .sh-now { flex: 0 0 auto; font-style: normal; font-size: 12px; color: var(--ink-600); padding: 2px 8px; border-radius: 999px; background: var(--ink-50); }
 .sh-item > button { flex: 0 0 auto; min-width: 64px; height: 30px; padding: 0 14px; }
-/* 商机页头：看板／列表切换和「商机分析」入口只在新界面里挪位置，小满主题不显示 */
+/* 商机页的看板／列表切换（筛选卡片里）和「商机分析」入口由 skin-glass.css 显示 */
 .opp-view-in, .opp-analysis-link { display: none; }
 
 /* ---- 客户管理工具：合并客户、批量建档、标签管理、公海规则 ---- */
@@ -2428,7 +2388,6 @@ td.team-reached {
   background: var(--pv-page);
 }
 .theme-preview[data-preview="orange"] { --pv-page: #f0eae4; --pv-nav: #4d1f0a; --pv-brand: #c2410c; --pv-tint: #fde3cf; }
-.theme-preview[data-preview="xiaoman"] { --pv-page: #edf0f4; --pv-nav: #14214d; --pv-brand: #1569f2; --pv-tint: #dfeaff; }
 .theme-preview[data-preview="tech"] { --pv-page: #eef2f7; --pv-nav: #0f1d33; --pv-brand: #2f5bff; --pv-tint: #e2e9ff; }
 .theme-preview .pv-nav { flex: 0 0 22%; background: var(--pv-nav); }
 .theme-preview .pv-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 10px; }

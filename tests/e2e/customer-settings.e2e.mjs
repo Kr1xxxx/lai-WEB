@@ -74,6 +74,8 @@ test('types: a customer can be given a type and it shows on the detail page', as
   await save();
   await settle(800);
   assert.equal((await app.readData()).customers['Lumen Lash Lab'].customerType, '贸易商');
+  // The detail opens on 动态; the type shows on 资料.
+  await page.locator('.lcd-tabs [data-tab="info"]').click();
   await page.getByText('贸易商').first().waitFor();
   assert.deepEqual(app.errors, []);
 });

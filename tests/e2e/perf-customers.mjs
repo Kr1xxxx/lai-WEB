@@ -70,7 +70,7 @@ export async function measure(count, { pageChecks = true } = {}) {
     // Save a follow-up from the page
     await page.locator('.lcd-tabs [data-tab="activity"]').click();
     await page.locator('#followup-text').fill('性能测试：新增一条跟进');
-    out.pageSaveMs = await time(async () => { await page.locator('#followup-form button[type=submit]').click(); await page.getByText('已保存到来财').first().waitFor(); });
+    out.pageSaveMs = await time(async () => { await page.locator('#followup-form button[type=submit]').click(); await page.getByText('已保存跟进').first().waitFor(); });
     out.errors = app.errors.length;
   } finally {
     await app.close();

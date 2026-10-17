@@ -103,7 +103,8 @@
   //   chats：chatSummaries 的结果，只用 waiting 的
   //   mails：邮件列表里的信，没读过的才进来（seen 不是 true）
   //   showOwner：看得到别人的数据时（本部门、全公司），在说明里写负责人
-  // 每一行：{kind, rank, tag, tone, title, detail, act:{type, value, label}}；act.type 是 customer｜chat｜task｜go。
+  // 每一行：{kind, rank, tag, tone, title, detail, act:{type, value, label}}；act.type 是 customer｜followup｜chat｜task｜go。
+  // followup＝打开客户详情的「动态」，跟进框直接展开、光标在里面（一步就能写）。
   function queue(input) {
     const today = input.today;
     const rows = [];
@@ -119,7 +120,7 @@
         kind: "follow", rank: late > 0 ? RANK.overdue : RANK.today, late, sub: 0, t: 0, sortText: name,
         tag: late > 0 ? `逾期 ${late} 天` : "今天到期", tone: late > 0 ? "late" : "today",
         title: `跟进 ${name}`, detail: `${input.showOwner ? (c.owner || "未分配") + " · " : ""}上次：${lastNote(c)}`,
-        act: { type: "customer", value: name, label: "写跟进" },
+        act: { type: "followup", value: name, label: "写跟进" },
       });
     }
     for (const t of input.tasks || []) {
@@ -273,6 +274,7 @@
   // ---------- 页面 ----------
   const attrOf = (act, E) =>
     act.type === "customer" ? `data-biz-customer="${E(act.value)}"`
+      : act.type === "followup" ? `data-biz-customer="${E(act.value)}" data-biz-followup`
       : act.type === "chat" ? `data-biz-chat="${E(act.value)}"`
         : act.type === "task" ? `data-biz-edit-task="${E(act.value)}"`
           : `data-biz-go="${E(act.value)}"`;

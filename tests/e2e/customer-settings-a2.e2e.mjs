@@ -153,7 +153,7 @@ test('pool settings: every small section saves on its own', async () => {
   await toast('已保存');
   assert.equal((await pool()).remindDays, 10);
   await page.locator('input[name=remindDays]').fill('99');
-  await page.locator('[data-cs-form="pool-remind"]').evaluate((form) => { form.noValidate = true; }); // let the model, not the browser, say no
+  await page.locator('[data-cs-form="pool-remind"]').evaluate((form) => { form.noValidate = true; form.removeAttribute('data-form-check'); }); // let the model, not the page's own check, say no
   await saveSection('提前提醒');
   await page.locator('#cs-error.visible').waitFor();
   assert.match(await page.locator('#cs-error').innerText(), /0–30/);

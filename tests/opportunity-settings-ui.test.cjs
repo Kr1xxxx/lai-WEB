@@ -174,7 +174,7 @@ test('the opportunity form: new fields appear, hidden ones disappear, multi and 
   assert.match(form, /data-multi="sources"/); assert.match(form, /<input type="checkbox" value="常规获客 \/ 展会">/);
   assert.match(form, /<select name="type"><option value="">请选择<\/option><option value="新客户商机">/);
   assert.match(form, /<select name="leadId"><option value="">不选<\/option><option value="L1">Zed Lashes<\/option>/);
-  assert.match(form, /<div class="form-section">自定义字段<\/div>/); assert.match(form, /data-multi="custom:pay"/); assert.match(form, /name="custom:dc" value="" inputmode="decimal" autocomplete="off" required/);
+  assert.match(form, /<div class="form-section">自定义字段<\/div>/); assert.match(form, /data-multi="custom:pay"/); assert.match(form, /name="custom:dc" value="" inputmode="decimal" autocomplete="off" aria-required="true" required/);
   assert.ok(form.indexOf('补充信息') < form.indexOf('自定义字段'));
   // 保存：多选从勾选框收集，自定义字段按 custom:ID 收集
   await c.submit('opp-form', {nameMode: 'auto', client: 'Beta Ltd', contact: '', amount: '120', endDate: '2026-11-05', flow: 'default', exchangeRate: '100', currency: 'USD', stage: 'open', owner: 'Amy', collaborators: '', tags: '', note: '', products: '',

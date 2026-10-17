@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #24 merged (`main` c577f56); web trial v1.13 published and opened. Then: 小满 theme and classic
+  skin removed (D-029; saved xiaoman shows as tech); Q3+Q4 (footer error slot, Chinese validation, 写跟进 one click,
+  detail opens on 动态). Both workers hit the usage limit mid-way and resumed after the reset. model 1525 / e2e 331 green,
+  UI audit pass.
 - 2026-10-17 — Claude — #23 merged (`main` c9d3232); web trial v1.12 published and opened. Q1+Q2 (advisor): `renderShell`
   draws the frame once and morphs it in place; pages render only into `main`; focus kept on same-view re-renders; order
   search debounced and patches only rows/footer; mail filter listener bound once. Fable before-done check: ship.

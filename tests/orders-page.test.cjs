@@ -59,9 +59,10 @@ test('the recycle bin lists archived orders with a restore button, or says it is
   assert.match(Page.markup(input(), E), /回收站是空的/);
 });
 
-test('it is only used in the new skin and wired into the build and the order handlers', () => {
+test('it is the order page in every theme and wired into the build and the order handlers', () => {
   const ui = read('src/business-ui.js');
-  assert.match(ui, /glassSkin\(\) && root\.LaiOrdersPage/);
+  assert.match(ui, /function renderOrders\(\) \{\n\s*return root\.LaiOrdersPage\.markup\(orderListView\(\), E\);/, 'no classic order table any more (D-029)');
+  assert.doesNotMatch(ui, /classicOrder|glassSkin/);
   assert.match(ui, /id === "biz-period"/);
   assert.match(ui, /period = "";/);
   assert.match(read('scripts/build.py'), /orders-page\.js/);

@@ -80,7 +80,7 @@ test('field settings: a required field blocks saving and a hidden field leaves t
   await settle();
   assert.equal(await page.locator('#product-form [name="remark"]').count(), 0);
   await page.locator('#product-form [name="name"]').fill('胶水');
-  await page.locator('#product-form').evaluate((form) => { form.noValidate = true; });
+  await page.locator('#product-form').evaluate((form) => { form.noValidate = true; form.removeAttribute('data-form-check'); });
   await page.locator('button[type="submit"][form="product-form"]').click();
   await page.locator('#product-error.visible').waitFor();
   assert.match(await page.locator('#product-error').innerText(), /请填写产品型号/);

@@ -68,9 +68,9 @@
     }
     const undoMarkup=undo=>undo?`<div class="opp-undo" id="opp-undo" role="status"><span>${E(undo.label)}</span><button type="button" data-opp-action="undo">撤销</button></div>`:'';
     const boardMarkup=(board,view={},context={})=>`<div class="business-scroll opp-page">${toolbar(board,view,context)}${totals(board)}${view.mode==='list'?table(board,view,context.today):columns(board,view,context.today)}${undoMarkup(view.undo)}</div>`;
-    // 看板／列表切换：旧版式放在页头；新界面（粉色、橙色）放进筛选卡片里，两处只显示一处（见 skin-glass.css）。
+    // 看板／列表切换：放在筛选卡片里（opp-view-in）。
     const viewSwitch=(view={},extra='')=>`<span class="team-segment opp-view${extra}" role="group" aria-label="视图"><button type="button" data-opp-view="board" aria-pressed="${view.mode!=='list'}">看板</button><button type="button" data-opp-view="list" aria-pressed="${view.mode==='list'}">列表</button></span>`;
-    const headerActions=(board,context={},view={})=>`${viewSwitch(view)}<button type="button" class="opp-analysis-link" data-lai-route="opp-analysis">商机分析</button>${can('opp.create')?'<button type="button" class="primary" data-opp-action="new">新建商机</button>':''}`;
+    const headerActions=(board,context={},view={})=>`<button type="button" class="opp-analysis-link" data-lai-route="opp-analysis">商机分析</button>${can('opp.create')?'<button type="button" class="primary" data-opp-action="new">新建商机</button>':''}`;
 
 
     // ---------- 商机详情与附件 ----------
@@ -92,7 +92,7 @@
       const rows=items.map(entry=>{
         const image=model.previewKind(entry.name)==='image',armed=view.armed===entry.id,renaming=view.renaming===entry.id;
         const main=renaming
-          ?`<form class="opp-file-rename" id="opp-attach-rename" data-att="${E(entry.id)}"><input name="name" value="${E(entry.name)}" maxlength="${limits.maxName}" aria-label="新的文件名" required><button type="submit" class="primary">保存</button><button type="button" data-attach-action="rename-cancel">取消</button></form>`
+          ?`<form class="opp-file-rename" id="opp-attach-rename" data-att="${E(entry.id)}"><input name="name" value="${E(entry.name)}" maxlength="${limits.maxName}" aria-label="新的文件名" aria-required="true" required><button type="submit" class="primary">保存</button><button type="button" data-attach-action="rename-cancel">取消</button></form>`
           :(image||can('opp.fileDownload')?`<button type="button" class="opp-file-name" data-attach-action="${image?'preview':'save'}" data-att="${E(entry.id)}" title="${image?'点击预览':'保存到「下载」'}">${E(entry.name)}</button>`:`<span class="opp-file-name">${E(entry.name)}</span>`);
         const tools=renaming?'':`${image?`<button type="button" data-attach-action="${view.preview===entry.id?'preview-close':'preview'}" data-att="${E(entry.id)}">${view.preview===entry.id?'关闭预览':'预览'}</button>`:''}`
           +(can('opp.fileDownload')?`<button type="button" data-attach-action="save" data-att="${E(entry.id)}">保存到「下载」</button>`:'')+(can('opp.edit')?`<button type="button" data-attach-action="rename" data-att="${E(entry.id)}">重命名</button>`:'')
@@ -189,7 +189,7 @@
       const sourceChoices=Array.isArray(setup.sources)?setup.sources:[];
       const customValue=def=>v.custom&&typeof v.custom==='object'?v.custom[def.id]:undefined;
       const customControl=def=>{
-        const name=`custom:${def.id}`,value=customValue(def),text=Array.isArray(value)?'':String(value??''),label=E(def.name),must=(def.required?' required':'')+dis(`custom.${def.id}`);
+        const name=`custom:${def.id}`,value=customValue(def),text=Array.isArray(value)?'':String(value??''),label=E(def.name),must=(def.required?' aria-required="true" required':'')+dis(`custom.${def.id}`);
         if(!vis(`custom.${def.id}`))return '';
         if(def.type==='multi')return multi(name,label,def.options,Array.isArray(value)?value.map(String):[],{required:def.required,lock:dis(`custom.${def.id}`)});
         if(def.type==='textarea')return field(label,`<textarea name="${E(name)}" rows="3" maxlength="${model.SET_LIMITS.textarea}"${must}>${E(text)}</textarea>`,{required:def.required,wide:true});
@@ -211,20 +211,20 @@
         cfg.products.show&&vis('products')?field('关联产品',`<textarea name="products" rows="4"${dis('products')} placeholder="每行一个产品：名称, 数量, 单价&#10;例如：假睫毛 A, 10, 2.5">${E(products)}</textarea>`,{wide:true,hint:subtotal,required:cfg.products.required}):''
       ].join('');
       const reasons=setup.reasons||model.LOST_REASONS;
-      return `<form class="drawer-body opp-form" id="opp-form"><div class="error" id="opp-error" role="alert"></div>`
+      return `<form class="drawer-body opp-form" id="opp-form" novalidate data-form-check>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
-        +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
-        +field('客户',`<input name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
-        +(cfg.contact.show&&vis('contact')?field('关联联系人',`<select name="contact"${contacts.length&&cfg.contact.required?' required':''}${dis('contact')}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
-        +field('负责人',`<input name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" required${can('opp.transfer')?'':' readonly'}><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
+        +`<fieldset class="opp-field is-wide opp-name"><legend class="opp-field-label">商机名称${req}</legend><div class="opp-name-row"><span class="opp-seg"><label><input type="radio" name="nameMode" value="auto"${custom?'':' checked'}><span>自动生成</span></label><label><input type="radio" name="nameMode" value="custom"${custom?' checked':''}><span>自定义</span></label></span><input name="name" value="${E(custom?v.name||'':'')}" placeholder="请输入商机名称" aria-label="商机名称"${custom?' aria-required="true" required':' hidden disabled'}><span class="opp-field-hint" id="opp-name-note"${custom?' hidden':''}>${context.isNew||v.nameMode==='custom'||!v.name?'保存时按「日期＋当天序号-负责人」生成，例如 26100601-Amy':E(v.name)}</span></div></fieldset>`
+        +field('客户',`<input name="client" id="opp-client" value="${E(v.client||'')}" list="opp-client-list" placeholder="输入或选择客户" autocomplete="off" aria-required="true" required><datalist id="opp-client-list">${(context.customers||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
+        +(cfg.contact.show&&vis('contact')?field('关联联系人',`<select name="contact"${contacts.length&&cfg.contact.required?' aria-required="true" required':''}${dis('contact')}>${contactOptions(contacts,String(v.contact||''),v.client)}</select>`,{required:cfg.contact.required&&contacts.length>0}):'')
+        +field('负责人',`<input name="owner" value="${E(v.owner||'')}" list="opp-owner-list" autocomplete="off" aria-required="true" required${can('opp.transfer')?'':' readonly'}><datalist id="opp-owner-list">${(context.owners||[]).map(name=>`<option value="${E(name)}"></option>`).join('')}</datalist>`,{required:true})
         +(cfg.collaborators.show&&vis('collaborators')?field('协同跟进人',`<input name="collaborators" value="${E(list(v.collaborators))}" placeholder="多人用逗号分隔"${dis('collaborators')}>`,{required:cfg.collaborators.required}):'')
         +`</div><div class="form-section">金额与进度</div><div class="opp-grid">`
-        +`<div class="opp-field"><span class="opp-field-label" id="opp-amount-label">销售金额${req}</span><span class="opp-group"><input name="currency" id="opp-form-currency" class="opp-group-currency" value="${E(v.currency||'USD')}" list="opp-currency-list" maxlength="3" autocomplete="off" aria-label="币种" required><datalist id="opp-currency-list">${CURRENCIES.map(code=>`<option value="${code}"></option>`).join('')}</datalist><input name="amount" value="${E(v.amount??'')}" inputmode="decimal" autocomplete="off" aria-labelledby="opp-amount-label" placeholder="0.00" required></span></div>`
+        +`<div class="opp-field"><span class="opp-field-label" id="opp-amount-label">销售金额${req}</span><span class="opp-group"><input name="currency" id="opp-form-currency" class="opp-group-currency" value="${E(v.currency||'USD')}" list="opp-currency-list" maxlength="3" autocomplete="off" aria-label="币种" aria-required="true" required><datalist id="opp-currency-list">${CURRENCIES.map(code=>`<option value="${code}"></option>`).join('')}</datalist><input name="amount" value="${E(v.amount??'')}" inputmode="decimal" autocomplete="off" aria-labelledby="opp-amount-label" placeholder="0.00" aria-required="true" required></span></div>`
         +(flows.length>1?flow:'')
         +field('销售阶段',`<select name="stage" id="opp-form-stage">${stageOptions(stages,v.stage)}</select>`,{required:true})
-        +(vis('endDate')?field('结束日期',`<input name="endDate" type="date" value="${E(v.endDate||'')}" required${dis('endDate')}>`,{required:true}):'')
+        +(vis('endDate')?field('结束日期',`<input name="endDate" type="date" value="${E(v.endDate||'')}" aria-required="true" required${dis('endDate')}>`,{required:true}):'')
         +(vis('exchangeRate')?field('汇率',`<input name="exchangeRate" value="${E(usd?100:v.exchangeRate??100)}" data-rate="${E(v.exchangeRate??100)}" inputmode="decimal"${usd?' readonly':''}${dis('exchangeRate')} aria-describedby="opp-rate-note">`,{required:cfg.exchangeRate.required,hidden:usd,hint:'<span id="opp-rate-note">每 100 外币折合多少美元，仅作记录</span>'}):'')
-        +field('输单原因',`<select name="lostReason"${isLost?' required':' disabled'}><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,v.lostReason)).join('')}${v.lostReason&&!reasons.includes(v.lostReason)?`<option value="${E(v.lostReason)}" selected>${E(v.lostReason)}</option>`:''}</select>`,{required:true,hidden:!isLost})
+        +field('输单原因',`<select name="lostReason"${isLost?' aria-required="true" required':' disabled'}><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,v.lostReason)).join('')}${v.lostReason&&!reasons.includes(v.lostReason)?`<option value="${E(v.lostReason)}" selected>${E(v.lostReason)}</option>`:''}</select>`,{required:true,hidden:!isLost})
         +field('输单说明',`<input name="lostNote" value="${E(v.lostNote||'')}"${isLost?'':' disabled'}>`,{hidden:!isLost})
         +(flows.length>1?'':flow)
         +`</div>`+section('来源与分类',classify)+section('补充信息',extra)+section('自定义字段',(setup.customFields||[]).map(customControl).join(''))
@@ -243,7 +243,7 @@
         +group('其他',`${can('opp.archive')?`<button type="button" data-opp-action="archive" data-id="${E(card.id)}" data-archived="${card.archived?'0':'1'}">${card.archived?'取消归档':'归档'}</button>`:''}${can('opp.delete')?`<button type="button" class="${armed?'team-danger':''}" data-opp-action="delete" data-id="${E(card.id)}">${armed?'再点一次确认删除（不可恢复）':'删除商机'}</button>`:''}`)
         +`<div class="error" id="opp-menu-error" role="alert"></div></div>`;
     }
-    const lostMarkup=(card,reasons=model.LOST_REASONS)=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" required><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
+    const lostMarkup=(card,reasons=model.LOST_REASONS)=>`<form class="drawer-body opp-form" id="opp-lost-form" data-id="${E(card.id)}"><div class="error" id="opp-lost-error" role="alert"></div><p class="opp-lead">把「${E(card.name)}」移到输单，需要记录原因，方便之后分析。</p><div class="opp-grid"><label class="opp-field"><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">*</i></span><select name="lostReason" aria-required="true" required><option value="">请选择</option>${reasons.map(reason=>option(reason,reason,'')).join('')}</select></label><label class="opp-field"><span class="opp-field-label">输单说明</span><input name="lostNote" placeholder="可选"></label></div></form>`;
 
     function analysisMarkup(report,view={}){
       const s=report.summary,c=report.currency;
@@ -275,7 +275,7 @@
             +`<button type="button" class="text-button${armed?' team-danger':''}" data-flow-action="stage-remove" data-flow="${E(flow.id)}" data-stage="${E(stage.id)}"${stages.length<2?` disabled title="至少保留一个${kinds[kind]}阶段"`:''} aria-label="${armed?'再点一次确认删除':'删除阶段'}：${E(stage.label)}">${armed?'再点一次确认删除':'删除'}</button>`;
           return `<li class="opp-stage-row"><span class="opp-stage-dot opp-kind-${kind}" aria-hidden="true"></span><input data-stage-rename="${E(stage.id)}" data-flow="${E(flow.id)}" value="${E(stage.label)}" maxlength="20" aria-label="阶段名称：${E(stage.label)}"><span class="opp-stage-usage">${stage.count} 个商机</span><span class="opp-stage-tools">${tools}</span></li>`;
         }).join('');
-        const add=kind==='lost'?'':`<form class="opp-stage-add" id="opp-stage-add-${kind}" data-flow="${E(flow.id)}" data-kind="${kind}"><input name="label" maxlength="20" placeholder="新的${kinds[kind]}阶段名称" aria-label="新的${kinds[kind]}阶段名称" required><button type="submit">添加阶段</button></form>`;
+        const add=kind==='lost'?'':`<form class="opp-stage-add" id="opp-stage-add-${kind}" data-flow="${E(flow.id)}" data-kind="${kind}"><input name="label" maxlength="20" placeholder="新的${kinds[kind]}阶段名称" aria-label="新的${kinds[kind]}阶段名称" aria-required="true" required><button type="submit">添加阶段</button></form>`;
         return `<div class="opp-stage-group"><div class="opp-stage-group-head"><h4>${kinds[kind]}阶段</h4><span class="muted tiny">${KIND_NOTES[kind]}</span></div><ul class="opp-stage-list">${rows}</ul>${add}</div>`;
       };
       const armedFlow=view.armed==='flow:'+flow.id;
@@ -283,7 +283,7 @@
         :`<button type="button" class="${armedFlow?'team-danger':''}" data-flow-action="flow-remove" data-flow="${E(flow.id)}"${flow.count?` disabled title="还有 ${flow.count} 个商机在用这个流程"`:''}>${armedFlow?'再点一次确认删除':'删除这个流程'}</button>${flow.count?`<span class="muted tiny">还有 ${flow.count} 个商机在用，不能删除</span>`:''}`;
       return `<div class="opp-flow-layout">`
         +`<aside class="business-section opp-flow-side"><h3>销售流程</h3><div class="opp-flow-items">${list}</div>`
-        +`<form class="opp-flow-add" id="opp-flow-add"><h4>新建流程</h4><input name="label" maxlength="20" placeholder="流程名称，例如：样品单流程" aria-label="新流程名称" required><label class="opp-flow-copy"><span>阶段复制自</span><select name="copyFrom" aria-label="阶段复制自">${summary.map(item=>option(item.id,item.label,flow.id)).join('')}</select></label><button type="submit" class="primary">新建流程</button></form></aside>`
+        +`<form class="opp-flow-add" id="opp-flow-add"><h4>新建流程</h4><input name="label" maxlength="20" placeholder="流程名称，例如：样品单流程" aria-label="新流程名称" aria-required="true" required><label class="opp-flow-copy"><span>阶段复制自</span><select name="copyFrom" aria-label="阶段复制自">${summary.map(item=>option(item.id,item.label,flow.id)).join('')}</select></label><button type="submit" class="primary">新建流程</button></form></aside>`
         +`<section class="business-section opp-flow-detail"><div class="error" id="opp-flow-error" role="alert"></div>`
         +`<div class="opp-flow-head"><label class="opp-flow-name"><span>流程名称</span><input data-flow-rename="${E(flow.id)}" value="${E(flow.label)}" maxlength="20" aria-label="流程名称"></label><div class="opp-flow-remove">${remove}</div></div>`
         +`<p class="muted tiny opp-flow-note">阶段从左到右就是看板上的列。名称改完按回车或点别处即保存；阶段的类型（进行中／赢单）建好后不能改，需要时新建一个再把商机移过去。</p>`
@@ -309,7 +309,7 @@
           +`<button type="button" data-set-action="down" data-list="${kind}" data-key="${E(item.name)}" aria-label="下移：${E(item.name)}"${index===items.length-1?' disabled':''}>↓</button>`
           +`<button type="button" class="${armed?'team-danger':''}" data-set-action="remove" data-list="${kind}" data-key="${E(item.name)}" aria-label="${armed?'再点一次确认删除':'删除'}：${E(item.name)}">${armed?'再点一次确认删除':'删除'}</button></span></div></li>`;
       }).join('');
-      return `<form class="cs-add" id="opp-${kind}-add" data-list="${kind}"><input name="text" maxlength="${model.SET_LIMITS.choiceLen}" placeholder="${placeholder}" aria-label="${placeholder}" autocomplete="off" required><button type="submit" class="primary">添加</button></form>`
+      return `<form class="cs-add" id="opp-${kind}-add" data-list="${kind}"><input name="text" maxlength="${model.SET_LIMITS.choiceLen}" placeholder="${placeholder}" aria-label="${placeholder}" autocomplete="off" aria-required="true" required><button type="submit" class="primary">添加</button></form>`
         +(items.length?`<ul class="cs-list">${rows}</ul>`:`<p class="cs-empty">还没有${label}。</p>`)
         +`<p class="cs-hint">最多 ${limit} 个，每个不超过 ${model.SET_LIMITS.choiceLen} 个字，不能重名。名称改完按回车或点别处即保存。</p>`;
     }
@@ -345,7 +345,7 @@
         +`<section class="cs-section"><h3>商机类型</h3><p class="cs-hint">表单里的「商机类型」从这里选。</p>${choiceBlock('types',data.types,view,{label:'商机类型',limit:model.SET_LIMITS.types,placeholder:'新的商机类型'})}</section>`
         +`<section class="cs-section"><h3>自定义字段</h3><p class="cs-hint">在表单的「自定义字段」里出现，也显示在商机详情里。最多 ${model.SET_LIMITS.customFields} 个。</p>`
         +(full?`<p class="cs-full">已经有 ${model.SET_LIMITS.customFields} 个自定义字段，删掉一些再添加。</p>`
-          :`<form class="opp-cf-add" id="opp-cf-add"><input name="name" maxlength="${model.SET_LIMITS.choiceLen}" placeholder="字段名称，例如：付款方式" aria-label="新字段名称" autocomplete="off" required><select name="type" aria-label="字段类型">${model.CUSTOM_TYPES.map(([id,text])=>option(id,text,'text')).join('')}</select><label class="check-row"><input type="checkbox" name="required"> 必填</label><textarea name="options" rows="2" maxlength="2000" placeholder="单选、多选的选项，每行一个（最多 ${model.SET_LIMITS.options} 个）" aria-label="新字段的选项"></textarea><button type="submit" class="primary">添加字段</button></form>`)
+          :`<form class="opp-cf-add" id="opp-cf-add"><input name="name" maxlength="${model.SET_LIMITS.choiceLen}" placeholder="字段名称，例如：付款方式" aria-label="新字段名称" autocomplete="off" aria-required="true" required><select name="type" aria-label="字段类型">${model.CUSTOM_TYPES.map(([id,text])=>option(id,text,'text')).join('')}</select><label class="check-row"><input type="checkbox" name="required"> 必填</label><textarea name="options" rows="2" maxlength="2000" placeholder="单选、多选的选项，每行一个（最多 ${model.SET_LIMITS.options} 个）" aria-label="新字段的选项"></textarea><button type="submit" class="primary">添加字段</button></form>`)
         +(data.customFields.length?`<ul class="cs-list">${cfRows}</ul>`:'<p class="cs-empty">还没有自定义字段。</p>')
         +`<p class="cs-hint">类型建好后不能改，需要时新建一个。删除只是从表单里拿掉，已填的内容不会丢。</p></section>`;
     }
@@ -360,7 +360,7 @@
     // 删除一个还有商机的阶段：先选把商机移到哪里。
     function stageRemoveMarkup(flow,stage){
       const targets=flow.stages.filter(item=>item.id!==stage.id&&item.kind!=='lost');
-      return `<form class="drawer-body opp-form" id="opp-stage-remove-form" data-flow="${E(flow.id)}" data-stage="${E(stage.id)}"><div class="error" id="opp-stage-remove-error" role="alert"></div><p class="opp-lead">「${E(stage.label)}」里还有 ${stage.count} 个商机。删除这个阶段前，先选好把它们移到哪个阶段。</p><div class="opp-grid"><label class="opp-field is-wide"><span class="opp-field-label">移到<i class="opp-req" aria-hidden="true">*</i></span><select name="moveTo" required><option value="">请选择</option>${targets.map(item=>option(item.id,`${item.label}（${(model.KIND_LABELS||{})[item.kind]||item.kind}）`,'')).join('')}</select><span class="opp-field-hint">不能直接移到输单：输单需要逐个填写原因。移到另一类阶段时，赢单时间会按现在重新记录或清除。</span></label></div></form>`;
+      return `<form class="drawer-body opp-form" id="opp-stage-remove-form" data-flow="${E(flow.id)}" data-stage="${E(stage.id)}"><div class="error" id="opp-stage-remove-error" role="alert"></div><p class="opp-lead">「${E(stage.label)}」里还有 ${stage.count} 个商机。删除这个阶段前，先选好把它们移到哪个阶段。</p><div class="opp-grid"><label class="opp-field is-wide"><span class="opp-field-label">移到<i class="opp-req" aria-hidden="true">*</i></span><select name="moveTo" aria-required="true" required><option value="">请选择</option>${targets.map(item=>option(item.id,`${item.label}（${(model.KIND_LABELS||{})[item.kind]||item.kind}）`,'')).join('')}</select><span class="opp-field-hint">不能直接移到输单：输单需要逐个填写原因。移到另一类阶段时，赢单时间会按现在重新记录或清除。</span></label></div></form>`;
     }
     // 菜单贴着被点的那张卡片：优先放在卡片右边，右边放不下放左边，都不够就贴着窗口边；纵向与卡片顶对齐，不够高就上移。
     // anchor：卡片的 getBoundingClientRect；view：{width,height}；size：{width,height}（菜单自身，高度取实际量到的）。

@@ -1,6 +1,6 @@
 /* 全部订单页面（设计画布 Orders.dc.html 的实现）。
    纯函数：给定订单数据返回 HTML 字符串，不碰 DOM、不发请求，所以能直接用 node 测试。
-   只在新界面（粉色、橙色主题，data-skin="glass"）下使用；小满主题仍用 business-ui.js 里原来的订单页。
+   所有配色都用这一个订单页（D-029 去掉了小满主题的旧订单表）。
    所有按钮和输入框沿用原来的 data-biz-* 属性和 id，点击、筛选、归档、恢复的处理代码不用改。 */
 (function (root, factory) {
   const api = factory();

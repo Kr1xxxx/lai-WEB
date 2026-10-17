@@ -1,5 +1,6 @@
-/* 新界面皮肤（设计画布的“悬浮玻璃面板”风格）：只在粉色、橙色主题下生效，默认的小满主题保持原样。
-   applyTheme() 会给 <html> 设 data-skin="glass"（小满是 classic）。 */
+/* 界面皮肤（设计画布的“悬浮玻璃面板”风格）：所有配色（粉色、橙色、科技蓝）都用它。
+   app.js 一载入就给 <html> 设 data-skin="glass"，以后一直是 glass（D-029 去掉了小满的 classic 皮肤）。
+   这里的规则以后再并进基础样式（基础样式里被这里盖住的旧规则到时一起删）。 */
 :root[data-skin="glass"] {
   --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-soft: rgba(255, 255, 255, 0.42);
@@ -289,7 +290,6 @@
 :root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: 364px; }
 
 /* ===== 商机看板（设计画布 Opportunities.dc.html）===== */
-:root[data-skin="glass"] .pagebar .opp-view { display: none; }
 :root[data-skin="glass"] .opp-view-in { display: inline-flex; }
 :root[data-skin="glass"] .opp-analysis-link { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--ink-200); background: #fff; color: rgb(var(--skin-ink-rgb)); font-size: 12px; }
 :root[data-skin="glass"] .opp-analysis-link:hover:not(:disabled) { border-color: var(--brand-700); color: var(--brand-700); background: #fff; }
@@ -445,7 +445,6 @@
 :root[data-skin="glass"] .pagebar .page-actions > button { height: 32px; min-height: 32px; }
 
 /* ===== 菜单图标：线条 + 淡色底（左栏和二级菜单），和新界面的圆角卡片风格一致 ===== */
-:root[data-skin="glass"] .icon-classic { display: none; }
 :root[data-skin="glass"] .icon-duo { display: block; stroke-width: 1.7; }
 :root[data-skin="glass"] .icon-duo .tint { fill: currentColor; fill-opacity: .16; stroke: none; }
 :root[data-skin="glass"] .rail-item .icon-duo { width: 22px; height: 22px; }

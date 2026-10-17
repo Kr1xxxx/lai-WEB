@@ -46,7 +46,8 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   assert.doesNotMatch(html, /截止/, 'no open card in this sample is still within its date');
   assert.match(html, /<i class="opp-avatar" aria-hidden="true">A<\/i><span class="opp-owner-name">Amy<\/span>/);
   assert.match(html, /输单原因：价格原因/);
-  assert.match(ui.headerActions(board, {}, {}), /data-opp-view="board" aria-pressed="true"/);
+  assert.match(ui.boardMarkup(board, {}, {today: TODAY}), /data-opp-view="board" aria-pressed="true"/);
+  assert.doesNotMatch(ui.headerActions(board, {}, {}), /data-opp-view/, 'the view switch lives in the filter card only (D-029: no classic header copy)');
   const soon = ui.boardMarkup(O.board(add(base, 's1', {endDate: '2026-10-20'}), {}, TODAY), {}, {today: TODAY});
   assert.match(soon, /<span class="opp-due">10-20 截止<\/span>/, 'an open opportunity still within its date');
 });
@@ -67,7 +68,7 @@ test('list view shows the same opportunities as a table; long columns are paged'
   assert.doesNotMatch(html, /opp-board/);
   assert.equal((html.match(/data-opp-action="menu"/g) || []).length, 4);
   assert.match(html, /<td><span class="opp-chip opp-stage-chip opp-kind-won">已完成<\/span><\/td>/); assert.match(html, /<span class="opp-due is-overdue">逾期 2026-04-02<\/span>/);
-  assert.match(ui.headerActions(board, {}, {mode: 'list'}), /data-opp-view="list" aria-pressed="true"/);
+  assert.match(html, /data-opp-view="list" aria-pressed="true"/);
   let many = base;
   for (let i = 0; i < 65; i++) many = add(many, 'm' + i, {nameMode: 'custom', name: 'N' + String(i).padStart(2, '0')});
   const big = O.board(many, {}, TODAY);
@@ -93,9 +94,9 @@ test('form: reference fields, required marks, and the parts that depend on what 
   assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
   const chosen = ui.formMarkup({...O.defaults(base, TODAY), client: 'Alpha <b>Co</b>', contact: 'Bo', nameMode: 'custom', name: '大单', currency: 'EUR', exchangeRate: 108, stage: 'lost', lostReason: '交期原因',
     collaborators: ['Bob', 'Cara'], tags: ['VIP'], products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B', quantity: 1, unitPrice: 4}]}, {contacts: ['Ann', 'Bo'], isNew: false});
-  assert.match(chosen, /name="contact" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
+  assert.match(chosen, /name="contact" aria-required="true" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
   assert.match(chosen, /value="custom" checked/); assert.match(chosen, /name="name" value="大单"[^>]* required>/);
-  assert.match(chosen, /<select name="lostReason" required>/);
+  assert.match(chosen, /<select name="lostReason" aria-required="true" required>/);
   assert.match(chosen, /<label class="opp-field"><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
   assert.match(chosen, /<option value="交期原因" selected>/); assert.match(chosen, /name="lostNote"/);
   assert.match(chosen, /name="collaborators" value="Bob，Cara"/);
