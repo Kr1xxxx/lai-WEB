@@ -1,0 +1,20 @@
+/* 导出窗口（客户、订单、商机、线索共用）。 */
+.drawer.export-dialog { width: min(640px, 100vw); }
+.export-body { display: flex; flex-direction: column; gap: 16px; }
+.export-group { margin: 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.export-group legend { float: left; width: 36px; margin: 0 4px 0 0; padding: 0; font-size: 13px; color: var(--color-neutral-700, #595959); }
+.export-choice { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.export-choice input { margin: 0; accent-color: var(--color-primary-500); }
+.export-note { flex-basis: 100%; padding-left: 40px; font-size: 12px; color: var(--ink-500, #8c8c8c); }
+.export-hint { margin: 0; font-size: 12px; color: var(--ink-500, #8c8c8c); }
+.export-preview-wrap h3 { margin: 0 0 8px; font-size: 13px; font-weight: 500; }
+.export-preview { max-width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+.export-table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.export-table th, .export-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.export-table th { background: var(--color-neutral-50, #fafafa); font-weight: 500; }
+.export-table tbody tr:last-child td { border-bottom: 0; }
+.export-empty { color: var(--ink-500, #8c8c8c); text-align: center !important; }
+.export-copytip { margin: 0 0 6px; font-size: 13px; }
+.export-copybox textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; }
+.export-trial-note { margin-right: auto; font-size: 12px; color: var(--ink-500, #8c8c8c); }
+.export-body .error:empty { display: none; }

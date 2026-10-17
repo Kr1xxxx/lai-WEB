@@ -1,5 +1,11 @@
 (function (root) {
   "use strict";
+  // 页面登记处：后面的模块（导出、汇率、线索设置、任务设置、功能开关……）把自己的页面登记在这里，
+  // 不用改这个文件。root.LaiExtraPages[路由] = { title, render(c), afterRender(c), click(c, e), input(c, e), change(c, e), submit(c, e) }。
+  // c 是页面用的 ctx：原来的 ctx（getState、save、toast、dialog、escape……）再加 state()、can(key)、need(key)、sees(owner)、
+  // scoped()、route()、refresh()。render 返回页面的 HTML（由这里放进主区域）；页面自己已经放好时返回别的值。
+  // click / input / change / submit 返回 true 表示已处理。路由对应的权限仍在 role-model.js 的 PAGE_PERMS 里。
+  root.LaiExtraPages = root.LaiExtraPages || {};
   function create(ctx) {
     const B = root.LaiBusinessModel,
       E = ctx.escape;
@@ -25,6 +31,14 @@
     const can = (key) => !RM() || RM().can(state(), key);
     const need = (key) => can(key) || (ctx.toast(RM().denied(key)), false);
     const sees = (owner) => !RM() || RM().canSee(state(), owner);
+    // 登记的页面：只在当前真的停在业务页面时才算（客户页、邮件页上不转发事件）。
+    const extra = (name = route) => {
+      const pages = root.LaiExtraPages;
+      if (!pages || !Object.hasOwn(pages, name) || Object.hasOwn(builtinViews(), name) || (ctx.isActive && !ctx.isActive())) return null;
+      const page = pages[name];
+      return page && typeof page === "object" ? page : null;
+    };
+    const extraCtx = () => ({ ...ctx, state, can, need, sees, scoped, route: () => route, refresh: () => render() });
     const notYours = (item) => !!item && !sees(item.owner) && (ctx.toast("这条记录不归你负责"), true);
     let scopeMemo = null,
       dashMemo = null;
@@ -46,7 +60,8 @@
       if (dashMemo && dashMemo.base === s) return dashMemo.value;
       const R = RM(),
         customers = Object.fromEntries(Object.entries(s.customers || {}).filter(([, c]) => c && R.canSee(s, c.owner)));
-      dashMemo = { base: s, value: { ...s, customers } };
+      // 待办属于负责人（D-022）：只留负责人看得到的；老任务没有负责人时按所关联客户的跟进人（要用完整的客户资料算）。
+      dashMemo = { base: s, value: { ...s, customers, laiTasks: B.visibleTasks(s, (owner) => R.canSee(s, owner)) } };
       return dashMemo.value;
     }
     // 下拉名单用的数据：角色只看本人或本部门时，客户只留看得到的，订单、线索、商机也只留自己的；只用来出名单，保存时永远用完整的 state()。
@@ -99,6 +114,9 @@
       `<button type="button" ${primary ? 'class="primary"' : ""} data-biz-action="${action}" ${extra}>${text}</button>`;
     const header = (title, description, actions = "") =>
       `<div class="pagebar"><div class="business-title"><h1>${title}</h1><span>${description}</span></div><div class="page-actions">${actions}</div></div>`;
+    // 列表页头的「导出」按钮：只有有对应导出权限的账号才看得到。
+    const exportButton = (kind) =>
+      root.LaiExportUI && can(`${kind}.export`) ? `<button type="button" data-export-kind="${kind}">导出</button>` : "";
     const openButton = (o) =>
       `<button class="company-link" data-biz-order="${E(o.id)}">${E(o.num || "未编号")}</button>`;
     const allOrders = () => state().orders || [];
@@ -149,6 +167,7 @@
         {
           state: dashState(),
           can,
+          showOwner: !!RM() && RM().scopeOf(state()) !== "self",
           today: B.localDate(),
           B,
           OM: root.LaiOpportunityModel,
@@ -191,7 +210,7 @@
       if (glassSkin()) return workbenchMarkup();
       const orders = can("order.view") ? activeOrders() : [],
         m = B.orderMetrics(orders),
-        tasks = (state().laiTasks || []).filter((t) => !t.done),
+        tasks = (dashState().laiTasks || []).filter((t) => !t.done),
         today = B.localDate(),
         followups = Object.entries(dashState().customers || {}).filter(
           ([, c]) =>
@@ -245,8 +264,29 @@
         }</section></div>${metricsMarkup(orders)}</div>`
       );
     }
+    // 负责人名：账号只看自己的待办时不用写；看得到别人的待办时标出是谁的。
+    const taskWho = (t) => {
+      if (!RM() || RM().scopeOf(state()) === "self") return "";
+      return B.taskOwner(state(), t) || "未分配";
+    };
     function taskMarkup(t) {
-      return `<div class="business-line task-line"><label><input type="checkbox" data-biz-task="${E(t.id)}" ${t.done ? "checked" : ""}> <span class="${t.done ? "done-text" : ""}">${E(t.title)}</span></label><time>${date(t.date)}</time></div>`;
+      const who = taskWho(t);
+      return `<div class="business-line task-line"><label><input type="checkbox" data-biz-task="${E(t.id)}" ${t.done ? "checked" : ""}> <span class="${t.done ? "done-text" : ""}">${E(t.title)}</span>${who ? ` <small class="muted">${E(who)}</small>` : ""}</label><time>${date(t.date)}</time></div>`;
+    }
+    // 管理员在日历上看到的提示：有老待办没有负责人。点“去分配”打开第一条，在编辑框里选负责人；点“知道了”这台电脑上不再提示。
+    const TASK_HINT_KEY = "lai-task-owner-hint-dismissed";
+    function taskHintDismissed() {
+      try {
+        return localStorage.getItem(TASK_HINT_KEY) === "1";
+      } catch {
+        return false;
+      }
+    }
+    function taskOwnerHint() {
+      if (!RM() || !RM().isAdmin(state()) || taskHintDismissed()) return "";
+      const open = B.unassignedTasks(state());
+      if (!open.length) return "";
+      return `<div class="business-section task-owner-hint" role="status"><span>有 ${open.length} 条待办没有负责人</span> ${button("assign-tasks", "去分配", `data-id="${E(open[0].id)}"`)} ${button("hide-task-hint", "知道了")}</div>`;
     }
     function renderOrders() {
       const filtered = filteredOrders(),
@@ -267,6 +307,7 @@
             pages,
             trash: scoped().trashOrders || [],
             can,
+            exportable: !!root.LaiExportUI,
           },
           E,
         );
@@ -274,7 +315,7 @@
         header(
           "订单管理",
           `${activeOrders().length} 笔订单`,
-          button("order-trash", "订单回收站") +
+          exportButton("order") + button("order-trash", "订单回收站") +
             (can("order.create") ? button("new-order", "＋ 新建订单", "", true) : ""),
         ) +
         `<section class="business-section order-workspace"><div class="business-toolbar"><input class="business-search" id="biz-search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(search)}"><select id="biz-stage" aria-label="订单阶段">${option("", "全部阶段", stage)}${B.stages.map((s) => option(s.id, s.label, stage)).join("")}</select><select id="biz-currency" aria-label="订单币种">${option("", "全部币种", currency)}${[...new Set(activeOrders().map((o) => o.currency || "USD"))].map((c) => option(c, c, currency)).join("")}</select><select id="biz-period" aria-label="时间">${(root.LaiOrdersPage?.PERIODS || [["", "全部时间"]]).map(([v, t]) => option(v, t, period)).join("")}</select>${button("clear-filters", "清除筛选")}</div><div class="business-table-scroll" id="biz-order-scroll"><table class="order-table unified-orders"><thead><tr><th>订单编号</th><th>客户名称</th><th>国家地区</th><th>创建日期</th><th>产品</th><th>订单金额</th><th>已收款</th><th>阶段</th><th>物流单号</th><th>操作</th></tr></thead><tbody>${items.map((o) => `<tr><td>${openButton(o)}${o.isDraft ? '<span class="tag">草稿</span>' : ""}</td><td>${customerButton(o.client)}</td><td>${E(o.country || "—")}</td><td>${date(o.createdAt)}</td><td>${E(o.productType || "—")}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${money(["shipment", "done"].includes(o.stage) ? o.amount : o.paidAmount, o.currency || "USD")}</td><td><span class="tag stage-${E(o.stage)}">${E(label(o.stage))}</span></td><td>${E(o.trackingNumber || "—")}</td><td><button class="text-button" data-biz-order="${E(o.id)}">${can("order.edit") ? "查看 / 编辑" : "查看"}</button></td></tr>`).join("")}</tbody></table>${items.length ? "" : '<div class="empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>'}</div><footer class="pagination"><span>共 ${filtered.length} 笔订单</span><div class="pages">${button("prev", "‹", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${button("next", "›", page === pages ? "disabled" : "")}</div></footer></section>`
@@ -318,8 +359,23 @@
         }</tbody></table></section></div></div>`
       );
     }
+    // 团队数据按账号的可见范围算：本人只算自己的，本部门算本部门成员的，全公司不变。看不到的数据连明细里都不会有。
+    const teamNote = () => {
+      const scope = RM() ? RM().scopeOf(state()) : "all";
+      return scope === "all" ? "" : scope === "dept" ? "只显示本部门的数据" : "只显示你自己的数据";
+    };
+    let teamMemo = null;
+    function teamState() {
+      const s = state();
+      if (!teamNote()) return s;
+      const me = RM().meName(s);
+      if (teamMemo && teamMemo.state === s && teamMemo.me === me) return teamMemo.value;
+      teamMemo = { state: s, me, value: root.LaiTeamModel.scopeState(s, sees) };
+      return teamMemo.value;
+    }
     function renderTeam(kind) {
-      teamReport = root.LaiTeamModel.report(kind, state(), month);
+      teamReport = root.LaiTeamModel.report(kind, teamState(), month);
+      if (teamNote()) teamReport.scopeNote = teamNote();
       return (
         header(
           teamReport.title,
@@ -338,17 +394,17 @@
       `<span class="team-segment team-period" role="group" aria-label="统计周期"><button type="button" data-team-period="month" aria-pressed="${teamView.period !== "quarter"}">按月</button><button type="button" data-team-period="quarter" aria-pressed="${teamView.period === "quarter"}">按季度</button></span>`;
     const targetsButton = () => (can("team.targets") ? '<button type="button" data-lai-route="team-targets">目标设置</button>' : "");
     function renderGoals() {
-      teamOverview = root.LaiTeamModel.overview(state(), periodKey());
+      teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
       return (
         header(
           "目标完成情况",
           `${E(teamOverview.periodLabel)} · 按跟进人名称汇总`,
-          `${periodSwitch()}${monthInput()}<span class="team-scope">我的企业</span>${targetsButton()}`,
+          `${periodSwitch()}${monthInput()}<span class="team-scope">${teamNote() ? "我的数据" : "我的企业"}</span>${targetsButton()}`,
         ) + TU().goalsMarkup(teamOverview, teamView)
       );
     }
     function renderWall() {
-      teamOverview = root.LaiTeamModel.overview(state(), periodKey());
+      teamOverview = { ...root.LaiTeamModel.overview(teamState(), periodKey()), scopeNote: teamNote() };
       return (
         header(
           "团队墙",
@@ -396,7 +452,7 @@
           "目标管理",
           "按周期、对象、指标保存的目标值",
           `${monthInput()}${can("team.targets") ? '<button type="button" class="primary" data-team-target="new">新建目标</button>' : ""}`,
-        ) + TU().targetsMarkup(T.listTargets(state()), T.periodLabel, armedTarget)
+        ) + TU().targetsMarkup(T.listTargets(teamState()), T.periodLabel, armedTarget)
       );
     }
     // 设置目标表单：币种只在金额类指标时出现，成员只在对象选「成员」时出现；收起来的栏位不参与提交。
@@ -419,7 +475,7 @@
       if (!need(targetFormKey)) return;
       const T = root.LaiTeamModel;
       // 每次打开都按当前数据重新计算，成员名单和默认币种不会停留在上一次看页面时的样子。
-      const overview = T.overview(state(), periodKey());
+      const overview = { ...T.overview(teamState(), periodKey()), scopeNote: teamNote() };
       const quarter = T.quarterOf(month);
       // 修改已有的企业目标时带出原来的数值；金额有多个币种时带出第一个。
       const existing = Object.hasOwn(overview.goals, metric) ? overview.goals[metric][0] : null;
@@ -513,7 +569,7 @@
       const today = B.localDate();
       const board = OM().board(scoped(), { ...oppView.filters, hidden: oppHidden() }, today);
       const context = { owners: OM().ownerNames(scoped()).filter(sees), today };
-      return header("商机", "按销售阶段跟进每一笔机会", OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
+      return header("商机", "按销售阶段跟进每一笔机会", exportButton("opp") + OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
     }
     function renderOppAnalysis() {
       const T = root.LaiTeamModel;
@@ -677,6 +733,9 @@
       }
       // 表单里显示的是商机实际归属的流程（原来的流程读不到时按默认流程）。
       const values = { ...next.values, flow: OM().flowOf(state(), next.values.flow).id };
+      // 汇率设置里有这个币种的汇率时，汇率框先填上它（外币正好是 100 当作没填；用户自己存的其他值不动）。
+      const prefilled = OM().prefillRate(state(), values.currency, values.exchangeRate);
+      if (prefilled !== null) values.exchangeRate = prefilled;
       try {
         ctx.dialog(
           next.isNew ? "新建商机" : "编辑商机",
@@ -697,7 +756,7 @@
         return ctx.toast(`无法打开商机表单：${error.message}`);
       }
       // 只有表单真的打开了才算进入编辑；记下原来的客户和联系人，换回原客户时能恢复原联系人。
-      oppDraft = { id: next.id, isNew: next.isNew, client: String(values.client || "").trim(), contact: String(values.contact || ""), flow: OM().flowOf(state(), values.flow).id, stage: String(values.stage || "") };
+      oppDraft = { id: next.id, isNew: next.isNew, client: String(values.client || "").trim(), contact: String(values.contact || ""), flow: OM().flowOf(state(), values.flow).id, stage: String(values.stage || ""), prefilled };
     }
     // 客户、阶段、命名方式、币种变化时，只就地更新表单里受影响的那几处，不重画，不打断正在输入的内容。
     function syncOppForm(name) {
@@ -747,6 +806,14 @@
           rate.dataset.rate = rate.value;
           rate.value = "100";
         } else if (!usd && rate.readOnly) rate.value = rate.dataset.rate || "100";
+        // 换币种时，汇率框是 100、空着或还是上次自动填的值，就换成汇率设置里这个币种的汇率；用户自己改过的不动。
+        if (!usd) {
+          const next = OM().prefillRate(state(), el.currency.value, rate.value, oppDraft.prefilled);
+          if (next !== null) {
+            rate.value = String(next);
+            oppDraft.prefilled = next === 100 ? null : next;
+          }
+        }
         rate.readOnly = usd;
         const label = rate.closest("label");
         if (label) label.hidden = usd;
@@ -793,6 +860,19 @@
       ctx.closeDialog();
       orderEditor(undefined, { ...OM().orderDraft(item, B.localDate()), num: suggestedOrderNumber() }, back, id);
     }
+    // 商机里的电话和 WhatsApp 按钮：账号要能开聊天，客户资料里的「联系电话」没被角色隐藏，而且看得到这位客户
+    // （本人账号看不到别人的客户，公海客户要“公海查看”，回收站里的不给），不然既不显示号码也不能打开。
+    function customerSeen(name) {
+      const profile = state().customers && Object.hasOwn(state().customers, name) ? state().customers[name] : null;
+      if (!profile || typeof profile !== "object") return false;
+      const bucket = root.LaiModules && root.LaiModules.bucket ? root.LaiModules.bucket(profile) : "";
+      if (bucket === "trash") return false;
+      return bucket === "pool" ? can("pool.view") : can("customer.view") && sees(profile.owner);
+    }
+    function oppPhone(client, contact) {
+      if (!can("chat.send") || (RM() && !RM().fieldVisible(state(), "customer", "contact.phone")) || !customerSeen(client)) return null;
+      return OM().contactPhone(state(), client, contact);
+    }
     function oppAction(d) {
       const action = d.oppAction;
       if (action !== "delete") oppArmed = "";
@@ -800,6 +880,12 @@
       if (action === "detail") return showOppDetail(d.id);
       if (action === "undo") return undoMove();
       if (action === "edit") return openOppForm(d.id);
+      if (action === "wa") {
+        const detail = OM().detailOf(state(), d.id, B.localDate()),
+          hit = detail && oppPhone(detail.client, detail.contact);
+        if (!hit) return ctx.toast("这个联系人没有可用的电话");
+        return ctx.openWhatsApp({ customer: detail.client, contact: hit.contact, phone: hit.phone, code: hit.code, country: hit.country });
+      }
       if (action === "menu") return showOppMenu(d.id);
       if (action === "more") {
         oppView.limits[d.stage] = Math.max(root.LaiOpportunityUI.PAGE, Number(oppView.limits[d.stage]) || 0) + root.LaiOpportunityUI.PAGE;
@@ -845,7 +931,10 @@
       const detail = OM().detailOf(state(), id, B.localDate());
       if (!detail) return "";
       const documents = DM() ? DM().docsFor(state(), { kind: "opportunity", id }).map((doc) => ({ id: doc.id, number: doc.number, typeName: doc.snapshot?.typeName || "", date: doc.date, voided: doc.status === "已作废" })) : [];
-      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents }, attachView);
+      // 联系人有能打开的号码、账号又能开聊天时，详情里多一个 WhatsApp 按钮。
+      const hit = oppPhone(detail.client, detail.contact),
+        whatsapp = hit && waE164(hit.phone, hit.code, hit.country) ? { phone: hit.phone, contact: hit.contact } : null;
+      return OU().detailMarkup(detail, { today: B.localDate(), multiFlow: OM().flowsOf(state()).length > 1, documents, whatsapp }, attachView);
     }
     function showOppDetail(id) {
       if (oppBlocked(id)) return;
@@ -1087,7 +1176,7 @@
     function renderLeads() {
       const today = B.localDate();
       const page = LD().page(scoped(), leadView.filters, today, leadHidden());
-      return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
+      return header("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", exportButton("lead") + LU().headerActions(page)) + LU().pageMarkup(page, leadView, today);
     }
     function renderLeadTrash() {
       const today = B.localDate();
@@ -1096,8 +1185,8 @@
     // 线索不归当前账号负责（角色只看本人或本部门时）：提示一句，什么也不做。
     const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
     // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
-    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge" };
-    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()) });
+    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge", wa: "chat.send" };
+    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()), rules: LD().fieldRules(state()) });
     function openLeadForm(id) {
       if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
       let next;
@@ -1127,6 +1216,26 @@
       ctx.dialog(E(row.name), LU().detailMarkup(row, B.localDate()), '<button type="button" data-action="close-modal">关闭</button>', "business-lead-detail");
       if (focusFollow) document.querySelector?.('#lead-follow-form textarea[name="text"]')?.focus?.({ preventScroll: true });
     }
+    // ---- WhatsApp（线索、商机详情里的按钮）----
+    // 对话框是 whatsapp-ui.js 的那一个（有模板、复制、问一句发出去了吗），这里只告诉它号码和“记一笔”记到哪里：
+    // 线索没有客户资料，记进线索自己的跟进；商机记进客户动态（对话框默认就是这样）。
+    function waE164(phone, code, country) {
+      try {
+        return root.LaiWhatsAppModel?.toE164(phone, { code: code || "", country: country || "" }) || "";
+      } catch {
+        return "";
+      }
+    }
+    // 线索还在跟进中、账号能改线索时才记；已转客户或无效的线索不问“发出去了吗”。
+    const leadWaLog = (row) =>
+      can("lead.edit") && ["new", "following"].includes(row.status)
+        ? async (message) => {
+            await ctx.save(LD().addFollowup(state(), row.id, { text: `WhatsApp 聊天：${message}` }));
+            render();
+            showLead(row.id);
+            return "已记到线索跟进";
+          }
+        : undefined;
     function openLeadConvert(id) {
       if (!need("lead.convert") || leadBlocked(id)) return;
       const row = LD().detail(state(), id, B.localDate());
@@ -1168,6 +1277,11 @@
       if (action === "open") return showLead(d.id);
       if (action === "follow") return showLead(d.id, true);
       if (action === "convert") return openLeadConvert(d.id);
+      if (action === "wa") {
+        const row = LD().detail(state(), d.id, B.localDate());
+        if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
+        return ctx.openWhatsApp({ lead: { id: row.id, name: row.name, country: row.country }, contact: row.contact, phone: row.phone, onLog: leadWaLog(row) });
+      }
       if (action === "trash-page") return ctx.navigate("lead-trash");
       if (action === "list-page") return ctx.navigate("leads");
       if (action === "more") {
@@ -1635,7 +1749,7 @@
             button("month-next", "›") +
             button("new-task", "＋ 添加任务", "", true),
         ) +
-        `<div class="business-scroll calendar-layout"><section class="business-section"><div class="calendar-week">${["一", "二", "三", "四", "五", "六", "日"].map((d) => `<span>周${d}</span>`).join("")}</div><div class="calendar-grid">${Array.from({ length: offset }, () => '<div class="calendar-blank"></div>').join("")}${Array.from(
+        `${taskOwnerHint()}<div class="business-scroll calendar-layout"><section class="business-section"><div class="calendar-week">${["一", "二", "三", "四", "五", "六", "日"].map((d) => `<span>周${d}</span>`).join("")}</div><div class="calendar-grid">${Array.from({ length: offset }, () => '<div class="calendar-blank"></div>').join("")}${Array.from(
           { length: days },
           (_, i) => {
             const day = month + "-" + String(i + 1).padStart(2, "0"),
@@ -1652,7 +1766,7 @@
           },
         ).join(
           "",
-        )}</div></section><aside class="business-section calendar-agenda"><div class="section-head"><h3>${selectedDate || month} 日程</h3>${selectedDate ? button("all-days", "全部") : ""}</div>${shown.map((e) => `<button class="agenda-item" ${e.kind === "order" ? `data-biz-order="${E(e.id)}"` : e.kind === "followup" ? `data-biz-customer="${E(e.customer)}"` : `data-biz-edit-task="${E(e.id)}"`}><time>${e.date}</time><strong>${E(e.title)}</strong><span>${{ order: "订单", followup: "客户跟进", task: "待办任务" }[e.kind]}</span></button>`).join("") || '<div class="small-empty">暂无日程</div>'}</aside></div>`
+        )}</div></section><aside class="business-section calendar-agenda"><div class="section-head"><h3>${selectedDate || month} 日程</h3>${selectedDate ? button("all-days", "全部") : ""}</div>${shown.map((e) => `<button class="agenda-item" ${e.kind === "order" ? `data-biz-order="${E(e.id)}"` : e.kind === "followup" ? `data-biz-customer="${E(e.customer)}"` : `data-biz-edit-task="${E(e.id)}"`}><time>${e.date}</time><strong>${E(e.title)}</strong><span>${{ order: "订单", followup: "客户跟进", task: "待办任务" }[e.kind]}${e.kind === "task" && taskWho(e) ? ` · ${E(taskWho(e))}` : ""}</span></button>`).join("") || '<div class="small-empty">暂无日程</div>'}</aside></div>`
       );
     }
     function renderSettingsHub() {
@@ -1667,13 +1781,20 @@
     // 默认币种的选项：当前已存的币种一定在里面，保存设置时不会被悄悄换掉。
     const CURRENCIES = ["USD", "EUR", "GBP", "CNY", "CAD", "AUD", "JPY", "HKD", "SGD", "RUB", "AED", "INR", "BRL", "MXN"];
     const currencyChoices = (current) => [...new Set([current, ...CURRENCIES].filter(Boolean))];
+    // 公司资料：和“单据模板 → 公司信息”是同一份（docTemplates.company / bank），在哪里改都一样。
+    function companySection() {
+      if (!DM()) return "";
+      const co = DM().settings(state()),
+        field = (kind, [key, label], values) => `<label class="field">${E(label)}<input name="${kind}:${key}" value="${E(values[key])}" maxlength="${DM().LIMITS.line}" autocomplete="off"></label>`;
+      return `<div class="section-head" data-company-section><h3>公司资料</h3><span class="muted tiny">报价单、形式发票等单据都用这里的资料；在“单据模板 → 公司信息”里看到的是同一份</span></div><div class="form-grid">${DM().COMPANY_FIELDS.map((f) => field("company", f, co.company)).join("")}${DM().BANK_FIELDS.map((f) => field("bank", f, co.bank)).join("")}</div>`;
+    }
     function renderSettings() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
         currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : "pink";
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">公司名称<input name="companyName" value="${E(settings.companyName || "来财Lai")}"></label><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">切换账号后会跟着变成当前账号</span></label></div><div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都存在这台电脑上，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">切换账号后会跟着变成当前账号</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，只影响这台电脑</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都存在这台电脑上，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}${button("open-folder", "打开数据目录")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -1918,6 +2039,32 @@
       }
       return false;
     }
+    // 自带的页面。登记处（LaiExtraPages）里的页面不能盖掉它们。
+    const builtinViews = () => ({
+      dashboard: renderDashboard,
+      "order-list": renderOrders,
+      "order-trash": renderOrderTrash,
+      analysis: renderAnalysis,
+      "team-goals": renderGoals,
+      "team-targets": renderTargets,
+      "team-wall": renderWall,
+      "team-assets": () => renderTeam("assets"),
+      "team-followups": () => renderTeam("followups"),
+      "team-tasks": () => renderTeam("tasks"),
+      "team-orders": () => renderTeam("orders"),
+      opportunities: renderOpportunities,
+      "opp-analysis": renderOppAnalysis,
+      "opp-flows": renderOppFlows,
+      leads: renderLeads,
+      "lead-trash": renderLeadTrash,
+      products: renderProducts,
+      "doc-templates": renderDocTemplates,
+      roles: renderRoles,
+      members: renderMembers,
+      calendar: renderCalendar,
+      settings: renderSettings,
+      "settings-hub": renderSettingsHub,
+    });
     function render(preserveOrderScroll = false) {
       const previous = preserveOrderScroll && route === "order-list"
         ? document.getElementById("biz-order-scroll") : null;
@@ -1928,32 +2075,13 @@
         ? { page: document.querySelector?.(".opp-page"), board: document.querySelector?.(".opp-board") } : null;
       const oppPosition = oppScroll?.page ? { top: oppScroll.page.scrollTop, left: oppScroll.board?.scrollLeft || 0 } : null;
       settingsDirty = false;
-      const views = {
-        dashboard: renderDashboard,
-        "order-list": renderOrders,
-        "order-trash": renderOrderTrash,
-        analysis: renderAnalysis,
-        "team-goals": renderGoals,
-        "team-targets": renderTargets,
-        "team-wall": renderWall,
-        "team-assets": () => renderTeam("assets"),
-        "team-followups": () => renderTeam("followups"),
-        "team-tasks": () => renderTeam("tasks"),
-        "team-orders": () => renderTeam("orders"),
-        opportunities: renderOpportunities,
-        "opp-analysis": renderOppAnalysis,
-        "opp-flows": renderOppFlows,
-        leads: renderLeads,
-        "lead-trash": renderLeadTrash,
-        products: renderProducts,
-        "doc-templates": renderDocTemplates,
-        roles: renderRoles,
-        members: renderMembers,
-        calendar: renderCalendar,
-        settings: renderSettings,
-        "settings-hub": renderSettingsHub,
-      };
-      ctx.mount(routeDenied(route) || (views[route] || renderDashboard)());
+      const views = builtinViews();
+      const denied = routeDenied(route);
+      const extraPage = !denied && !views[route] ? extra() : null;
+      let html = denied;
+      if (!html) html = extraPage && typeof extraPage.render === "function" ? extraPage.render(extraCtx()) : (views[route] || renderDashboard)();
+      if (typeof html === "string") ctx.mount(html);
+      if (extraPage && typeof extraPage.afterRender === "function") extraPage.afterRender(extraCtx());
       if (route === "dashboard" && glassSkin()) loadWorkbenchMail();
       if (oppPosition) {
         const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
@@ -2207,10 +2335,29 @@
       }
       if (action === "order-doc-print") return printDocument(orderDocData(d.type));
     }
+    // 可以指定的负责人：有“重新分配”权限的账号，从自己看得到的成员里选；其他账号只看到自己的名字，不能改。
+    const taskCanReassign = () => !RM() || can("customer.reassign");
+    function taskMembers() {
+      if (!RM()) return [];
+      return RM().settings(state()).members.map((m) => m.name).filter((name) => sees(name));
+    }
+    function taskOwnerField(old) {
+      if (!RM()) return "";
+      const current = old ? B.taskOwner(state(), old) : RM().meName(state());
+      if (!taskCanReassign()) return `<label class="field">负责人<input value="${E(current || "未分配")}" disabled></label>`;
+      const names = taskMembers();
+      if (current && !names.some((name) => name.toLowerCase() === current.toLowerCase())) names.unshift(current);
+      const blank = current ? "" : '<option value="">未分配（按客户负责人）</option>';
+      return `<label class="field">负责人<select name="owner">${blank}${names.map((name) => option(name, name, current)).join("")}</select></label>`;
+    }
     function taskEditor(id) {
       const old = (state().laiTasks || []).find((t) => t.id === id);
       if (id !== undefined && !old) {
         ctx.toast("待办不存在，请刷新列表后重试");
+        return;
+      }
+      if (old && RM() && !sees(B.taskOwner(state(), old))) {
+        ctx.toast("这条待办不归你负责");
         return;
       }
       const t = old || {
@@ -2221,7 +2368,7 @@
       draft = { id: id || crypto.randomUUID(), task: true };
       ctx.dialog(
         id ? "编辑待办" : "添加待办",
-        `<form id="biz-task-form" class="drawer-body"><div class="form-grid"><label class="field wide">任务名称<input name="title" value="${E(t.title)}" required maxlength="200"></label><label class="field">日期<input type="date" name="date" value="${E(t.date)}" required></label><label class="business-check"><input type="checkbox" name="done" ${t.done ? "checked" : ""}> 已完成</label></div><div class="error" id="biz-task-error" role="alert"></div></form>`,
+        `<form id="biz-task-form" class="drawer-body"><div class="form-grid"><label class="field wide">任务名称<input name="title" value="${E(t.title)}" required maxlength="200"></label><label class="field">日期<input type="date" name="date" value="${E(t.date)}" required></label>${taskOwnerField(old)}<label class="business-check"><input type="checkbox" name="done" ${t.done ? "checked" : ""}> 已完成</label></div><div class="error" id="biz-task-error" role="alert"></div></form>`,
         `${button("close-editor", "取消")}<button class="primary" type="submit" form="biz-task-form">保存任务</button>`,
         "business-task",
       );
@@ -2298,7 +2445,36 @@
         ctx.toast(message);
       }
     }
+    // 导出：行来自页面上已经按账号范围筛好的列表（scoped()）；商机、线索的列走字段权限（自定义字段的权限键是 custom.<id>）。
+    function openExport(kind) {
+      if (!need(`${kind}.export`)) return;
+      const full = scoped(),
+        today = B.localDate(),
+        byIds = (items, shown) => {
+          const ids = new Set(shown.map((row) => row.id));
+          return items.filter((item) => ids.has(item.id));
+        },
+        fieldGate = (module) => ({ columnVisible: (id) => !RM() || RM().fieldVisible(state(), module, String(id).replace(/^custom:/, "custom.")) });
+      const setup = { order: () => ({ filtered: filteredOrders(), all: activeOrders() }),
+        opp: () => ({
+          filtered: byIds(full.laiOpportunities || [], OM().board(full, { ...oppView.filters, hidden: oppHidden() }, today).cards),
+          all: full.laiOpportunities || [],
+        }),
+        lead: () => ({
+          filtered: byIds(full.laiLeads || [], LD().page(full, leadView.filters, today, leadHidden()).rows),
+          all: (full.laiLeads || []).filter((lead) => lead && !lead.trashed),
+        }) }[kind];
+      if (!setup) return;
+      root.LaiExportUI?.open(kind, { state: full, can, toast: ctx.toast, dialog: ctx.dialog, closeDialog: ctx.closeDialog, denied: RM()?.denied,
+        scopes: setup(), gate: kind === "order" ? undefined : fieldGate(kind) });
+    }
     document.addEventListener("click", (e) => {
+      if (extra()?.click?.(extraCtx(), e) === true) return;
+      {
+        const exportEl = e.target.closest("button[data-export-kind]"),
+          exportKind = exportEl?.dataset?.exportKind;
+        if (exportKind && exportKind !== "customer" && !exportEl.disabled) return openExport(exportKind);
+      }
       // 点卡片的空白处也打开详情（按钮、链接、输入框照常工作）。
       if (route === "opportunities" && !e.target.closest("button,a,input,select,textarea,label")) {
         const cardEl = e.target.closest(".opp-card");
@@ -2381,6 +2557,15 @@
       if (action === "orders") return ctx.navigate("order-list");
       if (action === "order-trash") return ctx.navigate("order-trash");
       if (action === "new-task") return taskEditor();
+      if (action === "assign-tasks") return taskEditor(d.id);
+      if (action === "hide-task-hint") {
+        try {
+          localStorage.setItem(TASK_HINT_KEY, "1");
+        } catch {
+          /* 存不了也没关系，下次还会提示 */
+        }
+        return render();
+      }
       if (action === "close-editor") return finishEditor();
       if (action === "archive-order") {
         if (!need("order.delete") || notYours(allOrders().find((o) => o.id === d.id))) return;
@@ -2454,6 +2639,7 @@
         return localAction(action);
     });
     document.addEventListener("input", (e) => {
+      if (extra()?.input?.(extraCtx(), e) === true) return;
       if (docInput(e, "input")) return;
       if (e.target.id === "biz-search") {
         search = e.target.value;
@@ -2550,6 +2736,7 @@
     });
     document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
+      if (extra()?.change?.(extraCtx(), e) === true) return;
       if (onRolePage() && roleChange(e)) return;
       if (docInput(e, "change")) return;
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
@@ -2660,6 +2847,7 @@
     });
     document.addEventListener("submit", (e) => {
       const form = e.target;
+      if (extra()?.submit?.(extraCtx(), e) === true) return;
       if (onRolePage() && form.dataset?.roleForm) {
         e.preventDefault();
         return roleSubmit(form);
@@ -2819,8 +3007,10 @@
       }
       if (form.id === "biz-task-form") {
         data.done = form.elements.done.checked;
+        // 负责人：新待办默认是当前账号；只有能“重新分配”的账号才能指定别人（页面上其他账号看不到这个选项，这里再卡一次）。
+        const taskOpts = RM() ? { me: RM().meName(state()), canReassign: taskCanReassign(), members: taskMembers() } : {};
         return saveNext(
-          () => B.setTask(state(), draft.id, data),
+          () => B.setTask(state(), draft.id, data, taskOpts),
           "biz-task-error",
           finishEditor,
         );
@@ -2831,11 +3021,16 @@
         data.orderPrefix = String(data.orderPrefix || "").trim();
         if (!/^[A-Za-z0-9-]+$/.test(data.orderPrefix)) return setText("biz-settings-error", "订单前缀只能用字母、数字和-", true);
       }
+      // 公司资料（company:*、bank:*）写进单据模板那一份，其余才是默认录入。
+      const pick = (kind, fields) => Object.fromEntries(fields.map(([key]) => [key, data[`${kind}:${key}`] || ""]));
+      const hasCompany = Boolean(DM()) && DM().COMPANY_FIELDS.some(([key]) => `company:${key}` in data);
+      const company = hasCompany ? pick("company", DM().COMPANY_FIELDS) : null, bank = hasCompany ? pick("bank", DM().BANK_FIELDS) : null;
+      for (const key of Object.keys(data)) if (/^(company|bank):/.test(key) || key === "companyName") delete data[key];
       return saveNext(
-        () => ({
-          ...state(),
-          laiSettings: { ...state().laiSettings, ...data },
-        }),
+        () => {
+          const base = { ...state(), laiSettings: { ...state().laiSettings, ...data } };
+          return company ? DM().setBank(DM().setCompany(base, company), bank) : base;
+        },
         "biz-settings-error",
         () => (settingsDirty = false),
       );

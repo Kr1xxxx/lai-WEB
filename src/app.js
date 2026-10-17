@@ -175,9 +175,12 @@
   }
   // ---- 角色权限（测试账号）：当前账号能看哪些客户、能做哪些操作。规则都在 role-model.js，这里只在界面上用上。 ----
   const R = window.LaiRoleModel;
+  // 功能开关（feature-switch-model.js）：模块关了，对所有账号（包括管理员）都算没有这个权限；role-model.js 的 R.can / R.canOpen 自己就看功能开关。
+  const FS = window.LaiFeatureSwitch;
+  const modOn = (module) => FS.enabled(state, module);
   const can = (key) => R.can(state, key);
-  // 有权限返回 true；没有就提示原因并返回 false，调用处直接 return。
-  const allow = (key) => can(key) || (toast(R.denied(key)), false);
+  // 有权限返回 true；没有就提示原因并返回 false，调用处直接 return。模块关了的，提示“这个功能已关闭”。
+  const allow = (key) => can(key) || (toast(FS.keyOn(state, key) ? R.denied(key) : "这个功能已关闭"), false);
   // 没权限的按钮不画出来。
   const showIf = (key, html) => (can(key) ? html : "");
   function status(text, error = false) {
@@ -445,7 +448,7 @@
     const counts = Object.fromEntries(
       segmentList()
         .filter((g) => g.kind === "rules" && !g.archived)
-        .map((g) => [g.id, S.resolveMembers(rows, g).length]),
+        .map((g) => [g.id, S.resolveMembers(rows, g, undefined, state).length]),
     );
     $("#app").innerHTML = shell(
       window.LaiCustomerList.render({
@@ -469,8 +472,11 @@
         countryLabel: C.countryLabel,
         tableMarkup,
         importEnabled: importPreviewEnabled,
+        exportEnabled: !!window.LaiExportUI,
         can,
         hiddenFilterFields: C.gate(state, "customer").hiddenFilters(),
+        // 快捷筛选里多出来的自定义字段（单选、多选带选项）。
+        extraQuickFields: C.customColumns(state).map((f) => ({ id: f.id, label: f.label, options: f.fieldType === "select" || f.fieldType === "multi" ? f.options : null })),
         ownerOptions: C.ownerFilterOptions(state, rows),
         batchTags: C.gate(state, "customer").editable("tags"),
         batchField: batchEditableFields().length > 0,
@@ -1290,17 +1296,17 @@
     const advanced = `<div class="advanced-filter"><p><select name="match">${opt("all", "满足全部条件", spec.match)}${opt("any", "满足任一条件", spec.match)}</select></p><div id="advanced-rules">${spec.rules
       .map(
         (r, i) =>
-          `<div class="advanced-row" data-advanced-rule="${i}"><select data-advanced-prop="field">${S.catalog.filter((f) => f.id === r.field || !hiddenFilterColumns.has(f.id)).map((f) => opt(f.id, C.catalog.find((c) => c.id === f.id)?.label || f.label, r.field)).join("")}</select><select data-advanced-prop="op">${ops(
+          `<div class="advanced-row" data-advanced-rule="${i}"><select data-advanced-prop="field">${S.catalogFor(state).filter((f) => f.id === r.field || !hiddenFilterColumns.has(f.id)).map((f) => opt(f.id, C.fieldFor(state, f.id)?.label || f.label, r.field)).join("")}</select><select data-advanced-prop="op">${ops(
             r.field,
           )
-            .map((op) => opt(op, opLabels[op], r.op))
+            .map((op) => opt(op, opLabel(r.field, op), r.op))
             .join(
               "",
-            )}</select>${fieldById.get(r.field)?.type === "boolean" ? `<select data-advanced-prop="value" aria-label="条件${i + 1}值" ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>` : `<input data-advanced-prop="value" value="${E(r.value ?? "")}" type="${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? "number" : fieldById.get(r.field)?.type === "date" ? "date" : "text"}" ${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? 'step="any"' : ""} ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>`}<button class="text-button" type="button" data-remove-advanced="${i}" aria-label="移除条件">⊖</button></div>`,
+            )}</select>${fieldById.get(r.field)?.type === "boolean" ? `<select data-advanced-prop="value" aria-label="条件${i + 1}值" ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>` : `<input data-advanced-prop="value" ${choiceListAttr(r.field)} value="${E(r.value ?? "")}" type="${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? "number" : fieldById.get(r.field)?.type === "date" ? "date" : "text"}" ${r.op === "olderDays" || fieldById.get(r.field)?.type === "number" ? 'step="any"' : ""} ${["empty", "notEmpty"].includes(r.op) ? "disabled" : ""}>`}<button class="text-button" type="button" data-remove-advanced="${i}" aria-label="移除条件">⊖</button></div>`,
       )
       .join(
         "",
-      )}</div><button type="button" class="text-button" data-action="add-advanced">＋ 添加条件</button></div>`;
+      )}</div>${choiceDatalists(spec.rules)}<button type="button" class="text-button" data-action="add-advanced">＋ 添加条件</button></div>`;
     drawer(
       "筛选条件",
       `<form id="filter-form" class="drawer-body filter-body"><div class="filter-switch"><button type="button" data-filter-mode="normal" class="${filterMode === "normal" ? "active" : ""}">普通筛选</button><button type="button" data-filter-mode="advanced" class="${filterMode === "advanced" ? "active" : ""}">高级筛选</button></div>${filterMode === "normal" ? normal : advanced}<div id="filter-error" class="error" role="alert"></div></form>`,
@@ -1945,6 +1951,9 @@
           }),
         ]),
       );
+      // 自定义字段：表单里是 custom.<字段ID>，交给模型的是 custom 对象（只读、看不到的字段不在里面）。
+      for (const key of Object.keys(data)) if (key.startsWith("custom.")) delete data[key];
+      data.custom = window.LaiCustomerEditor.formValues(form).custom;
       // 勾选了「同时新建商机」：客户保存成功后直接打开新建商机表单，客户已填好。
       wantOpportunity = !!fd.get("createOpportunity");
     }
@@ -1953,7 +1962,7 @@
       if (filterMode === "advanced") {
         try {
           const spec = readAdvanced();
-          S.filterByRules(rows, spec);
+          S.filterByRules(rows, spec, undefined, state);
           advancedSpec = spec;
         } catch (error) {
           const el = $("#filter-error");
@@ -1993,6 +2002,13 @@
           const before = String(allCustomerRows().find((row) => row.name === oldName)?.owner || "").trim();
           if (String(data.owner || "").trim() !== before) throw new Error(R.denied("customer.reassign"));
         }
+        // 字段设置里的必填：只查这个账号能改的字段；编辑老客户时，本来空着、这次也没动的字段不拦。
+        const start = oldName ? window.LaiCustomerEditor.initialValues(form) : null;
+        const now = window.LaiCustomerEditor.formValues(form);
+        CS.assertRequired(state, {
+          values: now.custom, systemValues: now.system, gate: C.gate(state, state.customers?.[oldName] || "customer"),
+          previous: start?.custom, previousSystem: start?.system, touched: window.LaiCustomerEditor.touched(form),
+        });
       }
       // 客户分组只读或看不到时，保持原来的分组。
       if (form.id === "customer-form" && !C.gate(state, state.customers?.[form.dataset.oldName] || "customer").editable("previewGroup"))
@@ -2191,6 +2207,29 @@
       status("");
     } finally {
       poolAutoRunning = false;
+      // 任务设置里的规则跟在公海规则后面跑（同样的时机：启动、切回窗口、每 30 分钟）。
+      await autoRunTaskRules();
+    }
+  }
+  // 每天按任务设置里开着的规则自动建待办（task-rule-model.js）。跳过的条件同公海规则；不弹提示，一天只跑一次。
+  let taskAutoRunning = false;
+  async function autoRunTaskRules() {
+    const TR = window.LaiTaskRuleModel;
+    if (!TR || taskAutoRunning) return;
+    taskAutoRunning = true;
+    try {
+      if (separateCustomerWindow || pending || hasUnsavedWork() || !TR.due(state)) return;
+      // 用到关着的模块的规则（商机快到结束日期）这次不跑；规则的开关不动，模块重新打开后接着跑。
+      const result = FS.runTaskRules(TR, state);
+      if (!result) return;
+      // 只加待办和改规则的运行记录，不动客户资料，所以走默认的字段保护也不会改到什么。
+      await persist(result.state);
+      if (result.created.length && ["calendar", "dashboard", "task-settings"].includes(activeRoute)) refresh();
+    } catch (_) {
+      // 这次没成功就算了，下次再试；不留“保存失败”的提示。
+      status("");
+    } finally {
+      taskAutoRunning = false;
     }
   }
   // 页面开着跨过零点时也要按规则跑：切回窗口时、以及每 30 分钟检查一次；有窗口或草稿开着就等下次（规则同 autoRunPoolRules）。
@@ -2209,7 +2248,7 @@
   let autoRecordingMail = false;
   async function autoRecordMails(items) {
     const since = CS.autoMailSince(state);
-    if (!since || autoRecordingMail || hasUnsavedWork()) return 0;
+    if (!since || autoRecordingMail || hasUnsavedWork() || !modOn("mail")) return 0;
     const plan = window.LaiMailUI.autoRecordPlan({
       customers: state.customers,
       messages: items,
@@ -2234,6 +2273,13 @@
       autoRecordingMail = false;
     }
   }
+  // 邮件功能开着才定时检查新邮件；关着就一次也不向邮件服务发请求。只开始一次，之后开关多少次都不重复。
+  let mailChecksStarted = false;
+  function startMailChecks() {
+    if (mailChecksStarted || !modOn("mail")) return;
+    mailChecksStarted = true;
+    mail?.start().catch(() => {});
+  }
   async function boot() {
     try {
       const response = await fetch("/api/data", { cache: "no-store" });
@@ -2253,14 +2299,15 @@
       await autoRunPoolRules();
       startPoolAutoRun();
       // 绑定了邮箱就开始定时检查新邮件（没绑定或关掉了自动检查时什么也不做）。
-      mail?.start().catch(() => {});
+      startMailChecks();
     } catch (err) {
       $("#app").innerHTML =
         `<div class="boot"><div><h3>暂时无法载入客户</h3><p>${E(err.message)}</p><p class="muted tiny">请关闭后重新打开来财Lai。</p></div></div>`;
     }
   }
   // Customer segments and persistent horizontal table preferences.
-  const fieldById = new Map(C.catalog.map((f) => [f.id, f]));
+  // 列和条件字段：系统字段 + 客户设置里配置的自定义字段（custom:<字段ID>）。设置一改，下次读就是新的。
+  const fieldById = { get: (id) => C.fieldFor(state, id), has: (id) => C.fieldFor(state, id) !== undefined };
   const segmentOriginalDateValues = new WeakMap();
   let expanded = new Set(),
     columnDraft = null,
@@ -2271,13 +2318,25 @@
   const tablePrefs = () => ({
     ...{ striped: true, compact: true, verticalLines: true },
     ...state.previewTable,
-    ...C.normalizeColumns(state.previewTable),
+    ...C.normalizeColumns(state.previewTable, state),
   });
+  // 导出客户：行是列表现在显示的（已按账号范围和筛选处理过的）客户，列走字段权限。
+  function exportCustomers() {
+    if (!allow("customer.export")) return;
+    window.LaiExportUI?.open("customer", {
+      state, can, toast, dialog: drawer, closeDialog: closeModal, denied: R.denied,
+      scopes: { filtered: filteredRows, selected: () => rows.filter((row) => selected.has(row.name)), all: () => rows },
+      gate: C.gate(state, "customer"),
+      columns: tablePrefs().order,
+    });
+  }
   function groupRows(id) {
     if (id.startsWith("segment:"))
       return S.resolveMembers(
         rows,
         segmentList().find((s) => s.id === id.slice(8)),
+        undefined,
+        state,
       );
     if (id.startsWith("country:"))
       return rows.filter((row) => row.orderCount > 0 && C.countryLabel(row.country) === id.slice(8));
@@ -2292,17 +2351,19 @@
     const gate = C.gate(state, "customer");
     const f = C.sanitizeFilters(state, filters);
     const deptMatch = C.ownerDeptMatcher(state, f.owner);
-    let result = C.filter(groupRows(f.group), deptMatch ? { ...f, owner: "" } : f);
+    let result = C.filter(groupRows(f.group), deptMatch ? { ...f, owner: "" } : f, state);
     if (deptMatch) result = result.filter((row) => deptMatch(row.owner));
     result = C.globalCustomerSearch(result, gate.plain ? globalSearch : { ...globalSearch, hidden: gate.hiddenSearch() });
     if (advancedSpec) {
       const hiddenColumns = gate.plain ? null : gate.hiddenColumns();
-      const rules = hiddenColumns ? (advancedSpec.rules || []).filter((rule) => !hiddenColumns.has(rule.field)) : advancedSpec.rules;
-      result = S.filterByRules(result, rules === advancedSpec.rules ? advancedSpec : { ...advancedSpec, rules });
+      // 条件里的自定义字段后来被删掉了：那一条不再起作用（不然整个列表会报错）。
+      const known = (advancedSpec.rules || []).filter((rule) => S.fieldFor(state, rule.field));
+      const rules = hiddenColumns ? known.filter((rule) => !hiddenColumns.has(rule.field)) : known;
+      result = S.filterByRules(result, rules.length === (advancedSpec.rules || []).length ? advancedSpec : { ...advancedSpec, rules }, undefined, state);
     }
     result = M.filterCustomers(result, { sort: f.sort, group: "all" });
     return f.sortField
-      ? C.sortRows(result, f.sortField, f.sortDirection)
+      ? C.sortRows(result, f.sortField, f.sortDirection, state)
       : result;
   }
 
@@ -2345,6 +2406,8 @@
         c.tags.map((t) => `<span class="tag">${E(t)}</span>`).join("") || "—"
       );
     if (f.id === "country") return E(C.countryLabel(c.country));
+    // 自定义字段：按字段类型显示（数字不加金额符号，多选用“、”隔开）。
+    if (f.custom) return E(window.LaiFieldModel.formatValue(f, c[f.id]) || "—");
     if (f.type === "boolean") return booleanLabel(c[f.id]);
     if (f.type === "date") return E(date(c[f.id]));
     if (f.type === "number") {
@@ -2403,7 +2466,7 @@
     const d = columnDraft;
     // 看不到的字段不列出来（它们在已存的列设置里原样保留）。
     const hiddenColumns = C.gate(state, "customer").hiddenColumns();
-    const columnCatalog = C.catalog.filter((f) => !hiddenColumns.has(f.id));
+    const columnCatalog = C.catalogFor(state).filter((f) => !hiddenColumns.has(f.id));
     drawer(
       "设置显示字段（所有客户列表通用）",
       `<div class="drawer-body columns-body"><div class="columns-layout"><section><div class="column-search-wrap">${icon("search")}<input id="column-search" aria-label="搜索字段名称" placeholder="可输入字段搜索"></div><h3>可选字段</h3><div class="available-fields">${[
@@ -2446,6 +2509,8 @@
     eq: "等于",
     neq: "不等于",
     contains: "包含",
+    in: "是其中之一",
+    notIn: "不是其中之一",
     containsAny: "包含任一标签",
     containsAll: "包含全部标签",
     notContains: "不包含",
@@ -2457,7 +2522,19 @@
     after: "晚于",
     olderDays: "距今超过（天）",
   };
+  // 单选、多选的自定义字段有自己的条件：是其中之一 / 不是其中之一，包含任一 / 包含全部。
+  // 单选、多选字段的值框：输入时提示选项（多个用逗号隔开）。
+  const choiceListAttr = (field) => {
+    const f = fieldById.get(field);
+    return f?.custom && f.options?.length ? `list="opts-${E(f.customId)}" placeholder="多个用逗号隔开"` : "";
+  };
+  const choiceDatalists = (rules = []) => [...new Set(rules.map((r) => r.field))]
+    .map((id) => fieldById.get(id)).filter((f) => f?.custom && f.options?.length)
+    .map((f) => `<datalist id="opts-${E(f.customId)}">${f.options.map((o) => `<option value="${E(o)}">`).join("")}</datalist>`).join("");
+  const choiceOpLabels = { in: "是其中之一", notIn: "不是其中之一", containsAny: "包含任一选项", containsAll: "包含全部选项" };
+  const opLabel = (field, op) => (fieldById.get(field)?.custom ? choiceOpLabels[op] : undefined) || opLabels[op];
   function ops(field) {
+    if (fieldById.get(field)?.custom) return S.operatorsFor(state, field);
     return field === "tags"
       ? ["eq", "neq", "contains", "containsAny", "containsAll", "notContains", "empty", "notEmpty"]
       : fieldById.get(field)?.type === "boolean"
@@ -2539,18 +2616,18 @@
                 const disabled = ["empty", "notEmpty"].includes(r.op) ? "disabled" : "";
                 const valueControl = f.type === "boolean"
                   ? `<select data-rule-prop="value" aria-label="条件${i + 1}值" ${disabled}>${opt("true", "是", String(r.value))}${opt("false", "否", String(r.value))}</select>`
-                  : `<input data-rule-prop="value" aria-label="条件${i + 1}值" type="${segmentRuleInputType(f, r)}" value="${E(r.value ?? "")}" ${r.op === "olderDays" || f.type === "number" ? 'step="any"' : ""} ${disabled}>`;
-                return `<div class="rule-row" data-rule="${i}"><span class="rule-index" aria-hidden="true">${i + 1}</span><select data-rule-prop="field" aria-label="条件${i + 1}字段">${S.catalog.filter((f) => f.id === r.field || !hiddenRuleFields.has(f.id)).map((f) => opt(f.id, f.label, r.field)).join("")}</select><select data-rule-prop="op" aria-label="条件${i + 1}运算">${ops(
+                  : `<input data-rule-prop="value" ${choiceListAttr(r.field)} aria-label="条件${i + 1}值" type="${segmentRuleInputType(f, r)}" value="${E(r.value ?? "")}" ${r.op === "olderDays" || f.type === "number" ? 'step="any"' : ""} ${disabled}>`;
+                return `<div class="rule-row" data-rule="${i}"><span class="rule-index" aria-hidden="true">${i + 1}</span><select data-rule-prop="field" aria-label="条件${i + 1}字段">${S.catalogFor(state).filter((f) => f.id === r.field || !hiddenRuleFields.has(f.id)).map((f) => opt(f.id, f.label, r.field)).join("")}</select><select data-rule-prop="op" aria-label="条件${i + 1}运算">${ops(
                   r.field,
                 )
-                  .map((op) => opt(op, opLabels[op], r.op))
+                  .map((op) => opt(op, opLabel(r.field, op), r.op))
                   .join(
                     "",
                   )}</select>${valueControl}<button type="button" class="text-button rule-remove" data-remove-rule="${i}" aria-label="删除条件${i + 1}">${icon("minusCircle")}</button></div>`;
               })
               .join(
                 "",
-              )}</div><button type="button" class="text-button segment-add-rule" data-action="add-rule">${icon("plusCircle")}添加条件</button><div class="match-preview" id="match-preview"></div>`
+              )}</div>${choiceDatalists(d.rules)}<button type="button" class="text-button segment-add-rule" data-action="add-rule">${icon("plusCircle")}添加条件</button><div class="match-preview" id="match-preview"></div>`
           : `<div class="drawer-note rule-title">创建后，在客户列表勾选客户，通过“加入客群”添加成员。已有 ${d.members.length} 位成员。</div>`
       }<div class="error" id="workspace-error" role="alert"></div></form>`,
       `<button data-action="close-modal">取消</button><button class="primary" type="submit" form="segment-form">保存客群</button>`,
@@ -2597,7 +2674,7 @@
     const el = $("#match-preview");
     if (!el) return;
     try {
-      el.textContent = `当前匹配 ${S.filterByRules(rows, segmentDraft).length} 个客户 · 保存后随资料变化自动更新`;
+      el.textContent = `当前匹配 ${S.filterByRules(rows, segmentDraft, undefined, state).length} 个客户 · 保存后随资料变化自动更新`;
     } catch {
       el.textContent = "填写完整条件后显示匹配人数";
     }
@@ -2609,7 +2686,7 @@
         segmentList()
           .map(
             (s) =>
-              `<div><span><strong>${E(s.name)}</strong><small>${s.kind === "rules" ? "条件客群" : "手动分组"} · ${s.archived ? "已归档" : S.resolveMembers(rows, s).length + " 位客户"}</small></span>${s.archived ? `<button data-restore-segment="${E(s.id)}">恢复</button>` : `<button data-edit-segment="${E(s.id)}">编辑</button><button data-archive-segment="${E(s.id)}">归档</button>`}</div>`,
+              `<div><span><strong>${E(s.name)}</strong><small>${s.kind === "rules" ? "条件客群" : "手动分组"} · ${s.archived ? "已归档" : S.resolveMembers(rows, s, undefined, state).length + " 位客户"}</small></span>${s.archived ? `<button data-restore-segment="${E(s.id)}">恢复</button>` : `<button data-edit-segment="${E(s.id)}">编辑</button><button data-archive-segment="${E(s.id)}">归档</button>`}</div>`,
           )
           .join("") || '<div class="empty">暂无自定义客群，点击下方新建。</div>'
       }</div><div class="error" id="workspace-error" role="alert"></div></div>`,
@@ -3392,7 +3469,7 @@
     const focusAttribute = ["data-column-toggle", "data-column-move", "data-column-freeze", "data-column-remove"]
       .find((attribute) => focused?.hasAttribute?.(attribute));
     const focusValue = focusAttribute && focused.getAttribute(focusAttribute);
-    Object.assign(columnDraft, C.normalizeColumns(columnDraft));
+    Object.assign(columnDraft, C.normalizeColumns(columnDraft, state));
     renderColumns();
     const search = $("#column-search");
     if (searchValue) {
@@ -3478,11 +3555,11 @@
     if (a === "save-columns")
       return workspaceSave(() => ({
         ...state,
-        previewTable: { ...columnDraft, ...C.normalizeColumns(columnDraft) },
+        previewTable: { ...columnDraft, ...C.normalizeColumns(columnDraft, state) },
       }));
     if (a === "reset-columns") {
       columnDraft = {
-        ...C.normalizeColumns(),
+        ...C.normalizeColumns(undefined, state),
         striped: true,
         compact: true,
         verticalLines: true,
@@ -3511,7 +3588,7 @@
                         : key === "customerGroup"
                           ? "group"
                           : key;
-                    if (!S.catalog.some((f) => f.id === field))
+                    if (!S.fieldFor(state, field))
                       throw new Error(
                         `“${C.catalog.find((f) => f.id === field)?.label || key}”暂不支持生成客群，请保留普通筛选或移除此条件。`,
                       );
@@ -3526,7 +3603,7 @@
                     };
                   }),
               };
-        S.filterByRules(rows, spec);
+        S.filterByRules(rows, spec, undefined, state);
         if (!spec.rules.length) throw new Error("请先填写至少一个筛选条件");
         return segmentEditor(null, "rules", spec.rules, spec.match, e.detail > 0);
       } catch (error) {
@@ -3707,11 +3784,11 @@
       ["heart", "常用", null],
       ["grid", "工作台", "dashboard"],
       ["mail", "邮件", "mail"],
-      ["chat", "沟通", null],
+      ["chat", "沟通", "chats"],
       ["lead", "线索", "leads"],
       ["people", "客户", "customers"],
       ["globe", "商机", "opportunities"],
-      ["search", "Leads", null],
+      ["search", "Leads", "lead-settings"],
       ["note", "交易", "order-list"],
       ["chart", "团队数据", "team-goals"],
       ["folder", "协同", "calendar", "calendar"],
@@ -3736,8 +3813,9 @@
   // 客户设置页：有「客户设置」「判重设置」「来源设置」任意一项权限就能打开，页里只显示有权限的页签。
   const csCanOpen = () => ["settings.customer", "settings.dedupe", "settings.source"].some((key) => R.can(state, key));
   const isCustomerSettings = (kind, target) => kind === "screen" && target === "customer-settings";
+  // 能打开 = 角色有权限 并且 模块开着（功能开关）。
   const entryAllowed = (row) =>
-    row.kind === "feature" || (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target));
+    row.kind === "feature" || (FS.entryOn(state, row.kind, row.target) && (isCustomerSettings(row.kind, row.target) ? csCanOpen() : R.canOpen(state, row.kind, row.target)));
   const menuRows = (label) => RM.menuFor(label)?.filter(entryAllowed) ?? null;
   const favoriteEntries = () => NF.entries(state.laiSettings).filter(entryAllowed);
   // 整个菜单里的入口都打不开：左侧栏不显示这个菜单。
@@ -3996,7 +4074,7 @@
     if (!section) return "";
     section.entries = section.entries.filter(entryAllowed);
     if (!section.entries.length) return "";
-    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings" };
+    const routeIcons = { roles: "settings", members: "people", dashboard: "grid", "order-list": "box", "order-trash": "folder", products: "box", "doc-templates": "note", analysis: "chart", "team-goals": "check", "team-targets": "settings", "team-wall": "grid", "team-assets": "people", "team-followups": "chat", "team-tasks": "check", "team-orders": "note", leads: "lead", "lead-trash": "folder", opportunities: "globe", "opp-analysis": "chart", "opp-flows": "settings", calendar: "clock", settings: "settings", "settings-hub": "settings", "feature-switch": "settings", chats: "chat", "chat-templates": "folder" };
     const entryButton = (entry) =>
       entry.kind === "feature"
         ? `<button class="nav-entry" data-feature="${E(entry.target)}">${icon("more")}<span class="nav-label">${E(entry.label)}</span></button>`
@@ -4015,23 +4093,31 @@
   }
   // 业务页面的清单取自 rail-menu.js，与「可设为常用」同一份来源。
   const businessRoutes = new Set(RM.favoritable().filter((entry) => entry.kind === "route").map((entry) => entry.target));
+  // 其他模块登记的页面（window.LaiExtraPages，见 business-ui.js）：汇率设置、任务设置、功能开关、线索设置、沟通等页面都在这里登记，并在左侧栏有入口。
+  const isBusinessRoute = (route) => businessRoutes.has(route) || (!!route && Object.hasOwn(window.LaiExtraPages || {}, route));
   async function navigateApp(route, name, animateDetail = true, favorites = false, folder = "") {
+    // 功能开关关掉的模块：地址栏、链接直接打开也不行，提示一下回工作台。
+    if (!FS.routeOn(state, route)) {
+      toast("这个功能已关闭");
+      if (route === "dashboard") return false;
+      return navigateApp("dashboard");
+    }
     // 离开邮件页时，正在写的信自动存成草稿；存不下来就留在原地。
     if (activeRoute === "mail" && mail?.composing() && !(await mail.leave())) return false;
     if (!(await window.flushPendingSave())) return false;
     rememberCustomerListViewport();
     closeModal();
     // 「favorites」是列表为空时的「常用」页。
-    activeRoute = route === "mail" || route === "favorites" || businessRoutes.has(route) ? route : "customers";
+    activeRoute = route === "mail" || route === "favorites" || isBusinessRoute(route) ? route : "customers";
     favoritesMode = favorites || activeRoute === "favorites";
     // 「收起导航」只有客户页有恢复按钮；去别的页面时恢复显示，否则二级导航会藏起来又没处可点。
     if (activeRoute !== "customers") $("#app").classList.remove("nav-collapsed");
     currentName = "";
     history.replaceState(null, "", "#" + activeRoute);
     // 当前账号打不开的页面：显示原因，不显示页面。
-    const blockKey = activeRoute === "mail" ? R.pagePerm("mail") : businessRoutes.has(activeRoute) ? R.pagePerm("route", activeRoute) : null;
+    const blockKey = activeRoute === "mail" ? R.pagePerm("mail") : isBusinessRoute(activeRoute) ? R.pagePerm("route", activeRoute) : null;
     if (blockKey && !R.can(state, blockKey)) {
-      blockedPage(activeRoute === "mail" ? "邮件" : RM.entryById("route:" + activeRoute)?.label || "页面", R.denied(blockKey));
+      blockedPage(activeRoute === "mail" ? "邮件" : RM.entryById("route:" + activeRoute)?.label || window.LaiExtraPages?.[activeRoute]?.title || "页面", R.denied(blockKey));
       return true;
     }
     if (activeRoute === "customers") {
@@ -4131,6 +4217,10 @@
     hideRailFlyout();
     removePopover();
     rebuildRows();
+    // 邮件功能刚打开：开始定时检查新邮件。
+    startMailChecks();
+    // 邮件关了：客户动态不停在“往来邮件”上。
+    if (!modOn("mail") && activityFilter === "email") activityFilter = "all";
     if (!currentPageAllowed()) {
       favoritesMode = false;
       return navigateApp("dashboard");
@@ -4307,6 +4397,7 @@
     if (d.laiRoute) return navigateApp(d.laiRoute);
     if (d.mailFolder) return mail.select(d.mailFolder);
     if (d.mailAction) return mail.action(d.mailAction, e.detail > 0, el);
+    if (d.chatAction) return chatAction(d.chatAction, e.detail > 0, el);
     if (d.mailView) return mail.showView(d.mailView);
     if (d.navFavorite) return toggleFavoriteHeart(el, d.navFavorite);
     if (d.action === "favorite-nav") return openFavorites();
@@ -5021,12 +5112,20 @@
       throw new Error("无法保存");
     });
   });
+  // 客户设置 → 字段设置：点击、修改、提交交给 customer-settings-ui.js 的 fieldsController，保存走 csSave。
+  const cfHost = () => ({ state: () => state, save: (make) => csSave(() => make(state)), rerender: () => customerSettings() });
+  for (const type of ["click", "change", "submit"])
+    document.addEventListener(type, (e) => {
+      if (activeRoute !== "customers" || customerScreen !== "customer-settings" || !e.target.closest?.('[data-cs-panel="fields"]') || !can("settings.customer")) return;
+      window.LaiCustomerSettingsUI.fieldsController[type](cfHost(), e);
+    });
   document.addEventListener("click", async (e) => {
     const el = e.target.closest("button,input");
     if (!el || el.disabled) return;
     const d = el.dataset,
       a = d.action;
     if (a === "refresh-app") return refreshApplication();
+    if (d.exportKind === "customer") return exportCustomers();
     if (csClick(el, e)) return;
     if (a === "global-search-scope") {
       const box = $(".global-search-scope-menu");
@@ -5060,6 +5159,7 @@
     }
     // 客户列表批量栏与客户详情里的「写邮件」：一位客户直接写信，多位走群发。
     if (d.feature === "写邮件") {
+      if (!modOn("mail")) return toast("这个功能已关闭");
       const fromList = !!el.closest(".replica-batch"), name = currentName;
       return mail.composeFor(fromList ? [...selected] : name ? [name] : [], e.detail > 0, () => navigateApp("customers", fromList ? "" : name, false));
     }
@@ -5213,7 +5313,7 @@
     if (a === "profile-menu")
       return popover(el, profileMenuMarkup(), "account-menu");
     if (a === "restore-table-defaults") {
-      columnDraft = { ...tablePrefs(), ...C.normalizeColumns() };
+      columnDraft = { ...tablePrefs(), ...C.normalizeColumns(undefined, state) };
       return renderColumns();
     }
     if (a === "add-advanced") {
@@ -5540,6 +5640,8 @@
     openCustomer: (name) => navigateApp("customers", name),
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,
+    // 当前是不是业务页面（不是客户页、邮件页、常用页）：登记的页面只在这时收到点击和输入。
+    isActive: () => activeRoute !== "customers" && activeRoute !== "mail" && activeRoute !== "favorites",
     // 成员管理页换了账号或角色后，请整个界面按当前账号重画（左侧栏、二级导航、当前页面）。
     rerenderApp,
     // 成员管理页的“切换到此账号”：和头像菜单一样，清掉上个账号的筛选再重画。
@@ -5547,12 +5649,15 @@
     // 工作台的未读邮件卡片：邮件页打开过就用它已有的数字，邮件列表向本机邮件服务要。
     mailCounts: () => mail?.counts?.() || null,
     mailSummary: async () => {
+      if (!modOn("mail")) return null;
       const response = await fetch("/api/mail/messages?folder=unread&page=1", { cache: "no-store" });
       const data = await response.json();
       if (!data?.ok) return null;
       const counts = data.counts || { unread: data.total || 0, pending: 0 };
       return { items: data.items || [], unread: counts.unread, pending: counts.pending };
     },
+    // 线索、商机里的 WhatsApp 按钮：和客户资料用同一个对话框，对象（客户或线索）由按钮所在的页面明确传进来，不看“最近打开的客户”。
+    openWhatsApp: (options) => wa.openDialog(options),
     toast,
     dialog: drawer,
     closeDialog: closeModal,
@@ -5566,10 +5671,14 @@
     // 邮箱绑定只和本机服务通信；密码不进入业务数据快照。
     createEditor: (node, bar, html) => window.LaiMailEditor.create(node, bar, html),
     editorToolbar: () => window.LaiMailEditor.toolbar(),
+    // 邮件功能关了：定时检查直接跳过（mailOn），其余请求在 request 里挡住，都不向邮件服务发请求。
+    mailOn: () => modOn("mail"),
     request: (path, payload) =>
-      fetch(path, payload === undefined
-        ? { cache: "no-store" }
-        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+      !modOn("mail")
+        ? Promise.reject(new Error("这个功能已关闭"))
+        : fetch(path, payload === undefined
+          ? { cache: "no-store" }
+          : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
     isActive: () => activeRoute === "mail",
     hasDialog: () => !!modal,
     customerRows: () => allCustomerRows(),
@@ -5608,5 +5717,112 @@
       $("#app").innerHTML = shell(html);
     },
   });
+  // ---- 沟通：WhatsApp（D-023）----
+  // 来财不收发消息：只做打开聊天链接、记一笔、导入手机导出的聊天。页面和对话框在 whatsapp-ui.js，规则在 whatsapp-model.js。
+  const WAM = window.LaiWhatsAppModel;
+  // 模型和页面在“找客户”上的约定不一样：模型要一个判断函数、返回 {candidates, leadMatches}；页面传名字数组、要 {customers, leads}。这里接起来。
+  const waModel = {
+    ...WAM,
+    matchCustomers(snapshot, query, visibleNames) {
+      const seeable = new Set(Array.isArray(visibleNames) ? visibleNames : []);
+      const peers = (query?.peers || []).map((peer) => WAM.toE164(peer)).filter(Boolean);
+      const found = WAM.matchCustomers(
+        snapshot,
+        { ...query, leadVisible: (lead) => R.can(snapshot, "lead.view") && R.canSee(snapshot, lead.owner) },
+        (name) => seeable.has(name),
+      );
+      const peerOf = (hit) => {
+        if (!hit.reasons.includes("phone")) return "";
+        const profile = snapshot.customers?.[hit.name] || {};
+        const e164 = WAM.toE164(hit.phone, { code: profile.phoneCountryCode, country: profile.country });
+        return peers.includes(e164) ? e164 : peers[0] || "";
+      };
+      return { customers: found.candidates.map((hit) => ({ ...hit, peer: peerOf(hit) })), leads: found.leadMatches };
+    },
+  };
+  // 聊天存进客户动态后，正在看这位客户的话把动态或资料当场更新。
+  function refreshChatViews() {
+    if (activeRoute !== "customers" || !currentName || customerScreen === "customer-settings") return;
+    if (tab === "activity" && $("#activity-results")) replaceActivityResults(true);
+    else if (!modal) detail(currentName, true, "");
+  }
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (_) {
+        /* 下面用选中文字的办法 */
+      }
+    }
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.cssText = "position:fixed;top:-100px;opacity:0";
+    document.body.append(area);
+    area.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (_) {
+      ok = false;
+    }
+    area.remove();
+    if (!ok) throw new Error("这里不能复制，请自己选中文字复制");
+  }
+  const wa = window.LaiWhatsAppUI.create({
+    getState: () => state,
+    persist: async (next) => {
+      await persist(next);
+      refreshChatViews();
+    },
+    can: (key) => R.can(state, key),
+    // 客户范围：本人／本部门账号只看自己范围里的客户；公海客户看“公海查看”；回收站里的不出现。
+    canSeeCustomer: (name, profile) => {
+      const found = profile || state.customers?.[name];
+      if (!found || L.bucket(found) === "trash") return false;
+      return L.bucket(found) === "pool" ? can("pool.view") : can("customer.view") && customerVisible({ name, owner: found.owner });
+    },
+    meName: () => R.meName(state),
+    openCustomer: (name) => navigateApp("customers", name),
+    toast,
+    escape: E,
+    icon,
+    model: waModel,
+    mount: (html) => {
+      window.LaiActivityCategoryNavigation.mount(null);
+      closeDropdowns();
+      removePopover();
+      $("#app").innerHTML = shell(html);
+    },
+    // 只传 https 链接，用系统浏览器打开；打不开时复制链接（对话框里也一直有“复制链接”）。
+    openExternal: (url) => {
+      try {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } catch (_) {
+        copyText(url).then(() => toast("没能打开，已复制链接"), () => toast("没能打开，请用“复制链接”"));
+      }
+    },
+    dialog: drawer,
+    closeDialog: () => {
+      if (modal === "whatsapp") closeModal(false, true);
+    },
+    isActive: () => activeRoute === "chats",
+    get isTrial() {
+      return !!window.LaiWebTrial;
+    },
+    copy: copyText,
+  });
+  window.LaiExtraPages = window.LaiExtraPages || {};
+  window.LaiExtraPages.chats = { title: "聊天记录", render: () => void wa.render() };
+  window.LaiExtraPages["chat-templates"] = { title: "聊天模板", render: () => void wa.renderTemplates() };
+  // 带 data-chat-action 的按钮（聊天页、对话框、客户资料里的入口）都转给这里。
+  function chatAction(name, pointer, el) {
+    const d = el.dataset;
+    if (name === "open-wa") return wa.openDialog({ customer: currentName, contact: d.waContact, phone: d.waPhone, code: d.waCode });
+    if (name === "log-chat") return wa.openLog({ customer: currentName });
+    if (name === "import-chat") return wa.openImport({ customer: currentName });
+    return wa.action(name, pointer, el);
+  }
   boot();
 })();

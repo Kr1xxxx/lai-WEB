@@ -1099,6 +1099,8 @@
     }
     // ---- 新邮件检查：每隔一会儿问一下收件箱概况，有新邮件就提示，并更新未读数 ----
     async function check() {
+      // 邮件功能关了（设置 → 功能开关）：不问邮件服务，不留失败的请求。ctx.mailOn 没传（单独测试）时当作开着。
+      if (typeof ctx.mailOn === "function" && !ctx.mailOn()) return false;
       if (checking || status !== "ready" || !account || account.autoCheck === false || compose) return false;
       if (typeof document !== "undefined" && document.hidden) return false;
       checking = true;

@@ -7,6 +7,10 @@
   const SEARCH_FIELDS=[['contact','联系人'],['email','邮箱'],['phone','电话'],['product','产品']];
   function create(E,model,can=()=>true,level=()=>'edit'){
     const vis=name=>level(name)!=='hidden';
+    // 电话旁的 WhatsApp 按钮：账号能开聊天、电话（加上线索的国家）能转成国际号码时才有。
+    const WA=()=>typeof module!=='undefined'&&module.exports?require('./whatsapp-model.js'):root.LaiWhatsAppModel;
+    const waNumber=row=>{try{return WA()?.toE164(row.phone,{country:row.country})||'';}catch(_){return '';}};
+    const waButton=row=>!row.trashed&&row.phone&&can('chat.send')&&waNumber(row)?` <button type="button" class="text-button lead-wa" data-lead-action="wa" data-id="${E(row.id)}" aria-label="用 WhatsApp 联系${E(row.name)}">WhatsApp</button>`:'';
     const dis=name=>level(name)==='read'?' disabled title="你的角色只能查看，不能修改"':'';
     // 看不到的字段：值直接清空，后面的标记就当它没填。
     const strip=row=>{const out={...row};for(const name of ['contact','email','phone','country','source','website','product','note'])if(!vis(name))out[name]='';return out;};
@@ -80,20 +84,25 @@
     const datalist=(id,values)=>`<datalist id="${id}">${(values||[]).map(value=>`<option value="${E(value)}"></option>`).join('')}</datalist>`;
     function formMarkup(values,context={}){
       const v=values||{};
+      // context.rules 是线索设置里的字段规则（L.fieldRules(state)）：不显示的字段不出现；显示且必填、当前账号又能改的字段标星并必填。
+      const rules=context.rules||{};
+      const shown=name=>vis(name)&&rules[name]?.show!==false;
+      const must=name=>shown(name)&&rules[name]?.required===true&&level(name)==='edit';
+      const star=name=>must(name)?' required':'';
       return `<form class="drawer-body opp-form lead-form" id="lead-form"><div class="error" id="lead-error" role="alert"></div><p class="lead-banner is-dup" id="lead-warn" role="status" hidden></p>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
         +field('线索名称',`<input name="name" value="${E(v.name||'')}" placeholder="公司名称；个人买家填姓名" maxlength="120" autocomplete="off" required>`,{required:true,wide:true})
-        +(vis('contact')?field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off"${dis('contact')}>`):'')
-        +(vis('email')?field('邮箱',`<input name="email" type="email" value="${E(v.email||'')}" maxlength="120" autocomplete="off"${dis('email')}>`):'')
-        +(vis('phone')?field('电话',`<input name="phone" value="${E(v.phone||'')}" maxlength="40" autocomplete="off" placeholder="含国家区号"${dis('phone')}>`):'')
-        +(vis('country')?field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off"${dis('country')}>`,{hint:'转为客户时必填，现在可以先空着'}):'')
-        +(vis('website')?field('网址',`<input name="website" value="${E(v.website||'')}" maxlength="200" autocomplete="off"${dis('website')}>`,{wide:true}):'')
+        +(shown('contact')?field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off"${dis('contact')}${star('contact')}>`,{required:must('contact')}):'')
+        +(shown('email')?field('邮箱',`<input name="email" type="email" value="${E(v.email||'')}" maxlength="120" autocomplete="off"${dis('email')}${star('email')}>`,{required:must('email')}):'')
+        +(shown('phone')?field('电话',`<input name="phone" value="${E(v.phone||'')}" maxlength="40" autocomplete="off" placeholder="含国家区号"${dis('phone')}${star('phone')}>`,{required:must('phone')}):'')
+        +(shown('country')?field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off"${dis('country')}${star('country')}>`,{required:must('country'),hint:must('country')?'':'转为客户时必填，现在可以先空着'}):'')
+        +(shown('website')?field('网址',`<input name="website" value="${E(v.website||'')}" maxlength="200" autocomplete="off"${dis('website')}${star('website')}>`,{required:must('website'),wide:true}):'')
         +`</div><div class="form-section">跟进安排</div><div class="opp-grid">`
-        +(vis('source')?field('线索来源',`<input name="source" value="${E(v.source||'')}" list="lead-source-list" maxlength="40" autocomplete="off" placeholder="输入或选择"${dis('source')}>${datalist('lead-source-list',context.sources)}`):'')
+        +(shown('source')?field('线索来源',`<input name="source" value="${E(v.source||'')}" list="lead-source-list" maxlength="40" autocomplete="off" placeholder="输入或选择"${dis('source')}${star('source')}>${datalist('lead-source-list',context.sources)}`,{required:must('source')}):'')
         +field('跟进人',`<input name="owner" value="${E(v.owner||'')}" list="lead-owner-list" maxlength="40" autocomplete="off" placeholder="留空表示未分配"${can('lead.reassign')?'':' readonly'}>${datalist('lead-owner-list',context.owners)}`)
-        +field('下次跟进日期',`<input name="nextFollow" type="date" value="${E(v.nextFollow||'')}">`)
-        +(vis('product')?field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off"${dis('product')}>`):'')
-        +(vis('note')?field('备注',`<textarea name="note" rows="4" maxlength="2000"${dis('note')}>${E(v.note||'')}</textarea>`,{wide:true}):'')
+        +(shown('nextFollow')?field('下次跟进日期',`<input name="nextFollow" type="date" value="${E(v.nextFollow||'')}"${star('nextFollow')}>`,{required:must('nextFollow')}):'')
+        +(shown('product')?field('意向产品',`<input name="product" value="${E(v.product||'')}" maxlength="200" autocomplete="off"${dis('product')}${star('product')}>`,{required:must('product')}):'')
+        +(shown('note')?field('备注',`<textarea name="note" rows="4" maxlength="2000"${dis('note')}${star('note')}>${E(v.note||'')}</textarea>`,{required:must('note'),wide:true}):'')
         +`</div></form>`;
     }
 
@@ -117,7 +126,7 @@
       return `<div class="drawer-body opp-form lead-detail"><div class="error" id="lead-detail-error" role="alert"></div>`
         +`<div class="lead-detail-head">${chip(row)}${row.overdue?`<span class="opp-due is-overdue">跟进逾期 ${E(shortDate(row.nextFollow,today))}</span>`:row.dueToday?'<span class="opp-due lead-today">今天该跟进</span>':''}${dup?`<span class="opp-chip lead-dup">可能重复</span>`:''}</div>`
         +(dup?`<p class="lead-banner is-dup">${E(dup)}。转为客户时可以选择关联到已有客户。</p>`:'')+banner
-        +`<dl class="lead-infos">${(vis('contact')?info('联系人',E(row.contact)):'')+(vis('email')?info('邮箱',E(row.email)):'')+(vis('phone')?info('电话',E(row.phone)):'')+(vis('country')?info('国家地区',E(row.country)):'')+(vis('source')?info('线索来源',E(row.source)):'')}${info('跟进人',E(row.owner||'未分配'))}${(vis('product')?info('意向产品',E(row.product)):'')+(vis('website')?info('网址',E(row.website)):'')}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
+        +`<dl class="lead-infos">${(vis('contact')?info('联系人',E(row.contact)):'')+(vis('email')?info('邮箱',E(row.email)):'')+(vis('phone')?info('电话',row.phone?E(row.phone)+waButton(row):''):'')+(vis('country')?info('国家地区',E(row.country)):'')+(vis('source')?info('线索来源',E(row.source)):'')}${info('跟进人',E(row.owner||'未分配'))}${(vis('product')?info('意向产品',E(row.product)):'')+(vis('website')?info('网址',E(row.website)):'')}${info('下次跟进',row.nextFollow?E(row.nextFollow):'')}${info('创建时间',E(row.createdDay))}</dl>`
         +(row.note?`<p class="lead-note">${E(row.note)}</p>`:'')
         +(actions?`<div class="lead-detail-actions">${actions}</div>`:'')+`${follow}<div class="form-section">记录</div>${timeline}</div>`;
     }
@@ -140,7 +149,7 @@
     function invalidMarkup(row){
       return `<form class="drawer-body opp-form lead-form" id="lead-invalid-form" data-id="${E(row.id)}"><div class="error" id="lead-invalid-error" role="alert"></div>`
         +`<p class="lead-banner">把线索「${E(row.name)}」标记为无效。以后想再跟进，可以点「重新跟进」。</p><div class="opp-grid">`
-        +field('无效原因',`<select name="reason" required><option value="">请选择</option>${model.INVALID_REASONS.map(reason=>option(reason,reason,'')).join('')}</select>`,{required:true,wide:true})
+        +field('无效原因',`<select name="reason" required><option value="">请选择</option>${(row.reasons||model.INVALID_REASONS).map(reason=>option(reason,reason,'')).join('')}</select>`,{required:true,wide:true})
         +field('补充说明',`<input name="note" maxlength="200" autocomplete="off">`,{wide:true})
         +`</div></form>`;
     }

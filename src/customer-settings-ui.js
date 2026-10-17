@@ -3,12 +3,16 @@
 // 客户设置页的页面文字（HTML）。只生成字符串，不碰页面、不保存；点击和保存在 app.js 里接。
 const CS = typeof module !== "undefined" && module.exports ? require("./customer-settings-model.js") : root.LaiCustomerSettings;
 const identity = (v) => String(v ?? "");
+// 功能开关：线索关了，判重页签里不显示“新线索与已有客户”；商机关了，成交规则页提示现在按订单算。
+const FSW = typeof module !== "undefined" && module.exports ? require("./feature-switch-model.js") : root.LaiFeatureSwitch;
+const switchOn = (state, module) => !FSW || FSW.enabled(state, module);
 
 // 页签顺序跟小满一致；每个页签都是真能用的设置。
 const TABS = Object.freeze([
   { id: "groups", label: "客户分组", note: "最多两级。客户编辑里的“客户分组”下拉用这里的分组；可限定哪些跟进人能用。" },
   { id: "stages", label: "客户阶段", note: "客户编辑里的“客户阶段”下拉用这里的列表。改名会同步改到客户身上；还有客户在用的阶段不能删除。" },
   { id: "types", label: "客户类型", note: "客户编辑里的“客户类型”下拉用这里的列表。改名会同步改到客户身上；还有客户在用的类型不能删除。" },
+  { id: "fields", label: "字段设置", note: "给客户加自己的字段，或把常用字段设为必填。必填只在新建、编辑客户时检查；批量建档和导入不受影响。" },
   { id: "pool", label: "公海管理", note: "客户久没联系或久没成交，就自动移入公海；这里也管领取、领回和移入原因。" },
   { id: "follow", label: "客户跟进规则", note: "决定哪些动作算“最近联系”、哪些算“最近跟进”。改了以后，公海规则按新算法算天数，改前可先到「公海管理」看哪些客户会被移走。" },
   { id: "deal", label: "客户成交规则", note: "决定怎样算“成交”。改了以后，公海规则按新算法算天数，改前可先到「公海管理」看哪些客户会被移走。" },
@@ -122,12 +126,13 @@ function sourcesTab(state, ui, E) {
   return `<form class="cs-add" data-cs-form="add-source"><input name="name" placeholder="新一级来源名称" maxlength="20" aria-label="新来源名称" autocomplete="off"><button type="submit" class="primary">添加</button></form>${subForm}${list.length ? `<ul class="cs-list cs-tree">${rows}</ul><p class="cs-hint">隐藏后，新建时选不到，但已经在用的客户不受影响。名单里没有的来源仍可以手填。</p>` : empty("还没有来源名单。现在下拉里列的是已经用过的来源；添加后只列这里的。")}`;
 }
 function dedupeTab(state, ui, E) {
-  const sub = ui && ui.dedupeSub === "lead" ? "lead" : "customer";
+  const leadOn = switchOn(state, "lead");
+  const sub = ui && ui.dedupeSub === "lead" && leadOn ? "lead" : "customer";
   const modes = CS.get(state)[sub === "lead" ? "leadDedupe" : "dedupe"];
   const radio = (key, value, text) => `<label class="check-row"><input type="radio" name="dedupe:${key}" value="${value}"${modes[key] === value ? " checked" : ""}> ${text}</label>`;
   const rowsOf = (fields) => fields.map(([key, label]) => `<tr><td>${E(label)}</td><td>${radio(key, "allow", "判重，允许保存")}</td><td>${radio(key, "block", "判重，不允许保存")}</td><td>${radio(key, "off", "不判重")}</td></tr>`).join("");
   const subTab = (id, text) => `<button type="button" role="tab" data-cs-dedupe-sub="${id}" aria-selected="${sub === id}" class="${sub === id ? "active" : ""}">${text}</button>`;
-  const tabs = `<div class="cs-subtabs" role="tablist" aria-label="判重对象">${subTab("customer", "新客户与已有客户")}${subTab("lead", "新线索与已有客户")}</div>`;
+  const tabs = `<div class="cs-subtabs" role="tablist" aria-label="判重对象">${subTab("customer", "新客户与已有客户")}${leadOn ? subTab("lead", "新线索与已有客户") : ""}</div>`;
   const head = '<thead><tr><th>资料</th><th colspan="3">重复时</th></tr></thead>';
   if (sub === "lead") {
     return `${tabs}<form class="cs-dup" data-cs-form="lead-dedupe"><table class="cs-table cs-dedupe">${head}<tbody>${rowsOf(CS.LEAD_DEDUPE_FIELDS)}</tbody></table><p class="cs-hint">新建或修改线索时，按这里的规则和已有客户比对。</p>${saveRow()}</form>`;
@@ -223,7 +228,7 @@ function followTab(state, E) {
 function dealTab(state) {
   const by = CS.get(state).dealRule.by;
   const radio = (value, text) => `<label class="check-row"><input type="radio" name="dealBy" data-cs-deal="${value}"${by === value ? " checked" : ""}> ${text}</label>`;
-  return `<div class="cs-dup">${radio("order", "按订单（发货或完成的订单）")}${radio("opportunity", "按商机（赢单的商机）")}</div><p class="cs-hint">决定公海规则里“多少天没有成交”和客户详情里的“最近成交时间”。选中后马上生效。</p>`;
+  return `<div class="cs-dup">${radio("order", "按订单（发货或完成的订单）")}${radio("opportunity", "按商机（赢单的商机）")}</div><p class="cs-hint">决定公海规则里“多少天没有成交”和客户详情里的“最近成交时间”。选中后马上生效。</p>${by === "opportunity" && !switchOn(state, "opp") ? '<p class="cs-hint" data-cs-deal-off>商机功能已关闭，现在先按订单算；重新打开商机后恢复按商机算。</p>' : ""}`;
 }
 const stamp = (iso) => {
   const d = new Date(iso);
@@ -257,8 +262,87 @@ function tplForm(state, spec, E) {
   return `<form id="cs-tpl-form" class="drawer-body cs-group-form" data-tpl-group="${E(spec.groupId || "")}" data-item="${E(spec.itemId || "")}"><div class="error" id="workspace-error" role="alert"></div>${group ? `<p class="cs-hint">分组：<strong>${E(group.name)}</strong></p>` : ""}<label class="cs-field"><span>常用语</span><textarea name="text" rows="6" maxlength="500" required>${E(item ? item.text : "")}</textarea><em>最多 500 个字。</em></label></form>`;
 }
 
+// 字段设置：系统字段的必填开关、自定义字段的增删改排序和选项。点击和保存见下面的 fieldsController。
+let cfArmed = "";
+function fieldsTab(state, E) {
+  const FM = root.LaiFieldModel || (typeof module !== "undefined" && module.exports ? require("./field-model.js") : null);
+  const rows = CS.fieldRows(state);
+  const lockText = (lock) => lock ? `角色「${E(lock.role)}」把这个字段设为${lock.level === "hidden" ? "隐藏" : "只读"}，不能必填` : "";
+  const system = rows.system.map((f) => {
+    const lock = f.locked[0];
+    return `<tr><td>${E(f.label)}</td><td><label class="check-row"><input type="checkbox" data-cf-sys="${E(f.id)}"${f.required ? " checked" : ""}${lock && !f.required ? " disabled" : ""} aria-label="${E(f.label)}：必填"> 必填</label>${lock ? `<small class="cs-hint cf-lock">${lockText(lock)}</small>` : ""}</td></tr>`;
+  }).join("");
+  const choice = (type) => type === "select" || type === "multi";
+  const custom = rows.custom.map((f, index) => {
+    const lock = f.locked[0], sure = cfArmed === f.id;
+    const options = choice(f.type)
+      ? `<div class="cf-options"><ul class="cs-list">${f.options.map((o, i) => `<li class="cs-row cs-child"><strong>${E(o)}</strong><span class="cs-row-actions"><button type="button" data-cf-action="opt-up" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="上移选项：${E(o)}"${i === 0 ? " disabled" : ""}>↑</button><button type="button" data-cf-action="opt-down" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="下移选项：${E(o)}"${i === f.options.length - 1 ? " disabled" : ""}>↓</button><button type="button" data-cf-action="opt-remove" data-id="${E(f.id)}" data-option="${E(o)}" aria-label="删除选项：${E(o)}">删除</button></span></li>`).join("")}</ul>`
+        + `<form class="cs-add" data-cf-form="option" data-id="${E(f.id)}"><input name="option" placeholder="“${E(f.name)}”的新选项" maxlength="${FM.LIMITS.optionLen}" aria-label="“${E(f.name)}”的新选项" autocomplete="off"><button type="submit">添加选项</button></form></div>`
+      : "";
+    return `<li class="cs-group cf-field" data-cf-field="${E(f.id)}"><div class="cs-row"><input class="cf-name" data-cf-rename="${E(f.id)}" value="${E(f.name)}" maxlength="${FM.LIMITS.nameLen}" aria-label="字段名称：${E(f.name)}" autocomplete="off">`
+      + `<span class="cs-use">${E(f.typeLabel)} · ${f.usage ? `${f.usage} 位客户已填` : "还没有客户填"}</span><span class="cs-row-actions">`
+      + `<label class="check-row"><input type="checkbox" data-cf-required="${E(f.id)}"${f.required ? " checked" : ""}${lock && !f.required ? " disabled" : ""} aria-label="${E(f.name)}：必填"> 必填</label>`
+      + `<button type="button" data-cf-action="up" data-id="${E(f.id)}" aria-label="上移：${E(f.name)}"${index === 0 ? " disabled" : ""}>↑</button>`
+      + `<button type="button" data-cf-action="down" data-id="${E(f.id)}" aria-label="下移：${E(f.name)}"${index === rows.custom.length - 1 ? " disabled" : ""}>↓</button>`
+      + `<button type="button" class="${sure ? "team-danger" : ""}" data-cf-action="delete" data-id="${E(f.id)}" aria-label="${sure ? "再点一次确认删除" : "删除"}：${E(f.name)}">${sure ? "再点一次确认删除" : "删除"}</button></span></div>`
+      + `${lock ? `<small class="cs-hint cf-lock">${lockText(lock)}</small>` : ""}${options}</li>`;
+  }).join("");
+  const types = FM.TYPES.map(([id, label]) => `<option value="${id}">${E(label)}</option>`).join("");
+  const add = `<form class="cs-add cf-add" data-cf-form="add"><input name="name" placeholder="新字段名称" maxlength="${FM.LIMITS.nameLen}" aria-label="新字段名称" autocomplete="off" required>`
+    + `<select name="type" aria-label="字段类型">${types}</select>`
+    + `<input name="options" placeholder="选项（单选、多选用），用逗号分开" aria-label="字段选项" autocomplete="off">`
+    + `<label class="check-row"><input type="checkbox" name="required"> 必填</label><button type="submit" class="primary">添加字段</button></form>`;
+  return `<section class="cf-section" data-cf-section="system"><h3>常用字段必填</h3><table class="cs-table cf-system"><thead><tr><th>字段</th><th>必填</th></tr></thead><tbody>${system}</tbody></table>`
+    + `<p class="cs-hint">被某个角色设为只读或隐藏的字段不能设为必填；先在「角色权限 → 字段权限」里改成可编辑。</p></section>`
+    + `<section class="cf-section" data-cf-section="custom"><h3>自定义字段（${rows.custom.length}/${FM.LIMIT}）</h3>${add}`
+    + `${rows.custom.length ? `<ul class="cs-list cs-tree">${custom}</ul>` : empty("还没有自定义字段。添加后，客户编辑里会多出这些字段。")}`
+    + `<p class="cs-hint">类型建好后不能改。选项可以添加、排序、删除，不能改名。删除字段或选项后，客户身上已填的内容仍然保留，只是不再显示。名称改完按回车或点别处即保存。</p></section>`;
+}
+// 字段设置页的事件。host：{state()，save(make) → Promise<是否成功>（出错时提示写在页面上），rerender()}。
+function cfRun(host, make, onFail) {
+  cfArmed = "";
+  return host.save((state) => make(state)).then((ok) => { if (!ok && onFail) onFail(); return ok; });
+}
+const fieldsController = {
+  click(host, e) {
+    const button = e.target.closest?.("[data-cf-action]");
+    if (!button || button.disabled) return false;
+    const { cfAction: action, id, option } = button.dataset;
+    if (action === "delete") {
+      if (cfArmed !== id) { cfArmed = id; host.rerender(); return true; }
+      cfRun(host, (state) => CS.deleteCustomField(state, id));
+      return true;
+    }
+    if (action === "up" || action === "down") cfRun(host, (state) => CS.moveCustomField(state, id, action === "up" ? -1 : 1));
+    else if (action === "opt-up" || action === "opt-down") cfRun(host, (state) => CS.moveFieldOption(state, id, option, action === "opt-up" ? -1 : 1));
+    else if (action === "opt-remove") cfRun(host, (state) => CS.removeFieldOption(state, id, option));
+    else return false;
+    return true;
+  },
+  submit(host, e) {
+    const form = e.target, kind = form?.dataset?.cfForm;
+    if (!kind) return false;
+    e.preventDefault();
+    const data = new FormData(form);
+    if (kind === "add") cfRun(host, (state) => CS.addCustomField(state, { name: String(data.get("name") || ""), type: String(data.get("type") || ""), options: String(data.get("options") || ""), required: data.has("required") }));
+    else if (kind === "option") cfRun(host, (state) => CS.addFieldOption(state, form.dataset.id, String(data.get("option") || "")));
+    return true;
+  },
+  change(host, e) {
+    const el = e.target, d = el?.dataset || {};
+    if (d.cfSys) cfRun(host, (state) => CS.setSystemRequired(state, d.cfSys, el.checked), () => { if (el.isConnected) el.checked = !el.checked; });
+    else if (d.cfRequired) cfRun(host, (state) => CS.setCustomRequired(state, d.cfRequired, el.checked), () => { if (el.isConnected) el.checked = !el.checked; });
+    else if (d.cfRename) {
+      if (el.value.trim() === el.defaultValue.trim()) return true;
+      cfRun(host, (state) => CS.renameCustomField(state, d.cfRename, el.value), () => { if (el.isConnected) el.value = el.defaultValue; });
+    } else return false;
+    return true;
+  },
+};
+
 function body(tab, state, ui, owners, E) {
   const settings = CS.get(state);
+  if (tab === "fields") return fieldsTab(state, E);
   if (tab === "groups") return groupsTab(state, ui, E);
   if (tab === "stages") return namedList("stages", settings.stages, (n) => CS.stageUse(state, n), ui, E);
   if (tab === "types") return namedList("types", settings.types, (n) => CS.typeUse(state, n), ui, E);
@@ -290,7 +374,7 @@ function markup(state, ui = {}, escape = identity, owners = []) {
   return `<div class="pagebar"><div class="page-tabs"><h1>客户设置</h1></div></div><section class="cs-shortcuts" aria-label="常用入口">${shortcuts}</section><section class="cs-page">${nav(tab, E, hidden)}<div class="cs-panel" data-cs-panel="${tab}"><h2>${E(meta.label)}</h2><p class="cs-note">${E(meta.note)}</p><div class="cs-error error" id="cs-error" role="alert"></div>${body(tab, state, ui, owners, E)}</div></section>`;
 }
 
-const api = { TABS, markup, groupForm, ruleForm, tplForm };
+const api = { TABS, markup, groupForm, ruleForm, tplForm, fieldsController };
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 else root.LaiCustomerSettingsUI = api;
 })(typeof window !== "undefined" ? window : globalThis);

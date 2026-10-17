@@ -84,6 +84,14 @@ function mergeCustomers(state,primary,others,at=new Date().toISOString()){
     const hit=srcs.find(s=>trim(s.p[key]));
     if(hit)base[key]=hit.p[key];
   }
+  // 自定义字段：保留客户已填的优先；空着的用被合并客户补上（按所选顺序，第一个有值的）。设置里已删的字段的值也一样带上。
+  const customOf=p=>p&&p.custom&&typeof p.custom==='object'&&!Array.isArray(p.custom)?p.custom:{};
+  const filledValue=v=>Array.isArray(v)?v.length>0:v!==undefined&&v!==null&&trim(v)!=='';
+  if(srcs.some(s=>Object.keys(customOf(s.p)).length)){
+    const custom={...customOf(base)};
+    for(const s of srcs)for(const [id,v] of Object.entries(customOf(s.p)))if(!filledValue(custom[id])&&filledValue(v))custom[id]=Array.isArray(v)?[...v]:v;
+    base.custom=custom;
+  }
   if(!trim(base.country)){const row=M.buildCustomers(state).find(c=>c.name===primary);if(row&&trim(row.country))base.country=row.country;}
   if(srcs.some(s=>s.p.previewFollowed===true))base.previewFollowed=true;
   for(const [key,label] of NOTE_KEYS){
@@ -122,10 +130,18 @@ function mergeCustomers(state,primary,others,at=new Date().toISOString()){
   }
   const created=[base,...srcs.map(s=>s.p)].map(p=>trim(p.createdAt)).filter(Boolean).sort()[0];
   if(created)base.createdAt=created;
-  const history=[...(Array.isArray(base.history)?base.history:[])];
-  for(const s of srcs)for(const h of Array.isArray(s.p.history)?s.p.history:[])history.push(h&&typeof h==='object'?{...h,mergedFrom:s.name}:h);
-  history.sort((a,b)=>(time(b?.time)||0)-(time(a?.time)||0));
+  let history=[...(Array.isArray(base.history)?base.history:[])];
+  const incoming=[];
+  for(const s of srcs)for(const h of Array.isArray(s.p.history)?s.p.history:[])incoming.push(h&&typeof h==='object'?{...h,mergedFrom:s.name}:h);
+  // 两边都导入过同一段 WhatsApp 聊天时，重复的聊天行只留一份（沟通模块的规则）；没有沟通模块时按原来的办法合并。
+  const WA=typeof module!=='undefined'&&module.exports?require('./whatsapp-model.js'):root.LaiWhatsAppModel;
+  let droppedChat=0;
+  if(WA&&typeof WA.mergeChatHistoryCapped==='function'){const merged=WA.mergeChatHistoryCapped(history,incoming);history=merged.history;droppedChat=merged.dropped;}
+  else if(WA&&typeof WA.mergeChatHistory==='function')history=WA.mergeChatHistory(history,incoming);
+  else{history.push(...incoming);history.sort((a,b)=>(time(b?.time)||0)-(time(a?.time)||0));}
   history.unshift({time:at,text:`合并客户：${list.join('、')} → ${primary}`,type:'operation'});
+  // 合并后聊天太多放不下时，较早的聊天没有带过来，记一笔说明。
+  if(droppedChat)history.unshift({time:at,text:`合并后聊天太多，较早的 ${droppedChat} 条聊天没有保留（只留最新的）`,type:'operation'});
   base.history=history;
   base.mergedFrom=[...(Array.isArray(base.mergedFrom)?base.mergedFrom:[]),...list.map(name=>({name,at}))];
   base.updated=at;

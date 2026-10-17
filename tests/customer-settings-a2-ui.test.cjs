@@ -18,9 +18,9 @@ const base = () => ({
 });
 const src = (name) => fs.readFileSync(path.join(__dirname, '..', 'src', name), 'utf8');
 
-test('the tab list is the fourteen tabs in 小满 order, each with a note', () => {
-  assert.deepEqual(UI.TABS.map((t) => t.label), ['客户分组', '客户阶段', '客户类型', '公海管理', '客户跟进规则', '客户成交规则', '建档黑名单', '客户上限', '来源设置', '判重设置', '客户查重', '动态设置', '写跟进设置', '布局设置']);
-  assert.deepEqual(UI.TABS.map((t) => t.id), ['groups', 'stages', 'types', 'pool', 'follow', 'deal', 'blacklist', 'caps', 'sources', 'dedupe', 'duplicates', 'activity', 'followup', 'layout']);
+test('the tab list is the fourteen 小满 tabs plus 字段设置, each with a note', () => {
+  assert.deepEqual(UI.TABS.map((t) => t.label), ['客户分组', '客户阶段', '客户类型', '字段设置', '公海管理', '客户跟进规则', '客户成交规则', '建档黑名单', '客户上限', '来源设置', '判重设置', '客户查重', '动态设置', '写跟进设置', '布局设置']);
+  assert.deepEqual(UI.TABS.map((t) => t.id), ['groups', 'stages', 'types', 'fields', 'pool', 'follow', 'deal', 'blacklist', 'caps', 'sources', 'dedupe', 'duplicates', 'activity', 'followup', 'layout']);
   for (const t of UI.TABS) assert.ok(t.note && t.note.length > 5, t.id);
 });
 
@@ -88,9 +88,9 @@ test('the rule form fills in a rule, offers groups and their children, and keeps
 });
 
 test('follow, deal, activity and followup tabs show the saved values', () => {
-  let s = CS.setFollowRules(base(), { contact: ['followup'], followup: ['mailSent', 'chat'] });
+  let s = CS.setFollowRules(base(), { contact: ['followup'], followup: ['mailSent', 'chatSent'] });
   let html = UI.markup(s, { tab: 'follow' }, E, []);
-  assert.equal([...html.matchAll(/name="contact"/g)].length, 7);
+  assert.equal([...html.matchAll(/name="contact"/g)].length, 8);
   assert.equal([...html.matchAll(/name="contact" value="[a-zA-Z]+" checked/g)].length, 1);
   assert.equal([...html.matchAll(/name="followup" value="[a-zA-Z]+" checked/g)].length, 2);
   assert.match(html, /最近联系时间决定公海规则里“多少天没有联系”/);

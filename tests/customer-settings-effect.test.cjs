@@ -198,7 +198,7 @@ test("客户查重页：邮箱 / 电话选了“不判重”就不再按它们�
 test("公海：刚领回的客户，即使“最近联系”里没勾“从公海领回”也不会马上又被移走", () => {
   let s = base({ customers: { A: { country: "US", createdAt: ago(300), laiBucket: "pool", laiPreviousOwner: "u", lastPoolEntry: ago(1) } } });
   s = CT.savePoolRule(s, rule({ days: 30 }));
-  s = CS.setFollowRules(s, { contact: ["followup", "mailSent", "mailReceived", "chat", "order", "opportunity"] });
+  s = CS.setFollowRules(s, { contact: ["followup", "mailSent", "mailReceived", "chatSent", "chatReceived", "order", "opportunity"] });
   const claimed = LM.moveCustomers(s, ["A"], "active", NOW.toISOString(), { owner: "u" });
   assert.deepEqual(candidates(claimed), []);
   const later = CT.poolCandidates(claimed, CT.poolRules(claimed), new Date(NOW.getTime() + 31 * 86400000)).map((c) => c.name);

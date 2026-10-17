@@ -88,14 +88,14 @@ function harness({ failSave = false, clock, customers, tasks, orders } = {}) {
 test('settings cancel is a non-submit button, discards unsaved input and releases the draft guard', async () => {
   const h = harness(); h.controller.navigate('settings');
   const form = h.document.getElementById('biz-settings-form');
-  form.elements.companyName.value = 'Unsaved Company';
-  await h.emit('input', form.elements.companyName);
+  form.elements.orderPrefix.value = 'ZZ';
+  await h.emit('input', form.elements.orderPrefix);
   assert.equal(h.controller.hasDraft(), true);
   assert.equal(h.action('discard-settings').type, 'button');
   await h.click('discard-settings');
   assert.equal(h.saveCalls, 0);
   assert.equal(h.controller.hasDraft(), false);
-  assert.equal(h.document.getElementById('biz-settings-form').elements.companyName.value, 'Saved Company');
+  assert.equal(h.document.getElementById('biz-settings-form').elements.orderPrefix.value, 'L');
 });
 
 test('cancelling archive restores unsaved order values and keeps the draft guard until explicit cancellation', async () => {

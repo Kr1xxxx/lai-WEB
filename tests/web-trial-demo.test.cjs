@@ -105,3 +105,30 @@ test('the 测试数据 panel script is valid, every id it looks up is in its own
   // every action that replaces data asks for a second click first
   for (const id of ['lai-web-demo', 'lai-web-restore-button', 'lai-web-clear']) assert.match(source, new RegExp(`armed\\(\\$\\('${id}'\\)`));
 });
+
+test('the seed carries a few synthetic WhatsApp chats in the shape the 沟通 page reads, for customers that exist', () => {
+  const WA = require('../src/whatsapp-model.js');
+  const WUI = require('../src/whatsapp-ui.js');
+  const { ctx, store } = sandbox();
+  run(ctx, 'scripts/web-trial/demo-seed.js');
+  const data = JSON.parse(store.get('lai-web-trial-v1')).data;
+  const withChat = Object.entries(data.customers).filter(([, c]) => (c.history || []).some((h) => h.type === 'chat'));
+  assert.deepEqual(withChat.map(([name]) => name).sort(), ['London Lash Pro', 'Velvet Lash Co.']);
+  for (const [name, profile] of withChat) {
+    const entries = profile.history.filter((h) => h.type === 'chat');
+    assert.ok(entries.length >= 1);
+    for (const entry of entries) {
+      assert.equal(entry.channel, 'WhatsApp');
+      assert.equal(entry.subtype, 'whatsapp');
+      assert.ok(entry.lines.length >= 1 && entry.lines.every((l) => l.key && ['in', 'out'].includes(l.dir) && Number.isFinite(Date.parse(l.at))));
+      assert.match(entry.text, /^WhatsApp 聊天 \d+ 条（发出 \d+，收到 \d+）/);
+      assert.ok(WA.toE164(entry.chatRef.peer), name + ' has a dialable peer');
+    }
+    assert.ok(profile.history.some((h) => h.type === 'followup'), 'the existing follow-up record is kept');
+  }
+  const rows = WUI.conversations(data, { canSee: () => true, me: 'Kris' });
+  assert.deepEqual(rows.map((r) => r.name).sort(), ['London Lash Pro', 'Velvet Lash Co.']);
+  assert.ok(rows.some((r) => r.waiting), 'one chat is waiting for a reply');
+  // The data is demo text only: no real-looking addresses or numbers outside the fictional ranges.
+  assert.ok(!JSON.stringify(withChat).match(/@(?!.*\.example)/));
+});

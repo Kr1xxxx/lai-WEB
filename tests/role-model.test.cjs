@@ -263,3 +263,43 @@ test('a saved 业务 role gets permissions added after it was saved (by its know
   const saved = R.addMember(stored([...R.KEYS]), { name: 'Bob' });
   assert.deepEqual(saved.laiSettings.roles.roles.find(r => r.id === 'sales').known, [...R.KEYS]);
 });
+
+test('沟通 and export/settings keys: groups, defaults, page routes', () => {
+  const group = R.GROUPS.find(([name]) => name === '沟通');
+  assert.deepEqual(group[1].map(([key, label]) => [key, label]), [['chat.view', '查看聊天记录'], ['chat.send', '打开 WhatsApp 聊天和记聊天'], ['chat.import', '导入和撤销聊天记录'], ['chat.template', '管理聊天模板']]);
+  for (const key of ['customer.export', 'lead.export', 'opp.export', 'order.export', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch', 'chat.view', 'chat.send', 'chat.import', 'chat.template']) assert.ok(R.KEYS.includes(key), key);
+  // 业务 defaults: the three chat keys yes, template and every export / new settings key no (admin only).
+  for (const key of ['chat.view', 'chat.send', 'chat.import']) assert.ok(R.SALES_DEFAULT.includes(key), key);
+  for (const key of ['chat.template', 'customer.export', 'lead.export', 'opp.export', 'order.export', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch']) {
+    assert.ok(!R.SALES_DEFAULT.includes(key), key);
+    assert.ok(!R.DEPT_ADMIN_DEFAULT.includes(key), key);
+  }
+  const sales = R.settings(base()).roles.find(r => r.id === 'sales');
+  assert.equal(sales.perms['chat.view'], true);
+  assert.equal(sales.perms['chat.template'], undefined);
+  // Admin can do everything; a 业务 account cannot open the admin-only pages but can open chats.
+  const asSales = R.switchTo(base(), R.settings(base()).members.find(m => m.name === 'Amy').id);
+  assert.equal(R.can(base(), 'settings.switch'), true);
+  assert.equal(R.canOpen(asSales, 'route', 'chats'), true);
+  for (const route of ['chat-templates', 'lead-settings', 'rates', 'task-settings', 'feature-switch']) assert.equal(R.canOpen(asSales, 'route', route), false, route);
+  assert.equal(R.canOpen(base(), 'route', 'feature-switch'), true);
+  assert.deepEqual(['chats', 'chat-templates', 'lead-settings', 'rates', 'task-settings', 'feature-switch'].map(route => R.pagePerm('route', route)), ['chat.view', 'chat.template', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch']);
+});
+
+test('a role saved before the chat keys existed gets the 业务 chat defaults but no template or export rights', () => {
+  const fresh = new Set(['chat.view', 'chat.send', 'chat.import', 'chat.template', 'customer.export', 'lead.export', 'opp.export', 'order.export', 'settings.lead', 'settings.rate', 'settings.task', 'settings.switch']);
+  const oldKeys = R.KEYS.filter(key => !fresh.has(key));
+  const stored = { laiSettings: { defaultOwner: 'Kris', roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: oldKeys, perms: { 'lead.view': true } }, { id: 'deptAdmin', name: '部门管理员', scope: 'dept', v: 2, known: oldKeys, perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm1' } } };
+  const s = R.settings(stored);
+  for (const id of ['sales', 'deptAdmin']) {
+    const role = s.roles.find(r => r.id === id);
+    for (const key of ['chat.view', 'chat.send', 'chat.import']) assert.equal(role.perms[key], true, id + ' ' + key);
+    for (const key of ['chat.template', 'customer.export', 'order.export', 'settings.switch']) assert.equal(role.perms[key], undefined, id + ' ' + key);
+  }
+  const amy = R.switchTo(stored, 'm2');
+  assert.equal(R.can(amy, 'chat.view'), true);
+  assert.equal(R.can(amy, 'chat.template'), false);
+  // A role that knew the keys and turned them off stays off.
+  const off = { laiSettings: { roles: { roles: [{ id: 'sales', name: '业务', scope: 'self', v: 2, known: [...R.KEYS], perms: { 'lead.view': true } }], members: [{ id: 'm1', name: 'Kris', roleId: 'admin' }, { id: 'm2', name: 'Amy', roleId: 'sales' }], current: 'm2' } } };
+  assert.equal(R.can(off, 'chat.view'), false);
+});

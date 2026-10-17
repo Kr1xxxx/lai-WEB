@@ -154,3 +154,40 @@ test('公海规则：执行后客户进公海并记一条动态，跟进人记�
   const back=L.moveCustomers(r.state,['Other'],'active');
   assert.equal(back.customers.Other.owner,'Kris');
 });
+
+test('合并客户：两边导入过同一段 WhatsApp 聊天时，重复的聊天行只留一份',()=>{
+  const WA=require('../src/whatsapp-model.js');
+  const parsed=WA.parseExport('12/10/2026, 14:05 - Maria: Hello\n12/10/2026, 14:06 - Me: Hi there\n',{dayFirst:true});
+  const entries=imp=>WA.buildEntries(parsed.messages,{me:'Me',peer:'+447700900123',contact:'Maria',owner:'Kris',importId:imp,subtype:'whatsapp'});
+  let s=base();
+  s=WA.mergeImport(s,'Acme',entries('imp-a'),{id:'imp-a',at:'2026-10-12T10:00:00.000Z'}).state;
+  s=WA.mergeImport(s,'Acme Ltd',entries('imp-b'),{id:'imp-b',at:'2026-10-12T10:01:00.000Z'}).state;
+  const merged=T.mergeCustomers(s,'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z');
+  const chats=merged.customers.Acme.history.filter(h=>h.type==='chat');
+  assert.equal(chats.reduce((sum,h)=>sum+h.lines.length,0),2,'each chat line is kept once');
+  assert.ok(merged.customers.Acme.history.some(h=>h.text==='电话沟通'&&h.mergedFrom==='Acme Ltd'),'other history still merged');
+  // chat lines only on the merged-in customer are kept
+  const only=WA.mergeImport(base(),'Acme Ltd',entries('imp-c'),{id:'imp-c',at:'2026-10-12T10:00:00.000Z'}).state;
+  const kept=T.mergeCustomers(only,'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z').customers.Acme.history.filter(h=>h.type==='chat');
+  assert.equal(kept.reduce((sum,h)=>sum+h.lines.length,0),2);
+});
+
+test('合并客户：合并后聊天超过 50,000 条时只留最新的，并在动态里记一笔说明',()=>{
+  const bulk=(tag,startMs,count)=>({type:'chat',subtype:'whatsapp',channel:'WhatsApp',time:new Date(startMs+(count-1)*1000).toISOString(),text:'x',
+    lines:Array.from({length:count},(_,i)=>({at:new Date(startMs+i*1000).toISOString(),from:'Maria',dir:'in',text:'k',key:`${tag}-${i}`}))});
+  const s=base();
+  s.customers.Acme.history=[...(s.customers.Acme.history||[]),bulk('a',Date.UTC(2026,0,1),2000),...Array.from({length:14},(_,i)=>bulk(`a${i}`,Date.UTC(2026,1,1+i),2000))];
+  s.customers['Acme Ltd'].history=[...(s.customers['Acme Ltd'].history||[]),...Array.from({length:15},(_,i)=>bulk(`b${i}`,Date.UTC(2026,5,1+i),2000))];
+  // 2,000 + 28,000 on one side and 30,000 on the other: 60,000 lines, 10,000 over
+  const merged=T.mergeCustomers(s,'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z');
+  const history=merged.customers.Acme.history;
+  const total=history.reduce((sum,h)=>sum+(h.type==='chat'&&h.lines?h.lines.length:0),0);
+  assert.equal(total,50000);
+  const note=history.find(h=>h.type==='operation'&&/较早的 10000 条聊天没有保留/.test(h.text));
+  assert.ok(note,'a note says how many lines were left out');
+  assert.equal(note.time,'2026-10-13T00:00:00.000Z');
+  assert.ok(history.some(h=>h.type==='operation'&&/合并客户/.test(h.text)),'the normal merge note is still there');
+  // under the cap there is no extra note
+  const small=T.mergeCustomers(base(),'Acme',['Acme Ltd'],'2026-10-13T00:00:00.000Z');
+  assert.ok(!small.customers.Acme.history.some(h=>/没有保留/.test(h.text||'')));
+});
