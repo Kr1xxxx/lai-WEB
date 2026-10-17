@@ -400,12 +400,11 @@
       const groups = tplGroups(((st().laiSettings || {}).whatsapp || {}).templates);
       return `<option value="">不用模板</option>` + groups.filter((g) => g.items.length).map((g) => `<optgroup label="${E(g.name)}">${g.items.map((i) => `<option value="${E(g.id + "|" + i.id)}">${E(i.text.replace(/\s+/g, " ").slice(0, 40))}</option>`).join("")}</optgroup>`).join("");
     }
-    // 号码缺区号时按国家补：线索自己带国家；客户用资料里的国家。
+    // 号码缺区号时按国家补：调用方给了国家就用它，不然用客户资料里的国家。
     const countryOfDialog = (d) => plain(d.country) || plain((profileOf(d.customer) || {}).country);
-    // 这条消息发出去后能不能记一笔：线索要调用方给 onLog；客户要在客户资料里找得到。
     const NOT_VISIBLE = "你看不到这位客户，不能操作";
     // 记到客户动态：客户要在，而且这个账号看得到（本人账号看不到别人的客户，公海客户要“公海查看”）。
-    const canLogDialog = (d) => (d.lead ? !!d.onLog : !!(d.customer && profileOf(d.customer) && canSee(d.customer, profileOf(d.customer))));
+    const canLogDialog = (d) => !!(d.customer && profileOf(d.customer) && canSee(d.customer, profileOf(d.customer)));
     function templateVars(d) {
       const profile = profileOf(d.customer) || {};
       return { 姓名: plain(d.contact) || profilePhone(profile).contact, 公司: d.customer || plain(d.label), 我的名字: me(), 国家: countryOfDialog(d) };
@@ -424,29 +423,23 @@
         `<div class="error" id="wa-dlg-error" role="alert"></div></form>`
       );
     }
-    // 打开 WhatsApp 对话框（聊天页、客户资料、线索、商机都用这一个）。
-    // options：customer（客户名，对象固定）或 lead（{name, country}，线索没有客户资料）；contact、phone、code 是要打的号码；
-    // onLog(消息)：发出去以后“记一笔”由调用方决定记到哪里（线索记进线索跟进），可以返回一句提示；
-    // 线索没给 onLog 就不问“发出去了吗”；客户不给 onLog 就记进客户动态。
+    // 打开 WhatsApp 对话框（聊天页、客户资料、商机都用这一个）。
+    // options：customer（客户名，对象固定）；contact、phone、code、country 是要打的号码；发出去以后“记一笔”记进客户动态。
     function openDialog(options = {}) {
       if (!guard("chat.send")) return;
-      const lead = options.lead && typeof options.lead === "object" ? options.lead : null;
-      const customer = lead ? "" : options.customer || selected || "";
+      const customer = options.customer || selected || "";
       const profile = profileOf(customer);
       if (profile && !canSee(customer, profile)) return ctx.toast(NOT_VISIBLE);
       const phone = profilePhone(profile);
-      const onLog = typeof options.onLog === "function" ? options.onLog : null;
       dialogState = {
         customer,
-        lead: !!lead,
-        label: lead ? plain(lead.name) : customer,
-        fixed: !!(lead || options.customer),
-        country: lead ? plain(lead.country) : plain(options.country),
+        label: customer,
+        fixed: !!options.customer,
+        country: plain(options.country),
         contact: plain(options.contact) || phone.contact,
         phone: plain(options.phone) || phone.raw,
         code: plain(options.code) || phone.code,
         text: text(options.text),
-        onLog,
       };
       ctx.dialog("打开 WhatsApp", dialogBody(), `${CANCEL}${btn("dlg-copy-text", "复制消息")}${btn("dlg-copy-link", "复制链接")}${btn("dlg-open", "打开 WhatsApp", "", "primary")}`, "whatsapp");
       const form = $("wa-dlg-form");
@@ -520,7 +513,7 @@
       if (!plain(read.body) || !canLogDialog(dialogState)) return ctx.closeDialog();
       ctx.dialog(
         "发出去了吗？",
-        `<div class="drawer-body wa-ask"><p>${dialogState.lead ? "发出去了吗？记到这条线索的跟进里。" : "发出去了吗？记到动态，之后在客户资料里能看到。"}</p><div class="wa-ask-text">${lineHtml(E, read.body)}</div><div class="error" id="wa-ask-error" role="alert"></div></div>`,
+        `<div class="drawer-body wa-ask"><p>发出去了吗？记到动态，之后在客户资料里能看到。</p><div class="wa-ask-text">${lineHtml(E, read.body)}</div><div class="error" id="wa-ask-error" role="alert"></div></div>`,
         `${btn("dlg-skip", "不用")}${btn("dlg-log", "记一笔", "", "primary")}`,
         "whatsapp",
       );
@@ -528,19 +521,13 @@
     async function logLink() {
       const d = dialogState;
       if (!d || !guard("chat.send")) return;
-      if (!canLogDialog(d)) return !d.lead && d.customer && profileOf(d.customer) ? showError("wa-ask-error", NOT_VISIBLE) : undefined;
-      let note = "已记到客户动态";
+      if (!canLogDialog(d)) return d.customer && profileOf(d.customer) ? showError("wa-ask-error", NOT_VISIBLE) : undefined;
+      const note = "已记到客户动态";
       try {
-        if (d.onLog) {
-          // 调用方自己记（线索：记进线索跟进）。
-          const said = await d.onLog(d.sent);
-          if (typeof said === "string" && said) note = said;
-        } else {
-          const profile = profileOf(d.customer);
-          if (!profile) return;
-          const next = stateOf(M.logChat(st(), d.customer, { text: d.sent, contact: d.contact, peer: d.peer, owner: plain(profile.owner) || me(), src: "link", at: now().toISOString() }));
-          await ctx.persist(next);
-        }
+        const profile = profileOf(d.customer);
+        if (!profile) return;
+        const next = stateOf(M.logChat(st(), d.customer, { text: d.sent, contact: d.contact, peer: d.peer, owner: plain(profile.owner) || me(), src: "link", at: now().toISOString() }));
+        await ctx.persist(next);
       } catch (error) {
         return showError("wa-ask-error", error.message);
       }
@@ -581,12 +568,11 @@
         const e164 = numberOf(name, "", "");
         if (e164) peers.push(e164);
       }
-      let result = { customers: [], leads: [] };
+      let result = { customers: [] };
       try {
         result = M.matchCustomers(st(), { peers, names: others() }, names()) || result;
       } catch (_) {}
       s.suggestions = Array.isArray(result.customers) ? result.customers.filter((c) => names().includes(c.name)) : [];
-      s.leads = Array.isArray(result.leads) ? result.leads : [];
       if (s.customer && !names().includes(s.customer)) s.customer = "";
       // 从客户资料里点“导入聊天记录”进来时，先选这位客户（还是可以改）。
       if (!s.customer && s.preset && names().includes(s.preset)) pickCustomerImport(s.preset);
@@ -618,8 +604,7 @@
     function candidatesHtml() {
       const { first, rest } = candidates();
       const item = (name, tag) => `<button type="button" class="wa-pick${name === importState.customer ? " selected" : ""}" data-chat-action="import-pick" data-name="${E(name)}"><strong>${E(name)}</strong>${tag ? `<em>${tag}</em>` : ""}</button>`;
-      const leads = importState.leads.map((lead) => `<p class="wa-lead">这是线索「${E(typeof lead === "string" ? lead : lead.name)}」，先转为客户再导入。</p>`).join("");
-      return first.map((n) => item(n, "可能是")).join("") + rest.map((n) => item(n, "")).join("") + (first.length || rest.length ? "" : `<p class="wa-list-empty">没有找到客户</p>`) + leads;
+      return first.map((n) => item(n, "可能是")).join("") + rest.map((n) => item(n, "")).join("") + (first.length || rest.length ? "" : `<p class="wa-list-empty">没有找到客户</p>`);
     }
     function previewHtml() {
       const s = importState;
@@ -656,7 +641,7 @@
     }
     function openImport(options = {}) {
       if (!guard("chat.import")) return;
-      importState = { text: "", parsed: null, me: "", dayFirst: true, customer: "", contact: "", peer: "", find: "", suggestions: [], leads: [], file: "", preset: plain(options.customer) };
+      importState = { text: "", parsed: null, me: "", dayFirst: true, customer: "", contact: "", peer: "", find: "", suggestions: [], file: "", preset: plain(options.customer) };
       ctx.dialog(
         "导入聊天记录",
         `<form class="drawer-body wa-import" id="wa-import-form" autocomplete="off" novalidate>` +

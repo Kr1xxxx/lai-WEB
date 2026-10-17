@@ -1,6 +1,6 @@
 (function (root) {
   "use strict";
-  // 页面登记处：后面的模块（导出、汇率、线索设置、任务设置、功能开关……）把自己的页面登记在这里，
+  // 页面登记处：后面的模块（导出、汇率、功能开关……）把自己的页面登记在这里，
   // 不用改这个文件。root.LaiExtraPages[路由] = { title, render(c), afterRender(c), click(c, e), input(c, e), change(c, e), submit(c, e) }。
   // c 是页面用的 ctx：原来的 ctx（getState、save、toast、dialog、escape……）再加 state()、can(key)、need(key)、sees(owner)、
   // scoped()、route()、refresh()。render 返回页面的 HTML（由这里放进主区域）；页面自己已经放好时返回别的值。
@@ -20,13 +20,12 @@
       period = "",
       page = 1,
       month = B.localDate().slice(0, 7),
-      selectedDate = "",
       draft = null,
       settingsDirty = false;
     const state = () => ctx.getState();
     // ---------- 角色权限（本机预览，不是安全措施）----------
     // can(key)：当前账号有没有这个权限；need(key)：没有就提示并返回 false；sees(owner)：看不看得到这位跟进人／负责人的记录。
-    // scoped()：角色只看“本人”时，去掉线索、商机、订单、回收站订单里不归自己的，只用来画页面；保存时永远用完整的 state()。
+    // scoped()：角色只看“本人”时，去掉商机、订单、回收站订单里不归自己的，只用来画页面；保存时永远用完整的 state()。
     const RM = () => root.LaiRoleModel;
     const can = (key) => !RM() || RM().can(state(), key);
     const need = (key) => can(key) || (ctx.toast(RM().denied(key)), false);
@@ -49,7 +48,7 @@
       const me = R.meName(s);
       if (scopeMemo && scopeMemo.state === s && scopeMemo.me === me) return scopeMemo.value;
       const mine = (list) => (Array.isArray(list) ? list.filter((item) => item && R.canSee(s, item.owner)) : list);
-      const value = { ...s, laiLeads: mine(s.laiLeads), laiOpportunities: mine(s.laiOpportunities), orders: mine(s.orders), trashOrders: mine(s.trashOrders) };
+      const value = { ...s, laiOpportunities: mine(s.laiOpportunities), orders: mine(s.orders), trashOrders: mine(s.trashOrders) };
       scopeMemo = { state: s, me, value };
       return value;
     }
@@ -60,11 +59,10 @@
       if (dashMemo && dashMemo.base === s) return dashMemo.value;
       const R = RM(),
         customers = Object.fromEntries(Object.entries(s.customers || {}).filter(([, c]) => c && R.canSee(s, c.owner)));
-      // 待办属于负责人（D-022）：只留负责人看得到的；老任务没有负责人时按所关联客户的跟进人（要用完整的客户资料算）。
-      dashMemo = { base: s, value: { ...s, customers, laiTasks: B.visibleTasks(s, (owner) => R.canSee(s, owner)) } };
+      dashMemo = { base: s, value: { ...s, customers } };
       return dashMemo.value;
     }
-    // 下拉名单用的数据：角色只看本人或本部门时，客户只留看得到的，订单、线索、商机也只留自己的；只用来出名单，保存时永远用完整的 state()。
+    // 下拉名单用的数据：角色只看本人或本部门时，客户只留看得到的，订单、商机也只留自己的；只用来出名单，保存时永远用完整的 state()。
     let pickMemo = null;
     function pickState() {
       const s = scoped();
@@ -230,30 +228,6 @@
       refreshWorkbenchParts();
     }
     const renderDashboard = () => workbenchMarkup();
-    // 负责人名：账号只看自己的待办时不用写；看得到别人的待办时标出是谁的。
-    const taskWho = (t) => {
-      if (!RM() || RM().scopeOf(state()) === "self") return "";
-      return B.taskOwner(state(), t) || "未分配";
-    };
-    function taskMarkup(t) {
-      const who = taskWho(t);
-      return `<div class="business-line task-line"><label><input type="checkbox" data-biz-task="${E(t.id)}" ${t.done ? "checked" : ""}> <span class="${t.done ? "done-text" : ""}">${E(t.title)}</span>${who ? ` <small class="muted">${E(who)}</small>` : ""}</label><time>${date(t.date)}</time></div>`;
-    }
-    // 管理员在日历上看到的提示：有老待办没有负责人。点“去分配”打开第一条，在编辑框里选负责人；点“知道了”这台电脑上不再提示。
-    const TASK_HINT_KEY = "lai-task-owner-hint-dismissed";
-    function taskHintDismissed() {
-      try {
-        return localStorage.getItem(TASK_HINT_KEY) === "1";
-      } catch {
-        return false;
-      }
-    }
-    function taskOwnerHint() {
-      if (!RM() || !RM().isAdmin(state()) || taskHintDismissed()) return "";
-      const open = B.unassignedTasks(state());
-      if (!open.length) return "";
-      return `<div class="business-section task-owner-hint" role="status"><span>有 ${open.length} 条待办没有负责人</span> ${button("assign-tasks", "去分配", `data-id="${E(open[0].id)}"`)} ${button("hide-task-hint", "知道了")}</div>`;
-    }
     // 全部订单当前这一页要显示什么：筛选后的订单、这一页的订单、页码。
     function orderListView() {
       const filtered = filteredOrders(),
@@ -555,12 +529,13 @@
       const months = oppView.range === "month" ? [month] : oppView.range === "quarter" ? T.periodMonths(T.quarterOf(month)) : null;
       const report = OM().analysis(scoped(), { months, currency: oppView.analysisCurrency, flow: oppView.analysisFlow }, B.localDate());
       const label = months ? T.periodLabel(months.length > 1 ? T.quarterOf(month) : month) : "全部时间";
-      const range = (id, text) => `<button type="button" data-opp-range="${id}" aria-pressed="${oppView.range === id}">${text}</button>`;
+      // 页头右边：币种（和销售流程）下拉、统计范围（分段页签）、按月／按季度时的月份。
+      const range = (id, text) => `<button type="button" class="k-tab${(oppView.range || "all") === id ? " is-active" : ""}" data-opp-range="${id}" aria-pressed="${oppView.range === id}">${text}</button>`;
       return (
         header(
           "商机分析",
           `${E(label)} · 按商机创建时间统计`,
-          `<span class="team-segment team-period" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput() : ""}`,
+          `${OU().analysisControls(report)}<span class="k-tabs opp-range-tabs" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput() : ""}`,
         ) + OU().analysisMarkup(report)
       );
     }
@@ -922,8 +897,9 @@
       if (!detail) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       Object.assign(attachView, { id, renaming: "", armed: "", preview: "", busy: false });
       releasePreviews();
+      // 标题是客户名；商机名称和编号在正文第一行（opportunity-ui.js 的 detailMarkup）。
       ctx.dialog(
-        E(detail.name),
+        E(detail.client || detail.name),
         detailBody(id),
         `<button type="button" class="k-btn" data-action="close-modal">关闭</button><button type="button" class="k-btn" data-opp-action="menu" data-id="${E(id)}">更多操作</button>${can("opp.edit") ? `<button class="k-btn k-btn--primary" type="button" data-opp-action="edit" data-id="${E(id)}">编辑商机</button>` : ""}`,
         "opp-detail",
@@ -1119,9 +1095,11 @@
         const box = board.getBoundingClientRect();
         board.scrollLeft += OU().scrollStep(e.clientX, box.left, box.right);
       }
-      if (page?.getBoundingClientRect) {
-        const box = page.getBoundingClientRect();
-        page.scrollTop += OU().scrollStep(e.clientY, box.top, box.bottom);
+      // 看板自己能上下滚时（列头贴顶的版式）滚看板，否则滚页面。
+      const lanes = board && board.scrollHeight > board.clientHeight + 1 ? board : page;
+      if (lanes?.getBoundingClientRect) {
+        const box = lanes.getBoundingClientRect();
+        lanes.scrollTop += OU().scrollStep(e.clientY, box.top, box.bottom);
       }
     }
     const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
@@ -1149,156 +1127,12 @@
       return Promise.resolve(moveOpp(id, stage, "", { before })).then(refocus);
     }
     const OPP_FILTERS = { "opp-flow": "flow", "opp-sort": "sort", "opp-currency": "currency", "opp-date-field": "dateField", "opp-from": "from", "opp-to": "to", "opp-archived": "archived", "opp-owner": "owner", "opp-search": "search" };
-    // ---------- 线索：列表、新建／编辑、写跟进、转为客户、标记无效、回收站 ----------
-    const LD = () => root.LaiLeadModel;
-    let leadUI = null;
-    // 字段权限：线索字段当前账号是 edit｜read｜hidden（系统管理员都是 edit）；leadHidden 是看不到的字段名。
-    const leadLevel = (key) => (RM() ? RM().fieldLevel(state(), "lead", key) : "edit");
-    const leadHidden = () => (RM() ? RM().lockedFields(state(), "lead").filter((key) => leadLevel(key) === "hidden") : []);
-    const LU = () => leadUI || (leadUI = root.LaiLeadUI.create(E, LD(), can, leadLevel));
-    const leadView = { filters: {}, limit: 0 };
-    // leadDraft：正在新建或编辑的线索；leadArmed：回收站里等待再次确认彻底删除的那一条。
-    let leadDraft = null,
-      leadArmed = "";
-    const onLeadPage = () => route === "leads" || route === "lead-trash";
-    function renderLeads() {
-      const today = B.localDate();
-      const page = LD().page(scoped(), leadView.filters, today, leadHidden());
-      return kitHeader("线索", "还没成为客户的潜在买家：先跟进，谈成了转为客户", exportButton("lead", "k-btn") + LU().headerActions(page), "lead-header") + LU().pageMarkup(page, leadView, today);
-    }
-    function renderLeadTrash() {
-      const today = B.localDate();
-      return kitHeader("线索回收站", "移入回收站的线索可以恢复，也可以彻底删除", '<button type="button" class="k-btn" data-lead-action="list-page">返回线索列表</button>', "lead-header") + LU().trashMarkup(LD().trash(scoped(), today), leadArmed, today);
-    }
-    // 线索不归当前账号负责（角色只看本人或本部门时）：提示一句，什么也不做。
-    const leadBlocked = (id) => notYours(LD().list(state()).find((entry) => entry.id === id));
-    // 每个线索操作要的权限；写跟进、标记无效、重新跟进、恢复都算“编辑”。
-    const LEAD_NEED = { new: "lead.create", edit: "lead.edit", follow: "lead.edit", convert: "lead.convert", invalid: "lead.edit", reopen: "lead.edit", trash: "lead.delete", restore: "lead.edit", delete: "lead.purge", wa: "chat.send" };
-    const leadContext = () => ({ owners: LD().ownerNames(state()), sources: LD().sourceNames(state()), customers: LD().customerNames(pickState()), rules: LD().fieldRules(state()), customFields: LD().customFields(state()) });
-    function openLeadForm(id) {
-      if (!need(id === undefined ? "lead.create" : "lead.edit") || (id !== undefined && leadBlocked(id))) return;
-      let next;
-      if (id === undefined) next = { id: crypto.randomUUID(), isNew: true, values: LD().defaults(state()) };
-      else {
-        const item = LD().list(state()).find((entry) => entry.id === id);
-        if (!item) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
-        next = { id, isNew: false, values: { ...item } };
-      }
-      try {
-        ctx.dialog(
-          next.isNew ? "新建线索" : "编辑线索",
-          LU().formMarkup(next.values, leadContext()),
-          `${footError("lead-error")}<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-form">保存线索</button>`,
-          "business-lead",
-        );
-      } catch (error) {
-        return ctx.toast(`无法打开线索表单：${error.message}`);
-      }
-      leadDraft = { id: next.id, isNew: next.isNew };
-    }
-    // 打开线索详情；focusFollow 为真时光标直接落在「写跟进」里。
-    function showLead(id, focusFollow = false) {
-      if (leadBlocked(id)) return;
-      const row = LD().detail(state(), id, B.localDate());
-      if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
-      ctx.dialog(E(row.name), LU().detailMarkup(row, B.localDate()), '<button type="button" data-action="close-modal">关闭</button>', "business-lead-detail");
-      if (focusFollow) document.querySelector?.('#lead-follow-form textarea[name="text"]')?.focus?.({ preventScroll: true });
-    }
-    // ---- WhatsApp（线索、商机详情里的按钮）----
-    // 对话框是 whatsapp-ui.js 的那一个（有模板、复制、问一句发出去了吗），这里只告诉它号码和“记一笔”记到哪里：
-    // 线索没有客户资料，记进线索自己的跟进；商机记进客户动态（对话框默认就是这样）。
+    // ---- WhatsApp（商机详情里的按钮）：号码能转成国际格式时才显示 ----
     function waE164(phone, code, country) {
       try {
         return root.LaiWhatsAppModel?.toE164(phone, { code: code || "", country: country || "" }) || "";
       } catch {
         return "";
-      }
-    }
-    // 线索还在跟进中、账号能改线索时才记；已转客户或无效的线索不问“发出去了吗”。
-    const leadWaLog = (row) =>
-      can("lead.edit") && ["new", "following"].includes(row.status)
-        ? async (message) => {
-            await ctx.save(LD().addFollowup(state(), row.id, { text: `WhatsApp 聊天：${message}` }));
-            render();
-            showLead(row.id);
-            return "已记到线索跟进";
-          }
-        : undefined;
-    function openLeadConvert(id) {
-      if (!need("lead.convert") || leadBlocked(id)) return;
-      const row = LD().detail(state(), id, B.localDate());
-      if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
-      let values;
-      try {
-        values = LD().convertDefaults(state(), id);
-      } catch (error) {
-        return ctx.toast(error.message);
-      }
-      ctx.dialog("转为客户", LU().convertMarkup(row, values, leadContext()), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-convert-form">转为客户</button>', "business-lead-convert");
-    }
-    // 转入方式切换：只显示并启用当前方式要填的那几项。
-    function syncLeadConvert(form) {
-      const existing = form.elements.mode.value === "existing";
-      for (const [id, on] of [["lead-convert-new", !existing], ["lead-convert-existing", existing]]) {
-        const box = document.getElementById(id);
-        if (!box) continue;
-        box.hidden = !on;
-        box.querySelectorAll("input").forEach((input) => {
-          input.disabled = !on;
-          input.required = on && input.name !== "owner";
-        });
-      }
-    }
-    const leadSaved = (id) => () => {
-      ctx.closeDialog();
-      render();
-      if (id) showLead(id);
-      return false;
-    };
-    function leadAction(d) {
-      const action = d.leadAction;
-      if (Object.hasOwn(LEAD_NEED, action) && !need(LEAD_NEED[action])) return;
-      if (d.id && leadBlocked(d.id)) return;
-      if (action !== "delete") leadArmed = "";
-      if (action === "new") return openLeadForm();
-      if (action === "edit") return openLeadForm(d.id);
-      if (action === "open") return showLead(d.id);
-      if (action === "follow") return showLead(d.id, true);
-      if (action === "convert") return openLeadConvert(d.id);
-      if (action === "wa") {
-        const row = LD().detail(state(), d.id, B.localDate());
-        if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
-        return ctx.openWhatsApp({ lead: { id: row.id, name: row.name, country: row.country }, contact: row.contact, phone: row.phone, onLog: leadWaLog(row) });
-      }
-      if (action === "trash-page") return ctx.navigate("lead-trash");
-      if (action === "list-page") return ctx.navigate("leads");
-      if (action === "more") {
-        leadView.limit = Math.max(root.LaiLeadUI.PAGE, Number(leadView.limit) || 0) + root.LaiLeadUI.PAGE;
-        return render();
-      }
-      if (action === "due") {
-        leadView.filters = { ...leadView.filters, due: !(leadView.filters.due === true) };
-        leadView.limit = 0;
-        render();
-        return document.querySelector?.('[data-lead-action="due"]')?.focus?.({ preventScroll: true });
-      }
-      if (action === "invalid") {
-        const row = LD().detail(state(), d.id, B.localDate());
-        if (!row) return ctx.toast("线索不存在，可能已被删除，请刷新后重试");
-        return ctx.dialog("标记无效", LU().invalidMarkup(row), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-invalid-form">标记无效</button>', "business-lead-invalid");
-      }
-      const errorId = route === "lead-trash" ? "lead-trash-error" : "lead-detail-error";
-      if (action === "reopen") return saveNext(() => LD().reopen(state(), d.id), errorId, leadSaved(d.id));
-      if (action === "trash") return saveNext(() => LD().setTrashed(state(), d.id, true), errorId, leadSaved(""));
-      if (action === "restore") return saveNext(() => LD().setTrashed(state(), d.id, false), errorId, leadSaved(""));
-      if (action === "delete") {
-        if (leadArmed !== d.id) {
-          leadArmed = d.id;
-          render();
-          return document.querySelector?.(`[data-lead-action="delete"][data-id="${cssEscape(d.id)}"]`)?.focus?.({ preventScroll: true });
-        }
-        leadArmed = "";
-        return saveNext(() => LD().remove(state(), d.id), errorId, leadSaved(""));
       }
     }
     // ---------- 产品：列表、分组、同步、字段、规格、布局 ----------
@@ -1710,7 +1544,6 @@
       const columns = Object.fromEntries(DM().COLUMNS.map(([key]) => [key, `col:${key}` in data]));
       return saveNext(() => DM().setTemplate(state(), form.dataset.type, { title: data.title, terms: data.terms, footer: data.footer, columns, showBank: "showBank" in data, showSignature: "showSignature" in data }), slot);
     }
-    const LEAD_FILTERS = { "lead-search": "search", "lead-owner": "owner", "lead-source": "source", "lead-sort": "sort" };
     function showTeamDetail(key) {
       const found = teamReport && TU().itemsFor(teamReport, key);
       if (!found) return;
@@ -1719,44 +1552,6 @@
         TU().detailMarkup(found.items),
         '<button class="primary" data-action="close-modal">关闭</button>',
         "team-detail",
-      );
-    }
-    function renderCalendar() {
-      // 没有「查看订单」权限的账号，日程里不显示订单。
-      const events = B.calendarEvents(dashState(), month).filter((e) => e.kind !== "order" || can("order.view")),
-        [year, mo] = month.split("-").map(Number),
-        offset = (new Date(year, mo - 1, 1).getDay() + 6) % 7,
-        days = new Date(year, mo, 0).getDate();
-      const shown = selectedDate
-        ? events.filter((e) => e.date === selectedDate)
-        : events;
-      return (
-        header(
-          "日历",
-          "订单、客户跟进与待办任务",
-          button("month-prev", "‹") +
-            `<input type="month" id="biz-month" value="${month}" aria-label="日历月份">` +
-            button("month-next", "›") +
-            button("new-task", "＋ 添加任务", "", true),
-        ) +
-        `${taskOwnerHint()}<div class="business-scroll calendar-layout"><section class="business-section"><div class="calendar-week">${["一", "二", "三", "四", "五", "六", "日"].map((d) => `<span>周${d}</span>`).join("")}</div><div class="calendar-grid">${Array.from({ length: offset }, () => '<div class="calendar-blank"></div>').join("")}${Array.from(
-          { length: days },
-          (_, i) => {
-            const day = month + "-" + String(i + 1).padStart(2, "0"),
-              list = events.filter((e) => e.date === day);
-            return `<button class="calendar-day ${selectedDate === day ? "selected" : ""}" data-biz-day="${day}"><b>${i + 1}</b>${list
-              .slice(0, 3)
-              .map(
-                (e) =>
-                  `<span class="calendar-event ${e.kind}">${E(e.title)}</span>`,
-              )
-              .join(
-                "",
-              )}${list.length > 3 ? `<small>+ ${list.length - 3} 项</small>` : ""}</button>`;
-          },
-        ).join(
-          "",
-        )}</div></section><aside class="business-section calendar-agenda"><div class="section-head"><h3>${selectedDate || month} 日程</h3>${selectedDate ? button("all-days", "全部") : ""}</div>${shown.map((e) => `<button class="agenda-item" ${e.kind === "order" ? `data-biz-order="${E(e.id)}"` : e.kind === "followup" ? `data-biz-customer="${E(e.customer)}"` : `data-biz-edit-task="${E(e.id)}"`}><time>${e.date}</time><strong>${E(e.title)}</strong><span>${{ order: "订单", followup: "客户跟进", task: "待办任务" }[e.kind]}${e.kind === "task" && taskWho(e) ? ` · ${E(taskWho(e))}` : ""}</span></button>`).join("") || '<div class="small-empty">暂无日程</div>'}</aside></div>`
       );
     }
     function renderSettingsHub() {
@@ -1788,7 +1583,7 @@
         currentTheme = THEME_CHOICES.some(([id]) => id === savedTheme(settings)) ? savedTheme(settings) : DEFAULT_THEME;
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section local-data-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="restore-history"><div class="restore-history-head"><h4>备份记录</h4><span class="muted tiny">可以把数据恢复到其中一份；恢复前会先把现在的数据另存一份</span></div><div id="biz-restore-list">${backupListMarkup()}</div></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section local-data-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div><div class="restore-history"><div class="restore-history-head"><h4>备份记录</h4><span class="muted tiny">可以把数据恢复到其中一份；恢复前会先把现在的数据另存一份</span></div><div id="biz-restore-list">${backupListMarkup()}</div></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2044,18 +1839,14 @@
       "team-wall": renderWall,
       "team-assets": () => renderTeam("assets"),
       "team-followups": () => renderTeam("followups"),
-      "team-tasks": () => renderTeam("tasks"),
       "team-orders": () => renderTeam("orders"),
       opportunities: renderOpportunities,
       "opp-analysis": renderOppAnalysis,
       "opp-flows": renderOppFlows,
-      leads: renderLeads,
-      "lead-trash": renderLeadTrash,
       products: renderProducts,
       "doc-templates": renderDocTemplates,
       roles: renderRoles,
       members: renderMembers,
-      calendar: renderCalendar,
       settings: renderSettings,
       "settings-hub": renderSettingsHub,
     });
@@ -2067,7 +1858,7 @@
       // 商机看板：保存／拖动后页面和看板的滚动位置不回到开头。
       const oppScroll = preserveOrderScroll && route === "opportunities"
         ? { page: document.querySelector?.(".opp-page"), board: document.querySelector?.(".opp-board") } : null;
-      const oppPosition = oppScroll?.page ? { top: oppScroll.page.scrollTop, left: oppScroll.board?.scrollLeft || 0 } : null;
+      const oppPosition = oppScroll?.page ? { top: oppScroll.page.scrollTop, left: oppScroll.board?.scrollLeft || 0, boardTop: oppScroll.board?.scrollTop || 0 } : null;
       settingsDirty = false;
       const views = builtinViews();
       const denied = routeDenied(route);
@@ -2081,7 +1872,10 @@
       if (oppPosition) {
         const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
         if (page) page.scrollTop = oppPosition.top;
-        if (board) board.scrollLeft = oppPosition.left;
+        if (board) {
+          board.scrollLeft = oppPosition.left;
+          board.scrollTop = oppPosition.boardTop;
+        }
       }
       if (scroll) {
         const current = document.getElementById("biz-order-scroll");
@@ -2344,44 +2138,6 @@
       }
       if (action === "order-doc-print") return printDocument(orderDocData(d.type));
     }
-    // 可以指定的负责人：有“重新分配”权限的账号，从自己看得到的成员里选；其他账号只看到自己的名字，不能改。
-    const taskCanReassign = () => !RM() || can("customer.reassign");
-    function taskMembers() {
-      if (!RM()) return [];
-      return RM().settings(state()).members.map((m) => m.name).filter((name) => sees(name));
-    }
-    function taskOwnerField(old) {
-      if (!RM()) return "";
-      const current = old ? B.taskOwner(state(), old) : RM().meName(state());
-      if (!taskCanReassign()) return `<label class="field">负责人<input value="${E(current || "未分配")}" disabled></label>`;
-      const names = taskMembers();
-      if (current && !names.some((name) => name.toLowerCase() === current.toLowerCase())) names.unshift(current);
-      const blank = current ? "" : '<option value="">未分配（按客户负责人）</option>';
-      return `<label class="field">负责人<select name="owner">${blank}${names.map((name) => option(name, name, current)).join("")}</select></label>`;
-    }
-    function taskEditor(id) {
-      const old = (state().laiTasks || []).find((t) => t.id === id);
-      if (id !== undefined && !old) {
-        ctx.toast("待办不存在，请刷新列表后重试");
-        return;
-      }
-      if (old && RM() && !sees(B.taskOwner(state(), old))) {
-        ctx.toast("这条待办不归你负责");
-        return;
-      }
-      const t = old || {
-        title: "",
-        date: selectedDate || B.localDate(),
-        done: false,
-      };
-      draft = { id: id || crypto.randomUUID(), task: true };
-      ctx.dialog(
-        id ? "编辑待办" : "添加待办",
-        `<form id="biz-task-form" class="drawer-body" novalidate data-form-check><div class="form-grid"><label class="field wide">任务名称${REQ}<input name="title" value="${E(t.title)}" aria-required="true" required maxlength="200"></label><label class="field">日期${REQ}<input type="date" name="date" value="${E(t.date)}" aria-required="true" required></label>${taskOwnerField(old)}<label class="business-check"><input type="checkbox" name="done" ${t.done ? "checked" : ""}> 已完成</label></div></form>`,
-        `${footError("biz-task-error")}${button("close-editor", "取消")}<button class="primary" type="submit" form="biz-task-form">保存任务</button>`,
-        "business-task",
-      );
-    }
     // errorId：错误框的 id，或错误框本身（单据设置里每张表单各有一个）。
     async function saveNext(makeNext, errorId, after) {
       const controls = [
@@ -2560,7 +2316,7 @@
         loadBackups();
       }
     }
-    // 导出：行来自页面上已经按账号范围筛好的列表（scoped()）；商机、线索的列走字段权限（自定义字段的权限键是 custom.<id>）。
+    // 导出：行来自页面上已经按账号范围筛好的列表（scoped()）；商机的列走字段权限（自定义字段的权限键是 custom.<id>）。
     function openExport(kind) {
       if (!need(`${kind}.export`)) return;
       const full = scoped(),
@@ -2574,10 +2330,6 @@
         opp: () => ({
           filtered: byIds(full.laiOpportunities || [], OM().board(full, { ...oppView.filters, hidden: oppHidden() }, today).cards),
           all: full.laiOpportunities || [],
-        }),
-        lead: () => ({
-          filtered: byIds(full.laiLeads || [], LD().page(full, leadView.filters, today, leadHidden()).rows),
-          all: (full.laiLeads || []).filter((lead) => lead && !lead.trashed),
         }) }[kind];
       if (!setup) return;
       root.LaiExportUI?.open(kind, { state: full, can, toast: ctx.toast, dialog: ctx.dialog, closeDialog: ctx.closeDialog, denied: RM()?.denied,
@@ -2605,13 +2357,6 @@
       if (route === "doc-templates" && (d.docTab || d.docAction)) return docClick(d);
       if (d.oppDoc) return showOppDoc(d.id, d.oppDoc);
       if (route === "products" && (d.prodTab || d.prodAction || d.prodCancel !== undefined || d.prodEdit || d.prodSub || d.prodMove || d.prodDelete || d.prodValueRemove || d.prodLay)) return productClick(d);
-      if (d.leadAction && onLeadPage()) return leadAction(d);
-      if (d.leadStatus && route === "leads") {
-        leadView.filters = { ...leadView.filters, status: d.leadStatus };
-        leadView.limit = 0;
-        render();
-        return document.querySelector?.(`[data-lead-status="${cssEscape(d.leadStatus)}"]`)?.focus?.({ preventScroll: true });
-      }
       if (route === "opp-flows" && d.oppSetTab) {
         flowView.tab = d.oppSetTab;
         flowView.armed = "";
@@ -2658,11 +2403,6 @@
         page = 1;
         return ctx.navigate("order-list");
       }
-      if (d.bizDay) {
-        selectedDate = d.bizDay;
-        return render();
-      }
-      if (d.bizEditTask) return taskEditor(d.bizEditTask);
       if (d.bizGo) {
         if (d.bizGo === "opp-new") return openOppForm(undefined, "");
         // 「mail:unread」＝去邮件页的某个文件夹
@@ -2674,16 +2414,6 @@
       if (action === "new-order") return orderEditor();
       if (action === "orders") return ctx.navigate("order-list");
       if (action === "order-trash") return ctx.navigate("order-trash");
-      if (action === "new-task") return taskEditor();
-      if (action === "assign-tasks") return taskEditor(d.id);
-      if (action === "hide-task-hint") {
-        try {
-          localStorage.setItem(TASK_HINT_KEY, "1");
-        } catch {
-          /* 存不了也没关系，下次还会提示 */
-        }
-        return render();
-      }
       if (action === "close-editor") return finishEditor();
       if (action === "archive-order") {
         if (!need("order.delete") || notYours(allOrders().find((o) => o.id === d.id))) return;
@@ -2714,20 +2444,6 @@
         currency = "";
         period = "";
         page = 1;
-        return render();
-      }
-      if (action === "all-days") {
-        selectedDate = "";
-        return render();
-      }
-      if (action === "month-prev" || action === "month-next") {
-        const [y, m] = month.split("-").map(Number),
-          next = new Date(y, m - 1 + (action === "month-next" ? 1 : -1), 1);
-        month =
-          next.getFullYear() +
-          "-" +
-          String(next.getMonth() + 1).padStart(2, "0");
-        selectedDate = "";
         return render();
       }
       if (action === "set-theme") {
@@ -2893,7 +2609,6 @@
           if (!ok) input.value = OM().flowOf(state(), flowId).stages.find((stage) => stage.id === id)?.label ?? input.value;
         });
       }
-      if (onLeadPage() && e.target.closest?.("#lead-convert-form") && e.target.name === "mode") return syncLeadConvert(e.target.closest("#lead-convert-form"));
       if (route === "products" && (e.target.id === "prod-search" || e.target.id === "prod-group")) {
         prodView[e.target.id === "prod-search" ? "search" : "group"] = e.target.value;
         render();
@@ -2908,12 +2623,6 @@
         return saveNext(() => PM().setField(state(), key, { [input.dataset.prop]: input.checked }), "prod-error", () => undefined).then((ok) => {
           if (!ok) render();
         });
-      }
-      if (route === "leads" && Object.hasOwn(LEAD_FILTERS, e.target.id)) {
-        leadView.filters = { ...leadView.filters, [LEAD_FILTERS[e.target.id]]: e.target.value };
-        leadView.limit = 0;
-        render();
-        return document.getElementById(e.target.id)?.focus?.({ preventScroll: true });
       }
       if (route === "opportunities" && Object.hasOwn(OPP_FILTERS, e.target.id)) {
         oppView.filters = { ...oppView.filters, [OPP_FILTERS[e.target.id]]: e.target.value };
@@ -2947,20 +2656,8 @@
       if (e.target.id === "biz-month") {
         if (/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)) {
           month = e.target.value;
-          selectedDate = "";
           render();
         } else e.target.value = month;
-      }
-      if (e.target.dataset.bizTask) {
-        const checkbox = e.target,
-          id = checkbox.dataset.bizTask,
-          task = (state().laiTasks || []).find((t) => t.id === id);
-        return saveNext(
-          () => B.setTask(state(), id, { ...task, done: checkbox.checked }),
-          "",
-        ).then((saved) => {
-          if (!saved) checkbox.checked = task?.done === true;
-        });
       }
       if (e.target.closest("#biz-settings-form")) settingsDirty = true;
     });
@@ -2981,7 +2678,7 @@
         return productSubmit(form);
       }
       if (
-        !["biz-order-form", "biz-task-form", "biz-settings-form", "biz-target-form", "lead-form", "product-form", "lead-follow-form", "lead-convert-form", "lead-invalid-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form", "opp-reasons-add", "opp-types-add", "opp-cf-add"].includes(
+        !["biz-order-form", "biz-settings-form", "biz-target-form", "product-form", "opp-form", "opp-lost-form", "opp-attach-rename", "opp-flow-add", "opp-stage-add-open", "opp-stage-add-won", "opp-stage-remove-form", "opp-reasons-add", "opp-types-add", "opp-cf-add"].includes(
           form.id,
         )
       )
@@ -3015,60 +2712,6 @@
           () => ctx.closeDialog(),
         );
       if (form.id === "product-form") return productFormSubmit(form);
-      if (form.id === "lead-form") {
-        if (!leadDraft) return;
-        const { id, isNew } = leadDraft;
-        if (!need(isNew ? "lead.create" : "lead.edit")) return;
-        // 改跟进人要有“重新分配”权限；没有时跟进人必须和原来（新建时是默认跟进人）一样。
-        const lowered = (name) => String(name || "").trim().toLowerCase();
-        const was = isNew ? LD().defaults(state()).owner : LD().list(state()).find((entry) => entry.id === id)?.owner;
-        if (!can("lead.reassign") && lowered(data.owner) !== lowered(was)) return ctx.toast(RM().denied("lead.reassign"));
-        // 字段权限：只读和隐藏的字段不能改。编辑时用原来的值，新建时不许填（表单里漏掉的字段也不会被清空）。
-        const lead = RM().keepLocked(state(), "lead", isNew ? null : LD().list(state()).find((entry) => entry.id === id), data);
-        // 自定义字段：表单里名字是 custom.字段ID（多选有好几个）；这里收成 lead.custom。只收账号能改、表单里确实有的字段，其余原样保留。
-        for (const key of Object.keys(lead)) if (key.startsWith("custom.")) delete lead[key];
-        const custom = {};
-        const sent = new FormData(form);
-        for (const def of LD().customFields(state())) {
-          const key = `custom.${def.id}`;
-          if (RM().fieldLevel(state(), "lead", key) !== "edit" || !form.querySelector(`[data-lead-custom="${cssEscape(def.id)}"]`)) continue;
-          custom[def.id] = def.type === "multi" ? sent.getAll(key) : String(sent.get(key) ?? "");
-        }
-        if (Object.keys(custom).length) lead.custom = custom;
-        // 和客户相同但设为「允许保存」：第一次点保存先提醒，内容没变再点一次才保存。
-        const warn = LD().saveWarnings(state(), id, lead, { mustExist: !isNew });
-        if (warn.message && leadDraft.warned !== warn.message) {
-          leadDraft.warned = warn.message;
-          const box = document.getElementById("lead-warn");
-          if (box) { box.textContent = warn.message; box.hidden = false; }
-          const submit = document.querySelector('button[form="lead-form"]');
-          if (submit) submit.textContent = "仍然保存";
-          return;
-        }
-        return saveNext(
-          () => LD().upsert(state(), id, lead, { mustExist: !isNew }),
-          "lead-error",
-          () => {
-            leadDraft = null;
-            // 编辑完回到详情；新建完回到列表。
-            return leadSaved(isNew ? "" : id)();
-          },
-        );
-      }
-      if (form.id === "lead-follow-form" && !need("lead.edit")) return;
-      if (form.id === "lead-convert-form" && !need("lead.convert")) return;
-      if (form.id === "lead-invalid-form" && !need("lead.edit")) return;
-      if (form.id === "lead-follow-form") return saveNext(() => LD().addFollowup(state(), form.dataset.id, data), "lead-follow-error", leadSaved(form.dataset.id));
-      if (form.id === "lead-convert-form")
-        return saveNext(
-          () => {
-            if (customerHidden(data.mode === "existing" ? data.existing : data.name)) throw new Error(HIDDEN_CUSTOMER);
-            return LD().convert(state(), form.dataset.id, data);
-          },
-          "lead-convert-error",
-          leadSaved(form.dataset.id),
-        );
-      if (form.id === "lead-invalid-form") return saveNext(() => LD().markInvalid(state(), form.dataset.id, data), "lead-invalid-error", leadSaved(form.dataset.id));
       if (form.id === "opp-form") {
         if (!oppDraft) return;
         if (!need(oppDraft.isNew ? "opp.create" : "opp.edit")) return;
@@ -3138,16 +2781,6 @@
           finishEditor,
         );
       }
-      if (form.id === "biz-task-form") {
-        data.done = form.elements.done.checked;
-        // 负责人：新待办默认是当前账号；只有能“重新分配”的账号才能指定别人（页面上其他账号看不到这个选项，这里再卡一次）。
-        const taskOpts = RM() ? { me: RM().meName(state()), canReassign: taskCanReassign(), members: taskMembers() } : {};
-        return saveNext(
-          () => B.setTask(state(), draft.id, data, taskOpts),
-          "biz-task-error",
-          finishEditor,
-        );
-      }
       if (!need("settings.general")) return;
       // 订单前缀只能是字母、数字和短横线；不合格就不保存，原来的值保留。
       if (Object.hasOwn(data, "orderPrefix")) {
@@ -3183,12 +2816,6 @@
         }
         orderEditor(undefined, undefined, name);
       },
-      selectCalendarDate(date) {
-        month = date.slice(0, 7);
-        selectedDate = date;
-        route = "calendar";
-        render();
-      },
       // 供客户详情页调用：新建商机、打开某个商机的操作菜单、调整阶段、查看该客户的全部商机。
       newOpportunity(client) {
         oppReturn = String(client || "");
@@ -3218,7 +2845,6 @@
         oppReturn = "";
         armedTarget = "";
         flowView.armed = "";
-        leadArmed = "";
         clearUndo();
         // 从左侧导航等地方打开商机：筛选回到默认，不留上次的搜索词或归档范围。
         if (next === "opportunities" && !keepOppFilters) {
@@ -3229,11 +2855,10 @@
         render();
       },
       refresh: render,
-      hasDraft: () => !!draft || !!oppDraft || !!leadDraft || settingsDirty,
+      hasDraft: () => !!draft || !!oppDraft || settingsDirty,
       discardDraft() {
         draft = null;
         oppDraft = null;
-        leadDraft = null;
       },
       route: () => route,
     };

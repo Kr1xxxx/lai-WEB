@@ -246,6 +246,7 @@
     const linked={orders:relinkOrders(state.orders||[])};
     if(oldName&&oldName!==name){
       if(Array.isArray(state.laiOpportunities))linked.laiOpportunities=state.laiOpportunities.map(o=>o&&o.client===oldName?{...o,client:name}:o);
+      // 协同（待办）已去掉（D-031），存着的 laiTasks 仍跟着改客户名，数据保持一致。
       if(Array.isArray(state.laiTasks))linked.laiTasks=state.laiTasks.map(t=>t&&t.customer===oldName?{...t,customer:name}:t);
       for(const bucket of ['trashOrders','deletedOrders'])
         if(Array.isArray(state[bucket]))linked[bucket]=relinkOrders(state[bucket]);

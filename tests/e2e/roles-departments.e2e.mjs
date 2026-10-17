@@ -24,12 +24,13 @@ const rows = async () => (await app.page.locator('[data-member-row] td:first-chi
 const memberRow = (name) => app.page.locator('[data-member-row]', { has: app.page.locator(`b:text-is("${name}")`) });
 const roleRow = (name) => app.page.locator('[data-role-row]', { has: app.page.locator(`b:text-is("${name}")`) });
 // Fake field lists, registered on every page load, for modules whose real list is empty in this build.
+// 商机 has a real list (contact, collaborators, …), so its fake is only a fallback. (线索 was removed, D-030.)
 const FAKE = {
-  lead: [{ key: 'phone', label: '电话' }, { key: 'email', label: '邮箱', group: '联系方式' }, { key: 'wechat', label: '微信', group: '联系方式' }],
+  opp: [{ key: 'phone', label: '电话' }, { key: 'email', label: '邮箱', group: '联系方式' }, { key: 'wechat', label: '微信', group: '联系方式' }],
   product: [{ key: 'cost', label: '成本价' }, { key: 'supplier', label: '供应商' }],
 };
 const ensureFields = () => app.page.evaluate((fake) => {
-  const hosts = { lead: window.LaiLeadModel, product: window.LaiProductModel };
+  const hosts = { opp: window.LaiOpportunityModel, product: window.LaiProductModel };
   for (const [module, rows] of Object.entries(fake)) {
     const host = hosts[module];
     let have = [];
@@ -185,7 +186,7 @@ test('角色权限: 部门管理员 shows Mia, 编辑成员 opens 成员管理 f
   await openPage('roles');
 });
 
-test('编辑 业务: 本部门 scope shows its hint; 设置字段权限 for 线索 stays in the draft until 保存', async () => {
+test('编辑 业务: 本部门 scope shows its hint; 设置字段权限 for 商机 stays in the draft until 保存', async () => {
   const { page } = app;
   const fakes = await ensureFields();
   const modules = Object.entries(fakes);
@@ -193,17 +194,18 @@ test('编辑 业务: 本部门 scope shows its hint; 设置字段权限 for 线�
   await page.locator('#role-edit-form').waitFor();
   await page.locator('#role-scope').selectOption('dept');
   assert.ok((await page.locator('#role-scope-hint').innerText()).startsWith('本部门＝看自己和本部门（含下级部门）成员负责的'));
-  const leadGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("线索")') });
-  assert.equal(await leadGroup.locator('[data-role-action="fields"]').innerText(), '设置字段权限');
-  assert.equal(await leadGroup.locator('[data-role-limit]').isHidden(), true);
-  assert.equal(await page.locator('[data-role-action="fields"]').count(), 5);
+  const oppGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("商机")') });
+  assert.equal(await oppGroup.locator('[data-role-action="fields"]').innerText(), '设置字段权限');
+  assert.equal(await oppGroup.locator('[data-role-limit]').isHidden(), true);
+  assert.equal(await page.locator('[data-role-action="fields"]').count(), 4, '商机 客户 公海客户 产品');
+  assert.equal(await page.locator('.role-group-name:text-is("线索")').count(), 0, '线索 is gone (D-030)');
   assert.equal(await page.locator('[data-role-action="layouts"]').count(), 1);
-  assert.deepEqual(modules.map(([module]) => module).sort(), ['lead', 'product']);
-  assert.ok(fakes.lead.includes('phone') || fakes.lead.length > 0, 'the lead list has fields');
-  await leadGroup.locator('[data-role-action="fields"]').click();
+  assert.deepEqual(modules.map(([module]) => module).sort(), ['opp', 'product']);
+  assert.ok(fakes.opp.length > 1, 'the 商机 list has fields');
+  await oppGroup.locator('[data-role-action="fields"]').click();
   await page.locator('#role-fields-form').waitFor();
   const keys = await page.locator('#role-fields-form [data-field-row]').evaluateAll((els) => els.map((el) => el.dataset.fieldKey));
-  assert.deepEqual(keys, fakes.lead);
+  assert.deepEqual(keys, fakes.opp);
   assert.equal(await page.locator('#role-fields-form input[type=radio]:checked[value=edit]').count(), keys.length, 'everything starts 可编辑');
   await shot('a2-field-dialog');
   // quick buttons, then set the first two by hand
@@ -216,7 +218,7 @@ test('编辑 业务: 本部门 scope shows its hint; 设置字段权限 for 线�
   await second.locator('.role-seg-item', { hasText: '隐藏' }).click();
   await page.locator('button[form="role-fields-form"]').click();
   await page.locator('#role-fields-form').waitFor({ state: 'detached' });
-  assert.equal(await leadGroup.locator('[data-role-limit]').innerText(), '已限制 2 个');
+  assert.equal(await oppGroup.locator('[data-role-limit]').innerText(), '已限制 2 个');
   // nothing is stored before 保存; 取消 drops the draft
   assert.equal((await stored()).roles.find((r) => r.id === 'sales').fields, undefined);
   await page.locator('[data-role-action="back"]').click();
@@ -226,16 +228,16 @@ test('编辑 业务: 本部门 scope shows its hint; 设置字段权限 for 线�
   assert.equal((await stored()).roles.find((r) => r.id === 'sales').scope, 'self');
   await roleRow('业务').locator('.role-actions button', { hasText: '编辑' }).click();
   await page.locator('#role-edit-form').waitFor();
-  assert.equal(await page.locator('[data-role-limit="lead"]').isHidden(), true, 'draft was dropped');
+  assert.equal(await page.locator('[data-role-limit="opp"]').isHidden(), true, 'draft was dropped');
 });
 
 test('field and layout choices are saved with 保存 and survive a reload', async () => {
   const { page } = app;
   await ensureFields();
-  const leadGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("线索")') });
+  const oppGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("商机")') });
   const productGroup = page.locator('[data-role-group]', { has: page.locator('.role-group-name:text-is("产品")') });
   await page.locator('#role-scope').selectOption('dept');
-  await leadGroup.locator('[data-role-action="fields"]').click();
+  await oppGroup.locator('[data-role-action="fields"]').click();
   await page.locator('#role-fields-form').waitFor();
   const keys = await page.locator('#role-fields-form [data-field-row]').evaluateAll((els) => els.map((el) => el.dataset.fieldKey));
   await page.locator('#role-fields-form [data-field-row]').nth(0).locator('.role-seg-item', { hasText: '只读' }).click();
@@ -254,20 +256,20 @@ test('field and layout choices are saved with 保存 and survive a reload', asyn
   await page.locator('#role-layout-form').waitFor({ state: 'detached' });
   assert.equal(await productGroup.locator('[data-role-layout-tag]').isVisible(), true);
   // editing the dialog again shows what was chosen
-  await leadGroup.locator('[data-role-action="fields"]').click();
+  await oppGroup.locator('[data-role-action="fields"]').click();
   await page.locator('#role-fields-form').waitFor();
   assert.equal(await page.locator('#role-fields-form [data-field-row]').nth(0).locator('input:checked').getAttribute('value'), 'read');
   await page.locator('#role-fields-form button, .drawer-footer button[data-action="close-modal"]').first().waitFor();
   await page.locator('.drawer-footer button', { hasText: '取消' }).click();
   await page.locator('#role-fields-form').waitFor({ state: 'detached' });
-  assert.equal(await leadGroup.locator('[data-role-limit]').innerText(), '已限制 2 个', '取消 in the dialog keeps the draft');
+  assert.equal(await oppGroup.locator('[data-role-limit]').innerText(), '已限制 2 个', '取消 in the dialog keeps the draft');
   await shot('a2-role-edit');
   await page.locator('#role-edit-form button[type=submit]').click();
   await page.locator('.role-table').waitFor();
   await settle();
   const role = (await stored()).roles.find((r) => r.id === 'sales');
   assert.equal(role.scope, 'dept');
-  assert.deepEqual(role.fields.lead, { [keys[0]]: 'read', [keys[1]]: 'hidden' });
+  assert.deepEqual(role.fields.opp, { [keys[0]]: 'read', [keys[1]]: 'hidden' });
   assert.equal(role.layouts.product.form, 'default');
   assert.ok(!role.layouts.product.detail);
   // reload, reopen
@@ -278,8 +280,8 @@ test('field and layout choices are saved with 保存 and survive a reload', asyn
   await roleRow('业务').locator('.role-actions button', { hasText: '编辑' }).click();
   await page.locator('#role-edit-form').waitFor();
   assert.equal(await page.locator('#role-scope').inputValue(), 'dept');
-  assert.equal(await page.locator('[data-role-limit="lead"]').innerText(), '已限制 2 个');
-  await page.locator('[data-role-group]:has(.role-group-name:text-is("线索")) [data-role-action="fields"]').click();
+  assert.equal(await page.locator('[data-role-limit="opp"]').innerText(), '已限制 2 个');
+  await page.locator('[data-role-group]:has(.role-group-name:text-is("商机")) [data-role-action="fields"]').click();
   await page.locator('#role-fields-form').waitFor();
   const levels = await page.locator('#role-fields-form [data-field-row]').evaluateAll((els) => els.map((el) => el.querySelector('input:checked').value));
   assert.equal(levels[0], 'read');
@@ -292,11 +294,11 @@ test('field and layout choices are saved with 保存 and survive a reload', asyn
   assert.equal(await page.locator('#role-layout-form select[name=detail]').inputValue(), '');
   await page.locator('.drawer-footer button', { hasText: '取消' }).click();
   // putting everything back to 可编辑 clears the limit
-  await page.locator('[data-role-group]:has(.role-group-name:text-is("线索")) [data-role-action="fields"]').click();
+  await page.locator('[data-role-group]:has(.role-group-name:text-is("商机")) [data-role-action="fields"]').click();
   await page.locator('[data-role-action="fields-all"][data-level="edit"]').click();
   await page.locator('button[form="role-fields-form"]').click();
   await page.locator('#role-fields-form').waitFor({ state: 'detached' });
-  assert.equal(await page.locator('[data-role-limit="lead"]').isHidden(), true);
+  assert.equal(await page.locator('[data-role-limit="opp"]').isHidden(), true);
   await page.locator('#role-edit-form button[type=submit]').click();
   await page.locator('.role-table').waitFor();
   await settle();
@@ -308,7 +310,7 @@ test('系统管理员: the dialogs open read-only with everything 可编辑 / �
   await ensureFields();
   await roleRow('系统管理员').locator('.role-actions button').click();
   await page.locator('#role-edit-form').waitFor();
-  await page.locator('[data-role-group]:has(.role-group-name:text-is("线索")) [data-role-action="fields"]').click();
+  await page.locator('[data-role-group]:has(.role-group-name:text-is("商机")) [data-role-action="fields"]').click();
   await page.locator('#role-fields-form').waitFor();
   const radios = page.locator('#role-fields-form input[type=radio]');
   assert.ok(await radios.count() > 0);

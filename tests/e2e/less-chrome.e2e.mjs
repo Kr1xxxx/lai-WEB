@@ -1,5 +1,5 @@
 // Less chrome, more table:
-// - menus with three or fewer entries (线索, 商机 …) hide the sub-navigation column and show their entries as tabs
+// - menus with three or fewer entries (沟通, 商机 …) hide the sub-navigation column and show their entries as tabs
 //   in the page header, reachable with the keyboard and marked with aria-current;
 // - customers and mail keep their sub-navigation;
 // - under 1366px the customer group tree (客群) starts collapsed, so at 1280x800 the table shows 7+ columns;
@@ -18,24 +18,24 @@ const tabs = () => app.page.locator('#app > main.main :is(.pagebar, .k-pageheade
 const tabState = () => tabs().evaluateAll((els) => els.map((el) => [el.textContent.trim(), el.getAttribute('aria-current')]));
 const subnavHidden = () => app.page.locator('#app-subnav').evaluate((el) => el.hidden && getComputedStyle(el).display === 'none');
 
-test('线索 and 商机 hide the sub-navigation column; their entries are header tabs that work with mouse and keyboard', async () => {
+test('沟通 and 商机 hide the sub-navigation column; their entries are header tabs that work with mouse and keyboard', async () => {
   const { page } = app;
   await app.open('customers');
   assert.equal(await subnavHidden(), false, 'customers keep their sub-navigation');
 
-  await page.locator('.rail-item[data-rail-menu="线索"]').click();
-  await page.waitForFunction(() => location.hash === '#leads');
-  assert.equal(await subnavHidden(), true, '线索: no sub-navigation column');
-  assert.deepEqual(await tabState(), [['线索列表', 'page'], ['线索回收站', null]]);
-  assert.equal(await page.locator('.section-tabs').getAttribute('aria-label'), '线索');
+  await page.locator('.rail-item[data-rail-menu="沟通"]').click();
+  await page.waitForFunction(() => location.hash === '#chats');
+  assert.equal(await subnavHidden(), true, '沟通: no sub-navigation column');
+  assert.deepEqual(await tabState(), [['聊天记录', 'page'], ['聊天模板', null]]);
+  assert.equal(await page.locator('.section-tabs').getAttribute('aria-label'), '沟通');
   await tabs().nth(1).click();
-  await page.waitForFunction(() => location.hash === '#lead-trash');
-  assert.deepEqual(await tabState(), [['线索列表', null], ['线索回收站', 'page']]);
+  await page.waitForFunction(() => location.hash === '#chat-templates');
+  assert.deepEqual(await tabState(), [['聊天记录', null], ['聊天模板', 'page']]);
   // Keyboard: Tab reaches the tabs, Enter opens one.
   await tabs().nth(0).focus();
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => location.hash === '#leads');
-  assert.deepEqual(await tabState(), [['线索列表', 'page'], ['线索回收站', null]]);
+  await page.waitForFunction(() => location.hash === '#chats');
+  assert.deepEqual(await tabState(), [['聊天记录', 'page'], ['聊天模板', null]]);
 
   await page.locator('.rail-item[data-rail-menu="商机"]').click();
   await page.locator('.opp-page').waitFor();

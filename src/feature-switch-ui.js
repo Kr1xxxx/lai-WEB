@@ -5,7 +5,7 @@
   const FS = () => root.LaiFeatureSwitch || (typeof module !== 'undefined' && module.exports ? require('./feature-switch-model.js') : null);
   const CSM = () => root.LaiCustomerSettings || (typeof module !== 'undefined' && module.exports ? require('./customer-settings-model.js') : null);
   const PERM = 'settings.switch';
-  const FIXED = '客户、订单、工作台、协同、设置、企业管理是基础功能，不能关闭。';
+  const FIXED = '客户、订单、工作台、设置、企业管理是基础功能，不能关闭。';
   const view = { error: '' };
 
   function markup(state, c) {

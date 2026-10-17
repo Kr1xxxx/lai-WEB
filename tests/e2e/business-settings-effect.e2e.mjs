@@ -1,5 +1,6 @@
-// 业务页的范围和设置 in the real page with the real backend: a 业务 account (Amy, scope 本人) only gets her own customers and
-// leads in the new-record forms and cannot save a record for someone else's customer; the administrator sees everyone.
+// 业务页的范围和设置 in the real page with the real backend: a 业务 account (Amy, scope 本人) only gets her own customers
+// in the new-record forms and cannot save a record for someone else's customer; the administrator sees everyone.
+// Stored leads (the 线索 module was removed, D-030) are never offered and survive the saves untouched.
 // Also the 设置 page (currency list, owner hint, local-data note) and voiding a saved document from the order form.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -9,10 +10,10 @@ import { startApp } from './harness.mjs';
 const require = createRequire(import.meta.url);
 const B = require('../../src/business-model.js');
 const O = require('../../src/opportunity-model.js');
-const L = require('../../src/lead-model.js');
 const D = require('../../src/doc-template-model.js');
 const NOW = '2026-10-01T00:00:00.000Z';
 const NO_SCOPE = '这个客户不在你的范围内';
+const STORED_LEADS = [{ id: 'lead-a', name: 'Amy Lead', owner: 'Amy', status: 'new', createdAt: NOW }, { id: 'lead-k', name: 'Kris Lead', owner: 'Kris', status: 'following', createdAt: NOW }];
 
 async function start(current, extra = (data) => data) {
   const app = await startApp();
@@ -25,8 +26,8 @@ async function start(current, extra = (data) => data) {
     KrisCo: { client: 'KrisCo', country: 'DE', owner: 'Kris', contact: 'Karl', history: [] },
   };
   data.laiSettings = { ...(data.laiSettings || {}), defaultOwner: current === 'm-kris' ? 'Kris' : 'Amy', roles: { roles: [], members: [{ id: 'm-kris', name: 'Kris', roleId: 'admin' }, { id: 'm-amy', name: 'Amy', roleId: 'sales' }], current } };
+  data.laiLeads = STORED_LEADS;
   for (const [id, owner] of [['a', 'Amy'], ['k', 'Kris']]) {
-    data = L.upsert(data, `lead-${id}`, { name: `${owner} Lead`, owner }, { now: NOW });
     data = B.upsertOrder(data, `order-${id}`, { num: `L-${owner}`, client: `${owner}Co`, country: 'US', productType: 'Lash', amount: '100', currency: 'USD', paidAmount: '0', stage: 'quote', createdAt: '2026-10-01', owner, isDraft: false, items: [] });
     data = O.upsert(data, `opp-${id}`, { client: `${owner}Co`, contact: owner === 'Amy' ? 'Ann' : 'Karl', amount: '10', currency: 'USD', owner, stage: 'open', endDate: '2026-11-05' }, { now: NOW, today: '2026-10-01' });
   }
@@ -61,7 +62,7 @@ const savedToast = async (page) => {
 };
 const optionValues = (app, selector) => app.page.locator(`${selector} option`).evaluateAll((list) => list.map((o) => o.value || o.textContent));
 
-test('业务 (Amy): new opportunity and new order only offer her customers and leads, and refuse KrisCo', async () => {
+test('业务 (Amy): new opportunity and new order only offer her customers, and refuse KrisCo', async () => {
   const app = await start('m-amy');
   try {
     const { page } = app;
@@ -70,7 +71,7 @@ test('业务 (Amy): new opportunity and new order only offer her customers and l
     await page.locator('#opp-form').waitFor();
     assert.deepEqual(await optionValues(app, '#opp-client-list'), ['AmyCo'], '客户名单只有自己的');
     const form = await page.locator('#opp-form').innerHTML();
-    assert.ok(form.includes('Amy Lead') && !form.includes('Kris Lead'), '来源线索只有自己的');
+    assert.ok(!form.includes('Amy Lead') && !form.includes('Kris Lead') && !form.includes('来源线索'), '来源线索 is gone (D-030)');
     assert.ok(!form.includes('KrisCo'));
     await page.locator('#opp-form [name="client"]').fill('KrisCo');
     await page.locator('#opp-form [name="amount"]').fill('50');
@@ -81,6 +82,7 @@ test('业务 (Amy): new opportunity and new order only offer her customers and l
     await page.locator('button[form="opp-form"]').click();
     await savedToast(page);
     assert.equal((await app.readData()).laiOpportunities.length, 3, '自己的客户可以保存');
+    assert.deepEqual((await app.readData()).laiLeads, STORED_LEADS, 'stored leads survive the save untouched');
 
     await go(app, 'order-list');
     await page.locator('[data-biz-action="new-order"]').first().click();
@@ -96,25 +98,7 @@ test('业务 (Amy): new opportunity and new order only offer her customers and l
   }
 });
 
-test('业务 (Amy): lead forms only list her customers, and converting into KrisCo is refused', async () => {
-  const app = await start('m-amy');
-  try {
-    const { page } = app;
-    await go(app, 'leads');
-    await page.locator('.lead-table tbody tr [data-lead-action="convert"]').click();
-    await page.locator('#lead-convert-form').waitFor();
-    assert.deepEqual(await optionValues(app, '#lead-convert-customer-list'), ['AmyCo']);
-    await page.locator('#lead-convert-form input[name="mode"][value="existing"]').check({ force: true });
-    await page.locator('#lead-convert-form [name="existing"]').fill('KrisCo');
-    await page.locator('button[form="lead-convert-form"]').click();
-    await page.locator('#lead-convert-error.visible', { hasText: NO_SCOPE }).waitFor();
-    assert.equal((await app.readData()).laiLeads.find((lead) => lead.id === 'lead-a').status === 'converted', false);
-  } finally {
-    await app.close();
-  }
-});
-
-test('管理员 (Kris) sees every customer and lead in the same forms, and may save for any customer', async () => {
+test('管理员 (Kris) sees every customer in the same forms, and may save for any customer', async () => {
   const app = await start('m-kris');
   try {
     const { page } = app;
@@ -124,12 +108,13 @@ test('管理员 (Kris) sees every customer and lead in the same forms, and may s
     const names = await optionValues(app, '#opp-client-list');
     assert.ok(names.includes('AmyCo') && names.includes('KrisCo'));
     const form = await page.locator('#opp-form').innerHTML();
-    assert.ok(form.includes('Amy Lead') && form.includes('Kris Lead'));
+    assert.ok(!form.includes('Amy Lead') && !form.includes('Kris Lead'));
     await page.locator('#opp-form [name="amount"]').fill('50');
     await pickClient(page, 'AmyCo');
     await page.locator('button[form="opp-form"]').click();
     await savedToast(page);
     assert.equal((await app.readData()).laiOpportunities.length, 3);
+    assert.deepEqual((await app.readData()).laiLeads, STORED_LEADS);
   } finally {
     await app.close();
   }
@@ -148,7 +133,7 @@ test('设置: currency list is longer and keeps an unusual saved currency; owner
     await page.locator('#toast.show', { hasText: '已保存' }).waitFor();
     assert.equal((await app.readData()).laiSettings.defaultCurrency, 'THB', '保存设置不会悄悄换掉币种');
     const text = await page.locator('body').innerText();
-    assert.ok(text.includes('新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。'));
+    assert.ok(text.includes('新建客户、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。'));
     assert.ok(text.includes('客户、订单、日程都保存在来财里，可以随时备份。'));
     assert.ok(!text.includes('这台电脑') && !text.includes('打开数据目录'));
     assert.ok(!text.includes('统一客户与经营界面') && !text.includes('数据库'));

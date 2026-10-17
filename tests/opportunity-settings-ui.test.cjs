@@ -104,7 +104,8 @@ test('fields tab: system fields table, field toggles, types list, custom field a
   c.page.navigate('opp-flows');
   await c.click({oppSetTab: 'fields'});
   const html = last(c);
-  for (const label of ['客户', '商机名称', '销售金额 / 币种', '销售阶段', '结束日期', '负责人', '销售流程', '输单原因', '商机编号', '关联联系人', '协同跟进人', '商机来源', '商机类型', '来源线索', '汇率', '商机标签', '备注', '关联产品']) assert.ok(html.includes(`<td>${label}`), label);
+  for (const label of ['客户', '商机名称', '销售金额 / 币种', '销售阶段', '结束日期', '负责人', '销售流程', '输单原因', '商机编号', '关联联系人', '协同跟进人', '商机来源', '商机类型', '汇率', '商机标签', '备注', '关联产品']) assert.ok(html.includes(`<td>${label}`), label);
+  assert.ok(!html.includes('<td>来源线索'), '来源线索 is gone (D-030)');
   assert.match(html, /data-set-field="client" data-prop="show" checked disabled/);
   assert.match(html, /data-set-field="sources" data-prop="show" checked aria-label/);
   assert.match(html, /data-set-field="exchangeRate" data-prop="required" checked aria-label/, 'the rate\'s required switch is free');
@@ -173,15 +174,15 @@ test('the opportunity form: new fields appear, hidden ones disappear, multi and 
   assert.match(form, /商机编号/); assert.match(form, /保存后自动生成/);
   assert.match(form, /data-multi="sources"/); assert.match(form, /<input type="checkbox" value="常规获客 \/ 展会">/);
   assert.match(form, /<select class="k-select-trigger" name="type"><option value="">请选择<\/option><option value="新客户商机">/);
-  assert.match(form, /<select class="k-select-trigger" name="leadId"><option value="">不选<\/option><option value="L1">Zed Lashes<\/option>/);
+  assert.doesNotMatch(form, /name="leadId"|来源线索/, '来源线索 is gone (D-030), even with stored leads');
   assert.match(form, /<div class="form-section">自定义字段<\/div>/); assert.match(form, /data-multi="custom:pay"/); assert.match(form, /name="custom:dc" value="" inputmode="decimal" autocomplete="off" aria-required="true" required/);
   assert.ok(form.indexOf('补充信息') < form.indexOf('自定义字段'));
   // 保存：多选从勾选框收集，自定义字段按 custom:ID 收集
   await c.submit('opp-form', {nameMode: 'auto', client: 'Beta Ltd', contact: '', amount: '120', endDate: '2026-11-05', flow: 'default', exchangeRate: '100', currency: 'USD', stage: 'open', owner: 'Amy', collaborators: '', tags: '', note: '', products: '',
-    type: '样品单', leadId: 'L1', 'custom:dc': '5'}, {}, [{key: 'sources', picked: ['社媒', '常规获客 / 展会']}, {key: 'custom:pay', picked: ['L/C']}]);
+    type: '样品单', 'custom:dc': '5'}, {}, [{key: 'sources', picked: ['社媒', '常规获客 / 展会']}, {key: 'custom:pay', picked: ['L/C']}]);
   assert.equal(c.closed.length, 1, c.errors['opp-error']?.textContent);
   const made = get(c.state(), '00000001-new');
-  assert.deepEqual([made.sources, made.type, made.leadId, made.custom], [['社媒', '常规获客 / 展会'], '样品单', 'L1', {pay: ['L/C'], dc: 5}]);
+  assert.deepEqual([made.sources, made.type, made.custom], [['社媒', '常规获客 / 展会'], '样品单', {pay: ['L/C'], dc: 5}]);
   assert.match(made.number, /^OPP-\d{8}-001$/);
   // 必填的自定义字段没填
   await c.click({oppAction: 'new'});
@@ -200,9 +201,9 @@ test('the opportunity form: new fields appear, hidden ones disappear, multi and 
 
 test('the form hides fields switched off in settings; the shared source list being empty shows a hint', async () => {
   let s = base;
-  for (const id of ['note', 'tags', 'products', 'collaborators', 'contact', 'sources', 'type', 'leadId']) s = O.setField(s, id, {show: false});
+  for (const id of ['note', 'tags', 'products', 'collaborators', 'contact', 'sources', 'type']) s = O.setField(s, id, {show: false});
   const hidden = ui.formMarkup({...O.defaults(s, TODAY)}, {setup: O.formSetup(s), isNew: true});
-  for (const name of ['note', 'tags', 'products', 'collaborators', 'contact', 'type', 'leadId']) assert.doesNotMatch(hidden, new RegExp(`name="${name}"`), name);
+  for (const name of ['note', 'tags', 'products', 'collaborators', 'contact', 'type']) assert.doesNotMatch(hidden, new RegExp(`name="${name}"`), name);
   assert.doesNotMatch(hidden, /data-multi="sources"/); assert.doesNotMatch(hidden, /补充信息/); assert.doesNotMatch(hidden, /自定义字段/);
   assert.match(hidden, /商机编号/, 'the number is always shown');
   const noList = ui.formMarkup(O.defaults(base, TODAY), {setup: O.formSetup(base), isNew: true});
@@ -230,16 +231,17 @@ test('creating from a customer prefills its source when it is on the shared list
   assert.doesNotMatch(c.dialogs.at(-1)[1], /type="checkbox" value="[^"]*" checked/);
 });
 
-test('detail drawer: number, type, sources, lead and custom values; old opportunities show —', () => {
+test('detail drawer: number, type, sources and custom values; old opportunities show —', () => {
   let s = withSources({...base, laiLeads: [{id: 'L1', name: 'Zed <b>Lashes</b>'}]});
   s = O.addCustomField(s, {name: '付款方式', type: 'multi', options: 'T/T\nL/C'}, {id: 'pay'});
   s = O.addCustomField(s, {name: '说明', type: 'textarea'}, {id: 'tx'});
-  s = add(s, 'a', {type: '样品单', leadId: 'L1', sources: ['社媒', '常规获客 / 展会'], custom: {pay: ['T/T', 'L/C'], tx: '第一行\n第二行'}});
+  s = add(s, 'a', {type: '样品单', sources: ['社媒', '常规获客 / 展会'], custom: {pay: ['T/T', 'L/C'], tx: '第一行\n第二行'}});
+  s = {...s, laiOpportunities: s.laiOpportunities.map(item => ({...item, leadId: 'L1'}))}; // an old stored link
   const html = ui.detailMarkup(O.detailOf(s, 'a', TODAY), {today: TODAY});
   assert.match(html, /<dt>商机编号<\/dt><dd>OPP-20261006-001<\/dd>/);
   assert.match(html, /<dt>商机类型<\/dt><dd>样品单<\/dd>/);
   assert.match(html, /<dt>商机来源<\/dt><dd><span class="k-badge k-badge--neutral">社媒<\/span> <span class="k-badge k-badge--neutral">常规获客 \/ 展会<\/span><\/dd>/);
-  assert.match(html, /<dt>来源线索<\/dt><dd>Zed &lt;b&gt;Lashes&lt;\/b&gt;<\/dd>/);
+  assert.doesNotMatch(html, /来源线索|Zed/, 'an old stored leadId is not shown (D-030)');
   assert.match(html, /<dt>付款方式<\/dt><dd>T\/T、L\/C<\/dd>/);
   assert.match(html, /<dt>说明<\/dt><dd>第一行<br>第二行<\/dd>/);
   const legacy = {...base, laiOpportunities: [{id: 'old', client: 'Beta Ltd', owner: 'Amy', amount: 5, currency: 'USD', endDate: '2026-11-05', stage: 'open', name: 'n', nameMode: 'custom', createdAt: NOW}]};
@@ -247,17 +249,20 @@ test('detail drawer: number, type, sources, lead and custom values; old opportun
   assert.match(old, /<dt>商机编号<\/dt><dd>—<\/dd>/); assert.doesNotMatch(old, /商机类型|商机来源|来源线索/);
   // 列表页有编号一列
   const table = ui.boardMarkup(O.board(s, {}, TODAY), {mode: 'list'}, {today: TODAY});
-  assert.match(table, /<th>商机编号<\/th>/); assert.match(table, /<td class="opp-num">OPP-20261006-001<\/td>/);
+  assert.match(table, /<th>商机编号<\/th>/); assert.match(table, /<td class="opp-num opp-list-muted">OPP-20261006-001<\/td>/);
+  // 详情第一行是商机名称和编号（抽屉标题是客户名）
+  assert.match(html, /<p class="opp-detail-sub"><span>26100601-Amy<\/span><span class="opp-num">OPP-20261006-001<\/span><\/p>/);
 });
 
 test('analysis page: 商机来源 table next to 输单原因', () => {
   let s = withSources(base);
   s = add(s, 'a', {sources: ['社媒', '常规获客 / 展会']}); s = add(s, 'b', {});
   const html = ui.analysisMarkup(O.analysis(s, {}, TODAY));
-  assert.match(html, /<h3>商机来源<\/h3>/);
-  assert.match(html, /<tr><td>社媒<\/td><td>1<\/td><td>USD 100\.00<\/td><\/tr>/);
-  assert.match(html, /<tr><td>未填来源<\/td><td>1<\/td><td>USD 100\.00<\/td><\/tr>/);
-  assert.ok(html.indexOf('<h3>输单原因</h3>') < html.indexOf('<h3>商机来源</h3>'));
+  assert.match(html, /<h3 class="k-card-title">商机来源<\/h3>/);
+  assert.match(html, /<tr><td>社媒<\/td><td class="k-num">1<\/td><td class="k-num">USD 100\.00<\/td><\/tr>/);
+  assert.match(html, /<tr><td>未填来源<\/td><td class="k-num">1<\/td><td class="k-num">USD 100\.00<\/td><\/tr>/);
+  assert.ok(html.indexOf('>输单原因</h3>') < html.indexOf('>商机来源</h3>'));
+  assert.match(html, /<table class="k-table opp-atable">/, 'the tables are the kit table');
 });
 
 test('rail menu and settings hub use the new name; the route id stays', () => {

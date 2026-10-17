@@ -1,4 +1,4 @@
-// 商机设置：输单原因、商机类型、字段显示与必填、自定义字段，以及商机来源／来源线索／商机编号。
+// 商机设置：输单原因、商机类型、字段显示与必填、自定义字段，以及商机来源／商机编号（来源线索随线索去掉，D-030）。
 process.env.TZ = 'Asia/Taipei';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -146,7 +146,7 @@ test('system fields: fixed ones cannot change; configurable ones default to show
   const rows = O.fieldRows(base), byId = Object.fromEntries(rows.map(row => [row.id, row]));
   for (const id of ['client', 'name', 'amount', 'stage', 'endDate', 'owner', 'flow', 'lostReason']) assert.deepEqual([byId[id].show, byId[id].required, byId[id].showLocked, byId[id].requiredLocked], [true, true, true, true], id);
   assert.deepEqual([byId.number.show, byId.number.required, byId.number.requiredLocked], [true, false, true]);
-  assert.deepEqual(['contact', 'collaborators', 'sources', 'type', 'leadId', 'exchangeRate', 'tags', 'note', 'products'], rows.filter(row => row.mode === 'config' || row.mode === 'rate').map(row => row.id));
+  assert.deepEqual(['contact', 'collaborators', 'sources', 'type', 'exchangeRate', 'tags', 'note', 'products'], rows.filter(row => row.mode === 'config' || row.mode === 'rate').map(row => row.id));
   assert.deepEqual([byId.contact.required, byId.exchangeRate.required, byId.sources.required, byId.note.required], [true, true, false, false], 'contact and rate keep today\'s behaviour by default');
   assert.deepEqual([byId.exchangeRate.showLocked, byId.exchangeRate.requiredLocked], [true, false]);
   assert.throws(() => O.setField(base, 'client', {required: false}), /不能修改/);
@@ -159,9 +159,9 @@ test('system fields: required ones are checked on save with 请填写XX', () => 
   let s = O.setField(base, 'note', {required: true});
   assert.throws(() => add(s, 'a'), /请填写备注/);
   assert.equal(get(add(s, 'a', {note: 'ok'}), 'a').note, 'ok');
-  for (const [id, label] of [['collaborators', '协同跟进人'], ['tags', '商机标签'], ['products', '关联产品'], ['type', '商机类型'], ['leadId', '来源线索'], ['sources', '商机来源']]) {
-    // 来源线索、商机来源只有名单里有可选项时才能要求必填（名单为空见下面的单独测试）
-    const stocked = withSources({...base, laiLeads: [{id: 'L1', name: 'Acme'}]});
+  for (const [id, label] of [['collaborators', '协同跟进人'], ['tags', '商机标签'], ['products', '关联产品'], ['type', '商机类型'], ['sources', '商机来源']]) {
+    // 商机来源只有名单里有可选项时才能要求必填（名单为空见下面的单独测试）
+    const stocked = withSources(base);
     assert.throws(() => add(O.setField(stocked, id, {required: true}), 'a'), new RegExp(`请填写${label}`), id);
   }
   // 联系人：客户有联系人才要选（和原来一样）；设成不必填后可以不选
@@ -324,19 +324,23 @@ test('sources: a new opportunity from a customer is prefilled with the customer 
   assert.deepEqual(O.sourcesFromCustomer(base, 'Alpha Co'), []);
 });
 
-// ---------------- 来源线索 ----------------
-test('lead link: only live leads can be picked; the name shows in detail; deleted leads are labelled', () => {
-  const s0 = {...base, laiLeads: [{id: 'L1', name: 'Zed Lashes'}, {id: 'L2', name: 'Trash Co', trashed: true}, {id: 'L3', name: 'Acme'}]};
-  assert.deepEqual(O.leadChoices(s0).map(lead => lead.name), ['Acme', 'Zed Lashes']);
-  let s = add(s0, 'a', {leadId: 'L1'});
-  assert.equal(get(s, 'a').leadId, 'L1');
-  assert.equal(O.detailOf(s, 'a', TODAY).leadName, 'Zed Lashes');
-  assert.throws(() => add(s0, 'b', {leadId: 'L2'}), /来源线索不存在或已在回收站/);
-  assert.throws(() => add(s0, 'b', {leadId: 'nope'}), /来源线索不存在/);
-  const gone = {...s, laiLeads: []};
-  assert.equal(O.detailOf(gone, 'a', TODAY).leadName, '（已删除的线索）');
-  assert.equal(get(O.upsert(gone, 'a', {note: 'x', leadId: 'L1'}, {now: NOW, mustExist: true}), 'a').leadId, 'L1', 'the stored link may stay');
-  assert.equal(O.detailOf(add(s0, 'c'), 'c', TODAY).leadName, '');
+// ---------------- 来源线索（已去掉，D-030）：存着的 leadId 原样留着 ----------------
+test('来源线索 is gone: not a field, not in detail; a stored leadId and its stored setting stay untouched and never block saving', () => {
+  assert.ok(!O.SYSTEM_FIELDS.some(def => def.id === 'leadId'));
+  assert.ok(!O.roleFieldList(base).some(row => row.key === 'leadId'));
+  assert.equal(O.leadChoices, undefined);
+  const stored = {...base, laiLeads: [{id: 'L1', name: 'Zed Lashes'}], laiSettings: {...base.laiSettings, opportunitySettings: {...(base.laiSettings?.opportunitySettings || {}), fields: {leadId: {show: true, required: true}}}}};
+  assert.throws(() => O.setField(stored, 'leadId', {required: false}), /不能修改/);
+  let s = add(stored, 'a', {leadId: 'L1'});
+  assert.equal(get(s, 'a').leadId, undefined, 'the form no longer sets it');
+  s = {...s, laiOpportunities: s.laiOpportunities.map(item => item.id === 'a' ? {...item, leadId: 'L1'} : item)};
+  const edited = O.upsert(s, 'a', {note: 'x', leadId: ''}, {now: NOW, mustExist: true});
+  assert.equal(get(edited, 'a').leadId, 'L1', 'an old stored link stays on the record');
+  assert.equal(get(edited, 'a').note, 'x');
+  assert.equal(O.detailOf(edited, 'a', TODAY).leadName, undefined);
+  const flipped = O.setField(edited, 'note', {required: true});
+  assert.deepEqual(flipped.laiSettings.opportunitySettings.fields.leadId, {show: true, required: true}, 'the stored setting is kept');
+  assert.deepEqual(edited.laiLeads, stored.laiLeads);
 });
 
 // ---------------- 商机编号 ----------------
@@ -381,7 +385,8 @@ test('formSetup gathers what the form needs', () => {
   const s = field(O.setField(withSources(base), 'tags', {show: false}), {name: '评级', type: 'select', options: 'A'}, 'g');
   const setup = O.formSetup({...s, laiLeads: [{id: 'L', name: 'Q'}]});
   assert.equal(setup.fields.tags.show, false);
-  assert.deepEqual([setup.reasons.length, setup.types.length, setup.sources.length, setup.leads, setup.customFields.map(f => f.id)], [6, 3, 3, [{id: 'L', name: 'Q'}], ['g']]);
+  assert.deepEqual([setup.reasons.length, setup.types.length, setup.sources.length, setup.customFields.map(f => f.id)], [6, 3, 3, ['g']]);
+  assert.equal(setup.leads, undefined, '来源线索 is gone (D-030)');
   assert.equal(O.formSetup({}).sources, null);
 });
 
@@ -397,13 +402,6 @@ test('required 商机类型 with an empty type list does not block saving; delet
   assert.throws(() => O.removeType(t, '样品单'), /商机类型现在是必填/);
   assert.throws(() => add(t, 'b'), /请填写商机类型/, 'still required while a type exists');
   assert.deepEqual(O.typeChoices(O.removeType(O.setField(t, 'type', {required: false}), '样品单')), []);
-});
-
-test('required 来源线索 with no leads does not block saving, and applies again once a lead exists', () => {
-  const s = O.setField(base, 'leadId', {required: true});
-  assert.doesNotThrow(() => add(s, 'a'), 'no leads at all');
-  assert.doesNotThrow(() => add({...s, laiLeads: [{id: 'L2', name: 'Gone', trashed: true}]}, 'c'), 'trashed leads are not choices');
-  assert.throws(() => add({...s, laiLeads: [{id: 'L1', name: 'Acme'}]}, 'b'), /请填写来源线索/);
 });
 
 test('required 商机来源 with an empty source list does not block saving', () => {

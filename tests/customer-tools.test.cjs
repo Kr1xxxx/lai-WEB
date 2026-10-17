@@ -16,7 +16,7 @@ const base=()=>({
   previewSegments:[{id:'s1',name:'重点',kind:'manual',members:['Acme Ltd','Other']},{id:'s2',name:'全部',kind:'manual',members:['Acme','Acme Ltd']}]
 });
 
-test('合并客户：订单、任务、商机、客群里的名字一起改，被合并的档案删除',()=>{
+test('合并客户：订单、商机、客群（和已去掉的任务存着的数据）里的名字一起改，被合并的档案删除',()=>{
   const s0=base(),before=structuredClone(s0);
   const s=T.mergeCustomers(s0,'Acme',['Acme Ltd'],'2026-10-08T00:00:00.000Z');
   assert.deepEqual(s0,before,'输入不被修改');
@@ -62,7 +62,7 @@ test('合并客户：邮箱相同的联系人不重复；回收站客户和不�
 
 test('合并预览给出会改动的数量',()=>{
   const p=T.mergePreview(base(),'Acme',['Acme Ltd']);
-  assert.deepEqual(p.count,{orders:2,tasks:1,opportunities:1,segments:2,followups:1,contacts:1});
+  assert.deepEqual(p.count,{orders:2,opportunities:1,segments:2,followups:1,contacts:1},'no task count any more (D-031)');
 });
 
 test('标签统计、改名、合并同名、删除',()=>{

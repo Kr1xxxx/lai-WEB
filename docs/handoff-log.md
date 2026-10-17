@@ -4,6 +4,12 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude — #29 merged (`main` be707da); web trial v1.17 published. Then merged on the branch: 线索 removed
+  (D-030) and 协同 incl. tasks removed (D-031), code and tests deleted, stored `laiLeads`/`laiTasks`/settings kept (new
+  `tests/removed-features-data.test.cjs`); 商机 pages polished (customer as card title, one colour meaning, stage progress,
+  calmer analysis/settings; rules in VALIDATION). `.opp-toolbar` radius → `--r-xl` (census radius back to baseline).
+  model 1452 / e2e 299 (suites for removed features deleted). Owner asked to pause after this lands
+  ("完成手上的活就先暂停"); open for him: the data-dir lock file proposal; whether 工作台 tasks should come back.
 - 2026-10-17 — Claude — Advisor item 1 + 3 done on the branch: `npm start` (scripts/start.cjs: assembles dist/app,
   starts the real backend, opens 工作台; second start reuses the running one; never two servers on one data dir) and
   backup restore (设置 → 本地数据: list + two-click 恢复, before-restore backup, crash-safe swap, refused while another

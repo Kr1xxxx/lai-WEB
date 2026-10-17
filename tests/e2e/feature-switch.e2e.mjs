@@ -1,7 +1,7 @@
 // 功能开关 (FS) in the real page with the real backend: 设置 → 功能开关 has one switch per module. Switching a module off
 // removes it from the rail, the flyouts, the 设置中心, 常用, the workbench and the customer detail; a direct link shows
 // 这个功能已关闭 and goes to the workbench; nothing is deleted (data is the same after off and on); with 邮件 off the page
-// sends no request to the mail service; and a task rule that needs a closed module does not run.
+// sends no request to the mail service; and saved task rules (协同 removed, D-031) never run and stay as they were.
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { startApp, sampleCustomers } from './harness.mjs';
@@ -27,7 +27,6 @@ async function save(mutate) {
 
 // module id → what it should take away
 const MODULES = {
-  lead: { label: '线索', rail: ['线索', 'Leads'], hub: 'lead-settings', favorite: 'route:leads', route: 'leads' },
   opp: { label: '商机', rail: ['商机'], hub: 'flows', favorite: 'route:opportunities', route: 'opportunities' },
   product: { label: '产品', flyout: ['交易', 'products'], hub: 'product-settings', favorite: 'route:products', route: 'products' },
   doc: { label: '单据', flyout: ['交易', 'doc-templates'], hub: 'doc-templates', favorite: 'route:doc-templates', route: 'doc-templates' },
@@ -35,6 +34,7 @@ const MODULES = {
   chat: { label: '沟通', rail: ['沟通'], hub: 'chat-templates', favorite: 'route:chats', route: 'chats' },
   team: { label: '团队数据', rail: ['团队数据'], hub: 'targets', favorite: 'route:team-goals', route: 'team-goals' },
 };
+// 'route:leads' is an old favorite of the removed 线索 module (D-030): never shown, but the saved list keeps it.
 const FAVORITES = ['route:leads', 'route:opportunities', 'route:products', 'route:doc-templates', 'mail:inbox', 'route:chats', 'route:team-goals', 'route:order-list', 'screen:active'];
 
 before(async () => {
@@ -113,10 +113,10 @@ test('设置 → 功能开关: one switch per module, all on, the fixed sentence
   const { page } = app;
   await openSwitchPage();
   assert.equal(await page.locator('.pagebar h1').innerText(), '功能开关');
-  assert.deepEqual(await page.locator('[data-fs-module] h3').allInnerTexts(), ['线索', '商机', '产品', '单据', '邮件', '沟通', '团队数据']);
-  assert.equal(await page.locator('[data-fs-toggle]:checked').count(), 7);
+  assert.deepEqual(await page.locator('[data-fs-module] h3').allInnerTexts(), ['商机', '产品', '单据', '邮件', '沟通', '团队数据']);
+  assert.equal(await page.locator('[data-fs-toggle]:checked').count(), 6);
   assert.match(await page.locator('.pagebar').innerText(), /关掉后，这个功能不再显示；数据都保留，重新打开就能用。/);
-  assert.match(await page.locator('.fs-fixed').innerText(), /客户、订单、工作台、协同、设置、企业管理是基础功能，不能关闭/);
+  assert.match(await page.locator('.fs-fixed').innerText(), /客户、订单、工作台、设置、企业管理是基础功能，不能关闭/);
   assert.ok((await hubItems()).includes('feature-switch'));
   assert.deepEqual((await flyoutTargets('设置')).filter((t) => t === 'feature-switch'), ['feature-switch']);
   assert.equal((await data()).laiSettings.featureSwitch, undefined, 'nothing is stored until a switch is used');
@@ -129,6 +129,7 @@ for (const [id, spec] of Object.entries(MODULES)) {
     await save((d) => { d.laiSettings.featureSwitch = { off: [] }; });
     // before: it is there
     const before = { hub: await hubItems(), fav: await favoriteTargets(), wb: await workbenchText() };
+    assert.ok(!before.fav.includes('route:leads'), 'the old 线索 favorite is never shown');
     if (spec.hub) assert.ok(before.hub.includes(spec.hub), `${spec.hub} in the hub before`);
     assert.ok(before.fav.includes(spec.favorite), `${spec.favorite} in 常用 before`);
     for (const label of spec.rail || []) assert.equal(await rail(label).count(), 1, `${label} on the rail before`);
@@ -173,7 +174,7 @@ for (const [id, spec] of Object.entries(MODULES)) {
     assert.equal(await page.locator('[data-activity-filter="chat"]').count(), id === 'chat' ? 0 : 1, '聊天记录');
     await page.locator('.lcd-tabs [data-tab="info"]').click();
     const info = await page.locator('.lcd-body').innerText();
-    assert.equal(info.includes('关联线索'), id !== 'lead', '关联线索 field');
+    assert.ok(!info.includes('关联线索'), '关联线索 is never shown (D-030)');
 
     // a direct link to the closed module says so and lands on the workbench
     await app.open(spec.route);
@@ -202,21 +203,22 @@ for (const [id, spec] of Object.entries(MODULES)) {
   });
 }
 
-test('data is untouched by switching everything off and on: leads, opportunities, products, customers, orders and 常用 are the same', async () => {
+test('data is untouched by switching everything off and on: stored leads, opportunities, products, customers, orders and 常用 are the same', async () => {
   const pick = (d) => JSON.stringify({ customers: d.customers, orders: d.orders, leads: d.laiLeads, opps: d.laiOpportunities, products: d.laiProducts, fav: d.laiSettings.favoriteNav });
   const before = pick(await data());
   await openSwitchPage();
   for (const id of Object.keys(MODULES)) await toggleOnPage(id, false);
   assert.deepEqual((await data()).laiSettings.featureSwitch.off, Object.keys(MODULES));
   // with everything off the basics are all still there, and so is the switch page
-  for (const label of ['客户', '交易', '协同', '设置', '企业管理']) assert.equal(await rail(label).count(), 1, label);
-  for (const label of ['线索', '商机', 'Leads', '邮件', '沟通', '团队数据']) assert.equal(await rail(label).count(), 0, label);
+  for (const label of ['客户', '交易', '设置', '企业管理']) assert.equal(await rail(label).count(), 1, label);
+  for (const label of ['商机', '邮件', '沟通', '团队数据']) assert.equal(await rail(label).count(), 0, label);
   assert.equal(await app.page.locator('.fs-page').count(), 1, 'the switch page stays open');
   assert.equal(pick(await data()), before, 'nothing changed while everything was off');
   for (const id of Object.keys(MODULES)) await toggleOnPage(id, true);
   assert.deepEqual((await data()).laiSettings.featureSwitch.off, []);
   assert.equal(pick(await data()), before);
-  for (const label of ['线索', '商机', 'Leads', '邮件', '沟通', '团队数据']) assert.equal(await rail(label).count(), 1, label);
+  for (const label of ['商机', '邮件', '沟通', '团队数据']) assert.equal(await rail(label).count(), 1, label);
+  for (const label of ['线索', 'Leads', '协同']) assert.equal(await rail(label).count(), 0, `${label} is gone (D-030 / D-031)`);
   assert.deepEqual(pageErrors(), []);
 });
 
@@ -243,24 +245,24 @@ test('with 邮件 off the page sends no request to the mail service, not on boot
   assert.deepEqual(pageErrors(), []);
 });
 
-test('客户设置: the 新线索与已有客户 tab goes when 线索 is off and comes back when it is on', async () => {
+test('客户设置: 判重设置 only has the customer rule (D-030); saving it keeps the stored 新线索 rule untouched', async () => {
   const { page } = app;
-  const openDedupe = async () => {
-    await app.open('customers');
-    await page.locator('.subnav .nav-row:has(.nav-label:text-is("客户设置"))').click();
-    await page.locator('.cs-page').waitFor();
-    await page.locator('[data-cs-tab="dedupe"]').click();
-    await page.locator('[data-cs-panel="dedupe"]').waitFor();
-  };
-  await openDedupe();
-  assert.equal(await page.locator('[data-cs-dedupe-sub="lead"]').count(), 1);
-  await save((d) => { d.laiSettings.featureSwitch = { off: ['lead'] }; });
-  await openDedupe();
-  assert.equal(await page.locator('[data-cs-dedupe-sub="lead"]').count(), 0);
-  assert.equal(await page.locator('[data-cs-form="dedupe"]').count(), 1, 'the customer table stays');
+  const stored = { name: 'block', website: 'allow', email: 'off', phone: 'block' };
+  await save((d) => { d.laiSettings.customerSettings = { ...(d.laiSettings.customerSettings || {}), leadDedupe: stored }; d.laiSettings.featureSwitch = { off: ['lead'] }; });
+  await app.open('customers');
+  await page.locator('.subnav .nav-row:has(.nav-label:text-is("客户设置"))').click();
+  await page.locator('.cs-page').waitFor();
+  await page.locator('[data-cs-tab="dedupe"]').click();
+  await page.locator('[data-cs-panel="dedupe"]').waitFor();
+  assert.equal(await page.locator('[data-cs-dedupe-sub]').count(), 0, 'no sub-tabs');
+  assert.ok(!(await page.locator('[data-cs-panel="dedupe"]').innerText()).includes('线索'));
+  await page.locator('[data-cs-form="dedupe"] input[name="dedupe:email"][value="block"]').check({ force: true });
+  await page.locator('[data-cs-form="dedupe"] button[type="submit"]').click();
+  await settle(800);
+  const saved = (await data()).laiSettings.customerSettings;
+  assert.equal(saved.dedupe.email, 'block', 'the customer rule was saved');
+  assert.deepEqual(saved.leadDedupe, stored, 'the stored 新线索 rule is kept as it was');
   await save((d) => { d.laiSettings.featureSwitch = { off: [] }; });
-  await openDedupe();
-  assert.equal(await page.locator('[data-cs-dedupe-sub="lead"]').count(), 1);
   assert.deepEqual(pageErrors(), []);
 });
 
@@ -301,26 +303,16 @@ test('客户设置: 动态设置 goes with 邮件, and the 客户跟进规则 ch
   assert.deepEqual(pageErrors(), []);
 });
 
-test('任务规则: 商机快到结束日期 does not run while 商机 is off (its switch stays on) and runs once 商机 is on', async () => {
+test('saved task rules (协同 removed, D-031) never run on boot: no task is made and the rules and tasks stay as they were', async () => {
   const { page } = app;
-  const autoTasks = async () => ((await data()).laiTasks || []).filter((task) => task.auto);
-  await save((d) => {
-    d.laiTasks = [];
-    d.laiSettings.taskRules = { rules: [{ id: 'oppClose', type: 'oppClose', enabled: true, days: 7, dueDays: 0 }], lastRun: '', dismissed: [] };
-    d.laiSettings.featureSwitch = { off: ['opp'] };
-  });
+  const rules = { rules: [{ id: 'oppClose', type: 'oppClose', enabled: true, days: 7, dueDays: 0 }, { id: 'noFollow', type: 'noFollow', enabled: true, days: 1 }], lastRun: '', dismissed: [] };
+  const stored = [{ id: 'old-task', title: '旧待办', date: TODAY, done: false }];
+  await save((d) => { d.laiTasks = stored; d.laiSettings.taskRules = rules; d.laiSettings.featureSwitch = { off: [] }; });
   await app.open('dashboard');
   await page.locator('.wb').waitFor();
   await settle(1500);
-  assert.deepEqual(await autoTasks(), [], 'no task is made while 商机 is off');
-  const rules = (await data()).laiSettings.taskRules;
-  assert.deepEqual(rules.rules.map((rule) => [rule.type, rule.enabled]), [['oppClose', true]], 'the rule keeps its switch');
-  assert.notEqual(rules.lastRun, TODAY, 'and it did not count as having run today');
-  await save((d) => { d.laiSettings.featureSwitch = { off: [] }; });
-  await app.open('dashboard');
-  await page.locator('.wb').waitFor();
-  await settle(1500);
-  const tasks = await autoTasks();
-  assert.deepEqual(tasks.map((task) => task.auto.key), [`oppClose|opp-1|${SOON}`], 'on again: the rule runs');
+  assert.deepEqual((await data()).laiTasks, stored, 'no task is made, the stored one is untouched');
+  assert.deepEqual((await data()).laiSettings.taskRules, rules, 'the saved rules are untouched');
+  assert.doesNotMatch(await page.locator('.wb').innerText(), /旧待办/);
   assert.deepEqual(pageErrors(), []);
 });

@@ -294,7 +294,7 @@ test('a read-only account sees the filled and required fields as a list', async 
     await page.waitForTimeout(700);
     await page.locator('[data-order-row]', { hasText: 'RO-001' }).locator('.op-link').first().click();
     await page.locator('#biz-order-form').waitFor();
-    const infos = (await page.locator('[data-order-custom-infos] .lead-info').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+    const infos = (await page.locator('[data-order-custom-infos] .field-info').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
     assert.deepEqual(infos, ['合同号 HT-7', '采购量 30', '备案号 —']);
     assert.equal(await page.locator('#biz-order-form [data-order-custom]').count(), 0, 'no inputs');
     assert.equal(await page.locator('#biz-order-form [name^="custom."]').count(), 0);

@@ -101,23 +101,6 @@ test('opportunities use flow and stage labels and custom fields', () => {
   assert.ok(!E.opportunityRows([item], state, { gate: hide('amount') }).header.includes('金额'));
 });
 
-test('leads: trash excluded unless includeTrash; labels and blanks', () => {
-  const leads = [
-    { id: 'a', name: 'L1', status: 'converted', convertedTo: 'Acme', createdAt: '2026-05-03', email: 'l@x.test' },
-    { id: 'b', name: 'L2', status: 'invalid', invalidReason: '没有需求', trashed: true },
-    { id: 'c', name: 'L3' },
-  ];
-  const out = E.leadRows(leads, {});
-  assert.equal(out.header.length, 16);
-  assert.deepEqual(out.data.map(r => r[0]), ['L1', 'L3']);
-  assert.equal(out.data[0][9], '已转客户');
-  assert.equal(out.data[0][15], 'Acme');
-  assert.equal(out.data[1][9], '新线索');
-  assert.equal(out.data[1][11], '');
-  assert.equal(E.leadRows(leads, {}, { includeTrash: true }).data.length, 3);
-  assert.ok(!E.leadRows(leads, {}, { gate: hide('email', 'phone') }).header.includes('邮箱'));
-});
-
 test('phone numbers starting with + are not given the formula guard; formulas still are', () => {
   assert.equal(E.guard('+44 7700 900123'), '+44 7700 900123');
   assert.equal(E.guard('+1 (555) 010-2000'), '+1 (555) 010-2000');

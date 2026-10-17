@@ -1,5 +1,5 @@
 /* 来财Lai 网页试用版：示例数据。第一次打开试用版（浏览器里还没有任何客户和订单）时，放进一批虚构的示例数据：
-   7 家美国、欧洲的大型睫毛公司、订单、商机、待办、跟进记录和本月目标，邮箱与 mail-demo.js 里的示例邮件一一对应，
+   7 家美国、欧洲的大型睫毛公司、订单、商机、跟进记录和本月目标，邮箱与 mail-demo.js 里的示例邮件一一对应，
    让工作台、客户、商机、订单、邮件页一打开就是有内容的样子。公司和人名都是虚构的，邮箱域名都是 .example。
    发布试用版时，本文件作为一个 <script> 放在所有业务模块之后、应用主脚本之前（要用商机和目标模块生成数据，并且必须赶在应用读数据之前）。
    只在「浏览器里没有客户也没有订单，并且从没放过示例数据」时才写入；用户自己的数据不会被动。 */
@@ -51,12 +51,6 @@
     ['London Lash Pro 10 月订单', 'London Lash Pro', 31200, 'done', -3],
     ['Lash Lab Q3 自有品牌', 'Lash Lab Amsterdam BV', 15750, 'done', -10],
     ['Lash Lab 试用套装', 'Lash Lab Amsterdam BV', 4200, 'lost', -5]
-  ];
-
-  var TASKS = [
-    ['给 London Lash Pro 发 PI（USD 50,000）', 0], ['核对 Lash Luxe 电汇到账，放货并发运单号', 0], ['回复 Velvet：11 月起的产能锁定', 1],
-    ['起草 NordLash 的 DACH 独家条款', 3], ['给 Maison des Cils 报价（试单 USD 18,000）', 2], ['准备 Bella Ciglia 2027 年度协议草稿', 5],
-    ['确认 Lash Lab 新托盘印刷规格', 4]
   ];
 
   // 示例 WhatsApp 聊天（沟通 › 聊天记录）：全是虚构的。[客户, 联系人, 号码, 跟进人, [[几天前, 时, 分, 'out'|'in', 内容], ...]]
@@ -112,7 +106,6 @@
       data.orders.push({id: 'demo-order-' + (index + 1), num: row[1], client: row[0], country: data.customers[row[0]].country, amount: row[2], currency: 'USD', stage: row[3], paidAmount: row[4],
         productType: row[5], next: row[6], owner: owners[row[0]], createdAt: created, orderMonth: created.slice(0, 7), updated: created + 'T08:00:00.000Z'});
     });
-    data.laiTasks = TASKS.map(function (task, index) { return {id: 'demo-task-' + (index + 1), title: task[0], date: day(today, task[1]), done: false}; });
     OPPS.forEach(function (row, index) {
       var input = {owner: owners[row[1]], client: row[1], name: row[0], stage: row[3], amount: row[2], currency: 'USD', contact: data.customers[row[1]].contact, startDate: day(today, -20), endDate: day(today, row[4])};
       if (row[3] === 'lost') input.lostReason = '价格原因';

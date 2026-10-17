@@ -26,7 +26,7 @@ test('scope choices: selected only for customers and only when something is sele
   assert.deepEqual(U.scopeChoices('customer', ctx).map(s => [s.id, s.count]), [['filtered', 5], ['selected', 2], ['all', 8]]);
   assert.deepEqual(U.scopeChoices('customer', ctxFor({ scopes: { filtered: [], selected: [], all: [] } })).map(s => s.id), ['filtered', 'all']);
   assert.deepEqual(U.scopeChoices('order', ctx).map(s => s.id), ['filtered', 'all'], 'orders have no selection');
-  assert.deepEqual(U.scopeChoices('lead', ctx).map(s => s.id), ['filtered', 'all']);
+  assert.deepEqual(U.scopeChoices('opp', ctx).map(s => s.id), ['filtered', 'all']);
 });
 
 test('dialog markup: scopes with counts, columns for customers only, format, hint, preview', () => {
@@ -41,7 +41,8 @@ test('dialog markup: scopes with counts, columns for customers only, format, hin
   assert.ok(orders.includes('产品明细只在 Excel 里有'));
   assert.ok(orders.includes('没有可导出的内容'));
   assert.equal(U.KINDS.customer.title, '导出客户');
-  assert.deepEqual(['customer', 'order', 'opp', 'lead'].map(k => U.KINDS[k].title), ['导出客户', '导出订单', '导出商机', '导出线索']);
+  assert.deepEqual(Object.keys(U.KINDS), ['customer', 'order', 'opp'], '线索已去掉（D-030）');
+  assert.deepEqual(['customer', 'order', 'opp'].map(k => U.KINDS[k].title), ['导出客户', '导出订单', '导出商机']);
 });
 
 test('the default choice with a selection is 已选的; the footer has 导出 and is disabled with nothing to export', () => {
@@ -49,8 +50,8 @@ test('the default choice with a selection is 已选的; the footer has 导出 an
   assert.equal(view.scope, 'selected');
   assert.equal(view.count, 2);
   assert.match(U.footerMarkup('customer', view), /data-export-do="download"[^>]*>导出</);
-  const empty = U.viewFor('lead', ctxFor({ scopes: { filtered: [], all: [] } }), {});
-  assert.match(U.footerMarkup('lead', empty), /data-export-do="download" disabled/);
+  const empty = U.viewFor('opp', ctxFor({ scopes: { filtered: [], all: [] } }), {});
+  assert.match(U.footerMarkup('opp', empty), /data-export-do="download" disabled/);
 });
 
 test('scope choice decides the rows: filtered, selected and all', () => {
@@ -74,15 +75,15 @@ test('columns: 按列表字段设置 follows the list order, 全部字段 uses t
   assert.ok(!U.bodyMarkup('customer', U.viewFor('customer', gated, { scope: 'all', columns: 'all' })).includes('x.test'), 'nor in the preview');
 });
 
-test('orders add the 产品明细 sheet in Excel, but not for CSV; opportunities and leads use the field gate', () => {
+test('orders add the 产品明细 sheet in Excel, but not for CSV; opportunities use the field gate', () => {
   const orders = [{ num: 'SO1', client: 'Acme', items: [{ code: 'P1', name: 'Pump', qty: 2, price: 5 }], amount: 10 }];
   const ctx = ctxFor({ scopes: { filtered: orders, all: orders } });
   assert.deepEqual(U.build('order', ctx, { format: 'xlsx' }).sheets.map(s => s.name), ['订单', '产品明细']);
   assert.deepEqual(U.build('order', ctx, { format: 'csv' }).sheets.map(s => s.name), ['订单']);
-  const leads = [{ id: 'l1', name: 'L', email: 'a@x.test', phone: '123' }];
-  const lctx = ctxFor({ scopes: { filtered: leads, all: leads }, gate: { columnVisible: id => id !== 'phone' } });
-  const sheet = U.build('lead', lctx, {}).sheets[0];
-  assert.ok(sheet.header.includes('邮箱') && !sheet.header.includes('电话'));
+  const opps = [{ id: 'o1', name: 'O', client: 'Acme', contact: 'Ann', amount: 10, currency: 'USD' }];
+  const octx = ctxFor({ scopes: { filtered: opps, all: opps }, gate: { columnVisible: id => id !== 'contact' } });
+  const sheet = U.build('opp', octx, {}).sheets[0];
+  assert.ok(sheet.header.includes('客户') && !sheet.header.includes('联系人'));
 });
 
 test('over the row limit shows the model message and blocks export', () => {
@@ -99,7 +100,6 @@ test('file name: 来财-客户-YYYYMMDD.xlsx and friends', () => {
   assert.equal(U.fileName('customer', 'xlsx', day), '来财-客户-20261007.xlsx');
   assert.equal(U.fileName('order', 'csv', day), '来财-订单-20261007.csv');
   assert.equal(U.fileName('opp', 'xlsx', day), '来财-商机-20261007.xlsx');
-  assert.equal(U.fileName('lead', 'xlsx', day), '来财-线索-20261007.xlsx');
 });
 
 test('web trial footer: the note and 复制表格, no download button and no format choice', () => {
@@ -210,7 +210,8 @@ test('the new files are wired into the page build, the model loads first, and th
   const business = fs.readFileSync(path.join(__dirname, '../src/business-ui.js'), 'utf8');
   assert.match(app, /d\.exportKind === "customer"/);
   assert.match(business, /exportKind !== "customer"/);
-  for (const kind of ['opp', 'lead']) assert.ok(business.includes(`exportButton("${kind}"`), kind);
+  assert.ok(business.includes('exportButton("opp"'), 'opp');
+  assert.ok(!business.includes('exportButton("lead"'), '线索已去掉（D-030）');
   // 全部订单页（orders-page.js）自己画导出按钮，所有配色都用它（D-029）。
   assert.match(fs.readFileSync(path.join(__dirname, '../src/orders-page.js'), 'utf8'), /data-export-kind="order"/);
 });

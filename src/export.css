@@ -1,4 +1,4 @@
-/* 导出窗口（客户、订单、商机、线索共用）。 */
+/* 导出窗口（客户、订单、商机共用）。 */
 .drawer.export-dialog { width: min(640px, 100vw); }
 .export-body { display: flex; flex-direction: column; gap: 16px; }
 .export-group { margin: 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }

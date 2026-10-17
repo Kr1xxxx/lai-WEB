@@ -9,9 +9,10 @@ test('the board has the view switch in the filter card only (the classic page-he
   const ui = read('src/opportunity-ui.js');
   assert.match(ui, /viewSwitch\(view,' opp-view-in'\)/);
   assert.equal((ui.match(/viewSwitch\(/g) || []).length, 1, 'one call: the filter card');
-  assert.match(ui, /class="k-btn opp-analysis-link" data-lai-route="opp-analysis"/);
+  // 「商机分析」是标题后的页签；页头里不再重复放一个按钮（2026-10 商机美化）。
+  assert.doesNotMatch(ui, /opp-analysis-link/);
   assert.match(ui, /class="k-tabs opp-view\$\{extra\}"/, 'the switch is the kit tabs (D-028)');
-  // 旧版页头里那份切换去掉后（D-029），隐藏/显示这一对规则也不需要了：切换和「商机分析」按钮一直显示。
+  // 旧版页头里那份切换去掉后（D-029），隐藏/显示这一对规则也不需要了。
   assert.doesNotMatch(read('src/business.css'), /\.opp-view-in, \.opp-analysis-link \{ display: none; \}/);
   assert.doesNotMatch(glass, /\.pagebar \.opp-view/, 'no header copy left to hide');
   assert.doesNotMatch(glass, /\.opp-view-in|\.opp-analysis-link/);

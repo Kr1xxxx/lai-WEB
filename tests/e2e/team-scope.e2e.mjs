@@ -46,7 +46,7 @@ const body = (app) => app.page.locator('body').innerText();
 test('业务 Amy (本人): every 团队数据 view shows only her own figures', async () => {
   const app = await start('m-amy');
   try {
-    for (const route of ['team-goals', 'team-wall', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) {
+    for (const route of ['team-goals', 'team-wall', 'team-assets', 'team-followups', 'team-orders']) {
       await go(app, route);
       const text = await body(app);
       assert.ok(text.includes('只显示你自己的数据'), route + ' note');

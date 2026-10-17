@@ -47,13 +47,12 @@ test('names and notes from the data are escaped, never injected as markup', () =
 });
 
 test('numbers with records become buttons; zero stays plain text', () => {
-  const html = page('tasks');
-  assert.match(html, /<button type="button" class="team-number" data-team-detail="tile:total"[^>]*>1<\/button>/);
-  const empty = ui.markup(T.report('tasks', {}, '2026-10'));
+  const html = page('followups');
+  assert.match(html, /<button type="button" class="team-number" data-team-detail="tile:records"[^>]*>1<\/button>/);
+  const empty = ui.markup(T.report('followups', {}, '2026-10'));
   assert.doesNotMatch(empty, /data-team-detail/);
   assert.match(empty, /本月暂无数据/);
   assert.match(empty, /<strong>0<\/strong>/);
-  assert.match(empty, /<strong>—<\/strong>/, 'completion rate with no tasks shows a dash, not 0%');
 });
 
 test('detail keys resolve to the records behind a number and reject anything else', () => {
@@ -96,21 +95,21 @@ function controller(withTeam = true) {
   return {ui, mounted, dialogs, click};
 }
 
-test('the four team routes render their page and a clicked number opens its records', () => {
+test('the three team report routes render their page and a clicked number opens its records', () => {
   const c = controller();
-  for (const [route, title] of [['team-assets', '客户资产'], ['team-followups', '跟进情况'], ['team-tasks', '任务完成'], ['team-orders', '订单业绩']]) {
+  for (const [route, title] of [['team-assets', '客户资产'], ['team-followups', '跟进情况'], ['team-orders', '订单业绩']]) {
     c.ui.navigate(route);
     const html = c.mounted.at(-1);
     assert.match(html, new RegExp(`<h1>${title}</h1>`), route);
     assert.match(html, /id="biz-month"/, route);
     assert.match(html, /class="team-tiles"/, route);
   }
-  c.ui.navigate('team-tasks');
-  c.click({teamDetail: 'tile:total'});
+  c.ui.navigate('team-followups');
+  c.click({teamDetail: 'tile:records'});
   assert.equal(c.dialogs.length, 1);
   const [title, body, footer, type] = c.dialogs[0];
-  assert.equal(title, '任务数'); assert.equal(type, 'team-detail');
-  assert.match(body, /寄样/); assert.match(footer, /data-action="close-modal"/);
+  assert.equal(title, '跟进记录数'); assert.equal(type, 'team-detail');
+  assert.match(body, /alert\(1\)/); assert.doesNotMatch(body, /<script>/); assert.match(footer, /data-action="close-modal"/);
   c.click({teamDetail: 'r:99:total'});
   c.click({teamDetail: 'bogus'});
   assert.equal(c.dialogs.length, 1, 'unknown keys open nothing');
@@ -129,17 +128,16 @@ test('the rail highlights the menu that owns the current page', () => {
   const active = (route, favoritesMode = false) => {
     const sandbox = {RM, activeRoute: route, favoritesMode};
     vm.createContext(sandbox); vm.runInContext(body, sandbox);
-    const labels = ['常用', '工作台', '邮件', '沟通', '线索', '客户', '商机', '交易', '团队数据', '协同', '设置', '企业管理'];
-    const routeOf = {客户: 'customers', 工作台: 'dashboard', 交易: 'order-list', 团队数据: 'analysis', 协同: 'calendar', 设置: 'settings'};
+    const labels = ['常用', '工作台', '邮件', '沟通', '客户', '商机', '交易', '团队数据', '设置', '企业管理'];
+    const routeOf = {客户: 'customers', 工作台: 'dashboard', 交易: 'order-list', 团队数据: 'analysis', 设置: 'settings'};
     return labels.filter(label => vm.runInContext(`railActive(${JSON.stringify(label)}, ${JSON.stringify(routeOf[label] || null)})`, sandbox));
   };
   assert.deepEqual(active('customers'), ['客户']);
   assert.deepEqual(active('customers', true), ['常用']);
   assert.deepEqual(active('order-trash'), ['交易']);
   assert.deepEqual(active('order-list'), ['交易']);
-  for (const route of ['analysis', 'team-goals', 'team-targets', 'team-wall', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) assert.deepEqual(active(route), ['团队数据'], route);
+  for (const route of ['analysis', 'team-goals', 'team-targets', 'team-wall', 'team-assets', 'team-followups', 'team-orders']) assert.deepEqual(active(route), ['团队数据'], route);
   assert.deepEqual(active('dashboard'), ['工作台']);
-  assert.deepEqual(active('calendar'), ['协同']);
   assert.deepEqual(active('settings'), ['设置']);
   assert.deepEqual(active('settings-hub'), ['设置']);
 });
@@ -152,22 +150,23 @@ test('the team modules are loaded between the business model and the business UI
   assert.match(build, /'<!--TEAM_MODEL-->','team-model\.js','script'/);
   assert.match(build, /'<!--TEAM_UI-->','team-ui\.js','script'/);
   const app = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
-  for (const route of ['team-assets', 'team-followups', 'team-tasks', 'team-orders']) assert.ok(app.includes(`"${route}"`), route);
+  for (const route of ['team-assets', 'team-followups', 'team-orders']) assert.ok(app.includes(`"${route}"`), route);
+  assert.ok(!app.includes('"team-tasks"'), '任务完成 went with 协同 (D-031)');
 });
 
 // ---------------- 目标完成情况 / 团队墙 ----------------
-const member = (owner, v) => ({owner, label: owner || '未分配', added: 0, orders: 0, amounts: [], amount: 0, newDeal: 0, repeat: 0, records: 0, customers: 0, tasksTotal: 0, tasksDone: 0, taskRate: null, ...v});
+const member = (owner, v) => ({owner, label: owner || '未分配', added: 0, orders: 0, amounts: [], amount: 0, newDeal: 0, repeat: 0, records: 0, customers: 0, ...v});
 const months = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'];
 const overview = {
   month: '2026-10', primaryCurrency: 'USD',
-  rules: {amount: '金额规则', newDeal: '新客户规则', repeat: '复购规则', added: '新建客户规则', orders: '订单数规则', records: '跟进规则', customers: '涉及客户规则', tasksDone: '任务规则'},
+  rules: {amount: '金额规则', newDeal: '新客户规则', repeat: '复购规则', added: '新建客户规则', orders: '订单数规则', records: '跟进规则', customers: '涉及客户规则'},
   members: [
-    member('Amy', {newDeal: 2, repeat: 2, added: 1, orders: 2, amounts: [{currency: 'EUR', total: 5}, {currency: 'USD', total: 300}], amount: 300, records: 3, customers: 2, tasksTotal: 2, tasksDone: 1, taskRate: 50}),
-    member('Bob', {added: 4, orders: 2, amounts: [{currency: 'USD', total: 75}], amount: 75, tasksTotal: 1, tasksDone: 1, taskRate: 100}),
+    member('Amy', {newDeal: 2, repeat: 2, added: 1, orders: 2, amounts: [{currency: 'EUR', total: 5}, {currency: 'USD', total: 300}], amount: 300, records: 3, customers: 2}),
+    member('Bob', {added: 4, orders: 2, amounts: [{currency: 'USD', total: 75}], amount: 75}),
     member('Cy <i>', {added: 4, records: 9, customers: 4}),
     member('', {added: 7, orders: 1, amounts: [{currency: 'EUR', total: 70}], records: 1, customers: 1})
   ],
-  total: {added: 16, orders: 5, amounts: [{currency: 'EUR', total: 75}, {currency: 'USD', total: 375}], newDeal: 6, repeat: 2, records: 13, customers: 7, tasksTotal: 4, tasksDone: 2, taskRate: 50},
+  total: {added: 16, orders: 5, amounts: [{currency: 'EUR', total: 75}, {currency: 'USD', total: 375}], newDeal: 6, repeat: 2, records: 13, customers: 7},
   trend: {months, series: [
     {id: 'amount:EUR', label: '成交订单金额（EUR）', format: 'money', currency: 'EUR', values: [0, 0, 0, 0, 0, 75]},
     {id: 'amount:USD', label: '成交订单金额（USD）', format: 'money', currency: 'USD', values: [0, 0, 0, 0, 300, 375]},
@@ -175,8 +174,7 @@ const overview = {
     {id: 'newDeal', label: '成交新客户数', format: 'count', values: [0, 0, 0, 0, 0, 6]},
     {id: 'added', label: '新建客户数', format: 'count', values: [0, 0, 0, 0, 1, 16]},
     {id: 'orders', label: '新建销售订单数', format: 'count', values: [0, 0, 0, 0, 1, 5]},
-    {id: 'records', label: '跟进记录数', format: 'count', values: [0, 0, 0, 0, 1, 13]},
-    {id: 'tasksDone', label: '任务完成数', format: 'count', values: [0, 0, 0, 0, 1, 2]}]}
+    {id: 'records', label: '跟进记录数', format: 'count', values: [0, 0, 0, 0, 1, 13]}]}
 };
 const bodyRows = html => [...html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].matchAll(/<tr><td><span class="team-rank[^"]*" aria-label="[^"]*">([^<]+)<\/span><\/td><td>([^<]*)<\/td>/g)].map(m => [m[2], m[1]]);
 
@@ -218,14 +216,14 @@ test('目标完成情况: column toggles, sorting, process tab and trend view', 
   assert.deepEqual(bodyRows(html)[0], ['Amy', '1'], 'a column from the other tab falls back to this tab\'s first column');
   html = ui.goalsMarkup(overview, {tab: 'process'});
   assert.match(html, /<h3>过程概览<\/h3>/);
-  assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['records', 'customers', 'tasksDone']);
-  assert.match(html, /共 4 个任务，完成率 50%/);
+  assert.deepEqual([...html.matchAll(/data-team-rule="(\w+)"/g)].map(m => m[1]), ['records', 'customers']);
+  assert.doesNotMatch(html, /任务/);
   assert.deepEqual(bodyRows(html), [['Cy &lt;i&gt;', '1'], ['Amy', '2'], ['Bob', '—'], ['未分配', '—']]);
   html = ui.goalsMarkup(overview, {mode: 'trend'});
   assert.doesNotMatch(html, /team-board/);
   assert.deepEqual([...html.matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['成交订单金额（EUR）', '成交订单金额（USD）', '复购客户数', '成交新客户数', '新建客户数', '新建销售订单数']);
   assert.match(html, /<i style="width:80%"><\/i><\/div><b>300\.00 USD<\/b>/);
-  assert.deepEqual([...ui.goalsMarkup(overview, {mode: 'trend', tab: 'process'}).matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['跟进记录数', '任务完成数']);
+  assert.deepEqual([...ui.goalsMarkup(overview, {mode: 'trend', tab: 'process'}).matchAll(/<h4 class="team-trend-title">([^<]+)<\/h4>/g)].map(m => m[1]), ['跟进记录数']);
   assert.match(ui.goalsMarkup({...overview, members: []}, {}), /本月暂无数据/);
 });
 
@@ -252,7 +250,8 @@ test('团队墙: countdown ring, amount card, ranking lists, number cards and PK
   assert.deepEqual(list('跟进记录数排行榜').map(r => r[1]), ['Cy &lt;i&gt;', 'Amy']);
   assert.match(html, /<h3>新建客户数<\/h3><span class="muted tiny">我的企业<\/span><strong>16<\/strong>/);
   assert.match(html, /<h3>新建销售订单数<\/h3><span class="muted tiny">我的企业<\/span><strong>5<\/strong>/);
-  assert.match(html, /<h3>任务完成率<\/h3>[\s\S]*?<strong>50%<\/strong><span class="muted tiny">已完成 2 ／ 共 4 个任务<\/span><div class="team-progress" aria-hidden="true"><i style="width:50%">/);
+  assert.doesNotMatch(html, /任务完成/, '任务完成率 went with 协同 (D-031)');
+  assert.match(html, /<h3>复购客户数<\/h3>[\s\S]*?<h3>涉及客户数<\/h3><span class="muted tiny">我的企业<\/span><strong>7<\/strong>/);
   assert.match(html, /<h3>员工PK榜<\/h3><span class="team-first">第一名：Bob<\/span>/);
   assert.deepEqual(bodyRows(html), [['Bob', '1'], ['Cy &lt;i&gt;', '1'], ['Amy', '3'], ['未分配', '—']]);
   const sorted = ui.wallMarkup(overview, {wallSort: {id: 'records', dir: 'desc'}}, '2026-10-06');
@@ -265,7 +264,7 @@ test('团队墙 with no data shows zeros and dashes, never invented figures', ()
   const html = ui.wallMarkup(T.overview({}, '2026-10'), {}, '2026-10-06');
   assert.doesNotMatch(html, /aria-label="第 \d+ 名"/, 'nobody is ranked when there is nothing to rank'); assert.match(html, /第一名：—/); assert.ok((html.match(/本月暂无数据/g) || []).length >= 4);
   assert.match(html, /<h3>赢单商机数<\/h3><span class="muted tiny">我的企业<\/span><strong>0<\/strong><span class="muted tiny">本月还没有赢单或输单的商机<\/span>/);
-  assert.match(html, /<h3>任务完成率<\/h3>[\s\S]*?<strong>—<\/strong>/);
+  assert.match(html, /<h3>涉及客户数<\/h3><span class="muted tiny">我的企业<\/span><strong>0<\/strong>/);
   assert.doesNotMatch(html, /排名；其他币种/);
 });
 
@@ -303,7 +302,7 @@ test('controller: the two pages render, view actions re-render, rules open, and 
 });
 
 // ---------------- 目标值与季度 ----------------
-const withGoals = {...overview, targetMetrics: ['amount', 'repeat', 'newDeal', 'added', 'orders', 'records', 'tasksDone'], periodType: 'month', months: ['2026-10'],
+const withGoals = {...overview, targetMetrics: ['amount', 'repeat', 'newDeal', 'added', 'orders', 'records'], periodType: 'month', months: ['2026-10'],
   goals: {amount: [{key: 'k1', currency: 'EUR', value: 50, actual: 75, rate: 150, reached: true}, {key: 'k2', currency: 'USD', value: 500, actual: 375, rate: 75, reached: false}], added: [{key: 'k3', currency: '', value: 16, actual: 16, rate: 100, reached: true}]},
   members: overview.members.map(m => m.owner === 'Amy' ? {...m, goals: {amount: [{key: 'k4', currency: 'USD', value: 200, actual: 300, rate: 150, reached: true}]}} : {...m, goals: {}})};
 
@@ -319,7 +318,7 @@ test('目标完成情况 shows saved targets, completion, progress and the reach
   assert.match(html, /<td>75\.00 USD<\/td><td class="muted">—<\/td><td class="muted">--%<\/td>/, 'members without a target stay empty');
   const process = ui.goalsMarkup(withGoals, {tab: 'process'});
   assert.match(process, /该指标暂不支持设置目标/, '涉及客户数 cannot be added up across months, so it has no target');
-  assert.equal((process.match(/data-team-target="(records|tasksDone)"/g) || []).length, 2);
+  assert.equal((process.match(/data-team-target="records"/g) || []).length, 1);
 });
 
 test('团队墙 amount card shows the company target; quarter view counts down to the quarter end', () => {
@@ -339,7 +338,7 @@ test('团队墙 amount card shows the company target; quarter view counts down t
 test('target form offers the metrics, both periods, company or member, and escapes names', () => {
   const html = ui.targetFormMarkup(withGoals, {metric: 'orders', period: '2026-Q4', periods: [{key: '2026-10', label: '2026 年 10 月'}, {key: '2026-Q4', label: '2026 年第 4 季度'}]});
   assert.match(html, /<form class="drawer-body" id="biz-target-form" novalidate data-form-check>/); assert.match(html, /id="biz-target-error" role="alert"/);
-  assert.deepEqual([...html.split('name="metric"')[1].split('</select>')[0].matchAll(/value="(\w+)"( selected)?/g)].map(m => [m[1], Boolean(m[2])]), [['amount', false], ['repeat', false], ['newDeal', false], ['added', false], ['orders', true], ['records', false], ['tasksDone', false]]);
+  assert.deepEqual([...html.split('name="metric"')[1].split('</select>')[0].matchAll(/value="(\w+)"( selected)?/g)].map(m => [m[1], Boolean(m[2])]), [['amount', false], ['repeat', false], ['newDeal', false], ['added', false], ['orders', true], ['records', false]]);
   assert.match(html, /<option value="2026-10">2026 年 10 月<\/option><option value="2026-Q4" selected>2026 年第 4 季度<\/option>/);
   assert.match(html, /<option value="company" selected>企业整体<\/option><option value="member">成员（跟进人）<\/option>/);
   assert.deepEqual([...html.split('name="owner"')[1].split('</select>')[0].matchAll(/<option value="([^"]*)"/g)].map(m => m[1]), ['', 'Amy', 'Bob', 'Cy &lt;i&gt;'], '未分配 cannot be given a target');
@@ -508,7 +507,7 @@ test('the board export matches what is on screen: tab, order, per-currency amoun
 
 test('no button on the team pages only shows a reserved-entry notice; export writes a workbook', async () => {
   const c = savingController(state);
-  for (const route of ['team-goals', 'team-wall', 'team-targets', 'team-assets', 'team-followups', 'team-tasks', 'team-orders']) {
+  for (const route of ['team-goals', 'team-wall', 'team-targets', 'team-assets', 'team-followups', 'team-orders']) {
     c.ui.navigate(route);
     assert.doesNotMatch(c.mounted.at(-1), /data-feature=/, route);
   }

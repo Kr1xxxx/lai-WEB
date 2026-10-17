@@ -57,11 +57,10 @@ test("what the browser found wrong becomes the info the message is built from", 
 test("the app's forms check themselves and say what is required", () => {
   const app = read("src/business-ui.js");
   assert.match(app, /<form class="drawer-body" id="biz-order-form" novalidate data-form-check>/);
-  assert.match(app, /<form id="biz-task-form" class="drawer-body" novalidate data-form-check>/);
-  for (const id of ["biz-order-error", "biz-task-error", "opp-error", "lead-error", "product-error"])
+  assert.doesNotMatch(app, /biz-task-form/, 'the task drawer went with 协同 (D-031)');
+  for (const id of ["biz-order-error", "opp-error", "product-error"])
     assert.match(app, new RegExp(`footError\\("${id}"[,)]`), `${id} sits in the drawer footer`);
   assert.match(read("src/opportunity-ui.js"), /id="opp-form" novalidate data-form-check>/);
-  assert.match(read("src/lead-ui.js"), /id="lead-form" novalidate data-form-check>/);
   assert.match(read("src/product-ui.js"), /id="product-form" class="drawer-body cs-group-form" novalidate data-form-check>/);
   const editor = read("src/customer-editor-ui.js");
   assert.match(editor, /id="customer-form"[^>]*novalidate data-form-check>/);

@@ -169,18 +169,15 @@
 :root[data-skin="glass"] .tag.green { color: #1f6f52; }
 :root[data-skin="glass"] .new-badge { background: #25773f; }
 :root[data-skin="glass"] .team-rank-1 { background: #966300; }
-:root[data-skin="glass"] .calendar-event.task { color: #84560f; }
 
 /* ===== 只有底线或分隔线的控件：不要被全局按钮样式加上圆角和灰色边框 =====
-   标签页（结果目标/过程目标/商机目标）、日历格子、日程行、“新建目标”格子原来只有一两边的线、没有圆角，
+   标签页（结果目标/过程目标/商机目标）、“新建目标”格子原来只有一两边的线、没有圆角，
    全局的“按钮 8px 圆角 + 淡灰边框”会把它们变成带灰弧线的小圆片。这里还原。 */
-:root[data-skin="glass"] :is(.team-tabs button, .calendar-day, .agenda-item, .team-goal-new) { border-radius: 0; }
+:root[data-skin="glass"] :is(.team-tabs button, .team-goal-new) { border-radius: 0; }
 :root[data-skin="glass"] .team-tabs button,
 :root[data-skin="glass"] .team-tabs button:hover:not(:disabled) { border-color: transparent; }
 :root[data-skin="glass"] .team-tabs button[aria-selected="true"],
 :root[data-skin="glass"] .team-tabs button[aria-selected="true"]:hover:not(:disabled) { border-color: transparent transparent var(--brand-700); }
-:root[data-skin="glass"] :is(.calendar-day, .agenda-item),
-:root[data-skin="glass"] :is(.calendar-day, .agenda-item):hover:not(:disabled) { border-color: var(--ink-100); }
 :root[data-skin="glass"] .team-goal-new,
 :root[data-skin="glass"] .team-goal-new:hover:not(:disabled) { border-color: var(--ink-200); }
 
@@ -190,16 +187,9 @@
 :root[data-skin="glass"] .overlay:has(#biz-order-form) .drawer, :root[data-skin="glass"] .overlay:has(#opp-form) .drawer { pointer-events: auto; top: 68px; right: 12px; bottom: 12px; width: var(--dock-w); overflow: hidden; }
 :root[data-skin="glass"]:has(#biz-order-form) .main, :root[data-skin="glass"]:has(#opp-form) .main { right: calc(var(--dock-w) + 24px); }
 
-/* ===== 商机看板（设计画布 Opportunities.dc.html）：筛选条和下拉、金额汇总（线索页、商机分析也用）===== */
-:root[data-skin="glass"] .opp-toolbar { gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
-:root[data-skin="glass"] .opp-page select,
-:root[data-skin="glass"] .opp-page input[type="search"],
-:root[data-skin="glass"] .opp-page input[type="date"] { height: 32px; border-radius: 8px; border-color: var(--ink-200); font-size: 13px; }
+/* ===== 筛选条（产品页也用 .opp-toolbar）。商机页自己的外观在 business.css「kit: 商机美化」 ===== */
+:root[data-skin="glass"] .opp-toolbar { gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: var(--r-xl); border: 1px solid var(--card-line); background: rgba(255,255,255,.96); }
 :root[data-skin="glass"] .opp-toolbar input[type="search"] { flex: 1 1 130px; min-width: 120px; width: auto; max-width: 260px; }
-:root[data-skin="glass"] .opp-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 8px; margin-bottom: 10px; border: 0; border-radius: 0; background: transparent; }
-:root[data-skin="glass"] .opp-summary-note { grid-column: 1 / -1; padding: 0 2px; border: 0; }
-:root[data-skin="glass"] .opp-currency { flex-direction: row; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--card-line); border-radius: 11px; background: rgba(255,255,255,.96); }
-:root[data-skin="glass"] .opp-summary.is-compact .opp-currency { padding: 8px 12px; border: 1px solid var(--card-line); }
 
 /* 商机卡片的「⋮」菜单：贴在卡片旁的浅色小菜单（位置由 business-ui.js 的 anchorOppMenu 算；找不到卡片时停在右侧），点外面仍然关闭。外观在 business.css「kit: 订单表单与商机详情」 */
 :root[data-skin="glass"] .overlay:has(.opp-menu) { background: transparent; }
