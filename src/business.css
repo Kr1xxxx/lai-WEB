@@ -2466,17 +2466,18 @@ td.team-reached {
 :root[data-skin] .opp-cards > .opp-drop-hint { flex: none; margin: 0; padding: 20px 8px; border: 1px dashed var(--input); border-radius: var(--r-lg); background: transparent; font-size: var(--text-xs); color: var(--muted-fg); }
 :root[data-skin] .opp-board.is-dragging-board .opp-cards > .opp-drop-hint { border-color: var(--ring); color: var(--accent-fg); }
 
-/* 卡片：客户（粗）＋⋮，商机名称（小灰字），金额，底部负责人和日期。⋮ 平时很淡，悬停或键盘移到卡片上才清楚 */
+/* 卡片：客户（粗，点开客户）＋⋮，商机名称（小灰字，点开详情），金额，底部负责人和日期。⋮ 平时很淡，悬停或键盘移到卡片上才清楚 */
 :root[data-skin] .opp-card { gap: 0; padding: 10px 12px; border-color: var(--border); border-radius: var(--r-lg); background: var(--card-bg); box-shadow: var(--shadow-1); }
 :root[data-skin] .opp-card:hover { border-color: var(--input); }
 :root[data-skin] .opp-card.is-archived { background: var(--card-bg); opacity: 0.72; }
 :root[data-skin] .opp-card-head { align-items: flex-start; gap: 4px; }
-:root[data-skin] .opp-card-name { font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
-:root[data-skin] .opp-card-name:hover { color: var(--primary); }
+:root[data-skin] .opp-card-head .opp-card-client { flex: 1 1 auto; min-width: 0; max-width: none; font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
+:root[data-skin] .opp-card-head .opp-card-client:hover { color: var(--primary); text-decoration: none; }
+:root[data-skin] .opp-card > .opp-card-name { align-self: flex-start; max-width: 100%; overflow: hidden; font-size: var(--text-xs); font-weight: 400; line-height: 18px; color: var(--muted-fg); white-space: nowrap; text-overflow: ellipsis; }
+:root[data-skin] .opp-card > .opp-card-name:hover { color: var(--primary); }
 :root[data-skin] .opp-card-menu { width: 22px; height: 22px; margin: -1px -6px 0 0; opacity: 0.35; transition: opacity var(--motion-fast); }
 :root[data-skin] .opp-card:is(:hover, :focus-within) .opp-card-menu { opacity: 1; }
 @media (hover: none) { :root[data-skin] .opp-card-menu { opacity: 1; } }
-.opp-card-sub { min-width: 0; overflow: hidden; font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); white-space: nowrap; text-overflow: ellipsis; }
 :root[data-skin] .opp-card-amount { margin-top: 6px; font-size: var(--text-lg); font-weight: 600; line-height: 24px; }
 :root[data-skin] .opp-card-amount small { margin-right: 3px; font-size: var(--text-xs); font-weight: 500; }
 :root[data-skin] .opp-card-tags { margin-top: 6px; }

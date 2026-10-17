@@ -44,8 +44,8 @@ test('board page: toolbar, totals, five stage columns with counts and amounts, c
   assert.equal((html.match(/<p class="k-empty opp-drop-hint">拖到这里<\/p>/g) || []).length, 2, 'empty columns show a drop hint');
   const readOnly = U.create(escapeHtml, O, key => key !== 'opp.edit');
   assert.equal((readOnly.boardMarkup(board, {}, {today: TODAY}).match(/<p class="k-empty opp-drop-hint">暂无商机<\/p>/g) || []).length, 2, 'no drop hint for someone who cannot move cards');
-  // 卡片：客户是标题（点开详情），商机名称是下面一行小字
-  assert.match(html, /<button type="button" class="opp-card-name" data-opp-action="detail" data-id="p4">Alpha &lt;b&gt;Co&lt;\/b&gt;<\/button>[\s\S]*?<div class="opp-card-sub">26100604-Amy<\/div>/);
+  // 卡片：客户是标题（打开这位客户），商机名称是下面一行（打开详情）
+  assert.match(html, /<div class="opp-card-head"><button type="button" class="opp-card-client" data-biz-customer="Alpha &lt;b&gt;Co&lt;\/b&gt;">Alpha &lt;b&gt;Co&lt;\/b&gt;<\/button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="p4"[^>]*>⋮<\/button><\/div><button type="button" class="opp-card-name" data-opp-action="detail" data-id="p4">26100604-Amy<\/button>/);
   assert.match(html, /<span class="opp-due is-overdue">逾期 04-02<\/span>/, 'this year: month-day only');
   assert.match(html, /<span class="opp-due is-overdue">逾期 2025-12-15<\/span>/, 'other years: full date');
   assert.equal((html.match(/class="opp-due is-overdue"/g) || []).length, 2, 'two open opportunities are past their end date');

@@ -29,17 +29,17 @@
     // 阶段徽标（组件套件 k-badge）：赢单用表示成功的绿色，输单用中性灰，进行中用主色。
     const KIND_BADGE={open:'k-badge--primary',won:'k-badge--success',lost:'k-badge--neutral'};
     const stageBadge=(kind,label)=>`<span class="k-badge ${KIND_BADGE[kind]||KIND_BADGE.open}">${label}</span>`;
-    // 卡片（组件套件 k-card）：客户是标题（点开详情），商机名称是下面一行小字；金额醒目；底部负责人和结束日期。输单原因、归档、关联订单用小徽标。
+    // 卡片（组件套件 k-card）：客户是标题（点它打开这位客户，和列表里一样），商机名称是下面一行小字（点它或卡片空白处打开详情）；
+    // 金额醒目；底部负责人和结束日期。输单原因、归档、关联订单用小徽标。
     function cardMarkup(card,today){
       // 进行中的商机才谈得上“截止”；已赢单、已输单的只显示日期。快到期（7 天内）的日期用提醒色。
       const closed=kindOf(card)!=='open';
       const left=closed||card.overdue?null:daysUntil(card.endDate,today);
       const soon=left!==null&&left>=0&&left<=SOON_DAYS;
       const due=card.endDate&&vis('endDate')?(card.overdue?`<span class="opp-due is-overdue">逾期 ${E(shortDate(card.endDate,today))}</span>`:`<span class="opp-due${soon?' is-soon':''}">${E(shortDate(card.endDate,today))}${closed?'':' 截止'}</span>`):'';
-      const title=card.client||card.name;
       return `<article class="opp-card k-card${card.archived?' is-archived':''}" draggable="${can('opp.edit')?'true':'false'}" data-opp-id="${E(card.id)}">`
-        +`<div class="opp-card-head"><button type="button" class="opp-card-name" data-opp-action="detail" data-id="${E(card.id)}">${E(title)}</button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></div>`
-        +(card.client?`<div class="opp-card-sub">${E(card.name)}</div>`:'')
+        +`<div class="opp-card-head"><button type="button" class="opp-card-client" data-biz-customer="${E(card.client)}">${E(card.client||'未填客户')}</button><button type="button" class="opp-card-menu" data-opp-action="menu" data-id="${E(card.id)}" aria-label="更多操作：${E(card.name)}">⋮</button></div>`
+        +`<button type="button" class="opp-card-name" data-opp-action="detail" data-id="${E(card.id)}">${E(card.name)}</button>`
         +`<div class="opp-card-amount"><span><small>${E(card.currency)}</small>${amount(card.amount)}</span>${clip(card)}</div>`
         +(card.lostReason||card.orderId||card.archived?`<div class="opp-card-tags">${card.lostReason?`<span class="k-badge k-badge--neutral">输单原因：${E(card.lostReason)}</span>`:''}${card.archived?'<span class="k-badge k-badge--neutral">已归档</span>':''}${card.orderId?`<button type="button" class="k-badge k-badge--primary opp-tag-link" data-biz-order="${E(card.orderId)}">查看关联订单</button>`:''}</div>`:'')
         +`<div class="opp-card-foot"><span class="opp-owner"><i class="opp-avatar" aria-hidden="true">${E((card.owner||'—').slice(0,1).toUpperCase())}</i><span class="opp-owner-name">${E(card.owner||'未填负责人')}</span></span>${due}</div>`
