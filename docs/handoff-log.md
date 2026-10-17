@@ -4,6 +4,10 @@ Newest first. One entry per session: date — who (person or agent) — what was
 When this file passes 200 lines, move older entries to `docs/handoff-log-archive.md`.
 Entries before 2026-10-08 were reconstructed from `git log`; details are in `VALIDATION.md` and `docs/archive/`.
 
+- 2026-10-17 — Claude (#03 thread) — Slice 0 of the app.js split (task 25): `tests/helpers/source.cjs` (`appSource()`
+  reads scripts/build.py's PREVIEW_APP list and joins the parts as build.py does); the 27 tests that read `src/app.js`
+  text now use it, no assertions changed. Split plan (advisor-reviewed): `/mnt/project-files/plans/03-split-app-js.md`;
+  the split itself waits until the restyle (#02) and contact-mail/商机 (#04) PRs merge.
 - 2026-10-17 — Claude — D-032: Fable 5.1 `specialist` agent (medium, edits in a worktree) for complex slices and second
   passes; missing `researcher` agent file added; CLAUDE.md updated. Work otherwise still paused at the owner's request.
 - 2026-10-17 — Claude — #29 merged (`main` be707da); web trial v1.17 published. Then merged on the branch: 线索 removed
