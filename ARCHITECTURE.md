@@ -104,7 +104,7 @@
 页面保存时，`persist()`（`src/app.js`）用 `src/model.js` 的 `snapshotState/diffState` 把新数据和上次保存的快照按文字比较，只把变了的客户、订单（含它们在各分栏里的先后顺序）和其它设置发给 `POST /api/save-changes`（`backend/storage.js` 的 `applyChanges`）。后端在同一个事务里先核对 `baseRevision`，套用后核对各表条数和订单顺序，对不上就整体撤销返回 422，页面随后改走整包的 `POST /api/save`（导入等整批改动也走它）。读取仍是整包 `GET /api/data`。
 - 整包保存在写事务里先核对：服务器已有的顶层字段都要在、类型要对（`validateReplacement`），否则 400 `incomplete_save`。只传改动的保存同样（`validateChanges`，开事务和删除前备份之前）：`removeAppState` 不能列任何字段、每个客户必须是对象、设置块不能是 undefined 或变类型。页面侧 `completeState` 先把新数据里缺的顶层块用上次保存的补回来，`diffState` 对缺块不发删除（`removeAppState` 永远是 `[]`）。
 - 打开数据库先看 metadata 的 `schema_version`（`SCHEMA_VERSION = 1`）：更新的（或不是正整数）不打开、不写任何东西，`storageMode = 'error'`，`storageErrorCode = 'schema_too_new'`，`/api/data`、`/api/health` 带中文说明和 `code`，页面 `boot()` 照它提示。`schema_version` 只在缺失时写一次。
-- `server.js` 的 `publicMessage`：没有 status 的内部错误和英文说明不发给页面，POST 换成「保存失败，数据没有改动。请稍后再试。」，GET 换成「出了点问题，请稍后再试。」，原文 `console.error`；中文的 httpError、`code`、`currentRevision` 原样保留。
+- `server.js` 的 `publicMessage`：没有 status 的内部错误和英文说明不发给页面，按路径换成中文：`/api/save`、`/api/save-changes` 是「保存失败，数据没有改动。请稍后再试。」，`/api/restore` 是「恢复失败，数据没有改动。请稍后再试。」，邮件是「邮件操作没有完成，请稍后再试。」，其它是「出了点问题，请稍后再试。」，原文 `console.error`；中文的 httpError、`code`、`currentRevision` 原样保留。
 - 版本冲突（409）时页面取最新数据，用 `model.js` 的 `rebaseChanges` 判断这次改动碰到的记录在别处有没有被改：没有就套到最新数据上重试一次，有就报出是哪些客户／订单。
 - 一次删掉 5 个以上客户或订单、或某张顶层列表（app_state 里的数组、`trackingLookups`）少掉 5 条以上（`listLoss`：带 id 按 id，否则按条数）前先做 `before-delete-*` 备份，备份失败就不删（503）。
 

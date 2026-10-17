@@ -85,15 +85,19 @@ function send(res, status, body, type = 'application/json; charset=utf-8', heade
 }
 
 // 发给页面的出错说明必须是中文。内部错误（没有 status）和英文说明（SQLite 的报错、程序里的核对信息、
-// 'storage unavailable' 之类）不原样给用户看：写入类请求（POST：保存、恢复、备份、附件、邮件）换成
-// 「保存失败，数据没有改动。请稍后再试。」，读取类换成「出了点问题，请稍后再试。」，原文记到 stderr。
+// 'storage unavailable' 之类）不原样给用户看，按请求换成中文，原文记到 stderr：保存（/api/save、/api/save-changes，
+// 失败时事务整个撤销）是「保存失败，数据没有改动。请稍后再试。」，恢复是「恢复失败，数据没有改动。请稍后再试。」，
+// 邮件是「邮件操作没有完成，请稍后再试。」（不说数据没改），其它都是「出了点问题，请稍后再试。」。
 // 已经是中文、带 status 的说明（incomplete_save、删除前备份失败的 503、恢复、邮件、格式太新的 503）原样发出。
 const CHINESE = /[一-鿿]/;
-function publicMessage(error, method, { log = true } = {}) {
+function publicMessage(error, method, pathname = '', { log = true } = {}) {
   const original = String(error?.message || 'internal server error');
   if (Number.isInteger(error?.status) && CHINESE.test(original)) return original;
-  if (log) console.error(`Lai: ${method} request failed (${Number.isInteger(error?.status) ? error.status : 500}): ${original}`);
-  return method === 'POST' ? '保存失败，数据没有改动。请稍后再试。' : '出了点问题，请稍后再试。';
+  if (log) console.error(`Lai: ${method} ${pathname} request failed (${Number.isInteger(error?.status) ? error.status : 500}): ${original}`);
+  if (method === 'POST' && (pathname === '/api/save' || pathname === '/api/save-changes')) return '保存失败，数据没有改动。请稍后再试。';
+  if (method === 'POST' && pathname === '/api/restore') return '恢复失败，数据没有改动。请稍后再试。';
+  if (pathname.startsWith('/api/mail/') || pathname.startsWith('/api/mail-account')) return '邮件操作没有完成，请稍后再试。';
+  return '出了点问题，请稍后再试。';
 }
 
 function readJsonBody(req) {
@@ -134,6 +138,11 @@ function readRawBody(req, limit) {
   });
 }
 
+// 出错时用来挑中文说明的路径（只取路径，不带查询参数；解析不了就当空）。
+function requestPath(req) {
+  try { return new URL(req.url, 'http://127.0.0.1').pathname; } catch (_) { return ''; }
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     auth.validateHost(req);
@@ -152,7 +161,7 @@ const server = http.createServer(async (req, res) => {
       const details = store.health();
       // 打不开数据时给页面一句中文说明和原因代号（格式太新：schema_too_new）。
       const failure = details.ok ? {} : {
-        message: publicMessage({ status: 503, message: details.storageError || details.integrity?.message }, 'GET', { log: false }),
+        message: publicMessage({ status: 503, message: details.storageError || details.integrity?.message }, 'GET', url.pathname, { log: false }),
         ...(typeof details.storageErrorCode === 'string' && details.storageErrorCode ? { code: details.storageErrorCode } : {})
       };
       const health = auth.authorized(req) ? { ...details, ...failure, instanceNonce } : {
@@ -232,7 +241,7 @@ const server = http.createServer(async (req, res) => {
     }
   } catch (error) {
     const status = Number.isInteger(error.status) ? error.status : 500;
-    return send(res, status, JSON.stringify({ ok: false, message: publicMessage(error, req.method), ...(Number.isInteger(error.currentRevision) ? { currentRevision: error.currentRevision } : {}), ...(typeof error.code === 'string' && /^[a-z_]+$/.test(error.code) ? { code: error.code } : {}) }), 'application/json; charset=utf-8', status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {});
+    return send(res, status, JSON.stringify({ ok: false, message: publicMessage(error, req.method, requestPath(req)), ...(Number.isInteger(error.currentRevision) ? { currentRevision: error.currentRevision } : {}), ...(typeof error.code === 'string' && /^[a-z_]+$/.test(error.code) ? { code: error.code } : {}) }), 'application/json; charset=utf-8', status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {});
   }
 });
 

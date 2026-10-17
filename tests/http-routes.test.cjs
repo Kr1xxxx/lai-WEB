@@ -89,6 +89,9 @@ test('HTTP: English and internal errors reach the page as plain Chinese; Chinese
  const badLog=await request('/api/import-log?id=nope');assert.equal(badLog.status,400);assert.equal((await badLog.json()).message,'出了点问题，请稍后再试。');
  const missing=await request('/api/nothing-here');assert.equal(missing.status,404);assert.equal((await missing.json()).message,'出了点问题，请稍后再试。');
  const wrongType=await request('/api/save',{method:'POST',body:'{}'});assert.equal(wrongType.status,415);assert.equal((await wrongType.json()).message,'保存失败，数据没有改动。请稍后再试。');
+ // Other POST routes do not claim a save: mail gets its own wording, restore its own, the rest the generic one.
+ const mailWrong=await request('/api/mail/send',{method:'POST',body:'{}'});assert.equal(mailWrong.status,415);assert.equal((await mailWrong.json()).message,'邮件操作没有完成，请稍后再试。');
+ const restoreWrong=await request('/api/restore',{method:'POST',body:'{}'});assert.equal(restoreWrong.status,415);assert.equal((await restoreWrong.json()).message,'恢复失败，数据没有改动。请稍后再试。');
  // Already-Chinese messages with a status pass through unchanged (incomplete_save, bad backup name).
  const incomplete=await post('/api/save',{state:{data:{orders:[]}},baseRevision:data.revision});
  assert.equal(incomplete.status,400);const bodyIncomplete=await incomplete.json();assert.equal(bodyIncomplete.message,'保存的内容不完整，原数据没有改动。请刷新页面后再试。');assert.equal(bodyIncomplete.code,'incomplete_save');
