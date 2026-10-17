@@ -251,8 +251,8 @@
     if (info.missing) return `${info.choice ? "请选择" : "请填写"}${name}`;
     if (info.badInput) return `${name}请填写数字`;
     if (info.typeMismatch) {
-      if (info.type === "email") return `${name}请填写正确的邮箱`;
-      if (info.type === "url") return `${name}请填写正确的网址`;
+      if (info.type === "email") return name.includes("邮箱") ? `请填写正确的${name}` : `${name}：请填写正确的邮箱`;
+      if (info.type === "url") return name.includes("网址") ? `请填写正确的${name}` : `${name}：请填写正确的网址`;
       return `${name}格式不对`;
     }
     if (info.under) return `${name}不能小于 ${info.min}`;
