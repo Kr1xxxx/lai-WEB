@@ -38,6 +38,7 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 | D-029 | 小满 style removed; its place taken by 科技蓝 (themes: pink default, orange, 科技蓝) | Accepted |
 | D-030 | 线索 (leads) removed, code deleted; stored lead data kept | Accepted |
 | D-031 | 协同 removed (calendar, 任务设置, tasks), code deleted; stored task data kept | Accepted |
+| D-032 | Fable 5.1 `specialist` (medium effort, edits) for complex slices and second passes; `researcher` agent file added | Accepted |
 
 ---
 
@@ -264,3 +265,14 @@ listed here; they are in `VALIDATION.md`, and the owner can change them afterwar
 - Data: nothing stored is deleted. `laiTasks`, `laiSettings.taskRules` and saved targets on tasksDone stay untouched.
   Customer rename and merge keep renaming `laiTasks[].customer` so the kept data stays consistent.
 - Supersedes: the "tasks belong to a person" point of D-022.
+
+### D-032 Fable `specialist` for complex work and second passes (2026-10-17)
+- Context: the owner asked for one more Fable 5.1 role, "专门处理复杂任务或者进行二次修改" (for complex tasks or second
+  rounds of changes), next to the read-only `advisor`.
+- Decision: `.claude/agents/specialist.md`, Fable 5.1 at medium effort, edits and tests in its own worktree like
+  `worker`. The coordinator sends it (a) complex slices: hard debugging with an unclear cause, large edits in
+  `src/app.js`, data safety, changes across several modules; (b) second passes: a worker's slice that failed review
+  or its tests twice, or needs rework rather than a small patch. The `advisor` stays read-only and on call.
+- Also: the `researcher` agent named in D-027 had no file; `.claude/agents/researcher.md` now exists (Opus, medium,
+  read-only, web lookups).
+- Refines: D-027 (raising a subagent to high effort is replaced by handing the slice to `specialist`).
