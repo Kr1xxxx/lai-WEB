@@ -90,6 +90,100 @@ test('package.json runs the start script', () => {
   assert.equal(pkg.dependencies, undefined);
 });
 
+test('a recorded server that is alive but does not answer is waited for, then refused; a stale record is ignored', async () => {
+  const dataDir = '/tmp/lai-test-start-record';
+  const record = { pid: 4242, port: 5555, token: 't', nonce: 'n', dataDir };
+  const answer = (nonce) => ({ status: 200, body: { instanceNonce: nonce, storageMode: 'sqlite' } });
+  const fast = { waitMs: 300, pause: 10 };
+  let calls = 0;
+  const silent = async () => { calls += 1; return null; };
+  // No record, another data directory, or a dead process: nothing is running.
+  assert.equal(await start.checkRecordedServer(null, dataDir, { ...fast, health: silent }), 'none');
+  assert.equal(await start.checkRecordedServer({ ...record, dataDir: '/tmp/lai-test-other' }, dataDir, { ...fast, health: silent, alive: () => true }), 'none');
+  assert.equal(await start.checkRecordedServer(record, dataDir, { ...fast, health: silent, alive: () => false }), 'none');
+  // It answers (maybe only after a while): running.
+  let busy = 3;
+  assert.equal(await start.checkRecordedServer(record, dataDir, { ...fast, health: async () => (busy-- > 0 ? null : answer('n')), alive: () => true, bound: async () => true }), 'running');
+  // Another server answers on that port: the recorded one is gone.
+  assert.equal(await start.checkRecordedServer(record, dataDir, { ...fast, health: async () => answer('other'), alive: () => true, bound: async () => true }), 'none');
+  // Alive, holds its port, never answers: waited for the whole time, then refused (never 'none').
+  calls = 0;
+  const started = Date.now();
+  assert.equal(await start.checkRecordedServer(record, dataDir, { ...fast, health: silent, alive: () => true, bound: async () => true }), 'unresponsive');
+  assert.ok(Date.now() - started >= 300 && calls > 3, 'it kept asking until the wait ran out');
+  // The process exits while we wait: nothing is running any more.
+  let left = 3;
+  assert.equal(await start.checkRecordedServer(record, dataDir, { ...fast, health: silent, alive: () => left-- > 0, bound: async () => true }), 'none');
+  // The pid is alive but nothing holds the port (the pid was reused after a crash or restart): a stale record.
+  assert.equal(await start.checkRecordedServer(record, dataDir, { ...fast, health: silent, alive: () => true, bound: async () => false }), 'none');
+  // The default wait is long, and only test data directories may shorten it.
+  assert.equal(start.RUNNING_WAIT_MS, 30000);
+  assert.equal(start.runningWaitMs({ LAI_START_WAIT_MS: '10' }), 30000);
+  assert.equal(start.runningWaitMs({ LAI_DATA_DIR: dataDir, LAI_START_WAIT_MS: '10' }), 10);
+  assert.equal(start.runningWaitMs({ LAI_DATA_DIR: dataDir, LAI_START_WAIT_MS: '999999' }), 30000);
+});
+
+test('the run record (it holds the session token) is private from the moment it is created', { skip: process.platform === 'win32' }, () => {
+  const dir = testDir('record');
+  const realRename = fs.renameSync;
+  try {
+    const runDir = path.join(dir, 'dist', 'run');
+    fs.mkdirSync(runDir, { recursive: true, mode: 0o755 });
+    fs.chmodSync(runDir, 0o755);
+    const file = path.join(runDir, 'abc.json');
+    const seen = [];
+    fs.renameSync = (from, to) => { seen.push(fs.statSync(from).mode & 0o777); return realRename(from, to); };
+    start.writeRunRecord(file, { pid: 1, token: 'secret' });
+    fs.renameSync = realRename;
+    assert.deepEqual(seen, [0o600], 'the temp file is created 0600');
+    assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+    assert.equal(fs.statSync(runDir).mode & 0o777, 0o700, 'an existing run folder is tightened to 0700');
+    const fresh = path.join(dir, 'other', 'run', 'x.json');
+    start.writeRunRecord(fresh, { pid: 2 });
+    assert.equal(fs.statSync(path.dirname(fresh)).mode & 0o777, 0o700);
+    assert.equal(fs.statSync(fresh).mode & 0o777, 0o600);
+    assert.deepEqual(JSON.parse(fs.readFileSync(fresh, 'utf8')), { pid: 2 });
+  } finally { fs.renameSync = realRename; fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('npm start never starts a second server next to a recorded one that is alive but does not answer', { timeout: 60000 }, async () => {
+  const dataDir = testDir('busy');
+  // A live process standing in for the busy server, and a port that accepts connections but never answers.
+  const sleeper = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  const sockets = new Set();
+  const silent = net.createServer((socket) => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
+  await new Promise((resolve) => silent.listen(0, '127.0.0.1', resolve));
+  const recordFile = start.runRecordFile(dataDir);
+  start.writeRunRecord(recordFile, { pid: sleeper.pid, port: silent.address().port, token: 'x', nonce: 'y', dataDir });
+  const port = await freePort();
+  const guard = path.join(root, 'scripts/test-data-guard.cjs');
+  const child = spawn(process.execPath, [path.join(root, 'scripts/start.cjs')], {
+    cwd: root, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, LAI_DATA_DIR: dataDir, LAI_APP_NO_OPEN: '1', LAI_APP_PORT: String(port), LAI_START_WAIT_MS: '2500', NODE_OPTIONS: `--require ${JSON.stringify(guard)}` },
+  });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  try {
+    const started = Date.now();
+    const code = await new Promise((resolve) => child.once('exit', resolve));
+    assert.equal(code, 1, stdout + stderr);
+    assert.ok(Date.now() - started >= 2500, 'it waited for the busy server first');
+    assert.match(stderr, /来财已经在运行，但暂时没有响应/);
+    assert.doesNotMatch(stdout, /来财已启动/);
+    assert.equal(await portIsFree(port), true, 'no second server was started');
+    assert.deepEqual(fs.readdirSync(dataDir), [], 'nothing touched the data directory');
+    assert.equal(JSON.parse(fs.readFileSync(recordFile, 'utf8')).pid, sleeper.pid, 'the record of the running server is kept');
+  } finally {
+    if (child.exitCode === null) child.kill('SIGKILL');
+    sleeper.kill('SIGKILL');
+    for (const socket of sockets) socket.destroy();
+    await new Promise((resolve) => silent.close(resolve));
+    fs.rmSync(recordFile, { force: true });
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test('npm start serves the page with the real backend, refuses a second server, and stops on Ctrl+C', { timeout: 120000 }, async () => {
   const dataDir = testDir('run');
   const port = await freePort();
@@ -112,6 +206,11 @@ test('npm start serves the page with the real backend, refuses a second server, 
     assert.equal(await page.text(), appFiles.assembleHtml());
     const health = await (await fetch(`http://127.0.0.1:${port}/api/health`, { headers: { 'x-trade-token': token } })).json();
     assert.equal(health.ok, true);
+    if (process.platform !== 'win32') {
+      const recordFile = start.runRecordFile(dataDir);
+      assert.equal(fs.statSync(recordFile).mode & 0o777, 0o600, 'the run record is private');
+      assert.equal(fs.statSync(path.dirname(recordFile)).mode & 0o777, 0o700, 'the run folder is private');
+    }
     assert.ok(fs.readdirSync(dataDir).length > 0, 'the server writes into the test data directory');
 
     // A second start on the same data directory finds the running one instead of starting another server.
