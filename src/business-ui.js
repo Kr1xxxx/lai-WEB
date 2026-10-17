@@ -555,12 +555,13 @@
       const months = oppView.range === "month" ? [month] : oppView.range === "quarter" ? T.periodMonths(T.quarterOf(month)) : null;
       const report = OM().analysis(scoped(), { months, currency: oppView.analysisCurrency, flow: oppView.analysisFlow }, B.localDate());
       const label = months ? T.periodLabel(months.length > 1 ? T.quarterOf(month) : month) : "全部时间";
-      const range = (id, text) => `<button type="button" data-opp-range="${id}" aria-pressed="${oppView.range === id}">${text}</button>`;
+      // 页头右边：币种（和销售流程）下拉、统计范围（分段页签）、按月／按季度时的月份。
+      const range = (id, text) => `<button type="button" class="k-tab${(oppView.range || "all") === id ? " is-active" : ""}" data-opp-range="${id}" aria-pressed="${oppView.range === id}">${text}</button>`;
       return (
         header(
           "商机分析",
           `${E(label)} · 按商机创建时间统计`,
-          `<span class="team-segment team-period" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput() : ""}`,
+          `${OU().analysisControls(report)}<span class="k-tabs opp-range-tabs" role="group" aria-label="统计范围">${range("all", "全部")}${range("month", "按月")}${range("quarter", "按季度")}</span>${months ? monthInput() : ""}`,
         ) + OU().analysisMarkup(report)
       );
     }
@@ -922,8 +923,9 @@
       if (!detail) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       Object.assign(attachView, { id, renaming: "", armed: "", preview: "", busy: false });
       releasePreviews();
+      // 标题是客户名；商机名称和编号在正文第一行（opportunity-ui.js 的 detailMarkup）。
       ctx.dialog(
-        E(detail.name),
+        E(detail.client || detail.name),
         detailBody(id),
         `<button type="button" class="k-btn" data-action="close-modal">关闭</button><button type="button" class="k-btn" data-opp-action="menu" data-id="${E(id)}">更多操作</button>${can("opp.edit") ? `<button class="k-btn k-btn--primary" type="button" data-opp-action="edit" data-id="${E(id)}">编辑商机</button>` : ""}`,
         "opp-detail",
@@ -1119,9 +1121,11 @@
         const box = board.getBoundingClientRect();
         board.scrollLeft += OU().scrollStep(e.clientX, box.left, box.right);
       }
-      if (page?.getBoundingClientRect) {
-        const box = page.getBoundingClientRect();
-        page.scrollTop += OU().scrollStep(e.clientY, box.top, box.bottom);
+      // 看板自己能上下滚时（列头贴顶的版式）滚看板，否则滚页面。
+      const lanes = board && board.scrollHeight > board.clientHeight + 1 ? board : page;
+      if (lanes?.getBoundingClientRect) {
+        const box = lanes.getBoundingClientRect();
+        lanes.scrollTop += OU().scrollStep(e.clientY, box.top, box.bottom);
       }
     }
     const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
@@ -2067,7 +2071,7 @@
       // 商机看板：保存／拖动后页面和看板的滚动位置不回到开头。
       const oppScroll = preserveOrderScroll && route === "opportunities"
         ? { page: document.querySelector?.(".opp-page"), board: document.querySelector?.(".opp-board") } : null;
-      const oppPosition = oppScroll?.page ? { top: oppScroll.page.scrollTop, left: oppScroll.board?.scrollLeft || 0 } : null;
+      const oppPosition = oppScroll?.page ? { top: oppScroll.page.scrollTop, left: oppScroll.board?.scrollLeft || 0, boardTop: oppScroll.board?.scrollTop || 0 } : null;
       settingsDirty = false;
       const views = builtinViews();
       const denied = routeDenied(route);
@@ -2081,7 +2085,10 @@
       if (oppPosition) {
         const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
         if (page) page.scrollTop = oppPosition.top;
-        if (board) board.scrollLeft = oppPosition.left;
+        if (board) {
+          board.scrollLeft = oppPosition.left;
+          board.scrollTop = oppPosition.boardTop;
+        }
       }
       if (scroll) {
         const current = document.getElementById("biz-order-scroll");
