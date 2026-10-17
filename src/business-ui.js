@@ -2482,7 +2482,7 @@
         const armed = restoreArmed === item.name;
         const counts = item.ok ? `客户 ${Number(item.customers) || 0} · 订单 ${Number(item.orders) || 0}` : "无法读取";
         const actions = !item.ok || !allowed ? "" : armed
-          ? `<button type="button" class="k-btn k-btn--danger k-btn--sm" data-biz-action="restore-backup" data-name="${E(item.name)}"${restoring ? " disabled" : ""}>${restoring ? "正在恢复…" : "确认恢复到这一份"}</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-biz-action="restore-cancel"${restoring ? " disabled" : ""}>取消</button>`
+          ? `<button type="button" class="k-btn k-btn--danger k-btn--sm" data-biz-action="restore-backup" data-name="${E(item.name)}"${restoring ? " disabled" : ""}>${restoring ? "正在恢复…" : "确认恢复到这一份"}</button><button type="button" class="k-btn k-btn--ghost k-btn--sm" data-biz-action="restore-cancel" aria-label="取消恢复"${restoring ? " disabled" : ""}>取消</button>`
           : `<button type="button" class="k-btn k-btn--sm" data-biz-action="restore-backup" data-name="${E(item.name)}" aria-label="恢复到 ${E(backupWhen(item.time))} 的备份"${restoring ? " disabled" : ""}>恢复</button>`;
         return `<li class="backup-row${armed ? " is-armed" : ""}"><span class="backup-when">${E(backupWhen(item.time))}</span><span class="k-badge k-badge--neutral backup-kind">${E(BACKUP_KINDS[item.kind] || "备份")}</span><span class="backup-counts${item.ok ? "" : " is-unreadable"}">${counts}</span><span class="backup-actions">${actions}</span>${armed ? '<p class="backup-warning">现在的数据会先自动备份一份，然后换成这份备份里的数据。</p>' : ""}</li>`;
       };
