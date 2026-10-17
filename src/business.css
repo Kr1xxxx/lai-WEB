@@ -1810,17 +1810,18 @@ td.team-reached {
 }
 
 /* 设置中心：每组一张卡片，每行是“名称＋说明＋当前值＋设置按钮” */
-.sh-page { max-width: none; display: flex; flex-direction: column; gap: 14px; }
-.sh-group { margin: 0; flex: 0 0 auto; }
-.sh-group .section-head { margin-bottom: 2px; }
-.sh-list { display: flex; flex-direction: column; }
-.sh-item { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--ink-100); }
+/* 设置中心：组件套件的样板页（外观来自 ui-kit.css 的 k-pageheader、k-card、k-badge、k-btn；这里只排版） */
+.sh-header { box-sizing: border-box; height: 60px; padding: 0; }
+.sh-page { max-width: none; display: flex; flex-direction: column; gap: 12px; }
+.sh-group { flex: 0 0 auto; }
+.sh-list { display: flex; flex-direction: column; padding-top: 4px; padding-bottom: 6px; }
+.sh-item { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--border); }
 .sh-item:first-child { border-top: 0; }
 .sh-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.sh-text strong { font-size: 13px; font-weight: 600; }
-.sh-text span { font-size: 12px; color: var(--ink-500); }
-.sh-now { flex: 0 0 auto; font-style: normal; font-size: 12px; color: var(--ink-600); padding: 2px 8px; border-radius: 999px; background: var(--ink-50); }
-.sh-item > button { flex: 0 0 auto; min-width: 64px; height: 30px; padding: 0 14px; }
+.sh-text strong { font-size: var(--text-sm); font-weight: 600; color: var(--fg); }
+.sh-text span { font-size: var(--text-xs); color: var(--muted-fg); }
+.sh-now { flex: 0 0 auto; }
+.sh-item > .k-btn { flex: 0 0 auto; min-width: 64px; }
 /* 商机页的看板／列表切换（筛选卡片里）和「商机分析」入口由 skin-glass.css 显示 */
 .opp-view-in, .opp-analysis-link { display: none; }
 

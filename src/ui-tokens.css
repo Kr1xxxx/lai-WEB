@@ -128,10 +128,14 @@
   --accent-fg: var(--brand-700);
   --danger: var(--color-danger);
   --danger-bg: var(--color-danger-soft);
+  --danger-fg: #c4352b;
   --warning: var(--color-warning);
   --warning-bg: var(--color-warning-soft);
+  --warning-fg: #9a5b00;
   --success: var(--color-success);
   --success-bg: var(--color-success-soft);
+  --success-fg: #1f6f52;
+  /* *-fg 是写在浅色底或白底上的字色（对比度 ≥ 4.5:1）；--danger 等是边框、圆点用的颜色 */
   /* 左栏：粉色、橙色是浅色栏；科技蓝在 skin-glass.css 里改成深海军蓝 */
   --nav-bg: rgba(255, 255, 255, 0.72);
   --nav-fg: var(--ink-800);
