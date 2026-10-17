@@ -89,7 +89,7 @@ test('业务 (Amy) sees only her own records and has no delete, new or sync butt
 
     await go(app, 'dashboard');
     text = await body(app);
-    assert.ok(!text.includes('本月目标'), '工作台没有团队目标卡片');
+    assert.ok(!text.includes('本月成交') && !text.includes('经营统计'), '工作台没有团队目标（本月成交、经营统计）');
     assert.ok(!text.includes('Kris'), '工作台只算自己的');
     assert.deepEqual(app.errors.filter((error) => !error.includes('/api/mail/')), [], '工作台读邮件时没绑定邮箱的 409 不算');
   } finally { await app.close(); }

@@ -63,14 +63,14 @@ test('tab strips, calendar cells and agenda rows keep square corners and their o
   assert.match(skin, /\.team-tabs button\[aria-selected="true"\]:hover:not\(:disabled\) \{ border-color: transparent transparent var\(--brand-700\); \}/);
 });
 
-test('the active rail item is a brand pill around icon and text; the batch bar and the follow-up card are light', () => {
+test('the active rail item is a brand pill around icon and text; the batch bar is light', () => {
   const light = skin.slice(skin.indexOf('深色强调色改浅'));
   assert.ok(light.length > 100, 'section exists after the earlier dark rules, so it wins the cascade');
   assert.match(light, /\.rail-item\.active:hover \{ background: var\(--brand-700\); color: #fff; box-shadow: [^;]*; font-weight: 700; \}/, 'the whole item, text included, is the pill');
   assert.match(light, /\.rail-item\.active :is\(\.icon, \.icon-duo\) \{ stroke: #fff; color: #fff; \}/);
   assert.doesNotMatch(light, /\.rail-item\.active[^{]*\{[^}]*inset 3px 0 0/, 'no left bar any more');
   assert.match(light, /\.replica-batch \{ background: #fff;[^}]*border: 1px solid var\(--brand-500\)/);
-  assert.match(light, /\.wb-dark \{ background: var\(--card-bg\); color: rgb\(var\(--skin-ink-rgb\)\)/);
+  assert.doesNotMatch(skin, /\.wb-dark|\.wb-follow|\.wb-stat/, 'the old dark follow-up card and counter tiles are gone; the workbench draws light panels (business.css)');
   assert.doesNotMatch(light, /background: rgb\(var\(--skin-ink-rgb\)\)/, 'no dark fills in this section');
   // 浅粉底上的玫粉字：粉色、橙色两套主题都要 ≥ 4.5
   for (const theme of ['pink', 'orange']) {
@@ -79,5 +79,47 @@ test('the active rail item is a brand pill around icon and text; the batch bar a
     const brand50 = block.match(/--brand-50:\s*(#[0-9a-fA-F]{6})/)[1];
     assert.ok(ratio(brand700, brand50) >= 4.5, `${theme}: ${brand700} on ${brand50} is ${ratio(brand700, brand50).toFixed(2)}:1`);
     assert.ok(ratio(brand700, '#ffffff') >= 4.5, `${theme}: ${brand700} on white`);
+  }
+});
+
+test('科技蓝: flat white panels, a navy rail with light icons and a cobalt active item, cobalt buttons, no glow blobs', () => {
+  const tech = skin.slice(skin.indexOf(':root[data-skin="glass"][data-theme="tech"] {'));
+  assert.ok(tech.length > 500, 'the tech section exists at the end, so it wins the cascade');
+  assert.match(tech, /#app::before,\s*:root\[data-skin="glass"\]\[data-theme="tech"\] #app::after \{ display: none; \}/);
+  assert.match(tech, /--card-bg: #fff;/);
+  assert.match(tech, /--skin-blur: none;/);
+  assert.match(tech, /\.rail \{ background: var\(--brand-900\);/);
+  assert.match(tech, /\.rail-item\.active:hover \{ background: var\(--brand-500\); color: #fff;/);
+  assert.match(tech, /button\.primary,[\s\S]*?\{ background: var\(--brand-500\); border-color: var\(--brand-500\); color: #fff; \}/);
+  assert.match(tech, /\.wb \{ --wb-primary: var\(--brand-500\); \}/);
+  // every tech rule is limited to the tech theme (the glass skin test above already pins data-skin)
+  const rules = tech.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+\{/g);
+  assert.ok(rules.length > 20);
+  for (const rule of rules) {
+    const selectors = rule.replace(/\{$/, '').replace(/:(?:is|not)\([^)]*\)/g, '').split(',').map((x) => x.trim());
+    for (const selector of selectors) assert.ok(selector.startsWith(':root[data-skin="glass"][data-theme="tech"]'), selector);
+  }
+});
+
+test('科技蓝 colours: text on white, on the cool page and on navy keeps the contrast, and the greys are cool, not warm', () => {
+  const block = tokens.slice(tokens.indexOf(':root[data-theme="tech"]'));
+  const get = (name) => block.match(new RegExp(name + ':\\s*(#[0-9a-fA-F]{6})'))[1];
+  assert.equal(get('--skin-page'), '#eef2f7');
+  assert.equal(get('--brand-500'), '#2f5bff');
+  assert.ok(ratio(get('--brand-700'), '#ffffff') >= 4.5 && ratio(get('--brand-700'), get('--brand-50')) >= 4.5, 'brand text on white and on the light tint');
+  assert.ok(ratio('#ffffff', get('--brand-500')) >= 4.5, 'white text on the cobalt button');
+  assert.ok(ratio('#ffffff', get('--brand-900')) >= 7, 'white on the navy rail');
+  assert.ok(ratio('#c4cad3', get('--brand-900')) >= 7, 'the rail text (74% white over navy is about this grey) on navy');
+  assert.ok(ratio(get('--brand-300'), get('--brand-900')) >= 4.5, 'light cobalt icons on navy');
+  // The glass skin turns the grey text tokens warm for pink and orange; the tech section sets them back to cool greys.
+  const muted = skin.slice(skin.indexOf('科技蓝（data-theme="tech"）'));
+  for (const name of ['--muted', '--ink-500', '--ink-600', '--text-muted']) {
+    const color = muted.match(new RegExp(name + ':\\s*(#[0-9a-fA-F]{6})'))[1];
+    assert.ok(ratio(color, '#ffffff') >= 4.5, `${name} ${color} on white`);
+    assert.ok(ratio(color, '#eef2f7') >= 4.5, `${name} ${color} on the page`);
+  }
+  for (const n of [900, 800, 700, 600, 500, 400, 300, 200, 100, 50]) {
+    const [r, g, b] = rgb(get('--ink-' + n));
+    assert.ok(b >= g && g >= r - 2, `--ink-${n} is a cool grey`);
   }
 });

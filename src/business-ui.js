@@ -109,7 +109,9 @@
       `${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${E(code)}`;
     const option = (value, title, current) =>
       `<option value="${E(value)}" ${String(value) === String(current) ? "selected" : ""}>${E(title)}</option>`;
-    const THEME_CHOICES = [["pink", "粉色（默认）"], ["orange", "橙色"], ["xiaoman", "小满"]];
+    // 界面配色清单。哪个是默认由 app.js 的 DEFAULT_THEME 决定（ctx.defaultTheme），这里只给它的名字加「（默认）」。
+    const DEFAULT_THEME = ctx.defaultTheme || "pink";
+    const THEME_CHOICES = [["pink", "粉色"], ["orange", "橙色"], ["xiaoman", "小满"], ["tech", "科技蓝"]].map(([id, name]) => [id, id === DEFAULT_THEME ? `${name}（默认）` : name]);
     const button = (action, text, extra = "", primary = false) =>
       `<button type="button" ${primary ? 'class="primary"' : ""} data-biz-action="${action}" ${extra}>${text}</button>`;
     const header = (title, description, actions = "") =>
@@ -154,31 +156,55 @@
       const m = B.orderMetrics(orders);
       return `<div class="money-summary"><div class="section-head"><h3>金额概览</h3><span class="muted tiny">按币种分别统计 · 不含草稿</span></div><table class="order-table"><thead><tr><th>币种</th><th>订单数</th><th>订单金额</th><th>已收款</th><th>待收款</th></tr></thead><tbody>${m.byCurrency.map((c) => `<tr><td><span class="currency-badge">${E(c.currency)}</span></td><td>${c.count}</td><td>${money(c.total, c.currency)}</td><td>${money(c.paid, c.currency)}</td><td>${money(c.due, c.currency)}</td></tr>`).join("") || '<tr><td colspan="5">暂无订单金额</td></tr>'}</tbody></table></div>`;
     }
-    // 新界面（粉色、橙色主题）的工作台：和设计画布 Main.dc.html 一致；小满主题仍是下面原来的版式。
-    let wbMail = null,
-      wbMailAt = 0;
+    // 新界面皮肤（粉色、橙色、科技蓝）：订单页、商机菜单用它判断；小满是 classic 皮肤。
     const glassSkin = () =>
       typeof document !== "undefined" &&
       document.documentElement?.dataset?.skin === "glass" &&
       !!root.LaiWorkbench;
+    // 工作台：所有配色都用 src/workbench.js 的版面（今天先做、钱和目标、订单线、商机、客户来消息）。
+    let wbMail = null,
+      wbMailAt = 0,
+      wbMailError = false;
+    // 聊天里的客户：本人／本部门账号只看范围里的；公海客户要有「公海查看」；回收站里的不出现（和聊天页一致）。
+    const chatVisible = (name, profile) => {
+      const kind = root.LaiModules.bucket(profile);
+      if (!profile || kind === "trash") return false;
+      return kind === "pool" ? can("pool.view") : can("customer.view");
+    };
     function workbenchMarkup() {
-      const counts = ctx.mailCounts?.() || null;
+      const R = RM(),
+        full = state();
       return root.LaiWorkbench.markup(
         {
           state: dashState(),
           can,
-          showOwner: !!RM() && RM().scopeOf(state()) !== "self",
+          me: R ? R.meName(full) : "",
+          showOwner: !!R && R.scopeOf(full) !== "self",
           today: B.localDate(),
+          hour: new Date().getHours(),
           B,
           OM: root.LaiOpportunityModel,
           TM: root.LaiTeamModel,
           bucket: (c) => root.LaiModules.bucket(c),
-          mail: wbMail || (counts ? { unread: counts.unread, pending: counts.pending } : null),
+          WA: root.LaiWhatsAppUI,
+          canSeeChat: chatVisible,
+          mail: wbMail || (wbMailError ? { error: true } : null),
         },
         E,
       );
     }
-    // 未读邮件要向本机邮件服务要；拿到后只更新页面上对应的几处，不重画整页。
+    // 邮件要向本机邮件服务要；拿到后只换页面上依赖邮件的三处（问候句、今天先做、客户来消息），不重画整页，滚动位置和焦点不会跳。
+    function refreshWorkbenchParts() {
+      const host = document.querySelector?.(".wb");
+      if (!host || !document.createElement) return;
+      const holder = document.createElement("div");
+      holder.innerHTML = workbenchMarkup();
+      for (const part of ["summary", "queue", "messages"]) {
+        const fresh = holder.querySelector(`[data-wb="${part}"]`),
+          old = host.querySelector(`[data-wb="${part}"]`);
+        if (fresh && old) old.replaceWith(fresh);
+      }
+    }
     async function loadWorkbenchMail() {
       if (!ctx.mailSummary || !can("mail.view") || Date.now() - wbMailAt < 30000) return;
       wbMailAt = Date.now();
@@ -189,81 +215,18 @@
         data = null;
       }
       if (route !== "dashboard") return;
-      const box = document.querySelector?.("[data-wb-mails]");
-      if (!box) return;
       if (!data) {
+        // 读不到（没绑邮箱、邮件功能关了）：下次进工作台再试；已经提示过就不重画。
         wbMailAt = 0;
-        box.innerHTML = '<p class="wb-empty">暂时读不到邮件：请先在邮件页绑定邮箱。</p>';
-        return;
+        if (wbMailError) return;
+        wbMailError = true;
+      } else {
+        wbMail = data;
+        wbMailError = false;
       }
-      wbMail = data;
-      box.innerHTML = root.LaiWorkbench.mailRows(data.items, B.localDate(), E) || '<p class="wb-empty">没有未读邮件。</p>';
-      const set = (selector, text) => {
-        const node = document.querySelector(selector);
-        if (node) node.textContent = text;
-      };
-      set("strong[data-wb-mail-count]", String(data.unread));
-      set("small[data-wb-mail-note]", `待处理 ${data.pending} 封`);
-      set("[data-wb-mail-title]", `${data.unread} 封`);
+      refreshWorkbenchParts();
     }
-    function renderDashboard() {
-      if (glassSkin()) return workbenchMarkup();
-      const orders = can("order.view") ? activeOrders() : [],
-        m = B.orderMetrics(orders),
-        tasks = (dashState().laiTasks || []).filter((t) => !t.done),
-        today = B.localDate(),
-        followups = Object.entries(dashState().customers || {}).filter(
-          ([, c]) =>
-            root.LaiModules.bucket(c) !== "trash" &&
-            c.nextFollow &&
-            date(c.nextFollow) <= today,
-        );
-      return (
-        header(
-          "工作台",
-          "查看客户跟进与订单进度",
-          can("order.create") ? button("new-order", "＋ 新建订单", "", true) : "",
-        ) +
-        `<div class="business-scroll"><div class="business-kpis">${[
-          ["有效订单", m.count],
-          ["未完成订单", m.activeCount],
-          ["待跟进客户", followups.length],
-          ["待办任务", tasks.length],
-        ]
-          .map(([t, n]) => `<div><span>${t}</span><strong>${n}</strong></div>`)
-          .join(
-            "",
-          )}</div><div class="business-section"><div class="section-head"><h3>订单进度</h3>${button("orders", "查看全部订单")}</div><div class="pipeline">${B.stages
-          .map((s) => {
-            const list = orders.filter((o) => !o.isDraft && o.stage === s.id);
-            return `<section><h4><span>${s.label}</span><b>${list.length}</b></h4><div class="pipeline-cards">${
-              list
-                .slice(0, 7)
-                .map(
-                  (o) =>
-                    `<button class="pipeline-card" data-biz-order="${E(o.id)}"><strong>${E(o.client)}</strong><span>${E(o.num)}</span><b>${money(o.amount, o.currency || "USD")}</b></button>`,
-                )
-                .join("") || '<p class="muted tiny">暂无订单</p>'
-            }${list.length > 7 ? `<button class="text-button tiny" data-biz-stage="${s.id}">查看全部 ${list.length} 笔</button>` : ""}</div></section>`;
-          })
-          .join(
-            "",
-          )}</div></div><div class="business-columns"><section class="business-section"><div class="section-head"><h3>待跟进客户</h3><span class="muted tiny">截至今天</span></div>${
-          followups
-            .slice(0, 8)
-            .map(
-              ([name, c]) =>
-                `<div class="business-line">${customerButton(name)}<time>${date(c.nextFollow)}</time></div>`,
-            )
-            .join("") || '<div class="small-empty">暂无到期跟进</div>'
-        }</section><section class="business-section"><div class="section-head"><h3>我的待办</h3>${button("new-task", "＋ 添加任务")}</div>${
-          tasks
-            .slice(0, 8)
-            .map((task) => taskMarkup(task))
-            .join("") || '<div class="small-empty">暂无待办任务</div>'
-        }</section></div>${metricsMarkup(orders)}</div>`
-      );
-    }
+    const renderDashboard = () => workbenchMarkup();
     // 负责人名：账号只看自己的待办时不用写；看得到别人的待办时标出是谁的。
     const taskWho = (t) => {
       if (!RM() || RM().scopeOf(state()) === "self") return "";
@@ -1774,7 +1737,7 @@
     function renderSettingsHub() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
-        theme = THEME_CHOICES.find(([id]) => id === settings.theme) || THEME_CHOICES[0];
+        theme = THEME_CHOICES.find(([id]) => id === settings.theme) || THEME_CHOICES.find(([id]) => id === DEFAULT_THEME);
       return root.LaiSettingsHub.markup(
         { orderPrefix: settings.orderPrefix || old.orderPrefix || "L", currency: settings.defaultCurrency || old.defaultCurrency || "USD", themeName: theme[1], testData: Boolean(root.LaiWebTrial), can },
         E,
@@ -1797,10 +1760,10 @@
     function renderSettings() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
-        currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : "pink";
+        currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : DEFAULT_THEME;
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2088,7 +2051,7 @@
       if (!html) html = extraPage && typeof extraPage.render === "function" ? extraPage.render(extraCtx()) : (views[route] || renderDashboard)();
       if (typeof html === "string") ctx.mount(html);
       if (extraPage && typeof extraPage.afterRender === "function") extraPage.afterRender(extraCtx());
-      if (route === "dashboard" && glassSkin()) loadWorkbenchMail();
+      if (route === "dashboard") loadWorkbenchMail();
       if (oppPosition) {
         const page = document.querySelector?.(".opp-page"), board = document.querySelector?.(".opp-board");
         if (page) page.scrollTop = oppPosition.top;
@@ -2543,6 +2506,8 @@
       if (["team-goals", "team-wall"].includes(route) && teamViewAction(d)) return;
       if (d.bizOrder) return need("order.view") && orderEditor(d.bizOrder);
       if (d.bizCustomer) return ctx.openCustomer(d.bizCustomer);
+      // 工作台「等你回复」的「回复」：打开聊天页，并选中这位客户的对话。
+      if (d.bizChat) return ctx.openChat ? ctx.openChat(d.bizChat) : ctx.navigate("chats");
       if (d.bizStage) {
         stage = d.bizStage;
         page = 1;

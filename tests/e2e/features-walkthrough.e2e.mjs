@@ -299,36 +299,41 @@ async function addTask(app, title) {
   await page.locator('button[form="biz-task-form"]').click();
   await page.locator('#biz-task-form').waitFor({ state: 'detached' });
 }
-const statValue = (app, label) => app.page.locator('.wb-stat', { hasText: label }).locator('.wb-num').innerText();
+const clean = (text) => text.replace(/\s+/g, ' ').trim();
 
-test('workbench: the numbers follow a new order and a new task', async () => {
+test('workbench: the queue, the order line and the money follow a new order and a new task', async () => {
   await run(async (app) => {
     const { page } = app;
     await goTo(app, '工作台');
-    assert.equal(await statValue(app, '有效订单'), '0');
-    assert.equal(await statValue(app, '待办任务'), '0');
+    assert.match(await page.locator('.wb-queue').innerText(), /今天没有要紧事/);
+    assert.match(await page.locator('.wb-orders').innerText(), /还没有订单/);
+    assert.match(await page.locator('.wb-hello').innerText(), /今天没有要紧事/);
     await shot(app, 'workbench-empty');
     await createOrder(app, { num: 'WB-001', client: 'Northwind Lash Studio', amount: 100, currency: 'USD', stage: '定金', paid: 40 });
     await createOrder(app, { num: 'WB-002', client: 'Lumen Lash Lab', amount: 999, currency: 'USD', draft: true });
     await goTo(app, '工作台');
-    assert.equal(await statValue(app, '有效订单'), '1', 'the draft is not counted');
-    assert.equal(await statValue(app, '未完成订单'), '1');
-    await page.locator('.wb-order', { hasText: 'WB-001' }).waitFor();
+    await page.locator('li[data-stage="deposit"] .wb-ocard', { hasText: 'Northwind Lash Studio' }).waitFor();
+    assert.equal(await page.locator('.wb-ocard').count(), 1, 'the draft is not on the order line');
+    assert.match(clean(await page.locator('.wb-orders .wb-ph').innerText()), /1 笔未完成，共 USD 100/);
+    const money = clean(await page.locator('.wb-moneyp').innerText());
+    assert.match(money, /\$40 已收款（40%）/, 'the draft is not counted');
+    assert.match(money, /\$60 待收款，1 笔订单/);
     await addTask(app, '寄样品给 Northwind');
-    assert.equal(await statValue(app, '待办任务'), '1');
-    assert.match(await page.locator('.wb-stat', { hasText: '待办任务' }).innerText(), /今天到期 1 项/);
-    await page.locator('.wb-task', { hasText: '寄样品给 Northwind' }).waitFor();
+    const row = page.locator('.wb-queue .wb-row', { hasText: '寄样品给 Northwind' });
+    await row.waitFor();
+    assert.match(clean(await row.innerText()), /今天到期/);
+    assert.match(await page.locator('.wb-hello').innerText(), /今天有 1 件事要处理/);
     await shot(app, 'workbench-after');
-    // Completing the task from the workbench lowers the count again.
+    // Completing the task from the workbench takes it out of the queue again.
     // click, not check(): the saved task leaves the list at once, so check() could not read the box back; the save is
-  // asserted right below.
-  await page.locator('.wb-task', { hasText: '寄样品给 Northwind' }).locator('input[type=checkbox]').click({ force: true });
+    // asserted right below.
+    await row.locator('input[type=checkbox]').click({ force: true });
     await until(app, (d) => (d.laiTasks || []).some((t) => t.done), 'task done saved');
     await page.waitForTimeout(300);
-    assert.equal(await statValue(app, '待办任务'), '0');
-    // The workbench asks for unread mail; with no mailbox bound the backend answers 409 and the card says so.
+    assert.match(await page.locator('.wb-queue').innerText(), /今天没有要紧事/);
+    // The workbench asks for unread mail; with no mailbox bound the backend answers 409 and the block says so.
     await page.getByText('请先在邮件页绑定邮箱').first().waitFor();
-    for (let i = app.errors.length - 1; i >= 0; i--) if (/^HTTP 409: .*\/api\/mail\/messages\?folder=unread/.test(app.errors[i])) app.errors.splice(i, 1);
+    for (let i = app.errors.length - 1; i >= 0; i--) if (/^HTTP 409: .*\/api\/mail\/messages\?folder=inbox/.test(app.errors[i])) app.errors.splice(i, 1);
   });
 });
 

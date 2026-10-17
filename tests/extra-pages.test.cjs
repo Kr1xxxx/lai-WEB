@@ -19,7 +19,7 @@ function setup({ state = { orders: [], customers: {}, laiSettings: { defaultOwne
     getElementById() { return null; },
     querySelectorAll() { return []; },
   };
-  const window = { LaiBusinessModel: B, LaiModules: L, ...(withRoles ? { LaiRoleModel: R } : {}) };
+  const window = { LaiBusinessModel: B, LaiModules: L, LaiWorkbench: require('../src/workbench.js'), ...(withRoles ? { LaiRoleModel: R } : {}) };
   const context = { window, document, FormData: class {}, crypto: require('node:crypto').webcrypto };
   vm.createContext(context);
   vm.runInContext(source, context);

@@ -190,12 +190,15 @@
       el.classList.toggle("save-failed", error);
     }
   }
-  // 界面配色：laiSettings.theme 存「pink」（默认）、「orange」或「xiaoman」（原来的蓝色），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
-  const THEME_IDS = ["pink", "orange", "xiaoman"];
+  // 界面配色：laiSettings.theme 存「pink」「orange」「xiaoman」（原来的蓝色）或「tech」（科技蓝），写到 <html data-theme>，颜色全部由 ui-tokens.css 的变量决定。
+  const THEME_IDS = ["pink", "orange", "xiaoman", "tech"];
+  // 没选过配色时用哪个。想换默认配色就改这一行（设置页会自动给它加「（默认）」）；
+  // 另外 ui-tokens.css 里带「:root,」的那块变量（管页面载入前的底色）也要换到新默认的主题上。
+  const DEFAULT_THEME = "pink";
   function applyTheme(id) {
-    const theme = THEME_IDS.includes(id) ? id : "pink";
+    const theme = THEME_IDS.includes(id) ? id : DEFAULT_THEME;
     document.documentElement.dataset.theme = theme;
-    // 粉色、橙色用新界面（悬浮玻璃面板），小满保持原来的界面。
+    // 粉色、橙色、科技蓝用新界面（悬浮面板），小满保持原来的界面。
     document.documentElement.dataset.skin = theme === "xiaoman" ? "classic" : "glass";
   }
   // 已保存数据的快照（见 model.js 的 snapshotState）：保存时只把和它不同的部分发给本机服务。
@@ -5638,14 +5641,21 @@
     switchAccount,
     // 工作台的未读邮件卡片：邮件页打开过就用它已有的数字，邮件列表向本机邮件服务要。
     mailCounts: () => mail?.counts?.() || null,
+    // 收件箱最近的一页信（带 seen）：今天先做用其中没读的，客户来消息用最近的几封。
     mailSummary: async () => {
       if (!modOn("mail")) return null;
-      const response = await fetch("/api/mail/messages?folder=unread&page=1", { cache: "no-store" });
+      const response = await fetch("/api/mail/messages?folder=inbox&page=1", { cache: "no-store" });
       const data = await response.json();
       if (!data?.ok) return null;
       const counts = data.counts || { unread: data.total || 0, pending: 0 };
       return { items: data.items || [], unread: counts.unread, pending: counts.pending };
     },
+    // 工作台「回复」：打开聊天页并选中这位客户。
+    openChat: (name) => {
+      wa.select(name);
+      return navigateApp("chats");
+    },
+    defaultTheme: DEFAULT_THEME,
     // 线索、商机里的 WhatsApp 按钮：和客户资料用同一个对话框，对象（客户或线索）由按钮所在的页面明确传进来，不看“最近打开的客户”。
     openWhatsApp: (options) => wa.openDialog(options),
     toast,

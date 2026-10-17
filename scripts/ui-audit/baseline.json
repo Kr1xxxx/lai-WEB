@@ -25,7 +25,15 @@
   "xiaoman|1280x720|order-list": 10,
   "xiaoman|1440x640|customers": 15,
   "xiaoman|1440x640|mail": 2,
-  "xiaoman|1440x640|order-list": 13
+  "xiaoman|1440x640|order-list": 13,
+  "tech|1440x900|customers": 16,
+  "tech|1440x900|弹窗 新建订单": 2,
+  "tech|1440x900|弹窗 新建商机": 1,
+  "tech|1440x900|弹窗 新建客户": 4,
+  "tech|1280x720|customers": 7,
+  "tech|1280x720|mail": 2,
+  "tech|1440x640|customers": 15,
+  "tech|1440x640|mail": 3
  },
  "note": "已知、可接受的被遮挡项数量（客户表格冻结的操作列、折叠的客群分组等）；扫描结果比它多就算新增问题。"
 }

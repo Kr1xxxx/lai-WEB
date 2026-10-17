@@ -270,19 +270,25 @@ test('toggling saves through the page, needs settings.switch, and redraws the wh
   assert.equal(FS.enabled(state, 'lead'), true);
 });
 
-test('workbench: cards of an off module are not drawn, and the 新建商机 button goes too', () => {
+test('workbench: blocks of an off module are not drawn, and the 新建商机 button goes too', () => {
   const today = '2026-10-08';
-  const render = (state) => W.markup({ state: { orders: [], customers: {}, ...state }, today, B, OM, TM, bucket: (c) => L.bucket(c), mail: { unread: 2, pending: 1, items: [] } }, E);
+  const WA = require('../src/whatsapp-ui.js');
+  const chats = { Wa: { owner: 'A', history: [{ type: 'chat', channel: 'WhatsApp', time: '2026-10-07T10:00:00', lines: [{ at: '2026-10-07T10:00:00', from: 'Ann', dir: 'in', text: 'hi', key: 'k' }] }] } };
+  const render = (state) => W.markup({ state: { orders: [], customers: chats, ...state }, today, B, OM, TM, bucket: (c) => L.bucket(c), WA, mail: { unread: 2, pending: 1, items: [{ subject: 'Hi', seen: false, from: { name: 'Emma' }, date: '2026-10-07T09:00:00' }] } }, E);
   const full = render({});
-  for (const marker of ['进行中商机', '商机阶段', '未读邮件', '本月目标', 'data-biz-go="opp-new"', 'data-biz-go="mail:inbox"']) assert.ok(full.includes(marker), marker);
+  for (const marker of ['id="wb-h-opp"', '商机看板', '客户来消息', '本月成交', 'data-biz-go="opp-new"', 'data-biz-go="mail:inbox"', 'data-biz-go="mail:unread"', 'data-biz-chat', 'wb-ch ml', 'wb-ch wa']) assert.ok(full.includes(marker), marker);
   const noOpp = render(off('opp'));
-  assert.ok(!/进行中商机|商机阶段|opp-new|data-biz-go="opportunities"/.test(noOpp));
-  assert.ok(noOpp.includes('未读邮件') && noOpp.includes('本月目标'));
+  assert.ok(!/id="wb-h-opp"|opp-new|data-biz-go="opportunities"/.test(noOpp));
+  assert.ok(noOpp.includes('客户来消息') && noOpp.includes('本月成交'));
   const noMail = render(off('mail'));
-  assert.ok(!/未读邮件|mail:inbox|mail:unread/.test(noMail));
+  assert.ok(!/未读邮件|mail:inbox|mail:unread|wb-ch ml/.test(noMail));
+  assert.ok(noMail.includes('data-biz-chat'), 'WhatsApp is its own switch');
+  const noChat = render(off('chat'));
+  assert.ok(!/data-biz-chat|等你回复|wb-ch wa/.test(noChat));
+  assert.ok(noChat.includes('wb-ch ml'));
   const noTeam = render(off('team'));
-  assert.ok(!/本月目标|team-goals|data-biz-go="analysis"/.test(noTeam));
-  assert.ok(noTeam.includes('有效订单') && noTeam.includes('待办任务'), 'orders and tasks are never switchable');
+  assert.ok(!/本月成交|team-goals|data-biz-go="analysis"/.test(noTeam));
+  assert.ok(noTeam.includes('订单走到哪了') && noTeam.includes('今天先做'), 'orders and the queue are never switchable');
 });
 
 test('成交 follows the order rule while 商机 is off, and goes back to the saved rule when it is on again', () => {

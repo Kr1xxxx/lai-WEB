@@ -169,15 +169,17 @@ test('the order list and the workbench count the new order and the opportunities
   const { page } = app;
   await page.locator('.rail-item', { hasText: '工作台' }).first().click();
   await page.locator('.wb').waitFor();
-  const stat = (label) => page.locator('.wb-stat', { hasText: label });
-  assert.match(clean(await stat('有效订单').innerText()), /有效订单 1/);
-  // The workbench counts every open card across all flows and currencies, with the amount noted per currency:
-  // Northwind (付款未到账) and Bluebell (未成单) in USD, plus the EUR one.
-  assert.match(clean(await stat('进行中商机').innerText()), /进行中商机 3 EUR 500 · USD 2,000/);
-  const tiles = clean(await page.locator('.wb-tiles').innerText());
-  for (const part of ['未成单', '付款未到账', '待付尾款', '已完成', '输单']) assert.ok(tiles.includes(part), part);
-  assert.match(clean(await page.locator('.wb-tile', { hasText: '已完成' }).innerText()), /已完成 1 个/);
-  assert.match(clean(await page.locator('.wb-tile', { hasText: '付款未到账' }).innerText()), /付款未到账 1 个/);
+  // The order made from Maple's opportunity is the one unfinished order, drawn as a card on the order line.
+  assert.equal(await page.locator('.wb-ocard').count(), 1);
+  assert.match(clean(await page.locator('.wb-orders .wb-ph').innerText()), /1 笔未完成/);
+  // The 商机 block uses the board data: one currency (USD) with its stages, the EUR opportunity counted apart, never converted.
+  const opp = clean(await page.locator('.wb-opp').innerText());
+  assert.match(opp, /3 个 · \$5,000（不含输单）/);
+  assert.match(opp, /另有 1 个其他币种的商机/);
+  for (const part of ['未成单', '付款未到账', '待付尾款', '已完成', '输单']) assert.ok(opp.includes(part), part);
+  assert.match(clean(await page.locator('.wb-fr', { hasText: '已完成' }).innerText()), /已完成 1 个 \$3,000/);
+  assert.match(clean(await page.locator('.wb-fr', { hasText: '付款未到账' }).innerText()), /付款未到账 1 个 \$1,200/);
+  assert.equal(await page.locator('.wb-fr.won').count(), 2, 'the won stages are drawn green');
   // The workbench asks for the mailbox, and no mailbox is set up in this test.
   assert.deepEqual(app.errors.filter((e) => !e.includes('/api/mail/')), []);
   app.errors.length = 0;

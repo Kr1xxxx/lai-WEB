@@ -23,7 +23,7 @@
 | `src/segments.js`、`modules.js` | 客群匹配及现有桶操作／查重等模型 |
 | `src/nav-favorites.js` | 常用导航：哪些既有导航条目被设为常用及其顺序（存于`laiSettings.favoriteNav`，只存条目ID如`screen:active`、`route:order-list`、`mail:inbox`，不含业务字段）；从未设置过时为空。可设为常用的清单不在这里另抄，直接取自`rail-menu.js`，所以在菜单里加页面就自动能设为常用。依赖`rail-menu.js` |
 | `src/rail-menu.js` | 左侧栏各菜单有哪些真实页面入口（悬停浮层、各菜单二级导航、可设为常用的清单都读这一份）；沟通有聊天记录、聊天模板两项（WhatsApp）；Leads 里还留着一个保留入口。不依赖其他模块，装载在`nav-favorites.js`之前 |
-| `src/workbench.js` | 新界面（粉色、橙色主题）的工作台页面：纯函数 `markup(input, escape)` 生成整页 HTML，`mailRows` 生成未读邮件行；不碰 DOM、不发请求。小满主题的工作台仍在 `business-ui.js` 的 `renderDashboard()` 里。邮件列表由 `business-ui.js` 在页面画好后向 `ctx.mailSummary()` 要，再只更新对应几处 |
+| `src/workbench.js` | 所有配色共用的工作台页面（问候一行、今天先做、钱和目标、订单走到哪了、商机、客户来消息）：纯函数 `markup(input, escape)` 生成整页 HTML；合并排序（`queue`）、订单线分组（`orderLine`）、钱和目标（`moneySummary`）、消息合并（`inbox`、`chatSummaries`）也是纯函数，都有单元测试；不碰 DOM、不发请求。样式在 `business.css` 的「工作台」一节，只用主题变量。邮件列表（收件箱最近一页）由 `business-ui.js` 在页面画好后向 `ctx.mailSummary()` 要，再只换页面上带 `data-wb` 的三处（问候句、今天先做、客户来消息）；「回复」经 `ctx.openChat` 打开聊天页 |
 | `src/settings-hub.js` | 设置中心页面（设置 → 设置中心）：纯函数 `markup(info, escape)` 生成整页 HTML；`GROUPS` 列出每一项设置和它打开的真实页面或弹窗，不重复实现任何设置 |
 | `src/orders-page.js` | 全部订单页面（新界面）：纯函数 `markup(input, escape)` 生成设计稿 Orders 的整页 HTML，`inPeriod` 按本月／上月／本季度／今年筛选；按钮和输入框沿用 `data-biz-*` 和 id，处理代码仍在 `business-ui.js`；小满主题仍用原来的订单表格 |
 | `src/lead-model.js`、`lead-ui.js` | 线索：数据保存在`laiLeads`；model 负责校验、跟进记录、状态流转、查重提示、转为客户（新建客户档案走`model.js`的`upsertCustomer`，或关联已有客户）、列表筛选与计数，ui 只生成标记；页面事件和保存接在`business-ui.js`里 |
