@@ -2133,6 +2133,10 @@ button.subnav-restore {
   width: 0;
   border-right-width: 0;
 }
+/* 收起后客群栏里的内容不再画出来（只是被裁掉的话，浏览器查找、扫描时还算在页面上）；收起的动画期间照常显示。 */
+.groups-collapsed:not(.groups-motion) .groups-viewport {
+  visibility: hidden;
+}
 .groups-motion .groups {
   transition: width 300ms ease;
 }
