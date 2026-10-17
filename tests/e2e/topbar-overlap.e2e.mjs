@@ -12,7 +12,7 @@ const WIDTHS = [1024, 1100, 1150, 1200, 1240, 1280, 1366, 1440, 1680];
 
 test('the search box, the version badge and the right-hand actions never overlap', async () => {
   const { page } = app;
-  for (const theme of ['pink', 'orange', 'tech']) {
+  for (const theme of ['pink', 'orange', 'tech', 'studio']) {
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 860 });
       const box = await page.evaluate((t) => {

@@ -107,7 +107,7 @@
       `<option value="${E(value)}" ${String(value) === String(current) ? "selected" : ""}>${E(title)}</option>`;
     // 界面配色清单。哪个是默认由 app.js 的 DEFAULT_THEME 决定（ctx.defaultTheme），这里只给它的名字加「（默认）」。
     const DEFAULT_THEME = ctx.defaultTheme || "pink";
-    const THEME_CHOICES = [["pink", "粉色"], ["orange", "橙色"], ["tech", "科技蓝"]].map(([id, name]) => [id, id === DEFAULT_THEME ? `${name}（默认）` : name]);
+    const THEME_CHOICES = [["pink", "粉色"], ["orange", "橙色"], ["tech", "科技蓝"], ["studio", "米白"]].map(([id, name]) => [id, id === DEFAULT_THEME ? `${name}（默认）` : name]);
     // 去掉的配色按哪个显示（D-029，和 app.js 的 RETIRED_THEMES 一致）：存的「xiaoman」（小满）当科技蓝，下次保存设置时写成 tech。
     const RETIRED_THEMES = { xiaoman: "tech" };
     const savedTheme = (settings) => (Object.hasOwn(RETIRED_THEMES, settings?.theme ?? "") ? RETIRED_THEMES[settings.theme] : settings?.theme);

@@ -52,7 +52,7 @@ before(async () => {
 after(async () => { await app?.close(); });
 
 const WIDTHS = [820, 1024, 1280, 1440, 1680];
-const THEMES = ['pink', 'orange', 'tech'];
+const THEMES = ['pink', 'orange', 'tech', 'studio'];
 const real = (errors) => errors.filter((e) => !/\/api\/mail\//.test(e));
 
 // Everything measured inside the page, so a failure names the element.

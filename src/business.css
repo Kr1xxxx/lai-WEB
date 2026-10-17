@@ -1124,6 +1124,7 @@
 }
 .theme-preview[data-preview="orange"] { --pv-page: #f0eae4; --pv-nav: #4d1f0a; --pv-brand: #c2410c; --pv-tint: #fde3cf; }
 .theme-preview[data-preview="tech"] { --pv-page: #eef2f7; --pv-nav: #0f1d33; --pv-brand: #2f5bff; --pv-tint: #e2e9ff; }
+.theme-preview[data-preview="studio"] { --pv-page: #ffffff; --pv-nav: #f4f3f0; --pv-brand: #4b5bd6; --pv-tint: #eeede9; }
 .theme-preview .pv-nav { flex: 0 0 22%; background: var(--pv-nav); }
 .theme-preview .pv-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 10px; }
 .theme-preview .pv-bar { display: block; height: 10px; width: 60%; border-radius: var(--radius-pill); background: var(--pv-brand); }
