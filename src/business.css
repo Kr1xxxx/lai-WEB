@@ -2438,14 +2438,16 @@ td.team-reached {
   .opp-filter-main, .opp-filter-side { flex-wrap: wrap; }
 }
 
-/* 金额卡片：四张一排，每张是名称（左）和个数（右）、下面一行大号金额；金额不省略，卡片窄时字号跟着变小 */
+/* 金额卡片：四张一排，每张是名称（左）和个数（右）、下面一行大号金额；金额不省略，卡片窄时换小一号的字（见下面的 @container） */
 :root[data-skin] .opp-page .opp-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 :root[data-skin] .opp-page .opp-analysis-stats { grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); }
-:root[data-skin] .opp-page .opp-analysis-stats .opp-stat b { font-size: clamp(var(--text-lg), 12cqi, var(--text-2xl)); }
+/* 卡片窄时（停靠表单、窄窗口、商机分析六张一排）金额换小一号的字，不省略 */
+@container (max-width: 230px) { :root[data-skin] .opp-page .opp-stat b { font-size: var(--text-xl); } }
+@container (max-width: 170px) { :root[data-skin] .opp-page .opp-stat b { font-size: var(--text-lg); } }
 :root[data-skin] .opp-page .opp-stat { container-type: inline-size; justify-content: flex-start; gap: 4px; padding: 12px 16px 14px; border-color: var(--border); }
 :root[data-skin] .opp-stat-label { gap: 0; font-size: var(--text-sm); line-height: 20px; color: var(--muted-fg); }
 .opp-stat-count { margin-left: auto; padding-left: 8px; font-size: var(--text-xs); color: var(--muted-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
-:root[data-skin] .opp-page .opp-stat b { overflow: visible; font-size: clamp(var(--text-lg), 10cqi, var(--text-2xl)); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; color: var(--fg); }
+:root[data-skin] .opp-page .opp-stat b { overflow: visible; font-size: var(--text-2xl); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; color: var(--fg); }
 :root[data-skin] .opp-page .opp-stat b small { margin-right: 2px; font-size: var(--text-xs); font-weight: 500; letter-spacing: 0; color: var(--muted-fg); }
 .opp-stat-note { font-size: var(--text-xs); line-height: 18px; color: var(--muted-fg); }
 :root[data-skin] .opp-stats-note { margin: -4px 0 0; }
@@ -2473,7 +2475,7 @@ td.team-reached {
 :root[data-skin] .opp-card-head { align-items: flex-start; gap: 4px; }
 :root[data-skin] .opp-card-head .opp-card-client { flex: 1 1 auto; min-width: 0; max-width: none; font-size: var(--text-sm); font-weight: 600; line-height: 20px; color: var(--fg); }
 :root[data-skin] .opp-card-head .opp-card-client:hover { color: var(--primary); text-decoration: none; }
-:root[data-skin] .opp-card > .opp-card-name { align-self: flex-start; max-width: 100%; overflow: hidden; font-size: var(--text-xs); font-weight: 400; line-height: 18px; color: var(--muted-fg); white-space: nowrap; text-overflow: ellipsis; }
+:root[data-skin] .opp-card > .opp-card-name { align-self: flex-start; max-width: 100%; height: auto; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; overflow: hidden; font-size: var(--text-xs); font-weight: 400; line-height: 18px; color: var(--muted-fg); white-space: nowrap; text-overflow: ellipsis; }
 :root[data-skin] .opp-card > .opp-card-name:hover { color: var(--primary); }
 :root[data-skin] .opp-card-menu { width: 22px; height: 22px; margin: -1px -6px 0 0; opacity: 0.35; transition: opacity var(--motion-fast); }
 :root[data-skin] .opp-card:is(:hover, :focus-within) .opp-card-menu { opacity: 1; }
