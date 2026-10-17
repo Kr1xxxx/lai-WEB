@@ -94,9 +94,9 @@ test('form: reference fields, required marks, and the parts that depend on what 
   assert.match(fresh, /name="owner" value="Amy"/); assert.match(fresh, /<label class="opp-field" hidden><span class="opp-field-label">输单原因<i class="opp-req" aria-hidden="true">\*<\/i><\/span><select name="lostReason" disabled>/, 'lost fields are present but hidden and disabled');
   const chosen = ui.formMarkup({...O.defaults(base, TODAY), client: 'Alpha <b>Co</b>', contact: 'Bo', nameMode: 'custom', name: '大单', currency: 'EUR', exchangeRate: 108, stage: 'lost', lostReason: '交期原因',
     collaborators: ['Bob', 'Cara'], tags: ['VIP'], products: [{name: 'A', quantity: 10, unitPrice: 2.5}, {name: 'B', quantity: 1, unitPrice: 4}]}, {contacts: ['Ann', 'Bo'], isNew: false});
-  assert.match(chosen, /name="contact" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
+  assert.match(chosen, /name="contact" aria-required="true" required><option value="">请选择<\/option><option value="Ann">Ann<\/option><option value="Bo" selected>Bo<\/option>/);
   assert.match(chosen, /value="custom" checked/); assert.match(chosen, /name="name" value="大单"[^>]* required>/);
-  assert.match(chosen, /<select name="lostReason" required>/);
+  assert.match(chosen, /<select name="lostReason" aria-required="true" required>/);
   assert.match(chosen, /<label class="opp-field"><span class="opp-field-label">汇率<i[^>]*>\*<\/i><\/span><input name="exchangeRate" value="108" data-rate="108" inputmode="decimal" aria-describedby/); assert.doesNotMatch(chosen, /name="exchangeRate"[^>]*readonly/);
   assert.match(chosen, /<option value="交期原因" selected>/); assert.match(chosen, /name="lostNote"/);
   assert.match(chosen, /name="collaborators" value="Bob，Cara"/);

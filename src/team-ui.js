@@ -197,7 +197,7 @@
       const metric=ids.includes(options.metric)?options.metric:ids[0];
       const names=overview.members.filter(member=>member.owner!=='').map(member=>member.label);
       const choice=(value,label,current)=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(label)}</option>`;
-      return `<form class="drawer-body" id="biz-target-form"><div class="error" id="biz-target-error" role="alert"></div><div class="form-grid">`
+      return `<form class="drawer-body" id="biz-target-form" novalidate data-form-check><div class="error" id="biz-target-error" role="alert"></div><div class="form-grid">`
         +`<label class="field">指标<select name="metric">${ids.map(id=>choice(id,COLUMNS[id].label,metric)).join('')}</select></label>`
         +`<label class="field">周期<select name="period">${(options.periods||[]).map(item=>choice(item.key,item.label,options.period)).join('')}</select></label>`
         +`<label class="field">对象<select name="scope">${choice('company','企业整体','company')}${choice('member','成员（跟进人）','company')}</select></label>`

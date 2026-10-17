@@ -58,6 +58,8 @@ const gotoCustomer = async (app, name) => {
   await app.page.locator('.lcd-root').waitFor();
 };
 const activityTab = (app) => app.page.locator('.lcd-tabs [data-tab="activity"]').click();
+// The detail opens on 动态; the 资料 fields are one tab over.
+const infoTab = (app) => app.page.locator('.lcd-tabs [data-tab="info"]').click();
 const openPool = async (app) => {
   await app.page.locator('.subnav .nav-row:has(.nav-label:text-is("公海客户"))').click();
   await app.page.locator('.module-page').waitFor();
@@ -202,8 +204,10 @@ test('detail: 最近成交时间 and the pool forecast notice', async () => {
     assert.match(await page.locator('[data-pool-forecast]').innerText(), /已符合公海规则「30天未联系」，下次执行时会移入公海/);
     await openDetail(app, 'Northwind Lash Studio');
     assert.equal(await page.locator('[data-pool-forecast]').count(), 0, 'not close to the rule: no notice');
+    await infoTab(app);
     assert.equal(await page.locator('.lcd-field:has(dt:text-is("最近成交时间")) dd').innerText(), dealDay);
     await openDetail(app, 'Lumen Lash Lab');
+    await infoTab(app);
     assert.equal(await page.locator('.lcd-field:has(dt:text-is("最近成交时间")) dd').innerText(), '—');
   });
 });

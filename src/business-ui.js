@@ -117,6 +117,9 @@
       `<button type="button" ${primary ? 'class="primary"' : ""} data-biz-action="${action}" ${extra}>${text}</button>`;
     const header = (title, description, actions = "") =>
       `<div class="pagebar"><div class="business-title"><h1>${title}</h1><span>${description}</span></div><div class="page-actions">${actions}</div></div>`;
+    // 必填标记，和抽屉底栏里保存按钮旁的错误条（表单出错时字写在这里，不会被滚到看不见的地方）。
+    const REQ = '<span class="required" aria-hidden="true">*</span>';
+    const footError = (id) => `<div class="error form-foot-error" id="${id}" role="alert" data-form-error></div>`;
     // 列表页头的「导出」按钮：只有有对应导出权限的账号才看得到。
     const exportButton = (kind) =>
       root.LaiExportUI && can(`${kind}.export`) ? `<button type="button" data-export-kind="${kind}">导出</button>` : "";
@@ -719,7 +722,7 @@
             setup: OM().formSetup(pickState()),
             isNew: next.isNew,
           }),
-          '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>',
+          `${footError("opp-error")}<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="opp-form">保存商机</button>`,
           "business-opportunity",
         );
       } catch (error) {
@@ -1173,7 +1176,7 @@
         ctx.dialog(
           next.isNew ? "新建线索" : "编辑线索",
           LU().formMarkup(next.values, leadContext()),
-          '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-form">保存线索</button>',
+          `${footError("lead-error")}<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="lead-form">保存线索</button>`,
           "business-lead",
         );
       } catch (error) {
@@ -1311,7 +1314,7 @@
       const old = id === undefined ? null : PM().find(state(), id);
       if (id !== undefined && !old) return ctx.toast("产品不存在，可能已被删除，请刷新后重试");
       prodDraft = { id: old ? old.id : undefined };
-      ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), '<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="product-form">保存产品</button>', "business-product");
+      ctx.dialog(old ? "编辑产品" : "新建产品", PU().formMarkup(state(), old || PM().emptyValues(state()), !old), `${footError("product-error")}<button type="button" data-action="close-modal">取消</button><button class="primary" type="submit" form="product-form">保存产品</button>`, "business-product");
     }
     function openProductDetail(id) {
       const product = PM().find(state(), id);
@@ -1685,13 +1688,15 @@
       if (!need("settings.docTemplate")) return;
       const data = Object.fromEntries(new FormData(form));
       docView.armed = "";
+      // 出错时写在这张表单的保存按钮旁边（页面往下滚了也看得见）。
+      const slot = form.querySelector("[data-form-error]") || "doc-error";
       if (form.dataset.docForm === "company") {
         const pick = (kind, fields) => Object.fromEntries(fields.map(([key]) => [key, data[`${kind}:${key}`] || ""]));
-        return saveNext(() => DM().setBank(DM().setCompany(state(), pick("company", DM().COMPANY_FIELDS)), pick("bank", DM().BANK_FIELDS)), "doc-error");
+        return saveNext(() => DM().setBank(DM().setCompany(state(), pick("company", DM().COMPANY_FIELDS)), pick("bank", DM().BANK_FIELDS)), slot);
       }
-      if (form.dataset.docForm === "numbering") return saveNext(() => DM().setNumbering(state(), form.dataset.type, { prefix: data.prefix, dateMode: data.dateMode, digits: data.digits, reset: data.reset }), "doc-error");
+      if (form.dataset.docForm === "numbering") return saveNext(() => DM().setNumbering(state(), form.dataset.type, { prefix: data.prefix, dateMode: data.dateMode, digits: data.digits, reset: data.reset }), slot);
       const columns = Object.fromEntries(DM().COLUMNS.map(([key]) => [key, `col:${key}` in data]));
-      return saveNext(() => DM().setTemplate(state(), form.dataset.type, { title: data.title, terms: data.terms, footer: data.footer, columns, showBank: "showBank" in data, showSignature: "showSignature" in data }), "doc-error");
+      return saveNext(() => DM().setTemplate(state(), form.dataset.type, { title: data.title, terms: data.terms, footer: data.footer, columns, showBank: "showBank" in data, showSignature: "showSignature" in data }), slot);
     }
     const LEAD_FILTERS = { "lead-search": "search", "lead-owner": "owner", "lead-source": "source", "lead-sort": "sort" };
     function showTeamDetail(key) {
@@ -1771,7 +1776,7 @@
         currentTheme = THEME_CHOICES.some(([id]) => id === savedTheme(settings)) ? savedTheme(settings) : DEFAULT_THEME;
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section" novalidate data-form-check><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀${REQ}<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" aria-required="true" required pattern="[A-Za-z0-9\\-]+" data-invalid-text="订单前缀只能用字母、数字和-" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2107,10 +2112,10 @@
         return readOnly ? UI.detailMarkup(E, OF.customView(state(), order)) : UI.formMarkup(E, { defs: OF.customFields(state()), values: order.custom, isNew });
       };
       const field = (name, title, type = "text", wide = false) =>
-        `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? localDay(shown[name]) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="any"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
+        `<label class="field ${wide ? "wide" : ""}">${title}${["num", "client", "amount", "createdAt"].includes(name) ? REQ : ""}<input name="${name}" type="${type}" value="${E(type === "date" ? localDay(shown[name]) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? 'aria-required="true" required' : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="any"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
       ctx.dialog(
         old ? (locked ? "订单详情" : "编辑订单") : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div>${orderCustomMarkup(o, locked, !old)}<div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>${can("doc.create") ? `<div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div>` : ""}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
+        `<form class="drawer-body" id="biz-order-form" novalidate data-form-check>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div>${orderCustomMarkup(o, locked, !old)}<div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>${can("doc.create") ? `<div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div>` : ""}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
           pickState().customers || {},
         )
           .filter(
@@ -2120,7 +2125,7 @@
           .join(
             "",
           )}</datalist>${old ? `<p class="muted tiny">已有历史与附件资料会保留。已发货 / 已完成按订单全额计已收款。</p>` : ""}</form>`,
-        `${old && can("order.delete") ? button("archive-order", "移入回收站", `data-id="${E(old.id)}"`) : ""}${button("close-editor", locked ? "关闭" : "取消")}${locked ? "" : '<button class="primary" type="submit" form="biz-order-form">保存订单</button>'}`,
+        `${footError("biz-order-error")}${old && can("order.delete") ? button("archive-order", "移入回收站", `data-id="${E(old.id)}"`) : ""}${button("close-editor", locked ? "关闭" : "取消")}${locked ? "" : '<button class="primary" type="submit" form="biz-order-form">保存订单</button>'}`,
         "business-order",
       );
       if (locked) document.querySelectorAll?.("#biz-order-form input,#biz-order-form select,#biz-order-form textarea").forEach((el) => (el.disabled = true));
@@ -2351,24 +2356,27 @@
       draft = { id: id || crypto.randomUUID(), task: true };
       ctx.dialog(
         id ? "编辑待办" : "添加待办",
-        `<form id="biz-task-form" class="drawer-body"><div class="form-grid"><label class="field wide">任务名称<input name="title" value="${E(t.title)}" required maxlength="200"></label><label class="field">日期<input type="date" name="date" value="${E(t.date)}" required></label>${taskOwnerField(old)}<label class="business-check"><input type="checkbox" name="done" ${t.done ? "checked" : ""}> 已完成</label></div><div class="error" id="biz-task-error" role="alert"></div></form>`,
-        `${button("close-editor", "取消")}<button class="primary" type="submit" form="biz-task-form">保存任务</button>`,
+        `<form id="biz-task-form" class="drawer-body" novalidate data-form-check><div class="form-grid"><label class="field wide">任务名称${REQ}<input name="title" value="${E(t.title)}" aria-required="true" required maxlength="200"></label><label class="field">日期${REQ}<input type="date" name="date" value="${E(t.date)}" aria-required="true" required></label>${taskOwnerField(old)}<label class="business-check"><input type="checkbox" name="done" ${t.done ? "checked" : ""}> 已完成</label></div></form>`,
+        `${footError("biz-task-error")}${button("close-editor", "取消")}<button class="primary" type="submit" form="biz-task-form">保存任务</button>`,
         "business-task",
       );
     }
+    // errorId：错误框的 id，或错误框本身（单据设置里每张表单各有一个）。
     async function saveNext(makeNext, errorId, after) {
       const controls = [
           ...document.querySelectorAll("button,input,select,textarea"),
         ],
         disabled = controls.map((e) => e.disabled);
       controls.forEach((e) => (e.disabled = true));
+      let failed = null, target = null;
       try {
         await ctx.save(makeNext());
         if (after?.() !== false) render(true);
         ctx.toast("已保存到来财");
         return true;
       } catch (error) {
-        const target = document.getElementById(errorId);
+        failed = error;
+        target = typeof errorId === "string" ? document.getElementById(errorId) : errorId;
         if (target) {
           target.textContent = error.message;
           target.classList.add("visible");
@@ -2376,7 +2384,20 @@
         return false;
       } finally {
         controls.forEach((e, i) => (e.disabled = disabled[i]));
+        if (failed && target) pointAtError(target, failed);
       }
+    }
+    // 保存失败后：光标落到出错的框（找不到就落在保存按钮上），不留在页面空白处；错误框滚到看得见的地方。
+    function pointAtError(target, error) {
+      const FC = root.LaiFormCheck;
+      const drawer = target.closest?.(".drawer");
+      const form = target.closest?.("form") || drawer?.querySelector("form");
+      const row = /^items\.(\d+)$/.exec(String(error?.field || ""));
+      const field = row ? form?.querySelector(`[data-item-product="${row[1]}"]`) : FC?.fieldFor(form, error);
+      if (field && FC?.focusField(field)) return FC.mark(field);
+      FC?.reveal(target);
+      const submit = (form?.id && document.querySelector(`[type="submit"][form="${form.id}"]`)) || form?.querySelector('[type="submit"]') || drawer?.querySelector(".drawer-footer .primary");
+      submit?.focus({ preventScroll: true });
     }
     function finishEditor() {
       const returnCustomer = draft?.returnCustomer;
@@ -2513,7 +2534,7 @@
       }
       if (["team-goals", "team-wall"].includes(route) && teamViewAction(d)) return;
       if (d.bizOrder) return need("order.view") && orderEditor(d.bizOrder);
-      if (d.bizCustomer) return ctx.openCustomer(d.bizCustomer);
+      if (d.bizCustomer) return d.bizFollowup !== undefined && ctx.writeFollowup ? ctx.writeFollowup(d.bizCustomer) : ctx.openCustomer(d.bizCustomer);
       // 工作台「等你回复」的「回复」：打开聊天页，并选中这位客户的对话。
       if (d.bizChat) return ctx.openChat ? ctx.openChat(d.bizChat) : ctx.navigate("chats");
       if (d.bizStage) {

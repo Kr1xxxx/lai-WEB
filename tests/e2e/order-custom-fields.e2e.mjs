@@ -164,7 +164,7 @@ test('a new order shows the fields, refuses a missing required one, and saves cl
   await form().locator(`[name="custom.${due}"]`).fill('2026-12-01');
   // The browser's own check stops an empty required field; with it off, the app's message shows.
   assert.equal(await form().locator(`[name="custom.${contract}"]`).getAttribute('required'), '');
-  await form().evaluate((el) => { el.noValidate = true; });
+  await form().evaluate((el) => { el.noValidate = true; el.removeAttribute('data-form-check'); });
   await submitOrder();
   assert.match(await page.locator('#biz-order-error').innerText(), /请填写合同号/);
   await form().locator(`[name="custom.${contract}"]`).fill('HT-2026-01');

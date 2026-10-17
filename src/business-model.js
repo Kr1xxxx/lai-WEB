@@ -67,7 +67,7 @@
     if(list.length>ITEM_LIMIT)throw new Error(`一笔订单最多 ${ITEM_LIMIT} 个产品`);
     return list.map((item,index)=>{
       const name=trim(item&&item.name);
-      if(!name)throw new Error(`产品明细第 ${index+1} 行还没选产品`);
+      if(!name)throw Object.assign(new Error(`产品明细第 ${index+1} 行还没选产品`),{field:`items.${index}`});
       const qty=numericInput(item.qty,`「${name}」的数量`);
       if(qty<=0)throw new Error(`「${name}」的数量要大于 0`);
       const price=numericInput(item.price,`「${name}」的单价`);

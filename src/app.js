@@ -109,7 +109,7 @@
     pending = null,
     selected = new Set(),
     currentName = "",
-    tab = "info",
+    tab = "activity",
     activityFilter = "all",
     activityQuery = "",
     activitySearchDraft = "",
@@ -758,7 +758,8 @@
         ? { types: [...savedTypes.types] } : {};
     }
     currentName = name;
-    if (!keepTab) tab = "info";
+    // 打开客户详情默认停在「动态」（写跟进、看最近往来最常用）；VALIDATION.md 有记录。
+    if (!keepTab) tab = "activity";
     const c = allCustomerRows().find((c) => c.name === name);
     if (!c) return list();
     renderShell(detailMarkup(c));
@@ -767,6 +768,17 @@
     window.LaiActivityCategoryNavigation.mount($(".lcd-root"));
     V?.placeTabIndicator($("#app"));
     if (motion) V?.enter($("#app"), motion);
+  }
+  // 写跟进：切到「动态」，光标放进跟进框（框有焦点时自己展开）。
+  function openFollowupForm() {
+    if (tab !== "activity") {
+      tab = "activity";
+      detail(currentName, true);
+    }
+    const text = $("#followup-text");
+    if (!text) return;
+    text.focus({ preventScroll: true });
+    text.scrollIntoView({ block: "nearest" });
   }
   function replaceDetailBody(c, refreshSummary = false) {
     const body = $(".lcd-root .lcd-body");
@@ -1865,12 +1877,7 @@
     if (a === "filter") return filterForm(e.detail > 0);
     if (a === "settings") return settings(e.detail > 0);
     if (a === "close-modal") return closeModal(e.detail > 0, false, el);
-    if (a === "write-followup") {
-      tab = "activity";
-      detail(currentName, true);
-      $("#followup-text").focus();
-      return;
-    }
+    if (a === "write-followup") return openFollowupForm();
     if (a === "clear-query") {
       // 清掉筛选值时要连筛选条件一起清掉，列表立刻刷新。
       filters.query = "";
@@ -2184,15 +2191,22 @@
       } else {
         followupDrafts.delete(currentName);
         detail(currentName, true);
+        // 存好后跟进框清空收起，新记录排在动态最上面；光标回到「写跟进」，不丢到页面空白处。
+        $('.lcd-followup-label [data-action="write-followup"]')?.focus({ preventScroll: true });
       }
       enhanceDropdowns($(".drawer") || $("#app"));
-      toast("已保存到来财");
+      if (form.id === "followup-form") toast("已保存跟进");
+      else toast("已保存到来财");
       if (wantOpportunity && form.id === "customer-form") business.newOpportunity(data.name.trim());
     } catch (err) {
       error.textContent = err.message;
       error.classList.add("visible");
       error.scrollIntoView({ block: "nearest" });
       buttons.forEach((b) => (b.disabled = b.dataset.wasDisabled === "true"));
+      // 光标落到出错的框；找不到就落回保存按钮，不留在页面空白处。
+      const FC = window.LaiFormCheck, field = FC?.fieldFor(form, err);
+      if (field && FC.focusField(field)) FC.mark(field);
+      else (e.submitter?.isConnected ? e.submitter : form.querySelector('[type="submit"]'))?.focus({ preventScroll: true });
     }
   });
   document.addEventListener("focusin", (e) => {
@@ -5763,6 +5777,11 @@
     upload: (path, file) =>
       fetch(path, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file }),
     openCustomer: (name) => navigateApp("customers", name),
+    // 工作台「写跟进」：打开客户详情的「动态」，跟进框展开、光标在里面。
+    writeFollowup: async (name) => {
+      if (!(await navigateApp("customers", name)) || currentName !== name) return;
+      openFollowupForm();
+    },
     refreshCustomer: (name) => detail(name, true, ""),
     navigate: navigateApp,
     // 当前是不是业务页面（不是客户页、邮件页、常用页）：登记的页面只在这时收到点击和输入。

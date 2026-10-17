@@ -42,7 +42,7 @@ test('a malformed email is refused with a message', async () => {
   await page.locator('[data-lead-action="new"]').first().click();
   await settle();
   await fill('#lead-form', { name: 'Bad Mail Co', email: 'a@b' });
-  await page.locator('#lead-form').evaluate((form) => { form.noValidate = true; });
+  await page.locator('#lead-form').evaluate((form) => { form.noValidate = true; form.removeAttribute('data-form-check'); });
   await submit('lead-form');
   assert.match(await text('#lead-error'), /邮箱格式不正确/);
   await page.locator('[data-action="close-modal"]').first().click();
@@ -54,7 +54,7 @@ test('converting needs a country, then creates a customer that shows where it ca
   await page.locator('.lead-table tbody tr [data-lead-action="convert"]').click();
   await settle();
   assert.equal(await page.locator('#lead-convert-form [name="name"]').inputValue(), 'Northwind Beauty GmbH');
-  await page.locator('#lead-convert-form').evaluate((form) => { form.noValidate = true; });
+  await page.locator('#lead-convert-form').evaluate((form) => { form.noValidate = true; form.removeAttribute('data-form-check'); });
   await submit('lead-convert-form');
   assert.match(await text('#lead-convert-error'), /国家地区/);
   await page.locator('#lead-convert-form [name="country"]').fill('德国');

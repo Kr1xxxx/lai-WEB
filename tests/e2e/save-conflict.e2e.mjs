@@ -36,7 +36,7 @@ test('a change to another customer elsewhere does not stop the save: both are ke
     app.page.on('response', (response) => { if (response.url().endsWith('/api/save-changes')) responses.push(response.status()); });
     await app.page.locator('#followup-text').fill('冲突后自动重试');
     await app.page.locator('#followup-form button[type=submit]').click();
-    await app.page.getByText('已保存到来财').first().waitFor();
+    await app.page.getByText('已保存跟进').first().waitFor();
     assert.deepEqual(responses, [409, 200], 'one conflict, then one retry');
     const data = await app.readData();
     assert.ok(data.customers[NAME].history.some((item) => item.text === '冲突后自动重试'));
@@ -63,7 +63,7 @@ test('the same customer changed elsewhere: the typed text stays, the page names 
     await app.page.screenshot({ path: process.env.LAI_E2E_SHOTS ? `${process.env.LAI_E2E_SHOTS}/save-conflict.png` : undefined }).catch(() => {});
     // Saving again now works on top of the newest data and keeps the other change.
     await app.page.locator('#followup-form button[type=submit]').click();
-    await app.page.getByText('已保存到来财').first().waitFor();
+    await app.page.getByText('已保存跟进').first().waitFor();
     data = await app.readData();
     assert.equal(data.customers[NAME].remark, '别处改了这位客户');
     assert.ok((await texts(app)).includes('我写的跟进'));

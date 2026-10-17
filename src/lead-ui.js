@@ -86,7 +86,7 @@
     // 新建时必填的字段带 required；编辑旧线索时不带，旧线索里本来空着的必填字段不拦（见 lead-model.js）。
     function customControl(def,value,locked,isNew){
       const name=`custom.${def.id}`,id=`lead-custom-${def.id}`,off=locked?' disabled title="你的角色只能查看，不能修改"':'';
-      const must=def.required&&!locked&&isNew&&def.type!=='multi'?' required':'';
+      const must=def.required&&!locked&&isNew&&def.type!=='multi'?' aria-required="true" required':'';
       if(def.type==='textarea')return `<textarea id="${E(id)}" name="${E(name)}" rows="3" maxlength="2000" placeholder="请输入"${off}${must}>${E(value??'')}</textarea>`;
       if(def.type==='number')return `<input id="${E(id)}" name="${E(name)}" type="text" inputmode="decimal" value="${E(value??'')}" placeholder="请输入数字" autocomplete="off"${off}${must}>`;
       if(def.type==='date')return `<input id="${E(id)}" name="${E(name)}" type="date" value="${E(value??'')}"${off}${must}>`;
@@ -119,10 +119,10 @@
       const rules=context.rules||{};
       const shown=name=>vis(name)&&rules[name]?.show!==false;
       const must=name=>shown(name)&&rules[name]?.required===true&&level(name)==='edit';
-      const star=name=>must(name)?' required':'';
-      return `<form class="drawer-body opp-form lead-form" id="lead-form"><div class="error" id="lead-error" role="alert"></div><p class="lead-banner is-dup" id="lead-warn" role="status" hidden></p>`
+      const star=name=>must(name)?' aria-required="true" required':'';
+      return `<form class="drawer-body opp-form lead-form" id="lead-form" novalidate data-form-check><p class="lead-banner is-dup" id="lead-warn" role="status" hidden></p>`
         +`<div class="form-section">基本信息</div><div class="opp-grid">`
-        +field('线索名称',`<input name="name" value="${E(v.name||'')}" placeholder="公司名称；个人买家填姓名" maxlength="120" autocomplete="off" required>`,{required:true,wide:true})
+        +field('线索名称',`<input name="name" value="${E(v.name||'')}" placeholder="公司名称；个人买家填姓名" maxlength="120" autocomplete="off" aria-required="true" required>`,{required:true,wide:true})
         +(shown('contact')?field('联系人',`<input name="contact" value="${E(v.contact||'')}" maxlength="80" autocomplete="off"${dis('contact')}${star('contact')}>`,{required:must('contact')}):'')
         +(shown('email')?field('邮箱',`<input name="email" type="email" value="${E(v.email||'')}" maxlength="120" autocomplete="off"${dis('email')}${star('email')}>`,{required:must('email')}):'')
         +(shown('phone')?field('电话',`<input name="phone" value="${E(v.phone||'')}" maxlength="40" autocomplete="off" placeholder="含国家区号"${dis('phone')}${star('phone')}>`,{required:must('phone')}):'')
@@ -157,7 +157,7 @@
       const banner=row.status==='converted'?`<p class="lead-banner is-converted">已于 ${E(row.convertedDay||'—')} 转为客户 ${customerLink(row)}。之后的跟进请写在客户资料里。</p>`
         :row.status==='invalid'?`<p class="lead-banner is-invalid">已标记为无效：${E(row.invalidReason||'未填原因')}${row.invalidNote?`（${E(row.invalidNote)}）`:''}</p>`:'';
       const follow=open&&!row.trashed&&can('lead.edit')?`<form class="lead-follow" id="lead-follow-form" data-id="${E(row.id)}"><div class="error" id="lead-follow-error" role="alert"></div>`
-        +`<label class="opp-field is-wide"><span class="opp-field-label">写跟进</span><textarea name="text" rows="3" maxlength="2000" placeholder="这次联系了什么、对方怎么说、下一步做什么" required></textarea></label>`
+        +`<label class="opp-field is-wide"><span class="opp-field-label">写跟进</span><textarea name="text" rows="3" maxlength="2000" placeholder="这次联系了什么、对方怎么说、下一步做什么" aria-required="true" required></textarea></label>`
         +`<div class="lead-follow-row"><label class="opp-field"><span class="opp-field-label">下次跟进日期</span><input name="nextFollow" type="date" value="${E(row.nextFollow||'')}"></label><button class="primary" type="submit">保存跟进</button></div></form>`:'';
       const timeline=row.history.length?`<ol class="lead-timeline">${row.history.map(entry=>`<li class="is-${entry.type}"><time>${E(entry.day||'—')}</time><span class="lead-entry-kind">${entry.type==='followup'?'跟进':'操作'}</span><p>${E(entry.text)}</p></li>`).join('')}</ol>`:'<p class="lead-muted lead-no-history">还没有记录</p>';
       return `<div class="drawer-body opp-form lead-detail"><div class="error" id="lead-detail-error" role="alert"></div>`
@@ -176,18 +176,18 @@
         +`<p class="lead-banner">把线索「${E(row.name)}」转为客户。线索会保留在列表里并标记为已转客户，之后的跟进写在客户资料里。</p>`
         +`<fieldset class="opp-field is-wide"><legend class="opp-field-label">转入方式</legend><span class="opp-seg"><label><input type="radio" name="mode" value="new"${existing?'':' checked'}><span>新建客户</span></label><label><input type="radio" name="mode" value="existing"${existing?' checked':''}><span>关联已有客户</span></label></span></fieldset>`
         +`<div class="opp-grid" id="lead-convert-new"${existing?' hidden':''}>`
-        +field('客户名称',`<input name="name" value="${E(v.name||'')}" maxlength="120" autocomplete="off"${existing?' disabled':' required'}>`,{required:true,wide:true})
-        +field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off"${existing?' disabled':' required'}>`,{required:true})
-        +field('客户来源',`<input name="source" value="${E(v.source||'')}" list="lead-convert-source-list" maxlength="40" autocomplete="off"${existing?' disabled':' required'}>${datalist('lead-convert-source-list',context.sources)}`,{required:true})
+        +field('客户名称',`<input name="name" value="${E(v.name||'')}" maxlength="120" autocomplete="off"${existing?' disabled':' aria-required="true" required'}>`,{required:true,wide:true})
+        +field('国家地区',`<input name="country" value="${E(v.country||'')}" maxlength="60" autocomplete="off"${existing?' disabled':' aria-required="true" required'}>`,{required:true})
+        +field('客户来源',`<input name="source" value="${E(v.source||'')}" list="lead-convert-source-list" maxlength="40" autocomplete="off"${existing?' disabled':' aria-required="true" required'}>${datalist('lead-convert-source-list',context.sources)}`,{required:true})
         +field('跟进人',`<input name="owner" value="${E(v.owner||'')}" list="lead-convert-owner-list" maxlength="40" autocomplete="off"${existing?' disabled':''}>${datalist('lead-convert-owner-list',context.owners)}`,{wide:true,hint:'联系人、邮箱、电话、网址、意向产品、备注会一起带到客户资料里'})
         +`</div><div class="opp-grid" id="lead-convert-existing"${existing?'':' hidden'}>`
-        +field('已有客户',`<input name="existing" value="${E(v.existing||'')}" list="lead-convert-customer-list" autocomplete="off" placeholder="输入或选择客户"${existing?' required':' disabled'}>${datalist('lead-convert-customer-list',context.customers)}`,{required:true,wide:true,hint:'只做关联，不会改动这个客户的资料'})
+        +field('已有客户',`<input name="existing" value="${E(v.existing||'')}" list="lead-convert-customer-list" autocomplete="off" placeholder="输入或选择客户"${existing?' aria-required="true" required':' disabled'}>${datalist('lead-convert-customer-list',context.customers)}`,{required:true,wide:true,hint:'只做关联，不会改动这个客户的资料'})
         +`</div></form>`;
     }
     function invalidMarkup(row){
       return `<form class="drawer-body opp-form lead-form" id="lead-invalid-form" data-id="${E(row.id)}"><div class="error" id="lead-invalid-error" role="alert"></div>`
         +`<p class="lead-banner">把线索「${E(row.name)}」标记为无效。以后想再跟进，可以点「重新跟进」。</p><div class="opp-grid">`
-        +field('无效原因',`<select name="reason" required><option value="">请选择</option>${(row.reasons||model.INVALID_REASONS).map(reason=>option(reason,reason,'')).join('')}</select>`,{required:true,wide:true})
+        +field('无效原因',`<select name="reason" aria-required="true" required><option value="">请选择</option>${(row.reasons||model.INVALID_REASONS).map(reason=>option(reason,reason,'')).join('')}</select>`,{required:true,wide:true})
         +field('补充说明',`<input name="note" maxlength="200" autocomplete="off">`,{wide:true})
         +`</div></form>`;
     }

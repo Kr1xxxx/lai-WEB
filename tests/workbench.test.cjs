@@ -114,7 +114,7 @@ test('the queue shows at most 8 rows and says how many are left; the limit can b
 
 test('each queue row has one action that opens the right place', () => {
   const html = build({ ...base(), customers: { Late: base().customers.Late } }, { mail: { items: [{ subject: 'Hi', seen: false, from: { name: 'Emma' }, date: '2026-10-07T09:00:00' }] } });
-  assert.match(html, /<button type="button" class="wb-act" data-biz-customer="Late">写跟进<\/button>/);
+  assert.match(html, /<button type="button" class="wb-act" data-biz-customer="Late" data-biz-followup>写跟进<\/button>/);
   assert.match(html, /<button type="button" class="wb-act" data-biz-edit-task="t4">看任务<\/button>/);
   assert.match(html, /<button type="button" class="wb-act" data-biz-go="mail:unread">打开<\/button>/);
   const chatState = { ...base(), customers: { 'Wa Co': { owner: 'Kris', history: [chat('wa', [line('2026-10-07T10:00:00', 'in', 'Can you ship?')])] } } };

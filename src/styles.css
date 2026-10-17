@@ -437,6 +437,30 @@ a,
 .error.visible {
   display: block;
 }
+/* 保存按钮旁的错误条（表单出错时写在这里）：在抽屉底栏里靠左、挨着按钮，没有错误时不占位置。 */
+.drawer-footer .form-foot-error {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 auto 0 0;
+  padding: 6px 10px;
+  max-height: 52px;
+  overflow: auto;
+}
+.ce-footer .form-foot-error {
+  margin: 0 12px;
+}
+form .form-foot-error {
+  margin: 8px 0;
+}
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: #d64552;
+}
+.cs-actions .form-foot-error {
+  margin: 0;
+  align-self: center;
+}
 .popover {
   position: fixed;
   right: 31px;

@@ -33,7 +33,7 @@
         +`<label class="cs-field"><span>条款（一行一条）</span><textarea name="terms" rows="5" maxlength="${M.LIMITS.text}">${E(t.terms)}</textarea></label>`
         +`<label class="cs-field"><span>落款</span><input name="footer" value="${E(t.footer)}" maxlength="${M.LIMITS.line}" autocomplete="off"></label>`
         +`<div class="dt-checks">${check('showBank','显示收款银行',t.showBank)}${check('showSignature','显示盖章 / 签名处',t.showSignature)}</div>`
-        +`<div class="cs-actions"><button type="submit" class="primary">保存模板</button><button type="button" data-doc-action="reset" data-type="${E(view.tab)}">${view.armed==='reset'?'确定恢复':'恢复默认'}</button></div></form>`;
+        +`<div class="cs-actions"><button type="submit" class="primary">保存模板</button><button type="button" data-doc-action="reset" data-type="${E(view.tab)}">${view.armed==='reset'?'确定恢复':'恢复默认'}</button><span class="error form-foot-error" role="alert" data-form-error></span></div></form>`;
       const side=`<div class="dt-side"><div class="dt-side-head"><strong>预览</strong><button type="button" data-doc-action="print" data-type="${E(view.tab)}">打印 / 存为 PDF</button></div><div class="dt-paper" data-doc-preview="${E(view.tab)}">${documentMarkup(doc)}</div><p class="cs-hint">预览里的明细是示例${(state.laiProducts||[]).length?'，取自你的前几个产品':''}。改完保存，预览马上更新。</p></div>`;
       return `<div class="dt-grid">${form}${side}</div>`;
     }
@@ -47,7 +47,7 @@
         const select=(field,label,options,current)=>`<label class="cs-field"><span>${label}</span><select name="${field}">${options.map(([value,text])=>`<option value="${E(value)}"${String(value)===String(current)?' selected':''}>${E(text)}</option>`).join('')}</select></label>`;
         const digits=[];
         for(let n=M.DIGITS.min;n<=M.DIGITS.max;n++)digits.push([n,`${n} 位`]);
-        return `<form class="dt-num-card" data-doc-form="numbering" data-type="${E(type)}"><h3>${E(name)}</h3><div class="dt-num-fields"><label class="cs-field"><span>前缀</span><input name="prefix" value="${E(rule.prefix)}" maxlength="10" autocomplete="off"></label>${select('dateMode','日期部分',M.DATE_MODES,rule.dateMode)}${select('digits','序号位数',digits,rule.digits)}${select('reset','序号从 1 重新数',M.RESETS,rule.reset)}</div><p class="dt-example" data-doc-example="${E(type)}">${exampleMarkup(M.nextNumber(state,type,view.date).number)}</p><div class="cs-actions"><button type="submit" class="primary">保存</button></div></form>`;
+        return `<form class="dt-num-card" data-doc-form="numbering" data-type="${E(type)}"><h3>${E(name)}</h3><div class="dt-num-fields"><label class="cs-field"><span>前缀</span><input name="prefix" value="${E(rule.prefix)}" maxlength="10" autocomplete="off"></label>${select('dateMode','日期部分',M.DATE_MODES,rule.dateMode)}${select('digits','序号位数',digits,rule.digits)}${select('reset','序号从 1 重新数',M.RESETS,rule.reset)}</div><p class="dt-example" data-doc-example="${E(type)}">${exampleMarkup(M.nextNumber(state,type,view.date).number)}</p><div class="cs-actions"><button type="submit" class="primary">保存</button><span class="error form-foot-error" role="alert" data-form-error></span></div></form>`;
       };
       return `<div class="dt-num-grid">${M.TYPES.map(card).join('')}</div><p class="cs-hint">改了规则只影响以后保存的单据，已经保存的编号不会变。作废的单据编号也不会再用。</p>`;
     }
@@ -74,7 +74,7 @@
     function companyTab(state){
       const s=M.settings(state);
       const group=(kind,fields,values)=>fields.map(([key,label])=>`<label class="cs-field"><span>${E(label)}</span><input name="${kind}:${key}" value="${E(values[key])}" maxlength="${M.LIMITS.line}" autocomplete="off"></label>`).join('');
-      return `<form class="dt-form dt-company" data-doc-form="company"><section class="dt-group"><h3>公司信息</h3>${group('company',M.COMPANY_FIELDS,s.company)}</section><section class="dt-group"><h3>收款银行</h3>${group('bank',M.BANK_FIELDS,s.bank)}</section><div class="cs-actions"><button type="submit" class="primary">保存</button></div><p class="cs-hint">所有单据共用这里的公司信息和收款银行。银行信息只保存在这台电脑，不会发给任何人。</p></form>`;
+      return `<form class="dt-form dt-company" data-doc-form="company"><section class="dt-group"><h3>公司信息</h3>${group('company',M.COMPANY_FIELDS,s.company)}</section><section class="dt-group"><h3>收款银行</h3>${group('bank',M.BANK_FIELDS,s.bank)}</section><div class="cs-actions"><button type="submit" class="primary">保存</button><span class="error form-foot-error" role="alert" data-form-error></span></div><p class="cs-hint">所有单据共用这里的公司信息和收款银行。银行信息只保存在这台电脑，不会发给任何人。</p></form>`;
     }
     function pageMarkup(state,view){
       const tab=TABS.some(([id])=>id===view.tab)?view.tab:TABS[0][0];

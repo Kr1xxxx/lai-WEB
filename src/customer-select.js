@@ -568,7 +568,7 @@
           record.error = doc.createElement("span");
           record.error.className = "lai-select-validation";
           record.error.setAttribute("role", "alert");
-          record.error.textContent = select.validationMessage;
+          record.error.textContent = root.LaiFormCheck?.describe(select) || select.validationMessage;
           button.insertAdjacentElement("afterend", record.error);
         }
       });
