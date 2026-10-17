@@ -14,7 +14,7 @@ import { root, startApp } from './harness.mjs';
 const require = createRequire(import.meta.url);
 const lib = require('../../scripts/ui-audit/overlap-sweep-lib.cjs');
 
-const THEMES = ['pink', 'xiaoman']; // glass skin and classic skin
+const THEMES = ['pink', 'tech']; // the warm and the cool colours of the one layout (D-029)
 const SIZES = [[1024, 800], [1200, 800], [1366, 800], [1680, 800]];
 const WORKERS = 4;
 
@@ -79,7 +79,7 @@ test('the checker itself finds an overlap, clipped text and an off-screen elemen
   }
 });
 
-test('no page overlaps, cuts text off or sticks out, in the glass and the classic skin from 1024 to 1680px wide', async () => {
+test('no page overlaps, cuts text off or sticks out, in pink and 科技蓝 from 1024 to 1680px wide', async () => {
   const { page } = app;
   const jobs = [];
   for (const theme of THEMES) for (const [width, height] of SIZES) jobs.push({ theme, width, height });

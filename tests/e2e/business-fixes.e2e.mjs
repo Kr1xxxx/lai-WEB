@@ -1,6 +1,6 @@
 // Business page fixes, in the real page with the real backend:
 // prices with more than two decimals, order numbers that never repeat (also after archiving),
-// an opportunity opened from 单据记录 whose buttons work, the opportunity filter reset, and the 时间 filter in the 小满 skin.
+// an opportunity opened from 单据记录 whose buttons work, the opportunity filter reset, and a saved 小满 theme that opens as 科技蓝 with a working 时间 filter.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -197,30 +197,31 @@ test('the order prefix only takes letters, digits and a hyphen, and the page rai
   assert.deepEqual(app.errors, []);
 });
 
-test('the 小满 order list has a 时间 filter that works', async () => {
-  const classic = await startApp();
+test('a saved 小满 theme opens as 科技蓝 (nothing written on load), and the order list 时间 filter works', async () => {
+  const legacy = await startApp();
   try {
-    await seed(classic, (data) => {
+    await seed(legacy, (data) => {
       data.laiSettings = { ...(data.laiSettings || {}), theme: 'xiaoman' };
       data = B.upsertOrder(data, 'old', { num: 'OLD-1', client: 'Old Buyer', amount: 1, createdAt: '2020-01-05' });
       return B.upsertOrder(data, 'new', { num: 'NEW-1', client: 'New Buyer', amount: 1, createdAt: TODAY_DASH });
     });
-    const page = classic.page;
+    const page = legacy.page;
     await page.locator('.rail-item', { hasText: '交易' }).first().click();
     await page.waitForTimeout(500);
-    assert.equal(await page.evaluate(() => document.documentElement.dataset.skin), 'classic');
+    assert.deepEqual(await page.evaluate(() => ({ ...document.documentElement.dataset })), { theme: 'tech', skin: 'glass' });
+    assert.equal((await legacy.readData()).laiSettings.theme, 'xiaoman', 'opening the page does not rewrite the saved value');
     const period = page.locator('#biz-period');
     await period.waitFor();
-    assert.equal(await page.locator('.unified-orders tbody tr').count(), 2);
+    assert.equal(await page.locator('[data-order-row]').count(), 2);
     await period.selectOption('month', { force: true });
     await page.waitForTimeout(400);
-    assert.equal(await page.locator('.unified-orders tbody tr').count(), 1);
-    assert.match(await page.locator('.unified-orders tbody').innerText(), /NEW-1/);
+    assert.equal(await page.locator('[data-order-row]').count(), 1);
+    assert.match(await page.locator('.op-list').innerText(), /NEW-1/);
     await page.locator('[data-biz-action="clear-filters"]').click();
     await page.waitForTimeout(300);
-    assert.equal(await page.locator('.unified-orders tbody tr').count(), 2);
-    assert.deepEqual(classic.errors, []);
+    assert.equal(await page.locator('[data-order-row]').count(), 2);
+    assert.deepEqual(legacy.errors, []);
   } finally {
-    await classic.close();
+    await legacy.close();
   }
 });

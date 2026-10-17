@@ -35,9 +35,10 @@ test('the opportunity menu sits beside its card: right first, then left, then th
   assert.equal(tiny.maxHeight, 284, '菜单比窗口高时限制高度、内部滚动');
 });
 
-test('the menu is anchored only in the glass skin, from the clicked card, and the dock rule stays as the fallback', () => {
+test('the menu is anchored to the clicked card in every theme, and the dock rule stays as the fallback', () => {
   const business = read('src/business-ui.js'), skin = read('src/skin-glass.css');
-  assert.match(business, /if \(glassSkin\(\)\) anchorOppMenu\(id\);/);
+  assert.match(business, /"opp-menu"\);\n\s*anchorOppMenu\(id\);/, 'no skin check: one layout for every theme (D-029)');
+  assert.doesNotMatch(business, /glassSkin/);
   assert.match(business, /trigger\.closest\("\.opp-card, tr"\)/);
   assert.match(skin, /\.overlay:has\(\.opp-menu\) \.drawer \{ top: 128px; right: 12px;/);
 });

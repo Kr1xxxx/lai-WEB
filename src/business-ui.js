@@ -95,8 +95,6 @@
       // 和 app.js 的 blockedPage 一个样子。
       return key && !can(key) ? `<div class="pagebar"><div class="page-tabs"><h1>没有权限</h1></div></div><section class="module-page"><div class="empty role-blocked" role="status"><strong>${E(RM().denied(key))}</strong><span>可以点右上角头像，切换到别的测试账号。</span></div></section>` : "";
     };
-    const label = (id) =>
-      B.stages.find((s) => s.id === id)?.label || id || "未填写";
     // 完整的时间（带 Z 或时区）按本机日历日显示，不按 UTC 日；只有日期的原样显示。
     const localDay = (value) => {
       const source = String(value || "").trim();
@@ -111,7 +109,10 @@
       `<option value="${E(value)}" ${String(value) === String(current) ? "selected" : ""}>${E(title)}</option>`;
     // 界面配色清单。哪个是默认由 app.js 的 DEFAULT_THEME 决定（ctx.defaultTheme），这里只给它的名字加「（默认）」。
     const DEFAULT_THEME = ctx.defaultTheme || "pink";
-    const THEME_CHOICES = [["pink", "粉色"], ["orange", "橙色"], ["xiaoman", "小满"], ["tech", "科技蓝"]].map(([id, name]) => [id, id === DEFAULT_THEME ? `${name}（默认）` : name]);
+    const THEME_CHOICES = [["pink", "粉色"], ["orange", "橙色"], ["tech", "科技蓝"]].map(([id, name]) => [id, id === DEFAULT_THEME ? `${name}（默认）` : name]);
+    // 去掉的配色按哪个显示（D-029，和 app.js 的 RETIRED_THEMES 一致）：存的「xiaoman」（小满）当科技蓝，下次保存设置时写成 tech。
+    const RETIRED_THEMES = { xiaoman: "tech" };
+    const savedTheme = (settings) => (Object.hasOwn(RETIRED_THEMES, settings?.theme ?? "") ? RETIRED_THEMES[settings.theme] : settings?.theme);
     const button = (action, text, extra = "", primary = false) =>
       `<button type="button" ${primary ? 'class="primary"' : ""} data-biz-action="${action}" ${extra}>${text}</button>`;
     const header = (title, description, actions = "") =>
@@ -119,8 +120,6 @@
     // 列表页头的「导出」按钮：只有有对应导出权限的账号才看得到。
     const exportButton = (kind) =>
       root.LaiExportUI && can(`${kind}.export`) ? `<button type="button" data-export-kind="${kind}">导出</button>` : "";
-    const openButton = (o) =>
-      `<button class="company-link" data-biz-order="${E(o.id)}">${E(o.num || "未编号")}</button>`;
     const allOrders = () => state().orders || [];
     const activeOrders = () => scoped().orders || [];
     const customerButton = (name) =>
@@ -156,11 +155,6 @@
       const m = B.orderMetrics(orders);
       return `<div class="money-summary"><div class="section-head"><h3>金额概览</h3><span class="muted tiny">按币种分别统计 · 不含草稿</span></div><table class="order-table"><thead><tr><th>币种</th><th>订单数</th><th>订单金额</th><th>已收款</th><th>待收款</th></tr></thead><tbody>${m.byCurrency.map((c) => `<tr><td><span class="currency-badge">${E(c.currency)}</span></td><td>${c.count}</td><td>${money(c.total, c.currency)}</td><td>${money(c.paid, c.currency)}</td><td>${money(c.due, c.currency)}</td></tr>`).join("") || '<tr><td colspan="5">暂无订单金额</td></tr>'}</tbody></table></div>`;
     }
-    // 新界面皮肤（粉色、橙色、科技蓝）：订单页、商机菜单用它判断；小满是 classic 皮肤。
-    const glassSkin = () =>
-      typeof document !== "undefined" &&
-      document.documentElement?.dataset?.skin === "glass" &&
-      !!root.LaiWorkbench;
     // 工作台：所有配色都用 src/workbench.js 的版面（今天先做、钱和目标、订单线、商机、客户来消息）。
     let wbMail = null,
       wbMailAt = 0,
@@ -272,25 +266,8 @@
         exportable: !!root.LaiExportUI,
       };
     }
-    // 小满主题的订单表：表体行、没有订单时的提示、下方的合计和翻页。
-    const classicOrderRows = (items) =>
-      items.map((o) => `<tr><td>${openButton(o)}${o.isDraft ? '<span class="tag">草稿</span>' : ""}</td><td>${customerButton(o.client)}</td><td>${E(o.country || "—")}</td><td>${date(o.createdAt)}</td><td>${E(o.productType || "—")}</td><td>${money(o.amount, o.currency || "USD")}</td><td>${money(["shipment", "done"].includes(o.stage) ? o.amount : o.paidAmount, o.currency || "USD")}</td><td><span class="tag stage-${E(o.stage)}">${E(label(o.stage))}</span></td><td>${E(o.trackingNumber || "—")}</td><td><button class="text-button" data-biz-order="${E(o.id)}">${can("order.edit") ? "查看 / 编辑" : "查看"}</button></td></tr>`).join("");
-    const classicOrderEmpty = (items) =>
-      items.length ? "" : '<div class="empty"><strong>没有符合条件的订单</strong><span>调整筛选条件，或新建一笔订单。</span></div>';
-    const classicOrderFoot = (view) =>
-      `<footer class="pagination"><span>共 ${view.total} 笔订单</span><div class="pages">${button("prev", "‹", view.page === 1 ? "disabled" : "")}<span>${view.page} / ${view.pages}</span>${button("next", "›", view.page === view.pages ? "disabled" : "")}</div></footer>`;
     function renderOrders() {
-      const view = orderListView();
-      if (glassSkin() && root.LaiOrdersPage) return root.LaiOrdersPage.markup(view, E);
-      return (
-        header(
-          "订单管理",
-          `${activeOrders().length} 笔订单`,
-          exportButton("order") + button("order-trash", "订单回收站") +
-            (can("order.create") ? button("new-order", "＋ 新建订单", "", true) : ""),
-        ) +
-        `<section class="business-section order-workspace"><div class="business-toolbar"><input class="business-search" id="biz-search" aria-label="搜索订单" placeholder="订单号、客户、物流单号…" value="${E(search)}"><select id="biz-stage" aria-label="订单阶段">${option("", "全部阶段", stage)}${B.stages.map((s) => option(s.id, s.label, stage)).join("")}</select><select id="biz-currency" aria-label="订单币种">${option("", "全部币种", currency)}${[...new Set(activeOrders().map((o) => o.currency || "USD"))].map((c) => option(c, c, currency)).join("")}</select><select id="biz-period" aria-label="时间">${(root.LaiOrdersPage?.PERIODS || [["", "全部时间"]]).map(([v, t]) => option(v, t, period)).join("")}</select>${button("clear-filters", "清除筛选")}</div><div class="business-table-scroll" id="biz-order-scroll"><table class="order-table unified-orders"><thead><tr><th>订单编号</th><th>客户名称</th><th>国家地区</th><th>创建日期</th><th>产品</th><th>订单金额</th><th>已收款</th><th>阶段</th><th>物流单号</th><th>操作</th></tr></thead><tbody>${classicOrderRows(view.items)}</tbody></table>${classicOrderEmpty(view.items)}</div>${classicOrderFoot(view)}</section>`
-      );
+      return root.LaiOrdersPage.markup(orderListView(), E);
     }
     // 订单搜索框打字时：只换表格里的行、合计和翻页，页面、搜索框都不动（焦点、光标留在原处）。
     // 页面不是当前的全部订单页（例如刚换了主题还没重画）时整页重画。
@@ -299,21 +276,12 @@
       if (route !== "order-list" || !scroller) return render();
       const view = orderListView();
       const glassTable = scroller.querySelector(".op-table");
-      const foot = scroller.parentElement.querySelector(glassTable ? ":scope > .op-foot" : ":scope > footer.pagination");
-      if (!foot || (!!glassTable !== !!(glassSkin() && root.LaiOrdersPage))) return render();
-      if (glassTable) {
-        const head = glassTable.querySelector(":scope > .op-head");
-        while (head.nextSibling) head.nextSibling.remove();
-        head.insertAdjacentHTML("afterend", root.LaiOrdersPage.rowsMarkup(view, E));
-        foot.outerHTML = root.LaiOrdersPage.footMarkup(view);
-      } else {
-        const body = scroller.querySelector("tbody");
-        if (!body) return render();
-        body.innerHTML = classicOrderRows(view.items);
-        scroller.querySelector(":scope > .empty")?.remove();
-        scroller.insertAdjacentHTML("beforeend", classicOrderEmpty(view.items));
-        foot.outerHTML = classicOrderFoot(view);
-      }
+      const foot = glassTable && scroller.parentElement.querySelector(":scope > .op-foot");
+      if (!foot) return render();
+      const head = glassTable.querySelector(":scope > .op-head");
+      while (head.nextSibling) head.nextSibling.remove();
+      head.insertAdjacentHTML("afterend", root.LaiOrdersPage.rowsMarkup(view, E));
+      foot.outerHTML = root.LaiOrdersPage.footMarkup(view);
       scroller.scrollTop = 0;
     }
     function renderOrderTrash() {
@@ -827,9 +795,9 @@
       const card = oppCard(id);
       if (!card) return ctx.toast("商机不存在，可能已被删除，请刷新后重试");
       ctx.dialog(E(card.name), OU().menuMarkup(card, oppArmed === id), '<button type="button" data-action="close-modal">关闭</button>', "opp-menu");
-      if (glassSkin()) anchorOppMenu(id);
+      anchorOppMenu(id);
     }
-    // 粉色、橙色界面里，「⋮」菜单是贴着那张卡片的小菜单（小满仍是右侧抽屉）。
+    // 「⋮」菜单是贴着那张卡片的小菜单（找不到卡片时留在右侧，见 skin-glass.css）。
     function anchorOppMenu(id) {
       const doc = root.document;
       const drawerEl = doc && doc.querySelector(".overlay .drawer:has(.opp-menu)");
@@ -1777,7 +1745,7 @@
     function renderSettingsHub() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
-        theme = THEME_CHOICES.find(([id]) => id === settings.theme) || THEME_CHOICES.find(([id]) => id === DEFAULT_THEME);
+        theme = THEME_CHOICES.find(([id]) => id === savedTheme(settings)) || THEME_CHOICES.find(([id]) => id === DEFAULT_THEME);
       return root.LaiSettingsHub.markup(
         { orderPrefix: settings.orderPrefix || old.orderPrefix || "L", currency: settings.defaultCurrency || old.defaultCurrency || "USD", themeName: theme[1], testData: Boolean(root.LaiWebTrial), can },
         E,
@@ -1800,10 +1768,10 @@
     function renderSettings() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
-        currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : DEFAULT_THEME;
+        currentTheme = THEME_CHOICES.some(([id]) => id === savedTheme(settings)) ? savedTheme(settings) : DEFAULT_THEME;
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存；科技蓝是深蓝配钴蓝</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2526,7 +2494,7 @@
         render();
         const sel = `[data-opp-view="${oppView.mode}"]`,
           all = document.querySelectorAll ? [...document.querySelectorAll(sel)] : [];
-        // 页头和筛选卡片各有一组（新界面只显示筛选卡片里的），聚焦看得见的那个
+        // 切换按钮在筛选卡片里，聚焦看得见的那个
         return (all.find((el) => el.offsetParent !== null) || document.querySelector?.(sel))?.focus({ preventScroll: true });
       }
       if (d.oppRange && route === "opp-analysis") {
@@ -3052,6 +3020,9 @@
       return saveNext(
         () => {
           const base = { ...state(), laiSettings: { ...state().laiSettings, ...data } };
+          // 以前存的小满配色在这次正常保存设置时写成科技蓝（D-029），载入时不写。
+          const theme = savedTheme(base.laiSettings);
+          if (theme !== base.laiSettings.theme) base.laiSettings.theme = theme;
           return company ? DM().setBank(DM().setCompany(base, company), bank) : base;
         },
         "biz-settings-error",

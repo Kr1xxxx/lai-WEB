@@ -75,13 +75,13 @@ test('the customer sub-navigation no longer offers the removed profile-suggestio
 });
 
 
-test('every theme (pink, orange, xiaoman, tech) defines the same colour variables and nothing blue is left in app chrome', () => {
+test('every theme (pink, orange, tech) defines the same colour variables and nothing blue is left in app chrome', () => {
   const themeBlock = id => new RegExp(`:root(?:,\\s*:root)?\\[data-theme="${id}"\\]\\s*\\{([^}]*)\\}`, 's').exec(tokens)?.[1] || '';
   const names = block => [...block.matchAll(/(--[a-z0-9-]+):/g)].map(m => m[1]).sort();
   const orange = themeBlock('orange');
   assert.ok(orange.length > 0, 'orange theme block exists');
   const pink = themeBlock('pink');
-  assert.deepEqual(names(themeBlock('xiaoman')), names(pink), 'the default (xiaoman) theme sets the same variables too');
+  assert.equal(themeBlock('xiaoman'), '', 'the 小满 theme block is gone (D-029)');
   assert.deepEqual(names(orange), names(pink), 'both themes set exactly the same variables');
   assert.deepEqual(names(themeBlock('tech')), names(pink), '科技蓝 sets the same variables too');
   for (const name of ['--brand-500', '--brand-900', '--ink-900', '--chart-1', '--chart-2', '--chart-3', '--chart-rank-1', '--nav-top', '--nav-glow-rgb']) {
@@ -96,14 +96,16 @@ test('every theme (pink, orange, xiaoman, tech) defines the same colour variable
 test('the chosen theme is stored in laiSettings.theme, applied to <html>, and switched from 设置', () => {
   const app = read('src/app.js');
   const ui = read('src/business-ui.js');
-  assert.match(app, /const THEME_IDS = \["pink", "orange", "xiaoman", "tech"\];/);
+  assert.match(app, /const THEME_IDS = \["pink", "orange", "tech"\];/);
+  assert.match(app, /const RETIRED_THEMES = \{ xiaoman: "tech" \};/, 'a saved 小满 is shown as 科技蓝 (D-029)');
   assert.match(app, /const DEFAULT_THEME = "pink";/, 'the default colour is one constant');
-  assert.match(app, /const theme = THEME_IDS\.includes\(id\) \? id : DEFAULT_THEME;/);
+  assert.match(app, /const theme = THEME_IDS\.includes\(shown\) \? shown : DEFAULT_THEME;/);
   assert.equal((app.match(/"pink"/g) || []).length, 2, 'app.js names pink only in the id list and as the default');
   assert.match(app, /defaultTheme: DEFAULT_THEME,/, 'the settings page gets the default from the same constant');
-  assert.match(app, /document\.documentElement\.dataset\.skin = theme === "xiaoman" \? "classic" : "glass";/, '粉色、橙色、科技蓝用新界面皮肤，小满保持原来的界面');
+  assert.match(app, /document\.documentElement\.dataset\.skin = "glass";/, '所有配色都用同一套界面（D-029）');
+  assert.doesNotMatch(app, /"classic"/);
   const skin = read('src/skin-glass.css');
-  assert.doesNotMatch(skin.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{]*\{((?:[^{}]*\{[^}]*\})*)\s*\}/g, '$1').replace(/:root\[data-skin="glass"\][^{]*\{[^}]*\}/g, ''), /\S/, '新皮肤的每条规则都限定在 data-skin="glass" 下，不影响小满');
+  assert.doesNotMatch(skin.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{]*\{((?:[^{}]*\{[^}]*\})*)\s*\}/g, '$1').replace(/:root\[data-skin="glass"\][^{]*\{[^}]*\}/g, ''), /\S/, '新皮肤的每条规则都限定在 data-skin="glass" 下（以后并进基础样式时再改）');
   assert.equal((app.match(/applyTheme\(state\.laiSettings\?\.theme\)/g) || []).length, 2, 'applied after loading and after every save');
   assert.match(ui, /data-biz-action="set-theme" data-theme-id="\$\{id\}"/);
   assert.match(ui, /action === "set-theme"/);
@@ -121,12 +123,13 @@ test('the workbench has no second-level navigation column, other pages keep thei
 test('pink is the default colour, and every colour option in 设置 has its own preview picture', () => {
   const ui = read('src/business-ui.js');
   const css = read('src/business.css');
-  assert.match(ui, /THEME_CHOICES = \[\["pink", "粉色"\], \["orange", "橙色"\], \["xiaoman", "小满"\], \["tech", "科技蓝"\]\]\.map/);
+  assert.match(ui, /THEME_CHOICES = \[\["pink", "粉色"\], \["orange", "橙色"\], \["tech", "科技蓝"\]\]\.map/);
   assert.match(ui, /const DEFAULT_THEME = ctx\.defaultTheme \|\| "pink";/);
-  assert.match(ui, /settings\.theme\) \? settings\.theme : DEFAULT_THEME/, 'the picker highlights the default colour when nothing was chosen');
+  assert.match(ui, /savedTheme\(settings\)\) \? savedTheme\(settings\) : DEFAULT_THEME/, 'the picker highlights the default colour when nothing was chosen');
   assert.match(tokens, /:root,\s*:root\[data-theme="pink"\]\s*\{/, 'pink also applies before data-theme is written');
   assert.doesNotMatch(tokens, /:root,\s*:root\[data-theme="xiaoman"\]/);
-  for (const id of ['pink', 'orange', 'xiaoman', 'tech']) {
+  assert.doesNotMatch(css, /data-preview="xiaoman"/, 'no 小满 preview any more (D-029)');
+  for (const id of ['pink', 'orange', 'tech']) {
     assert.match(ui, /class="theme-preview" data-preview="\$\{id\}"/);
     if (id !== 'pink') assert.match(css, new RegExp(`\\.theme-preview\\[data-preview="${id}"\\]\\s*\\{[^}]*--pv-nav`), `${id} preview has its own colours`);
   }

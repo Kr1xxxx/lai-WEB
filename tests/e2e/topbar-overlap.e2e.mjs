@@ -12,13 +12,12 @@ const WIDTHS = [1024, 1100, 1150, 1200, 1240, 1280, 1366, 1440, 1680];
 
 test('the search box, the version badge and the right-hand actions never overlap', async () => {
   const { page } = app;
-  for (const theme of ['pink', 'orange', 'xiaoman']) {
+  for (const theme of ['pink', 'orange', 'tech']) {
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 860 });
       const box = await page.evaluate((t) => {
         const html = document.documentElement;
         html.dataset.theme = t;
-        html.dataset.skin = t === 'xiaoman' ? 'classic' : 'glass';
         const r = (selector) => document.querySelector(selector)?.getBoundingClientRect();
         return { version: r('.app-version'), search: r('.global-search'), actions: r('.top-actions') };
       }, theme);

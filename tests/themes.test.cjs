@@ -29,10 +29,11 @@ function page(route, { theme, defaultTheme } = {}) {
   return html;
 }
 
-test('设置: the picker lists all four colours, 科技蓝 included, and marks pink as the default', () => {
+test('设置: the picker lists the three colours (小满 removed, D-029) and marks pink as the default', () => {
   const html = page('settings');
   const ids = [...html.matchAll(/data-biz-action="set-theme" data-theme-id="(\w+)"/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['pink', 'orange', 'xiaoman', 'tech']);
+  assert.deepEqual(ids, ['pink', 'orange', 'tech']);
+  assert.doesNotMatch(html, /小满|xiaoman/);
   assert.match(html, /<strong>粉色（默认）<\/strong>/);
   assert.match(html, /<strong>科技蓝<\/strong>/);
   assert.match(html, /data-preview="tech"/);
@@ -47,22 +48,86 @@ test('设置: the chosen colour is highlighted, and the default label follows th
   assert.match(swapped, /class="theme-option selected" data-biz-action="set-theme" data-theme-id="tech"/);
 });
 
-test('设置中心: the 界面配色 card names the current colour, and the note lists all four', () => {
+test('设置中心: the 界面配色 card names the current colour, and the note lists the three', () => {
   assert.match(page('settings-hub', { theme: 'tech' }), /界面配色[\s\S]*?科技蓝/);
   assert.match(page('settings-hub'), /粉色（默认）/);
-  assert.match(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /粉色、橙色、小满、科技蓝/);
+  assert.match(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /粉色、橙色、科技蓝，/);
+  assert.doesNotMatch(Hub.markup({ themeName: '科技蓝' }, escapeHtml), /小满/);
 });
 
-test('app.js: tech uses the glass skin like pink and orange, only xiaoman is classic; an unknown id falls back to the default', () => {
+test('app.js: every theme uses the one (glass) layout, a saved xiaoman shows as tech, an unknown id falls back to the default', () => {
   const applyTheme = new Function('document', app.slice(app.indexOf('const THEME_IDS'), app.indexOf('// 已保存数据的快照')) + '; return applyTheme;');
   const root = { dataset: {} };
   const apply = applyTheme({ documentElement: root });
-  for (const [id, skin] of [['pink', 'glass'], ['orange', 'glass'], ['tech', 'glass'], ['xiaoman', 'classic']]) {
+  assert.deepEqual({ ...root.dataset }, { skin: 'glass' }, 'the layout is set before any data is loaded');
+  for (const [id, theme] of [['pink', 'pink'], ['orange', 'orange'], ['tech', 'tech'], ['xiaoman', 'tech']]) {
     apply(id);
-    assert.deepEqual({ ...root.dataset }, { theme: id, skin });
+    assert.deepEqual({ ...root.dataset }, { theme, skin: 'glass' });
+  }
+  for (const odd of ['toString', 'constructor', '__proto__']) {
+    apply(odd);
+    assert.deepEqual({ ...root.dataset }, { theme: 'pink', skin: 'glass' }, odd);
   }
   apply('nonsense');
   assert.deepEqual({ ...root.dataset }, { theme: 'pink', skin: 'glass' });
   apply(undefined);
   assert.equal(root.dataset.theme, 'pink');
+});
+
+// D-029: a saved 小满 theme is shown as 科技蓝; nothing is written on load, only the next normal settings save rewrites it.
+function settingsHarness(theme) {
+  const listeners = new Map();
+  const forms = new Map();
+  const document = {
+    addEventListener(kind, cb) { listeners.set(kind, [...(listeners.get(kind) || []), cb]); },
+    getElementById(id) { return forms.get(id) || null; },
+    querySelectorAll() { return []; },
+  };
+  const window = { LaiBusinessModel: B, LaiModules: L, LaiWorkbench: require('../src/workbench.js'), LaiSettingsHub: Hub };
+  class FormData { constructor(form) { this.entries = Object.entries(form.values); } [Symbol.iterator]() { return this.entries[Symbol.iterator](); } }
+  const context = { window, document, FormData, crypto: require('node:crypto').webcrypto };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  let state = { orders: [], customers: {}, laiSettings: { theme, orderPrefix: 'L' } };
+  let html = '', saves = 0;
+  const controller = window.LaiBusinessUI.create({
+    getState: () => state, escape: escapeHtml, mount: (h) => { html = h; }, dialog() {}, closeDialog() {}, toast() {}, navigate() {}, openCustomer() {},
+    save: async (next) => { saves++; state = next; return true; },
+  });
+  return {
+    controller, get html() { return html; }, get state() { return state; }, get saves() { return saves; },
+    async submit(values) {
+      const form = { id: 'biz-settings-form', values, closest: (sel) => (sel === 'form' ? form : null), dataset: {}, querySelector: () => null };
+      const event = { target: form, preventDefault() {} };
+      for (const cb of listeners.get('submit') || []) await cb(event);
+    },
+  };
+}
+
+test('设置 and 设置中心 show a saved 小满 as 科技蓝 without writing anything', () => {
+  const h = settingsHarness('xiaoman');
+  h.controller.navigate('settings');
+  assert.match(h.html, /class="theme-option selected" data-biz-action="set-theme" data-theme-id="tech"/);
+  assert.equal((h.html.match(/theme-option selected/g) || []).length, 1);
+  h.controller.navigate('settings-hub');
+  assert.match(h.html, /界面配色[\s\S]*?科技蓝/);
+  assert.equal(h.saves, 0, 'no write on load or on render');
+  assert.equal(h.state.laiSettings.theme, 'xiaoman', 'the stored value is untouched until settings are saved');
+});
+
+test('the next normal settings save rewrites a saved 小满 to tech; other themes stay as they are', async () => {
+  const h = settingsHarness('xiaoman');
+  h.controller.navigate('settings');
+  await h.submit({ orderPrefix: 'Q', defaultCurrency: 'USD', defaultOwner: '' });
+  assert.equal(h.saves, 1);
+  assert.equal(h.state.laiSettings.theme, 'tech');
+  assert.equal(h.state.laiSettings.orderPrefix, 'Q');
+  const pink = settingsHarness('orange');
+  pink.controller.navigate('settings');
+  await pink.submit({ orderPrefix: 'Q', defaultCurrency: 'USD', defaultOwner: '' });
+  assert.equal(pink.state.laiSettings.theme, 'orange');
+  const none = settingsHarness(undefined);
+  none.controller.navigate('settings');
+  await none.submit({ orderPrefix: 'Q', defaultCurrency: 'USD', defaultOwner: '' });
+  assert.ok(!Object.hasOwn(none.state.laiSettings, 'theme') || none.state.laiSettings.theme === undefined, 'no theme is invented when none was chosen');
 });

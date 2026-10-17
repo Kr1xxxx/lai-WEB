@@ -68,9 +68,9 @@
     }
     const undoMarkup=undo=>undo?`<div class="opp-undo" id="opp-undo" role="status"><span>${E(undo.label)}</span><button type="button" data-opp-action="undo">撤销</button></div>`:'';
     const boardMarkup=(board,view={},context={})=>`<div class="business-scroll opp-page">${toolbar(board,view,context)}${totals(board)}${view.mode==='list'?table(board,view,context.today):columns(board,view,context.today)}${undoMarkup(view.undo)}</div>`;
-    // 看板／列表切换：旧版式放在页头；新界面（粉色、橙色）放进筛选卡片里，两处只显示一处（见 skin-glass.css）。
+    // 看板／列表切换：放在筛选卡片里（opp-view-in）。
     const viewSwitch=(view={},extra='')=>`<span class="team-segment opp-view${extra}" role="group" aria-label="视图"><button type="button" data-opp-view="board" aria-pressed="${view.mode!=='list'}">看板</button><button type="button" data-opp-view="list" aria-pressed="${view.mode==='list'}">列表</button></span>`;
-    const headerActions=(board,context={},view={})=>`${viewSwitch(view)}<button type="button" class="opp-analysis-link" data-lai-route="opp-analysis">商机分析</button>${can('opp.create')?'<button type="button" class="primary" data-opp-action="new">新建商机</button>':''}`;
+    const headerActions=(board,context={},view={})=>`<button type="button" class="opp-analysis-link" data-lai-route="opp-analysis">商机分析</button>${can('opp.create')?'<button type="button" class="primary" data-opp-action="new">新建商机</button>':''}`;
 
 
     // ---------- 商机详情与附件 ----------

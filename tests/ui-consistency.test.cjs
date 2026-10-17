@@ -22,8 +22,8 @@ test('radios are circles with a dot; the groups drawn as text buttons or custom 
   assert.match(skin, /radial-gradient\(circle, var\(--brand-500\)/);
 });
 
-test('the customer list selection column is narrower in the new skin only', () => {
-  assert.match(app, /const selectionWidth = document\.documentElement\.dataset\.skin === "glass" \? 48 : 84/);
+test('the customer list selection column has the narrow width of the one layout', () => {
+  assert.match(app, /const selectionWidth = 48, actionsWidth = 52;/);
 });
 
 test('the split 新建客户 button, page-header buttons and the customer form inputs follow the same 8px corners', () => {
@@ -33,7 +33,7 @@ test('the split 新建客户 button, page-header buttons and the customer form i
   assert.match(skin, /\.ce-body :is\(input[^)]*\)[^{]*select, textarea\) \{ border-radius: 8px;/);
 });
 
-test('every left-menu entry has a tinted-line icon, each drawn from its own paths, and the old icon stays for the classic skin', () => {
+test('every left-menu entry has a tinted-line icon, each drawn from its own paths, and only that icon is drawn', () => {
   const rail = [...app.matchAll(/\["(\w+)", "([^"]+)", (?:null|"[\w-]+"),? ?(?:"(\w+)")?\]/g)].map((m) => ({ icon: m[1], label: m[2], duo: m[3] }));
   const labels = rail.map((r) => r.label);
   const expected = ['常用', '工作台', '邮件', '沟通', '线索', '客户', '商机', 'Leads', '交易', '团队数据', '协同', '设置', '企业管理'];
@@ -44,8 +44,7 @@ test('every left-menu entry has a tinted-line icon, each drawn from its own path
   const used = rail.filter((r) => expected.includes(r.label)).map((r) => r.duo || duoMap[r.icon]);
   for (const name of used) assert.ok(duoNames.has(name), `no tinted icon for ${name}`);
   assert.equal(new Set(used).size, used.length, 'no two menu entries share one icon');
-  assert.match(app, /icon\(name\)\.replace\("class=\\"icon\\"", "class=\\"icon icon-classic\\""\)/);
+  assert.doesNotMatch(app, /icon-classic/, 'the classic line icon is gone with the classic skin (D-029)');
   assert.match(read('src/styles.css'), /\.icon-duo \{ display: none; \}/);
-  assert.match(skin, /:root\[data-skin="glass"\] \.icon-classic \{ display: none; \}/);
   assert.match(skin, /:root\[data-skin="glass"\] \.icon-duo \{ display: block;/);
 });
