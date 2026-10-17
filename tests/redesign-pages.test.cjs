@@ -5,9 +5,10 @@ const path = require('node:path');
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const glass = read('src/skin-glass.css');
 
-test('the board has the view switch both in the page header (classic) and in the filter card (new skin); only one is shown per skin', () => {
+test('the board has the view switch in the filter card only (the classic page-header copy is gone, D-029)', () => {
   const ui = read('src/opportunity-ui.js');
   assert.match(ui, /viewSwitch\(view,' opp-view-in'\)/);
+  assert.equal((ui.match(/viewSwitch\(/g) || []).length, 1, 'one call: the filter card');
   assert.match(ui, /class="opp-analysis-link" data-lai-route="opp-analysis"/);
   assert.match(read('src/business.css'), /\.opp-view-in, \.opp-analysis-link \{ display: none; \}/);
   assert.match(glass, /\.pagebar \.opp-view \{ display: none; \}/);
