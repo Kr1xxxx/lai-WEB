@@ -22,7 +22,7 @@
       `<select class="tr-stage" data-tr-field="stage" data-type="orderStage" aria-label="订单阶段"${lock}>${BM().stages.map((s) => `<option value="${E(s.id)}"${s.id === rule.stage ? ' selected' : ''}>${E(s.label)}</option>`).join('')}</select>`;
     const sentence = {
       noFollow: (rule) => `客户有 ${num('noFollow', 'days', rule.days, 1, 365)} 天没有跟进，就给跟进人建一个待办「跟进 客户名」，今天到期。`,
-      orderStage: (rule) => `订单到了 ${stagePicker(rule)} 这一阶段，${num('orderStage', 'dueDays', rule.dueDays, 0, 90)} 天后提醒订单负责人。每个订单每个阶段只提醒一次。`,
+      orderStage: (rule) => `订单到了 ${stagePicker(rule)} 这一阶段，${num('orderStage', 'dueDays', rule.dueDays, 0, 90)} 天后提醒订单负责人。每个订单每个阶段只提醒一次，打开这条规则以前建的订单不提醒。`,
       oppClose: (rule) => `还没成交的商机，离结束日期只剩 ${num('oppClose', 'days', rule.days, 1, 365)} 天时，提醒商机负责人；待办在结束日期那天到期。`,
       repurchase: () => '客户最后一个订单已经过了客户资料里设置的「复购周期」，就提醒客户的跟进人。没设复购周期的客户不提醒。',
     };
