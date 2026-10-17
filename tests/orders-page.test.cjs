@@ -69,3 +69,16 @@ test('it is only used in the new skin and wired into the build and the order han
   const css = read('src/skin-glass.css');
   assert.match(css, /:has\(#biz-order-form\)/);
 });
+
+test('rowsMarkup and footMarkup are exactly the rows and the footer of the full page (the search swaps only these)', () => {
+  for (const extra of [{}, { items: [], total: 0 }, { page: 2, pages: 3, total: 41 }, { can: (key) => key !== 'order.create', items: [] }]) {
+    const view = input(extra);
+    const html = Page.markup(view, E);
+    const rows = Page.rowsMarkup(view, E), foot = Page.footMarkup(view);
+    assert.ok(html.includes(`</span></div>${rows}</div></div>${foot}</section>`), 'rows sit right after the table head, the footer right after the table');
+    assert.match(foot, new RegExp(`共 ${view.total} 笔订单`));
+  }
+  assert.match(Page.rowsMarkup(input({ items: [] }), E), /没有符合条件的订单/);
+  assert.match(Page.footMarkup(input({ page: 1, pages: 2 })), /data-biz-action="prev" aria-label="上一页" disabled>/);
+  assert.doesNotMatch(Page.footMarkup(input({ page: 1, pages: 2 })), /data-biz-action="next" aria-label="下一页" disabled>/);
+});
