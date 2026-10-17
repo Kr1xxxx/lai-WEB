@@ -229,10 +229,10 @@ test('科技蓝: a theme change redraws the frame once, then the order search re
   await page.locator('#biz-search').fill('zzz-none');
   await page.waitForTimeout(300);
   assert.equal(await page.locator('[data-order-row]').count(), 0);
-  assert.equal(await page.locator('.op-list .op-empty').count(), 1, 'one empty-state note');
+  assert.equal(await page.locator('.op-list .k-empty').count(), 1, 'one empty-state note');
   await page.locator('#biz-search').fill('');
   await page.waitForTimeout(300);
-  assert.equal(await page.locator('.op-list .op-empty').count(), 0);
+  assert.equal(await page.locator('.op-list .k-empty').count(), 0);
   assert.equal(await page.locator('[data-order-row]').count(), 20);
   const state = await frameState(page);
   assert.deepEqual(state.removedFrame, []);

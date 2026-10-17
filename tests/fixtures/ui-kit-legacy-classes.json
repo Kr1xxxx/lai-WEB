@@ -2,12 +2,10 @@
  "note": "Class names that exist today and predate the kit (D-028). New markup uses src/ui-kit.css instead. Delete a name when its page moves to the kit; never add one. tests/ui-kit-classes.test.cjs",
  "primary": [
   "lcd-primary",
-  "op-primary",
   "wb-primary"
  ],
  "pages": [
-  "import-record-pages",
-  "op-pages"
+  "import-record-pages"
  ],
  "empty": [
   "contact-search-empty",
@@ -29,8 +27,6 @@
   "mail-bulk-empty",
   "mail-reader-empty",
   "now-empty",
-  "op-empty",
-  "opp-empty",
   "order-items-empty",
   "role-members-empty",
   "small-empty",

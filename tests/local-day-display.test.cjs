@@ -24,8 +24,8 @@ test('orders page: the creation day and the period filter use the local day', ()
   const stages = B.stages;
   const order = { id: 'o1', num: 'L-1', client: 'A', amount: 10, currency: 'USD', stage: 'quote', createdAt: STAMP };
   const html = OrdersPage.markup({ items: [order], all: [order], total: 1, filters: { search: '', stage: '', currency: '', period: '' }, stages, currencies: ['USD'], page: 1, pages: 1, trash: [] }, E);
-  assert.match(html, /<span>10-16<\/span>/);
-  assert.doesNotMatch(html, /<span>10-15<\/span>/);
+  assert.match(html, /<td class="op-date">10-16<\/td>/);
+  assert.doesNotMatch(html, /<td class="op-date">10-15<\/td>/);
   // Born on the 16th local time, so it is "this month" for any day in October and not "last month" in November.
   assert.equal(OrdersPage.inPeriod(STAMP, 'month', '2026-10-16'), true);
   assert.equal(OrdersPage.inPeriod('2026-09-30T20:00:00.000Z', 'month', '2026-10-16'), true, 'the 1st of October local time');
