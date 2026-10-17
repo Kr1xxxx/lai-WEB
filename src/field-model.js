@@ -1,10 +1,10 @@
 (function(root){
   'use strict';
-  // 通用的自定义字段（客户、线索共用）。设置存在 state.laiSettings.fieldSettings[实体]：
+  // 通用的自定义字段（客户、线索、订单共用）。设置存在 state.laiSettings.fieldSettings[实体]：
   // {customFields:[{id,name,type,options,required}], required:{系统字段ID:true}}。值存在记录的 custom[字段ID] 里。
   // 每个函数返回新的 state，不自己保存；读到的坏数据安全丢弃，写入前格式异常则拒绝，避免覆盖。
   const node=typeof module!=='undefined'&&module.exports;
-  const ENTITIES=Object.freeze(['customer','lead']);
+  const ENTITIES=Object.freeze(['customer','lead','order']);
   const TYPES=Object.freeze([['text','文本'],['textarea','多行文本'],['number','数字'],['date','日期'],['select','单选'],['multi','多选']]);
   const LIMIT=30;
   const LIMITS=Object.freeze({fields:LIMIT,options:50,nameLen:30,optionLen:40,text:200,textarea:2000});

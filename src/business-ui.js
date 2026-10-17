@@ -1790,13 +1790,17 @@
         field = (kind, [key, label], values) => `<label class="field">${E(label)}<input name="${kind}:${key}" value="${E(values[key])}" maxlength="${DM().LIMITS.line}" autocomplete="off"></label>`;
       return `<div class="section-head" data-company-section><h3>公司资料</h3><span class="muted tiny">报价单、形式发票等单据都用这里的资料；在“单据模板 → 公司信息”里看到的是同一份</span></div><div class="form-grid">${DM().COMPANY_FIELDS.map((f) => field("company", f, co.company)).join("")}${DM().BANK_FIELDS.map((f) => field("bank", f, co.bank)).join("")}</div>`;
     }
+    // 设置页里的「订单字段」一节：数据规则在 order-fields-model.js，页面在 order-fields-ui.js。
+    const orderFieldsSection = () => (root.LaiOrderFieldsUI && root.LaiOrderFields && can("settings.general") ? root.LaiOrderFieldsUI.settingsMarkup(extraCtx()) : "");
+    // 设置页是自带的页面，订单字段这一节的点击、输入、提交从这里转过去（只在真的停在设置页时）。
+    const settingsExtra = () => (route === "settings" && !(ctx.isActive && !ctx.isActive()) ? root.LaiOrderFieldsUI || null : null);
     function renderSettings() {
       const settings = state().laiSettings || {},
         old = state().orderSettings || {},
         currentTheme = THEME_CHOICES.some(([id]) => id === settings.theme) ? settings.theme : "pink";
       return (
         header("设置", "来财的默认录入与本地数据管理") +
-        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form><section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
+        `<div class="business-scroll settings-layout"><form id="biz-settings-form" class="business-section"><div class="section-head"><h3>默认录入</h3></div><div class="form-grid"><label class="field">订单编号前缀<input name="orderPrefix" value="${E(settings.orderPrefix || old.orderPrefix || "L")}" required pattern="[A-Za-z0-9\\-]+" maxlength="12"></label><label class="field">默认币种<select name="defaultCurrency">${currencyChoices(settings.defaultCurrency || old.defaultCurrency || "USD").map((c) => option(c, c, settings.defaultCurrency || old.defaultCurrency || "USD")).join("")}</select></label><label class="field">默认跟进人<input name="defaultOwner" value="${E(settings.defaultOwner || old.defaultOwner || "")}"><span class="muted tiny" data-settings-hint="defaultOwner">新建客户、线索、商机、订单时默认填这个人。只能看本人或本部门客户的账号，会默认填自己。</span></label></div>${companySection()}<div class="error" id="biz-settings-error" role="alert"></div><div class="settings-actions">${button("discard-settings", "取消修改")}<button class="primary" type="submit">保存设置</button></div></form>${orderFieldsSection()}<section class="business-section theme-section"><div class="section-head"><h3>界面配色</h3><span class="muted tiny">选择后整个来财立即换色，配色跟着数据一起保存</span></div><div class="theme-options" role="group" aria-label="界面配色">${THEME_CHOICES.map(([id, name]) => `<button type="button" class="theme-option${currentTheme === id ? " selected" : ""}" data-biz-action="set-theme" data-theme-id="${id}" aria-pressed="${currentTheme === id}"><span class="theme-preview" data-preview="${id}" aria-hidden="true"><i class="pv-nav"></i><span class="pv-body"><i class="pv-bar"></i><span class="pv-cards"><i></i><i class="pv-tint"></i></span></span></span><span class="theme-line"><strong>${name}</strong><span class="theme-state muted tiny">${currentTheme === id ? "使用中" : "点击切换"}</span></span></button>`).join("")}</div><p class="settings-copy">小满是来财原来的蓝色界面。换色只改界面主色、底色和强调色。成功、警告、逾期等状态色保持不变，邮件正文里的颜色也不受影响。</p></section><section class="business-section"><div class="section-head"><h3>本地数据</h3><span class="tag green">来财独立存储</span></div><p class="settings-copy">客户、订单、日程都保存在来财里，可以随时备份。</p><div class="settings-actions">${button("backup", "立即备份")}</div><div id="biz-backup-status" class="muted tiny" role="status"></div></section></div>`
       );
     }
     // ---------- 企业管理：角色权限、成员管理（页面标记在 role-ui.js，数据规则在 role-model.js） ----------
@@ -2125,11 +2129,17 @@
       draft.doc = "";
       // 有产品明细时，订单金额和“产品”跟着明细走，不能手填。
       const shown = draft.items.length ? { ...o, amount: B.itemsTotal(draft.items), productType: B.itemsSummary(draft.items) } : o;
+      // 自定义字段（设置 → 订单字段）：能改时每种类型一个输入；只能看时只列有值的和必填的。
+      const orderCustomMarkup = (order, readOnly, isNew) => {
+        const UI = root.LaiOrderFieldsUI, OF = root.LaiOrderFields;
+        if (!UI || !OF) return "";
+        return readOnly ? UI.detailMarkup(E, OF.customView(state(), order)) : UI.formMarkup(E, { defs: OF.customFields(state()), values: order.custom, isNew });
+      };
       const field = (name, title, type = "text", wide = false) =>
         `<label class="field ${wide ? "wide" : ""}">${title}<input name="${name}" type="${type}" value="${E(type === "date" ? localDay(shown[name]) : (shown[name] ?? ""))}" ${["num", "client", "amount", "createdAt"].includes(name) ? "required" : ""} ${["amount", "paidAmount"].includes(name) ? 'min="0" step="any"' : ""} ${name === "client" ? 'list="biz-customer-names"' : ""}${draft.items.length && ["amount", "productType"].includes(name) ? " readonly" : ""}></label>`;
       ctx.dialog(
         old ? (locked ? "订单详情" : "编辑订单") : "新建订单",
-        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div><div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>${can("doc.create") ? `<div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div>` : ""}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
+        `<form class="drawer-body" id="biz-order-form"><div class="error" id="biz-order-error" role="alert"></div>${draft.fromOpportunity ? OU().sourceBannerMarkup(oppCard(draft.fromOpportunity)) : ""}<div class="form-section">订单信息</div><div class="form-grid">${field("num", "订单编号")}${field("client", "客户名称")}${field("country", "国家地区")}${field("productType", "产品")}${field("amount", "订单金额", "number")}<label class="field">币种<select name="currency">${[...new Set([o.currency || "USD", "USD", "EUR", "GBP", "CNY", "CAD", "AUD"])].map((c) => option(c, c, o.currency || "USD")).join("")}</select></label>${field("paidAmount", "已收款", "number")}<label class="field">订单阶段<select name="stage">${B.stages.map((s) => option(s.id, s.label, o.stage)).join("")}</select></label>${field("createdAt", "创建日期", "date")}${field("owner", "跟进人")}${field("trackingNumber", "物流单号")}${field("carrier", "承运商")}<label class="field wide">订单备注<textarea name="note" rows="3">${E(o.note || "")}</textarea></label>${field("next", "下一步", "text", true)}<label class="business-check"><input type="checkbox" name="isDraft" ${o.isDraft ? "checked" : ""}> 保存为草稿</label></div>${orderCustomMarkup(o, locked, !old)}<div class="form-section">产品明细</div><div id="biz-order-items">${orderItemsMarkup(o.currency || "USD")}</div>${can("doc.create") ? `<div class="order-doc-actions"><span class="muted tiny">生成单据</span>${(DM() ? DM().TYPES : []).map(([type, name]) => button("order-doc", E(name), `data-type="${E(type)}"`)).join("")}</div>` : ""}<div id="biz-order-saved">${orderSavedMarkup()}</div><div id="biz-order-doc"></div><datalist id="biz-customer-names">${Object.keys(
           pickState().customers || {},
         )
           .filter(
@@ -2463,10 +2473,11 @@
         }) }[kind];
       if (!setup) return;
       root.LaiExportUI?.open(kind, { state: full, can, toast: ctx.toast, dialog: ctx.dialog, closeDialog: ctx.closeDialog, denied: RM()?.denied,
-        scopes: setup(), gate: kind === "order" ? undefined : fieldGate(kind) });
+        scopes: setup(), gate: fieldGate(kind) });
     }
     document.addEventListener("click", (e) => {
       if (extra()?.click?.(extraCtx(), e) === true) return;
+      if (settingsExtra()?.click(extraCtx(), e) === true) return;
       {
         const exportEl = e.target.closest("button[data-export-kind]"),
           exportKind = exportEl?.dataset?.exportKind;
@@ -2733,6 +2744,7 @@
     document.addEventListener("keydown", cardKey);
     document.addEventListener("change", (e) => {
       if (extra()?.change?.(extraCtx(), e) === true) return;
+      if (settingsExtra()?.change(extraCtx(), e) === true) return;
       if (onRolePage() && roleChange(e)) return;
       if (docInput(e, "change")) return;
       if (e.target.dataset?.itemProduct !== undefined && draft?.items?.[e.target.dataset.itemProduct]) {
@@ -2844,6 +2856,7 @@
     document.addEventListener("submit", (e) => {
       const form = e.target;
       if (extra()?.submit?.(extraCtx(), e) === true) return;
+      if (settingsExtra()?.submit(extraCtx(), e) === true) return;
       if (onRolePage() && form.dataset?.roleForm) {
         e.preventDefault();
         return roleSubmit(form);
@@ -2996,6 +3009,9 @@
         if (!need(draft?.isNew ? "order.create" : "order.edit")) return;
         data.isDraft = form.elements.isDraft.checked;
         data.items = draft.items || [];
+        // 自定义字段：表单里名字是 custom.字段ID（多选有好几个）；这里收成 data.custom。只收表单里确实有的字段，其余原样保留。
+        for (const key of Object.keys(data)) if (key.startsWith("custom.")) delete data[key];
+        if (root.LaiOrderFieldsUI && root.LaiOrderFields) data.custom = root.LaiOrderFieldsUI.collect(form, root.LaiOrderFields.customFields(state()), (id) => !RM() || RM().fieldLevel(state(), "order", `custom.${id}`) === "edit");
         // 本人／本部门账号不能给看不到的客户建订单；客户没改的老订单照常保存。
         const wasClient = String(allOrders().find((order) => order.id === draft.id)?.client || "").trim();
         return saveNext(
