@@ -117,12 +117,15 @@
       `<button type="button" ${primary ? 'class="primary"' : ""} data-biz-action="${action}" ${extra}>${text}</button>`;
     const header = (title, description, actions = "") =>
       `<div class="pagebar"><div class="business-title"><h1>${title}</h1><span>${description}</span></div><div class="page-actions">${actions}</div></div>`;
+    // 已经换成组件套件（D-028）的页面用的页头：标题、一句说明、右边的按钮；页签由 app.js 的 placeSectionTabs 放在标题后面。
+    const kitHeader = (title, description, actions = "", cls = "") =>
+      `<div class="k-pageheader${cls ? " " + cls : ""}"><div class="k-pageheader-text"><h1 class="k-pageheader-title">${title}</h1><span class="k-pageheader-desc">${description}</span></div><div class="k-pageheader-actions">${actions}</div></div>`;
     // 必填标记，和抽屉底栏里保存按钮旁的错误条（表单出错时字写在这里，不会被滚到看不见的地方）。
     const REQ = '<span class="required" aria-hidden="true">*</span>';
     const footError = (id) => `<div class="error form-foot-error" id="${id}" role="alert" data-form-error></div>`;
     // 列表页头的「导出」按钮：只有有对应导出权限的账号才看得到。
-    const exportButton = (kind) =>
-      root.LaiExportUI && can(`${kind}.export`) ? `<button type="button" data-export-kind="${kind}">导出</button>` : "";
+    const exportButton = (kind, cls = "") =>
+      root.LaiExportUI && can(`${kind}.export`) ? `<button type="button"${cls ? ` class="${cls}"` : ""} data-export-kind="${kind}">导出</button>` : "";
     const allOrders = () => state().orders || [];
     const activeOrders = () => scoped().orders || [];
     const customerButton = (name) =>
@@ -544,7 +547,7 @@
       const today = B.localDate();
       const board = OM().board(scoped(), { ...oppView.filters, hidden: oppHidden() }, today);
       const context = { owners: OM().ownerNames(scoped()).filter(sees), today };
-      return header("商机", "按销售阶段跟进每一笔机会", exportButton("opp") + OU().headerActions(board, context, oppView)) + OU().boardMarkup(board, oppView, context);
+      return kitHeader("商机", "按销售阶段跟进每一笔机会", exportButton("opp", "k-btn") + OU().headerActions(board, context, oppView), "opp-header") + OU().boardMarkup(board, oppView, context);
     }
     function renderOppAnalysis() {
       const T = root.LaiTeamModel;

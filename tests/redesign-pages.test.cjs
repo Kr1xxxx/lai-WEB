@@ -9,17 +9,23 @@ test('the board has the view switch in the filter card only (the classic page-he
   const ui = read('src/opportunity-ui.js');
   assert.match(ui, /viewSwitch\(view,' opp-view-in'\)/);
   assert.equal((ui.match(/viewSwitch\(/g) || []).length, 1, 'one call: the filter card');
-  assert.match(ui, /class="opp-analysis-link" data-lai-route="opp-analysis"/);
-  assert.match(read('src/business.css'), /\.opp-view-in, \.opp-analysis-link \{ display: none; \}/);
+  assert.match(ui, /class="k-btn opp-analysis-link" data-lai-route="opp-analysis"/);
+  assert.match(ui, /class="k-tabs opp-view\$\{extra\}"/, 'the switch is the kit tabs (D-028)');
+  // 旧版页头里那份切换去掉后（D-029），隐藏/显示这一对规则也不需要了：切换和「商机分析」按钮一直显示。
+  assert.doesNotMatch(read('src/business.css'), /\.opp-view-in, \.opp-analysis-link \{ display: none; \}/);
   assert.doesNotMatch(glass, /\.pagebar \.opp-view/, 'no header copy left to hide');
-  assert.match(glass, /\.opp-view-in \{ display: inline-flex; \}/);
+  assert.doesNotMatch(glass, /\.opp-view-in|\.opp-analysis-link/);
 });
 
-test('the board, card menu and form dock rules are scoped to the new skin', () => {
-  for (const rule of ['.opp-column', '.opp-stage', ':has(.opp-menu)', ':has(#opp-form)', ':has(#biz-order-form)', '.lcd-pagebar', '.lcd-card']) {
+test('the card menu and form dock rules are scoped to the new skin; the board itself is on the kit', () => {
+  for (const rule of [':has(.opp-menu)', ':has(#opp-form)', ':has(#biz-order-form)', '.lcd-pagebar', '.lcd-card']) {
     const line = glass.split('\n').find((l) => l.includes(rule));
     assert.ok(line, rule);
     assert.match(line, /:root\[data-skin="glass"\]/, rule);
+  }
+  // 看板的列、列头、卡片和金额卡片改用组件套件（D-028），样式只在 business.css 里，皮肤里不再另画一遍。
+  for (const rule of ['.opp-board', '.opp-column', '.opp-stage ', '.opp-stage-name', '.opp-cards', '.opp-card ', '.opp-card:', '.opp-stat']) {
+    assert.ok(!glass.split('\n').some((l) => l.includes(rule)), `${rule} is styled in business.css on the kit`);
   }
 });
 
