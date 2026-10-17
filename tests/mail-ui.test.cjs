@@ -366,6 +366,22 @@ test('the customer tab lists customers with addresses and shows their correspond
   assert.deepEqual(Mail.customerAddresses({ email: ' A@B.co ', emails: ['a@b.co', 'c@d.io', 5, null], contacts: [null, { email: 'E@F.org' }, {}], alternateEmail: 'x' }), ['a@b.co', 'c@d.io', 'e@f.org']);
 });
 
+test('customerAddresses also counts extra contacts, after the existing addresses, so the primary stays first', () => {
+  assert.deepEqual(Mail.customerAddresses({ email: 'main@acme.example', emails: ['main@acme.example'], alternateEmail: 'alt@acme.example', extraContacts: [{ email: ' Maya@Acme.example ' }, { email: 'main@acme.example' }, {}, null, { email: 'bad' }] }), ['main@acme.example', 'alt@acme.example', 'maya@acme.example']);
+  assert.deepEqual(Mail.customerAddresses({ extraContacts: [{ email: 'only@acme.example' }] }), ['only@acme.example']);
+});
+
+test('写邮件 on a contact card addresses that contact when the address belongs to the customer, otherwise the primary address', async () => {
+  const h = harness({ active: false, customers: { Acme: { email: 'main@acme.example', contact: 'Main', extraContacts: [{ id: 'x', contact: 'Maya', email: 'maya@acme.example' }] }, Other: { email: 'other@else.example' } } });
+  try {
+    const to = async (pick) => { await h.mail.composeFor(['Acme'], false, null, pick); h.setActive(true); await h.mail.select('inbox'); const value = h.form('mail-compose-form').elements.to.value; await h.act('compose-close'); h.setActive(false); return value; };
+    assert.equal(await to({ to: 'Maya@Acme.example', contact: 'Maya' }), 'Maya <maya@acme.example>');
+    assert.equal(await to({ to: 'maya@acme.example', contact: '' }), 'maya@acme.example', 'no name: the bare address');
+    assert.equal(await to({ to: 'other@else.example', contact: 'Evil' }), 'Main <main@acme.example>', 'an address of another customer falls back');
+    assert.equal(await to(null), 'Main <main@acme.example>', 'the header button still writes to the primary contact');
+  } finally { h.dispose(); }
+});
+
 test('mailbox settings show the account, re-verify it, and unbind only after confirmation', async () => {
   let ok = true;
   const h = harness({ routes: { '/api/mail-account/verify': ({ reply }) => ok ? reply(200, { ok: true, available: true, account: { ...ACCOUNT, verifiedAt: '2026-10-07T01:02:00.000Z' } }) : reply(422, { ok: false, code: 'auth_failed', message: '登录被邮箱服务器拒绝' }), '/api/mail-account/unbind': ({ reply }) => reply(200, { ok: true, available: true, account: null }) } });

@@ -243,6 +243,12 @@ test('detail: hidden fields, contact fields and summary fields are not shown; th
     assert.ok(!html.includes(`<dt>${label}</dt>`) && !html.includes(`<dt>${label}:</dt>`), label);
   assert.ok(!html.includes('data-action="customer-tags"'));
   assert.ok(html.includes('bob-ali'), 'Alibaba ID is not locked');
+  // 写邮件: with the email field hidden only the primary card keeps its button, and no address rides on it.
+  const mailCards = [...html.matchAll(/<article class="lcd-contact"[^>]*>[\s\S]*?<\/article>/g)].map((m) => /data-feature="写邮件"/.test(m[0]));
+  assert.deepEqual(mailCards, [true, false]);
+  assert.ok(!html.includes('data-mail-to'));
+  const fullCards = [...Detail.render(M.buildCustomers(base()).find((row) => row.name === 'Acme'), { state: base(), tab: 'info', escape: M.escapeHtml }).matchAll(/data-mail-to="([^"]*)"/g)].map((m) => m[1]);
+  assert.deepEqual(fullCards, ['ann@acme.example', 'bob@acme.example']);
   // The contact search text does not carry hidden values.
   assert.ok(!/data-contact-search="[^"]*(ann@acme|111)/.test(html));
   // Admin sees all of it.

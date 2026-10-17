@@ -661,6 +661,19 @@ test('contact tools retain each contact index for local search and editing', () 
   assert.doesNotMatch(html,/data-feature="搜索联系人"|data-feature="联系人更多操作"/);
 });
 
+test('every contact card with an email gets its own 写邮件 button carrying that address', () => {
+  const state={orders:[],customers:{Acme:{
+    contact:'Main',email:'main@example.test',contacts:['Main','Second','Third'],
+    extraContacts:[{id:'second',contact:'Second',email:'second@example.test'},{id:'third',contact:'Third'}],
+  }}};
+  const html=D.render(M.buildCustomers(state)[0],{state,escape:M.escapeHtml});
+  const cards=[...html.matchAll(/<article class="lcd-contact"[^>]*>([\s\S]*?)<\/article>/g)].map(match=>match[0]);
+  assert.equal(cards.length,3);
+  assert.match(cards[0],/data-feature="写邮件" data-mail-to="main@example\.test" data-mail-contact="Main" aria-label="写邮件给Main"/);
+  assert.match(cards[1],/data-feature="写邮件" data-mail-to="second@example\.test" data-mail-contact="Second" aria-label="写邮件给Second"/);
+  assert.doesNotMatch(cards[2],/data-feature="写邮件"/,'no email, no button');
+});
+
 test('a blank primary contact slot does not shift additional contact fields or edit targets', () => {
   const state={orders:[],customers:{Acme:{
     contacts:['','Second'],emails:['main@example.test','second@example.test'],
