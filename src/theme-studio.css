@@ -1062,6 +1062,10 @@
 /* 框里的说明行（其他币种 / 其他流程）：整行、上线 */
 :root[data-skin="glass"][data-theme="studio"] .opp-stats > .opp-stats-note { margin: -1px 0 0; padding: 8px 16px; border-top: 1px solid var(--studio-border); font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
 
+/* ---------- 商机页头 → 工具行（Gr8r board：页签底线下直接是 .toolbar，工具行下 12 到列区）。只改商机页头，别的页头保留 20 ---------- */
+:root[data-skin="glass"][data-theme="studio"] .k-pageheader.opp-header { margin-bottom: 0; }
+:root[data-skin="glass"][data-theme="studio"] .opp-page > .opp-toolbar { margin-bottom: 12px; }
+
 /* ---------- 商机看板：列 ≤284、间距 12；列 sunken 底、divider 边、10 圆角（Gr8r .bcol） ---------- */
 :root[data-skin="glass"][data-theme="studio"] .opp-page > .opp-board { grid-auto-columns: minmax(232px, var(--studio-bcol-w)); gap: var(--studio-board-gap); }
 :root[data-skin="glass"][data-theme="studio"] .opp-column { border: 1px solid var(--studio-divider); border-radius: var(--studio-r-lg); background: var(--studio-sunken); }
@@ -1085,7 +1089,7 @@
 :root[data-skin="glass"][data-theme="studio"] .opp-card-head .opp-card-menu:hover:not(:disabled) { background: var(--studio-surface-3); color: var(--studio-text); }
 :root[data-skin="glass"][data-theme="studio"] .opp-card > .opp-card-name { margin-top: 2px; font-size: var(--studio-fs-xs); line-height: 18px; color: var(--studio-text-3); }
 :root[data-skin="glass"][data-theme="studio"] .opp-card > .opp-card-name:hover { color: var(--studio-accent); }
-:root[data-skin="glass"][data-theme="studio"] .opp-card-amount { font-weight: 600; letter-spacing: var(--studio-ls-h2); font-variant-numeric: tabular-nums; color: var(--studio-text); }
+:root[data-skin="glass"][data-theme="studio"] .opp-card-amount { font-size: var(--studio-fs-md); font-weight: 600; line-height: 20px; letter-spacing: var(--studio-ls-h2); font-variant-numeric: tabular-nums; color: var(--studio-text); }
 :root[data-skin="glass"][data-theme="studio"] .opp-card-amount small { font-size: var(--studio-fs-xs); letter-spacing: 0; color: var(--studio-text-3); }
 :root[data-skin="glass"][data-theme="studio"] .opp-card-foot { font-size: var(--studio-fs-xs); color: var(--studio-text-3); }
 :root[data-skin="glass"][data-theme="studio"] .opp-card-foot .opp-owner-name { color: var(--studio-text-2); }
