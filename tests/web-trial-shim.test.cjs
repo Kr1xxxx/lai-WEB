@@ -70,6 +70,18 @@ test('other URLs pass through; backup explains itself; the removed data-folder r
   assert.equal(await window.fetch('/api/open-data-folder', { method: 'POST' }), 'inner', 'the data-folder route no longer exists, so the shim leaves it alone');
 });
 
+test('the web trial has no backups to list or restore and says so in Chinese', async () => {
+  const { window, passed } = load();
+  for (const [route, init] of [['/api/backups', undefined], ['/api/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"name":"manual-20260101-120000.sqlite"}' }]]) {
+    const response = await window.fetch(route, init);
+    const body = await response.json();
+    assert.equal(response.status, 501);
+    assert.equal(body.ok, false);
+    assert.match(body.message, /网页试用版没有备份/);
+  }
+  assert.deepEqual(passed, []);
+});
+
 test('import log is stored per id', async () => {
   const { window } = load();
   const snap = await getData(window);

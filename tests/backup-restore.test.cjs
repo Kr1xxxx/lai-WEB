@@ -235,6 +235,30 @@ test('a failure before the swap leaves the live database untouched and usable', 
   assert.deepEqual(leftovers(h.store), []);
 });
 
+test('if the swapped-in database cannot be opened, the data from before the restore is put back', t => {
+  const h = fixture(t);
+  saveCustomers(h.store, { Alpha: { note: 'backup' } });
+  const manual = h.store.backup(true, 'manual');
+  const live = saveCustomers(h.store, { Alpha: { note: 'live' }, Beta: {} });
+  const dbFile = path.join(h.store.directory, 'lai-data.sqlite');
+  let first = true;
+  // The first file renamed onto the live database turns out unreadable (simulated disk damage after the checks).
+  fs.renameSync = (from, to) => {
+    if (String(to) === dbFile && first) { first = false; fs.writeFileSync(from, crypto.randomBytes(4096)); }
+    return realRename(from, to);
+  };
+  const error = rejects(() => h.store.restoreBackup(path.basename(manual.file)), 500, 'restore_failed');
+  assert.match(error.message, /换回/);
+  repair();
+  const after = h.store.readSnapshot();
+  assert.deepEqual(strip(after), strip(live));
+  assert.ok(after.revision > live.revision, 'an old page still cannot overwrite');
+  assert.equal(h.store.health().ok, true);
+  saveCustomers(h.store, { Alpha: { note: 'saved after rollback' } });
+  h.restart();
+  assert.equal(h.store.readSnapshot().data.customers.Alpha.note, 'saved after rollback');
+});
+
 test('leftover temp files from an interrupted restore are removed at start', t => {
   const h = fixture(t);
   saveCustomers(h.store, { Alpha: {} });
