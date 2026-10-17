@@ -199,3 +199,88 @@ test('failure log CSV escapes fields and neutralizes spreadsheet formulas', () =
   const csv=I.failureLogCsv?.([{row:2,name:'=1+1',reason:'重复, "客户"'}]);
   assert.equal(csv,'\uFEFF行号,公司名称,跳过原因\r\n"2","\'=1+1","重复, ""客户"""');
 });
+
+// ---- 客户自定义字段的导入 ----
+const FM = require('../src/field-model.js');
+function stateWithCustom() {
+  let state = { orders: [], customers: {} };
+  state = FM.addField(state, 'customer', { name: '采购量', type: 'number' }, { id: 'qty' });
+  state = FM.addField(state, 'customer', { name: '客户类别', type: 'select', options: ['经销商', '零售'] }, { id: 'kind' });
+  state = FM.addField(state, 'customer', { name: '关注产品', type: 'multi', options: ['睫毛', '工具'] }, { id: 'like' });
+  state = FM.addField(state, 'customer', { name: '首次见面', type: 'date' }, { id: 'met' });
+  return state;
+}
+
+test('customFields lists the customer custom fields; suggestMapping matches them by header name only when the state is given', () => {
+  const state = stateWithCustom();
+  assert.deepEqual(I.customFields(state).map(f => f.key), ['custom:qty', 'custom:kind', 'custom:like', 'custom:met']);
+  assert.deepEqual(I.customFields({ orders: [], customers: {} }), []);
+  assert.deepEqual(I.customFields(null), []);
+  const headers = ['公司名称', '采购量', ' 客户类别 ', '没有这个字段'];
+  assert.deepEqual(I.suggestMapping(headers), { name: 0 }, 'without a state the custom headers are not offered');
+  assert.deepEqual(I.suggestMapping(headers, state), { name: 0, 'custom:qty': 1, 'custom:kind': 2 });
+});
+
+test('custom field values are cleaned by the field type and stored in custom[字段ID]', () => {
+  const state = stateWithCustom();
+  const parsed = { headers: ['公司名称', '采购量', '客户类别', '关注产品', '首次见面'], rows: [['Acme', '1200', '经销商', '睫毛、工具', '2026-03-05']] };
+  const mapping = I.suggestMapping(parsed.headers, state);
+  assert.deepEqual(I.importWarnings(parsed, mapping, state), []);
+  const out = I.applyImport(state, parsed, mapping, {}, '2026-10-17T00:00:00Z');
+  assert.deepEqual(out.result, { created: 1, updated: 0, skipped: 0 });
+  assert.deepEqual(out.state.customers.Acme.custom, { qty: 1200, kind: '经销商', like: ['睫毛', '工具'], met: '2026-03-05' });
+  assert.deepEqual(out.warnings, []);
+  assert.equal(out.details[0].warnings, undefined);
+});
+
+test('a bad custom value skips only that cell and is reported as a row warning; the row still imports', () => {
+  const state = stateWithCustom();
+  const parsed = { headers: ['公司名称', '联系人昵称', '采购量', '客户类别', '关注产品', '首次见面'], lineNumbers: [2, 3],
+    rows: [['Acme', 'Ana', '一千', '批发商', '睫毛;假睫毛', '2026-02-31'], ['Beta', 'Bo', '5', '零售', '', '']] };
+  const mapping = I.suggestMapping(parsed.headers, state);
+  const warnings = I.importWarnings(parsed, mapping, state);
+  assert.deepEqual(warnings.map(w => [w.row, w.field]), [[2, '采购量'], [2, '客户类别'], [2, '关注产品'], [2, '首次见面']]);
+  assert.match(warnings[0].message, /第 2 行.*请填写数字.*这一格没有导入/);
+  assert.match(warnings[1].message, /选项“批发商”不在选项里/);
+  assert.equal(I.mappedRecords(parsed, mapping, state).length, 2, 'the preview still lists both rows');
+  const out = I.applyImport(state, parsed, mapping, {}, '2026-10-17T00:00:00Z');
+  assert.deepEqual(out.result, { created: 2, updated: 0, skipped: 0 });
+  assert.equal(out.state.customers.Acme.contact, 'Ana', 'the rest of the bad row is imported');
+  assert.equal(out.state.customers.Acme.custom, undefined, 'no bad cell was stored');
+  assert.deepEqual(out.state.customers.Beta.custom, { qty: 5, kind: '零售' });
+  assert.equal(out.details[0].warnings.length, 4);
+  assert.equal(out.details[1].warnings, undefined);
+  assert.equal(out.warnings.length, 4);
+});
+
+test('an update keeps the other custom values, an empty cell changes nothing, and a deleted custom field cannot be mapped', () => {
+  const state = { ...stateWithCustom(), customers: { Acme: { client: 'Acme', custom: { qty: 7, kind: '零售' } } } };
+  const parsed = { headers: ['公司名称', '采购量', '客户类别'], rows: [['Acme', '', '经销商']] };
+  const mapping = I.suggestMapping(parsed.headers, state);
+  const out = I.applyImport(state, parsed, mapping, { duplicate: 'update' }, '2026-10-17T00:00:00Z');
+  assert.deepEqual(out.state.customers.Acme.custom, { qty: 7, kind: '经销商' });
+  assert.deepEqual(state.customers.Acme.custom, { qty: 7, kind: '零售' }, 'the input state is not changed');
+  assert.throws(() => I.mappedRecords(parsed, { name: 0, 'custom:gone': 1 }, state), /字段匹配无效/);
+  assert.throws(() => I.mappedRecords(parsed, { name: 0, 'custom:qty': 1 }), /字段匹配无效/, 'without the state a custom key is unknown');
+});
+
+test('rows of the same company: a different custom value is skipped with a warning, the first value wins', () => {
+  const state = stateWithCustom();
+  const parsed = { headers: ['公司名称', '联系人昵称', '客户类别'], lineNumbers: [2, 3, 4],
+    rows: [['Acme', 'Ana', '经销商'], ['Acme', 'Ben', '零售'], ['Acme', 'Cy', '经销商']] };
+  const mapping = I.suggestMapping(parsed.headers, state);
+  const out = I.applyImport(state, parsed, mapping, {}, '2026-10-17T00:00:00Z');
+  assert.deepEqual(out.state.customers.Acme.custom, { kind: '经销商' });
+  assert.deepEqual(out.warnings.map(w => w.row), [3]);
+  assert.match(out.warnings[0].message, /与同公司前面的行不一致/);
+  assert.equal(out.state.customers.Acme.contacts.length, 3);
+});
+
+test('without custom fields the import behaves as before (no custom key, no warnings)', () => {
+  const parsed = { headers: ['公司名称', '采购量'], rows: [['Acme', '5']] };
+  const state = { orders: [], customers: {} };
+  assert.deepEqual(I.suggestMapping(parsed.headers, state), { name: 0 });
+  const out = I.applyImport(state, parsed, { name: 0 }, {}, '2026-10-17T00:00:00Z');
+  assert.equal(out.state.customers.Acme.custom, undefined);
+  assert.deepEqual(out.warnings, []);
+});

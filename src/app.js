@@ -3265,18 +3265,23 @@
         <button type="button" class="import-dropzone" data-action="choose-import-file"><span>悬浮至此区域粘贴，或拖拽至此上传，或 <span class="import-link">点击上传</span></span><small>最多只能上传 1 个文件；仅支持 xls、xlsx、csv 文件格式；支持 5 MB 以内的文件</small></button>
         ${draft.parsed ? `<div class="import-file-ready" data-import-file-ready>${E(draft.fileName)} · ${draft.parsed.rows.length} 行</div>` : ''}`;
     } else if (draft.step === 2) {
-      body = `<p class="import-hint">为每列选择对应的来财字段。公司名称必选；未匹配的列不会写入。</p><div class="import-map">${draft.parsed.headers.map((header, index) => {
+      const custom = I.customFields(state);
+      body = `<p class="import-hint">为每列选择对应的来财字段。公司名称必选；未匹配的列不会写入。${custom.length ? '客户设置里的自定义字段也可以选。' : ''}</p><div class="import-map">${draft.parsed.headers.map((header, index) => {
         const selected = Object.entries(draft.mapping).find(([, column]) => column === index)?.[0] || '';
-        return `<label><span>${E(header || `第 ${index + 1} 列`)}</span><select data-import-column="${index}" aria-label="${E(header || `第 ${index + 1} 列`)}对应字段"><option value="">不导入</option>${I.fields.map(field => opt(field.id, field.label, selected)).join('')}</select></label>`;
+        return `<label><span>${E(header || `第 ${index + 1} 列`)}</span><select data-import-column="${index}" aria-label="${E(header || `第 ${index + 1} 列`)}对应字段"><option value="">不导入</option>${I.fields.map(field => opt(field.id, field.label, selected)).join('')}${custom.length ? `<optgroup label="自定义字段">${custom.map(field => opt(field.key, field.name, selected)).join('')}</optgroup>` : ''}</select></label>`;
       }).join('')}</div>`;
     } else if (draft.step === 3) {
-      const names = I.mappedRecords(draft.parsed, draft.mapping).slice(0, 5);
-      body = `<p class="import-hint">请核对导入范围和前 5 行；点击“开始导入”后才保存到来财本地数据库。</p><div class="import-review"><div>目标位置 <strong>${draft.destination === 'pool' ? '公海客户' : '客户列表'}</strong></div><div>重复数据 <strong>${draft.duplicate === 'update' ? '更新数据' : '不更新'}</strong></div><div>文件行数 <strong>${draft.parsed.rows.length}</strong></div></div><table class="import-preview" data-import-preview><thead><tr><th>公司名称</th><th>联系人昵称</th><th>联系人邮箱</th></tr></thead><tbody>${names.map(row => `<tr><td>${E(row.name)}</td><td>${E(row.contact || '—')}</td><td>${E(row.email || '—')}</td></tr>`).join('')}</tbody></table><p class="import-hint">同一公司的不同联系人会合并到同一客户；跨公司重复的邮箱或电话会跳过。</p>`;
+      const built = I.importWarnings(draft.parsed, draft.mapping, state);
+      const names = I.mappedRecords(draft.parsed, draft.mapping, state).slice(0, 5);
+      const warnBlock = built.length ? `<div class="import-issue-head"><strong>有 ${built.length} 格不会导入</strong></div><div class="import-issue-list" data-import-warnings>${built.slice(0, 20).map(item => `<div><span>${E(item.message)}</span></div>`).join('')}</div>${built.length > 20 ? `<p class="import-hint">这里只显示前 20 条。</p>` : ''}<p class="import-hint">只跳过这一格，这一行的其他内容照常导入。</p>` : '';
+      body = `<p class="import-hint">请核对导入范围和前 5 行；点击“开始导入”后才保存到来财本地数据库。</p><div class="import-review"><div>目标位置 <strong>${draft.destination === 'pool' ? '公海客户' : '客户列表'}</strong></div><div>重复数据 <strong>${draft.duplicate === 'update' ? '更新数据' : '不更新'}</strong></div><div>文件行数 <strong>${draft.parsed.rows.length}</strong></div></div><table class="import-preview" data-import-preview><thead><tr><th>公司名称</th><th>联系人昵称</th><th>联系人邮箱</th></tr></thead><tbody>${names.map(row => `<tr><td>${E(row.name)}</td><td>${E(row.contact || '—')}</td><td>${E(row.email || '—')}</td></tr>`).join('')}</tbody></table><p class="import-hint">同一公司的不同联系人会合并到同一客户；跨公司重复的邮箱或电话会跳过。</p>${warnBlock}`;
     } else {
       const result = draft.result;
       const issues = draft.details.filter(item => item.status === 'skipped');
+      const warned = draft.details.flatMap(item => item.warnings || []);
       body = `<div class="import-result" data-import-result><span class="import-result-icon">✓</span><h3>导入完成</h3><p>成功新建 ${result.created} 位，更新 ${result.updated} 位${result.contactsAdded ? `，新增联系人 ${result.contactsAdded} 位` : ''}，跳过 ${result.skipped} 行。</p></div>
-        ${issues.length ? `<div class="import-issue-head"><strong>跳过的客户</strong><button type="button" class="import-link" data-action="import-failure-log" data-record-index="-1">下载失败日志</button></div><div class="import-issue-list">${issues.slice(0, 20).map(item => `<div><span>第 ${item.row} 行 · ${E(item.name)}</span><em>${E(item.reason)}</em></div>`).join('')}</div>${issues.length > 20 ? `<p class="import-hint">这里只显示前 20 条；下载失败日志可查看全部 ${issues.length} 条。</p>` : ''}` : ''}`;
+        ${issues.length ? `<div class="import-issue-head"><strong>跳过的客户</strong><button type="button" class="import-link" data-action="import-failure-log" data-record-index="-1">下载失败日志</button></div><div class="import-issue-list">${issues.slice(0, 20).map(item => `<div><span>第 ${item.row} 行 · ${E(item.name)}</span><em>${E(item.reason)}</em></div>`).join('')}</div>${issues.length > 20 ? `<p class="import-hint">这里只显示前 20 条；下载失败日志可查看全部 ${issues.length} 条。</p>` : ''}` : ''}
+        ${warned.length ? `<div class="import-issue-head"><strong>有 ${warned.length} 格没有导入（这些行的其他内容已导入）</strong></div><div class="import-issue-list" data-import-warnings>${warned.slice(0, 20).map(message => `<div><span>${E(message)}</span></div>`).join('')}</div>` : ''}`;
     }
     const foot = draft.step === 4
       ? '<button type="button" class="primary" data-action="close-modal">完成</button>'
@@ -3310,7 +3315,7 @@
         : I.parseExcel(await file.arrayBuffer(), window.XLSX);
       if (!importDraft || modal !== 'import') return;
       importDraft.parsed = parsed;
-      importDraft.mapping = I.suggestMapping(parsed.headers);
+      importDraft.mapping = I.suggestMapping(parsed.headers, state);
       importDraft.fileName = file.name;
       importDraft.error = '';
     } catch (error) {
@@ -3327,7 +3332,7 @@
         if (!importDraft.parsed) throw new Error('请先选择 XLS、XLSX 或 UTF-8 CSV 文件');
         importDraft.step = 2;
       } else if (importDraft.step === 2) {
-        I.mappedRecords(importDraft.parsed, importDraft.mapping);
+        I.mappedRecords(importDraft.parsed, importDraft.mapping, state);
         importDraft.step = 3;
       }
       importDraft.error = '';
